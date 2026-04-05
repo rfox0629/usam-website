@@ -108,26 +108,9 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
-  const [hovered, setHovered] = useState<number | null>(null);
-
-  const phases = [
-    { label: "USA", sub: "ORIGIN", x: 480, y: 240, big: true },
-    { label: "JERUSALEM", sub: "PHASE 01", x: 680, y: 110, big: false },
-    { label: "JUDEA", sub: "PHASE 02", x: 800, y: 80, big: false },
-    { label: "SAMARIA", sub: "PHASE 03", x: 900, y: 140, big: false },
-    { label: "ENDS OF THE EARTH", sub: "PHASE 04", x: 920, y: 360, big: false },
-  ];
-
-  const routes = [
-    { x1: 480, y1: 240, x2: 680, y2: 110 },
-    { x1: 680, y1: 110, x2: 800, y2: 80 },
-    { x1: 800, y1: 80, x2: 900, y2: 140 },
-    { x1: 900, y1: 140, x2: 920, y2: 360 },
-  ];
-
   const seats = Array.from({ length: 8 }).map((_, i) => {
     const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
-    return { x: 480 + Math.cos(angle) * 115, y: 240 + Math.sin(angle) * 65 };
+    return { x: 480 + Math.cos(angle) * 142, y: 250 + Math.sin(angle) * 96 };
   });
 
   return (
@@ -146,22 +129,15 @@ function ExpansionMap() {
       <svg viewBox="0 0 960 460" className="w-full h-auto">
         <defs>
           <radialGradient id="tableGlow" cx="50%" cy="52%" r="35%">
-            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.06} />
+            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.07} />
             <stop offset="100%" stopColor="#C9A24A" stopOpacity={0} />
           </radialGradient>
           <radialGradient id="centerPulse" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.12} />
+            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.14} />
             <stop offset="80%" stopColor="#C9A24A" stopOpacity={0} />
           </radialGradient>
-          <filter id="ng">
-            <feGaussianBlur stdDeviation="2" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="sg">
-            <feGaussianBlur stdDeviation="1" result="b" />
+          <filter id="softGlow">
+            <feGaussianBlur stdDeviation="6" result="b" />
             <feMerge>
               <feMergeNode in="b" />
               <feMergeNode in="SourceGraphic" />
@@ -176,17 +152,23 @@ function ExpansionMap() {
         ))}
         <rect x={0} y={0} width={960} height={460} fill="url(#tableGlow)" />
 
-        {[160, 220, 300, 400].map((r, i) => (
-          <ellipse key={`ring${i}`} cx={480} cy={240} rx={r} ry={r * 0.55} fill="none" stroke="#C9A24A" strokeWidth={0.3} opacity={0.06 - i * 0.01} strokeDasharray="4,8">
-            <animate attributeName="opacity" values={`${0.08 - i * 0.015};${0.03 - i * 0.005};${0.08 - i * 0.015}`} dur={`${5 + i}s`} repeatCount="indefinite" />
+        {[92, 118, 144].map((r, i) => (
+          <ellipse key={`ring${i}`} cx={480} cy={250} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.08 - i * 0.018} strokeDasharray="5,9">
+            <animate attributeName="opacity" values={`${0.08 - i * 0.018};${0.025 - i * 0.005};${0.08 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
           </ellipse>
         ))}
 
-        <rect x={390} y={200} width={180} height={80} rx={40} ry={40} fill="none" stroke="#3a3a3a" strokeWidth={1.2} opacity={0.6} />
-        <rect x={390} y={200} width={180} height={80} rx={40} ry={40} fill="rgba(201,162,74,0.02)" stroke="none" />
-        <rect x={405} y={212} width={150} height={56} rx={28} ry={28} fill="none" stroke="#252525" strokeWidth={0.5} opacity={0.5} />
+        <rect x={336} y={112} width={288} height={276} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.2} />
+        <rect x={348} y={124} width={264} height={252} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.8} />
 
-        <ellipse cx={480} cy={240} rx={50} ry={25} fill="url(#centerPulse)">
+        <line x1={424} y1={88} x2={536} y2={88} stroke="#111111" strokeWidth={12} strokeLinecap="round" />
+        <line x1={424} y1={412} x2={536} y2={412} stroke="#111111" strokeWidth={12} strokeLinecap="round" />
+        <line x1={306} y1={170} x2={306} y2={250} stroke="#111111" strokeWidth={12} strokeLinecap="round" />
+        <line x1={654} y1={170} x2={654} y2={250} stroke="#111111" strokeWidth={12} strokeLinecap="round" />
+        <line x1={306} y1={282} x2={306} y2={362} stroke="#111111" strokeWidth={12} strokeLinecap="round" />
+        <line x1={654} y1={282} x2={654} y2={362} stroke="#111111" strokeWidth={12} strokeLinecap="round" />
+
+        <ellipse cx={480} cy={250} rx={92} ry={54} fill="url(#centerPulse)" filter="url(#softGlow)">
           <animate attributeName="opacity" values="0.8;0.4;0.8" dur="4s" repeatCount="indefinite" />
         </ellipse>
 
@@ -194,7 +176,7 @@ function ExpansionMap() {
           const angle = (i / 8) * 360;
           return (
             <g key={`seat${i}`}>
-              <rect x={s.x - 8} y={s.y - 5} width={16} height={10} rx={3} fill="none" stroke="#2a2a2a" strokeWidth={0.6} opacity={0.5} transform={`rotate(${angle}, ${s.x}, ${s.y})`} />
+              <rect x={s.x - 9} y={s.y - 6} width={18} height={12} rx={3} fill="none" stroke="#2a2a2a" strokeWidth={0.6} opacity={0.4} transform={`rotate(${angle}, ${s.x}, ${s.y})`} />
               <circle cx={s.x} cy={s.y} r={1} fill="#C9A24A" opacity={0.2}>
                 <animate attributeName="opacity" values="0.15;0.35;0.15" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
               </circle>
@@ -202,64 +184,21 @@ function ExpansionMap() {
           );
         })}
 
-        <text x={480} y={298} textAnchor="middle" fill="#333" fontSize={7} letterSpacing="0.35em" style={{ fontFamily: font.rajdhani }}>
-          THE TABLE
+        <text x={480} y={176} textAnchor="middle" fill="#f5f5f4" fontSize={24} letterSpacing="0.14em" style={{ fontFamily: font.oswald }}>
+          THE
+        </text>
+        <text x={480} y={236} textAnchor="middle" fill="#f5f5f4" fontSize={56} letterSpacing="0.06em" style={{ fontFamily: font.oswald }}>
+          TABLE
+        </text>
+        <text x={480} y={286} textAnchor="middle" fill="#f5f5f4" fontSize={32} letterSpacing="0.12em" style={{ fontFamily: font.oswald }}>
+          ORIGIN
+        </text>
+        <text x={480} y={332} textAnchor="middle" fill="#C9A24A" fontSize={11} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
+          IT STARTS HERE
         </text>
 
-        {routes.map((r, i) => {
-          const dx = r.x2 - r.x1;
-          const dy = r.y2 - r.y1;
-          const mx = (r.x1 + r.x2) / 2;
-          const my = (r.y1 + r.y2) / 2;
-          const cx1 = mx - dy * 0.08;
-          const cy1 = my + dx * 0.08;
-          const p = `M${r.x1},${r.y1} Q${cx1},${cy1} ${r.x2},${r.y2}`;
-          return (
-            <g key={`rt${i}`}>
-              <path d={p} fill="none" stroke="#C9A24A" strokeWidth={0.5} opacity={0.12} strokeDasharray="3,7">
-                <animate attributeName="strokeDashoffset" from="0" to="-20" dur={`${3 + i * 0.5}s`} repeatCount="indefinite" />
-              </path>
-              <circle r={1.5} fill="#C9A24A" opacity={0}>
-                <animateMotion dur={`${4 + i * 0.8}s`} repeatCount="indefinite" path={p} />
-                <animate attributeName="opacity" values="0;0.6;0" dur={`${4 + i * 0.8}s`} repeatCount="indefinite" />
-              </circle>
-            </g>
-          );
-        })}
-
-        {phases.map((n, i) => {
-          const isHovered = hovered === i;
-          return (
-            <g key={`nd${i}`} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: "pointer" }}>
-              {n.big && (
-                <>
-                  <circle cx={n.x} cy={n.y} r={28} fill="none" stroke="#C9A24A" strokeWidth={0.2} opacity={0.08} strokeDasharray="2,4" />
-                  <circle cx={n.x} cy={n.y} r={18} fill="none" stroke="#C9A24A" strokeWidth={0.2} opacity={0.1} strokeDasharray="2,3" />
-                </>
-              )}
-              <circle cx={n.x} cy={n.y} r={n.big ? 14 : 8} fill="none" stroke="#C9A24A" strokeWidth={0.3} opacity={isHovered ? 0.35 : 0.12}>
-                <animate attributeName="r" values={n.big ? "10;20;10" : "5;12;5"} dur={`${3.5 + i * 0.6}s`} repeatCount="indefinite" />
-                <animate attributeName="opacity" values={isHovered ? "0.35;0.02;0.35" : "0.15;0;0.15"} dur={`${3.5 + i * 0.6}s`} repeatCount="indefinite" />
-              </circle>
-              <circle cx={n.x} cy={n.y} r={n.big ? 4 : 2.2} fill="#C9A24A" opacity={isHovered ? 1 : 0.8} filter={n.big ? "url(#ng)" : "url(#sg)"} />
-              {n.big && (
-                <circle cx={n.x} cy={n.y} r={7} fill="none" stroke="#C9A24A" strokeWidth={0.5} opacity={0.25}>
-                  <animate attributeName="r" values="6;10;6" dur="2.5s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.25;0;0.25" dur="2.5s" repeatCount="indefinite" />
-                </circle>
-              )}
-              <text x={n.x} y={n.y - (n.big ? 20 : 13)} textAnchor="middle" fill={isHovered ? "#e5c76b" : "#C9A24A"} fontSize={n.big ? 12 : 8} letterSpacing="0.2em" fontWeight={700} style={{ fontFamily: font.oswald, transition: "fill 0.3s" }}>
-                {n.label}
-              </text>
-              <text x={n.x} y={n.y + (n.big ? 16 : 12)} textAnchor="middle" fill="#333" fontSize={6} letterSpacing="0.25em" style={{ fontFamily: font.rajdhani }}>
-                {n.sub}
-              </text>
-            </g>
-          );
-        })}
-
         <text x={480} y={430} textAnchor="middle" fill="#222" fontSize={7.5} letterSpacing="0.35em" style={{ fontFamily: font.rajdhani }}>
-          STEWARD THE FIELD YOU WERE GIVEN
+          MOVEMENT BEGINS AT THE TABLE
         </text>
 
         <rect x={16} y={16} width={928} height={428} fill="none" stroke="#131313" strokeWidth={0.5} />
