@@ -108,15 +108,34 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
-  const usaOutline =
-    "M80,165 L82,160 L86,155 L92,148 L96,145 L96,138 L100,132 L105,128 L108,124 L108,118 L112,115 L118,118 L125,118 L130,115 L134,110 L138,108 L145,110 L150,108 L154,104 L158,100 L165,98 L172,96 L178,94 L184,92 L192,92 L198,94 L204,92 L208,88 L214,86 L222,84 L228,82 L235,82 L242,84 L248,82 L252,78 L258,76 L266,76 L272,78 L278,76 L282,72 L288,72 L294,74 L300,78 L305,74 L310,70 L316,68 L322,70 L328,74 L332,70 L336,66 L340,64 L346,66 L352,72 L356,68 L360,64 L365,64 L370,68 L374,72 L376,68 L380,64 L386,62 L392,64 L396,68 L398,72 L400,78 L404,82 L406,78 L410,74 L416,72 L422,74 L426,78 L428,84 L432,88 L436,84 L440,80 L446,78 L450,82 L452,86 L454,92 L456,98 L458,104 L460,110 L462,116 L466,120 L468,126 L470,130 L472,134 L476,138 L478,144 L480,148 L482,152 L486,156 L488,162 L490,168 L494,174 L496,180 L498,186 L500,192 L498,198 L496,204 L494,210 L492,216 L488,222 L484,228 L480,232 L476,236 L472,240 L468,244 L462,248 L458,252 L454,256 L448,258 L442,260 L436,262 L430,264 L422,266 L414,268 L406,268 L398,266 L390,268 L382,270 L374,272 L366,274 L358,276 L350,278 L342,280 L334,280 L326,278 L318,276 L310,274 L302,272 L294,270 L286,268 L278,266 L270,264 L262,266 L254,268 L246,266 L238,264 L230,260 L222,256 L214,252 L206,248 L198,244 L190,238 L184,232 L178,226 L172,220 L166,214 L160,208 L154,200 L150,192 L146,184 L142,176 L138,170 L134,166 L128,164 L122,162 L116,162 L110,164 L104,166 L98,168 L92,168 L86,166 Z";
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  const phases = [
+    { label: "USA", sub: "ORIGIN", x: 480, y: 240, big: true },
+    { label: "JERUSALEM", sub: "PHASE 01", x: 680, y: 110, big: false },
+    { label: "JUDEA", sub: "PHASE 02", x: 800, y: 80, big: false },
+    { label: "SAMARIA", sub: "PHASE 03", x: 900, y: 140, big: false },
+    { label: "ENDS OF THE EARTH", sub: "PHASE 04", x: 920, y: 360, big: false },
+  ];
+
+  const routes = [
+    { x1: 480, y1: 240, x2: 680, y2: 110 },
+    { x1: 680, y1: 110, x2: 800, y2: 80 },
+    { x1: 800, y1: 80, x2: 900, y2: 140 },
+    { x1: 900, y1: 140, x2: 920, y2: 360 },
+  ];
+
+  const seats = Array.from({ length: 8 }).map((_, i) => {
+    const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    return { x: 480 + Math.cos(angle) * 115, y: 240 + Math.sin(angle) * 65 };
+  });
 
   return (
     <div className="relative">
       <div className="absolute top-3 left-4 z-10 flex items-center gap-2">
         <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
         <span className="text-[10px] tracking-[0.4em] text-stone-600 uppercase" style={{ fontFamily: font.rajdhani }}>
-          DEPLOYMENT MAP — LIVE
+          DEPLOYMENT ORIGIN — LIVE
         </span>
       </div>
       <div className="absolute top-3 right-4 z-10 text-right">
@@ -124,15 +143,25 @@ function ExpansionMap() {
           STATUS: ACTIVE
         </span>
       </div>
-      <svg viewBox="0 0 960 500" className="w-full h-auto">
+      <svg viewBox="0 0 960 460" className="w-full h-auto">
         <defs>
-          <radialGradient id="us-glow" cx="50%" cy="50%" r="40%">
-            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.08} />
-            <stop offset="55%" stopColor="#C9A24A" stopOpacity={0.025} />
+          <radialGradient id="tableGlow" cx="50%" cy="52%" r="35%">
+            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.06} />
             <stop offset="100%" stopColor="#C9A24A" stopOpacity={0} />
           </radialGradient>
-          <filter id="outline-glow">
-            <feGaussianBlur stdDeviation="2.5" result="b" />
+          <radialGradient id="centerPulse" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.12} />
+            <stop offset="80%" stopColor="#C9A24A" stopOpacity={0} />
+          </radialGradient>
+          <filter id="ng">
+            <feGaussianBlur stdDeviation="2" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="sg">
+            <feGaussianBlur stdDeviation="1" result="b" />
             <feMerge>
               <feMergeNode in="b" />
               <feMergeNode in="SourceGraphic" />
@@ -140,33 +169,105 @@ function ExpansionMap() {
           </filter>
         </defs>
         {Array.from({ length: 20 }).map((_, i) => (
-          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={500} stroke="#0c0c0c" strokeWidth={0.3} />
+          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={460} stroke="#0c0c0c" strokeWidth={0.3} />
         ))}
-        {Array.from({ length: 11 }).map((_, i) => (
+        {Array.from({ length: 10 }).map((_, i) => (
           <line key={`gh${i}`} x1={0} y1={i * 50} x2={960} y2={i * 50} stroke="#0c0c0c" strokeWidth={0.3} />
         ))}
-        <rect x={0} y={0} width={960} height={500} fill="url(#us-glow)" />
-        <g transform="translate(170 70) scale(1.22)">
-          <path d={usaOutline} fill="none" stroke="#262626" strokeWidth={2.6} opacity={0.9} />
-          <path d={usaOutline} fill="none" stroke="#4a3b1b" strokeWidth={1.05} opacity={0.7} filter="url(#outline-glow)" />
-        </g>
-        <text
-          x={480}
-          y={124}
-          textAnchor="middle"
-          fill="#C9A24A"
-          fontSize={18}
-          letterSpacing="0.32em"
-          style={{ fontFamily: font.oswald }}
-        >
-          USA
+        <rect x={0} y={0} width={960} height={460} fill="url(#tableGlow)" />
+
+        {[160, 220, 300, 400].map((r, i) => (
+          <ellipse key={`ring${i}`} cx={480} cy={240} rx={r} ry={r * 0.55} fill="none" stroke="#C9A24A" strokeWidth={0.3} opacity={0.06 - i * 0.01} strokeDasharray="4,8">
+            <animate attributeName="opacity" values={`${0.08 - i * 0.015};${0.03 - i * 0.005};${0.08 - i * 0.015}`} dur={`${5 + i}s`} repeatCount="indefinite" />
+          </ellipse>
+        ))}
+
+        <rect x={390} y={200} width={180} height={80} rx={40} ry={40} fill="none" stroke="#3a3a3a" strokeWidth={1.2} opacity={0.6} />
+        <rect x={390} y={200} width={180} height={80} rx={40} ry={40} fill="rgba(201,162,74,0.02)" stroke="none" />
+        <rect x={405} y={212} width={150} height={56} rx={28} ry={28} fill="none" stroke="#252525" strokeWidth={0.5} opacity={0.5} />
+
+        <ellipse cx={480} cy={240} rx={50} ry={25} fill="url(#centerPulse)">
+          <animate attributeName="opacity" values="0.8;0.4;0.8" dur="4s" repeatCount="indefinite" />
+        </ellipse>
+
+        {seats.map((s, i) => {
+          const angle = (i / 8) * 360;
+          return (
+            <g key={`seat${i}`}>
+              <rect x={s.x - 8} y={s.y - 5} width={16} height={10} rx={3} fill="none" stroke="#2a2a2a" strokeWidth={0.6} opacity={0.5} transform={`rotate(${angle}, ${s.x}, ${s.y})`} />
+              <circle cx={s.x} cy={s.y} r={1} fill="#C9A24A" opacity={0.2}>
+                <animate attributeName="opacity" values="0.15;0.35;0.15" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
+              </circle>
+            </g>
+          );
+        })}
+
+        <text x={480} y={298} textAnchor="middle" fill="#333" fontSize={7} letterSpacing="0.35em" style={{ fontFamily: font.rajdhani }}>
+          THE TABLE
         </text>
-        <rect x={16} y={16} width={928} height={468} fill="none" stroke="#131313" strokeWidth={0.5} />
+
+        {routes.map((r, i) => {
+          const dx = r.x2 - r.x1;
+          const dy = r.y2 - r.y1;
+          const mx = (r.x1 + r.x2) / 2;
+          const my = (r.y1 + r.y2) / 2;
+          const cx1 = mx - dy * 0.08;
+          const cy1 = my + dx * 0.08;
+          const p = `M${r.x1},${r.y1} Q${cx1},${cy1} ${r.x2},${r.y2}`;
+          return (
+            <g key={`rt${i}`}>
+              <path d={p} fill="none" stroke="#C9A24A" strokeWidth={0.5} opacity={0.12} strokeDasharray="3,7">
+                <animate attributeName="strokeDashoffset" from="0" to="-20" dur={`${3 + i * 0.5}s`} repeatCount="indefinite" />
+              </path>
+              <circle r={1.5} fill="#C9A24A" opacity={0}>
+                <animateMotion dur={`${4 + i * 0.8}s`} repeatCount="indefinite" path={p} />
+                <animate attributeName="opacity" values="0;0.6;0" dur={`${4 + i * 0.8}s`} repeatCount="indefinite" />
+              </circle>
+            </g>
+          );
+        })}
+
+        {phases.map((n, i) => {
+          const isHovered = hovered === i;
+          return (
+            <g key={`nd${i}`} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: "pointer" }}>
+              {n.big && (
+                <>
+                  <circle cx={n.x} cy={n.y} r={28} fill="none" stroke="#C9A24A" strokeWidth={0.2} opacity={0.08} strokeDasharray="2,4" />
+                  <circle cx={n.x} cy={n.y} r={18} fill="none" stroke="#C9A24A" strokeWidth={0.2} opacity={0.1} strokeDasharray="2,3" />
+                </>
+              )}
+              <circle cx={n.x} cy={n.y} r={n.big ? 14 : 8} fill="none" stroke="#C9A24A" strokeWidth={0.3} opacity={isHovered ? 0.35 : 0.12}>
+                <animate attributeName="r" values={n.big ? "10;20;10" : "5;12;5"} dur={`${3.5 + i * 0.6}s`} repeatCount="indefinite" />
+                <animate attributeName="opacity" values={isHovered ? "0.35;0.02;0.35" : "0.15;0;0.15"} dur={`${3.5 + i * 0.6}s`} repeatCount="indefinite" />
+              </circle>
+              <circle cx={n.x} cy={n.y} r={n.big ? 4 : 2.2} fill="#C9A24A" opacity={isHovered ? 1 : 0.8} filter={n.big ? "url(#ng)" : "url(#sg)"} />
+              {n.big && (
+                <circle cx={n.x} cy={n.y} r={7} fill="none" stroke="#C9A24A" strokeWidth={0.5} opacity={0.25}>
+                  <animate attributeName="r" values="6;10;6" dur="2.5s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.25;0;0.25" dur="2.5s" repeatCount="indefinite" />
+                </circle>
+              )}
+              <text x={n.x} y={n.y - (n.big ? 20 : 13)} textAnchor="middle" fill={isHovered ? "#e5c76b" : "#C9A24A"} fontSize={n.big ? 12 : 8} letterSpacing="0.2em" fontWeight={700} style={{ fontFamily: font.oswald, transition: "fill 0.3s" }}>
+                {n.label}
+              </text>
+              <text x={n.x} y={n.y + (n.big ? 16 : 12)} textAnchor="middle" fill="#333" fontSize={6} letterSpacing="0.25em" style={{ fontFamily: font.rajdhani }}>
+                {n.sub}
+              </text>
+            </g>
+          );
+        })}
+
+        <text x={480} y={430} textAnchor="middle" fill="#222" fontSize={7.5} letterSpacing="0.35em" style={{ fontFamily: font.rajdhani }}>
+          STEWARD THE FIELD YOU WERE GIVEN
+        </text>
+
+        <rect x={16} y={16} width={928} height={428} fill="none" stroke="#131313" strokeWidth={0.5} />
         {[
           [16, 16],
           [944, 16],
-          [16, 484],
-          [944, 484],
+          [16, 444],
+          [944, 444],
         ].map(([cx, cy], i) => (
           <g key={`cr${i}`}>
             <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke="#1e1e1e" strokeWidth={0.4} />
