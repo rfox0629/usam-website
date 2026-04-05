@@ -109,37 +109,62 @@ function WorldMap() {
 
 function ExpansionMap() {
   const tableCenter = { x: 264, y: 246 };
+  const [worldPaths, setWorldPaths] = useState<string[]>([]);
+  const [usaNationPath, setUsaNationPath] = useState("");
+  const [usaStatePaths, setUsaStatePaths] = useState<string[]>([]);
   const seats = Array.from({ length: 8 }).map((_, i) => {
     const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
     return { x: tableCenter.x + Math.cos(angle) * 142, y: tableCenter.y + Math.sin(angle) * 96 };
   });
-  const worldOutlines = [
-    { d: "M80,165 L78,158 L76,148 L78,138 L82,128 L88,118 L96,108 L106,98 L118,90 L132,84 L148,78 L165,74 L182,72 L200,72 L218,74 L238,72 L258,68 L278,64 L298,62 L318,60 L338,58 L358,56 L378,54 L398,56 L418,60 L436,64 L452,68 L466,74 L478,82 L486,92 L490,104 L492,118 L490,130 L486,140 L480,148 L472,134 L466,120 L460,110 L454,98 L450,82 L446,78 L440,80 L436,84 L432,88 L428,84 L426,78 L422,74 L416,72 L410,74 L406,78 L404,82 L400,78 L398,72 L396,68 L392,64 L386,62 L380,64 L376,68 L374,72 L370,68 L365,64 L360,64 L356,68 L352,72 L346,66 L340,64 L336,66 L332,70 L328,74 L322,70 L316,68 L310,70 L305,74 L300,78 L294,74 L288,72 L282,72 L278,76 L272,78 L266,76 L258,76 L252,78 L248,82 L242,84 L235,82 L228,82 L222,84 L214,86 L208,88 L204,92 L198,94 L192,92 L184,92 L178,94 L172,96 L165,98 L158,100 L154,104 L150,108 L145,110 L138,108 L134,110 L130,115 L125,118 L118,118 L112,115 L108,118 L108,124 L105,128 L100,132 L96,138 L96,145 L92,148 L86,155 L82,160 L80,165", op: 0.18 },
-    { d: "M80,165 L86,166 L92,168 L98,168 L104,166 L110,164 L116,162 L122,162 L128,164 L134,166 L138,170 L140,176 L138,182 L134,188 L128,194 L122,200 L116,206 L112,212 L108,218 L106,224 L108,230 L112,236 L118,240 L125,242 L132,244 L140,248 L148,252 L156,256 L162,260 L168,266 L172,272 L176,278 L180,284 L184,290 L188,296 L192,300 L198,304 L204,306 L210,308 L216,310 L220,314 L224,318 L226,324", op: 0.16 },
-    { d: "M226,324 L232,322 L238,318 L244,314 L252,312 L260,314 L268,318 L274,324 L280,330 L284,338 L288,346 L290,354 L292,362 L290,370 L288,378 L284,386 L280,394 L274,400 L268,406 L264,414 L260,422 L254,428 L248,432 L242,436 L236,438 L230,436 L224,432 L220,426 L216,418 L214,410 L212,402 L212,394 L214,386 L216,378 L218,370 L218,362 L216,354 L214,346 L214,338 L216,330 L220,326 L224,322", op: 0.16 },
-    { d: "M528,88 L524,82 L520,78 L516,74 L520,68 L526,64 L532,60 L540,58 L548,56 L556,54 L562,52 L568,54 L574,58 L580,62 L586,66 L590,72 L594,78 L598,84 L602,78 L606,72 L612,68 L618,72 L622,78 L626,84 L630,78 L634,72 L640,68 L646,72 L650,78 L652,84 L656,90 L660,96 L662,102 L658,108 L654,114 L648,118 L642,122 L636,124 L630,128 L624,132 L618,128 L614,124 L610,120 L606,124 L602,128 L598,132 L592,136 L586,134 L582,130 L578,126 L574,122 L570,126 L566,130 L560,134 L554,130 L550,126 L546,122 L540,118 L534,114 L530,108 L528,102 L526,96 L528,92", op: 0.24 },
-    { d: "M508,78 L512,72 L516,68 L520,72 L522,78 L520,84 L516,88 L512,92 L508,88 L506,82 Z M500,82 L504,78 L508,82 L506,88 L502,90 L498,86 Z", op: 0.18 },
-    { d: "M548,160 L554,156 L562,152 L570,150 L578,150 L586,152 L594,156 L600,162 L606,168 L612,176 L616,184 L620,194 L622,204 L624,214 L624,226 L622,238 L620,248 L616,258 L612,268 L606,276 L600,284 L594,290 L586,296 L580,300 L574,304 L566,308 L560,310 L554,308 L548,304 L542,298 L536,290 L532,282 L528,272 L526,262 L524,252 L524,240 L526,228 L528,218 L530,208 L534,198 L538,188 L542,178 L546,168", op: 0.18 },
-    { d: "M600,132 L608,128 L616,126 L624,128 L632,132 L640,138 L646,144 L650,152 L652,160 L650,168 L646,174 L640,178 L634,180 L628,178 L622,174 L616,176 L612,180 L608,176 L604,170 L600,164 L596,158 L594,150 L596,142", op: 0.22 },
-    { d: "M660,52 L670,48 L682,44 L696,42 L712,40 L728,42 L744,44 L760,48 L776,52 L792,58 L806,64 L818,72 L828,80 L836,90 L842,100 L846,112 L848,124 L846,136 L842,148 L836,158 L828,166 L818,172 L806,176 L792,178 L778,180 L764,178 L752,174 L742,168 L734,160 L728,152 L722,144 L716,136 L712,128 L710,138 L706,148 L700,156 L694,164 L688,170 L682,174 L676,178 L670,180 L664,176 L660,170 L656,164 L654,156 L656,148 L660,140 L662,132 L660,124 L656,116 L654,108 L656,100 L660,92 L662,84 L660,76 L658,68 L660,60", op: 0.2 },
-    { d: "M700,156 L706,160 L712,166 L716,174 L720,182 L722,192 L722,202 L720,212 L716,220 L712,226 L706,230 L700,232 L694,228 L688,222 L684,214 L682,206 L682,196 L684,188 L688,180 L692,172 L696,164", op: 0.16 },
-    { d: "M852,102 L856,96 L860,92 L864,96 L866,102 L864,108 L860,114 L856,118 L852,122 L848,118 L846,112 L848,106 Z M858,118 L862,114 L866,118 L864,124 L860,126 L856,122 Z", op: 0.16 },
-    { d: "M790,310 L800,306 L812,302 L824,300 L836,302 L848,306 L858,312 L866,320 L872,330 L874,340 L872,350 L868,358 L862,364 L854,368 L844,370 L834,370 L824,368 L814,364 L806,358 L800,350 L796,340 L794,330 L792,320", op: 0.16 },
-    { d: "M894,362 L898,356 L902,352 L906,356 L906,362 L902,368 L898,370 L894,366 Z M900,372 L904,368 L908,372 L906,378 L902,380 L898,376 Z", op: 0.14 },
-    { d: "M752,232 L758,228 L766,228 L772,232 L776,238 L772,242 L766,244 L758,242 L754,238 Z M778,236 L784,234 L790,236 L792,240 L788,244 L782,244 L778,240 Z M796,240 L802,238 L808,242 L806,248 L800,248 L796,244 Z", op: 0.14 },
-  ];
-  const missionNodes = [
-    { label: "JERUSALEM", sub: "PHASE 01", x: 676, y: 156 },
-    { label: "JUDEA", sub: "PHASE 02", x: 706, y: 168 },
-    { label: "SAMARIA", sub: "PHASE 03", x: 742, y: 150 },
-    { label: "TO THE ENDS OF THE EARTH", sub: "PHASE 04", x: 850, y: 316 },
-  ];
-  const missionRoutes = [
-    { x1: tableCenter.x + 146, y1: tableCenter.y, x2: 676, y2: 156 },
-    { x1: 676, y1: 156, x2: 706, y2: 168 },
-    { x1: 706, y1: 168, x2: 742, y2: 150 },
-    { x1: 742, y1: 150, x2: 850, y2: 316 },
-  ];
+
+  useEffect(() => {
+    const loadMaps = async () => {
+      try {
+        const [worldRes, usRes] = await Promise.all([
+          fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"),
+          fetch("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
+        ]);
+        const worldTopo = await worldRes.json();
+        const usTopo = await usRes.json();
+        // @ts-expect-error Browser ESM import from CDN for client-only map rendering
+        const d3 = await import("https://cdn.jsdelivr.net/npm/d3-geo@3/+esm");
+        // @ts-expect-error Browser ESM import from CDN for client-only map rendering
+        const topojsonClient = await import("https://cdn.jsdelivr.net/npm/topojson-client@3/+esm");
+
+        const worldProjection = d3.geoNaturalEarth1().scale(72).translate([744, 184]);
+        const worldPathGen = d3.geoPath().projection(worldProjection);
+        const countries = topojsonClient.feature(worldTopo, worldTopo.objects.countries);
+        const outlines: string[] = [];
+
+        (countries as { features: unknown[] }).features.forEach((feature: unknown) => {
+          const path = worldPathGen(feature as never);
+          if (path) outlines.push(path);
+        });
+
+        setWorldPaths(outlines);
+
+        const usaProjection = d3.geoAlbersUsa().scale(205).translate([tableCenter.x - 8, tableCenter.y + 6]);
+        const usaPathGen = d3.geoPath().projection(usaProjection);
+        const statesFeature = topojsonClient.feature(usTopo, usTopo.objects.states);
+        const stateOutlinePaths: string[] = [];
+
+        (statesFeature as { features: unknown[] }).features.forEach((feature: unknown) => {
+          const path = usaPathGen(feature as never);
+          if (path) stateOutlinePaths.push(path);
+        });
+
+        const nation = topojsonClient.merge(usTopo, usTopo.objects.states.geometries);
+        const nationPath = usaPathGen(nation);
+
+        setUsaNationPath(nationPath || "");
+        setUsaStatePaths(stateOutlinePaths);
+      } catch (error) {
+        console.error("Map load error:", error);
+      }
+    };
+
+    void loadMaps();
+  }, []);
 
   return (
     <div className="relative">
@@ -179,6 +204,13 @@ function ExpansionMap() {
           <line key={`gh${i}`} x1={0} y1={i * 50} x2={960} y2={i * 50} stroke="#0c0c0c" strokeWidth={0.3} />
         ))}
         <rect x={0} y={0} width={960} height={460} fill="url(#tableGlow)" />
+
+        {usaNationPath && (
+          <path d={usaNationPath} fill="none" stroke="#6b7280" strokeWidth={0.95} opacity={0.18} />
+        )}
+        {usaStatePaths.map((path, i) => (
+          <path key={`usa-state${i}`} d={path} fill="none" stroke="#a8adb7" strokeWidth={0.42} opacity={0.11} />
+        ))}
 
         {[92, 118, 144].map((r, i) => (
           <ellipse key={`ring${i}`} cx={tableCenter.x} cy={tableCenter.y} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.08 - i * 0.018} strokeDasharray="5,9">
@@ -230,55 +262,24 @@ function ExpansionMap() {
           MOVEMENT BEGINS AT THE TABLE
         </text>
 
-        <g transform="translate(458 44) scale(0.46)">
-          {worldOutlines.map((shape, i) => (
-            <path key={`world${i}`} d={shape.d} fill="none" stroke="#3f3f46" strokeWidth={1.4} opacity={shape.op} />
-          ))}
-        </g>
-
-        {missionRoutes.map((r, i) => {
-          const dx = r.x2 - r.x1;
-          const dy = r.y2 - r.y1;
-          const mx = (r.x1 + r.x2) / 2;
-          const my = (r.y1 + r.y2) / 2;
-          const cx1 = mx - dy * 0.08;
-          const cy1 = my + dx * 0.08;
-          const p = `M${r.x1},${r.y1} Q${cx1},${cy1} ${r.x2},${r.y2}`;
-          return (
-            <g key={`route${i}`}>
-              <path d={p} fill="none" stroke="#C9A24A" strokeWidth={0.75} opacity={0.18} strokeDasharray="4,8">
-                <animate attributeName="strokeDashoffset" from="0" to="-24" dur={`${3.4 + i * 0.5}s`} repeatCount="indefinite" />
-              </path>
-              <circle r={1.8} fill="#C9A24A" opacity={0}>
-                <animateMotion dur={`${4.2 + i * 0.7}s`} repeatCount="indefinite" path={p} />
-                <animate attributeName="opacity" values="0;0.7;0" dur={`${4.2 + i * 0.7}s`} repeatCount="indefinite" />
-              </circle>
-            </g>
-          );
-        })}
-
-        <circle cx={tableCenter.x + 146} cy={tableCenter.y} r={4.2} fill="#C9A24A" opacity={0.9} filter="url(#softGlow)" />
-        <text x={tableCenter.x + 146} y={tableCenter.y - 16} textAnchor="middle" fill="#C9A24A" fontSize={9} letterSpacing="0.2em" style={{ fontFamily: font.oswald }}>
-          SEND
-        </text>
-
-        {missionNodes.map((node, i) => (
-          <g key={`node${i}`}>
-            <circle cx={node.x} cy={node.y} r={8} fill="none" stroke="#C9A24A" strokeWidth={0.4} opacity={0.14}>
-              <animate attributeName="r" values="6;12;6" dur={`${3.8 + i * 0.6}s`} repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.14;0;0.14" dur={`${3.8 + i * 0.6}s`} repeatCount="indefinite" />
-            </circle>
-            <circle cx={node.x} cy={node.y} r={2.6} fill="#C9A24A" opacity={0.85} />
-            <text x={node.x} y={node.y - 14} textAnchor="middle" fill="#C9A24A" fontSize={8.5} letterSpacing="0.18em" style={{ fontFamily: font.oswald }}>
-              {node.label}
-            </text>
-            <text x={node.x} y={node.y + 13} textAnchor="middle" fill="#57534e" fontSize={6} letterSpacing="0.24em" style={{ fontFamily: font.rajdhani }}>
-              {node.sub}
-            </text>
-          </g>
+        {worldPaths.map((path, i) => (
+          <path key={`world${i}`} d={path} fill="none" stroke="#2f2f35" strokeWidth={0.55} opacity={0.28} />
         ))}
 
-        <text x={742} y={394} textAnchor="middle" fill="#78716c" fontSize={8.5} letterSpacing="0.28em" style={{ fontFamily: font.rajdhani }}>
+        <text x={744} y={132} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.2em" style={{ fontFamily: font.oswald }}>
+          JERUSALEM
+        </text>
+        <text x={782} y={148} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.2em" style={{ fontFamily: font.oswald }}>
+          JUDEA
+        </text>
+        <text x={822} y={124} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.2em" style={{ fontFamily: font.oswald }}>
+          SAMARIA
+        </text>
+        <text x={834} y={322} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.18em" style={{ fontFamily: font.oswald }}>
+          TO THE ENDS OF THE EARTH
+        </text>
+
+        <text x={744} y={394} textAnchor="middle" fill="#78716c" fontSize={8.5} letterSpacing="0.28em" style={{ fontFamily: font.rajdhani }}>
           FROM THE TABLE TO THE NATIONS
         </text>
 
