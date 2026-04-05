@@ -1,26 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import {
-  ALASKA,
-  ASIA,
-  AFRICA,
-  AUSTRALIA,
-  CANADA,
-  EUROPE,
-  GREENLAND,
-  INDIA,
-  JAPAN,
-  MEXICO,
-  MIDDLE_EAST,
-  NEW_ZEALAND,
-  SE_ASIA_ISLANDS,
-  SOUTH_AMERICA,
-  UK,
-  USA_OUTLINE,
-  USA_STATE_LINES,
-} from "./mapdata";
-
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 function SectionHeading({ overline, headline, children, align = "center" }: {
@@ -128,57 +108,83 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
+  const svgRef = useRef<SVGSVGElement>(null);
   const [hovered, setHovered] = useState<number | null>(null);
-  const worldOutlines = [
-    { d: CANADA, op: 0.22 },
-    { d: MEXICO, op: 0.22 },
-    { d: SOUTH_AMERICA, op: 0.25 },
-    { d: EUROPE, op: 0.28 },
-    { d: UK, op: 0.25 },
-    { d: AFRICA, op: 0.25 },
-    { d: MIDDLE_EAST, op: 0.25 },
-    { d: ASIA, op: 0.25 },
-    { d: INDIA, op: 0.25 },
-    { d: JAPAN, op: 0.28 },
-    { d: AUSTRALIA, op: 0.25 },
-    { d: NEW_ZEALAND, op: 0.22 },
-    { d: SE_ASIA_ISLANDS, op: 0.22 },
-    { d: GREENLAND, op: 0.2 },
-    { d: ALASKA, op: 0.2 },
-  ];
+  const [paths, setPaths] = useState<{ world: string[]; usa: string; usaStates: string[] }>({
+    world: [],
+    usa: "",
+    usaStates: [],
+  });
+
+  useEffect(() => {
+    const loadMap = async () => {
+      try {
+        const topoRes = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+        const topo = await topoRes.json();
+        // @ts-expect-error Browser ESM import from CDN for client-only map rendering
+        const d3 = await import("https://cdn.jsdelivr.net/npm/d3-geo@3/+esm");
+        // @ts-expect-error Browser ESM import from CDN for client-only map rendering
+        const topojsonClient = await import("https://cdn.jsdelivr.net/npm/topojson-client@3/+esm");
+
+        const projection = d3.geoNaturalEarth1().scale(170).translate([480, 260]);
+        const pathGen = d3.geoPath().projection(projection);
+        const countries = topojsonClient.feature(topo, topo.objects.countries);
+
+        const worldPaths: string[] = [];
+        let usaPath = "";
+
+        (countries as { features: Array<{ id?: string; properties?: { name?: string } }> & Array<unknown> }).features.forEach((feature: unknown) => {
+          const f = feature as { id?: string; properties?: { name?: string } };
+          const path = pathGen(f as never);
+          if (!path) return;
+          if (f.id === "840" || f.properties?.name === "United States of America") {
+            usaPath = path;
+          }
+          worldPaths.push(path);
+        });
+
+        const statesRes = await fetch("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json");
+        const statesTopo = await statesRes.json();
+        const states = topojsonClient.feature(statesTopo, statesTopo.objects.states);
+        const statePaths: string[] = [];
+
+        (states as { features: unknown[] }).features.forEach((feature: unknown) => {
+          const path = pathGen(feature as never);
+          if (path) statePaths.push(path);
+        });
+
+        const usaMesh = topojsonClient.mesh(statesTopo, statesTopo.objects.states, (a: unknown, b: unknown) => a !== b);
+        const meshPath = pathGen(usaMesh);
+        const nationOutline = topojsonClient.merge(statesTopo, statesTopo.objects.states.geometries);
+        const nationPath = pathGen(nationOutline);
+
+        setPaths({
+          world: worldPaths,
+          usa: nationPath || usaPath,
+          usaStates: meshPath ? [meshPath] : statePaths,
+        });
+      } catch (error) {
+        console.error("Map load error:", error);
+      }
+    };
+
+    void loadMap();
+  }, []);
+
   const nodes = [
-    { label: "USA", x: 290, y: 190, big: true, phase: "ORIGIN" },
-    { label: "JERUSALEM", x: 608, y: 155, big: false, phase: "PHASE 01" },
-    { label: "JUDEA", x: 640, y: 165, big: false, phase: "PHASE 02" },
-    { label: "SAMARIA", x: 700, y: 155, big: false, phase: "PHASE 03" },
-    { label: "ENDS OF THE EARTH", x: 830, y: 335, big: false, phase: "PHASE 04" },
+    { label: "USA", x: 175, y: 220, big: true, phase: "ORIGIN" },
+    { label: "JERUSALEM", x: 580, y: 232, big: false, phase: "PHASE 01" },
+    { label: "JUDEA", x: 608, y: 245, big: false, phase: "PHASE 02" },
+    { label: "SAMARIA", x: 650, y: 225, big: false, phase: "PHASE 03" },
+    { label: "ENDS OF THE EARTH", x: 780, y: 380, big: false, phase: "PHASE 04" },
   ];
   const routes = [
-    { x1: 290, y1: 190, x2: 608, y2: 155 },
-    { x1: 608, y1: 155, x2: 640, y2: 165 },
-    { x1: 640, y1: 165, x2: 700, y2: 155 },
-    { x1: 700, y1: 155, x2: 830, y2: 335 },
+    { x1: 175, y1: 220, x2: 580, y2: 232 },
+    { x1: 580, y1: 232, x2: 608, y2: 245 },
+    { x1: 608, y1: 245, x2: 650, y2: 225 },
+    { x1: 650, y1: 225, x2: 780, y2: 380 },
   ];
-  const cities = [
-    { x: 138, y: 130, l: "SEA" },
-    { x: 128, y: 178, l: "SFO" },
-    { x: 155, y: 218, l: "LA" },
-    { x: 200, y: 230, l: "PHX" },
-    { x: 268, y: 155, l: "DEN" },
-    { x: 348, y: 252, l: "DAL" },
-    { x: 368, y: 272, l: "HOU" },
-    { x: 332, y: 182, l: "KC" },
-    { x: 420, y: 242, l: "ATL" },
-    { x: 418, y: 155, l: "CHI" },
-    { x: 476, y: 258, l: "MIA" },
-    { x: 478, y: 170, l: "NYC" },
-    { x: 472, y: 186, l: "DC" },
-    { x: 440, y: 165, l: "CLE" },
-    { x: 300, y: 120, l: "MSP" },
-    { x: 252, y: 228, l: "ABQ" },
-    { x: 428, y: 212, l: "NSH" },
-    { x: 460, y: 148, l: "BOS" },
-  ];
+
   return (
     <div className="relative">
       <div className="absolute top-3 left-4 z-10 flex items-center gap-2">
@@ -192,15 +198,14 @@ function ExpansionMap() {
           STATUS: ACTIVE
         </span>
       </div>
-      <svg viewBox="0 0 1000 460" className="w-full h-auto">
+      <svg ref={svgRef} viewBox="0 0 960 500" className="w-full h-auto">
         <defs>
-          <radialGradient id="uglow" cx="28%" cy="42%" r="30%">
-            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.08} />
-            <stop offset="50%" stopColor="#C9A24A" stopOpacity={0.02} />
+          <radialGradient id="uglow" cx="20%" cy="46%" r="25%">
+            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.07} />
             <stop offset="100%" stopColor="#C9A24A" stopOpacity={0} />
           </radialGradient>
           <filter id="ng">
-            <feGaussianBlur stdDeviation="2.5" result="b" />
+            <feGaussianBlur stdDeviation="2" result="b" />
             <feMerge>
               <feMergeNode in="b" />
               <feMergeNode in="SourceGraphic" />
@@ -214,44 +219,40 @@ function ExpansionMap() {
             </feMerge>
           </filter>
         </defs>
-        {Array.from({ length: 21 }).map((_, i) => (
-          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={460} stroke="#0d0d0d" strokeWidth={0.3} />
+        {Array.from({ length: 20 }).map((_, i) => (
+          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={500} stroke="#0c0c0c" strokeWidth={0.3} />
         ))}
-        {Array.from({ length: 10 }).map((_, i) => (
-          <line key={`gh${i}`} x1={0} y1={i * 50} x2={1000} y2={i * 50} stroke="#0d0d0d" strokeWidth={0.3} />
+        {Array.from({ length: 11 }).map((_, i) => (
+          <line key={`gh${i}`} x1={0} y1={i * 50} x2={960} y2={i * 50} stroke="#0c0c0c" strokeWidth={0.3} />
         ))}
-        <rect x={0} y={0} width={1000} height={460} fill="url(#uglow)" />
-        {worldOutlines.map((w, i) => (
-          <path key={`wo${i}`} d={w.d} fill="none" stroke="#2a2a2a" strokeWidth={0.6} opacity={w.op} />
+        <rect x={0} y={0} width={960} height={500} fill="url(#uglow)" />
+
+        {paths.world.map((d, i) => (
+          <path key={`c${i}`} d={d} fill="none" stroke="#222" strokeWidth={0.4} opacity={0.35} />
         ))}
-        <path d={USA_OUTLINE} fill="rgba(201,162,74,0.012)" stroke="#444" strokeWidth={1} opacity={0.6} />
-        {USA_STATE_LINES.map(([x1, y1, x2, y2], i) => (
-          <line key={`sl${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#1c1c1c" strokeWidth={0.35} opacity={0.45} />
+
+        {paths.usa && <path d={paths.usa} fill="rgba(201,162,74,0.015)" stroke="#3d3d3d" strokeWidth={0.9} opacity={0.7} />}
+
+        {paths.usaStates.map((d, i) => (
+          <path key={`s${i}`} d={d} fill="none" stroke="#1a1a1a" strokeWidth={0.35} opacity={0.5} />
         ))}
-        {cities.map((c, i) => (
-          <g key={`ci${i}`}>
-            <circle cx={c.x} cy={c.y} r={1} fill="#C9A24A" opacity={0.18} />
-            <text x={c.x} y={c.y - 4} textAnchor="middle" fill="#2e2e2e" fontSize={5.5} letterSpacing="0.06em" style={{ fontFamily: font.rajdhani }}>
-              {c.l}
-            </text>
-          </g>
-        ))}
+
         {routes.map((r, i) => {
           const dx = r.x2 - r.x1;
           const dy = r.y2 - r.y1;
           const mx = (r.x1 + r.x2) / 2;
           const my = (r.y1 + r.y2) / 2;
-          const cx1 = mx - dy * 0.12;
-          const cy1 = my + dx * 0.12;
+          const cx1 = mx - dy * 0.08;
+          const cy1 = my + dx * 0.08;
           const p = `M${r.x1},${r.y1} Q${cx1},${cy1} ${r.x2},${r.y2}`;
           return (
             <g key={`rt${i}`}>
-              <path d={p} fill="none" stroke="#C9A24A" strokeWidth={0.6} opacity={0.14} strokeDasharray="3,7">
-                <animate attributeName="strokeDashoffset" from="0" to="-20" dur={`${3 + i * 0.5}s`} repeatCount="indefinite" />
+              <path d={p} fill="none" stroke="#C9A24A" strokeWidth={0.5} opacity={0.12} strokeDasharray="3,6">
+                <animate attributeName="strokeDashoffset" from="0" to="-18" dur={`${3 + i * 0.5}s`} repeatCount="indefinite" />
               </path>
               <circle r={1.5} fill="#C9A24A" opacity={0}>
                 <animateMotion dur={`${4 + i * 0.8}s`} repeatCount="indefinite" path={p} />
-                <animate attributeName="opacity" values="0;0.7;0" dur={`${4 + i * 0.8}s`} repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0;0.6;0" dur={`${4 + i * 0.8}s`} repeatCount="indefinite" />
               </circle>
             </g>
           );
@@ -262,50 +263,44 @@ function ExpansionMap() {
             <g key={`nd${i}`} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: "pointer" }}>
               {n.big && (
                 <>
-                  <circle cx={n.x} cy={n.y} r={32} fill="none" stroke="#C9A24A" strokeWidth={0.2} opacity={0.1} strokeDasharray="2,4" />
-                  <circle cx={n.x} cy={n.y} r={20} fill="none" stroke="#C9A24A" strokeWidth={0.25} opacity={0.14} strokeDasharray="2,3" />
-                  <line x1={n.x - 38} y1={n.y} x2={n.x - 9} y2={n.y} stroke="#C9A24A" strokeWidth={0.2} opacity={0.18} />
-                  <line x1={n.x + 9} y1={n.y} x2={n.x + 38} y2={n.y} stroke="#C9A24A" strokeWidth={0.2} opacity={0.18} />
-                  <line x1={n.x} y1={n.y - 38} x2={n.x} y2={n.y - 9} stroke="#C9A24A" strokeWidth={0.2} opacity={0.18} />
-                  <line x1={n.x} y1={n.y + 9} x2={n.x} y2={n.y + 38} stroke="#C9A24A" strokeWidth={0.2} opacity={0.18} />
+                  <circle cx={n.x} cy={n.y} r={28} fill="none" stroke="#C9A24A" strokeWidth={0.2} opacity={0.08} strokeDasharray="2,4" />
+                  <circle cx={n.x} cy={n.y} r={18} fill="none" stroke="#C9A24A" strokeWidth={0.2} opacity={0.12} strokeDasharray="2,3" />
+                  <line x1={n.x - 32} y1={n.y} x2={n.x - 8} y2={n.y} stroke="#C9A24A" strokeWidth={0.2} opacity={0.15} />
+                  <line x1={n.x + 8} y1={n.y} x2={n.x + 32} y2={n.y} stroke="#C9A24A" strokeWidth={0.2} opacity={0.15} />
+                  <line x1={n.x} y1={n.y - 32} x2={n.x} y2={n.y - 8} stroke="#C9A24A" strokeWidth={0.2} opacity={0.15} />
+                  <line x1={n.x} y1={n.y + 8} x2={n.x} y2={n.y + 32} stroke="#C9A24A" strokeWidth={0.2} opacity={0.15} />
                 </>
               )}
-              <circle cx={n.x} cy={n.y} r={n.big ? 16 : 9} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={isHovered ? 0.4 : 0.15}>
-                <animate attributeName="r" values={n.big ? "12;22;12" : "6;13;6"} dur={`${3.5 + i * 0.6}s`} repeatCount="indefinite" />
-                <animate attributeName="opacity" values={isHovered ? "0.4;0.02;0.4" : "0.18;0;0.18"} dur={`${3.5 + i * 0.6}s`} repeatCount="indefinite" />
+              <circle cx={n.x} cy={n.y} r={n.big ? 14 : 8} fill="none" stroke="#C9A24A" strokeWidth={0.3} opacity={isHovered ? 0.35 : 0.12}>
+                <animate attributeName="r" values={n.big ? "10;20;10" : "5;12;5"} dur={`${3.5 + i * 0.6}s`} repeatCount="indefinite" />
+                <animate attributeName="opacity" values={isHovered ? "0.35;0.02;0.35" : "0.15;0;0.15"} dur={`${3.5 + i * 0.6}s`} repeatCount="indefinite" />
               </circle>
-              <circle cx={n.x} cy={n.y} r={n.big ? 5 : 2.5} fill="#C9A24A" opacity={isHovered ? 1 : 0.8} filter={n.big ? "url(#ng)" : "url(#sg)"} />
+              <circle cx={n.x} cy={n.y} r={n.big ? 4.5 : 2.2} fill="#C9A24A" opacity={isHovered ? 1 : 0.8} filter={n.big ? "url(#ng)" : "url(#sg)"} />
               {n.big && (
-                <circle cx={n.x} cy={n.y} r={8} fill="none" stroke="#C9A24A" strokeWidth={0.6} opacity={0.3}>
-                  <animate attributeName="r" values="7;12;7" dur="2.5s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.3;0;0.3" dur="2.5s" repeatCount="indefinite" />
+                <circle cx={n.x} cy={n.y} r={7} fill="none" stroke="#C9A24A" strokeWidth={0.5} opacity={0.25}>
+                  <animate attributeName="r" values="6;10;6" dur="2.5s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.25;0;0.25" dur="2.5s" repeatCount="indefinite" />
                 </circle>
               )}
-              <text x={n.x} y={n.y - (n.big ? 26 : 15)} textAnchor="middle" fill={isHovered ? "#e5c76b" : "#C9A24A"} fontSize={n.big ? 13 : 8.5} letterSpacing="0.22em" fontWeight={700} style={{ fontFamily: font.oswald, transition: "fill 0.3s" }}>
+              <text x={n.x} y={n.y - (n.big ? 22 : 13)} textAnchor="middle" fill={isHovered ? "#e5c76b" : "#C9A24A"} fontSize={n.big ? 12 : 8} letterSpacing="0.2em" fontWeight={700} style={{ fontFamily: font.oswald, transition: "fill 0.3s" }}>
                 {n.label}
               </text>
-              <text x={n.x} y={n.y + (n.big ? 20 : 14)} textAnchor="middle" fill="#363636" fontSize={6.5} letterSpacing="0.28em" style={{ fontFamily: font.rajdhani }}>
+              <text x={n.x} y={n.y + (n.big ? 18 : 12)} textAnchor="middle" fill="#333" fontSize={6} letterSpacing="0.25em" style={{ fontFamily: font.rajdhani }}>
                 {n.phase}
               </text>
             </g>
           );
         })}
-        <line x1={28} y1={434} x2={98} y2={434} stroke="#252525" strokeWidth={0.4} />
-        <line x1={28} y1={431} x2={28} y2={437} stroke="#252525" strokeWidth={0.4} />
-        <line x1={98} y1={431} x2={98} y2={437} stroke="#252525" strokeWidth={0.4} />
-        <text x={63} y={445} textAnchor="middle" fill="#252525" fontSize={6.5} letterSpacing="0.18em" style={{ fontFamily: font.rajdhani }}>
-          1000 MI
-        </text>
-        <rect x={18} y={18} width={964} height={424} fill="none" stroke="#141414" strokeWidth={0.6} />
+        <rect x={16} y={16} width={928} height={468} fill="none" stroke="#131313" strokeWidth={0.5} />
         {[
-          [18, 18],
-          [982, 18],
-          [18, 442],
-          [982, 442],
+          [16, 16],
+          [944, 16],
+          [16, 484],
+          [944, 484],
         ].map(([cx, cy], i) => (
           <g key={`cr${i}`}>
-            <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke="#222" strokeWidth={0.5} />
-            <line x1={cx} y1={cy - 3} x2={cx} y2={cy + 3} stroke="#222" strokeWidth={0.5} />
+            <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke="#1e1e1e" strokeWidth={0.4} />
+            <line x1={cx} y1={cy - 3} x2={cx} y2={cy + 3} stroke="#1e1e1e" strokeWidth={0.4} />
           </g>
         ))}
       </svg>
