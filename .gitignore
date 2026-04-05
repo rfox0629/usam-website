@@ -8,7 +8,10 @@ node_modules/
 out/
 
 # Local environment files
-.env*.local
+.env*
+
+# Archives
+*.zip
 
 # Vercel
 .vercel/
