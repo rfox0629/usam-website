@@ -148,7 +148,7 @@ function ExpansionMap() {
           className="text-[10px] tracking-[0.4em] text-stone-600 uppercase"
           style={{ fontFamily: font.rajdhani }}
         >
-          DEPLOYMENT MAP - LIVE
+          DEPLOYMENT MAP — LIVE
         </span>
       </div>
       <div className="absolute top-4 right-4 z-10 text-right">
