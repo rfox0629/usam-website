@@ -109,40 +109,268 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
+  const [hovered, setHovered] = useState<number | null>(null);
   const nodes = [
-    { label: "USA", x: 180, y: 260, big: true },
-    { label: "JERUSALEM", x: 560, y: 230, big: false },
-    { label: "JUDEA", x: 620, y: 210, big: false },
-    { label: "SAMARIA", x: 700, y: 180, big: false },
-    { label: "ENDS OF THE EARTH", x: 920, y: 320, big: false },
+    { label: "USA", x: 290, y: 250, big: true, phase: "ORIGIN" },
+    { label: "JERUSALEM", x: 640, y: 180, big: false, phase: "PHASE 01" },
+    { label: "JUDEA", x: 770, y: 150, big: false, phase: "PHASE 02" },
+    { label: "SAMARIA", x: 900, y: 200, big: false, phase: "PHASE 03" },
+    { label: "ENDS OF THE EARTH", x: 1020, y: 340, big: false, phase: "PHASE 04" },
   ];
-  const routes: Array<[number,number,number,number]> = [[180,260,560,230],[560,230,620,210],[620,210,700,180],[700,180,920,320]];
+  const routes: Array<{ x1: number; y1: number; x2: number; y2: number }> = [
+    { x1: 290, y1: 250, x2: 640, y2: 180 },
+    { x1: 640, y1: 180, x2: 770, y2: 150 },
+    { x1: 770, y1: 150, x2: 900, y2: 200 },
+    { x1: 900, y1: 200, x2: 1020, y2: 340 },
+  ];
+  const usaPath =
+    "M 85 175 L 90 170 L 95 168 L 100 165 L 108 162 L 115 160 L 120 158 L 128 160 L 135 162 L 140 160 L 148 155 L 155 150 L 160 148 L 168 145 L 175 142 L 180 140 L 185 138 L 192 136 L 200 134 L 208 130 L 215 128 L 220 125 L 228 120 L 235 118 L 240 120 L 245 122 L 250 118 L 258 115 L 265 112 L 270 110 L 275 108 L 280 105 L 285 108 L 290 112 L 295 115 L 300 118 L 305 120 L 310 118 L 315 115 L 320 112 L 328 110 L 335 108 L 340 110 L 345 115 L 348 120 L 350 125 L 355 128 L 360 130 L 365 135 L 370 140 L 378 142 L 385 140 L 390 138 L 395 140 L 400 145 L 405 148 L 408 152 L 412 155 L 415 158 L 418 162 L 420 168 L 425 172 L 430 175 L 435 172 L 440 168 L 445 165 L 450 168 L 452 172 L 455 178 L 458 182 L 460 188 L 462 195 L 465 200 L 468 205 L 470 210 L 472 218 L 475 222 L 478 228 L 480 235 L 482 240 L 480 248 L 478 252 L 475 258 L 472 262 L 468 268 L 465 272 L 460 278 L 458 282 L 455 288 L 450 292 L 445 295 L 440 298 L 435 300 L 428 302 L 420 305 L 415 308 L 408 310 L 400 312 L 392 315 L 385 318 L 378 320 L 370 318 L 362 315 L 355 318 L 348 320 L 340 322 L 332 325 L 325 328 L 318 330 L 310 332 L 302 335 L 295 338 L 288 340 L 280 342 L 272 340 L 265 338 L 258 335 L 250 332 L 242 330 L 235 328 L 228 330 L 220 332 L 212 330 L 205 328 L 198 325 L 190 322 L 182 320 L 175 318 L 168 315 L 160 312 L 152 310 L 145 308 L 138 305 L 130 302 L 122 298 L 115 295 L 108 290 L 102 285 L 98 280 L 95 275 L 92 268 L 88 262 L 85 255 L 82 248 L 80 240 L 78 232 L 78 225 L 80 218 L 82 210 L 82 202 L 82 195 L 83 188 L 84 182 Z";
+  const cityNodes = [
+    { x: 190, y: 178, label: "SEA" },
+    { x: 210, y: 230, label: "SFO" },
+    { x: 260, y: 260, label: "LAX" },
+    { x: 310, y: 250, label: "PHX" },
+    { x: 340, y: 210, label: "DEN" },
+    { x: 380, y: 250, label: "DAL" },
+    { x: 400, y: 270, label: "HOU" },
+    { x: 410, y: 210, label: "KC" },
+    { x: 430, y: 240, label: "ATL" },
+    { x: 450, y: 195, label: "CHI" },
+    { x: 455, y: 255, label: "MIA" },
+    { x: 465, y: 215, label: "NYC" },
+    { x: 460, y: 200, label: "DC" },
+  ];
   return (
-    <svg viewBox="0 0 1200 520" className="w-full h-auto">
-      {Array.from({length:25}).map((_,i) => <line key={`v${i}`} x1={i*50} y1={0} x2={i*50} y2={520} stroke="#1a1a1a" strokeWidth={0.5}/>)}
-      {Array.from({length:11}).map((_,i) => <line key={`h${i}`} x1={0} y1={i*50} x2={1200} y2={i*50} stroke="#1a1a1a" strokeWidth={0.5}/>)}
-      <path d="M100,120 Q160,80 240,90 Q310,100 350,140 Q360,190 330,240 Q300,270 260,290 Q220,300 180,310 Q140,280 120,240 Q105,190 100,150Z" fill="none" stroke="#2a2a2a" strokeWidth={1}/>
-      <path d="M250,330 Q280,320 300,350 Q310,400 300,450 Q280,480 260,470 Q245,440 242,400 Q240,360 248,335Z" fill="none" stroke="#2a2a2a" strokeWidth={1}/>
-      <path d="M490,100 Q540,85 580,100 Q600,120 595,145 Q575,160 545,155 Q510,150 495,130Z" fill="none" stroke="#2a2a2a" strokeWidth={1}/>
-      <path d="M520,190 Q560,180 585,200 Q600,230 605,280 Q600,340 585,380 Q565,400 545,390 Q525,370 515,330 Q510,280 512,240 Q515,210 518,195Z" fill="none" stroke="#2a2a2a" strokeWidth={1}/>
-      <path d="M620,90 Q700,70 800,80 Q880,95 930,120 Q960,150 950,180 Q920,200 870,210 Q800,215 740,200 Q680,180 640,155 Q618,130 618,105Z" fill="none" stroke="#2a2a2a" strokeWidth={1}/>
-      <path d="M860,360 Q900,350 920,370 Q935,390 925,415 Q905,425 885,418 Q865,405 862,380Z" fill="none" stroke="#2a2a2a" strokeWidth={1}/>
-      {routes.map(([x1,y1,x2,y2], i) => (
-        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#d4a054" strokeWidth={1} opacity={0.25} strokeDasharray="6,8">
-          <animate attributeName="strokeDashoffset" from="0" to="-28" dur="4s" repeatCount="indefinite"/>
-        </line>
-      ))}
-      {nodes.map((n, i) => (
-        <g key={i}>
-          <circle cx={n.x} cy={n.y} r={n.big?14:8} fill="none" stroke="#d4a054" strokeWidth={0.6} opacity={0.3}>
-            <animate attributeName="r" values={n.big?"10;22;10":"5;17;5"} dur={`${3+i*0.5}s`} repeatCount="indefinite"/>
-            <animate attributeName="opacity" values="0.4;0;0.4" dur={`${3+i*0.5}s`} repeatCount="indefinite"/>
-          </circle>
-          <circle cx={n.x} cy={n.y} r={n.big?5:3} fill="#d4a054" opacity={0.85}/>
-          <text x={n.x} y={n.y-(n.big?22:16)} textAnchor="middle" fill="#d4a054" fontSize={n.big?13:10} letterSpacing="0.2em" style={{fontFamily:font.rajdhani,fontWeight:600}}>{n.label}</text>
+    <div className="relative">
+      <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+        <span
+          className="text-[10px] tracking-[0.4em] text-stone-600 uppercase"
+          style={{ fontFamily: font.rajdhani }}
+        >
+          DEPLOYMENT MAP - LIVE
+        </span>
+      </div>
+      <div className="absolute top-4 right-4 z-10 text-right">
+        <span
+          className="text-[10px] tracking-[0.3em] text-stone-700 block"
+          style={{ fontFamily: font.rajdhani }}
+        >
+          COORD SYS: WGS-84
+        </span>
+        <span
+          className="text-[10px] tracking-[0.3em] text-stone-700 block"
+          style={{ fontFamily: font.rajdhani }}
+        >
+          STATUS: ACTIVE
+        </span>
+      </div>
+      <svg viewBox="0 0 1200 520" className="w-full h-auto">
+        <defs>
+          <radialGradient id="usaNodeGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.4} />
+            <stop offset="100%" stopColor="#C9A24A" stopOpacity={0} />
+          </radialGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="softGlow">
+            <feGaussianBlur stdDeviation="1.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {Array.from({ length: 25 }).map((_, i) => (
+          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={520} stroke="#111" strokeWidth={0.5} />
+        ))}
+        {Array.from({ length: 11 }).map((_, i) => (
+          <line key={`gh${i}`} x1={0} y1={i * 50} x2={1200} y2={i * 50} stroke="#111" strokeWidth={0.5} />
+        ))}
+
+        <circle cx={290} cy={250} r={180} fill="url(#usaNodeGlow)" opacity={0.3} />
+
+        <g transform="translate(45,50) scale(1.05)">
+          <path d={usaPath} fill="none" stroke="#333" strokeWidth={1.2} opacity={0.6} />
+          <path d={usaPath} fill="rgba(201,162,74,0.03)" stroke="none" />
         </g>
-      ))}
-    </svg>
+
+        {cityNodes.map((c, i) => (
+          <g key={`city${i}`}>
+            <circle cx={c.x} cy={c.y} r={1.5} fill="#C9A24A" opacity={0.3} />
+            <text
+              x={c.x}
+              y={c.y - 6}
+              textAnchor="middle"
+              fill="#555"
+              fontSize={7}
+              letterSpacing="0.1em"
+              style={{ fontFamily: font.rajdhani }}
+            >
+              {c.label}
+            </text>
+          </g>
+        ))}
+
+        {routes.map((r, i) => {
+          const dx = r.x2 - r.x1;
+          const dy = r.y2 - r.y1;
+          const mx = (r.x1 + r.x2) / 2;
+          const my = (r.y1 + r.y2) / 2;
+          const cx1 = mx - dy * 0.15;
+          const cy1 = my + dx * 0.15;
+          return (
+            <g key={`route${i}`}>
+              <path
+                d={`M${r.x1},${r.y1} Q${cx1},${cy1} ${r.x2},${r.y2}`}
+                fill="none"
+                stroke="#C9A24A"
+                strokeWidth={0.8}
+                opacity={0.2}
+                strokeDasharray="4,8"
+              >
+                <animate attributeName="strokeDashoffset" from="0" to="-24" dur={`${3 + i * 0.5}s`} repeatCount="indefinite" />
+              </path>
+              <circle r={2} fill="#C9A24A" opacity={0.7}>
+                <animateMotion
+                  dur={`${4 + i * 0.8}s`}
+                  repeatCount="indefinite"
+                  path={`M${r.x1},${r.y1} Q${cx1},${cy1} ${r.x2},${r.y2}`}
+                />
+                <animate attributeName="opacity" values="0;0.9;0" dur={`${4 + i * 0.8}s`} repeatCount="indefinite" />
+              </circle>
+            </g>
+          );
+        })}
+
+        {nodes.map((n, i) => {
+          const isHovered = hovered === i;
+          const baseRadius = n.big ? 7 : 3.5;
+          return (
+            <g
+              key={`node${i}`}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{ cursor: "pointer" }}
+            >
+              {n.big && (
+                <>
+                  <circle cx={n.x} cy={n.y} r={40} fill="none" stroke="#C9A24A" strokeWidth={0.3} opacity={0.15} strokeDasharray="2,4" />
+                  <circle cx={n.x} cy={n.y} r={25} fill="none" stroke="#C9A24A" strokeWidth={0.4} opacity={0.2} strokeDasharray="3,3" />
+                </>
+              )}
+              <circle cx={n.x} cy={n.y} r={n.big ? 28 : 14} fill="none" stroke="#C9A24A" strokeWidth={0.4} opacity={isHovered ? 0.5 : 0.2}>
+                <animate
+                  attributeName="r"
+                  values={n.big ? "20;32;20" : "10;18;10"}
+                  dur={`${3.5 + i * 0.6}s`}
+                  repeatCount="indefinite"
+                />
+                <animate
+                  attributeName="opacity"
+                  values={isHovered ? "0.5;0.1;0.5" : "0.3;0;0.3"}
+                  dur={`${3.5 + i * 0.6}s`}
+                  repeatCount="indefinite"
+                />
+              </circle>
+              <circle
+                cx={n.x}
+                cy={n.y}
+                r={baseRadius}
+                fill="#C9A24A"
+                opacity={isHovered ? 1 : 0.85}
+                filter={n.big ? "url(#glow)" : "url(#softGlow)"}
+              />
+              {n.big && (
+                <circle cx={n.x} cy={n.y} r={baseRadius + 3} fill="none" stroke="#C9A24A" strokeWidth={1} opacity={0.5}>
+                  <animate attributeName="r" values={`${baseRadius + 2};${baseRadius + 6};${baseRadius + 2}`} dur="2.5s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.5;0;0.5" dur="2.5s" repeatCount="indefinite" />
+                </circle>
+              )}
+              <text
+                x={n.x}
+                y={n.y - (n.big ? 32 : 20)}
+                textAnchor="middle"
+                fill={isHovered ? "#e5c76b" : "#C9A24A"}
+                fontSize={n.big ? 14 : 10}
+                letterSpacing="0.25em"
+                fontWeight={700}
+                style={{ fontFamily: font.oswald, transition: "fill 0.3s" }}
+              >
+                {n.label}
+              </text>
+              <text
+                x={n.x}
+                y={n.y + (n.big ? 24 : 18)}
+                textAnchor="middle"
+                fill="#555"
+                fontSize={8}
+                letterSpacing="0.3em"
+                style={{ fontFamily: font.rajdhani }}
+              >
+                {n.phase}
+              </text>
+              {n.big && (
+                <>
+                  <line x1={n.x - 50} y1={n.y} x2={n.x - 15} y2={n.y} stroke="#C9A24A" strokeWidth={0.3} opacity={0.3} />
+                  <line x1={n.x + 15} y1={n.y} x2={n.x + 50} y2={n.y} stroke="#C9A24A" strokeWidth={0.3} opacity={0.3} />
+                </>
+              )}
+            </g>
+          );
+        })}
+
+        <line x1={40} y1={490} x2={140} y2={490} stroke="#444" strokeWidth={0.5} />
+        <text
+          x={90}
+          y={505}
+          textAnchor="middle"
+          fill="#444"
+          fontSize={8}
+          letterSpacing="0.2em"
+          style={{ fontFamily: font.rajdhani }}
+        >
+          500 MI
+        </text>
+
+        <g>
+          {[{ c: "#C9A24A", l: "ACTIVE NODE" }, { c: "#333", l: "SECTOR GRID" }, { c: "#C9A24A40", l: "ROUTE PATH" }].map((item, i) => (
+            <g key={i} transform={`translate(${950},${460 + i * 18})`}>
+              <circle cx={0} cy={0} r={3} fill={item.c} opacity={0.8} />
+              <text
+                x={12}
+                y={3}
+                fill="#555"
+                fontSize={8}
+                letterSpacing="0.15em"
+                style={{ fontFamily: font.rajdhani }}
+              >
+                {item.l}
+              </text>
+            </g>
+          ))}
+        </g>
+
+        <rect x={30} y={30} width={1140} height={460} fill="none" stroke="#1a1a1a" strokeWidth={1} rx={1} />
+        {[
+          [30, 30],
+          [1170, 30],
+          [30, 490],
+          [1170, 490],
+        ].map(([cx, cy], i) => (
+          <g key={`corner${i}`}>
+            <line x1={cx - 6} y1={cy} x2={cx + 6} y2={cy} stroke="#333" strokeWidth={0.8} />
+            <line x1={cx} y1={cy - 6} x2={cx} y2={cy + 6} stroke="#333" strokeWidth={0.8} />
+          </g>
+        ))}
+      </svg>
+    </div>
   );
 }
 
