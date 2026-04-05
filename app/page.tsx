@@ -109,77 +109,34 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
-  const [hovered, setHovered] = useState<number | null>(null);
   const nodes = [
-    { label: "USA", x: 290, y: 250, big: true, phase: "ORIGIN" },
-    { label: "JERUSALEM", x: 640, y: 180, big: false, phase: "PHASE 01" },
-    { label: "JUDEA", x: 770, y: 150, big: false, phase: "PHASE 02" },
-    { label: "SAMARIA", x: 900, y: 200, big: false, phase: "PHASE 03" },
-    { label: "ENDS OF THE EARTH", x: 1020, y: 340, big: false, phase: "PHASE 04" },
+    { label: "JERUSALEM", x: 248, y: 292, radius: 6.8, primary: true },
+    { label: "JUDEA", x: 560, y: 246, radius: 3.1 },
+    { label: "SAMARIA", x: 618, y: 224, radius: 3.1 },
+    { label: "ENDS OF THE EARTH", x: 914, y: 334, radius: 3.1 },
   ];
   const routes: Array<{ x1: number; y1: number; x2: number; y2: number }> = [
-    { x1: 290, y1: 250, x2: 640, y2: 180 },
-    { x1: 640, y1: 180, x2: 770, y2: 150 },
-    { x1: 770, y1: 150, x2: 900, y2: 200 },
-    { x1: 900, y1: 200, x2: 1020, y2: 340 },
+    { x1: 248, y1: 292, x2: 560, y2: 246 },
+    { x1: 560, y1: 246, x2: 618, y2: 224 },
+    { x1: 618, y1: 224, x2: 914, y2: 334 },
   ];
   const usaPath =
     "M 85 175 L 90 170 L 95 168 L 100 165 L 108 162 L 115 160 L 120 158 L 128 160 L 135 162 L 140 160 L 148 155 L 155 150 L 160 148 L 168 145 L 175 142 L 180 140 L 185 138 L 192 136 L 200 134 L 208 130 L 215 128 L 220 125 L 228 120 L 235 118 L 240 120 L 245 122 L 250 118 L 258 115 L 265 112 L 270 110 L 275 108 L 280 105 L 285 108 L 290 112 L 295 115 L 300 118 L 305 120 L 310 118 L 315 115 L 320 112 L 328 110 L 335 108 L 340 110 L 345 115 L 348 120 L 350 125 L 355 128 L 360 130 L 365 135 L 370 140 L 378 142 L 385 140 L 390 138 L 395 140 L 400 145 L 405 148 L 408 152 L 412 155 L 415 158 L 418 162 L 420 168 L 425 172 L 430 175 L 435 172 L 440 168 L 445 165 L 450 168 L 452 172 L 455 178 L 458 182 L 460 188 L 462 195 L 465 200 L 468 205 L 470 210 L 472 218 L 475 222 L 478 228 L 480 235 L 482 240 L 480 248 L 478 252 L 475 258 L 472 262 L 468 268 L 465 272 L 460 278 L 458 282 L 455 288 L 450 292 L 445 295 L 440 298 L 435 300 L 428 302 L 420 305 L 415 308 L 408 310 L 400 312 L 392 315 L 385 318 L 378 320 L 370 318 L 362 315 L 355 318 L 348 320 L 340 322 L 332 325 L 325 328 L 318 330 L 310 332 L 302 335 L 295 338 L 288 340 L 280 342 L 272 340 L 265 338 L 258 335 L 250 332 L 242 330 L 235 328 L 228 330 L 220 332 L 212 330 L 205 328 L 198 325 L 190 322 L 182 320 L 175 318 L 168 315 L 160 312 L 152 310 L 145 308 L 138 305 L 130 302 L 122 298 L 115 295 L 108 290 L 102 285 L 98 280 L 95 275 L 92 268 L 88 262 L 85 255 L 82 248 L 80 240 L 78 232 L 78 225 L 80 218 L 82 210 L 82 202 L 82 195 L 83 188 L 84 182 Z";
-  const cityNodes = [
-    { x: 190, y: 178, label: "SEA" },
-    { x: 210, y: 230, label: "SFO" },
-    { x: 260, y: 260, label: "LAX" },
-    { x: 310, y: 250, label: "PHX" },
-    { x: 340, y: 210, label: "DEN" },
-    { x: 380, y: 250, label: "DAL" },
-    { x: 400, y: 270, label: "HOU" },
-    { x: 410, y: 210, label: "KC" },
-    { x: 430, y: 240, label: "ATL" },
-    { x: 450, y: 195, label: "CHI" },
-    { x: 455, y: 255, label: "MIA" },
-    { x: 465, y: 215, label: "NYC" },
-    { x: 460, y: 200, label: "DC" },
-  ];
   return (
     <div className="relative">
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-        <span
-          className="text-[10px] tracking-[0.4em] text-stone-600 uppercase"
-          style={{ fontFamily: font.rajdhani }}
-        >
-          DEPLOYMENT MAP — LIVE
-        </span>
-      </div>
-      <div className="absolute top-4 right-4 z-10 text-right">
-        <span
-          className="text-[10px] tracking-[0.3em] text-stone-700 block"
-          style={{ fontFamily: font.rajdhani }}
-        >
-          COORD SYS: WGS-84
-        </span>
-        <span
-          className="text-[10px] tracking-[0.3em] text-stone-700 block"
-          style={{ fontFamily: font.rajdhani }}
-        >
-          STATUS: ACTIVE
-        </span>
-      </div>
       <svg viewBox="0 0 1200 520" className="w-full h-auto">
         <defs>
-          <radialGradient id="usaNodeGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.4} />
-            <stop offset="100%" stopColor="#C9A24A" stopOpacity={0} />
+          <radialGradient id="map-node-core" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#f0cb74" stopOpacity={1} />
+            <stop offset="100%" stopColor="#c49842" stopOpacity={1} />
           </radialGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="softGlow">
-            <feGaussianBlur stdDeviation="1.5" result="blur" />
+          <radialGradient id="map-node-halo" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#c9a24a" stopOpacity={0.18} />
+            <stop offset="70%" stopColor="#c9a24a" stopOpacity={0.05} />
+            <stop offset="100%" stopColor="#c9a24a" stopOpacity={0} />
+          </radialGradient>
+          <filter id="map-node-glow">
+            <feGaussianBlur stdDeviation="2.4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -188,187 +145,103 @@ function ExpansionMap() {
         </defs>
 
         {Array.from({ length: 25 }).map((_, i) => (
-          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={520} stroke="#111" strokeWidth={0.5} />
+          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={520} stroke="#141414" strokeWidth={0.65} />
         ))}
         {Array.from({ length: 11 }).map((_, i) => (
-          <line key={`gh${i}`} x1={0} y1={i * 50} x2={1200} y2={i * 50} stroke="#111" strokeWidth={0.5} />
+          <line key={`gh${i}`} x1={0} y1={i * 50} x2={1200} y2={i * 50} stroke="#141414" strokeWidth={0.65} />
         ))}
 
-        <circle cx={290} cy={250} r={180} fill="url(#usaNodeGlow)" opacity={0.3} />
-
-        <g transform="translate(45,50) scale(1.05)">
-          <path d={usaPath} fill="none" stroke="#333" strokeWidth={1.2} opacity={0.6} />
-          <path d={usaPath} fill="rgba(201,162,74,0.03)" stroke="none" />
+        <g transform="translate(-34,-12) scale(1.34)">
+          <path d={usaPath} fill="none" stroke="#24262a" strokeWidth={1.25} opacity={0.95} />
         </g>
-
-        {cityNodes.map((c, i) => (
-          <g key={`city${i}`}>
-            <circle cx={c.x} cy={c.y} r={1.5} fill="#C9A24A" opacity={0.3} />
-            <text
-              x={c.x}
-              y={c.y - 6}
-              textAnchor="middle"
-              fill="#555"
-              fontSize={7}
-              letterSpacing="0.1em"
-              style={{ fontFamily: font.rajdhani }}
-            >
-              {c.label}
-            </text>
-          </g>
-        ))}
+        <path
+          d="M 500 100 C 530 92 566 94 596 106 C 612 120 618 138 612 158 C 594 170 568 174 540 170 C 516 164 502 148 500 100 Z"
+          fill="none"
+          stroke="#24262a"
+          strokeWidth={1.35}
+          opacity={0.92}
+        />
+        <path
+          d="M 520 204 C 548 196 576 198 596 214 C 608 248 610 308 598 392 C 586 410 566 420 542 416 C 522 400 512 372 510 334 C 508 286 510 238 520 204 Z"
+          fill="none"
+          stroke="#24262a"
+          strokeWidth={1.35}
+          opacity={0.92}
+        />
+        <path
+          d="M 620 84 C 698 68 790 70 872 90 C 932 106 974 128 994 156 C 1004 178 1004 204 998 232 C 964 248 922 260 874 262 C 818 264 764 258 710 246 C 666 236 638 220 624 198 C 616 168 614 128 620 84 Z"
+          fill="none"
+          stroke="#24262a"
+          strokeWidth={1.35}
+          opacity={0.92}
+        />
+        <path
+          d="M 870 382 C 898 376 924 378 942 392 C 954 410 958 430 952 448 C 938 462 916 466 892 462 C 876 448 868 422 870 382 Z"
+          fill="none"
+          stroke="#24262a"
+          strokeWidth={1.35}
+          opacity={0.92}
+        />
 
         {routes.map((r, i) => {
-          const dx = r.x2 - r.x1;
-          const dy = r.y2 - r.y1;
           const mx = (r.x1 + r.x2) / 2;
           const my = (r.y1 + r.y2) / 2;
-          const cx1 = mx - dy * 0.15;
-          const cy1 = my + dx * 0.15;
+          const curveHeight = i === 0 ? -18 : i === 2 ? 20 : -8;
+          const cx1 = mx;
+          const cy1 = my + curveHeight;
           return (
-            <g key={`route${i}`}>
-              <path
-                d={`M${r.x1},${r.y1} Q${cx1},${cy1} ${r.x2},${r.y2}`}
-                fill="none"
-                stroke="#C9A24A"
-                strokeWidth={0.8}
-                opacity={0.2}
-                strokeDasharray="4,8"
-              >
-                <animate attributeName="strokeDashoffset" from="0" to="-24" dur={`${3 + i * 0.5}s`} repeatCount="indefinite" />
-              </path>
-              <circle r={2} fill="#C9A24A" opacity={0.7}>
-                <animateMotion
-                  dur={`${4 + i * 0.8}s`}
-                  repeatCount="indefinite"
-                  path={`M${r.x1},${r.y1} Q${cx1},${cy1} ${r.x2},${r.y2}`}
-                />
-                <animate attributeName="opacity" values="0;0.9;0" dur={`${4 + i * 0.8}s`} repeatCount="indefinite" />
-              </circle>
-            </g>
+            <path
+              key={`route${i}`}
+              d={`M ${r.x1} ${r.y1} Q ${cx1} ${cy1} ${r.x2} ${r.y2}`}
+              fill="none"
+              stroke="#5d4820"
+              strokeWidth={1.1}
+              strokeDasharray="7 11"
+              opacity={0.42}
+            >
+              <animate attributeName="stroke-dashoffset" from="0" to="-34" dur={`${3.8 + i * 0.45}s`} repeatCount="indefinite" />
+            </path>
           );
         })}
 
         {nodes.map((n, i) => {
-          const isHovered = hovered === i;
-          const baseRadius = n.big ? 7 : 3.5;
           return (
-            <g
-              key={`node${i}`}
-              onMouseEnter={() => setHovered(i)}
-              onMouseLeave={() => setHovered(null)}
-              style={{ cursor: "pointer" }}
-            >
-              {n.big && (
+            <g key={`node${i}`}>
+              {n.primary && (
                 <>
-                  <circle cx={n.x} cy={n.y} r={40} fill="none" stroke="#C9A24A" strokeWidth={0.3} opacity={0.15} strokeDasharray="2,4" />
-                  <circle cx={n.x} cy={n.y} r={25} fill="none" stroke="#C9A24A" strokeWidth={0.4} opacity={0.2} strokeDasharray="3,3" />
+                  <circle cx={n.x} cy={n.y} r={22} fill="url(#map-node-halo)" />
+                  <circle cx={n.x} cy={n.y} r={12} fill="none" stroke="#705729" strokeWidth={0.8} opacity={0.55} />
+                  <circle cx={n.x} cy={n.y} r={9.5} fill="none" stroke="#b88c37" strokeWidth={0.9} opacity={0.5}>
+                    <animate attributeName="r" values="8.5;16;8.5" dur="2.8s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.5;0.05;0.5" dur="2.8s" repeatCount="indefinite" />
+                  </circle>
                 </>
               )}
-              <circle cx={n.x} cy={n.y} r={n.big ? 28 : 14} fill="none" stroke="#C9A24A" strokeWidth={0.4} opacity={isHovered ? 0.5 : 0.2}>
-                <animate
-                  attributeName="r"
-                  values={n.big ? "20;32;20" : "10;18;10"}
-                  dur={`${3.5 + i * 0.6}s`}
-                  repeatCount="indefinite"
-                />
-                <animate
-                  attributeName="opacity"
-                  values={isHovered ? "0.5;0.1;0.5" : "0.3;0;0.3"}
-                  dur={`${3.5 + i * 0.6}s`}
-                  repeatCount="indefinite"
-                />
-              </circle>
+              <circle cx={n.x} cy={n.y} r={n.radius + 4.5} fill="url(#map-node-halo)" />
+              <circle cx={n.x} cy={n.y} r={n.radius + 1.2} fill="none" stroke="#4f3c19" strokeWidth={0.8} opacity={0.7} />
               <circle
                 cx={n.x}
                 cy={n.y}
-                r={baseRadius}
-                fill="#C9A24A"
-                opacity={isHovered ? 1 : 0.85}
-                filter={n.big ? "url(#glow)" : "url(#softGlow)"}
+                r={n.radius}
+                fill="url(#map-node-core)"
+                opacity={0.96}
+                filter="url(#map-node-glow)"
               />
-              {n.big && (
-                <circle cx={n.x} cy={n.y} r={baseRadius + 3} fill="none" stroke="#C9A24A" strokeWidth={1} opacity={0.5}>
-                  <animate attributeName="r" values={`${baseRadius + 2};${baseRadius + 6};${baseRadius + 2}`} dur="2.5s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.5;0;0.5" dur="2.5s" repeatCount="indefinite" />
-                </circle>
-              )}
+              <circle cx={n.x} cy={n.y} r={1.35} fill="#fff0c0" />
               <text
                 x={n.x}
-                y={n.y - (n.big ? 32 : 20)}
+                y={n.primary ? n.y - 34 : n.y - 18}
                 textAnchor="middle"
-                fill={isHovered ? "#e5c76b" : "#C9A24A"}
-                fontSize={n.big ? 14 : 10}
-                letterSpacing="0.25em"
-                fontWeight={700}
-                style={{ fontFamily: font.oswald, transition: "fill 0.3s" }}
+                fill="#cfa654"
+                fontSize={n.primary ? 15 : 9}
+                letterSpacing={n.primary ? "0.32em" : "0.25em"}
+                style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
               >
                 {n.label}
               </text>
-              <text
-                x={n.x}
-                y={n.y + (n.big ? 24 : 18)}
-                textAnchor="middle"
-                fill="#555"
-                fontSize={8}
-                letterSpacing="0.3em"
-                style={{ fontFamily: font.rajdhani }}
-              >
-                {n.phase}
-              </text>
-              {n.big && (
-                <>
-                  <line x1={n.x - 50} y1={n.y} x2={n.x - 15} y2={n.y} stroke="#C9A24A" strokeWidth={0.3} opacity={0.3} />
-                  <line x1={n.x + 15} y1={n.y} x2={n.x + 50} y2={n.y} stroke="#C9A24A" strokeWidth={0.3} opacity={0.3} />
-                </>
-              )}
             </g>
           );
         })}
-
-        <line x1={40} y1={490} x2={140} y2={490} stroke="#444" strokeWidth={0.5} />
-        <text
-          x={90}
-          y={505}
-          textAnchor="middle"
-          fill="#444"
-          fontSize={8}
-          letterSpacing="0.2em"
-          style={{ fontFamily: font.rajdhani }}
-        >
-          500 MI
-        </text>
-
-        <g>
-          {[{ c: "#C9A24A", l: "ACTIVE NODE" }, { c: "#333", l: "SECTOR GRID" }, { c: "#C9A24A40", l: "ROUTE PATH" }].map((item, i) => (
-            <g key={i} transform={`translate(${950},${460 + i * 18})`}>
-              <circle cx={0} cy={0} r={3} fill={item.c} opacity={0.8} />
-              <text
-                x={12}
-                y={3}
-                fill="#555"
-                fontSize={8}
-                letterSpacing="0.15em"
-                style={{ fontFamily: font.rajdhani }}
-              >
-                {item.l}
-              </text>
-            </g>
-          ))}
-        </g>
-
-        <rect x={30} y={30} width={1140} height={460} fill="none" stroke="#1a1a1a" strokeWidth={1} rx={1} />
-        {[
-          [30, 30],
-          [1170, 30],
-          [30, 490],
-          [1170, 490],
-        ].map(([cx, cy], i) => (
-          <g key={`corner${i}`}>
-            <line x1={cx - 6} y1={cy} x2={cx + 6} y2={cy} stroke="#333" strokeWidth={0.8} />
-            <line x1={cx} y1={cy - 6} x2={cx} y2={cy + 6} stroke="#333" strokeWidth={0.8} />
-          </g>
-        ))}
       </svg>
     </div>
   );
