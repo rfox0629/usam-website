@@ -108,63 +108,11 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
-  const tableCenter = { x: 264, y: 246 };
-  const [worldPaths, setWorldPaths] = useState<string[]>([]);
-  const [usaNationPath, setUsaNationPath] = useState("");
-  const [usaStatePaths, setUsaStatePaths] = useState<string[]>([]);
+  const tableCenter = { x: 480, y: 246 };
   const seats = Array.from({ length: 8 }).map((_, i) => {
     const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
     return { x: tableCenter.x + Math.cos(angle) * 142, y: tableCenter.y + Math.sin(angle) * 96 };
   });
-
-  useEffect(() => {
-    const loadMaps = async () => {
-      try {
-        const [worldRes, usRes] = await Promise.all([
-          fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"),
-          fetch("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
-        ]);
-        const worldTopo = await worldRes.json();
-        const usTopo = await usRes.json();
-        // @ts-expect-error Browser ESM import from CDN for client-only map rendering
-        const d3 = await import("https://cdn.jsdelivr.net/npm/d3-geo@3/+esm");
-        // @ts-expect-error Browser ESM import from CDN for client-only map rendering
-        const topojsonClient = await import("https://cdn.jsdelivr.net/npm/topojson-client@3/+esm");
-
-        const worldProjection = d3.geoNaturalEarth1().scale(72).translate([744, 184]);
-        const worldPathGen = d3.geoPath().projection(worldProjection);
-        const countries = topojsonClient.feature(worldTopo, worldTopo.objects.countries);
-        const outlines: string[] = [];
-
-        (countries as { features: unknown[] }).features.forEach((feature: unknown) => {
-          const path = worldPathGen(feature as never);
-          if (path) outlines.push(path);
-        });
-
-        setWorldPaths(outlines);
-
-        const usaProjection = d3.geoAlbersUsa().scale(205).translate([tableCenter.x - 8, tableCenter.y + 6]);
-        const usaPathGen = d3.geoPath().projection(usaProjection);
-        const statesFeature = topojsonClient.feature(usTopo, usTopo.objects.states);
-        const stateOutlinePaths: string[] = [];
-
-        (statesFeature as { features: unknown[] }).features.forEach((feature: unknown) => {
-          const path = usaPathGen(feature as never);
-          if (path) stateOutlinePaths.push(path);
-        });
-
-        const nation = topojsonClient.merge(usTopo, usTopo.objects.states.geometries);
-        const nationPath = usaPathGen(nation);
-
-        setUsaNationPath(nationPath || "");
-        setUsaStatePaths(stateOutlinePaths);
-      } catch (error) {
-        console.error("Map load error:", error);
-      }
-    };
-
-    void loadMaps();
-  }, []);
 
   return (
     <div className="relative">
@@ -205,34 +153,25 @@ function ExpansionMap() {
         ))}
         <rect x={0} y={0} width={960} height={460} fill="url(#tableGlow)" />
 
-        {usaNationPath && (
-          <path d={usaNationPath} fill="none" stroke="#6b7280" strokeWidth={0.95} opacity={0.18} />
-        )}
-        {usaStatePaths.map((path, i) => (
-          <path key={`usa-state${i}`} d={path} fill="none" stroke="#a8adb7" strokeWidth={0.42} opacity={0.11} />
-        ))}
-
         {[92, 118, 144].map((r, i) => (
           <ellipse key={`ring${i}`} cx={tableCenter.x} cy={tableCenter.y} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.08 - i * 0.018} strokeDasharray="5,9">
             <animate attributeName="opacity" values={`${0.08 - i * 0.018};${0.025 - i * 0.005};${0.08 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
           </ellipse>
         ))}
 
-        <g transform="translate(-118 0)">
-          <rect x={336} y={112} width={288} height={276} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.2} />
-          <rect x={348} y={124} width={264} height={252} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.8} />
+        <rect x={336} y={112} width={288} height={276} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.2} />
+        <rect x={348} y={124} width={264} height={252} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.8} />
 
-          <line x1={424} y1={88} x2={536} y2={88} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-          <line x1={424} y1={412} x2={536} y2={412} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-          <line x1={306} y1={170} x2={306} y2={250} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-          <line x1={654} y1={170} x2={654} y2={250} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-          <line x1={306} y1={282} x2={306} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-          <line x1={654} y1={282} x2={654} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={424} y1={88} x2={536} y2={88} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={424} y1={412} x2={536} y2={412} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={306} y1={170} x2={306} y2={250} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={654} y1={170} x2={654} y2={250} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={306} y1={282} x2={306} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={654} y1={282} x2={654} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
 
-          <ellipse cx={480} cy={250} rx={92} ry={54} fill="url(#centerPulse)" filter="url(#softGlow)">
-            <animate attributeName="opacity" values="0.8;0.4;0.8" dur="4s" repeatCount="indefinite" />
-          </ellipse>
-        </g>
+        <ellipse cx={tableCenter.x} cy={tableCenter.y} rx={92} ry={54} fill="url(#centerPulse)" filter="url(#softGlow)">
+          <animate attributeName="opacity" values="0.8;0.4;0.8" dur="4s" repeatCount="indefinite" />
+        </ellipse>
 
         {seats.map((s, i) => {
           const angle = (i / 8) * 360;
@@ -260,27 +199,6 @@ function ExpansionMap() {
         </text>
         <text x={tableCenter.x} y={430} textAnchor="middle" fill="#78716c" fontSize={9} letterSpacing="0.32em" style={{ fontFamily: font.rajdhani }}>
           MOVEMENT BEGINS AT THE TABLE
-        </text>
-
-        {worldPaths.map((path, i) => (
-          <path key={`world${i}`} d={path} fill="none" stroke="#2f2f35" strokeWidth={0.55} opacity={0.28} />
-        ))}
-
-        <text x={744} y={132} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.2em" style={{ fontFamily: font.oswald }}>
-          JERUSALEM
-        </text>
-        <text x={782} y={148} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.2em" style={{ fontFamily: font.oswald }}>
-          JUDEA
-        </text>
-        <text x={822} y={124} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.2em" style={{ fontFamily: font.oswald }}>
-          SAMARIA
-        </text>
-        <text x={834} y={322} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.18em" style={{ fontFamily: font.oswald }}>
-          TO THE ENDS OF THE EARTH
-        </text>
-
-        <text x={744} y={394} textAnchor="middle" fill="#78716c" fontSize={8.5} letterSpacing="0.28em" style={{ fontFamily: font.rajdhani }}>
-          FROM THE TABLE TO THE NATIONS
         </text>
 
         <rect x={16} y={16} width={928} height={428} fill="none" stroke="#131313" strokeWidth={0.5} />
