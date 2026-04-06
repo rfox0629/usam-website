@@ -145,14 +145,10 @@ function ExpansionMap() {
             </feMerge>
           </filter>
           <filter id="usaBackdrop">
-            <feColorMatrix in="SourceGraphic" type="luminanceToAlpha" result="alphaMask" />
-            <feComponentTransfer in="alphaMask" result="invertedAlpha">
-              <feFuncA type="table" tableValues="1 0" />
-            </feComponentTransfer>
             <feFlood floodColor="#C9A24A" result="goldFill" />
-            <feComposite in="goldFill" in2="invertedAlpha" operator="in" result="tintedMap" />
+            <feComposite in="goldFill" in2="SourceAlpha" operator="in" result="tintedMap" />
             <feComponentTransfer in="tintedMap">
-              <feFuncA type="linear" slope="0.5" />
+              <feFuncA type="linear" slope="0.58" />
             </feComponentTransfer>
           </filter>
         </defs>
@@ -165,13 +161,13 @@ function ExpansionMap() {
         <rect x={0} y={0} width={960} height={460} fill="url(#tableGlow)" />
 
         <image
-          href="/usa-outline.jpeg"
-          x="120"
-          y="72"
-          width="720"
-          height="432"
+          href="/usa-outline-clean.png"
+          x="92"
+          y="54"
+          width="776"
+          height="466"
           preserveAspectRatio="xMidYMid meet"
-          opacity="0.18"
+          opacity="0.2"
           filter="url(#usaBackdrop)"
         />
 
@@ -181,15 +177,15 @@ function ExpansionMap() {
           </ellipse>
         ))}
 
-        <rect x={336} y={112} width={288} height={276} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.2} />
-        <rect x={348} y={124} width={264} height={252} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.8} />
+        <rect x={348} y={122} width={264} height={252} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.2} />
+        <rect x={360} y={134} width={240} height={228} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.8} />
 
-        <line x1={424} y1={88} x2={536} y2={88} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={424} y1={412} x2={536} y2={412} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={306} y1={170} x2={306} y2={250} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={654} y1={170} x2={654} y2={250} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={306} y1={282} x2={306} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={654} y1={282} x2={654} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={432} y1={96} x2={528} y2={96} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={432} y1={404} x2={528} y2={404} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={324} y1={176} x2={324} y2={246} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={636} y1={176} x2={636} y2={246} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={324} y1={292} x2={324} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={636} y1={292} x2={636} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
 
         <ellipse cx={tableCenter.x} cy={tableCenter.y} rx={92} ry={54} fill="url(#centerPulse)" filter="url(#softGlow)">
           <animate attributeName="opacity" values="0.8;0.4;0.8" dur="4s" repeatCount="indefinite" />
@@ -366,6 +362,16 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <Reveal><SectionHeading overline="STRATEGIC EXPANSION" headline="FROM HERE TO THE NATIONS"><p>It starts here.<br/>But it does not end here.</p></SectionHeading></Reveal>
           <Reveal delay={200}><div className="mt-16"><ExpansionMap/></div></Reveal>
+          <Reveal delay={300}>
+            <div className="mt-16 text-center">
+              <p className="text-base md:text-lg text-stone-300 leading-relaxed max-w-3xl mx-auto">
+                "But you will receive power when the Holy Spirit has come upon you, and you will be my witnesses in Jerusalem and in all Judea and Samaria, and to the end of the earth."
+              </p>
+              <p className="mt-4 text-xs tracking-[0.32em] text-amber-600/70 uppercase" style={{fontFamily:font.rajdhani}}>
+                Acts 1:8
+              </p>
+            </div>
+          </Reveal>
         </div>
       </section>
 
