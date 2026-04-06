@@ -153,6 +153,17 @@ function ExpansionMap() {
         ))}
         <rect x={0} y={0} width={960} height={460} fill="url(#tableGlow)" />
 
+        <g opacity={0.16} transform="translate(170 78) scale(0.58)">
+          <path
+            d="M52 110 L76 88 L118 72 L176 58 L240 46 L318 42 L392 54 L470 66 L548 80 L622 96 L686 114 L744 138 L792 172 L826 206 L842 238 L832 260 L804 278 L770 292 L734 306 L704 320 L674 336 L642 352 L606 364 L566 374 L522 382 L480 388 L438 390 L398 384 L360 374 L324 360 L294 344 L266 326 L240 310 L214 298 L186 288 L156 280 L126 268 L98 252 L76 230 L62 206 L54 182 Z"
+            fill="none"
+            stroke="#7c7361"
+            strokeWidth={2.2}
+          />
+          <path d="M782 360 L804 350 L832 352 L850 364 L844 384 L824 394 L798 392 L784 380 Z" fill="none" stroke="#7c7361" strokeWidth={1.8} />
+          <path d="M740 372 L748 366 L758 370 L754 380 L744 382 Z" fill="none" stroke="#7c7361" strokeWidth={1.6} />
+        </g>
+
         {[92, 118, 144].map((r, i) => (
           <ellipse key={`ring${i}`} cx={tableCenter.x} cy={tableCenter.y} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.08 - i * 0.018} strokeDasharray="5,9">
             <animate attributeName="opacity" values={`${0.08 - i * 0.018};${0.025 - i * 0.005};${0.08 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
@@ -191,16 +202,9 @@ function ExpansionMap() {
         <text x={tableCenter.x} y={236} textAnchor="middle" fill="#f5f5f4" fontSize={56} letterSpacing="0.06em" style={{ fontFamily: font.oswald }}>
           TABLE
         </text>
-        <text x={tableCenter.x} y={286} textAnchor="middle" fill="#f5f5f4" fontSize={32} letterSpacing="0.12em" style={{ fontFamily: font.oswald }}>
-          ORIGIN
-        </text>
-        <text x={tableCenter.x} y={332} textAnchor="middle" fill="#C9A24A" fontSize={11} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
+        <text x={tableCenter.x} y={308} textAnchor="middle" fill="#C9A24A" fontSize={11} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
           IT STARTS HERE
         </text>
-        <text x={tableCenter.x} y={430} textAnchor="middle" fill="#78716c" fontSize={9} letterSpacing="0.32em" style={{ fontFamily: font.rajdhani }}>
-          MOVEMENT BEGINS AT THE TABLE
-        </text>
-
         <rect x={16} y={16} width={928} height={428} fill="none" stroke="#131313" strokeWidth={0.5} />
         {[
           [16, 16],
