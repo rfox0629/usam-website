@@ -148,7 +148,7 @@ function ExpansionMap() {
             <feFlood floodColor="#C9A24A" result="goldFill" />
             <feComposite in="goldFill" in2="SourceAlpha" operator="in" result="tintedMap" />
             <feComponentTransfer in="tintedMap">
-              <feFuncA type="linear" slope="0.58" />
+              <feFuncA type="linear" slope="0.78" />
             </feComponentTransfer>
           </filter>
         </defs>
@@ -162,12 +162,12 @@ function ExpansionMap() {
 
         <image
           href="/usa-outline-clean.png"
-          x="92"
-          y="54"
-          width="776"
-          height="466"
+          x="62"
+          y="38"
+          width="836"
+          height="502"
           preserveAspectRatio="xMidYMid meet"
-          opacity="0.2"
+          opacity="0.28"
           filter="url(#usaBackdrop)"
         />
 
@@ -363,7 +363,7 @@ export default function Home() {
           <Reveal><SectionHeading overline="STRATEGIC EXPANSION" headline="FROM HERE TO THE NATIONS"><p>It starts here.<br/>But it does not end here.</p></SectionHeading></Reveal>
           <Reveal delay={200}><div className="mt-16"><ExpansionMap/></div></Reveal>
           <Reveal delay={300}>
-            <div className="mt-16 text-center">
+            <div className="mt-24 md:mt-28 text-center">
               <p className="text-base md:text-lg text-stone-300 leading-relaxed max-w-3xl mx-auto">
                 "But you will receive power when the Holy Spirit has come upon you, and you will be my witnesses in Jerusalem and in all Judea and Samaria, and to the end of the earth."
               </p>
