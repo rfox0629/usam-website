@@ -144,6 +144,17 @@ function ExpansionMap() {
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <filter id="usaBackdrop">
+            <feColorMatrix in="SourceGraphic" type="luminanceToAlpha" result="alphaMask" />
+            <feComponentTransfer in="alphaMask" result="invertedAlpha">
+              <feFuncA type="table" tableValues="1 0" />
+            </feComponentTransfer>
+            <feFlood floodColor="#C9A24A" result="goldFill" />
+            <feComposite in="goldFill" in2="invertedAlpha" operator="in" result="tintedMap" />
+            <feComponentTransfer in="tintedMap">
+              <feFuncA type="linear" slope="0.5" />
+            </feComponentTransfer>
+          </filter>
         </defs>
         {Array.from({ length: 20 }).map((_, i) => (
           <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={460} stroke="#0c0c0c" strokeWidth={0.3} />
@@ -153,16 +164,16 @@ function ExpansionMap() {
         ))}
         <rect x={0} y={0} width={960} height={460} fill="url(#tableGlow)" />
 
-        <g opacity={0.16} transform="translate(170 78) scale(0.58)">
-          <path
-            d="M52 110 L76 88 L118 72 L176 58 L240 46 L318 42 L392 54 L470 66 L548 80 L622 96 L686 114 L744 138 L792 172 L826 206 L842 238 L832 260 L804 278 L770 292 L734 306 L704 320 L674 336 L642 352 L606 364 L566 374 L522 382 L480 388 L438 390 L398 384 L360 374 L324 360 L294 344 L266 326 L240 310 L214 298 L186 288 L156 280 L126 268 L98 252 L76 230 L62 206 L54 182 Z"
-            fill="none"
-            stroke="#7c7361"
-            strokeWidth={2.2}
-          />
-          <path d="M782 360 L804 350 L832 352 L850 364 L844 384 L824 394 L798 392 L784 380 Z" fill="none" stroke="#7c7361" strokeWidth={1.8} />
-          <path d="M740 372 L748 366 L758 370 L754 380 L744 382 Z" fill="none" stroke="#7c7361" strokeWidth={1.6} />
-        </g>
+        <image
+          href="/usa-outline.jpeg"
+          x="120"
+          y="72"
+          width="720"
+          height="432"
+          preserveAspectRatio="xMidYMid meet"
+          opacity="0.18"
+          filter="url(#usaBackdrop)"
+        />
 
         {[92, 118, 144].map((r, i) => (
           <ellipse key={`ring${i}`} cx={tableCenter.x} cy={tableCenter.y} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.08 - i * 0.018} strokeDasharray="5,9">
