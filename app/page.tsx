@@ -163,9 +163,9 @@ function ExpansionMap() {
         <image
           href="/usa-outline-clean.png"
           x="62"
-          y="38"
+          y="24"
           width="836"
-          height="502"
+          height="468"
           preserveAspectRatio="xMidYMid meet"
           opacity="0.28"
           filter="url(#usaBackdrop)"
