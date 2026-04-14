@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useState, useEffect, useRef } from "react";
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
@@ -15,14 +16,18 @@ function SectionHeading({ overline, headline, children, align = "center" }: {
   );
 }
 
-function CTAButton({ children, variant = "primary" }: { children: React.ReactNode; variant?: string }) {
+function CTAButton({ children, variant = "primary", href }: { children: React.ReactNode; variant?: string; href?: string }) {
   const cls = variant === "primary"
     ? "bg-stone-100 text-stone-950 hover:bg-amber-200"
     : "border border-stone-600 text-stone-400 hover:border-stone-400 hover:text-stone-200";
-  return (
-    <button className={`inline-block px-7 py-3 text-sm tracking-[0.2em] uppercase transition-all duration-300 cursor-pointer ${cls}`}
-      style={{ fontFamily: font.rajdhani, fontWeight: 600 }}>{children}</button>
-  );
+  const className = `inline-block px-7 py-3 text-sm tracking-[0.2em] uppercase transition-all duration-300 cursor-pointer ${cls}`;
+  const style = { fontFamily: font.rajdhani, fontWeight: 600 } as const;
+
+  if (href) {
+    return <Link href={href} className={className} style={style}>{children}</Link>;
+  }
+
+  return <button className={className} style={style}>{children}</button>;
 }
 
 function AnimCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
@@ -177,15 +182,15 @@ function ExpansionMap() {
           </ellipse>
         ))}
 
-        <rect x={348} y={122} width={264} height={252} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.2} />
-        <rect x={360} y={134} width={240} height={228} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.8} />
+        <rect x={364} y={134} width={232} height={220} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.2} />
+        <rect x={376} y={146} width={208} height={196} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.8} />
 
-        <line x1={432} y1={96} x2={528} y2={96} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={432} y1={404} x2={528} y2={404} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={324} y1={176} x2={324} y2={246} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={636} y1={176} x2={636} y2={246} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={324} y1={292} x2={324} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={636} y1={292} x2={636} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={438} y1={104} x2={522} y2={104} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={438} y1={396} x2={522} y2={396} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={336} y1={182} x2={336} y2={240} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={624} y1={182} x2={624} y2={240} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={336} y1={296} x2={336} y2={354} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={624} y1={296} x2={624} y2={354} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
 
         <ellipse cx={tableCenter.x} cy={tableCenter.y} rx={92} ry={54} fill="url(#centerPulse)" filter="url(#softGlow)">
           <animate attributeName="opacity" values="0.8;0.4;0.8" dur="4s" repeatCount="indefinite" />
@@ -203,13 +208,13 @@ function ExpansionMap() {
           );
         })}
 
-        <text x={tableCenter.x} y={176} textAnchor="middle" fill="#f5f5f4" fontSize={24} letterSpacing="0.14em" style={{ fontFamily: font.oswald }}>
+        <text x={tableCenter.x} y={188} textAnchor="middle" fill="#f5f5f4" fontSize={22} letterSpacing="0.14em" style={{ fontFamily: font.oswald }}>
           THE
         </text>
-        <text x={tableCenter.x} y={236} textAnchor="middle" fill="#f5f5f4" fontSize={56} letterSpacing="0.06em" style={{ fontFamily: font.oswald }}>
+        <text x={tableCenter.x} y={246} textAnchor="middle" fill="#f5f5f4" fontSize={50} letterSpacing="0.06em" style={{ fontFamily: font.oswald }}>
           TABLE
         </text>
-        <text x={tableCenter.x} y={308} textAnchor="middle" fill="#C9A24A" fontSize={11} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
+        <text x={tableCenter.x} y={300} textAnchor="middle" fill="#C9A24A" fontSize={11} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
           IT STARTS HERE
         </text>
         <rect x={16} y={16} width={928} height={428} fill="none" stroke="#131313" strokeWidth={0.5} />
@@ -284,6 +289,129 @@ function StatCard({ label, value, suffix }: { label: string; value: number; suff
   );
 }
 
+function formatPopulation(value: number) {
+  return new Intl.NumberFormat("en-US").format(Math.floor(value));
+}
+
+function GlobalUrgencySection() {
+  const basePopulation = 8_300_000_000;
+  const initialOffset = 640;
+  const growthPerSecond = 2.2;
+  const [population, setPopulation] = useState(basePopulation - initialOffset);
+  const [sessionGrowth, setSessionGrowth] = useState(0);
+
+  useEffect(() => {
+    const startedAt = performance.now();
+    let frameId = 0;
+
+    const tick = (now: number) => {
+      const elapsedSeconds = (now - startedAt) / 1000;
+      const easedIntro = Math.min(elapsedSeconds / 3.2, 1);
+      const introOffset = initialOffset * Math.pow(1 - easedIntro, 3);
+      const liveGrowth = elapsedSeconds * growthPerSecond;
+
+      setPopulation(basePopulation - introOffset + liveGrowth);
+      setSessionGrowth(liveGrowth);
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
+
+  const religionStats = [
+    { label: "Christians", value: "2.3 Billion", detail: "About 28.8% of the world" },
+    { label: "Muslims", value: "2.0 Billion", detail: "About 25.6% of the world" },
+    { label: "Religiously Unaffiliated", value: "1.9 Billion", detail: "About 24.2% of the world" },
+    { label: "Hindus", value: "1.2 Billion", detail: "About 14.9% of the world" },
+    { label: "Buddhists", value: "324 Million", detail: "About 4.1% of the world" },
+    { label: "Other Religions", value: "172 Million", detail: "About 2.2% of the world" },
+    { label: "Jews", value: "14.8 Million", detail: "About 0.2% of the world" },
+  ];
+
+  return (
+    <section className="relative px-6 py-24 md:py-32 overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_18%,rgba(201,162,74,0.08),transparent_22%),radial-gradient(circle_at_50%_60%,rgba(255,255,255,0.025),transparent_34%)]" />
+      <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[length:84px_84px] opacity-40" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_44%,#050505_100%)]" />
+      <div className="relative max-w-6xl mx-auto">
+        <div className="text-center max-w-3xl mx-auto">
+          <p className="text-xs tracking-[0.38em] text-amber-600/60 mb-4 uppercase" style={{ fontFamily: font.rajdhani }}>
+            GLOBAL URGENCY
+          </p>
+          <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-stone-100 leading-none" style={{ fontFamily: font.oswald }}>
+            THE HARVEST
+            <br />
+            IS GREAT
+          </h2>
+          <p className="mt-7 text-base md:text-lg leading-relaxed text-stone-400">
+            The world is growing every second. The mission is urgent.
+          </p>
+        </div>
+
+        <div className="mt-14">
+          <div className="relative overflow-hidden rounded-[28px] border border-amber-500/15 bg-[radial-gradient(circle_at_18%_50%,rgba(201,162,74,0.1),transparent_26%),linear-gradient(180deg,rgba(12,12,12,0.98),rgba(8,8,8,0.98))] px-6 py-7 shadow-[0_24px_80px_rgba(0,0,0,0.28)] md:px-8 md:py-8 lg:px-10 lg:py-9">
+            <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:84px_84px] opacity-30" />
+            <div className="absolute inset-y-6 left-0 w-px bg-gradient-to-b from-transparent via-amber-500/40 to-transparent" />
+            <div className="relative grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+              <div>
+                <p className="text-[11px] tracking-[0.34em] text-stone-500 uppercase" style={{ fontFamily: font.rajdhani }}>
+                  World Population
+                </p>
+                <div className="mt-5 text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-stone-100 leading-[0.95]" style={{ fontFamily: font.oswald }}>
+                  8.3 Billion+
+                </div>
+                <p className="mt-4 text-sm md:text-base text-stone-400">
+                  Currently about <span className="text-stone-200">{formatPopulation(population)}</span> worldwide
+                </p>
+              </div>
+              <div className="lg:max-w-md lg:justify-self-end">
+                <p className="text-sm tracking-[0.28em] text-amber-500/75 uppercase" style={{ fontFamily: font.rajdhani }}>
+                  Global growth rate
+                </p>
+                <p className="mt-4 text-base md:text-lg leading-relaxed text-stone-300">
+                  Growing by about <span className="text-stone-100">2.2 people every second</span>
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-stone-500">
+                  Roughly <span className="text-amber-400/90">{sessionGrowth.toFixed(1)}</span> people added since this page loaded
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {religionStats.map((stat) => (
+            <div
+              key={stat.label}
+              className="group min-h-[172px] rounded-2xl border border-stone-800/65 bg-[linear-gradient(180deg,rgba(14,14,14,0.94),rgba(10,10,10,0.9))] p-7 transition-all duration-300 hover:-translate-y-0.5 hover:border-stone-700/80 hover:bg-[linear-gradient(180deg,rgba(18,18,18,0.96),rgba(12,12,12,0.92))]"
+            >
+              <p className="text-[11px] tracking-[0.28em] text-stone-500 uppercase group-hover:text-stone-400" style={{ fontFamily: font.rajdhani }}>
+                {stat.label}
+              </p>
+              <div className="mt-5 text-3xl md:text-[2.2rem] font-bold tracking-tight text-stone-100 leading-none" style={{ fontFamily: font.oswald }}>
+                {stat.value}
+              </div>
+              <p className="mt-5 text-sm md:text-[15px] leading-relaxed text-stone-400">
+                {stat.detail}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-12 text-center max-w-3xl mx-auto">
+          <p className="text-lg md:text-2xl text-stone-200">
+            Every number is a soul. Every second matters.
+          </p>
+          <p className="mt-5 text-xs tracking-[0.22em] text-stone-600 uppercase" style={{ fontFamily: font.rajdhani }}>
+            Sources: Worldometer and Pew Research Center
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const [scrollY, setScrollY] = useState(0);
   useEffect(() => {
@@ -302,8 +430,8 @@ export default function Home() {
             <span className="text-sm tracking-[0.35em] text-stone-300 font-medium" style={{fontFamily:font.oswald}}>USA MISSIONARIES</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
-            {["Mission","Movement","System","Deploy"].map(item=>(
-              <a key={item} href="#" className="text-xs tracking-[0.2em] text-stone-500 hover:text-stone-200 transition-colors uppercase" style={{fontFamily:font.rajdhani,fontWeight:600}}>{item}</a>
+            {[{ label: "Mission", href: "/mission" }, { label: "Movement", href: "#movement" }, { label: "System", href: "/system" }, { label: "Deploy", href: "#deploy" }].map(item=>(
+              <a key={item.label} href={item.href} className="text-xs tracking-[0.2em] text-stone-500 hover:text-stone-200 transition-colors uppercase" style={{fontFamily:font.rajdhani,fontWeight:600}}>{item.label}</a>
             ))}
           </div>
         </div>
@@ -332,16 +460,18 @@ export default function Home() {
           </Reveal>
           <Reveal delay={500}>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <CTAButton>Enter the Mission</CTAButton>
-              <CTAButton variant="secondary">Access Briefing</CTAButton>
+              <CTAButton href="/mission">Enter the Mission</CTAButton>
+              <CTAButton variant="secondary" href="/mission#briefing">Access Briefing</CTAButton>
             </div>
           </Reveal>
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-32" style={{background:"linear-gradient(transparent,#050505)"}}/>
       </section>
 
+      <GlobalUrgencySection />
+
       {/* IDENTITY */}
-      <section className="py-28 md:py-40 px-6">
+      <section id="movement" className="py-28 md:py-40 px-6">
         <div className="max-w-4xl mx-auto">
           <Reveal><div className="w-12 h-px bg-stone-700 mx-auto"/></Reveal>
           <div className="mt-16 text-center">
@@ -376,7 +506,7 @@ export default function Home() {
       </section>
 
       {/* MISSION MODEL */}
-      <section className="py-28 md:py-40 px-6">
+      <section id="deploy" className="py-28 md:py-40 px-6">
         <div className="max-w-5xl mx-auto">
           <Reveal><SectionHeading overline="THE MODEL" headline="MEET. MINISTER. MULTIPLY."><p>Simple. Repeatable. Scalable.</p></SectionHeading></Reveal>
           <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-px bg-stone-800/30">
@@ -400,7 +530,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <Reveal><SectionHeading align="left" overline="SYSTEM LAYER" headline="THE INFRASTRUCTURE IS BEING BUILT"><p>A system designed to equip operators, track movement, and support multiplication at scale.</p></SectionHeading></Reveal>
-              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary">View the System</CTAButton></div></Reveal>
+              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary" href="/system">View the System</CTAButton></div></Reveal>
             </div>
             <Reveal delay={300}><DOSPanel/></Reveal>
           </div>
