@@ -6,3 +6,29 @@ body {
   background: #050505;
   color: #e7e5e4;
 }
+
+@layer components {
+  .tactical-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.15);
+  }
+
+  .tactical-amber-label {
+    color: #f2b544;
+    opacity: 1;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-shadow: 0 0 8px rgba(245, 166, 35, 0.25);
+  }
+
+  .tactical-muted-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.15);
+  }
+}

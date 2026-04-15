@@ -1,0 +1,26 @@
+{
+  "source": "Local JSON",
+  "lastUpdated": "2026-04-14",
+  "summary": [
+    {
+      "label": "Active Cities",
+      "value": 27,
+      "note": "4 in launch rhythm"
+    },
+    {
+      "label": "Live Tables",
+      "value": 118,
+      "note": "14 ready to multiply"
+    },
+    {
+      "label": "Active Operators",
+      "value": 43,
+      "note": "9 in training"
+    },
+    {
+      "label": "New This Month",
+      "value": 16,
+      "note": "tables + operators added"
+    }
+  ]
+}

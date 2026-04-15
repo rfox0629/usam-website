@@ -1,0 +1,70 @@
+{
+  "source": "Local JSON",
+  "lastUpdated": "2026-04-14",
+  "summary": [
+    {
+      "label": "Total in Commands Track",
+      "value": 186,
+      "note": "across all active pathways"
+    },
+    {
+      "label": "Active Now",
+      "value": 94,
+      "note": "currently progressing"
+    },
+    {
+      "label": "Completed",
+      "value": 61,
+      "note": "finished current command"
+    },
+    {
+      "label": "New This Month",
+      "value": 31,
+      "note": "entered the track in April"
+    }
+  ],
+  "table": [
+    {
+      "name": "Jordan M.",
+      "currentCommand": "Repent and Believe",
+      "status": "Active",
+      "lastActivity": "2 days ago",
+      "nextStep": "Follow-up conversation"
+    },
+    {
+      "name": "Elena R.",
+      "currentCommand": "Be Baptized",
+      "status": "Active",
+      "lastActivity": "Today",
+      "nextStep": "Schedule baptism date"
+    },
+    {
+      "name": "Marcus T.",
+      "currentCommand": "Pray",
+      "status": "Completed",
+      "lastActivity": "4 days ago",
+      "nextStep": "Advance to give"
+    },
+    {
+      "name": "Avery S.",
+      "currentCommand": "Give",
+      "status": "New",
+      "lastActivity": "Yesterday",
+      "nextStep": "First generosity action"
+    },
+    {
+      "name": "Naomi K.",
+      "currentCommand": "Go and Make Disciples",
+      "status": "Active",
+      "lastActivity": "Today",
+      "nextStep": "Start first table"
+    },
+    {
+      "name": "Daniel P.",
+      "currentCommand": "Love Your Neighbor",
+      "status": "Completed",
+      "lastActivity": "3 days ago",
+      "nextStep": "Move into serve rhythm"
+    }
+  ]
+}

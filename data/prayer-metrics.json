@@ -1,0 +1,27 @@
+{
+  "source": "Local JSON",
+  "lastUpdated": "2026-04-14",
+  "summary": [
+    {
+      "label": "Total Prayer Members",
+      "value": 312,
+      "note": "covering the mission weekly"
+    },
+    {
+      "label": "New This Month",
+      "value": 28,
+      "note": "joined prayer coverage in April"
+    },
+    {
+      "label": "States Represented",
+      "value": 19,
+      "note": "growing national prayer reach"
+    }
+  ],
+  "frequencies": [
+    "Daily",
+    "A few times a week",
+    "Weekly",
+    "As needed"
+  ]
+}

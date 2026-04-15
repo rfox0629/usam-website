@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import React, { useState, useEffect, useRef } from "react";
+import { PrimaryNav } from "../components/PrimaryNav";
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 function SectionHeading({ overline, headline, children, align = "center" }: {
@@ -8,21 +10,35 @@ function SectionHeading({ overline, headline, children, align = "center" }: {
 }) {
   return (
     <div className={`${align === "left" ? "text-left" : "text-center"} max-w-3xl ${align === "center" ? "mx-auto" : ""}`}>
-      {overline && <p className="text-xs tracking-[0.35em] text-stone-500 mb-4" style={{ fontFamily: font.rajdhani }}>{overline}</p>}
+      {overline && <p className="tactical-label mb-4 uppercase" style={{ fontFamily: font.rajdhani }}>{overline}</p>}
       <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-stone-100 leading-tight" style={{ fontFamily: font.oswald }}>{headline}</h2>
       {children && <div className="mt-5 text-stone-400 text-base md:text-lg leading-relaxed">{children}</div>}
     </div>
   );
 }
 
-function CTAButton({ children, variant = "primary" }: { children: React.ReactNode; variant?: string }) {
+function CTAButton({
+  children,
+  variant = "primary",
+  href,
+  onClick,
+}: {
+  children: React.ReactNode;
+  variant?: string;
+  href?: string;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
+}) {
   const cls = variant === "primary"
     ? "bg-stone-100 text-stone-950 hover:bg-amber-200"
     : "border border-stone-600 text-stone-400 hover:border-stone-400 hover:text-stone-200";
-  return (
-    <button className={`inline-block px-7 py-3 text-sm tracking-[0.2em] uppercase transition-all duration-300 cursor-pointer ${cls}`}
-      style={{ fontFamily: font.rajdhani, fontWeight: 600 }}>{children}</button>
-  );
+  const className = `inline-block px-7 py-3 text-sm tracking-[0.2em] uppercase transition-all duration-300 cursor-pointer ${cls}`;
+  const style = { fontFamily: font.rajdhani, fontWeight: 600 } as const;
+
+  if (href) {
+    return <Link href={href} className={className} style={style}>{children}</Link>;
+  }
+
+  return <button type="button" onClick={onClick} className={className} style={style}>{children}</button>;
 }
 
 function AnimCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
@@ -67,6 +83,10 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
       {children}
     </div>
   );
+}
+
+function formatPopulation(value: number) {
+  return new Intl.NumberFormat("en-US").format(Math.floor(value));
 }
 
 function WorldMap() {
@@ -118,12 +138,12 @@ function ExpansionMap() {
     <div className="relative">
       <div className="absolute top-3 left-4 z-10 flex items-center gap-2">
         <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-        <span className="text-[10px] tracking-[0.4em] text-stone-600 uppercase" style={{ fontFamily: font.rajdhani }}>
+        <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
           DEPLOYMENT ORIGIN — LIVE
         </span>
       </div>
       <div className="absolute top-3 right-4 z-10 text-right">
-        <span className="text-[10px] tracking-[0.3em] text-stone-700 block" style={{ fontFamily: font.rajdhani }}>
+        <span className="tactical-label block uppercase" style={{ fontFamily: font.rajdhani }}>
           STATUS: ACTIVE
         </span>
       </div>
@@ -229,6 +249,163 @@ function ExpansionMap() {
   );
 }
 
+function GlobalUrgencySection() {
+  const growthPerSecond = 2.2;
+  const [addedSinceLoad, setAddedSinceLoad] = useState(0);
+  const religionData = [
+    { label: "Christians", value: "2.3 Billion", percent: "28.8%" },
+    { label: "Muslims", value: "2.0 Billion", percent: "25.6%" },
+    { label: "Religiously Unaffiliated", value: "1.9 Billion", percent: "24.2%" },
+  ] as const;
+  const americaStats = [
+    {
+      label: "SELF-IDENTIFIED CHRISTIANS",
+      stat: "64%",
+      note: "Down from 76% in 2000",
+      source: "Barna Group",
+    },
+    {
+      label: "CHURCH ATTENDANCE",
+      stat: "30%",
+      note: "Adults attending weekly, down from 42%",
+      source: "Gallup",
+    },
+    {
+      label: "GEN Z IDENTIFYING AS CHRISTIAN",
+      stat: "52%",
+      note: "Lowest of any generation measured",
+      source: "Barna Group",
+    },
+  ] as const;
+
+  useEffect(() => {
+    const startedAt = performance.now();
+    const intervalId = window.setInterval(() => {
+      const elapsedSeconds = (performance.now() - startedAt) / 1000;
+      setAddedSinceLoad(elapsedSeconds * growthPerSecond);
+    }, 450);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <section className="relative overflow-hidden px-6 py-10 md:py-14">
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_18%,rgba(201,162,74,0.08),transparent_22%),radial-gradient(circle_at_50%_60%,rgba(255,255,255,0.025),transparent_34%)]" />
+      <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[length:84px_84px] opacity-40" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_44%,#050505_100%)]" />
+      <div className="relative max-w-6xl mx-auto">
+        <div className="text-center max-w-3xl mx-auto">
+          <p className="tactical-label mb-2 uppercase" style={{ fontFamily: font.rajdhani }}>
+            FIELD INTELLIGENCE
+          </p>
+          <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-stone-100 leading-none" style={{ fontFamily: font.oswald }}>
+            THE URGENCY
+          </h2>
+          <p className="mt-3 text-base md:text-lg leading-relaxed text-stone-400">
+            The harvest is great. The time is now.
+          </p>
+        </div>
+
+        <div className="mt-6">
+          <div className="border border-stone-800/60 bg-[#080808] p-5 md:p-6">
+            <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:items-center">
+              <div>
+                <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+                  WORLD POPULATION
+                </p>
+                <div className="mt-2 text-[36px] md:text-[38px] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                  8.3 Billion+
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-stone-200 md:text-base">
+                  Every number is a soul. Every second matters.
+                </p>
+              </div>
+              <div>
+                <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+                  GLOBAL GROWTH RATE
+                </p>
+                <p className="mt-2 text-base md:text-[16px] leading-relaxed text-stone-300">
+                  Growing by about 2.2 people every second
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-stone-500">
+                  Roughly <span className="text-amber-500/80">{formatPopulation(addedSinceLoad)}</span> people added since this page loaded
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <div className="grid gap-px bg-stone-800/30 md:grid-cols-3">
+            {religionData.map((item) => (
+              <div key={item.label} className="border border-stone-800/60 bg-stone-950/60 p-4">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                  {item.label}
+                </div>
+                <div className="mt-2 text-[20px] md:text-[22px] leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                  {item.value}
+                </div>
+                <div className="mt-2 text-xs text-stone-500">
+                  {item.percent} of the world
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-center text-[10px] uppercase tracking-[0.24em] text-stone-600" style={{ fontFamily: font.rajdhani }}>
+            SOURCES: WORLDOMETER AND PEW RESEARCH CENTER
+          </p>
+        </div>
+
+        <div className="mt-6 border-t border-stone-800/60 pt-6">
+          <div className="max-w-4xl">
+            <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+              AMERICAN CRISIS
+            </p>
+            <h3 className="mt-3 text-3xl md:text-5xl font-bold tracking-tight leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+              THE DECLINE IS REAL
+            </h3>
+          </div>
+
+          <div className="mt-4 grid gap-1 md:grid-cols-3">
+            {americaStats.map((item) => (
+              <div key={item.label} className="border border-amber-500/18 bg-stone-950/70 p-4">
+                <div className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+                  {item.label}
+                </div>
+                <div className="mt-3 text-5xl md:text-6xl text-stone-100" style={{ fontFamily: font.oswald }}>
+                  {item.stat}
+                </div>
+                <div className="mt-2 text-sm leading-relaxed text-stone-400">{item.note}</div>
+                <div className="mt-4 border-t border-stone-800/80 pt-3 text-xs uppercase tracking-[0.24em] text-amber-500/75" style={{ fontFamily: font.rajdhani }}>
+                  {item.source}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 border border-stone-800/65 bg-[linear-gradient(180deg,rgba(14,14,14,0.95),rgba(9,9,9,0.92))] px-6 py-6 md:px-8 md:py-7">
+            <div className="max-w-4xl mx-auto text-center">
+              <p
+                className="whitespace-pre-line uppercase text-amber-500/80"
+                style={{ fontFamily: font.rajdhani, fontWeight: 500, fontSize: "11px", letterSpacing: "0.24em", lineHeight: 1.9 }}
+              >
+                {`This is not a dip. It is a long erosion.
+It reflects a deeper breakdown in discipleship, formation, and mission.`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 text-center max-w-3xl mx-auto">
+          <p className="text-xl md:text-3xl text-stone-100" style={{ fontFamily: font.oswald }}>
+            USA Missionaries exists to reverse it.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function DOSPanel() {
   const rows = [
     { op: "OPR-0042", city: "Austin, TX", status: "Active", tables: 3 },
@@ -242,7 +419,7 @@ function DOSPanel() {
       <div className="border-b border-stone-800/60 px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500/70 animate-pulse"/>
-          <span className="text-xs tracking-[0.3em] text-stone-500" style={{fontFamily:font.rajdhani}}>DOS // OPERATOR DASHBOARD</span>
+          <span className="tactical-label" style={{fontFamily:font.rajdhani}}>SYSTEM // OPERATOR DASHBOARD</span>
         </div>
         <span className="text-xs text-stone-600" style={{fontFamily:font.rajdhani}}>v0.1.0-alpha</span>
       </div>
@@ -273,17 +450,6 @@ function DOSPanel() {
   );
 }
 
-function StatCard({ label, value, suffix }: { label: string; value: number; suffix?: string }) {
-  return (
-    <div className="border border-stone-800/50 bg-stone-900/30 p-6 md:p-8 text-center">
-      <div className="text-4xl md:text-5xl font-bold text-stone-100 mb-2" style={{fontFamily:font.oswald}}>
-        <AnimCounter target={value} suffix={suffix}/>
-      </div>
-      <div className="text-xs tracking-[0.3em] text-stone-500 uppercase" style={{fontFamily:font.rajdhani}}>{label}</div>
-    </div>
-  );
-}
-
 export default function Home() {
   const [scrollY, setScrollY] = useState(0);
   useEffect(() => {
@@ -292,22 +458,14 @@ export default function Home() {
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
+  const scrollToIdentity = () => {
+    document.getElementById("identity")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <main className="min-h-screen">
       {/* NAV */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-stone-800/30" style={{background:"rgba(5,5,5,0.85)",backdropFilter:"blur(12px)"}}>
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-2.5 h-2.5 bg-amber-500/70 rotate-45"/>
-            <span className="text-sm tracking-[0.35em] text-stone-300 font-medium" style={{fontFamily:font.oswald}}>USA MISSIONARIES</span>
-          </div>
-          <div className="hidden md:flex items-center gap-8">
-            {["Mission","Movement","System","Deploy"].map(item=>(
-              <a key={item} href="#" className="text-xs tracking-[0.2em] text-stone-500 hover:text-stone-200 transition-colors uppercase" style={{fontFamily:font.rajdhani,fontWeight:600}}>{item}</a>
-            ))}
-          </div>
-        </div>
-      </nav>
+      <PrimaryNav active="mission" fixed />
 
       {/* HERO */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
@@ -315,33 +473,44 @@ export default function Home() {
         <div className="absolute inset-0 pointer-events-none" style={{backgroundImage:"linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px)",backgroundSize:"80px 80px"}}/>
         <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at 35% 45%,rgba(212,160,84,0.04) 0%,transparent 60%)"}}/>
         <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center,transparent 40%,#050505 100%)"}}/>
+        <div className="absolute inset-0 pointer-events-none" style={{background:"radial-gradient(ellipse at center,rgba(5,5,5,0.66) 0%,rgba(5,5,5,0.48) 24%,rgba(5,5,5,0.14) 52%,transparent 72%)"}}/>
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
           <Reveal>
-            <div className="flex items-center justify-center gap-3 mb-8">
-              <div className="w-8 h-px bg-stone-600"/><span className="text-xs tracking-[0.5em] text-stone-500" style={{fontFamily:font.rajdhani}}>ACTIVE DEPLOYMENT</span><div className="w-8 h-px bg-stone-600"/>
+            <div className="flex items-center justify-center gap-3 mb-9">
+              <div className="w-9 h-[1.5px] bg-amber-500/45"/><span className="tactical-label uppercase" style={{fontFamily:font.rajdhani}}>ACTIVE DEPLOYMENT</span><div className="w-9 h-[1.5px] bg-amber-500/45"/>
             </div>
           </Reveal>
           <Reveal delay={150}>
             <h1 className="text-5xl sm:text-6xl md:text-8xl font-bold tracking-tight text-stone-100 leading-none mb-6" style={{fontFamily:font.oswald}}>THE MISSION<br/>IS ACTIVE</h1>
           </Reveal>
           <Reveal delay={300}>
-            <p className="text-base md:text-lg text-stone-400 leading-relaxed max-w-xl mx-auto mb-3">Deploying across the United States.<br/>Expanding to the ends of the earth.</p>
+            <div>
+              <p className="text-lg md:text-[1.3rem] font-medium text-stone-300 leading-[1.75] max-w-2xl mx-auto mb-4">Deploying across the United States.<br/>Expanding to the ends of the earth.</p>
+              <div
+                className="mt-4 text-center uppercase text-stone-400"
+                style={{ fontFamily: font.rajdhani, fontWeight: 500, fontSize: "11px", letterSpacing: "0.25em", lineHeight: 1.8 }}
+              >
+                <p>GO. MAKE DISCIPLES. BAPTIZE THEM. TEACH THEM THE COMMANDS.</p>
+              </div>
+            </div>
           </Reveal>
           <Reveal delay={400}>
-            <p className="text-xs tracking-[0.25em] text-stone-600 mb-10" style={{fontFamily:font.rajdhani}}>MATTHEW 28:19–20</p>
+            <p className="mt-[6px] mb-10 uppercase text-stone-600" style={{fontFamily:font.rajdhani, fontWeight:400, fontSize:"10px", letterSpacing:"0.3em"}}>MATTHEW 28:19–20</p>
           </Reveal>
           <Reveal delay={500}>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <CTAButton>Enter the Mission</CTAButton>
-              <CTAButton variant="secondary">Access Briefing</CTAButton>
+              <CTAButton href="/prayer">Pray for the Mission</CTAButton>
+              <CTAButton variant="secondary" href="/support">Support the Mission</CTAButton>
             </div>
           </Reveal>
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-32" style={{background:"linear-gradient(transparent,#050505)"}}/>
       </section>
 
+      <GlobalUrgencySection />
+
       {/* IDENTITY */}
-      <section className="py-28 md:py-40 px-6">
+      <section id="identity" className="py-28 md:py-40 px-6">
         <div className="max-w-4xl mx-auto">
           <Reveal><div className="w-12 h-px bg-stone-700 mx-auto"/></Reveal>
           <div className="mt-16 text-center">
@@ -367,7 +536,7 @@ export default function Home() {
               <p className="text-base md:text-lg text-stone-300 leading-relaxed max-w-3xl mx-auto">
                 "But you will receive power when the Holy Spirit has come upon you, and you will be my witnesses in Jerusalem and in all Judea and Samaria, and to the end of the earth."
               </p>
-              <p className="mt-4 text-xs tracking-[0.32em] text-amber-600/70 uppercase" style={{fontFamily:font.rajdhani}}>
+              <p className="tactical-label mt-4 uppercase" style={{fontFamily:font.rajdhani}}>
                 Acts 1:8
               </p>
             </div>
@@ -383,14 +552,14 @@ export default function Home() {
             {[{n:"01",t:"MEET",d:"Enter the space. Identify the person of peace. Begin where they are."},{n:"02",t:"MINISTER",d:"Share the gospel with clarity. Serve with presence. Speak truth."},{n:"03",t:"MULTIPLY",d:"Train others to do the same. Launch tables. Repeat the cycle."}].map((c,i)=>(
               <Reveal key={i} delay={i*150}>
                 <div className="p-8 md:p-10 h-full" style={{background:"#0a0a0a"}}>
-                  <span className="text-xs tracking-[0.3em] text-amber-600/60 block mb-4" style={{fontFamily:font.rajdhani}}>{c.n}</span>
+                  <span className="tactical-amber-label text-xs tracking-[0.26em] block mb-4" style={{fontFamily:font.rajdhani}}>{c.n}</span>
                   <h3 className="text-2xl font-bold text-stone-100 mb-4 tracking-wide" style={{fontFamily:font.oswald}}>{c.t}</h3>
                   <p className="text-stone-500 text-sm leading-relaxed">{c.d}</p>
                 </div>
               </Reveal>
             ))}
           </div>
-          <Reveal delay={400}><p className="text-center mt-10 text-xs tracking-[0.25em] text-stone-600" style={{fontFamily:font.rajdhani}}>A FIELD-TESTED MODEL FOR GOSPEL MOVEMENT</p></Reveal>
+          <Reveal delay={400}><p className="tactical-label text-center mt-10 uppercase" style={{fontFamily:font.rajdhani}}>A FIELD-TESTED MODEL FOR GOSPEL MOVEMENT</p></Reveal>
         </div>
       </section>
 
@@ -400,31 +569,9 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <Reveal><SectionHeading align="left" overline="SYSTEM LAYER" headline="THE INFRASTRUCTURE IS BEING BUILT"><p>A system designed to equip operators, track movement, and support multiplication at scale.</p></SectionHeading></Reveal>
-              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary">View the System</CTAButton></div></Reveal>
+              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary" href="/system">View the System</CTAButton></div></Reveal>
             </div>
             <Reveal delay={300}><DOSPanel/></Reveal>
-          </div>
-        </div>
-      </section>
-
-      {/* WHO THIS IS FOR */}
-      <section className="py-28 md:py-40 px-6">
-        <div className="max-w-3xl mx-auto text-center">
-          <Reveal><h2 className="text-4xl md:text-6xl font-bold text-stone-100 tracking-tight leading-none" style={{fontFamily:font.oswald}}>THIS IS NOT<br/>FOR EVERYONE</h2></Reveal>
-          <Reveal delay={150}><div className="mt-10 space-y-1 text-stone-400 text-lg"><p>This is for those who are ready to go.</p><p className="text-stone-600">Not just believe.</p></div></Reveal>
-          <Reveal delay={300}><div className="mt-8 space-y-1">{["To speak.","To act.","To multiply."].map((l,i)=>(<p key={i} className="text-stone-200 text-lg md:text-xl font-medium">{l}</p>))}</div></Reveal>
-          <Reveal delay={450}><div className="mt-12"><CTAButton>Step In</CTAButton></div></Reveal>
-        </div>
-      </section>
-
-      {/* IMPACT */}
-      <section className="py-28 md:py-40 px-6" style={{background:"#080808"}}>
-        <div className="max-w-4xl mx-auto">
-          <Reveal><p className="text-center text-xs tracking-[0.5em] text-amber-600/50 mb-12" style={{fontFamily:font.rajdhani}}>LIVE MOVEMENT</p></Reveal>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Reveal delay={100}><StatCard label="Active Operators" value={147} suffix="+"/></Reveal>
-            <Reveal delay={200}><StatCard label="Cities Reached" value={38}/></Reveal>
-            <Reveal delay={300}><StatCard label="Tables Initiated" value={412}/></Reveal>
           </div>
         </div>
       </section>
@@ -436,7 +583,7 @@ export default function Home() {
           <Reveal><div className="w-12 h-px bg-stone-700 mx-auto"/></Reveal>
           <Reveal delay={100}><h2 className="mt-12 text-5xl md:text-7xl font-bold text-stone-100 tracking-tight" style={{fontFamily:font.oswald}}>YOU WERE SENT</h2></Reveal>
           <Reveal delay={250}><div className="mt-8 space-y-1 text-stone-400 text-lg"><p>The question is not if.</p><p className="text-stone-200">It is when.</p></div></Reveal>
-          <Reveal delay={400}><div className="mt-12"><CTAButton>Join the Mission</CTAButton></div></Reveal>
+          <Reveal delay={400}><div className="mt-12"><CTAButton href="/mission">Join the Mission</CTAButton></div></Reveal>
         </div>
       </section>
 
