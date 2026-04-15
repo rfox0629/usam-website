@@ -76,34 +76,20 @@ export default function PrayerPage() {
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
                 <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
-                  Join the Prayer Team
+                  What You&apos;re Joining
                 </span>
               </div>
-              <p className="mt-5 max-w-xl text-sm leading-7 text-stone-400">
-                Join us in praying for open doors, transformed lives, strengthened leaders, and endurance in the field. This is the real prayer team signup flow through Church Center.
-              </p>
-              <div className="mt-8">
-                <ExternalActionLink href={signupLink}>Join the Prayer Team</ExternalActionLink>
+              <div className="mt-8 space-y-4">
+                {points.map((item, index) => (
+                  <div key={item} className="border border-stone-800/60 bg-stone-950/55 p-6 md:p-7">
+                    <div className="tactical-amber-label text-xs tracking-[0.14em]" style={{ fontFamily: font.rajdhani }}>
+                      0{index + 1}
+                    </div>
+                    <p className="mt-4 text-base leading-7 text-stone-300">{item}</p>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#080808] px-6 py-24 md:py-32">
-        <div className="mx-auto max-w-6xl">
-          <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
-            What You&apos;re Joining
-          </p>
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {points.map((item, index) => (
-              <div key={item} className="border border-stone-800/60 bg-stone-950/55 p-6 md:p-7">
-                <div className="tactical-amber-label text-xs tracking-[0.14em]" style={{ fontFamily: font.rajdhani }}>
-                  0{index + 1}
-                </div>
-                <p className="mt-4 text-base leading-7 text-stone-300">{item}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
