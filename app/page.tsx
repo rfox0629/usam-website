@@ -370,7 +370,7 @@ function GlobalUrgencySection() {
           </p>
         </div>
 
-        <div className="mt-6 border-t border-stone-800/60 pt-6">
+        <div className="mt-5 border-t border-stone-800/60 pt-5">
           <div className="max-w-4xl">
             <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
               AMERICAN CRISIS
@@ -380,11 +380,11 @@ function GlobalUrgencySection() {
             </h3>
           </div>
 
-          <div className="mt-4 grid gap-px overflow-hidden border border-stone-800/25 bg-stone-800/25 md:grid-cols-3">
+          <div className="mt-3 grid gap-px overflow-hidden border border-stone-800/25 bg-stone-800/25 md:grid-cols-3">
             {americaStats.map((item) => (
               <div key={item.label} className="relative bg-stone-950/75 px-4 py-4 text-center md:px-5 md:py-5">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/25 to-transparent" />
-                <div className="inline-flex items-center border border-amber-500/18 bg-[#0b0906]/80 px-2 py-1 text-[9px] uppercase tracking-[0.24em] text-stone-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_0_14px_rgba(201,162,74,0.055)]" style={{ fontFamily: font.rajdhani }}>
+                <div className="text-[9px] uppercase tracking-[0.24em] text-stone-300" style={{ fontFamily: font.rajdhani }}>
                   {item.label}
                 </div>
                 <div className="mt-2 text-4xl leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
@@ -398,25 +398,23 @@ function GlobalUrgencySection() {
             ))}
           </div>
 
-          <div className="mt-4 border border-stone-800/65 bg-[linear-gradient(180deg,rgba(14,14,14,0.95),rgba(9,9,9,0.92))] px-6 py-6 md:px-8 md:py-7">
-            <div className="max-w-4xl mx-auto text-center">
-              <p
-                className="whitespace-pre-line uppercase text-amber-500/80"
-                style={{ fontFamily: font.rajdhani, fontWeight: 500, fontSize: "11px", letterSpacing: "0.24em", lineHeight: 1.9 }}
-              >
-                {`This is not a dip. It is a long erosion.
+          <div className="mt-4 border-t border-amber-500/20 pt-4 text-center">
+            <p
+              className="mx-auto max-w-4xl whitespace-pre-line uppercase text-amber-500/80"
+              style={{ fontFamily: font.rajdhani, fontWeight: 500, fontSize: "11px", letterSpacing: "0.22em", lineHeight: 1.85 }}
+            >
+              {`This is not a dip. It is a long erosion.
 It reflects a deeper breakdown in discipleship, formation, and mission.`}
-              </p>
-            </div>
+            </p>
           </div>
         </div>
 
-        <div className="mt-8 flex items-center justify-center gap-3 md:gap-5">
-          <div className="h-px w-8 shrink-0 bg-amber-500/60 sm:w-14 md:w-24" />
-          <p className="max-w-[18rem] text-center text-[9px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-100 sm:max-w-none sm:text-[10px] sm:tracking-[0.24em] md:text-xs md:tracking-[0.34em]" style={{ fontFamily: font.rajdhani }}>
+        <div className="mt-5 flex items-center justify-center gap-2.5 md:gap-3">
+          <div className="h-px w-7 shrink-0 bg-amber-500/60 sm:w-12 md:w-16" />
+          <p className="max-w-[18rem] text-center text-[9px] font-semibold uppercase leading-relaxed tracking-[0.14em] text-stone-100 sm:max-w-none sm:text-[10px] sm:tracking-[0.2em] md:text-xs md:tracking-[0.26em]" style={{ fontFamily: font.rajdhani }}>
             USA MISSIONARIES EXISTS TO REVERSE&nbsp;IT
           </p>
-          <div className="h-px w-8 shrink-0 bg-amber-500/60 sm:w-14 md:w-24" />
+          <div className="h-px w-7 shrink-0 bg-amber-500/60 sm:w-12 md:w-16" />
         </div>
       </div>
     </section>
