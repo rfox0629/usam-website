@@ -136,18 +136,18 @@ function ExpansionMap() {
 
   return (
     <div className="relative">
-      <div className="absolute top-3 left-4 z-10 flex items-center gap-2">
-        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-        <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
-          DEPLOYMENT ORIGIN — LIVE
+      <div className="absolute top-3 left-4 right-4 z-10 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 animate-pulse" />
+          <span className="whitespace-nowrap text-[8px] tracking-[0.28em] text-amber-500/75 uppercase sm:text-[10px] sm:tracking-[0.4em]" style={{ fontFamily: font.rajdhani }}>
+            DEPLOYMENT ORIGIN
+          </span>
+        </div>
+        <span className="whitespace-nowrap text-[8px] tracking-[0.24em] text-stone-500 uppercase sm:text-[10px] sm:tracking-[0.3em]" style={{ fontFamily: font.rajdhani }}>
+          LIVE STATUS: ACTIVE
         </span>
       </div>
-      <div className="absolute top-3 right-4 z-10 text-right">
-        <span className="tactical-label block uppercase" style={{ fontFamily: font.rajdhani }}>
-          STATUS: ACTIVE
-        </span>
-      </div>
-      <svg viewBox="0 0 960 460" className="w-full h-auto">
+      <svg viewBox="0 0 960 460" preserveAspectRatio="xMidYMid slice" className="h-[360px] w-full sm:h-auto">
         <defs>
           <radialGradient id="tableGlow" cx="50%" cy="52%" r="35%">
             <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.07} />
@@ -167,8 +167,13 @@ function ExpansionMap() {
           <filter id="usaBackdrop">
             <feFlood floodColor="#C9A24A" result="goldFill" />
             <feComposite in="goldFill" in2="SourceAlpha" operator="in" result="tintedMap" />
-            <feComponentTransfer in="tintedMap">
-              <feFuncA type="linear" slope="0.78" />
+            <feGaussianBlur in="tintedMap" stdDeviation="1.2" result="mapGlow" />
+            <feMerge result="mapWithGlow">
+              <feMergeNode in="mapGlow" />
+              <feMergeNode in="tintedMap" />
+            </feMerge>
+            <feComponentTransfer in="mapWithGlow">
+              <feFuncA type="linear" slope="1.35" />
             </feComponentTransfer>
           </filter>
         </defs>
@@ -182,12 +187,12 @@ function ExpansionMap() {
 
         <image
           href="/usa-outline-clean.png"
-          x="62"
-          y="24"
-          width="836"
-          height="468"
+          x="-44"
+          y="-4"
+          width="1048"
+          height="628"
           preserveAspectRatio="xMidYMid meet"
-          opacity="0.28"
+          opacity="0.46"
           filter="url(#usaBackdrop)"
         />
 
@@ -200,12 +205,12 @@ function ExpansionMap() {
         <rect x={348} y={122} width={264} height={252} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.2} />
         <rect x={360} y={134} width={240} height={228} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.8} />
 
-        <line x1={432} y1={96} x2={528} y2={96} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={432} y1={404} x2={528} y2={404} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={324} y1={176} x2={324} y2={246} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={636} y1={176} x2={636} y2={246} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={324} y1={292} x2={324} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
-        <line x1={636} y1={292} x2={636} y2={362} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={12} strokeLinecap="round" />
+        <line x1={432} y1={96} x2={528} y2={96} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
+        <line x1={432} y1={404} x2={528} y2={404} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
+        <line x1={324} y1={176} x2={324} y2={246} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
+        <line x1={636} y1={176} x2={636} y2={246} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
+        <line x1={324} y1={292} x2={324} y2={362} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
+        <line x1={636} y1={292} x2={636} y2={362} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
 
         <ellipse cx={tableCenter.x} cy={tableCenter.y} rx={92} ry={54} fill="url(#centerPulse)" filter="url(#softGlow)">
           <animate attributeName="opacity" values="0.8;0.4;0.8" dur="4s" repeatCount="indefinite" />
@@ -366,17 +371,18 @@ function GlobalUrgencySection() {
             </h3>
           </div>
 
-          <div className="mt-4 grid gap-1 md:grid-cols-3">
+          <div className="mt-4 grid gap-px overflow-hidden border border-stone-800/25 bg-stone-800/25 md:grid-cols-3">
             {americaStats.map((item) => (
-              <div key={item.label} className="border border-amber-500/18 bg-stone-950/70 p-4">
+              <div key={item.label} className="relative bg-stone-950/75 px-4 py-4 text-center md:px-5 md:py-5">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/25 to-transparent" />
                 <div className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
                   {item.label}
                 </div>
-                <div className="mt-3 text-5xl md:text-6xl text-stone-100" style={{ fontFamily: font.oswald }}>
+                <div className="mt-2 text-4xl leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
                   {item.stat}
                 </div>
-                <div className="mt-2 text-sm leading-relaxed text-stone-400">{item.note}</div>
-                <div className="mt-4 border-t border-stone-800/80 pt-3 text-xs uppercase tracking-[0.24em] text-amber-500/75" style={{ fontFamily: font.rajdhani }}>
+                <div className="mt-2 text-sm leading-snug text-stone-400">{item.note}</div>
+                <div className="mt-3 text-[9px] uppercase tracking-[0.24em] text-amber-500/70" style={{ fontFamily: font.rajdhani }}>
                   {item.source}
                 </div>
               </div>
@@ -396,10 +402,12 @@ It reflects a deeper breakdown in discipleship, formation, and mission.`}
           </div>
         </div>
 
-        <div className="mt-6 text-center max-w-3xl mx-auto">
-          <p className="text-xl md:text-3xl text-stone-100" style={{ fontFamily: font.oswald }}>
-            USA Missionaries exists to reverse it.
+        <div className="mt-8 flex items-center justify-center gap-3 md:gap-5">
+          <div className="h-px w-10 bg-amber-500/60 md:w-24" />
+          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.24em] text-stone-100 md:text-xs md:tracking-[0.36em]" style={{ fontFamily: font.rajdhani }}>
+            USA MISSIONARIES EXISTS TO REVERSE IT
           </p>
+          <div className="h-px w-10 bg-amber-500/60 md:w-24" />
         </div>
       </div>
     </section>
