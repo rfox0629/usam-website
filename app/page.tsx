@@ -241,7 +241,7 @@ function ExpansionMap() {
         <text x={480} y={224} textAnchor="middle" fill="#f5f5f4" fontSize={52} letterSpacing="0.06em" style={{ fontFamily: font.oswald }}>
           TABLE
         </text>
-        <text x={480} y={284} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
+        <text x={480} y={284} textAnchor="middle" fill="#C9A24A" fontSize={13} letterSpacing="0.26em" style={{ fontFamily: font.rajdhani }}>
           IT STARTS HERE
         </text>
         </g>
