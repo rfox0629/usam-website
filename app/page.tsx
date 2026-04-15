@@ -146,7 +146,7 @@ function ExpansionMap() {
           </span>
         </div>
       </div>
-      <svg viewBox="0 0 960 500" preserveAspectRatio="xMidYMid meet" className="block h-[380px] w-full sm:h-[500px]">
+      <svg viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet" className="block h-[410px] w-full sm:h-[540px]">
         <defs>
           <radialGradient id="tableGlow" cx="50%" cy="52%" r="35%">
             <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.09} />
@@ -177,24 +177,25 @@ function ExpansionMap() {
           </filter>
         </defs>
         {Array.from({ length: 20 }).map((_, i) => (
-          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={500} stroke="#101010" strokeWidth={0.35} />
+          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={540} stroke="#101010" strokeWidth={0.35} />
         ))}
-        {Array.from({ length: 11 }).map((_, i) => (
+        {Array.from({ length: 12 }).map((_, i) => (
           <line key={`gh${i}`} x1={0} y1={i * 50} x2={960} y2={i * 50} stroke="#101010" strokeWidth={0.35} />
         ))}
-        <rect x={0} y={0} width={960} height={500} fill="url(#tableGlow)" />
+        <rect x={0} y={0} width={960} height={540} fill="url(#tableGlow)" />
 
         <image
           href="/usa-outline-clean.png"
-          x="90"
-          y="16"
-          width="780"
-          height="468"
+          x="30"
+          y="0"
+          width="900"
+          height="540"
           preserveAspectRatio="xMidYMid meet"
           opacity="0.86"
           filter="url(#usaBackdrop)"
         />
 
+        <g transform="translate(0 34)">
         {[92, 118, 144].map((r, i) => (
           <ellipse key={`ring${i}`} cx={480} cy={216} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.075 - i * 0.018} strokeDasharray="5,9">
             <animate attributeName="opacity" values={`${0.075 - i * 0.018};${0.025 - i * 0.005};${0.075 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
@@ -242,12 +243,13 @@ function ExpansionMap() {
         <text x={480} y={284} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
           IT STARTS HERE
         </text>
-        <rect x={18} y={18} width={924} height={464} fill="none" stroke="#151515" strokeWidth={0.6} />
+        </g>
+        <rect x={18} y={18} width={924} height={504} fill="none" stroke="#151515" strokeWidth={0.6} />
         {[
           [18, 18],
           [942, 18],
-          [18, 482],
-          [942, 482],
+          [18, 522],
+          [942, 522],
         ].map(([cx, cy], i) => (
           <g key={`cr${i}`}>
             <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke="#1e1e1e" strokeWidth={0.4} />
