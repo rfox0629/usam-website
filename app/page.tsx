@@ -137,8 +137,8 @@ function ExpansionMap() {
             DEPLOYMENT ORIGIN
           </span>
         </div>
-        <span className="whitespace-nowrap text-[8px] uppercase tracking-[0.24em] text-stone-500 sm:text-[10px] sm:tracking-[0.3em]" style={{ fontFamily: font.rajdhani }}>
-          LIVE STATUS: ACTIVE
+        <span className="rounded-md border border-emerald-400/25 bg-emerald-950/35 px-2.5 py-1 text-[10px] font-semibold text-emerald-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(16,185,129,0.16)] sm:px-3 sm:text-xs" style={{ fontFamily: font.rajdhani }}>
+          Active
         </span>
       </div>
       <svg viewBox="0 0 960 430" preserveAspectRatio="xMidYMid meet" className="block h-[330px] w-full sm:h-[420px]">
@@ -181,12 +181,12 @@ function ExpansionMap() {
 
         <image
           href="/usa-outline-clean.png"
-          x="54"
-          y="44"
-          width="852"
-          height="304"
+          x="-6"
+          y="18"
+          width="972"
+          height="348"
           preserveAspectRatio="xMidYMid meet"
-          opacity="0.8"
+          opacity="0.86"
           filter="url(#usaBackdrop)"
         />
 
