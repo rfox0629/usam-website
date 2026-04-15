@@ -128,29 +128,23 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
-  const tableCenter = { x: 480, y: 246 };
-  const seats = Array.from({ length: 8 }).map((_, i) => {
-    const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
-    return { x: tableCenter.x + Math.cos(angle) * 142, y: tableCenter.y + Math.sin(angle) * 96 };
-  });
-
   return (
-    <div className="relative">
-      <div className="absolute top-3 left-4 right-4 z-10 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 sm:justify-between">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 animate-pulse" />
-          <span className="whitespace-nowrap text-[8px] tracking-[0.28em] text-amber-500/75 uppercase sm:text-[10px] sm:tracking-[0.4em]" style={{ fontFamily: font.rajdhani }}>
+    <div className="mx-auto w-full max-w-6xl overflow-hidden border border-stone-800/45 bg-[#050505] shadow-[0_0_80px_rgba(0,0,0,0.55)]">
+      <div className="flex flex-col items-center justify-center gap-1 border-b border-stone-800/35 px-4 py-3 sm:flex-row sm:justify-between sm:gap-4 sm:px-6">
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.55)]" />
+          <span className="whitespace-nowrap text-[8px] uppercase tracking-[0.26em] text-amber-500/80 sm:text-[10px] sm:tracking-[0.36em]" style={{ fontFamily: font.rajdhani }}>
             DEPLOYMENT ORIGIN
           </span>
         </div>
-        <span className="whitespace-nowrap text-[8px] tracking-[0.24em] text-stone-500 uppercase sm:text-[10px] sm:tracking-[0.3em]" style={{ fontFamily: font.rajdhani }}>
+        <span className="whitespace-nowrap text-[8px] uppercase tracking-[0.24em] text-stone-500 sm:text-[10px] sm:tracking-[0.3em]" style={{ fontFamily: font.rajdhani }}>
           LIVE STATUS: ACTIVE
         </span>
       </div>
-      <svg viewBox="0 0 960 460" preserveAspectRatio="xMidYMid slice" className="h-[360px] w-full sm:h-auto">
+      <svg viewBox="0 0 960 430" preserveAspectRatio="xMidYMid meet" className="block h-[330px] w-full sm:h-[420px]">
         <defs>
           <radialGradient id="tableGlow" cx="50%" cy="52%" r="35%">
-            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.07} />
+            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.09} />
             <stop offset="100%" stopColor="#C9A24A" stopOpacity={0} />
           </radialGradient>
           <radialGradient id="centerPulse" cx="50%" cy="50%" r="50%">
@@ -167,82 +161,88 @@ function ExpansionMap() {
           <filter id="usaBackdrop">
             <feFlood floodColor="#C9A24A" result="goldFill" />
             <feComposite in="goldFill" in2="SourceAlpha" operator="in" result="tintedMap" />
-            <feGaussianBlur in="tintedMap" stdDeviation="1.2" result="mapGlow" />
+            <feGaussianBlur in="tintedMap" stdDeviation="0.7" result="mapGlow" />
             <feMerge result="mapWithGlow">
               <feMergeNode in="mapGlow" />
               <feMergeNode in="tintedMap" />
             </feMerge>
             <feComponentTransfer in="mapWithGlow">
-              <feFuncA type="linear" slope="1.35" />
+              <feFuncA type="linear" slope="1.08" />
             </feComponentTransfer>
           </filter>
         </defs>
         {Array.from({ length: 20 }).map((_, i) => (
-          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={460} stroke="#0c0c0c" strokeWidth={0.3} />
+          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={430} stroke="#101010" strokeWidth={0.35} />
         ))}
-        {Array.from({ length: 10 }).map((_, i) => (
-          <line key={`gh${i}`} x1={0} y1={i * 50} x2={960} y2={i * 50} stroke="#0c0c0c" strokeWidth={0.3} />
+        {Array.from({ length: 9 }).map((_, i) => (
+          <line key={`gh${i}`} x1={0} y1={i * 50} x2={960} y2={i * 50} stroke="#101010" strokeWidth={0.35} />
         ))}
-        <rect x={0} y={0} width={960} height={460} fill="url(#tableGlow)" />
+        <rect x={0} y={0} width={960} height={430} fill="url(#tableGlow)" />
 
         <image
           href="/usa-outline-clean.png"
-          x="-44"
-          y="-4"
-          width="1048"
-          height="628"
+          x="54"
+          y="44"
+          width="852"
+          height="304"
           preserveAspectRatio="xMidYMid meet"
-          opacity="0.46"
+          opacity="0.8"
           filter="url(#usaBackdrop)"
         />
 
         {[92, 118, 144].map((r, i) => (
-          <ellipse key={`ring${i}`} cx={tableCenter.x} cy={tableCenter.y} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.08 - i * 0.018} strokeDasharray="5,9">
-            <animate attributeName="opacity" values={`${0.08 - i * 0.018};${0.025 - i * 0.005};${0.08 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
+          <ellipse key={`ring${i}`} cx={480} cy={216} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.075 - i * 0.018} strokeDasharray="5,9">
+            <animate attributeName="opacity" values={`${0.075 - i * 0.018};${0.025 - i * 0.005};${0.075 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
           </ellipse>
         ))}
 
-        <rect x={348} y={122} width={264} height={252} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.2} />
-        <rect x={360} y={134} width={240} height={228} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.8} />
+        <line x1={432} y1={78} x2={528} y2={78} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
+        <line x1={432} y1={354} x2={528} y2={354} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
+        <line x1={318} y1={156} x2={318} y2={222} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
+        <line x1={642} y1={156} x2={642} y2={222} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
+        <line x1={318} y1={258} x2={318} y2={324} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
+        <line x1={642} y1={258} x2={642} y2={324} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
 
-        <line x1={432} y1={96} x2={528} y2={96} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
-        <line x1={432} y1={404} x2={528} y2={404} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
-        <line x1={324} y1={176} x2={324} y2={246} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
-        <line x1={636} y1={176} x2={636} y2={246} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
-        <line x1={324} y1={292} x2={324} y2={362} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
-        <line x1={636} y1={292} x2={636} y2={362} stroke="#f5f5f4" strokeOpacity={0.72} strokeWidth={10} strokeLinecap="round" />
+        <rect x={350} y={108} width={260} height={216} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.1} />
+        <rect x={362} y={120} width={236} height={192} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.85} />
 
-        <ellipse cx={tableCenter.x} cy={tableCenter.y} rx={92} ry={54} fill="url(#centerPulse)" filter="url(#softGlow)">
+        <ellipse cx={480} cy={216} rx={90} ry={52} fill="url(#centerPulse)" filter="url(#softGlow)">
           <animate attributeName="opacity" values="0.8;0.4;0.8" dur="4s" repeatCount="indefinite" />
         </ellipse>
 
-        {seats.map((s, i) => {
-          const angle = (i / 8) * 360;
-          return (
-            <g key={`seat${i}`}>
-              <rect x={s.x - 9} y={s.y - 6} width={18} height={12} rx={3} fill="none" stroke="#2a2a2a" strokeWidth={0.6} opacity={0.4} transform={`rotate(${angle}, ${s.x}, ${s.y})`} />
-              <circle cx={s.x} cy={s.y} r={1} fill="#C9A24A" opacity={0.2}>
-                <animate attributeName="opacity" values="0.15;0.35;0.15" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
-              </circle>
-            </g>
-          );
-        })}
+        {[
+          [480, 128, 0],
+          [560, 152, 45],
+          [586, 216, 90],
+          [560, 280, 135],
+          [480, 304, 180],
+          [400, 280, 225],
+          [374, 216, 270],
+          [400, 152, 315],
+        ].map(([x, y, angle], i) => (
+          <g key={`seat${i}`}>
+            <rect x={x - 8} y={y - 5} width={16} height={10} rx={3} fill="none" stroke="#2a2a2a" strokeWidth={0.55} opacity={0.38} transform={`rotate(${angle}, ${x}, ${y})`} />
+            <circle cx={x} cy={y} r={1} fill="#C9A24A" opacity={0.2}>
+              <animate attributeName="opacity" values="0.15;0.35;0.15" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
+            </circle>
+          </g>
+        ))}
 
-        <text x={tableCenter.x} y={176} textAnchor="middle" fill="#f5f5f4" fontSize={24} letterSpacing="0.14em" style={{ fontFamily: font.oswald }}>
+        <text x={480} y={168} textAnchor="middle" fill="#f5f5f4" fontSize={22} letterSpacing="0.14em" style={{ fontFamily: font.oswald }}>
           THE
         </text>
-        <text x={tableCenter.x} y={236} textAnchor="middle" fill="#f5f5f4" fontSize={56} letterSpacing="0.06em" style={{ fontFamily: font.oswald }}>
+        <text x={480} y={224} textAnchor="middle" fill="#f5f5f4" fontSize={52} letterSpacing="0.06em" style={{ fontFamily: font.oswald }}>
           TABLE
         </text>
-        <text x={tableCenter.x} y={308} textAnchor="middle" fill="#C9A24A" fontSize={11} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
+        <text x={480} y={284} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
           IT STARTS HERE
         </text>
-        <rect x={16} y={16} width={928} height={428} fill="none" stroke="#131313" strokeWidth={0.5} />
+        <rect x={18} y={18} width={924} height={394} fill="none" stroke="#151515" strokeWidth={0.6} />
         {[
-          [16, 16],
-          [944, 16],
-          [16, 444],
-          [944, 444],
+          [18, 18],
+          [942, 18],
+          [18, 412],
+          [942, 412],
         ].map(([cx, cy], i) => (
           <g key={`cr${i}`}>
             <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke="#1e1e1e" strokeWidth={0.4} />
@@ -403,11 +403,11 @@ It reflects a deeper breakdown in discipleship, formation, and mission.`}
         </div>
 
         <div className="mt-8 flex items-center justify-center gap-3 md:gap-5">
-          <div className="h-px w-10 bg-amber-500/60 md:w-24" />
-          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.24em] text-stone-100 md:text-xs md:tracking-[0.36em]" style={{ fontFamily: font.rajdhani }}>
-            USA MISSIONARIES EXISTS TO REVERSE IT
+          <div className="h-px w-8 shrink-0 bg-amber-500/60 sm:w-14 md:w-24" />
+          <p className="max-w-[18rem] text-center text-[9px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-100 sm:max-w-none sm:text-[10px] sm:tracking-[0.24em] md:text-xs md:tracking-[0.34em]" style={{ fontFamily: font.rajdhani }}>
+            USA MISSIONARIES EXISTS TO REVERSE&nbsp;IT
           </p>
-          <div className="h-px w-10 bg-amber-500/60 md:w-24" />
+          <div className="h-px w-8 shrink-0 bg-amber-500/60 sm:w-14 md:w-24" />
         </div>
       </div>
     </section>
