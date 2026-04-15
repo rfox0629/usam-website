@@ -196,18 +196,19 @@ function ExpansionMap() {
         />
 
         <g transform="translate(0 34)">
+        <g transform="translate(480 216) scale(0.9) translate(-480 -216)">
         {[92, 118, 144].map((r, i) => (
           <ellipse key={`ring${i}`} cx={480} cy={216} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.075 - i * 0.018} strokeDasharray="5,9">
             <animate attributeName="opacity" values={`${0.075 - i * 0.018};${0.025 - i * 0.005};${0.075 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
           </ellipse>
         ))}
 
-        <line x1={432} y1={78} x2={528} y2={78} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
-        <line x1={432} y1={354} x2={528} y2={354} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
-        <line x1={318} y1={156} x2={318} y2={222} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
-        <line x1={642} y1={156} x2={642} y2={222} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
-        <line x1={318} y1={258} x2={318} y2={324} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
-        <line x1={642} y1={258} x2={642} y2={324} stroke="#f5f5f4" strokeOpacity={0.68} strokeWidth={9} strokeLinecap="round" />
+        <line x1={432} y1={78} x2={528} y2={78} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
+        <line x1={432} y1={354} x2={528} y2={354} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
+        <line x1={318} y1={156} x2={318} y2={222} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
+        <line x1={642} y1={156} x2={642} y2={222} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
+        <line x1={318} y1={258} x2={318} y2={324} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
+        <line x1={642} y1={258} x2={642} y2={324} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
 
         <rect x={350} y={108} width={260} height={216} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.1} />
         <rect x={362} y={120} width={236} height={192} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.85} />
@@ -243,6 +244,7 @@ function ExpansionMap() {
         <text x={480} y={284} textAnchor="middle" fill="#C9A24A" fontSize={10} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
           IT STARTS HERE
         </text>
+        </g>
         </g>
         <rect x={18} y={18} width={924} height={504} fill="none" stroke="#151515" strokeWidth={0.6} />
         {[
