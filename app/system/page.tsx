@@ -79,8 +79,8 @@ export default function SystemPage() {
             Disciple making is too important to remain invisible. The future requires a system that helps leaders strengthen accountability, preserve continuity, and support measurable spiritual fruit over time.
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-            <ActionLink href="/mission">View the Briefing</ActionLink>
-            <ActionLink href="/prayer" variant="secondary">Join the Vision</ActionLink>
+            <ActionLink href="/mission">Join the Waitlist</ActionLink>
+            <ActionLink href="/system" variant="secondary">View the System</ActionLink>
           </div>
 
           <div className="mt-16 grid gap-4 md:grid-cols-3">
