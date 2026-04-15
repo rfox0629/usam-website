@@ -137,9 +137,14 @@ function ExpansionMap() {
             DEPLOYMENT ORIGIN
           </span>
         </div>
-        <span className="rounded-md border border-emerald-400/25 bg-emerald-950/35 px-2.5 py-1 text-[10px] font-semibold text-emerald-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(16,185,129,0.16)] sm:px-3 sm:text-xs" style={{ fontFamily: font.rajdhani }}>
-          Active
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="whitespace-nowrap text-[8px] uppercase tracking-[0.22em] text-stone-500 sm:text-[10px] sm:tracking-[0.3em]" style={{ fontFamily: font.rajdhani }}>
+            LIVE STATUS:
+          </span>
+          <span className="rounded-md border border-emerald-400/25 bg-emerald-950/35 px-2.5 py-1 text-[10px] font-semibold text-emerald-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(16,185,129,0.16)] sm:px-3 sm:text-xs" style={{ fontFamily: font.rajdhani }}>
+            Active
+          </span>
+        </div>
       </div>
       <svg viewBox="0 0 960 430" preserveAspectRatio="xMidYMid meet" className="block h-[330px] w-full sm:h-[420px]">
         <defs>
