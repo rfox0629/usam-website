@@ -384,7 +384,7 @@ function GlobalUrgencySection() {
             {americaStats.map((item) => (
               <div key={item.label} className="relative bg-stone-950/75 px-4 py-4 text-center md:px-5 md:py-5">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/25 to-transparent" />
-                <div className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+                <div className="inline-flex items-center border border-amber-500/18 bg-[#0b0906]/80 px-2 py-1 text-[9px] uppercase tracking-[0.24em] text-stone-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_0_14px_rgba(201,162,74,0.055)]" style={{ fontFamily: font.rajdhani }}>
                   {item.label}
                 </div>
                 <div className="mt-2 text-4xl leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
