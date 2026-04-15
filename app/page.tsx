@@ -586,7 +586,12 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <Reveal><SectionHeading align="left" overline="SYSTEM LAYER" headline="THE INFRASTRUCTURE IS BEING BUILT"><p>A system designed to equip operators, track movement, and support multiplication at scale.</p></SectionHeading></Reveal>
-              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary" href="/system">View the System</CTAButton></div></Reveal>
+              <Reveal delay={200}>
+                <div className="mt-8 flex flex-col sm:flex-row gap-4">
+                  <CTAButton href="/mission">Join the Waitlist</CTAButton>
+                  <CTAButton variant="secondary" href="/system">View the System</CTAButton>
+                </div>
+              </Reveal>
             </div>
             <Reveal delay={300}><DOSPanel/></Reveal>
           </div>
