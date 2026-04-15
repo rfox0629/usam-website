@@ -281,7 +281,7 @@ function GlobalUrgencySection() {
     {
       label: "CHURCH ATTENDANCE",
       stat: "30%",
-      note: "Adults attending weekly, down from 42%",
+      note: "Adults attending weekly, down from 42% in 2000",
       source: "Gallup",
     },
     {
