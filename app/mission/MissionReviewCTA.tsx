@@ -9,7 +9,7 @@ type Status = "idle" | "success" | "error";
 
 const fieldClass =
   "w-full rounded-md border border-white/[0.2] bg-white/[0.06] px-4 py-[14px] text-base text-white outline-none transition-all placeholder:text-white/[0.55] hover:border-white/[0.28] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
-const labelClass = "mb-4 block text-[12px] uppercase tracking-[1.2px] text-white/[0.75]";
+const labelClass = "mb-4 block text-[12px] uppercase tracking-[1.2px] text-white/[0.9]";
 const optionClass =
   "flex cursor-pointer items-start gap-3 rounded-md border border-white/[0.12] bg-white/[0.04] px-4 py-[14px] text-sm font-medium leading-6 text-white/[0.9] transition-colors hover:border-white/[0.2] hover:bg-white/[0.08]";
 

@@ -12,26 +12,26 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 function VideoPlaceholderCard() {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/[0.1] bg-[#080808] shadow-[0_18px_70px_rgba(0,0,0,0.38)]">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/45 to-transparent" />
+    <div className="relative overflow-hidden rounded-xl border border-white/[0.18] bg-[linear-gradient(rgba(255,255,255,0.02),rgba(255,255,255,0.01))] shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_20px_60px_rgba(0,0,0,0.6)]">
+      <div className="absolute inset-x-0 top-0 h-px bg-white/[0.15]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(212,160,84,0.075),transparent_26%),radial-gradient(ellipse_at_center,transparent_34%,rgba(0,0,0,0.72)_100%),linear-gradient(135deg,rgba(255,255,255,0.045),transparent_42%,rgba(212,160,84,0.02))]" />
 
       <div className="relative aspect-video p-5 md:p-7">
         <div className="flex h-full flex-col">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.32em] text-white/40" style={{ fontFamily: font.rajdhani }}>
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[2px] text-[rgba(212,160,23,0.85)] [text-shadow:0_0_8px_rgba(212,160,23,0.25)]" style={{ fontFamily: font.rajdhani }}>
               Coming Soon
             </p>
-            <h2 className="mt-3 max-w-sm text-2xl font-bold leading-tight text-stone-100 md:text-3xl" style={{ fontFamily: font.oswald }}>
+            <h2 className="max-w-sm text-2xl font-semibold leading-[1.2] text-white md:text-3xl" style={{ fontFamily: font.oswald }}>
               Kitchen Table Testimony
             </h2>
-            <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">
+            <p className="mt-5 max-w-sm text-sm leading-6 text-white/70">
               A story from the table.
             </p>
           </div>
 
           <div className="absolute inset-0 flex translate-y-4 items-center justify-center">
-            <div className="flex h-[84px] w-[84px] items-center justify-center rounded-full border border-white/12 bg-black/30 shadow-[0_0_24px_rgba(212,160,23,0.18)] backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-[0_0_36px_rgba(212,160,23,0.3)]">
+            <div className="flex h-[84px] w-[84px] items-center justify-center rounded-full border-2 border-white/40 bg-black/30 shadow-[0_0_30px_rgba(212,160,23,0.2)] backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-[0_0_36px_rgba(212,160,23,0.3)]">
               <div className="ml-1 h-0 w-0 border-y-[13px] border-l-[21px] border-y-transparent border-l-stone-100" />
             </div>
           </div>

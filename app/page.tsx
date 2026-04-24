@@ -572,17 +572,6 @@ export default function Home() {
           <Reveal delay={400}><div className="mt-12"><CTAButton href="/mission">Join the Mission</CTAButton></div></Reveal>
         </div>
       </section>
-
-      {/* FOOTER */}
-      <footer className="border-t border-stone-800/30 py-10 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-amber-500/70 rotate-45"/>
-            <span className="text-xs tracking-[0.3em] text-stone-600" style={{fontFamily:font.oswald}}>USA MISSIONARIES</span>
-          </div>
-          <p className="text-xs text-stone-700" style={{fontFamily:font.rajdhani}}>GO AND MAKE DISCIPLES OF ALL NATIONS — MATTHEW 28:19</p>
-        </div>
-      </footer>
     </main>
   );
 }

@@ -5,8 +5,8 @@ import React, { useEffect, useState } from "react";
 const font = { rajdhani: "'Rajdhani', sans-serif", oswald: "'Oswald', sans-serif" };
 const endpoint = "https://formspree.io/f/xrerjoke";
 const fieldClass =
-  "w-full rounded-md border border-white/[0.2] bg-white/[0.06] px-4 py-[14px] text-base text-white outline-none transition-all placeholder:text-white/[0.55] hover:border-white/[0.28] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
-const labelClass = "mb-4 block text-[12px] uppercase tracking-[1.2px] text-white/[0.75]";
+  "w-full rounded-md border border-white/[0.24] bg-white/[0.09] px-4 py-[14px] text-base text-white outline-none transition-all placeholder:text-white/[0.62] hover:border-white/[0.34] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
+const labelClass = "mb-4 block text-[12px] uppercase tracking-[1.2px] text-white/[0.9]";
 
 type Status = "idle" | "success" | "error";
 
@@ -89,7 +89,7 @@ export function FieldReportsAccessCTA() {
           onClick={closeModal}
         >
           <div
-            className="relative max-h-[calc(100vh-48px)] w-[calc(100%-32px)] max-w-[560px] overflow-y-auto rounded-[10px] border border-white/[0.14] bg-[#0b0b0c] p-[22px] shadow-[0_24px_80px_rgba(0,0,0,0.6)] md:p-8"
+            className="relative max-h-[calc(100vh-48px)] w-[calc(100%-32px)] max-w-[560px] overflow-y-auto rounded-[10px] border border-white/[0.18] bg-[#111113] p-[22px] shadow-[0_24px_80px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)] md:p-8"
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -116,7 +116,7 @@ export function FieldReportsAccessCTA() {
                   <h2 id="field-reports-access-title" className="text-[28px] font-semibold leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
                     Request Field Reports Access
                   </h2>
-                  <p className="mt-2 text-base leading-7 text-white/[0.75]">
+                  <p className="mt-2 text-base leading-7 text-white/[0.82]">
                     For churches, leaders, and ministry partners seeking a high-level view of what God is doing through the movement.
                   </p>
                 </div>
@@ -172,7 +172,7 @@ export function FieldReportsAccessCTA() {
                     />
                   </div>
 
-                  <p className="text-sm leading-6 text-white/[0.62]">
+                  <p className="rounded-md border border-white/[0.1] bg-white/[0.045] px-4 py-3 text-sm leading-6 text-white/[0.72]">
                     Field Reports are private and intended for trusted leaders, partner churches, and approved ministry stakeholders. Individual stories and personal details are stewarded with care.
                   </p>
 
