@@ -78,35 +78,27 @@ export function MissionReviewCTA() {
 
   return (
     <div className="mt-10">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="border border-white/[0.12] bg-white/[0.035] p-4">
-          <p className="text-sm leading-[1.4] text-white/70">
-            One or two sentences about USA Missionaries.
-          </p>
-          <button
-            type="button"
-            onClick={() => openModal("experience")}
-            className="mt-4 inline-block border-0 bg-[#d4a017] px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-200 ease-out hover:bg-[#e0ad2f] active:bg-[#c89514]"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            Quick Review
-          </button>
-        </div>
-
-        <div className="border border-white/[0.08] bg-white/[0.015] p-4">
-          <p className="text-sm leading-[1.4] text-white/70">
-            Tell us what happened and how the evening impacted you.
-          </p>
-          <button
-            type="button"
-            onClick={() => openModal("story")}
-            className="mt-4 inline-block border border-white/25 bg-transparent px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-[#d4a017] hover:bg-[rgba(212,160,23,0.08)] hover:text-[#d4a017]"
-            style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
-          >
-            Share Your Story
-          </button>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => openModal("experience")}
+          className="inline-block border-0 bg-[#d4a017] px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-200 ease-out hover:bg-[#e0ad2f] active:bg-[#c89514]"
+          style={{ fontFamily: font.rajdhani }}
+        >
+          Quick Review
+        </button>
+        <button
+          type="button"
+          onClick={() => openModal("story")}
+          className="inline-block border border-white/25 bg-transparent px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-[#d4a017] hover:bg-[rgba(212,160,23,0.08)] hover:text-[#d4a017]"
+          style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
+        >
+          Share Your Story
+        </button>
       </div>
+      <p className="mt-[14px] max-w-[520px] text-[13px] leading-6 text-white/[0.55]">
+        Quick Review is one or two sentences. Share Your Story is for a deeper testimony.
+      </p>
 
       {isOpen && (
         <div

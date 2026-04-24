@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PrimaryNav } from "../../components/PrimaryNav";
+import { FieldReportsAccessCTA } from "./FieldReportsAccessCTA";
 import { MissionReviewCTA } from "./MissionReviewCTA";
 
 export const metadata: Metadata = {
@@ -11,27 +12,27 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 function VideoPlaceholderCard() {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-[#090909] shadow-[0_24px_90px_rgba(0,0,0,0.45)]">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/70 to-transparent" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(212,160,84,0.13),transparent_27%),radial-gradient(ellipse_at_center,transparent_32%,rgba(0,0,0,0.68)_100%),linear-gradient(135deg,rgba(255,255,255,0.06),transparent_42%,rgba(212,160,84,0.035))]" />
+    <div className="relative overflow-hidden rounded-xl border border-white/[0.1] bg-[#080808] shadow-[0_18px_70px_rgba(0,0,0,0.38)]">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/45 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(212,160,84,0.075),transparent_26%),radial-gradient(ellipse_at_center,transparent_34%,rgba(0,0,0,0.72)_100%),linear-gradient(135deg,rgba(255,255,255,0.045),transparent_42%,rgba(212,160,84,0.02))]" />
 
-      <div className="relative aspect-video p-6 md:p-8">
+      <div className="relative aspect-video p-5 md:p-7">
         <div className="flex h-full flex-col">
           <div>
             <p className="text-[10px] uppercase tracking-[0.32em] text-white/40" style={{ fontFamily: font.rajdhani }}>
               Coming Soon
             </p>
-            <h2 className="mt-3 max-w-sm text-3xl font-bold leading-tight text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
+            <h2 className="mt-3 max-w-sm text-2xl font-bold leading-tight text-stone-100 md:text-3xl" style={{ fontFamily: font.oswald }}>
               Kitchen Table Testimony
             </h2>
-            <p className="mt-6 max-w-sm text-sm leading-6 text-white/70">
+            <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">
               A story from the table.
             </p>
           </div>
 
           <div className="absolute inset-0 flex translate-y-4 items-center justify-center">
-            <div className="flex h-[92px] w-[92px] items-center justify-center rounded-full border border-white/15 bg-black/35 shadow-[0_0_30px_rgba(212,160,23,0.25)] backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-[0_0_48px_rgba(212,160,23,0.38)]">
-              <div className="ml-1 h-0 w-0 border-y-[15px] border-l-[23px] border-y-transparent border-l-stone-100" />
+            <div className="flex h-[84px] w-[84px] items-center justify-center rounded-full border border-white/12 bg-black/30 shadow-[0_0_24px_rgba(212,160,23,0.18)] backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-[0_0_36px_rgba(212,160,23,0.3)]">
+              <div className="ml-1 h-0 w-0 border-y-[13px] border-l-[21px] border-y-transparent border-l-stone-100" />
             </div>
           </div>
         </div>
@@ -176,20 +177,17 @@ export default function MissionPage() {
                   See the Fruit of the Mission
                 </h3>
                 <p className="mt-4 text-sm leading-7 text-stone-400 md:text-base">
-                  For churches, leaders, and ministry partners, USA Missionaries is building a private reporting dashboard to show field activity, testimonies, movement metrics, and operational visibility.
+                  For churches, leaders, and ministry partners, USA Missionaries is building a private reporting environment that provides a high-level view of what God is doing through the movement.
+                </p>
+                <p className="mt-3 text-sm leading-7 text-stone-400 md:text-base">
+                  Individual stories and personal details are never shared publicly and are stewarded with care.
                 </p>
                 <p className="mt-4 text-xs uppercase leading-6 tracking-[0.18em] text-stone-600" style={{ fontFamily: font.rajdhani }}>
-                  Access is reserved for active leaders, partner churches, and approved ministry stakeholders.
+                  Access is reserved for trusted leaders, partner churches, and approved ministry stakeholders.
                 </p>
               </div>
 
-              <a
-                href="mailto:info@usamissionaries.org"
-                className="inline-flex min-h-12 items-center justify-center border border-white/25 bg-transparent px-7 py-3 text-center text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-[#d4a017] hover:bg-[rgba(212,160,23,0.08)] hover:text-[#d4a017]"
-                style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
-              >
-                Request Access to Field Reports
-              </a>
+              <FieldReportsAccessCTA />
             </div>
           </div>
         </div>
