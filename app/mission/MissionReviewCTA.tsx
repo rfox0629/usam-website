@@ -8,10 +8,10 @@ type ModalType = "experience" | "story";
 type Status = "idle" | "success" | "error";
 
 const fieldClass =
-  "w-full rounded-md border border-white/[0.18] bg-white/[0.06] px-4 py-[14px] text-base text-white outline-none transition-all placeholder:text-white/50 hover:border-white/[0.28] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
-const labelClass = "mb-4 block text-[12px] uppercase tracking-[1.2px] text-white/[0.65]";
+  "w-full rounded-md border border-white/[0.2] bg-white/[0.06] px-4 py-[14px] text-base text-white outline-none transition-all placeholder:text-white/[0.55] hover:border-white/[0.28] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
+const labelClass = "mb-4 block text-[12px] uppercase tracking-[1.2px] text-white/[0.75]";
 const optionClass =
-  "flex cursor-pointer items-start gap-3 rounded-md border border-white/[0.12] bg-white/[0.04] px-4 py-[14px] text-sm leading-6 text-white/[0.85] transition-colors hover:border-white/[0.2] hover:bg-white/[0.08]";
+  "flex cursor-pointer items-start gap-3 rounded-md border border-white/[0.12] bg-white/[0.04] px-4 py-[14px] text-sm font-medium leading-6 text-white/[0.9] transition-colors hover:border-white/[0.2] hover:bg-white/[0.08]";
 
 export function MissionReviewCTA() {
   const [activeModal, setActiveModal] = useState<ModalType | null>(null);
@@ -78,23 +78,34 @@ export function MissionReviewCTA() {
 
   return (
     <div className="mt-10">
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <button
-          type="button"
-          onClick={() => openModal("experience")}
-          className="inline-block bg-stone-100 px-7 py-3 text-sm uppercase tracking-[0.2em] text-stone-950 transition-all duration-300 hover:bg-amber-200"
-          style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
-        >
-          Share Your Experience
-        </button>
-        <button
-          type="button"
-          onClick={() => openModal("story")}
-          className="inline-block border border-stone-600 px-7 py-3 text-sm uppercase tracking-[0.2em] text-stone-300 transition-all duration-300 hover:border-stone-400 hover:text-stone-100"
-          style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
-        >
-          Tell Your Story
-        </button>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="border border-white/[0.12] bg-white/[0.035] p-4">
+          <p className="text-sm leading-[1.4] text-white/70">
+            One or two sentences about USA Missionaries.
+          </p>
+          <button
+            type="button"
+            onClick={() => openModal("experience")}
+            className="mt-4 inline-block border-0 bg-[#d4a017] px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-200 ease-out hover:bg-[#e0ad2f] active:bg-[#c89514]"
+            style={{ fontFamily: font.rajdhani }}
+          >
+            Quick Review
+          </button>
+        </div>
+
+        <div className="border border-white/[0.08] bg-white/[0.015] p-4">
+          <p className="text-sm leading-[1.4] text-white/70">
+            Tell us what happened and how the evening impacted you.
+          </p>
+          <button
+            type="button"
+            onClick={() => openModal("story")}
+            className="mt-4 inline-block border border-white/25 bg-transparent px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-[#d4a017] hover:bg-[rgba(212,160,23,0.08)] hover:text-[#d4a017]"
+            style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
+          >
+            Share Your Story
+          </button>
+        </div>
       </div>
 
       {isOpen && (
@@ -179,22 +190,22 @@ function ExperienceForm({
 
         <div className="mb-5">
           <label htmlFor="mission-review-name" className={labelClass} style={{ fontFamily: font.rajdhani }}>
-            Name optional
+            Name
           </label>
-          <input id="mission-review-name" type="text" name="name" placeholder="Name optional" className={fieldClass} />
+          <input id="mission-review-name" type="text" name="name" required placeholder="Your name" className={fieldClass} />
         </div>
 
         <div className="mb-6">
           <label htmlFor="mission-review-email" className={labelClass} style={{ fontFamily: font.rajdhani }}>
-            Email optional
+            Email
           </label>
-          <input id="mission-review-email" type="email" name="email" placeholder="Email optional" className={fieldClass} />
+          <input id="mission-review-email" type="email" name="email" required placeholder="Your email address" className={fieldClass} />
         </div>
 
         <div className="mb-6">
           <label
             htmlFor="mission-review-response"
-            className="mb-4 block text-[12px] font-semibold uppercase leading-[1.5] tracking-[1.2px] text-white"
+            className="mb-4 block text-[13px] font-semibold uppercase leading-[1.5] tracking-[1.2px] text-white/[0.9]"
             style={{ fontFamily: font.rajdhani }}
           >
             How would you describe USA Missionaries to someone who&rsquo;s never heard of it?
@@ -397,7 +408,7 @@ function SubmitArea({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="inline-flex min-h-12 w-full items-center justify-center rounded bg-white px-6 py-[14px] text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-300 hover:bg-[#d4a017] hover:text-black disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        className="inline-flex min-h-12 w-full items-center justify-center rounded border-0 bg-[#d4a017] px-6 py-[14px] text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-200 ease-out hover:bg-[#e0ad2f] active:bg-[#c89514] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         style={{ fontFamily: font.rajdhani }}
       >
         {isSubmitting ? submittingText : submitText}

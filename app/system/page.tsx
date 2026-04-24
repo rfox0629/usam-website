@@ -13,6 +13,7 @@ const commandRows = [
   { post: "CP-014", city: "Austin, TX", status: "Active", tables: "3" },
   { post: "CP-028", city: "Denver, CO", status: "Active", tables: "5" },
   { post: "CP-041", city: "Nashville, TN", status: "Deploying", tables: "2" },
+  { post: "CP-057", city: "Phoenix, AZ", status: "Active", tables: "4" },
 ] as const;
 
 const cards = [

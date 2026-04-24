@@ -11,34 +11,29 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 function VideoPlaceholderCard() {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-white/[0.035] shadow-[0_24px_90px_rgba(0,0,0,0.4)]">
+    <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-[#090909] shadow-[0_24px_90px_rgba(0,0,0,0.45)]">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/70 to-transparent" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_52%_44%,rgba(212,160,84,0.16),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.075),transparent_36%,rgba(212,160,84,0.045))]" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.014)_1px,transparent_1px)] bg-[length:48px_48px]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(212,160,84,0.13),transparent_27%),radial-gradient(ellipse_at_center,transparent_32%,rgba(0,0,0,0.68)_100%),linear-gradient(135deg,rgba(255,255,255,0.06),transparent_42%,rgba(212,160,84,0.035))]" />
 
       <div className="relative aspect-video p-6 md:p-8">
-        <div className="flex h-full flex-col justify-between">
+        <div className="flex h-full flex-col">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.32em] text-amber-500/80" style={{ fontFamily: font.rajdhani }}>
+            <p className="text-[10px] uppercase tracking-[0.32em] text-white/40" style={{ fontFamily: font.rajdhani }}>
               Coming Soon
             </p>
             <h2 className="mt-3 max-w-sm text-3xl font-bold leading-tight text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
               Kitchen Table Testimony
             </h2>
-            <p className="mt-4 max-w-sm text-sm leading-6 text-stone-400 md:text-base">
-              A powerful story from the table is being prepared.
+            <p className="mt-6 max-w-sm text-sm leading-6 text-white/70">
+              A story from the table.
             </p>
           </div>
 
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/15 bg-black/35 shadow-[0_0_50px_rgba(212,160,84,0.18)] backdrop-blur-sm">
-              <div className="ml-1 h-0 w-0 border-y-[13px] border-l-[20px] border-y-transparent border-l-stone-100" />
+          <div className="absolute inset-0 flex translate-y-4 items-center justify-center">
+            <div className="flex h-[92px] w-[92px] items-center justify-center rounded-full border border-white/15 bg-black/35 shadow-[0_0_30px_rgba(212,160,23,0.25)] backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-[0_0_48px_rgba(212,160,23,0.38)]">
+              <div className="ml-1 h-0 w-0 border-y-[15px] border-l-[23px] border-y-transparent border-l-stone-100" />
             </div>
           </div>
-
-          <p className="max-w-sm text-[11px] uppercase leading-6 tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-            Real homes. Real encounters. Real transformation.
-          </p>
         </div>
       </div>
     </div>
@@ -190,7 +185,7 @@ export default function MissionPage() {
 
               <a
                 href="mailto:info@usamissionaries.org"
-                className="inline-flex min-h-12 items-center justify-center border border-stone-600 px-7 py-3 text-center text-sm uppercase tracking-[0.2em] text-stone-300 transition-all duration-300 hover:border-amber-500/70 hover:text-stone-100"
+                className="inline-flex min-h-12 items-center justify-center border border-white/25 bg-transparent px-7 py-3 text-center text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-[#d4a017] hover:bg-[rgba(212,160,23,0.08)] hover:text-[#d4a017]"
                 style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
               >
                 Request Access to Field Reports
