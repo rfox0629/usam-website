@@ -117,7 +117,10 @@ export default function MissionPage() {
             {fieldReports.map((report, index) => (
               <div key={`${report.attribution}-${index}`} className="border border-stone-800/40 bg-stone-950/60 p-5">
                 <div className="border-l-2 border-amber-500/15 pl-4">
-                  <p className="text-[14px] italic leading-relaxed text-stone-300">
+                  <p
+                    className="mb-3 text-[16px] italic leading-[1.6] text-[#f5f5f5] md:text-[18px]"
+                    style={{ fontFamily: "'Playfair Display', serif" }}
+                  >
                     &ldquo;{report.quote}&rdquo;
                   </p>
                 </div>

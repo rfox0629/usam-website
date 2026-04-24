@@ -4,8 +4,8 @@ import { PrimaryNav } from "../../../components/PrimaryNav";
 import { PreviewAccessForm } from "./PreviewAccessForm";
 
 export const metadata: Metadata = {
-  title: "Private Preview | USA Missionaries",
-  description: "Private preview access for the USA Missionaries discipleship system.",
+  title: "Restricted Access | USA Missionaries",
+  description: "Restricted access gate for the USA Missionaries discipleship system.",
 };
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -22,18 +22,19 @@ export default function SystemPreviewPage() {
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="max-w-xl">
             <p className="text-[11px] uppercase tracking-[0.34em] text-amber-500/80" style={{ fontFamily: font.rajdhani }}>
-              Private Preview
+              Restricted Access
             </p>
             <h1
               className="mt-6 text-5xl uppercase leading-[0.94] text-stone-100 md:text-7xl"
               style={{ fontFamily: font.oswald }}
             >
-              Peek Behind
+              Enter With
               <br />
-              The <span className="text-amber-400">Curtain</span>
+              <span className="text-amber-400">Access Code</span>
             </h1>
-            <p className="mt-6 max-w-lg text-base leading-8 text-stone-400 md:text-lg">
-              The discipleship system is being built. If you’ve been invited to review the product, enter your password to access the preview.
+            <p className="mt-6 max-w-lg whitespace-pre-line text-base leading-8 text-stone-400 md:text-lg">
+              {`Access to this system is limited.
+If you’ve been given an access code, enter it below to proceed.`}
             </p>
           </div>
 
@@ -44,15 +45,24 @@ export default function SystemPreviewPage() {
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.3)]" />
                   <span
-                    className="text-[10px] uppercase tracking-[0.28em] text-stone-500"
+                    className="text-[10px] uppercase tracking-[0.28em] text-stone-300"
                     style={{ fontFamily: font.rajdhani }}
                   >
-                    Preview Gate
+                    PREVIEW GATE
                   </span>
                 </div>
-                <span className="hidden text-[10px] uppercase tracking-[0.2em] text-stone-700 sm:inline">
-                  Invite Only
-                </span>
+                <div className="flex items-center gap-4">
+                  <span className="hidden text-[10px] uppercase tracking-[0.2em] text-stone-400 sm:inline">
+                    Authorized Only
+                  </span>
+                  <Link
+                    href="/system"
+                    className="inline-flex h-8 w-8 items-center justify-center border border-stone-700 text-base leading-none text-stone-300 transition-colors hover:border-stone-400 hover:text-stone-100"
+                    aria-label="Exit preview access"
+                  >
+                    ×
+                  </Link>
+                </div>
               </div>
 
               <PreviewAccessForm />
@@ -60,7 +70,7 @@ export default function SystemPreviewPage() {
               <div className="mt-8 border-t border-stone-900 pt-4">
                 <Link
                   href="/system"
-                  className="text-[11px] uppercase tracking-[0.22em] text-stone-600 transition-colors hover:text-stone-300"
+                  className="text-[11px] uppercase tracking-[0.22em] text-stone-400 transition-colors hover:text-stone-100"
                   style={{ fontFamily: font.rajdhani }}
                 >
                   Return to system layer

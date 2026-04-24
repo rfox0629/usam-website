@@ -149,7 +149,7 @@ export function WaitingListCTA() {
                   <div>
                     <label
                       htmlFor="system-waitlist-name"
-                      className="text-[11px] uppercase tracking-[0.22em] text-stone-500"
+                      className="text-[11px] uppercase tracking-[0.22em] text-stone-300"
                       style={{ fontFamily: font.rajdhani }}
                     >
                       Name
@@ -161,14 +161,14 @@ export function WaitingListCTA() {
                       value={formValues.name}
                       onChange={(event) => setFormValues((current) => ({ ...current, name: event.target.value }))}
                       placeholder="Name optional"
-                      className="mt-2 w-full border border-stone-800 bg-[#050505] px-4 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-700 focus:border-amber-500/60"
+                      className="mt-2 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-amber-500/70"
                     />
                   </div>
 
                   <div>
                     <label
                       htmlFor="system-waitlist-email"
-                      className="text-[11px] uppercase tracking-[0.22em] text-stone-500"
+                      className="text-[11px] uppercase tracking-[0.22em] text-stone-300"
                       style={{ fontFamily: font.rajdhani }}
                     >
                       Email
@@ -181,7 +181,7 @@ export function WaitingListCTA() {
                       value={formValues.email}
                       onChange={(event) => setFormValues((current) => ({ ...current, email: event.target.value }))}
                       placeholder="Email"
-                      className="mt-2 w-full border border-stone-800 bg-[#050505] px-4 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-700 focus:border-amber-500/60"
+                      className="mt-2 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-amber-500/70"
                     />
                   </div>
                 </div>
@@ -189,7 +189,7 @@ export function WaitingListCTA() {
                 <div>
                   <label
                     htmlFor="system-waitlist-organization"
-                    className="text-[11px] uppercase tracking-[0.22em] text-stone-500"
+                    className="text-[11px] uppercase tracking-[0.22em] text-stone-300"
                     style={{ fontFamily: font.rajdhani }}
                   >
                     Role or organization
@@ -201,14 +201,14 @@ export function WaitingListCTA() {
                     value={formValues.organization}
                     onChange={(event) => setFormValues((current) => ({ ...current, organization: event.target.value }))}
                     placeholder="Pastor, leader, church, school, or organization"
-                    className="mt-2 w-full border border-stone-800 bg-[#050505] px-4 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-700 focus:border-amber-500/60"
+                    className="mt-2 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-amber-500/70"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="system-waitlist-message"
-                    className="text-[11px] uppercase tracking-[0.22em] text-stone-500"
+                    className="text-[11px] uppercase tracking-[0.22em] text-stone-300"
                     style={{ fontFamily: font.rajdhani }}
                   >
                     Message
@@ -220,7 +220,7 @@ export function WaitingListCTA() {
                     value={formValues.message}
                     onChange={(event) => setFormValues((current) => ({ ...current, message: event.target.value }))}
                     placeholder="Tell us where you hope to use this system."
-                    className="mt-2 w-full resize-none border border-stone-800 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-700 focus:border-amber-500/60"
+                    className="mt-2 w-full resize-none border border-stone-700 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-amber-500/70"
                   />
                 </div>
 
