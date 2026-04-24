@@ -84,17 +84,17 @@ export function WaitingListCTA() {
             setIsOpen((current) => !current);
             setStatus("idle");
           }}
-          className="inline-flex min-h-12 items-center justify-center border border-amber-400 bg-amber-400 px-7 py-3 text-xs uppercase tracking-[0.26em] text-stone-950 transition-all duration-300 hover:border-amber-300 hover:bg-amber-300"
+          className="inline-flex min-h-12 w-full items-center justify-center border border-amber-400 bg-amber-400 px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-stone-950 transition-all duration-300 hover:border-amber-300 hover:bg-amber-300 sm:w-[230px] lg:w-auto"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
           Join The Waiting List
         </button>
         <Link
           href="/system/preview"
-          className="inline-flex min-h-12 items-center justify-center border border-stone-600 bg-transparent px-7 py-3 text-xs uppercase tracking-[0.26em] text-stone-100 transition-all duration-300 hover:border-stone-300 hover:bg-white/[0.04]"
+          className="inline-flex min-h-12 w-full items-center justify-center border border-stone-600 bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-stone-100 transition-all duration-300 hover:border-stone-300 hover:bg-white/[0.04] sm:w-[250px] lg:w-auto"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
-          Sneak Peek
+          Enter With Access Code
         </Link>
       </div>
 

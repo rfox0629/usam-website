@@ -32,7 +32,7 @@ export default function SystemPreviewPage() {
               <br />
               <span className="text-amber-400">Access Code</span>
             </h1>
-            <p className="mt-6 max-w-lg whitespace-pre-line text-base leading-8 text-stone-400 md:text-lg">
+            <p className="mt-6 max-w-lg whitespace-pre-line text-base leading-8 text-stone-300 md:text-lg">
               {`Access to this system is limited.
 If you’ve been given an access code, enter it below to proceed.`}
             </p>
@@ -45,19 +45,19 @@ If you’ve been given an access code, enter it below to proceed.`}
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.3)]" />
                   <span
-                    className="text-[10px] uppercase tracking-[0.28em] text-stone-300"
+                    className="text-[10px] uppercase tracking-[0.28em] text-stone-200"
                     style={{ fontFamily: font.rajdhani }}
                   >
                     PREVIEW GATE
                   </span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="hidden text-[10px] uppercase tracking-[0.2em] text-stone-400 sm:inline">
+                  <span className="hidden text-[10px] uppercase tracking-[0.2em] text-stone-300 sm:inline">
                     Authorized Only
                   </span>
                   <Link
                     href="/system"
-                    className="inline-flex h-8 w-8 items-center justify-center border border-stone-700 text-base leading-none text-stone-300 transition-colors hover:border-stone-400 hover:text-stone-100"
+                    className="inline-flex h-8 w-8 items-center justify-center border border-stone-600 text-base leading-none text-stone-200 transition-colors hover:border-stone-300 hover:text-stone-100"
                     aria-label="Exit preview access"
                   >
                     ×
@@ -70,7 +70,7 @@ If you’ve been given an access code, enter it below to proceed.`}
               <div className="mt-8 border-t border-stone-900 pt-4">
                 <Link
                   href="/system"
-                  className="text-[11px] uppercase tracking-[0.22em] text-stone-400 transition-colors hover:text-stone-100"
+                  className="text-[11px] uppercase tracking-[0.22em] text-stone-300 transition-colors hover:text-stone-100"
                   style={{ fontFamily: font.rajdhani }}
                 >
                   Return to system layer

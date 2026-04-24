@@ -39,10 +39,16 @@ export function PreviewAccessForm() {
 
   return (
     <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+      <div className="border-y border-stone-800/90 py-3">
+        <p className="text-[10px] uppercase tracking-[0.28em] text-amber-500/90" style={{ fontFamily: font.rajdhani }}>
+          System Status: Restricted
+        </p>
+      </div>
+
       <div>
         <label
           htmlFor="system-preview-code"
-          className="text-[11px] uppercase tracking-[0.24em] text-stone-300"
+          className="text-[11px] uppercase tracking-[0.24em] text-stone-200"
           style={{ fontFamily: font.rajdhani }}
         >
           Access Code
@@ -54,7 +60,7 @@ export function PreviewAccessForm() {
           onChange={(event) => setPassword(event.target.value)}
           required
           placeholder="ACCESS CODE"
-          className="mt-2 w-full border border-stone-700 bg-[#050505] px-4 py-4 text-sm uppercase tracking-[0.18em] text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-amber-500/70"
+          className="mt-2 w-full border border-stone-600 bg-[#050505] px-4 py-4 text-sm uppercase tracking-[0.18em] text-stone-100 outline-none transition-colors placeholder:text-stone-400 focus:border-amber-500/70"
         />
       </div>
 
@@ -67,7 +73,7 @@ export function PreviewAccessForm() {
         {isSubmitting ? "Checking..." : "Enter System"}
       </button>
 
-      <p className="text-xs uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani }}>
+      <p className="text-xs uppercase leading-6 tracking-[0.18em] text-stone-300" style={{ fontFamily: font.rajdhani }}>
         Access is limited to invited operators and leadership.
       </p>
 

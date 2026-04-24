@@ -4,16 +4,84 @@
 
 body {
   background: #050505;
-  color: #e7e5e4;
+  color: #d1d5db;
+}
+
+/* Global readability pass for the dark command-system interface. */
+:where(h1, h2, h3, h4, h5, h6),
+.text-stone-50,
+.text-stone-100,
+.text-stone-200 {
+  color: #ffffff;
+}
+
+:where(p, li, dd),
+.text-stone-300,
+.text-stone-400 {
+  color: #d1d5db;
+}
+
+.text-stone-500,
+.text-stone-600,
+.text-stone-700 {
+  color: #9ca3af;
+}
+
+:where(label),
+.tactical-label,
+.tactical-muted-label {
+  color: #bfc3c9;
+}
+
+:where(input, textarea, select) {
+  color: #ffffff;
+  border-color: #2a2f36;
+}
+
+:where(input, textarea, select)::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+:where(input, textarea, select):focus {
+  border-color: #facc15;
+}
+
+.placeholder\:text-stone-400::placeholder,
+.placeholder\:text-stone-500::placeholder,
+.placeholder\:text-gray-400::placeholder,
+.placeholder\:text-gray-500::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+.border-stone-600,
+.border-stone-700,
+.border-stone-800,
+.border-stone-900,
+.border-stone-700\/70,
+.border-stone-700\/80,
+.border-stone-800\/20,
+.border-stone-800\/30,
+.border-stone-800\/35,
+.border-stone-800\/40,
+.border-stone-800\/50,
+.border-stone-800\/60,
+.border-stone-800\/70,
+.border-stone-800\/80,
+.border-stone-800\/90,
+.border-stone-900\/80,
+.border-stone-900\/90 {
+  border-color: #2a2f36;
 }
 
 @layer components {
   .tactical-label {
-    color: rgba(255, 255, 255, 0.7);
+    color: #bfc3c9;
     font-size: 13px;
     font-weight: 500;
     letter-spacing: 0.14em;
-    text-shadow: 0 0 6px rgba(255, 255, 255, 0.15);
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.08);
   }
 
   .tactical-amber-label {
@@ -25,10 +93,10 @@ body {
   }
 
   .tactical-muted-label {
-    color: rgba(255, 255, 255, 0.7);
+    color: #bfc3c9;
     font-size: 13px;
     font-weight: 500;
     letter-spacing: 0.14em;
-    text-shadow: 0 0 6px rgba(255, 255, 255, 0.15);
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.08);
   }
 }
