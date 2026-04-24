@@ -85,10 +85,6 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   );
 }
 
-function formatPopulation(value: number) {
-  return new Intl.NumberFormat("en-US").format(Math.floor(value));
-}
-
 function WorldMap() {
   const nodes: Array<[number, number]> = [[280,190],[600,135],[590,300],[760,160],[950,410],[310,400],[220,170],[320,200],[640,250],[860,180],[700,130],[580,380]];
   const routes: Array<[number, number, number, number]> = [[280,190,600,135],[280,190,590,300],[280,190,760,160],[280,190,310,400]];
@@ -128,28 +124,29 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
+  const tableCenter = { x: 480, y: 246 };
+  const seats = Array.from({ length: 8 }).map((_, i) => {
+    const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    return { x: tableCenter.x + Math.cos(angle) * 146, y: tableCenter.y + Math.sin(angle) * 98 };
+  });
+
   return (
-    <div className="mx-auto w-full max-w-6xl overflow-hidden border border-stone-800/45 bg-[#050505] shadow-[0_0_80px_rgba(0,0,0,0.55)]">
-      <div className="flex flex-col items-center justify-center gap-1 border-b border-stone-800/35 px-4 py-3 sm:flex-row sm:justify-between sm:gap-4 sm:px-6">
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.55)]" />
-          <span className="whitespace-nowrap text-[8px] uppercase tracking-[0.26em] text-amber-500/80 sm:text-[10px] sm:tracking-[0.36em]" style={{ fontFamily: font.rajdhani }}>
-            DEPLOYMENT ORIGIN
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="whitespace-nowrap text-[8px] uppercase tracking-[0.22em] text-stone-500 sm:text-[10px] sm:tracking-[0.3em]" style={{ fontFamily: font.rajdhani }}>
-            LIVE STATUS:
-          </span>
-          <span className="rounded-md border border-emerald-400/25 bg-emerald-950/35 px-2.5 py-1 text-[10px] font-semibold text-emerald-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(16,185,129,0.16)] sm:px-3 sm:text-xs" style={{ fontFamily: font.rajdhani }}>
-            Active
-          </span>
-        </div>
+    <div className="relative">
+      <div className="absolute top-3 left-4 z-10 flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+        <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+          DEPLOYMENT ORIGIN — LIVE
+        </span>
       </div>
-      <svg viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet" className="block h-[410px] w-full sm:h-[540px]">
+      <div className="absolute top-3 right-4 z-10 text-right">
+        <span className="tactical-label block uppercase" style={{ fontFamily: font.rajdhani }}>
+          STATUS: ACTIVE
+        </span>
+      </div>
+      <svg viewBox="0 0 960 460" className="w-full h-auto">
         <defs>
           <radialGradient id="tableGlow" cx="50%" cy="52%" r="35%">
-            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.09} />
+            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.07} />
             <stop offset="100%" stopColor="#C9A24A" stopOpacity={0} />
           </radialGradient>
           <radialGradient id="centerPulse" cx="50%" cy="50%" r="50%">
@@ -164,94 +161,79 @@ function ExpansionMap() {
             </feMerge>
           </filter>
           <filter id="usaBackdrop">
-            <feFlood floodColor="#C9A24A" result="goldFill" />
+            <feFlood floodColor="#9b792d" result="goldFill" />
             <feComposite in="goldFill" in2="SourceAlpha" operator="in" result="tintedMap" />
-            <feGaussianBlur in="tintedMap" stdDeviation="0.7" result="mapGlow" />
-            <feMerge result="mapWithGlow">
-              <feMergeNode in="mapGlow" />
-              <feMergeNode in="tintedMap" />
-            </feMerge>
-            <feComponentTransfer in="mapWithGlow">
-              <feFuncA type="linear" slope="1.08" />
+            <feComponentTransfer in="tintedMap">
+              <feFuncA type="linear" slope="0.9" />
             </feComponentTransfer>
           </filter>
         </defs>
         {Array.from({ length: 20 }).map((_, i) => (
-          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={540} stroke="#101010" strokeWidth={0.35} />
+          <line key={`gv${i}`} x1={i * 50} y1={0} x2={i * 50} y2={460} stroke="#0c0c0c" strokeWidth={0.3} />
         ))}
-        {Array.from({ length: 12 }).map((_, i) => (
-          <line key={`gh${i}`} x1={0} y1={i * 50} x2={960} y2={i * 50} stroke="#101010" strokeWidth={0.35} />
+        {Array.from({ length: 10 }).map((_, i) => (
+          <line key={`gh${i}`} x1={0} y1={i * 50} x2={960} y2={i * 50} stroke="#0c0c0c" strokeWidth={0.3} />
         ))}
-        <rect x={0} y={0} width={960} height={540} fill="url(#tableGlow)" />
+        <rect x={0} y={0} width={960} height={460} fill="url(#tableGlow)" />
 
         <image
           href="/usa-outline-clean.png"
-          x="30"
-          y="0"
-          width="900"
-          height="540"
+          x="54"
+          y="20"
+          width="852"
+          height="474"
           preserveAspectRatio="xMidYMid meet"
-          opacity="0.86"
+          opacity="0.42"
           filter="url(#usaBackdrop)"
         />
 
-        <g transform="translate(0 34)">
-        <g transform="translate(480 216) scale(0.9) translate(-480 -216)">
-        {[92, 118, 144].map((r, i) => (
-          <ellipse key={`ring${i}`} cx={480} cy={216} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.075 - i * 0.018} strokeDasharray="5,9">
-            <animate attributeName="opacity" values={`${0.075 - i * 0.018};${0.025 - i * 0.005};${0.075 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
+        {[88, 112, 136].map((r, i) => (
+          <ellipse key={`ring${i}`} cx={tableCenter.x} cy={tableCenter.y} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.08 - i * 0.018} strokeDasharray="5,9">
+            <animate attributeName="opacity" values={`${0.08 - i * 0.018};${0.025 - i * 0.005};${0.08 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
           </ellipse>
         ))}
 
-        <line x1={432} y1={78} x2={528} y2={78} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
-        <line x1={432} y1={354} x2={528} y2={354} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
-        <line x1={318} y1={156} x2={318} y2={222} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
-        <line x1={642} y1={156} x2={642} y2={222} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
-        <line x1={318} y1={258} x2={318} y2={324} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
-        <line x1={642} y1={258} x2={642} y2={324} stroke="#f5f5f4" strokeWidth={9} strokeLinecap="round" />
+        <rect x={360} y={134} width={240} height={220} rx={14} fill="#050505" stroke="#282118" strokeWidth={1.05} />
+        <rect x={370} y={144} width={220} height={200} rx={10} fill="none" stroke="#17130e" strokeWidth={0.55} opacity={0.82} />
 
-        <rect x={350} y={108} width={260} height={216} rx={14} fill="#050505" stroke="#2f2a20" strokeWidth={1.1} />
-        <rect x={362} y={120} width={236} height={192} rx={10} fill="none" stroke="#1f1b14" strokeWidth={0.65} opacity={0.85} />
+        <line x1={430} y1={100} x2={530} y2={100} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={10} strokeLinecap="round" />
+        <line x1={430} y1={392} x2={530} y2={392} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={10} strokeLinecap="round" />
+        <line x1={340} y1={178} x2={340} y2={246} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={10} strokeLinecap="round" />
+        <line x1={620} y1={178} x2={620} y2={246} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={10} strokeLinecap="round" />
+        <line x1={340} y1={288} x2={340} y2={356} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={10} strokeLinecap="round" />
+        <line x1={620} y1={288} x2={620} y2={356} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={10} strokeLinecap="round" />
 
-        <ellipse cx={480} cy={216} rx={90} ry={52} fill="url(#centerPulse)" filter="url(#softGlow)">
+        <ellipse cx={tableCenter.x} cy={tableCenter.y} rx={86} ry={50} fill="url(#centerPulse)" filter="url(#softGlow)">
           <animate attributeName="opacity" values="0.8;0.4;0.8" dur="4s" repeatCount="indefinite" />
         </ellipse>
 
-        {[
-          [480, 128, 0],
-          [560, 152, 45],
-          [586, 216, 90],
-          [560, 280, 135],
-          [480, 304, 180],
-          [400, 280, 225],
-          [374, 216, 270],
-          [400, 152, 315],
-        ].map(([x, y, angle], i) => (
-          <g key={`seat${i}`}>
-            <rect x={x - 8} y={y - 5} width={16} height={10} rx={3} fill="none" stroke="#2a2a2a" strokeWidth={0.55} opacity={0.38} transform={`rotate(${angle}, ${x}, ${y})`} />
-            <circle cx={x} cy={y} r={1} fill="#C9A24A" opacity={0.2}>
-              <animate attributeName="opacity" values="0.15;0.35;0.15" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
-            </circle>
-          </g>
-        ))}
+        {seats.map((s, i) => {
+          const angle = (i / 8) * 360;
+          return (
+            <g key={`seat${i}`}>
+              <rect x={s.x - 9} y={s.y - 6} width={18} height={12} rx={3} fill="none" stroke="#2a2a2a" strokeWidth={0.6} opacity={0.4} transform={`rotate(${angle}, ${s.x}, ${s.y})`} />
+              <circle cx={s.x} cy={s.y} r={1} fill="#C9A24A" opacity={0.2}>
+                <animate attributeName="opacity" values="0.15;0.35;0.15" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
+              </circle>
+            </g>
+          );
+        })}
 
-        <text x={480} y={168} textAnchor="middle" fill="#f5f5f4" fontSize={22} letterSpacing="0.14em" style={{ fontFamily: font.oswald }}>
+        <text x={tableCenter.x} y={194} textAnchor="middle" fill="#f5f5f4" fontSize={24} letterSpacing="0.14em" style={{ fontFamily: font.oswald }}>
           THE
         </text>
-        <text x={480} y={224} textAnchor="middle" fill="#f5f5f4" fontSize={52} letterSpacing="0.06em" style={{ fontFamily: font.oswald }}>
+        <text x={tableCenter.x} y={258} textAnchor="middle" fill="#f5f5f4" fontSize={58} letterSpacing="0.05em" style={{ fontFamily: font.oswald }}>
           TABLE
         </text>
-        <text x={480} y={284} textAnchor="middle" fill="#C9A24A" fontSize={15} letterSpacing="0.22em" style={{ fontFamily: font.rajdhani }}>
+        <text x={tableCenter.x} y={314} textAnchor="middle" fill="#C9A24A" fontSize={11} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
           IT STARTS HERE
         </text>
-        </g>
-        </g>
-        <rect x={18} y={18} width={924} height={504} fill="none" stroke="#151515" strokeWidth={0.6} />
+        <rect x={16} y={16} width={928} height={428} fill="none" stroke="#131313" strokeWidth={0.5} />
         {[
-          [18, 18],
-          [942, 18],
-          [18, 522],
-          [942, 522],
+          [16, 16],
+          [944, 16],
+          [16, 444],
+          [944, 444],
         ].map(([cx, cy], i) => (
           <g key={`cr${i}`}>
             <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke="#1e1e1e" strokeWidth={0.4} />
@@ -264,24 +246,22 @@ function ExpansionMap() {
 }
 
 function GlobalUrgencySection() {
-  const growthPerSecond = 2.2;
-  const [addedSinceLoad, setAddedSinceLoad] = useState(0);
   const religionData = [
-    { label: "Christians", value: "2.3 Billion", percent: "28.8%" },
-    { label: "Muslims", value: "2.0 Billion", percent: "25.6%" },
-    { label: "Religiously Unaffiliated", value: "1.9 Billion", percent: "24.2%" },
+    { label: "Christians", value: "200 Million", percent: "62% of U.S. adults" },
+    { label: "Other Religions", value: "20-25 Million", percent: "Muslim, Hindu, Buddhist, Jewish, etc." },
+    { label: "Religiously Unaffiliated", value: "95-100 Million", percent: "30% and growing" },
   ] as const;
   const americaStats = [
     {
       label: "SELF-IDENTIFIED CHRISTIANS",
       stat: "64%",
-      note: "Down from 76% in 2000",
+      note: "Down from 76%",
       source: "Barna Group",
     },
     {
       label: "CHURCH ATTENDANCE",
       stat: "30%",
-      note: "Adults attending weekly, down from 42% in 2000",
+      note: "Adults attending weekly",
       source: "Gallup",
     },
     {
@@ -291,17 +271,26 @@ function GlobalUrgencySection() {
       source: "Barna Group",
     },
   ] as const;
-
-  useEffect(() => {
-    const startedAt = performance.now();
-    const intervalId = window.setInterval(() => {
-      const elapsedSeconds = (performance.now() - startedAt) / 1000;
-      setAddedSinceLoad(elapsedSeconds * growthPerSecond);
-    }, 450);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
-
+  const discipleshipProblem = [
+    {
+      label: "Pastors",
+      value: "500,000",
+      note: "Barna estimate",
+      source: "If every pastor discipled 12.",
+    },
+    {
+      label: "Leaders",
+      value: "6,000,000",
+      note: "12 each",
+      source: "and those 12 discipled 56.",
+    },
+    {
+      label: "People",
+      value: "335,000,000",
+      note: "56 each",
+      source: "the entire United States would be reached.",
+    },
+  ] as const;
   return (
     <section className="relative overflow-hidden px-6 py-10 md:py-14">
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_18%,rgba(201,162,74,0.08),transparent_22%),radial-gradient(circle_at_50%_60%,rgba(255,255,255,0.025),transparent_34%)]" />
@@ -316,105 +305,87 @@ function GlobalUrgencySection() {
             THE URGENCY
           </h2>
           <p className="mt-3 text-base md:text-lg leading-relaxed text-stone-400">
-            The harvest is great. The time is now.
+            This is our mission field.
           </p>
-        </div>
-
-        <div className="mt-6">
-          <div className="border border-stone-800/60 bg-[#080808] p-5 md:p-6">
-            <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:items-center">
-              <div>
-                <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
-                  WORLD POPULATION
-                </p>
-                <div className="mt-2 text-[36px] md:text-[38px] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-                  8.3 Billion+
-                </div>
-                <p className="mt-2 text-sm leading-relaxed text-stone-200 md:text-base">
-                  Every number is a soul. Every second matters.
-                </p>
-              </div>
-              <div>
-                <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
-                  GLOBAL GROWTH RATE
-                </p>
-                <p className="mt-2 text-base md:text-[16px] leading-relaxed text-stone-300">
-                  Growing by about 2.2 people every second
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-stone-500">
-                  Roughly <span className="text-amber-500/80">{formatPopulation(addedSinceLoad)}</span> people added since this page loaded
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="mt-6">
           <div className="grid gap-px bg-stone-800/30 md:grid-cols-3">
             {religionData.map((item) => (
-              <div key={item.label} className="border border-stone-800/60 bg-stone-950/60 p-4">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+              <div key={item.label} className="border border-stone-800/60 bg-stone-950/60 p-3 md:p-3.5">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani }}>
                   {item.label}
                 </div>
-                <div className="mt-2 text-[20px] md:text-[22px] leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                <div className="mt-1.5 text-[20px] md:text-[22px] leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
                   {item.value}
                 </div>
-                <div className="mt-2 text-xs text-stone-500">
-                  {item.percent} of the world
+                <div className="mt-1.5 text-xs leading-snug text-stone-300">
+                  {item.percent}
                 </div>
               </div>
             ))}
           </div>
-          <p className="mt-3 text-center text-[10px] uppercase tracking-[0.24em] text-stone-600" style={{ fontFamily: font.rajdhani }}>
-            SOURCES: WORLDOMETER AND PEW RESEARCH CENTER
+          <p className="mt-3 text-center text-[10px] uppercase tracking-[0.24em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+            SOURCE: PEW RESEARCH CENTER
           </p>
         </div>
 
-        <div className="mt-5 border-t border-stone-800/60 pt-5">
-          <div className="max-w-4xl">
-            <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
-              AMERICAN CRISIS
-            </p>
+        <div className="mt-6 border-t border-stone-800/60 pt-6">
+          <div className="max-w-4xl mx-auto text-center">
             <h3 className="mt-3 text-3xl md:text-5xl font-bold tracking-tight leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
               THE DECLINE IS REAL
             </h3>
+            <p className="mt-3 text-sm md:text-base leading-relaxed text-stone-400">
+              The decline is accelerating.
+            </p>
           </div>
 
-          <div className="mt-3 grid gap-px overflow-hidden border border-stone-800/25 bg-stone-800/25 md:grid-cols-3">
+          <div className="mt-4 grid gap-px bg-stone-800/30 md:grid-cols-3">
             {americaStats.map((item) => (
-              <div key={item.label} className="relative bg-stone-950/75 px-4 py-4 text-center md:px-5 md:py-5">
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/25 to-transparent" />
-                <div className="text-[9px] uppercase tracking-[0.24em] text-stone-300" style={{ fontFamily: font.rajdhani }}>
+              <div key={item.label} className="border border-stone-800/60 bg-stone-950/60 p-3 md:p-3.5">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
                   {item.label}
                 </div>
-                <div className="mt-2 text-4xl leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
+                <div className="mt-1.5 text-[20px] md:text-[22px] leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
                   {item.stat}
                 </div>
-                <div className="mt-2 text-sm leading-snug text-stone-400">{item.note}</div>
-                <div className="mt-3 text-[9px] uppercase tracking-[0.24em] text-amber-500/70" style={{ fontFamily: font.rajdhani }}>
+                <div className="mt-1.5 text-xs leading-snug text-stone-400">{item.note}</div>
+                <div className="mt-3 border-t border-stone-800/80 pt-2 text-[10px] uppercase tracking-[0.24em] text-amber-500/75" style={{ fontFamily: font.rajdhani }}>
                   {item.source}
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="mt-4 border-t border-amber-500/20 pt-4 text-center">
-            <p
-              className="mx-auto max-w-4xl whitespace-pre-line uppercase text-amber-500/80"
-              style={{ fontFamily: font.rajdhani, fontWeight: 500, fontSize: "11px", letterSpacing: "0.22em", lineHeight: 1.85 }}
-            >
-              {`This is not a dip. It is a long erosion.
-It reflects a deeper breakdown in discipleship, formation, and mission.`}
-            </p>
-          </div>
-        </div>
+          <div className="mt-10 border-t border-stone-800/60 pt-8">
+            <div className="max-w-4xl mx-auto text-center">
+              <h3 className="text-3xl md:text-5xl font-bold tracking-tight leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                THE DISCIPLESHIP PROBLEM
+              </h3>
+              <p className="mt-3 text-sm md:text-base leading-relaxed text-stone-400">
+                We don&apos;t lack laborers. We lack multiplication.
+              </p>
+            </div>
 
-        <div className="mt-5 flex items-center justify-center gap-2.5 md:gap-3">
-          <div className="h-px w-7 shrink-0 bg-amber-500/60 sm:w-12 md:w-16" />
-          <p className="max-w-[18rem] text-center text-[9px] font-semibold uppercase leading-relaxed tracking-[0.14em] text-stone-100 sm:max-w-none sm:text-[10px] sm:tracking-[0.2em] md:text-xs md:tracking-[0.26em]" style={{ fontFamily: font.rajdhani }}>
-            USA MISSIONARIES EXISTS TO REVERSE&nbsp;IT
-          </p>
-          <div className="h-px w-7 shrink-0 bg-amber-500/60 sm:w-12 md:w-16" />
+            <div className="mt-5 grid gap-px bg-stone-800/30 md:grid-cols-3">
+              {discipleshipProblem.map((item) => (
+                <div key={item.label} className="border border-stone-800/60 bg-stone-950/60 p-4">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                    {item.label}
+                  </div>
+                  <div className="mt-2 text-[20px] md:text-[22px] leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                    {item.value}
+                  </div>
+                  <div className="mt-2 text-xs text-stone-400">{item.note}</div>
+                  {item.source && (
+                    <div className="mt-4 border-t border-stone-800/80 pt-3 text-[10px] uppercase tracking-[0.24em] text-amber-500/75" style={{ fontFamily: font.rajdhani }}>
+                      {item.source}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -584,12 +555,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <Reveal><SectionHeading align="left" overline="SYSTEM LAYER" headline="THE INFRASTRUCTURE IS BEING BUILT"><p>A system designed to equip operators, track movement, and support multiplication at scale.</p></SectionHeading></Reveal>
-              <Reveal delay={200}>
-                <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                  <CTAButton href="mailto:info@usamissionaries.org">Join the Waitlist</CTAButton>
-                  <CTAButton variant="secondary" href="/system">View the System</CTAButton>
-                </div>
-              </Reveal>
+              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary" href="/system">View the System</CTAButton></div></Reveal>
             </div>
             <Reveal delay={300}><DOSPanel/></Reveal>
           </div>
