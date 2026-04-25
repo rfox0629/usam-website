@@ -247,50 +247,55 @@ function ExpansionMap() {
 
 function GlobalUrgencySection() {
   const religionData = [
-    { label: "Christians", value: "200 Million", percent: "62% of U.S. adults" },
-    { label: "Other Religions", value: "20-25 Million", percent: "Muslim, Hindu, Buddhist, Jewish, etc." },
-    { label: "Religiously Unaffiliated", value: "95-100 Million", percent: "30% and growing" },
+    { label: "CHRISTIANS", value: "214M", percent: "64% of U.S. population" },
+    { label: "OTHER RELIGIONS", value: "23M", percent: "Muslim, Hindu, Buddhist, Jewish, etc." },
+    { label: "RELIGIOUSLY UNAFFILIATED", value: "98M", percent: "30% and growing" },
   ] as const;
   const americaStats = [
     {
-      label: "SELF-IDENTIFIED CHRISTIANS",
+      label: "SELF IDENTIFIED CHRISTIANS",
       stat: "64%",
       note: "Down from 76%",
-      source: "Barna Group",
+      source: "BARNA GROUP",
     },
     {
       label: "CHURCH ATTENDANCE",
       stat: "30%",
       note: "Adults attending weekly",
-      source: "Gallup",
+      source: "GALLUP",
     },
     {
       label: "GEN Z IDENTIFYING AS CHRISTIAN",
       stat: "52%",
       note: "Lowest of any generation measured",
-      source: "Barna Group",
+      source: "BARNA GROUP",
     },
   ] as const;
   const discipleshipProblem = [
     {
-      label: "Pastors",
-      value: "500,000",
+      label: "PASTORS",
+      value: "500K",
       note: "Barna estimate",
-      source: "If every pastor discipled 12.",
+      source: "IF EACH PASTOR DISCIPLED 12",
     },
     {
-      label: "Leaders",
-      value: "6,000,000",
+      label: "LEADERS",
+      value: "6M",
       note: "12 each",
-      source: "and those 12 discipled 56.",
+      source: "AND THOSE 12 DISCIPLED 56",
     },
     {
-      label: "People",
-      value: "335,000,000",
+      label: "PEOPLE",
+      value: "335M",
       note: "56 each",
-      source: "the entire United States would be reached.",
+      source: "THE ENTIRE UNITED STATES WOULD BE REACHED",
     },
   ] as const;
+  const statCardClass = "border border-stone-800/70 bg-stone-950/60 p-4 md:p-5 transition-colors duration-200 md:hover:border-stone-700/90 md:hover:bg-stone-950/70";
+  const statLabelClass = "text-[10px] uppercase tracking-[0.22em] text-stone-500";
+  const statNumberClass = "mt-2 text-[26px] md:text-[30px] leading-none text-stone-100";
+  const statBodyClass = "mt-2 text-sm leading-snug text-stone-400";
+  const statSourceClass = "mt-3 border-t border-stone-800/80 pt-2 text-[10px] uppercase tracking-[0.24em] text-amber-500/80";
   return (
     <section className="relative overflow-hidden px-6 py-10 md:py-14">
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_18%,rgba(201,162,74,0.08),transparent_22%),radial-gradient(circle_at_50%_60%,rgba(255,255,255,0.025),transparent_34%)]" />
@@ -312,14 +317,14 @@ function GlobalUrgencySection() {
         <div className="mt-6">
           <div className="grid gap-px bg-stone-800/30 md:grid-cols-3">
             {religionData.map((item) => (
-              <div key={item.label} className="border border-stone-800/60 bg-stone-950/60 p-3 md:p-3.5">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani }}>
+              <div key={item.label} className={statCardClass}>
+                <div className={statLabelClass} style={{ fontFamily: font.rajdhani }}>
                   {item.label}
                 </div>
-                <div className="mt-1.5 text-[20px] md:text-[22px] leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                <div className={statNumberClass} style={{ fontFamily: font.oswald }}>
                   {item.value}
                 </div>
-                <div className="mt-1.5 text-xs leading-snug text-stone-300">
+                <div className={statBodyClass}>
                   {item.percent}
                 </div>
               </div>
@@ -342,15 +347,15 @@ function GlobalUrgencySection() {
 
           <div className="mt-4 grid gap-px bg-stone-800/30 md:grid-cols-3">
             {americaStats.map((item) => (
-              <div key={item.label} className="border border-stone-800/60 bg-stone-950/60 p-3 md:p-3.5">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+              <div key={item.label} className={statCardClass}>
+                <div className={statLabelClass} style={{ fontFamily: font.rajdhani }}>
                   {item.label}
                 </div>
-                <div className="mt-1.5 text-[20px] md:text-[22px] leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                <div className={statNumberClass} style={{ fontFamily: font.oswald }}>
                   {item.stat}
                 </div>
-                <div className="mt-1.5 text-xs leading-snug text-stone-400">{item.note}</div>
-                <div className="mt-3 border-t border-stone-800/80 pt-2 text-[10px] uppercase tracking-[0.24em] text-amber-500/75" style={{ fontFamily: font.rajdhani }}>
+                <div className={statBodyClass}>{item.note}</div>
+                <div className={statSourceClass} style={{ fontFamily: font.rajdhani }}>
                   {item.source}
                 </div>
               </div>
@@ -363,22 +368,23 @@ function GlobalUrgencySection() {
                 THE DISCIPLESHIP PROBLEM
               </h3>
               <p className="mt-3 text-sm md:text-base leading-relaxed text-stone-400">
-                We don&apos;t lack laborers. We lack multiplication.
+                <span className="block md:inline">We don&apos;t lack laborers.</span>{" "}
+                <span className="block md:inline">We lack multiplication.</span>
               </p>
             </div>
 
             <div className="mt-5 grid gap-px bg-stone-800/30 md:grid-cols-3">
               {discipleshipProblem.map((item) => (
-                <div key={item.label} className="border border-stone-800/60 bg-stone-950/60 p-4">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                <div key={item.label} className={statCardClass}>
+                  <div className={statLabelClass} style={{ fontFamily: font.rajdhani }}>
                     {item.label}
                   </div>
-                  <div className="mt-2 text-[20px] md:text-[22px] leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                  <div className={statNumberClass} style={{ fontFamily: font.oswald }}>
                     {item.value}
                   </div>
-                  <div className="mt-2 text-xs text-stone-400">{item.note}</div>
+                  <div className={statBodyClass}>{item.note}</div>
                   {item.source && (
-                    <div className="mt-4 border-t border-stone-800/80 pt-3 text-[10px] uppercase tracking-[0.24em] text-amber-500/75" style={{ fontFamily: font.rajdhani }}>
+                    <div className={statSourceClass} style={{ fontFamily: font.rajdhani }}>
                       {item.source}
                     </div>
                   )}
