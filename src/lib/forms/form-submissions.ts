@@ -7,6 +7,7 @@ export type FormSubmissionType =
   | "major_gift"
   | "contact"
   | "support_giving"
+  | "prayer_request"
   | "prayer_team_application"
   | "missionary_application"
   | "general";

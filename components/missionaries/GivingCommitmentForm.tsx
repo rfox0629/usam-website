@@ -264,17 +264,17 @@ export function GivingCommitmentForm({
   return (
     <section className={outerClassName}>
       <div className="space-y-4">
-        <div className="px-1 pb-1 pr-12 pt-1 md:px-2 md:pr-14">
+        <div className="max-w-[820px] px-1 pb-1 pr-12 pt-0 md:px-2 md:pr-14">
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {contextName}
           </p>
           <h2 className="mt-3 text-3xl font-semibold leading-tight text-stone-950 md:text-4xl">
             {formTitle}
           </h2>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-stone-700">
+          <p className="mt-3 max-w-[720px] text-[15px] leading-[1.65] text-stone-800 md:mt-4 md:text-[17px] md:leading-[1.62]">
             Start here so we can connect your gift to the right missionary or fund. After submitting, you'll be taken to our secure giving page.
           </p>
-          <p className="mt-4 rounded-2xl border border-[#eadfca] bg-[#fff7df] px-4 py-3 text-sm leading-6 text-stone-700">
+          <p className="mt-4 inline-block max-w-[820px] rounded-2xl border border-[#e2b84e]/45 bg-[#fff3cf] px-4 py-3 text-[14px] leading-[1.62] text-stone-800 md:px-[18px] md:py-[14px] md:text-[15px] md:leading-[1.58]">
             A portion of every missionary support commitment helps sustain USAM leadership, operations, and national expansion.
           </p>
           {!isHouseholdSupport ? (

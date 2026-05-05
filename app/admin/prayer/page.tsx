@@ -2,7 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AdminShell } from "../_components/AdminShell";
-import { archivePrayerRequest, createPrayerRequest, updatePrayerRequest } from "./actions";
+import {
+  approvePrayerTeamApplication,
+  archivePrayerRequest,
+  archivePrayerSubmission,
+  createPrayerRequest,
+  markPrayerSubmissionReviewed,
+  updatePrayerRequest,
+  updatePrayerSubmission,
+} from "./actions";
 import { buildPrayerTeamWelcomeEmail } from "@/src/lib/prayer/email";
 import { getAdminAuthorization, hasPrayerAdminAccess } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -22,6 +30,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 const tabs = [
   { key: "partners", label: "Prayer Partners" },
+  { key: "applications", label: "Applications" },
   { key: "requests", label: "Prayer Requests" },
   { key: "regions", label: "States / Regions" },
   { key: "email", label: "Email Preview" },
@@ -84,6 +93,7 @@ type SearchParams = {
   saved?: string;
   state?: string;
   status?: string;
+  submission?: string;
   tab?: string;
 };
 
@@ -123,7 +133,24 @@ type PrayerRequestRow = {
   visibility: "public" | "team" | "private";
 };
 
+type PrayerSubmissionRow = {
+  assigned_to: string | null;
+  created_at: string;
+  email: string | null;
+  first_name: string | null;
+  form_type: "prayer_request" | "prayer_team_application";
+  id: string;
+  internal_notes: string | null;
+  last_name: string | null;
+  message: string | null;
+  payload: Record<string, unknown> | null;
+  phone: string | null;
+  source_page: string | null;
+  status: "new" | "reviewed" | "follow_up" | "converted" | "archived";
+};
+
 type PrayerAdminData = {
+  applications: PrayerSubmissionRow[];
   error?: string;
   households: HouseholdRow[];
   partners: PrayerPartnerRow[];
@@ -196,6 +223,30 @@ function StatusBadge({ status }: { status: string }) {
       }`}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
+      {statusLabel(status)}
+    </span>
+  );
+}
+
+function submissionName(submission: PrayerSubmissionRow) {
+  return [submission.first_name, submission.last_name].filter(Boolean).join(" ").trim() || "Unknown";
+}
+
+function prayerSubmissionTypeLabel(value: string) {
+  return value === "prayer_request" ? "Prayer Request" : "Prayer Team Application";
+}
+
+function SubmissionBadge({ status }: { status: PrayerSubmissionRow["status"] }) {
+  const className = status === "new"
+    ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
+    : status === "converted"
+      ? "border-green-500/25 bg-green-950/30 text-green-300"
+      : status === "follow_up"
+        ? "border-blue-400/25 bg-blue-950/30 text-blue-300"
+        : "border-stone-700 bg-stone-900/70 text-stone-300";
+
+  return (
+    <span className={`inline-flex min-h-6 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.14em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
       {statusLabel(status)}
     </span>
   );
@@ -335,6 +386,7 @@ function Message({ children, tone = "info" }: { children: ReactNode; tone?: "err
 async function loadPrayerAdminData(): Promise<PrayerAdminData> {
   if (!isSupabaseAdminConfigured()) {
     return {
+      applications: [],
       error: "Supabase admin environment variables are not configured.",
       households: [],
       partners: [],
@@ -343,7 +395,7 @@ async function loadPrayerAdminData(): Promise<PrayerAdminData> {
   }
 
   const supabase = createSupabaseAdminClient();
-  const [householdsResult, partnersResult, requestsResult] = await Promise.all([
+  const [householdsResult, partnersResult, requestsResult, applicationsResult] = await Promise.all([
     supabase
       .from("missionary_households")
       .select("id, display_name, slug, location")
@@ -356,11 +408,17 @@ async function loadPrayerAdminData(): Promise<PrayerAdminData> {
       .from("prayer_requests")
       .select("id, household_id, related_household_id, title, request, description, category, visibility, urgency, confidentiality_level, status, created_at, updated_at")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("form_submissions")
+      .select("id, form_type, source_page, first_name, last_name, email, phone, message, payload, status, assigned_to, internal_notes, created_at")
+      .in("form_type", ["prayer_team_application", "prayer_request"])
+      .order("created_at", { ascending: false }),
   ]);
 
-  const error = partnersResult.error?.message ?? requestsResult.error?.message ?? householdsResult.error?.message;
+  const error = partnersResult.error?.message ?? requestsResult.error?.message ?? applicationsResult.error?.message ?? householdsResult.error?.message;
 
   return {
+    applications: (applicationsResult.data ?? []) as PrayerSubmissionRow[],
     error,
     households: (householdsResult.data ?? []) as HouseholdRow[],
     partners: (partnersResult.data ?? []) as PrayerPartnerRow[],
@@ -472,6 +530,159 @@ function PartnersTab({
             <div className="p-6 text-sm text-stone-400">No prayer partners match these filters yet.</div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailItem({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </p>
+      <div className="mt-1 text-sm leading-6 text-stone-300">{value || "—"}</div>
+    </div>
+  );
+}
+
+function ApplicationsTab({
+  applications,
+  params,
+}: {
+  applications: readonly PrayerSubmissionRow[];
+  params: SearchParams;
+}) {
+  const selectedApplication = params.submission
+    ? applications.find((submission) => submission.id === params.submission)
+    : applications[0];
+  const openApplications = applications.filter((submission) => submission.status !== "archived" && submission.status !== "converted");
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 md:grid-cols-3">
+        <MetricCard label="New Applications" value={String(applications.filter((submission) => submission.status === "new").length)} />
+        <MetricCard label="Needs Review" value={String(openApplications.length)} />
+        <MetricCard label="Converted Partners" value={String(applications.filter((submission) => submission.status === "converted").length)} />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
+        <div className="overflow-hidden border border-stone-800 bg-[#080808]/80">
+          <div className="hidden grid-cols-[1fr_1fr_1fr_0.65fr_0.7fr] gap-4 border-b border-stone-800 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-stone-500 lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            {["Name", "Type", "Email", "Status", "Date"].map((heading) => <span key={heading}>{heading}</span>)}
+          </div>
+          <div className="divide-y divide-stone-900">
+            {applications.length > 0 ? applications.map((submission) => (
+              <Link
+                className={`grid gap-3 p-4 transition-colors hover:bg-stone-950/70 lg:grid-cols-[1fr_1fr_1fr_0.65fr_0.7fr] lg:items-center ${selectedApplication?.id === submission.id ? "bg-[#D4A63D]/5" : ""}`}
+                href={`/admin/prayer-team?tab=applications&submission=${submission.id}`}
+                key={submission.id}
+              >
+                <p className="font-medium text-stone-100">{submissionName(submission)}</p>
+                <p className="text-sm text-stone-300">{prayerSubmissionTypeLabel(submission.form_type)}</p>
+                <p className="truncate text-sm text-stone-400">{submission.email || "—"}</p>
+                <SubmissionBadge status={submission.status} />
+                <p className="text-sm text-stone-400">{formatDate(submission.created_at)}</p>
+              </Link>
+            )) : (
+              <div className="p-6 text-sm text-stone-400">No prayer applications or prayer request submissions yet.</div>
+            )}
+          </div>
+        </div>
+
+        <aside className="border border-stone-800 bg-[#080808]/80 p-5 md:p-6 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto">
+          {selectedApplication ? (
+            <>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {prayerSubmissionTypeLabel(selectedApplication.form_type)}
+                  </p>
+                  <h2 className="mt-3 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                    {submissionName(selectedApplication)}
+                  </h2>
+                </div>
+                <SubmissionBadge status={selectedApplication.status} />
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <DetailItem label="Email" value={selectedApplication.email ? <a className="hover:text-[#D4A63D]" href={`mailto:${selectedApplication.email}`}>{selectedApplication.email}</a> : "—"} />
+                <DetailItem label="Phone" value={selectedApplication.phone} />
+                <DetailItem label="Source Page" value={selectedApplication.source_page} />
+                <DetailItem label="Created" value={formatDate(selectedApplication.created_at)} />
+              </div>
+
+              <div className="mt-6 border-t border-stone-800 pt-5">
+                <DetailItem label="Message" value={selectedApplication.message || "No message provided."} />
+              </div>
+
+              <form action={updatePrayerSubmission} className="mt-6 space-y-4 border-y border-stone-800 py-5">
+                <input name="submission_id" type="hidden" value={selectedApplication.id} />
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Status
+                  </span>
+                  <select className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={selectedApplication.status} name="status">
+                    <option value="new">New</option>
+                    <option value="reviewed">Reviewed</option>
+                    <option value="follow_up">Follow Up</option>
+                    <option value="converted">Converted</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Assigned To
+                  </span>
+                  <input className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={selectedApplication.assigned_to ?? ""} name="assigned_to" />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Internal Notes
+                  </span>
+                  <textarea className="mt-2 min-h-28 w-full border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={selectedApplication.internal_notes ?? ""} name="internal_notes" />
+                </label>
+                <button className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 text-xs uppercase tracking-[0.2em] text-black hover:bg-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+                  Save Detail
+                </button>
+              </form>
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <form action={markPrayerSubmissionReviewed}>
+                  <input name="submission_id" type="hidden" value={selectedApplication.id} />
+                  <button className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+                    Mark Reviewed
+                  </button>
+                </form>
+                {selectedApplication.form_type === "prayer_team_application" && selectedApplication.status !== "converted" ? (
+                  <form action={approvePrayerTeamApplication}>
+                    <input name="submission_id" type="hidden" value={selectedApplication.id} />
+                    <button className="inline-flex min-h-10 items-center justify-center border border-green-500/40 bg-green-950/25 px-4 text-[11px] uppercase tracking-[0.18em] text-green-200 hover:border-green-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+                      Approve as Prayer Partner
+                    </button>
+                  </form>
+                ) : null}
+                <form action={archivePrayerSubmission}>
+                  <input name="submission_id" type="hidden" value={selectedApplication.id} />
+                  <button className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 hover:border-red-400 hover:text-red-200" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+                    Archive
+                  </button>
+                </form>
+              </div>
+
+              <div className="mt-7 border-t border-stone-800 pt-5">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Full Payload
+                </p>
+                <pre className="mt-3 max-h-80 overflow-auto border border-stone-800 bg-[#050505] p-4 text-xs leading-6 text-stone-300">
+                  {JSON.stringify(selectedApplication.payload ?? {}, null, 2)}
+                </pre>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm leading-7 text-stone-400">Select a prayer application to review details and approval actions.</p>
+          )}
+        </aside>
       </div>
     </div>
   );
@@ -757,7 +968,7 @@ export default async function PrayerTeamAdminPage({
   const canManagePrayer = hasPrayerAdminAccess(authorization);
   const data: PrayerAdminData = canManagePrayer
     ? await loadPrayerAdminData()
-    : { households: [], partners: [], requests: [] };
+    : { applications: [], households: [], partners: [], requests: [] };
 
   return (
     <AdminShell
@@ -786,6 +997,9 @@ export default async function PrayerTeamAdminPage({
 
             {activeTab === "partners" ? (
               <PartnersTab households={data.households} partners={data.partners} params={params} />
+            ) : null}
+            {activeTab === "applications" ? (
+              <ApplicationsTab applications={data.applications} params={params} />
             ) : null}
             {activeTab === "requests" ? (
               <RequestsTab households={data.households} params={params} requests={data.requests} />

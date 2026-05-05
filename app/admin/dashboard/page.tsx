@@ -255,7 +255,7 @@ async function getDashboardData(): Promise<DashboardData> {
       created_at: inquiry.created_at,
       detail: inquiry.main_financial_burden || "Financial Freedom request",
       email: inquiry.email,
-      href: `/admin/inquiries?tab=financial_freedom`,
+      href: `/admin/support-team?type=financial_freedom`,
       id: inquiry.id,
       isNew: inquiry.status === "new",
       name: inquiry.full_name,
@@ -266,7 +266,7 @@ async function getDashboardData(): Promise<DashboardData> {
       created_at: inquiry.created_at,
       detail: getMajorGiftDetail(inquiry),
       email: inquiry.email,
-      href: `/admin/inquiries?tab=major_gift`,
+      href: `/admin/support-team?type=major_gift`,
       id: inquiry.id,
       isNew: inquiry.status === "new",
       name: getMajorGiftName(inquiry),
@@ -493,7 +493,7 @@ function LatestInquiries({ inquiries }: { inquiries: DashboardInquiryItem[] }) {
   return (
     <section>
       <SectionHeader
-        action={<ActionButton href="/admin/inquiries">Open Queue</ActionButton>}
+        action={<ActionButton href="/admin/support-team">Open Queue</ActionButton>}
         eyebrow="Review"
         title="Latest Inquiries"
       />
@@ -503,7 +503,7 @@ function LatestInquiries({ inquiries }: { inquiries: DashboardInquiryItem[] }) {
             <Link
               key={inquiry.id}
               className="grid gap-3 p-4 transition-colors hover:bg-stone-950/70 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
-              href={`/admin/inquiries?tab=financial_freedom`}
+              href={inquiry.href}
             >
               <span className="min-w-0">
                 <span className="flex flex-wrap items-center gap-2">
@@ -598,7 +598,7 @@ export default async function AdminDashboardPage() {
   const hasDataError = Boolean(data.error);
   const metrics = [
     { href: "/admin/missionary-profiles", label: "Missionaries", value: hasDataError ? "-" : formatMetric(data.activeMissionaries) },
-    { href: "/admin/inquiries?tab=all", label: "New Inquiries", value: hasDataError ? "-" : formatMetric(data.newInquiries) },
+    { href: "/admin/support-team?status=new", label: "New Inquiries", value: hasDataError ? "-" : formatMetric(data.newInquiries) },
     { href: "/admin/support", label: "Support This Month", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
     { href: "#todays-work", label: "Pending Reviews", value: hasDataError ? "-" : formatMetric(data.pendingReviews) },
   ] as const;
@@ -629,7 +629,7 @@ export default async function AdminDashboardPage() {
               action="Review Now"
               count={data.newInquiries}
               description="Start with the newest requests that have not been reviewed."
-              href="/admin/inquiries?tab=all"
+              href="/admin/support-team?status=new"
               title="New Inquiries"
             />
             <WorkCard
@@ -650,7 +650,7 @@ export default async function AdminDashboardPage() {
               action="Review Gifts"
               count={data.newMajorGiftInquiries}
               description="Follow up on major gift conversations that need a personal response."
-              href="/admin/inquiries?tab=major_gift"
+              href="/admin/support-team?type=major_gift&status=new"
               title="New Major Gift Inquiries"
             />
           </div>
