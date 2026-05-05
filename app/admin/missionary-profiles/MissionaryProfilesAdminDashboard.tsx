@@ -34,6 +34,12 @@ import {
 } from "@/src/lib/missionaries/location";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const lightPanelClass = "max-w-[900px] rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-7 text-[#111111] shadow-[0_22px_60px_rgba(0,0,0,0.28)] md:p-8";
+const lightInputClass = "mt-2 min-h-12 w-full rounded-xl border border-[#d7d2c8] bg-white px-3.5 py-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]";
+const lightLabelClass = "text-[11px] uppercase tracking-[0.16em] text-[#6f6658]";
+const lightHelperClass = "mt-2 block text-[12px] leading-5 text-[#7b746a]";
+const lightSecondaryButtonClass = "inline-flex items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
+const lightDividerClass = "border-[#e2ded5]";
 
 export type AdminSupportMode = SupportRoutingMode;
 
@@ -137,6 +143,7 @@ export type AdminProfile = AdminHousehold & {
   activePrayerRequestCount?: number;
   encounterSubmissions?: AdminEncounterSubmission[];
   prayerPartnerCount?: number;
+  publicFruitItemCount?: number;
   support?: AdminSupportSettings;
   teamMembers?: AdminTeamMember[];
 };
@@ -335,17 +342,17 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
       <input
-        className="mt-2 min-h-12 w-full rounded-md border border-[#333333] bg-[#111111] px-3.5 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
+        className={lightInputClass}
         onChange={(event) => onChange(event.target.value)}
         type={type}
         value={value ?? ""}
       />
       {helperText ? (
-        <span className="mt-2 block text-xs leading-5 text-stone-400">
+        <span className={lightHelperClass}>
           {helperText}
         </span>
       ) : null}
@@ -373,17 +380,17 @@ function ProfileField({
 }) {
   return (
     <label className="mb-0 block">
-      <span className="text-[11px] uppercase tracking-[0.08em] text-[#cccccc]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
       <input
-        className="mt-2 w-full rounded-md border border-[#333333] bg-[#111111] p-3 text-sm text-white outline-none transition-colors placeholder:text-stone-500 focus:border-[#d4a62a]"
+        className={lightInputClass}
         onChange={(event) => onChange(event.target.value)}
         type={type}
         value={value ?? ""}
       />
       {helperText ? (
-        <span className="mt-2 block text-xs leading-5 text-[#888888]">
+        <span className={lightHelperClass}>
           {helperText}
         </span>
       ) : null}
@@ -406,11 +413,11 @@ function ProfileSelectField({
 }) {
   return (
     <label className="mb-0 block">
-      <span className="text-[11px] uppercase tracking-[0.08em] text-[#cccccc]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
       <select
-        className="mt-2 w-full rounded-md border border-[#333333] bg-[#111111] p-3 text-sm text-white outline-none transition-colors focus:border-[#d4a62a]"
+        className={lightInputClass}
         onChange={(event) => onChange(event.target.value)}
         value={value ?? ""}
       >
@@ -421,7 +428,7 @@ function ProfileSelectField({
         ))}
       </select>
       {helperText ? (
-        <span className="mt-2 block text-xs leading-5 text-[#888888]">
+        <span className={lightHelperClass}>
           {helperText}
         </span>
       ) : null}
@@ -444,17 +451,17 @@ function ProfileTextArea({
 }) {
   return (
     <label className="mb-0 block">
-      <span className="text-[11px] uppercase tracking-[0.08em] text-[#cccccc]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
       <textarea
-        className="mt-2 w-full rounded-md border border-[#333333] bg-[#111111] p-3 text-sm leading-6 text-white outline-none transition-colors placeholder:text-stone-500 focus:border-[#d4a62a]"
+        className={`${lightInputClass} leading-6`}
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
         value={value ?? ""}
       />
       {helperText ? (
-        <span className="mt-2 block text-xs leading-5 text-[#888888]">
+        <span className={lightHelperClass}>
           {helperText}
         </span>
       ) : null}
@@ -511,14 +518,14 @@ function ImageUploadField({
 
   return (
     <div>
-      <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
-      <p className="mt-2 text-xs leading-5 text-stone-400">
+      <p className="mt-2 text-[12px] leading-5 text-[#7b746a]">
         {helperText}
       </p>
 
-      <div className="relative mt-3 overflow-hidden rounded-lg border border-[#333333] bg-[#111111]">
+      <div className="relative mt-3 overflow-hidden rounded-xl border border-[#d7d2c8] bg-white">
         {imageUrl ? (
           <div className="flex h-56 items-center justify-center p-3 md:h-64">
             <img
@@ -530,7 +537,7 @@ function ImageUploadField({
             />
           </div>
         ) : (
-          <div className="flex h-56 items-center justify-center px-4 text-center text-xs uppercase tracking-[0.18em] text-stone-400 md:h-64" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <div className="flex h-56 items-center justify-center px-4 text-center text-xs uppercase tracking-[0.18em] text-[#7b746a] md:h-64" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             No image selected
           </div>
         )}
@@ -549,8 +556,8 @@ function ImageUploadField({
       <div
         className={`mt-3 rounded-lg border border-dashed p-4 transition-colors ${
           isDragActive
-            ? "border-[#D4A63D] bg-[#D4A63D]/10"
-            : "border-[#333333] bg-[#111111]"
+            ? "border-[#c8952d] bg-[#fff8ea]"
+            : "border-[#d7d2c8] bg-white"
         }`}
         onDragLeave={() => setIsDragActive(false)}
         onDragOver={(event) => {
@@ -561,18 +568,18 @@ function ImageUploadField({
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-stone-100">
+            <p className="text-sm font-medium text-[#111111]">
               Upload or replace image
             </p>
-            <p className="mt-1 text-xs leading-5 text-stone-400">
+            <p className="mt-1 text-xs leading-5 text-[#7b746a]">
               {imageTypeLabel}. Max {MISSIONARY_IMAGE_MAX_BYTES / 1024 / 1024}MB.
             </p>
           </div>
           <label
             className={`inline-flex min-h-10 cursor-pointer items-center justify-center border px-4 py-2 text-[11px] uppercase tracking-[0.22em] transition-colors ${
               isUploading
-                ? "border-stone-700 text-stone-500"
-                : "border-stone-700 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                ? "border-[#d7d2c8] text-[#9a9488]"
+                : "border-[#d7d2c8] bg-white text-[#111111] hover:border-[#c8952d] hover:text-[#8a5a00]"
             }`}
             htmlFor={inputId}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -590,18 +597,18 @@ function ImageUploadField({
         </div>
         {uploadState.message ? (
           <p className={`mt-3 text-xs leading-5 ${
-            uploadState.status === "error" ? "text-red-200" : "text-[#F5B942]"
+            uploadState.status === "error" ? "text-red-700" : "text-[#8a5a00]"
           }`}>
             {uploadState.message}
           </p>
         ) : null}
       </div>
 
-      <details className="mt-3 rounded-md border border-[#333333] bg-[#111111]">
-        <summary className="cursor-pointer px-3.5 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <details className="mt-3 rounded-xl border border-[#d7d2c8] bg-white">
+        <summary className="cursor-pointer px-3.5 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Manual URL fallback
         </summary>
-        <div className="border-t border-[#333333] p-3.5">
+        <div className="border-t border-[#e2ded5] p-3.5">
           <Field
             helperText="Dev fallback. Uploaded images save the full Supabase public URL here automatically."
             label="Image URL"
@@ -629,17 +636,17 @@ function TextArea({
 }) {
   return (
     <label className="block">
-      <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
       <textarea
-        className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3.5 py-3 text-sm leading-6 text-stone-950 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
+        className={`${lightInputClass} leading-6`}
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
         value={value ?? ""}
       />
       {helperText ? (
-        <span className="mt-2 block text-xs leading-5 text-stone-400">
+        <span className={lightHelperClass}>
           {helperText}
         </span>
       ) : null}
@@ -664,11 +671,11 @@ function SelectField({
 }) {
   return (
     <label className="block">
-      <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
       <select
-        className="mt-2 min-h-12 w-full rounded-md border border-[#333333] bg-[#111111] px-3.5 py-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D] disabled:cursor-not-allowed disabled:opacity-60"
+        className={`${lightInputClass} disabled:cursor-not-allowed disabled:opacity-60`}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         value={value ?? ""}
@@ -680,7 +687,7 @@ function SelectField({
         ))}
       </select>
       {helperText ? (
-        <span className="mt-2 block text-xs leading-5 text-stone-400">
+        <span className={lightHelperClass}>
           {helperText}
         </span>
       ) : null}
@@ -698,20 +705,18 @@ function SectionIntro({
   title: string;
 }) {
   return (
-    <div className="max-w-[900px]">
-      <div className="mb-5 max-w-3xl">
+    <div className={lightPanelClass}>
+      <div className="mb-6 max-w-3xl">
         <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {title}
         </p>
         {description ? (
-          <p className="mt-2 text-sm leading-6 text-stone-300">
+          <p className="mt-2 text-sm leading-6 text-[#5f574c]">
             {description}
           </p>
         ) : null}
       </div>
-      <div className="rounded-lg border border-[#222222] bg-[#0a0a0a] p-5 md:p-6">
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
@@ -748,48 +753,140 @@ function getSupportMode(profile: AdminProfile): AdminSupportMode {
   return normalizeSupportRoutingMode(typeof profile.support_mode === "string" ? profile.support_mode : null);
 }
 
-function FeatureVisibilityTable({
-  rows,
-}: {
-  rows: Array<{
+type FeaturePublicPageStatus = "hidden" | "missing" | "showing";
+
+type FeatureVisibilityRow = {
   checked: boolean;
   description: string;
   label: string;
+  manageTab: EditorTab;
   onChange: (checked: boolean) => void;
-  }>;
+  publicStatus: FeaturePublicPageStatus;
+  statusMessage: string;
+};
+
+function hasTextContent(value: string | null | undefined) {
+  return Boolean(value?.trim());
+}
+
+function hasRenderableMedia(profile: AdminProfile) {
+  return hasTextContent(profile.hero_image_url) || hasTextContent(profile.profile_image_url);
+}
+
+function hasRenderableTeam(profile: AdminProfile) {
+  return (profile.teamMembers ?? []).some((member) => member.status === "active" && member.is_public !== false);
+}
+
+function hasRenderableStory(profile: AdminProfile) {
+  return hasTextContent(profile.story);
+}
+
+function hasRenderableFruit(profile: AdminProfile) {
+  return (profile.publicFruitItemCount ?? 0) > 0;
+}
+
+function hasRenderablePrayer(profile: AdminProfile) {
+  return profile.enable_prayer_team === true
+    || hasTextContent(profile.prayer_cta_label)
+    || hasTextContent(profile.prayer_destination)
+    || hasTextContent(profile.prayer_section_headline)
+    || hasTextContent(profile.prayer_section_description)
+    || (profile.activePrayerRequestCount ?? 0) > 0;
+}
+
+function getFeaturePublicStatus({
+  enabled,
+  hiddenMessage,
+  hasContent = true,
+  missingMessage,
+  showingMessage,
+}: {
+  enabled: boolean;
+  hiddenMessage: string;
+  hasContent?: boolean;
+  missingMessage: string;
+  showingMessage: string;
+}): { message: string; status: FeaturePublicPageStatus } {
+  if (!enabled) {
+    return { message: hiddenMessage, status: "hidden" };
+  }
+
+  if (!hasContent) {
+    return { message: missingMessage, status: "missing" };
+  }
+
+  return { message: showingMessage, status: "showing" };
+}
+
+function getFeatureStatusBadgeClasses(status: FeaturePublicPageStatus) {
+  switch (status) {
+    case "showing":
+      return "border-green-200 bg-green-50 text-green-800";
+    case "missing":
+      return "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]";
+    case "hidden":
+    default:
+      return "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]";
+  }
+}
+
+function getFeatureStatusLabel(status: FeaturePublicPageStatus) {
+  switch (status) {
+    case "showing":
+      return "Showing";
+    case "missing":
+      return "Missing Content";
+    case "hidden":
+    default:
+      return "Hidden";
+  }
+}
+
+function FeatureVisibilityTable({
+  onManage,
+  rows,
+}: {
+  onManage: (tab: EditorTab) => void;
+  rows: FeatureVisibilityRow[];
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-[#222222] bg-[#0f0f0f]">
+    <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
       <div className="overflow-x-auto">
-      <table className="min-w-[760px] w-full border-collapse text-left">
+      <table className="min-w-[1120px] w-full border-collapse text-left">
         <thead>
-          <tr className="border-b border-[#222222]">
-            <th className="w-[24%] border-r border-[#222222] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
+            <th className="w-[19%] border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Section
             </th>
-            <th className="border-r border-[#222222] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Description
             </th>
-            <th className="w-[170px] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Visible
+            <th className="w-[170px] border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Toggle
+            </th>
+            <th className="w-[230px] border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Public Page Status
+            </th>
+            <th className="w-[120px] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Manage
             </th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr className="border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515]" key={row.label}>
-              <td className="border-r border-[#222222] px-4 py-3 align-middle">
-                <span className="text-sm font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
+            <tr className="border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7]" key={row.label}>
+              <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+                <span className="text-sm font-bold uppercase text-[#111111]" style={{ fontFamily: font.oswald }}>
                   {row.label}
                 </span>
               </td>
-              <td className="border-r border-[#222222] px-4 py-3 align-middle">
-                <p className="max-w-3xl text-sm leading-5 text-stone-300">
+              <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+                <p className="max-w-3xl text-sm leading-5 text-[#4b443b]">
                   {row.description}
                 </p>
               </td>
-              <td className="px-4 py-3 align-middle">
-                <label className="inline-flex cursor-pointer items-center gap-3 text-xs text-stone-200">
+              <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+                <label className="inline-flex cursor-pointer items-center gap-3 text-xs text-[#111111]">
                   <input
                     checked={row.checked}
                     className="sr-only"
@@ -799,20 +896,40 @@ function FeatureVisibilityTable({
                   <span className={`relative h-5 w-9 rounded-full border transition-colors ${
                     row.checked
                       ? "border-[#D4A63D]/70 bg-[#D4A63D]/25"
-                      : "border-stone-700 bg-stone-900"
+                      : "border-[#d7d2c8] bg-[#f1eee7]"
                   }`}>
                     <span className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform ${
                       row.checked
                         ? "translate-x-4 bg-[#F5B942]"
-                        : "translate-x-1 bg-stone-500"
+                        : "translate-x-1 bg-[#9a9488]"
                     }`} />
                   </span>
                   <span className={`text-[10px] uppercase tracking-[0.16em] ${
-                    row.checked ? "text-[#F5B942]" : "text-stone-500"
+                    row.checked ? "text-[#8a5a00]" : "text-[#7b746a]"
                   }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {row.checked ? "Visible" : "Hidden"}
+                    {row.checked ? "Enabled" : "Disabled"}
                   </span>
                 </label>
+              </td>
+              <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+                <div className="space-y-2">
+                  <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${getFeatureStatusBadgeClasses(row.publicStatus)}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {getFeatureStatusLabel(row.publicStatus)}
+                  </span>
+                  <p className="max-w-[240px] text-xs leading-5 text-[#7b746a]">
+                    {row.statusMessage}
+                  </p>
+                </div>
+              </td>
+              <td className="px-4 py-3 align-middle">
+                <button
+                  className={lightSecondaryButtonClass}
+                  onClick={() => onManage(row.manageTab)}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  Manage
+                </button>
               </td>
             </tr>
           ))}
@@ -843,10 +960,10 @@ function truncateText(value: string, maxLength = 120) {
 
 function EncounterStatusBadge({ status }: { status: AdminEncounterStatus }) {
   const className = {
-    archived: "border-stone-700 bg-stone-900/70 text-stone-400",
-    hidden: "border-stone-700 bg-stone-900/70 text-stone-300",
-    new: "border-[#D4A63D]/35 bg-[#D4A63D]/10 text-[#F5B942]",
-    reviewed: "border-green-500/25 bg-green-950/30 text-green-300",
+    archived: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
+    hidden: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
+    new: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
+    reviewed: "border-green-200 bg-green-50 text-green-800",
   }[status];
 
   return (
@@ -880,19 +997,19 @@ function EncounterSubmissionManager({
   return (
     <div className="space-y-4">
       {items.length === 0 ? (
-        <p className="text-sm leading-6 text-stone-400">
+        <p className="text-sm leading-6 text-[#7b746a]">
           No reviews or testimonies have been submitted for this profile yet.
         </p>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-[#222222] bg-[#0f0f0f]">
+      <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
         <div className="overflow-x-auto">
         <table className="min-w-[1040px] w-full border-collapse text-left">
           <thead>
-            <tr className="border-b border-[#222222]">
+            <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
               {["Name", "Email", "Submitted Text", "Permission to Share", "Status", "Date", "Actions"].map((heading) => (
                 <th
-                  className="border-r border-[#222222] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300 last:border-r-0"
+                  className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0"
                   key={heading}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 >
@@ -904,39 +1021,39 @@ function EncounterSubmissionManager({
           <tbody>
             {items.map((item) => (
               <tr
-                className={`border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515] ${selectedSubmissionId === item.id ? "bg-[#151515]" : ""}`}
+                className={`border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7] ${selectedSubmissionId === item.id ? "bg-[#fbfaf7]" : ""}`}
                 key={item.id}
               >
-                <td className="border-r border-[#222222] px-4 py-3 align-middle">
-                  <span className="text-sm font-semibold text-stone-100">
+                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+                  <span className="text-sm font-semibold text-[#111111]">
                     {item.submitter_name || "Unknown"}
                   </span>
                 </td>
-                <td className="border-r border-[#222222] px-4 py-3 align-middle text-sm text-stone-300">
+                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
                   {item.email || "Not provided"}
                 </td>
-                <td className="max-w-[300px] border-r border-[#222222] px-4 py-3 align-middle text-sm leading-6 text-stone-300">
+                <td className="max-w-[300px] border-r border-[#e2ded5] px-4 py-3 align-middle text-sm leading-6 text-[#4b443b]">
                   {truncateText(item.review_text || item.message || "No testimony text submitted.")}
                 </td>
-                <td className="border-r border-[#222222] px-4 py-3 align-middle">
+                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
                   <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
                     item.permission_to_share
-                      ? "border-green-500/25 bg-green-950/30 text-green-300"
-                      : "border-stone-700 bg-stone-900/70 text-stone-400"
+                      ? "border-green-200 bg-green-50 text-green-800"
+                      : "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]"
                   }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     {item.permission_to_share ? "Yes" : "No"}
                   </span>
                 </td>
-                <td className="border-r border-[#222222] px-4 py-3 align-middle">
+                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
                   <EncounterStatusBadge status={item.status} />
                 </td>
-                <td className="border-r border-[#222222] px-4 py-3 align-middle text-sm text-stone-300">
+                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
                   {formatProfileUpdatedDate(item.created_at)}
                 </td>
                 <td className="px-4 py-3 align-middle">
                   <div className="flex flex-wrap gap-2">
                     <button
-                      className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      className={lightSecondaryButtonClass}
                       onClick={() => setSelectedSubmissionId(item.id)}
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
@@ -944,7 +1061,7 @@ function EncounterSubmissionManager({
                       View
                     </button>
                     <button
-                      className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      className={lightSecondaryButtonClass}
                       onClick={() => onQuickAction(item.id, "review")}
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
@@ -952,7 +1069,7 @@ function EncounterSubmissionManager({
                       Mark Reviewed
                     </button>
                     <button
-                      className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      className={lightSecondaryButtonClass}
                       onClick={() => onQuickAction(item.id, "hide")}
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
@@ -960,7 +1077,7 @@ function EncounterSubmissionManager({
                       Hide
                     </button>
                     <button
-                      className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-red-400 hover:text-red-200"
+                      className="rounded-md border border-red-200 bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-red-700 hover:border-red-400 hover:text-red-800"
                       onClick={() => onQuickAction(item.id, "archive")}
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
@@ -977,13 +1094,13 @@ function EncounterSubmissionManager({
       </div>
 
       {selectedSubmission ? (
-        <div className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-5">
+        <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Encounter
               </p>
-              <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+              <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
                 {selectedSubmission.submitter_name || "Submitted Review"}
               </h3>
             </div>
@@ -993,22 +1110,22 @@ function EncounterSubmissionManager({
             <DetailText label="Permission to Share" value={selectedSubmission.permission_to_share ? "Yes" : "No"} />
             <DetailText label="Status" value={encounterStatusLabel(selectedSubmission.status)} />
           </div>
-          <div className="mt-4 rounded-md border border-[#222222] bg-[#111111] p-4">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <div className="mt-4 rounded-xl border border-[#e2ded5] bg-[#fbfaf7] p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Submitted Text
             </p>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-stone-200">
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#111111]">
               {selectedSubmission.review_text || selectedSubmission.message || "No testimony text submitted."}
             </p>
           </div>
           <div className="mt-4">
             <DetailText label="Source Page" value={selectedSubmission.source_page || "Not tracked"} />
           </div>
-          <details className="mt-4 rounded-md border border-[#222222] bg-[#111111]">
-            <summary className="cursor-pointer px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <details className="mt-4 rounded-xl border border-[#e2ded5] bg-[#fbfaf7]">
+            <summary className="cursor-pointer px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Full Payload
             </summary>
-            <pre className="max-h-72 overflow-auto border-t border-[#222222] p-3 text-xs leading-5 text-stone-300">
+            <pre className="max-h-72 overflow-auto border-t border-[#e2ded5] p-3 text-xs leading-5 text-[#4b443b]">
               {JSON.stringify(selectedSubmission.payload, null, 2)}
             </pre>
           </details>
@@ -1024,20 +1141,20 @@ function FruitPlanningState() {
   return (
     <div className="space-y-5">
       <div className="max-w-3xl">
-        <h3 className="text-2xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+        <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
           Fruit
         </h3>
-        <p className="mt-3 text-sm leading-7 text-stone-400">
+        <p className="mt-3 text-sm leading-7 text-[#7b746a]">
           Fruit will summarize reviewed encounters into public outcomes, testimonies, and reports connected to this profile.
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {sections.map((section) => (
-          <div className="rounded-lg border border-[#222222] bg-[#111111] p-4" key={section}>
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={section}>
             <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {section}
             </p>
-            <p className="mt-3 text-sm leading-6 text-stone-400">
+            <p className="mt-3 text-sm leading-6 text-[#7b746a]">
               Planned for the curated fruit workflow.
             </p>
           </div>
@@ -1050,10 +1167,10 @@ function FruitPlanningState() {
 function DetailText({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </p>
-      <p className="mt-2 text-sm leading-6 text-stone-200">
+      <p className="mt-2 text-sm leading-6 text-[#111111]">
         {value}
       </p>
     </div>
@@ -1064,40 +1181,40 @@ function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
   const detail = supportRoutingModeDetails[mode];
 
   return (
-    <div className="rounded-lg border border-[#222222] bg-[#111111] p-4">
+    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
       <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         Mode Behavior
       </p>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Public Page Says
           </p>
-          <p className="mt-2 text-sm leading-6 text-stone-200">
+          <p className="mt-2 text-sm leading-6 text-[#111111]">
             {detail.publicMeaning}
           </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Giving Buttons Route
           </p>
-          <p className="mt-2 text-sm leading-6 text-stone-200">
+          <p className="mt-2 text-sm leading-6 text-[#111111]">
             {detail.adminRouting}
           </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Missing Target
           </p>
-          <p className="mt-2 text-sm leading-6 text-stone-200">
+          <p className="mt-2 text-sm leading-6 text-[#111111]">
             {detail.adminFallback}
           </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Admin Saves
           </p>
-          <p className="mt-2 text-sm leading-6 text-stone-200">
+          <p className="mt-2 text-sm leading-6 text-[#111111]">
             {detail.adminSavedFields}
           </p>
         </div>
@@ -1156,7 +1273,7 @@ function TeamMemberManager({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <p className="max-w-3xl text-sm leading-6 text-stone-400">
+        <p className="max-w-3xl text-sm leading-6 text-[#7b746a]">
           Public numbers are global across USA Missionaries. The UUID stays as the real database ID; this number is only the public roster display.
         </p>
         <button
@@ -1173,19 +1290,19 @@ function TeamMemberManager({
       </div>
 
       {sortedItems.length === 0 ? (
-        <p className="text-sm leading-6 text-stone-400">
+        <p className="text-sm leading-6 text-[#7b746a]">
           No team members yet. Add household or ministry team members connected to this profile.
         </p>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-[#222222] bg-[#0f0f0f]">
+      <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
         <div className="overflow-x-auto">
         <table className="min-w-[840px] w-full border-collapse text-left">
           <thead>
-            <tr className="border-b border-[#222222]">
+            <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
               {["Name", "Role", "Location", "Status", "Public", "Actions"].map((heading) => (
                 <th
-                  className="border-r border-[#222222] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300 last:border-r-0"
+                  className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0"
                   key={heading}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 >
@@ -1241,30 +1358,30 @@ function TeamMemberRow({
   const isPublic = member.is_public !== false && isActive;
 
   return (
-    <tr className={`border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515] ${isEditing ? "bg-[#151515]" : ""}`}>
-      <td className="border-r border-[#222222] px-4 py-3 align-middle">
+    <tr className={`border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7] ${isEditing ? "bg-[#fbfaf7]" : ""}`}>
+      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
         <div className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-stone-100">
+          <span className="text-sm font-semibold text-[#111111]">
             {member.display_name || "New Team Member"}
           </span>
           {member.public_number ? (
-            <span className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <span className="text-[10px] uppercase tracking-[0.16em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               #{normalizePublicRosterNumber(member.public_number)}
             </span>
           ) : null}
         </div>
       </td>
-      <td className="border-r border-[#222222] px-4 py-3 align-middle text-sm text-stone-300">
+      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
         {member.role_title || "Not set"}
       </td>
-      <td className="border-r border-[#222222] px-4 py-3 align-middle text-sm text-stone-300">
+      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
         {locationLabel || "Not set"}
       </td>
-      <td className="border-r border-[#222222] px-4 py-3 align-middle">
+      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
         <TeamStatusBadge isActive={isActive} />
       </td>
-      <td className="border-r border-[#222222] px-4 py-3 align-middle">
-        <label className="inline-flex cursor-pointer items-center gap-3 text-xs text-stone-200">
+      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+        <label className="inline-flex cursor-pointer items-center gap-3 text-xs text-[#4b443b]">
           <input
             checked={isPublic}
             className="sr-only"
@@ -1277,16 +1394,16 @@ function TeamMemberRow({
           <span className={`relative h-5 w-9 rounded-full border transition-colors ${
             isPublic
               ? "border-[#D4A63D]/70 bg-[#D4A63D]/25"
-              : "border-stone-700 bg-stone-900"
+              : "border-[#d7d2c8] bg-[#f1eee7]"
           }`}>
             <span className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform ${
               isPublic
                 ? "translate-x-4 bg-[#F5B942]"
-                : "translate-x-1 bg-stone-500"
+                : "translate-x-1 bg-[#9a9488]"
             }`} />
           </span>
           <span className={`text-[10px] uppercase tracking-[0.16em] ${
-            isPublic ? "text-[#F5B942]" : "text-stone-500"
+            isPublic ? "text-[#8a5a00]" : "text-[#7b746a]"
           }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {isPublic ? "On" : "Off"}
           </span>
@@ -1294,7 +1411,7 @@ function TeamMemberRow({
       </td>
       <td className="px-4 py-3 align-middle">
         <button
-          className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+          className={lightSecondaryButtonClass}
           onClick={onEdit}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
@@ -1311,8 +1428,8 @@ function TeamStatusBadge({ isActive }: { isActive: boolean }) {
     <span
       className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
         isActive
-          ? "border-green-500/25 bg-green-950/30 text-green-300"
-          : "border-stone-700 bg-stone-900/70 text-stone-400"
+          ? "border-green-200 bg-green-50 text-green-800"
+          : "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]"
       }`}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
@@ -1347,20 +1464,20 @@ function TeamMemberEditor({
       : undefined;
 
   return (
-    <div className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-5">
+    <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {member.source === "dos" ? "DOS" : "Website Admin"}
           </p>
-          <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+          <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
             Edit {member.display_name || "New Team Member"}
           </h3>
         </div>
         <div className="flex flex-wrap gap-2">
           {member.id.startsWith("new-") ? (
             <button
-              className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-red-400 hover:text-red-200"
+              className="inline-flex min-h-9 items-center justify-center rounded-md border border-red-200 bg-white px-3 text-[10px] uppercase tracking-[0.18em] text-red-700 transition-colors hover:border-red-400 hover:text-red-800"
               onClick={() => {
                 onRemove(member.id);
                 onClose();
@@ -1372,7 +1489,7 @@ function TeamMemberEditor({
             </button>
           ) : null}
           <button
-            className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            className={lightSecondaryButtonClass}
             onClick={() => onArchive(member.id)}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="button"
@@ -1380,7 +1497,7 @@ function TeamMemberEditor({
             Archive
           </button>
           <button
-            className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            className={lightSecondaryButtonClass}
             onClick={onClose}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="button"
@@ -1438,7 +1555,7 @@ function TeamMemberEditor({
         />
       </div>
 
-      <label className="mt-4 inline-flex items-center gap-3 text-sm text-stone-200">
+      <label className="mt-4 inline-flex items-center gap-3 text-sm text-[#4b443b]">
         <input
           checked={member.is_public !== false && member.status === "active"}
           className="h-4 w-4 accent-[#D4A63D]"
@@ -1454,13 +1571,15 @@ function TeamMemberEditor({
   );
 }
 
-function StatPreview({ label, value }: { label: string; value: string }) {
+function StatPreview({ label, tone = "dark", value }: { label: string; tone?: "dark" | "light"; value: string }) {
+  const isLight = tone === "light";
+
   return (
-    <div className="rounded-lg border border-[#222222] bg-[#111111] p-4">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+    <div className={`rounded-xl border p-4 ${isLight ? "border-[#e2ded5] bg-white" : "border-[#222222] bg-[#111111]"}`}>
+      <p className={`text-[10px] uppercase tracking-[0.22em] ${isLight ? "text-[#6f6658]" : "text-stone-300"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </p>
-      <p className="mt-2 text-2xl font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
+      <p className={`mt-2 text-2xl font-bold uppercase ${isLight ? "text-[#111111]" : "text-stone-100"}`} style={{ fontFamily: font.oswald }}>
         {value}
       </p>
     </div>
@@ -2114,6 +2233,67 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const prayerButtonLabel = selectedProfile.prayer_cta_label || "Join The Prayer Team";
   const prayerHeadline = selectedProfile.prayer_section_headline || "Prayer Requests";
   const prayerDescription = selectedProfile.prayer_section_description || "Stand with this household in prayer as they reach, disciple, and serve across the mission field.";
+  const profileVisibilityEnabled = getFeatureValue(selectedProfile, "show_household");
+  const profileVisibilityStatus = !profileVisibilityEnabled
+    ? {
+      message: "Disabled profiles do not appear in the directory and cannot be viewed publicly.",
+      status: "hidden" as const,
+    }
+    : selectedProfile.public_visible === true
+      ? {
+        message: "This profile can appear in the directory and can be viewed publicly.",
+        status: "showing" as const,
+      }
+      : {
+        message: "Profile visibility is enabled, but the public visibility flag is not synced. Save updates to make it viewable.",
+        status: "hidden" as const,
+      };
+  const mediaStatus = getFeaturePublicStatus({
+    enabled: getFeatureValue(selectedProfile, "show_photos"),
+    hasContent: hasRenderableMedia(selectedProfile),
+    hiddenMessage: "Media is disabled for a more discreet public profile.",
+    missingMessage: "Upload media to show this section.",
+    showingMessage: "Public media is available for this profile.",
+  });
+  const teamStatus = getFeaturePublicStatus({
+    enabled: getFeatureValue(selectedProfile, "show_team"),
+    hasContent: hasRenderableTeam(selectedProfile),
+    hiddenMessage: "The Team section is disabled.",
+    missingMessage: "Add team members to show this section.",
+    showingMessage: "The Team section has active public members.",
+  });
+  const storyStatus = getFeaturePublicStatus({
+    enabled: getFeatureValue(selectedProfile, "show_story"),
+    hasContent: hasRenderableStory(selectedProfile),
+    hiddenMessage: "The Our Story section is disabled.",
+    missingMessage: "Add story content to show this section.",
+    showingMessage: "The Our Story section has content.",
+  });
+  const fruitStatus = getFeaturePublicStatus({
+    enabled: getFeatureValue(selectedProfile, "show_fruit"),
+    hasContent: hasRenderableFruit(selectedProfile),
+    hiddenMessage: "The Fruit section is disabled.",
+    missingMessage: "Add published fruit items to show this section.",
+    showingMessage: "Published public fruit is available for this profile.",
+  });
+  const supportStatus = supportMode === "hidden"
+    ? {
+      message: "Support mode is set to Hide support section.",
+      status: "hidden" as const,
+    }
+    : getFeaturePublicStatus({
+      enabled: getFeatureValue(selectedProfile, "show_support"),
+      hiddenMessage: "The Support section is disabled.",
+      missingMessage: "Configure support settings to show this section.",
+      showingMessage: "The Support section can render publicly.",
+    });
+  const prayerStatus = getFeaturePublicStatus({
+    enabled: getFeatureValue(selectedProfile, "show_prayer"),
+    hasContent: hasRenderablePrayer(selectedProfile),
+    hiddenMessage: "The Prayer section is disabled.",
+    missingMessage: "Configure prayer settings to show this section.",
+    showingMessage: "The Prayer section has a CTA, prayer settings, or active requests.",
+  });
   return (
     <div className="space-y-6">
       <section className="bg-stone-950/35 p-5 md:p-7">
@@ -2190,48 +2370,70 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             title="Profile Features"
           >
             <FeatureVisibilityTable
+              onManage={setActiveTab}
               rows={[
                 {
                   checked: getFeatureValue(selectedProfile, "show_household"),
                   description: featureDescriptions.show_household,
                   label: "Profile Visibility",
+                  manageTab: "profile",
                   onChange: (value) => updateFeatureField("show_household", value),
+                  publicStatus: profileVisibilityStatus.status,
+                  statusMessage: profileVisibilityStatus.message,
                 },
                 {
                   checked: getFeatureValue(selectedProfile, "show_photos"),
                   description: featureDescriptions.show_photos,
                   label: "Media",
+                  manageTab: "media",
                   onChange: (value) => updateFeatureField("show_photos", value),
+                  publicStatus: mediaStatus.status,
+                  statusMessage: mediaStatus.message,
                 },
                 {
                   checked: getFeatureValue(selectedProfile, "show_team"),
                   description: featureDescriptions.show_team,
                   label: "Team",
+                  manageTab: "team",
                   onChange: (value) => updateFeatureField("show_team", value),
+                  publicStatus: teamStatus.status,
+                  statusMessage: teamStatus.message,
                 },
                 {
                   checked: getFeatureValue(selectedProfile, "show_story"),
                   description: featureDescriptions.show_story,
                   label: "Our Story",
+                  manageTab: "story",
                   onChange: (value) => updateFeatureField("show_story", value),
+                  publicStatus: storyStatus.status,
+                  statusMessage: storyStatus.message,
                 },
                 {
                   checked: getFeatureValue(selectedProfile, "show_fruit"),
                   description: featureDescriptions.show_fruit,
                   label: "Fruit",
+                  manageTab: "fruit",
                   onChange: (value) => updateFeatureField("show_fruit", value),
+                  publicStatus: fruitStatus.status,
+                  statusMessage: fruitStatus.message,
                 },
                 {
-                  checked: getFeatureValue(selectedProfile, "show_support") && supportMode !== "hidden",
+                  checked: getFeatureValue(selectedProfile, "show_support"),
                   description: featureDescriptions.show_support,
                   label: "Support",
+                  manageTab: "support",
                   onChange: (value) => updateSupportMode(value ? "household" : "hidden"),
+                  publicStatus: supportStatus.status,
+                  statusMessage: supportStatus.message,
                 },
                 {
                   checked: getFeatureValue(selectedProfile, "show_prayer"),
                   description: featureDescriptions.show_prayer,
                   label: "Prayer",
+                  manageTab: "prayer",
                   onChange: (value) => updateFeatureField("show_prayer", value),
+                  publicStatus: prayerStatus.status,
+                  statusMessage: prayerStatus.message,
                 },
               ]}
             />
@@ -2240,16 +2442,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "profile" ? (
           <div className="max-w-[900px]">
-            <div className="mb-5 max-w-3xl">
+            <div className={lightPanelClass}>
               <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Profile
               </p>
-              <p className="mt-2 text-sm leading-6 text-stone-300">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
                 Controls the public hero section, location display, and short mission statement.
               </p>
-            </div>
-            <div className="mt-5 max-w-[900px] rounded-lg border border-[#222222] bg-[#0a0a0a] p-6">
-              <div className="grid gap-x-4 gap-y-6 md:grid-cols-2">
+
+              <div className="mt-6 grid gap-x-4 gap-y-6 md:grid-cols-2">
                 <ProfileField label="Display Name" onChange={(value) => updateHouseholdField("display_name", value)} value={selectedProfile.display_name} />
                 <ProfileField label="Slug" onChange={(value) => updateHouseholdField("slug", value)} value={selectedProfile.slug} />
                 <ProfileSelectField
@@ -2418,7 +2619,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         value={targetHouseholdSelectDisabled ? "" : selectedProfile.support_target_household_id}
                       />
                       {targetHouseholdError ? (
-                        <p className="mt-2 border border-red-500/30 bg-red-950/20 p-3 text-xs leading-5 text-red-200">
+                        <p className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
                           {targetHouseholdError}
                         </p>
                       ) : null}
@@ -2426,8 +2627,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   ) : null}
 
                   {showLeadershipPlaceholder ? (
-                    <div className="rounded-lg border border-[#222222] bg-[#111111] p-4 text-sm leading-6 text-stone-300">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-stone-200" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         {supportMode === "state_leader" ? "State Leader Target" : "Regional Leader Target"}
                       </p>
                       <p className="mt-2">
@@ -2437,8 +2638,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   ) : null}
 
                   {supportMode === "general_fund" || supportMode === "national_leadership" ? (
-                    <div className="rounded-lg border border-[#222222] bg-[#111111] p-4 text-sm leading-6 text-stone-300">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-stone-200" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Routing Note
                       </p>
                       <p className="mt-2">
@@ -2464,7 +2665,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               {/* TODO: Reintroduce fundraising numbers when real data tracking and dashboard is built. */}
 
               {showGivingSettings ? (
-              <div className="border-t border-[#222222] pt-6">
+              <div className={`border-t ${lightDividerClass} pt-6`}>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Giving Links
                 </p>
@@ -2486,7 +2687,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               ) : null}
 
               {showSupportActions ? (
-              <div className="border-t border-[#222222] pt-6">
+              <div className={`border-t ${lightDividerClass} pt-6`}>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Button Labels
                 </p>
@@ -2499,11 +2700,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               ) : null}
 
               {showSupportActions ? (
-              <div className="border-t border-[#222222] pt-6">
+              <div className={`border-t ${lightDividerClass} pt-6`}>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Major Gift Settings
                 </p>
-                <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-stone-200">
+                <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-[#4b443b]">
                   <input
                     checked={support.enable_major_gift_inquiry !== false}
                     className="mt-1 h-4 w-4 accent-[#D4A63D]"
@@ -2544,12 +2745,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   Visibility
                 </p>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <label className="flex items-start justify-between gap-4 rounded-lg border border-[#222222] bg-[#111111] p-4 text-sm text-stone-100">
+                  <label className="flex items-start justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
                     <span>
-                      <span className="block text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      <span className="block text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Show Prayer Section
                       </span>
-                      <span className="mt-2 block leading-6 text-stone-400">
+                      <span className="mt-2 block leading-6 text-[#7b746a]">
                         Controls whether the prayer section renders on the public profile.
                       </span>
                     </span>
@@ -2560,12 +2761,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       type="checkbox"
                     />
                   </label>
-                  <label className="flex items-start justify-between gap-4 rounded-lg border border-[#222222] bg-[#111111] p-4 text-sm text-stone-100">
+                  <label className="flex items-start justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
                     <span>
-                      <span className="block text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      <span className="block text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Enable Join Prayer Team
                       </span>
-                      <span className="mt-2 block leading-6 text-stone-400">
+                      <span className="mt-2 block leading-6 text-[#7b746a]">
                         Enables the prayer-team modal entry point. Disable when the CTA should use a fallback link.
                       </span>
                     </span>
@@ -2579,7 +2780,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </div>
               </div>
 
-              <div className="border-t border-[#222222] pt-6">
+              <div className={`border-t ${lightDividerClass} pt-6`}>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Call To Action
                 </p>
@@ -2611,7 +2812,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </div>
               </div>
 
-              <div className="border-t border-[#222222] pt-6">
+              <div className={`border-t ${lightDividerClass} pt-6`}>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Public Content
                 </p>
@@ -2632,26 +2833,26 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </div>
               </div>
 
-              <div className="border-t border-[#222222] pt-6">
+              <div className={`border-t ${lightDividerClass} pt-6`}>
                 <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       Preview
                     </p>
-                    <div className="mt-4 rounded-lg border border-[#222222] bg-[#111111] p-5">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-5">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Button
                       </p>
-                      <p className="mt-2 text-sm font-semibold text-stone-100">
+                      <p className="mt-2 text-sm font-semibold text-[#111111]">
                         {prayerButtonLabel}
                       </p>
-                      <p className="mt-5 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      <p className="mt-5 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Headline
                       </p>
-                      <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+                      <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
                         {prayerHeadline}
                       </h3>
-                      <p className="mt-3 text-sm leading-7 text-stone-300">
+                      <p className="mt-3 text-sm leading-7 text-[#4b443b]">
                         {prayerDescription}
                       </p>
                     </div>
@@ -2661,10 +2862,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       Prayer Team
                     </p>
                     <div className="mt-4 grid gap-3">
-                      <StatPreview label="Recruited Partners" value={String(selectedProfile.prayerPartnerCount ?? 0)} />
-                      <StatPreview label="Active Requests" value={String(selectedProfile.activePrayerRequestCount ?? 0)} />
+                      <StatPreview label="Recruited Partners" tone="light" value={String(selectedProfile.prayerPartnerCount ?? 0)} />
+                      <StatPreview label="Active Requests" tone="light" value={String(selectedProfile.activePrayerRequestCount ?? 0)} />
                       <Link
-                        className="inline-flex min-h-10 w-full items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                        className={`${lightSecondaryButtonClass} min-h-10 w-full`}
                         href={`/admin/prayer-team?tab=requests&household=${selectedProfile.id}`}
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       >

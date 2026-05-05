@@ -7,7 +7,7 @@ import { StoryReadMoreButton } from "@/components/missionaries/StoryReadMoreButt
 import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromTheFieldModal";
 import { JoinPrayerTeamModal, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
 import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
-import type { Missionary, MissionaryFruitItem } from "@/src/data/missionaries";
+import type { Missionary, MissionaryFruitItem, MissionaryPrayerRequest } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -380,6 +380,17 @@ function PrayerSection({ missionary }: { missionary: Missionary }) {
   );
 }
 
+function hasPublicPrayerContent(missionary: Missionary, prayerRequests: readonly MissionaryPrayerRequest[]) {
+  const settings = missionary.prayerSettings;
+
+  return settings?.enablePrayerTeam === true
+    || Boolean(settings?.ctaLabel?.trim())
+    || Boolean(settings?.destination?.trim())
+    || Boolean(settings?.headline?.trim())
+    || Boolean(settings?.description?.trim())
+    || prayerRequests.length > 0;
+}
+
 export function MissionaryProfileTemplate({ missionary }: { missionary: Missionary }) {
   const features = missionary.features ?? {
     showFruit: true,
@@ -403,10 +414,10 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
   const showFruit = features.showFruit && fruitItems.length > 0;
   const supportDefaults = getSupportDefaults(missionary);
   const showSupport = features.showSupport && supportDefaults.mode !== "hidden";
-  const showPrayer = features.showPrayer;
   const prayerTeamEnabled = missionary.prayerSettings?.enablePrayerTeam !== false;
   const prayerRequests = missionary.prayerRequests ?? [];
-  const joinPrayerTeamAction = prayerTeamEnabled ? (
+  const showPrayer = features.showPrayer && hasPublicPrayerContent(missionary, prayerRequests);
+  const joinPrayerTeamAction = showPrayer && prayerTeamEnabled ? (
     <JoinPrayerTeamModal
       householdId={missionary.id}
       householdName={missionary.name}

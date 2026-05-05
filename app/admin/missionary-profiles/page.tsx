@@ -65,6 +65,10 @@ type EncounterSubmissionRow = {
   updated_at: string | null;
 };
 
+type PublicFruitItemRow = {
+  household_id: string | null;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -160,6 +164,12 @@ function isMissingFormSubmissionsTable(error: { message?: string } | null | unde
   return message.includes("form_submissions");
 }
 
+function isMissingFruitItemsTable(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("missionary_fruit_items");
+}
+
 function isMissingTeamMembersTable(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
@@ -216,6 +226,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const activePrayerRequestCountByHouseholdId = new Map<string, number>();
   const encounterSubmissionsByHouseholdId = new Map<string, AdminEncounterSubmission[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
+  const publicFruitItemCountByHouseholdId = new Map<string, number>();
   const teamMembersByHouseholdId = new Map<string, AdminTeamMember[]>();
 
   if (ids.length > 0) {
@@ -328,6 +339,30 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       encounterSubmissionsByHouseholdId.set(matchingHouseholdId, currentItems);
     });
 
+    const publicFruitItemsResult = await supabase
+      .from("missionary_fruit_items")
+      .select("household_id")
+      .in("household_id", ids)
+      .eq("status", "published")
+      .eq("visibility", "public")
+      .eq("permission_to_share", true)
+      .eq("missionary_public_approved", true);
+
+    if (publicFruitItemsResult.error && !isMissingFruitItemsTable(publicFruitItemsResult.error)) {
+      return { error: publicFruitItemsResult.error.message, profiles: [] };
+    }
+
+    ((publicFruitItemsResult.data ?? []) as PublicFruitItemRow[]).forEach((item) => {
+      if (!item.household_id) {
+        return;
+      }
+
+      publicFruitItemCountByHouseholdId.set(
+        item.household_id,
+        (publicFruitItemCountByHouseholdId.get(item.household_id) ?? 0) + 1,
+      );
+    });
+
     const teamMembersResult = await supabase
       .from("missionary_team_members")
       .select("id, household_id, display_name, public_number, role_title, short_description, sort_order, is_public, dos_user_id, source, status, created_at, updated_at")
@@ -354,6 +389,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       activePrayerRequestCount: activePrayerRequestCountByHouseholdId.get(household.id) ?? 0,
       encounterSubmissions: encounterSubmissionsByHouseholdId.get(household.id) ?? [],
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
+      publicFruitItemCount: publicFruitItemCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
       teamMembers: teamMembersByHouseholdId.get(household.id) ?? [],
     })),
