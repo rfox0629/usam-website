@@ -5,8 +5,8 @@ import React, { useEffect, useState } from "react";
 const font = { rajdhani: "'Rajdhani', sans-serif", oswald: "'Oswald', sans-serif" };
 const endpoint = "https://formspree.io/f/xrerjoke";
 const fieldClass =
-  "w-full rounded-md border border-white/[0.24] bg-white/[0.09] px-4 py-[14px] text-base text-white outline-none transition-all placeholder:text-white/[0.62] hover:border-white/[0.34] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
-const labelClass = "mb-4 block text-[12px] uppercase tracking-[1.2px] text-white/[0.9]";
+  "w-full rounded-md border border-[#2A2F36] bg-white/[0.06] px-4 py-[14px] text-base font-normal text-white outline-none transition-all placeholder:text-[#6B7280] hover:border-[#3A414B] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
+const labelClass = "mb-4 block text-[12px] font-medium uppercase tracking-[0.18em] text-[#BFC3C9]";
 
 type Status = "idle" | "success" | "error";
 
@@ -89,13 +89,13 @@ export function FieldReportsAccessCTA() {
           onClick={closeModal}
         >
           <div
-            className="relative max-h-[calc(100vh-48px)] w-[calc(100%-32px)] max-w-[560px] overflow-y-auto rounded-[10px] border border-white/[0.18] bg-[#111113] p-[22px] shadow-[0_24px_80px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)] md:p-8"
+            className="relative max-h-[calc(100vh-48px)] w-[calc(100%-32px)] max-w-[560px] overflow-y-auto rounded-[10px] border border-[#2A2F36] bg-[#111113] p-[22px] shadow-[0_24px_80px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)] md:p-8"
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               onClick={closeModal}
-              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center border border-white/10 text-xl leading-none text-white/55 transition-colors hover:border-white/25 hover:text-white"
+              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center border border-[#2A2F36] text-xl leading-none text-[#D1D5DB] transition-colors hover:border-[#3A414B] hover:text-white"
               aria-label="Close field reports access form"
             >
               &times;
@@ -103,20 +103,20 @@ export function FieldReportsAccessCTA() {
 
             {status === "success" ? (
               <div className="pr-8">
-                <h2 id="field-reports-access-title" className="text-[28px] font-semibold leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
+                <h2 id="field-reports-access-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
                   Thank you.
                 </h2>
-                <p className="mt-4 text-base leading-7 text-white/[0.75]">
+                <p className="mt-4 text-base font-normal leading-7 text-[#D1D5DB]">
                   Thank you. Your request has been received. Our team will review it and follow up soon.
                 </p>
               </div>
             ) : (
               <>
                 <div className="pr-8">
-                  <h2 id="field-reports-access-title" className="text-[28px] font-semibold leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
+                  <h2 id="field-reports-access-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
                     Request Field Reports Access
                   </h2>
-                  <p className="mt-2 text-base leading-7 text-white/[0.82]">
+                  <p className="mt-2 text-base font-normal leading-7 text-[#D1D5DB]">
                     For churches, leaders, and ministry partners seeking a high-level view of what God is doing through the movement.
                   </p>
                 </div>
@@ -125,28 +125,28 @@ export function FieldReportsAccessCTA() {
                   <input type="hidden" name="_subject" value="Field Reports Access Request" />
 
                   <div className="mb-5">
-                    <label htmlFor="field-reports-name" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+                    <label htmlFor="field-reports-name" className={labelClass}>
                       Full Name
                     </label>
                     <input id="field-reports-name" type="text" name="name" required className={fieldClass} />
                   </div>
 
                   <div className="mb-5">
-                    <label htmlFor="field-reports-email" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+                    <label htmlFor="field-reports-email" className={labelClass}>
                       Email
                     </label>
                     <input id="field-reports-email" type="email" name="email" required className={fieldClass} />
                   </div>
 
                   <div className="mb-5">
-                    <label htmlFor="field-reports-organization" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+                    <label htmlFor="field-reports-organization" className={labelClass}>
                       Organization / Church
                     </label>
                     <input id="field-reports-organization" type="text" name="organization" required className={fieldClass} />
                   </div>
 
                   <div className="mb-5">
-                    <label htmlFor="field-reports-role" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+                    <label htmlFor="field-reports-role" className={labelClass}>
                       Role
                     </label>
                     <input
@@ -160,7 +160,7 @@ export function FieldReportsAccessCTA() {
                   </div>
 
                   <div className="mb-6">
-                    <label htmlFor="field-reports-reason" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+                    <label htmlFor="field-reports-reason" className={labelClass}>
                       Why are you requesting access?
                     </label>
                     <textarea
@@ -172,7 +172,7 @@ export function FieldReportsAccessCTA() {
                     />
                   </div>
 
-                  <p className="rounded-md border border-white/[0.1] bg-white/[0.045] px-4 py-3 text-sm leading-6 text-white/[0.72]">
+                  <p className="rounded-md border border-[#2A2F36] bg-white/[0.045] px-4 py-3 text-sm leading-6 text-[#9CA3AF]">
                     Field Reports are private and intended for trusted leaders, partner churches, and approved ministry stakeholders. Individual stories and personal details are stewarded with care.
                   </p>
 

@@ -26,8 +26,8 @@ function ExternalActionLink({
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noreferrer"
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noreferrer" : undefined}
       className={`inline-block min-h-[48px] px-7 py-3.5 text-center text-sm uppercase tracking-[0.2em] transition-all duration-300 ${variantClassName} ${className}`}
       style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
     >
@@ -89,7 +89,7 @@ function PrayerCoverageBoard() {
 }
 
 export default function PrayerPage() {
-  const signupLink = "https://usa-missionaries-506166.churchcenter.com/people/forms/1021734";
+  const signupLink = "/prayer/apply";
   const points = [
     "Prayer coverage for the mission",
     "Updates on key needs and opportunities",

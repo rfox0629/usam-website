@@ -46,7 +46,7 @@ function DashboardPanel() {
   return (
     <div
       id="system-preview"
-      className="relative border border-stone-800/80 bg-[#060606]/95 shadow-[0_0_36px_rgba(0,0,0,0.45)]"
+      className="relative max-w-full overflow-hidden border border-stone-800/80 bg-[#060606]/95 shadow-[0_0_36px_rgba(0,0,0,0.45)]"
     >
       <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.018),rgba(255,255,255,0.018)_1px,transparent_1px,transparent_5px)]" />
       <div className="relative border-b border-stone-800/70 px-4 py-4 md:px-5">
@@ -64,7 +64,7 @@ function DashboardPanel() {
         </div>
       </div>
 
-      <div className="relative overflow-x-auto">
+      <div className="relative max-w-full overflow-x-auto overscroll-x-contain">
         <table className="w-full min-w-[480px] text-left">
           <thead>
             <tr className="border-b border-stone-900/90">
@@ -110,25 +110,34 @@ function DashboardPanel() {
 
 export default function SystemPage() {
   return (
-    <main className="min-h-screen bg-[#050505] text-stone-100">
+    <main className="min-h-screen overflow-x-hidden bg-[#050505] text-stone-100">
       <PrimaryNav active="dos" />
 
-      <section className="relative overflow-hidden border-b border-stone-900/80 px-6 pb-16 pt-28 md:pb-20 md:pt-36">
+      <section className="relative overflow-hidden border-b border-stone-900/80 px-4 pb-16 pt-28 sm:px-6 md:pb-20 md:pt-36">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:64px_64px]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(245,158,11,0.06),transparent_24%),linear-gradient(180deg,rgba(5,5,5,0.15),#050505_88%)]" />
 
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="max-w-2xl">
+        <div className="relative mx-auto grid max-w-6xl min-w-0 items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="min-w-0 max-w-2xl">
             <BriefingLabel>SYSTEM LAYER</BriefingLabel>
             <h1
-              className="mt-7 text-5xl font-bold uppercase leading-[0.92] tracking-tight text-stone-100 md:text-7xl"
+              className="mt-7 text-[clamp(2.9rem,12.5vw,4.5rem)] font-bold uppercase leading-[0.92] tracking-tight text-stone-100 md:text-7xl"
               style={{ fontFamily: font.oswald }}
             >
-              The Infrastructure
-              <br />
-              Is Being Built
+              <span className="sm:hidden">
+                The
+                <br />
+                Infrastructure
+                <br />
+                Is Being Built
+              </span>
+              <span className="hidden sm:inline">
+                The Infrastructure
+                <br />
+                Is Being Built
+              </span>
             </h1>
-            <p className="mt-7 max-w-xl text-lg leading-8 text-stone-400 md:text-xl">
+            <p className="mt-7 max-w-xl break-words text-lg leading-8 text-stone-400 md:text-xl">
               A discipleship platform designed to connect leaders, track movement, and support multiplication at scale.
             </p>
 

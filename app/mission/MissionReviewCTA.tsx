@@ -8,10 +8,10 @@ type ModalType = "experience" | "story";
 type Status = "idle" | "success" | "error";
 
 const fieldClass =
-  "w-full rounded-md border border-white/[0.2] bg-white/[0.06] px-4 py-[14px] text-base text-white outline-none transition-all placeholder:text-white/[0.55] hover:border-white/[0.28] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
-const labelClass = "mb-4 block text-[12px] uppercase tracking-[1.2px] text-white/[0.9]";
+  "w-full rounded-md border border-[#2A2F36] bg-white/[0.06] px-4 py-[14px] text-base font-normal text-white outline-none transition-all placeholder:text-[#6B7280] hover:border-[#3A414B] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
+const labelClass = "mb-4 block text-[12px] font-medium uppercase tracking-[0.18em] text-[#BFC3C9]";
 const optionClass =
-  "flex cursor-pointer items-start gap-3 rounded-md border border-white/[0.12] bg-white/[0.04] px-4 py-[14px] text-sm font-medium leading-6 text-white/[0.9] transition-colors hover:border-white/[0.2] hover:bg-white/[0.08]";
+  "flex cursor-pointer items-start gap-3 rounded-md border border-[#2A2F36] bg-white/[0.04] px-4 py-[14px] text-sm font-medium leading-6 text-[#D1D5DB] transition-colors hover:border-[#3A414B] hover:bg-white/[0.08]";
 
 export function MissionReviewCTA() {
   const [activeModal, setActiveModal] = useState<ModalType | null>(null);
@@ -96,7 +96,7 @@ export function MissionReviewCTA() {
           Share Your Story
         </button>
       </div>
-      <p className="mt-[14px] max-w-[520px] text-[13px] leading-6 text-white/[0.55]">
+      <p className="mt-[14px] max-w-[520px] text-[13px] leading-6 text-[#9CA3AF]">
         Quick Review is one or two sentences. Share Your Story is for a deeper testimony.
       </p>
 
@@ -109,13 +109,13 @@ export function MissionReviewCTA() {
           onClick={closeModal}
         >
           <div
-            className="relative max-h-[calc(100vh-48px)] w-[calc(100%-32px)] max-w-[560px] overflow-y-auto rounded-[10px] border border-white/[0.14] bg-[#0b0b0c] p-[22px] shadow-[0_24px_80px_rgba(0,0,0,0.6)] md:p-8"
+            className="relative max-h-[calc(100vh-48px)] w-[calc(100%-32px)] max-w-[560px] overflow-y-auto rounded-[10px] border border-[#2A2F36] bg-[#0b0b0c] p-[22px] shadow-[0_24px_80px_rgba(0,0,0,0.6)] md:p-8"
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               onClick={closeModal}
-              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center border border-white/10 text-xl leading-none text-white/55 transition-colors hover:border-white/25 hover:text-white"
+              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center border border-[#2A2F36] text-xl leading-none text-[#D1D5DB] transition-colors hover:border-[#3A414B] hover:text-white"
               aria-label="Close form"
             >
               &times;
@@ -123,16 +123,16 @@ export function MissionReviewCTA() {
 
             {status === "success" ? (
               <div className="pr-8">
-                <h2 id="mission-review-title" className="text-[28px] font-semibold leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
+                <h2 id="mission-review-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
                   Thank you.
                 </h2>
-                <p className="mt-4 text-base leading-7 text-white/[0.75]">
+                <p className="mt-4 text-base font-normal leading-7 text-[#D1D5DB]">
                   {isStory
                     ? "Thank you for sharing your story. We will steward it with care."
                     : "Thank you. Your words help others understand what God is doing through USA Missionaries."}
                 </p>
                 {!isStory && (
-                  <p className="mt-3 text-sm leading-6 text-white/[0.55]">
+                  <p className="mt-3 text-sm leading-6 text-[#9CA3AF]">
                     If you are willing to share more about your experience, we may follow up with a private reflection form.
                   </p>
                 )}
@@ -169,10 +169,10 @@ function ExperienceForm({
   return (
     <>
       <div className="pr-8">
-        <h2 id="mission-review-title" className="text-[28px] font-semibold leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
+        <h2 id="mission-review-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
           Share Your Experience
         </h2>
-        <p className="mt-2 text-base leading-7 text-white/[0.75]">
+        <p className="mt-2 text-base font-normal leading-7 text-[#D1D5DB]">
           Help others understand the mission in your own words.
         </p>
       </div>
@@ -181,14 +181,14 @@ function ExperienceForm({
         <input type="hidden" name="_subject" value="New USA Missionaries Review" />
 
         <div className="mb-5">
-          <label htmlFor="mission-review-name" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+          <label htmlFor="mission-review-name" className={labelClass}>
             Name
           </label>
           <input id="mission-review-name" type="text" name="name" required placeholder="Your name" className={fieldClass} />
         </div>
 
         <div className="mb-6">
-          <label htmlFor="mission-review-email" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+          <label htmlFor="mission-review-email" className={labelClass}>
             Email
           </label>
           <input id="mission-review-email" type="email" name="email" required placeholder="Your email address" className={fieldClass} />
@@ -197,8 +197,7 @@ function ExperienceForm({
         <div className="mb-6">
           <label
             htmlFor="mission-review-response"
-            className="mb-4 block text-[13px] font-semibold uppercase leading-[1.5] tracking-[1.2px] text-white/[0.9]"
-            style={{ fontFamily: font.rajdhani }}
+            className="mb-4 block text-[13px] font-medium uppercase leading-[1.5] tracking-[0.18em] text-[#BFC3C9]"
           >
             How would you describe USA Missionaries to someone who&rsquo;s never heard of it?
           </label>
@@ -236,10 +235,10 @@ function StoryForm({
   return (
     <>
       <div className="pr-8">
-        <h2 id="mission-review-title" className="text-[28px] font-semibold leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
+        <h2 id="mission-review-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
           Tell Your Story
         </h2>
-        <p className="mt-2 text-base leading-7 text-white/[0.75]">
+        <p className="mt-2 text-base font-normal leading-7 text-[#D1D5DB]">
           Share what God did, what changed, or how the evening impacted you.
         </p>
       </div>
@@ -249,13 +248,13 @@ function StoryForm({
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label htmlFor="mission-story-first-name" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+            <label htmlFor="mission-story-first-name" className={labelClass}>
               First name
             </label>
             <input id="mission-story-first-name" type="text" name="first_name" required className={fieldClass} />
           </div>
           <div>
-            <label htmlFor="mission-story-last-name" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+            <label htmlFor="mission-story-last-name" className={labelClass}>
               Last name
             </label>
             <input id="mission-story-last-name" type="text" name="last_name" required className={fieldClass} />
@@ -263,7 +262,7 @@ function StoryForm({
         </div>
 
         <div className="mt-6">
-          <label htmlFor="mission-story-email" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+          <label htmlFor="mission-story-email" className={labelClass}>
             Email
           </label>
           <input id="mission-story-email" type="email" name="email" required className={fieldClass} />
@@ -283,7 +282,7 @@ function StoryForm({
         />
 
         <div className="mt-6">
-          <label htmlFor="mission-story-impact" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+          <label htmlFor="mission-story-impact" className={labelClass}>
             What impact did the evening have on you?
           </label>
           <textarea
@@ -310,7 +309,7 @@ function StoryForm({
         />
 
         <div className="mt-6">
-          <label htmlFor="mission-story-other" className={labelClass} style={{ fontFamily: font.rajdhani }}>
+          <label htmlFor="mission-story-other" className={labelClass}>
             Other
           </label>
           <textarea
@@ -345,7 +344,7 @@ function CheckboxGroup({
 }) {
   return (
     <fieldset className="mt-6">
-      <legend className={labelClass} style={{ fontFamily: font.rajdhani }}>
+      <legend className={labelClass}>
         {legend}
       </legend>
       <div className="grid gap-3">
@@ -369,7 +368,7 @@ function PermissionField({
 }) {
   return (
     <fieldset className="mb-8 mt-6">
-      <legend className={labelClass} style={{ fontFamily: font.rajdhani }}>
+      <legend className={labelClass}>
         {legend}
       </legend>
       <div className="grid gap-3">

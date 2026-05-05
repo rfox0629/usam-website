@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PrimaryNav } from "../../components/PrimaryNav";
+import { ViewTeamComingSoonButton } from "./ViewTeamComingSoonButton";
 
 export const metadata: Metadata = {
   title: "Support the Mission | USA Missionaries",
@@ -115,7 +116,7 @@ export default function SupportPage() {
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <ActionLink href="#giving">Give Now</ActionLink>
-            <ActionLink href="/mission" variant="secondary">View the Briefing</ActionLink>
+            <ViewTeamComingSoonButton />
           </div>
         </div>
       </section>

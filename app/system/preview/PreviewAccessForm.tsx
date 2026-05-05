@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
-const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 export function PreviewAccessForm() {
   const router = useRouter();
@@ -39,8 +39,8 @@ export function PreviewAccessForm() {
 
   return (
     <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-      <div className="border-y border-stone-800/90 py-3">
-        <p className="text-[10px] uppercase tracking-[0.28em] text-amber-500/90" style={{ fontFamily: font.rajdhani }}>
+      <div className="border-y border-[#2A2F36] py-3">
+        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-amber-400">
           System Status: Restricted
         </p>
       </div>
@@ -48,8 +48,7 @@ export function PreviewAccessForm() {
       <div>
         <label
           htmlFor="system-preview-code"
-          className="text-[11px] uppercase tracking-[0.24em] text-stone-200"
-          style={{ fontFamily: font.rajdhani }}
+          className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#BFC3C9]"
         >
           Access Code
         </label>
@@ -60,7 +59,7 @@ export function PreviewAccessForm() {
           onChange={(event) => setPassword(event.target.value)}
           required
           placeholder="ACCESS CODE"
-          className="mt-2 w-full border border-stone-600 bg-[#050505] px-4 py-4 text-sm uppercase tracking-[0.18em] text-stone-100 outline-none transition-colors placeholder:text-stone-400 focus:border-amber-500/70"
+          className="mt-3 w-full border border-[#2A2F36] bg-[#050505] px-4 py-4 text-sm uppercase tracking-[0.18em] text-white outline-none transition-colors placeholder:text-[#6B7280] focus:border-amber-400"
         />
       </div>
 
@@ -73,7 +72,7 @@ export function PreviewAccessForm() {
         {isSubmitting ? "Checking..." : "Enter System"}
       </button>
 
-      <p className="text-xs uppercase leading-6 tracking-[0.18em] text-stone-300" style={{ fontFamily: font.rajdhani }}>
+      <p className="text-xs uppercase leading-6 tracking-[0.18em] text-[#9CA3AF]">
         Access is limited to invited operators and leadership.
       </p>
 

@@ -124,6 +124,7 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
+  const gold = "#C9A24A";
   const tableCenter = { x: 480, y: 246 };
   const seats = Array.from({ length: 8 }).map((_, i) => {
     const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
@@ -132,26 +133,21 @@ function ExpansionMap() {
 
   return (
     <div className="relative">
-      <div className="absolute top-3 left-4 z-10 flex items-center gap-2">
-        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-        <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
-          DEPLOYMENT ORIGIN — LIVE
-        </span>
-      </div>
-      <div className="absolute top-3 right-4 z-10 text-right">
-        <span className="tactical-label block uppercase" style={{ fontFamily: font.rajdhani }}>
-          STATUS: ACTIVE
-        </span>
-      </div>
       <svg viewBox="0 0 960 460" className="w-full h-auto">
         <defs>
           <radialGradient id="tableGlow" cx="50%" cy="52%" r="35%">
-            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.07} />
-            <stop offset="100%" stopColor="#C9A24A" stopOpacity={0} />
+            <stop offset="0%" stopColor={gold} stopOpacity={0.16} />
+            <stop offset="48%" stopColor={gold} stopOpacity={0.055} />
+            <stop offset="100%" stopColor={gold} stopOpacity={0} />
           </radialGradient>
           <radialGradient id="centerPulse" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#C9A24A" stopOpacity={0.14} />
-            <stop offset="80%" stopColor="#C9A24A" stopOpacity={0} />
+            <stop offset="0%" stopColor={gold} stopOpacity={0.22} />
+            <stop offset="72%" stopColor={gold} stopOpacity={0} />
+          </radialGradient>
+          <radialGradient id="originExpansion" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={gold} stopOpacity={0.2} />
+            <stop offset="55%" stopColor={gold} stopOpacity={0.055} />
+            <stop offset="100%" stopColor={gold} stopOpacity={0} />
           </radialGradient>
           <filter id="softGlow">
             <feGaussianBlur stdDeviation="6" result="b" />
@@ -160,11 +156,14 @@ function ExpansionMap() {
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <filter id="cardGlow">
+            <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor={gold} floodOpacity="0.22" />
+          </filter>
           <filter id="usaBackdrop">
-            <feFlood floodColor="#9b792d" result="goldFill" />
+            <feFlood floodColor={gold} result="goldFill" />
             <feComposite in="goldFill" in2="SourceAlpha" operator="in" result="tintedMap" />
             <feComponentTransfer in="tintedMap">
-              <feFuncA type="linear" slope="0.9" />
+              <feFuncA type="linear" slope="0.74" />
             </feComponentTransfer>
           </filter>
         </defs>
@@ -183,18 +182,22 @@ function ExpansionMap() {
           width="852"
           height="474"
           preserveAspectRatio="xMidYMid meet"
-          opacity="0.42"
+          opacity="0.68"
           filter="url(#usaBackdrop)"
         />
 
+        <ellipse cx={tableCenter.x} cy={tableCenter.y} rx={212} ry={132} fill="url(#originExpansion)">
+          <animate attributeName="opacity" values="0.55;0.9;0.55" dur="5.5s" repeatCount="indefinite" />
+        </ellipse>
+
         {[88, 112, 136].map((r, i) => (
-          <ellipse key={`ring${i}`} cx={tableCenter.x} cy={tableCenter.y} rx={r} ry={r * 0.62} fill="none" stroke="#C9A24A" strokeWidth={0.35} opacity={0.08 - i * 0.018} strokeDasharray="5,9">
-            <animate attributeName="opacity" values={`${0.08 - i * 0.018};${0.025 - i * 0.005};${0.08 - i * 0.018}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
+          <ellipse key={`ring${i}`} cx={tableCenter.x} cy={tableCenter.y} rx={r} ry={r * 0.62} fill="none" stroke={gold} strokeWidth={0.45} opacity={0.45 - i * 0.045} strokeDasharray="5,9">
+            <animate attributeName="opacity" values={`${0.42 - i * 0.04};${0.18 - i * 0.02};${0.42 - i * 0.04}`} dur={`${4.5 + i * 0.8}s`} repeatCount="indefinite" />
           </ellipse>
         ))}
 
-        <rect x={360} y={134} width={240} height={220} rx={14} fill="#050505" stroke="#282118" strokeWidth={1.05} />
-        <rect x={370} y={144} width={220} height={200} rx={10} fill="none" stroke="#17130e" strokeWidth={0.55} opacity={0.82} />
+        <rect x={360} y={134} width={240} height={220} rx={14} fill="#050505" stroke={gold} strokeOpacity={0.28} strokeWidth={1.05} filter="url(#cardGlow)" />
+        <rect x={370} y={144} width={220} height={200} rx={10} fill="none" stroke={gold} strokeWidth={0.55} strokeOpacity={0.14} />
 
         <line x1={430} y1={100} x2={530} y2={100} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={10} strokeLinecap="round" />
         <line x1={430} y1={392} x2={530} y2={392} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={10} strokeLinecap="round" />
@@ -211,9 +214,9 @@ function ExpansionMap() {
           const angle = (i / 8) * 360;
           return (
             <g key={`seat${i}`}>
-              <rect x={s.x - 9} y={s.y - 6} width={18} height={12} rx={3} fill="none" stroke="#2a2a2a" strokeWidth={0.6} opacity={0.4} transform={`rotate(${angle}, ${s.x}, ${s.y})`} />
-              <circle cx={s.x} cy={s.y} r={1} fill="#C9A24A" opacity={0.2}>
-                <animate attributeName="opacity" values="0.15;0.35;0.15" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
+              <rect x={s.x - 9} y={s.y - 6} width={18} height={12} rx={3} fill="none" stroke={gold} strokeWidth={0.55} opacity={0.18} transform={`rotate(${angle}, ${s.x}, ${s.y})`} />
+              <circle cx={s.x} cy={s.y} r={1} fill={gold} opacity={0.34}>
+                <animate attributeName="opacity" values="0.22;0.58;0.22" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
               </circle>
             </g>
           );
@@ -225,7 +228,7 @@ function ExpansionMap() {
         <text x={tableCenter.x} y={258} textAnchor="middle" fill="#f5f5f4" fontSize={58} letterSpacing="0.05em" style={{ fontFamily: font.oswald }}>
           TABLE
         </text>
-        <text x={tableCenter.x} y={314} textAnchor="middle" fill="#C9A24A" fontSize={11} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
+        <text x={tableCenter.x} y={314} textAnchor="middle" fill={gold} fontSize={11} letterSpacing="0.34em" style={{ fontFamily: font.rajdhani }}>
           IT STARTS HERE
         </text>
         <rect x={16} y={16} width={928} height={428} fill="none" stroke="#131313" strokeWidth={0.5} />
@@ -247,9 +250,9 @@ function ExpansionMap() {
 
 function GlobalUrgencySection() {
   const religionData = [
-    { label: "CHRISTIANS", value: "214M", percent: "64% of U.S. population" },
-    { label: "OTHER RELIGIONS", value: "23M", percent: "Muslim, Hindu, Buddhist, Jewish, etc." },
-    { label: "RELIGIOUSLY UNAFFILIATED", value: "98M", percent: "30% and growing" },
+    { label: "CHRISTIANS", value: "214,000,000", percent: "64% of U.S. population" },
+    { label: "OTHER RELIGIONS", value: "23,000,000", percent: "7% of U.S. population" },
+    { label: "RELIGIOUSLY UNAFFILIATED", value: "98,000,000", percent: "30% and growing" },
   ] as const;
   const americaStats = [
     {
@@ -274,26 +277,26 @@ function GlobalUrgencySection() {
   const discipleshipProblem = [
     {
       label: "PASTORS",
-      value: "500K",
+      value: "500,000",
       note: "Barna estimate",
       source: "IF EACH PASTOR DISCIPLED 12",
     },
     {
       label: "LEADERS",
-      value: "6M",
+      value: "6,000,000",
       note: "12 each",
       source: "AND THOSE 12 DISCIPLED 56",
     },
     {
       label: "PEOPLE",
-      value: "335M",
+      value: "335,000,000",
       note: "56 each",
       source: "THE ENTIRE UNITED STATES WOULD BE REACHED",
     },
   ] as const;
   const statCardClass = "border border-stone-800/70 bg-stone-950/60 p-4 md:p-5 transition-colors duration-200 md:hover:border-stone-700/90 md:hover:bg-stone-950/70";
   const statLabelClass = "text-[10px] uppercase tracking-[0.22em] text-stone-500";
-  const statNumberClass = "mt-2 text-[26px] md:text-[30px] leading-none text-stone-100";
+  const statNumberClass = "mt-2 whitespace-nowrap text-[26px] md:text-[30px] leading-none text-stone-100";
   const statBodyClass = "mt-2 text-sm leading-snug text-stone-400";
   const statSourceClass = "mt-3 border-t border-stone-800/80 pt-2 text-[10px] uppercase tracking-[0.24em] text-amber-500/80";
   return (
@@ -522,7 +525,27 @@ export default function Home() {
       <section className="py-20 md:py-32 px-6" style={{background:"#080808"}}>
         <div className="max-w-6xl mx-auto">
           <Reveal><SectionHeading overline="STRATEGIC EXPANSION" headline="FROM HERE TO THE NATIONS"><p>It starts here.<br/>But it does not end here.</p></SectionHeading></Reveal>
-          <Reveal delay={200}><div className="mt-16"><ExpansionMap/></div></Reveal>
+          <Reveal delay={150}>
+            <div className="mt-7 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="animate-pulse text-[11px] text-[#C9A24A] shadow-[0_0_10px_rgba(201,162,74,0.55)]" aria-hidden="true">
+                  ●
+                </span>
+                <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+                  ORIGIN
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+                  STATUS:
+                </span>
+                <span className="rounded-sm bg-green-900/30 px-2 py-0.5 text-[11px] text-green-400/80" style={{ fontFamily: font.rajdhani, fontWeight: 500 }}>
+                  ACTIVE
+                </span>
+              </div>
+            </div>
+          </Reveal>
+          <Reveal delay={200}><div className="mt-5 mx-auto"><ExpansionMap/></div></Reveal>
           <Reveal delay={300}>
             <div className="mt-24 md:mt-28 text-center">
               <p className="text-base md:text-lg text-stone-300 leading-relaxed max-w-3xl mx-auto">
@@ -575,7 +598,7 @@ export default function Home() {
           <Reveal><div className="w-12 h-px bg-stone-700 mx-auto"/></Reveal>
           <Reveal delay={100}><h2 className="mt-12 text-5xl md:text-7xl font-bold text-stone-100 tracking-tight" style={{fontFamily:font.oswald}}>YOU WERE SENT</h2></Reveal>
           <Reveal delay={250}><div className="mt-8 space-y-1 text-stone-400 text-lg"><p>The question is not if.</p><p className="text-stone-200">It is when.</p></div></Reveal>
-          <Reveal delay={400}><div className="mt-12"><CTAButton href="/mission">Join the Mission</CTAButton></div></Reveal>
+          <Reveal delay={400}><div className="mt-12"><CTAButton href="/missionaries">Join the Mission</CTAButton></div></Reveal>
         </div>
       </section>
     </main>

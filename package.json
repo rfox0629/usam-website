@@ -8,6 +8,9 @@
     "start": "next start"
   },
   "dependencies": {
+    "@formspree/react": "^3.0.0",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.105.1",
     "next": "16.2.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
@@ -16,9 +19,9 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.20",
     "postcss": "^8",
     "tailwindcss": "^3.4.17",
-    "autoprefixer": "^10.4.20",
     "typescript": "^5"
   }
 }
