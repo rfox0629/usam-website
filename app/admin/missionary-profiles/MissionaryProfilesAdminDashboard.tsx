@@ -1607,16 +1607,37 @@ function EncounterEditorModal({
 }
 
 function FruitPlanningState() {
-  const sections = [
+  // Fruit is the curated output layer. Future fruit records should reference
+  // missionary_encounters.id rather than duplicating raw testimony text. DOS can
+  // later submit structured outcome data here, and the public profile should
+  // render Fruit records instead of raw Encounter records.
+  const outcomeCounts = [
     "Salvation",
     "Baptism",
     "Healing",
     "Deliverance",
     "Church Connection",
     "Discipleship",
-    "Breakthrough",
     "Prayer Answered",
     "Other",
+  ];
+  const sections = [
+    {
+      description: "Public summaries selected from reviewed encounters.",
+      title: "Featured Fruit",
+    },
+    {
+      description: "Structured outcome counts from reviewed encounters.",
+      title: "Outcome Counts",
+    },
+    {
+      description: "Approved summaries from encounters.",
+      title: "Public Testimonies",
+    },
+    {
+      description: "Future automated outcomes from DOS.",
+      title: "DOS Submitted Fruit",
+    },
   ];
 
   return (
@@ -1626,18 +1647,32 @@ function FruitPlanningState() {
           Fruit
         </h3>
         <p className="mt-3 text-sm leading-7 text-[#7b746a]">
-          Fruit will summarize reviewed encounters into structured public outcomes, testimonies, and reports connected to this profile.
+          Fruit is built from reviewed encounters. Use Encounters to store the original testimony or review. Use Fruit to publish curated summaries and outcome counts.
         </p>
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
+
+      <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
+        Reviewed encounters will appear here once they are approved for public fruit reporting.
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
         {sections.map((section) => (
-          <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={section}>
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={section.title}>
             <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              {section}
+              {section.title}
             </p>
             <p className="mt-3 text-sm leading-6 text-[#7b746a]">
-              Planned outcome selection connected to encounters.
+              {section.description}
             </p>
+            {section.title === "Outcome Counts" ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {outcomeCounts.map((outcome) => (
+                  <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" key={outcome} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {outcome}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
