@@ -205,7 +205,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     });
 
     (prayerRequestsResult.data ?? []).forEach((request) => {
-      if (request.status !== "active" || !request.household_id) {
+      if ((request.status !== "active" && request.status !== "open") || !request.household_id) {
         return;
       }
 

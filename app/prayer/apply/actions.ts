@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/lib/supabase/server";
+import { createFormSubmission } from "@/src/lib/forms/form-submissions";
 
 function getString(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
@@ -32,44 +32,46 @@ export async function submitPrayerPartnerApplication(formData: FormData) {
   const availability = getAvailability(formData);
 
   if (!firstName || !lastName || !email) {
-    redirect("/prayer/apply?error=missing");
+    redirect("/prayer/join?error=missing");
   }
 
   if (!confidentialityAgreement) {
-    redirect("/prayer/apply?error=confidentiality");
+    redirect("/prayer/join?error=confidentiality");
   }
 
-  if (!isSupabaseServerConfigured()) {
-    redirect("/prayer/apply?error=config");
-  }
+  const phone = getOptionalString(formData, "phone");
+  const city = getOptionalString(formData, "city");
+  const state = getOptionalString(formData, "state");
+  const churchAffiliation = getOptionalString(formData, "church_affiliation");
+  const referralSource = getOptionalString(formData, "referral_source");
+  const motivation = getOptionalString(formData, "motivation");
+  const emailAlerts = getBoolean(formData, "email_alerts");
+  const smsAlerts = getBoolean(formData, "sms_alerts");
 
-  const supabase = await createSupabaseServerClient();
-
-  // Placeholder integration seam: this insert maps directly to
-  // public.prayer_partner_applications and can be extended with workflow
-  // notifications once Supabase Edge Functions or an email provider are added.
-  const { error } = await supabase
-    .from("prayer_partner_applications")
-    .insert({
+  const { error } = await createFormSubmission({
+    email,
+    firstName,
+    formType: "prayer_team_application",
+    lastName,
+    message: motivation,
+    payload: {
       availability,
-      church_affiliation: getOptionalString(formData, "church_affiliation"),
-      city: getOptionalString(formData, "city"),
+      church_affiliation: churchAffiliation,
+      city,
       confidentiality_agreement: confidentialityAgreement,
-      email,
-      email_alerts: getBoolean(formData, "email_alerts"),
-      first_name: firstName,
-      last_name: lastName,
-      motivation: getOptionalString(formData, "motivation"),
-      phone: getOptionalString(formData, "phone"),
-      referral_source: getOptionalString(formData, "referral_source"),
-      sms_alerts: getBoolean(formData, "sms_alerts"),
-      state: getOptionalString(formData, "state"),
-      status: "pending",
-    });
+      email_alerts: emailAlerts,
+      motivation,
+      referral_source: referralSource,
+      sms_alerts: smsAlerts,
+      state,
+    },
+    phone,
+    sourcePage: "/prayer/join",
+  });
 
   if (error) {
-    redirect("/prayer/apply?error=submit");
+    redirect("/prayer/join?error=submit");
   }
 
-  redirect("/prayer/apply?submitted=1");
+  redirect("/prayer/join?submitted=1");
 }

@@ -27,7 +27,6 @@ export function GeneralSupportGivingButton({ children }: { children: React.React
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         profileSlug={null}
-        receivedMonthlySupport={0}
         source="general_support_page"
         supportMode="general_fund"
       />

@@ -1727,10 +1727,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       ]
       : [{ label: "No other missionary households available.", value: "" }];
   const targetHouseholdSelectDisabled = targetHouseholdLoadState !== "success" || targetHouseholds.length === 0;
-  const showFundraisingSettings = supportMode === "household";
-  const showGivingSettings = supportMode === "household";
   const showLeadershipPlaceholder = supportMode === "state_leader" || supportMode === "regional_leader";
   const showSupportActions = supportMode !== "hidden";
+  const showGivingSettings = showSupportActions;
   return (
     <div className="space-y-6">
       <section className="bg-stone-950/35 p-5 md:p-7">
@@ -1989,7 +1988,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "support" ? (
           <SectionIntro
-            description="Choose where giving invitations should route for this household."
+            description="Configure public support routing, donor-facing copy, giving links, and major gift options."
             title="Support"
           >
             <div className="space-y-7">
@@ -2060,32 +2059,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </div>
               </div>
 
-              {showFundraisingSettings ? (
-              <div className="border-t border-stone-800/70 pt-6">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Fundraising Numbers
-                </p>
-                <p className="mt-2 text-sm leading-6 text-stone-300">
-                  These numbers power the progress dashboard when support is routed to this household.
-                </p>
-                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  <Field label="Annual Goal" onChange={(value) => updateSupportField("annual_goal", value)} type="number" value={support.annual_goal ?? 0} />
-                  <Field label="Monthly Goal" onChange={(value) => updateSupportField("monthly_goal", value)} type="number" value={support.monthly_goal ?? 0} />
-                  <Field label="Monthly Received" onChange={(value) => updateSupportField("monthly_received", value)} type="number" value={support.monthly_received ?? 0} />
-                  <Field label="Monthly Committed" onChange={(value) => updateSupportField("monthly_committed", value)} type="number" value={support.monthly_committed ?? 0} />
-                  <Field label="General Fund %" onChange={(value) => updateSupportField("general_fund_percentage", value)} type="number" value={support.general_fund_percentage ?? 10} />
-                </div>
-                <div className="mt-4">
-                  <TextArea
-                    helperText="Optional note explaining how this support goal was calculated."
-                    label="Goal Calculation Note"
-                    onChange={(value) => updateSupportField("goal_basis", value)}
-                    rows={3}
-                    value={support.goal_basis}
-                  />
-                </div>
-              </div>
-              ) : null}
+              {/* TODO: Reintroduce fundraising numbers when real data tracking and dashboard is built. */}
 
               {showGivingSettings ? (
               <div className="border-t border-stone-800/70 pt-6">
@@ -2238,7 +2212,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </div>
                 <Link
                   className="mt-4 inline-flex min-h-10 w-full items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                  href={`/admin/prayer?tab=requests&household=${selectedProfile.id}`}
+                  href={`/admin/prayer-team?tab=requests&household=${selectedProfile.id}`}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 >
                   Manage In Prayer Team

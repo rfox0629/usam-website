@@ -8,8 +8,8 @@ const adminNavGroups = [
     items: [
       { activeKey: "dashboard", href: "/admin/dashboard", label: "Dashboard" },
       { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", label: "Missionary Profiles" },
-      { activeKey: "inquiries", href: "/admin/financial-freedom?status=new", label: "Inquiries" },
-      { activeKey: "prayer", href: "/admin/prayer", label: "Prayer Team" },
+      { activeKey: "inquiries", href: "/admin/inquiries", label: "Forms & Inquiries" },
+      { activeKey: "prayer", href: "/admin/prayer-team", label: "Prayer Team" },
     ],
     title: "Main",
   },

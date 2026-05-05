@@ -16,12 +16,10 @@ type SharedSupportProps = {
   missionaryId: string;
   missionaryName: string;
   missionarySlug: string;
-  monthlyGoal: number;
   monthlyButtonLabel?: string;
   monthlyGivingUrl?: string | null;
   oneTimeButtonLabel?: string;
   oneTimeGivingUrl?: string | null;
-  receivedMonthlySupport: number;
   showSupport?: boolean;
   supportButtonLabel?: string;
   supportExplanation?: string;
@@ -73,11 +71,9 @@ function ProfileSupportModal({
       initialGiftType={initialGiftType}
       isOpen={isOpen}
       monthlyGivingUrl={props.monthlyGivingUrl}
-      monthlyGoal={props.monthlyGoal}
       onClose={onClose}
       oneTimeGivingUrl={props.oneTimeGivingUrl}
       profileSlug={props.missionarySlug}
-      receivedMonthlySupport={props.receivedMonthlySupport}
       source="missionary_profile"
       supportButtonLabel={props.supportButtonLabel}
       supportExplanation={props.supportExplanation}

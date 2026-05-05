@@ -2,6 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { redirect } from "next/navigation";
+import { createFormSubmission } from "@/src/lib/forms/form-submissions";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/lib/supabase/server";
 
@@ -65,6 +66,15 @@ function getUploadFiles(formData: FormData) {
   return formData
     .getAll("uploads")
     .filter((value): value is File => value instanceof File && value.size > 0 && Boolean(value.name));
+}
+
+function splitFullName(fullName: string) {
+  const [firstName = "", ...rest] = fullName.trim().split(/\s+/);
+
+  return {
+    firstName,
+    lastName: rest.join(" "),
+  };
 }
 
 function validateUploadFiles(files: File[]) {
@@ -155,13 +165,22 @@ export async function submitFinancialFreedomInquiry(formData: FormData) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const currentSavings = getOptionalNumber(formData, "current_savings");
+  const desiredOutcome = getOptionalString(formData, "desired_12_month_outcome");
+  const mainFinancialBurden = getOptionalString(formData, "main_financial_burden");
+  const monthlyDebtPayments = getOptionalNumber(formData, "monthly_debt_payments");
+  const monthlyExpenses = getOptionalNumber(formData, "monthly_expenses");
+  const monthlyGiving = getOptionalNumber(formData, "monthly_giving");
+  const monthlyIncome = getOptionalNumber(formData, "monthly_income");
+  const phone = getOptionalString(formData, "phone");
+  const totalDebt = getOptionalNumber(formData, "total_debt");
   const { error } = await supabase
     .from("financial_freedom_inquiries")
     .insert({
-      current_savings: getOptionalNumber(formData, "current_savings"),
+      current_savings: currentSavings,
       consent_not_advice: acceptedAdviceScope,
       consent_voluntary_submission: acceptedVoluntarySubmission,
-      desired_12_month_outcome: getOptionalString(formData, "desired_12_month_outcome"),
+      desired_12_month_outcome: desiredOutcome,
       email,
       full_name: fullName,
       help_budget: getBoolean(formData, "help_budget"),
@@ -171,19 +190,47 @@ export async function submitFinancialFreedomInquiry(formData: FormData) {
       help_retirement: getBoolean(formData, "help_retirement"),
       help_savings: getBoolean(formData, "help_savings"),
       id: inquiryId,
-      main_financial_burden: getOptionalString(formData, "main_financial_burden"),
-      monthly_debt_payments: getOptionalNumber(formData, "monthly_debt_payments"),
-      monthly_expenses: getOptionalNumber(formData, "monthly_expenses"),
-      monthly_giving: getOptionalNumber(formData, "monthly_giving"),
-      monthly_income: getOptionalNumber(formData, "monthly_income"),
-      phone: getOptionalString(formData, "phone"),
+      main_financial_burden: mainFinancialBurden,
+      monthly_debt_payments: monthlyDebtPayments,
+      monthly_expenses: monthlyExpenses,
+      monthly_giving: monthlyGiving,
+      monthly_income: monthlyIncome,
+      phone,
       status: "new",
-      total_debt: getOptionalNumber(formData, "total_debt"),
+      total_debt: totalDebt,
     });
 
   if (error) {
     redirect("/financialfreedom?error=submit");
   }
+
+  const { firstName, lastName } = splitFullName(fullName);
+  await createFormSubmission({
+    email,
+    firstName,
+    formType: "financial_freedom",
+    lastName,
+    message: mainFinancialBurden,
+    payload: {
+      current_savings: currentSavings,
+      desired_12_month_outcome: desiredOutcome,
+      financial_freedom_inquiry_id: inquiryId,
+      help_budget: getBoolean(formData, "help_budget"),
+      help_debt: getBoolean(formData, "help_debt"),
+      help_generosity: getBoolean(formData, "help_generosity"),
+      help_overall_plan: getBoolean(formData, "help_overall_plan"),
+      help_retirement: getBoolean(formData, "help_retirement"),
+      help_savings: getBoolean(formData, "help_savings"),
+      main_financial_burden: mainFinancialBurden,
+      monthly_debt_payments: monthlyDebtPayments,
+      monthly_expenses: monthlyExpenses,
+      monthly_giving: monthlyGiving,
+      monthly_income: monthlyIncome,
+      upload_count: uploadFiles.length,
+    },
+    phone,
+    sourcePage: "/financialfreedom",
+  });
 
   const uploadedAllFiles = await uploadInquiryFiles(inquiryId, uploadFiles);
 

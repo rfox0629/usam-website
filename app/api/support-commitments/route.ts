@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createFormSubmission } from "@/src/lib/forms/form-submissions";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupportCommitmentPayload = {
@@ -146,8 +147,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to save this support commitment." }, { status: 500 });
   }
 
+  const commitmentId = (insertResult.data as { id?: string } | null)?.id ?? null;
+  await createFormSubmission({
+    email,
+    firstName,
+    formType: "support_giving",
+    lastName,
+    message: asNullableString(payload.message),
+    payload: {
+      allocation_preference: asNullableString(payload.allocationPreference),
+      default_allocation: asNullableString(payload.defaultAllocation),
+      gift_type: giftType,
+      household_id: asNullableString(payload.householdId),
+      household_name: asNullableString(payload.householdName),
+      other_amount: asNullableNumber(payload.otherAmount),
+      profile_slug: asNullableString(payload.profileSlug),
+      redirect_giving_url: asNullableString(payload.redirectGivingUrl),
+      selected_amount: asNullableString(payload.selectedAmount),
+      support_commitment_id: commitmentId,
+      support_mode: asNullableString(payload.supportMode),
+    },
+    phone: asNullableString(payload.phone),
+    sourcePage: asNullableString(payload.profileSlug)
+      ? `/missionaries/${asString(payload.profileSlug)}`
+      : "/support",
+  });
+
   return NextResponse.json({
-    commitmentId: (insertResult.data as { id?: string } | null)?.id ?? null,
+    commitmentId,
     saved: true,
   });
 }

@@ -89,7 +89,7 @@ function PrayerCoverageBoard() {
 }
 
 export default function PrayerPage() {
-  const signupLink = "/prayer/apply";
+  const signupLink = "/prayer/join";
   const points = [
     "Prayer coverage for the mission",
     "Updates on key needs and opportunities",

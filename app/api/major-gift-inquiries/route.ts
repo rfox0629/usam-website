@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createFormSubmission } from "@/src/lib/forms/form-submissions";
 import { sendMajorGiftNotification } from "@/src/lib/major-gifts/email";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -187,6 +188,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to save this inquiry." }, { status: 500 });
   }
 
+  const majorGiftInquiryId = (insertResult.data as { id?: string } | null)?.id ?? null;
+  await createFormSubmission({
+    email,
+    firstName,
+    formType: "major_gift",
+    lastName,
+    message: asNullableString(payload.message),
+    payload: {
+      donation_types: donationTypes,
+      household_id: household?.id ?? null,
+      household_name: household?.display_name ?? null,
+      intended_for: intendedFor,
+      major_gift_inquiry_id: majorGiftInquiryId,
+      profile_slug: household?.slug ?? (profileSlug || null),
+      projected_amount_range: projectedAmountRange,
+    },
+    phone: asNullableString(payload.phone),
+    priority: projectedAmountRange === "$100,000+" ? "urgent" : "high",
+    sourcePage: household?.slug ? `/missionaries/${household.slug}` : "/support",
+  });
+
   let emailStatus = "skipped";
 
   try {
@@ -213,6 +235,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     emailStatus,
-    inquiryId: (insertResult.data as { id?: string } | null)?.id ?? null,
+    inquiryId: majorGiftInquiryId,
   });
 }

@@ -10,11 +10,9 @@ type SupportMissionModalProps = {
   defaultAllocation?: string | null;
   householdId?: string | null;
   householdName: string;
-  monthlyGoal?: number;
   monthlyGivingUrl?: string | null;
   oneTimeGivingUrl?: string | null;
   profileSlug?: string | null;
-  receivedMonthlySupport?: number;
   source?: SupportCommitmentSource;
   supportButtonLabel?: string;
   supportExplanation?: string;
@@ -31,11 +29,9 @@ export function SupportMissionModal({
   defaultAllocation,
   householdId,
   householdName,
-  monthlyGoal,
   monthlyGivingUrl,
   oneTimeGivingUrl,
   profileSlug,
-  receivedMonthlySupport,
   source = "missionary_profile",
   supportExplanation,
   supportMode,
@@ -96,9 +92,7 @@ export function SupportMissionModal({
           householdId={householdId}
           householdName={householdName}
           initialGiftType={initialGiftType}
-          monthlyGoal={monthlyGoal}
           profileSlug={profileSlug}
-          receivedMonthlySupport={receivedMonthlySupport}
           resolvedMonthlyGivingUrl={monthlyGivingUrl}
           resolvedOneTimeGivingUrl={oneTimeGivingUrl}
           source={source}

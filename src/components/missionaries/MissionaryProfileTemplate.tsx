@@ -8,7 +8,6 @@ import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromT
 import { JoinPrayerTeamModal, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
 import type { Missionary, MissionaryFruitItem } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
-import { FundingDashboard } from "./FundingDashboard";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
@@ -372,7 +371,6 @@ function PrayerSection({ missionary }: { missionary: Missionary }) {
 }
 
 export function MissionaryProfileTemplate({ missionary }: { missionary: Missionary }) {
-  const funding = missionary.funding;
   const features = missionary.features ?? {
     showFruit: true,
     showHousehold: true,
@@ -416,12 +414,10 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
     missionaryId: missionary.id,
     missionaryName: missionary.name,
     missionarySlug: missionary.slug,
-    monthlyGoal: funding.monthlyGoal,
     monthlyButtonLabel: supportDefaults.monthlyButtonLabel,
     monthlyGivingUrl: supportDefaults.monthlyGivingUrl,
     oneTimeButtonLabel: supportDefaults.oneTimeButtonLabel,
     oneTimeGivingUrl: supportDefaults.oneTimeGivingUrl,
-    receivedMonthlySupport: funding.receivedMonthly,
     showSupport,
     supportButtonLabel: supportDefaults.buttonLabel,
     supportExplanation: supportDefaults.explanation,
@@ -463,25 +459,9 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
         <section className="border-t border-stone-900/80 px-6 py-20 md:py-28">
           <div className="mx-auto max-w-6xl">
             <SectionHeading
-              title={supportDefaults.publicLabel}
+              title="Support This Mission"
               subtitle={supportDefaults.explanation}
             />
-
-            {supportDefaults.isHouseholdFundraising ? (
-              <FundingDashboard funding={funding} />
-            ) : (
-              <div className="mt-10 border border-stone-800/80 bg-[#080808] p-6 md:p-8">
-                <p className="text-[12px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Routed Support
-                </p>
-                <h3 className="mt-3 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
-                  {supportDefaults.publicLabel}
-                </h3>
-                <p className="mt-4 max-w-3xl text-base leading-8 text-stone-300">
-                  {supportDefaults.explanation}
-                </p>
-              </div>
-            )}
 
             <ProfileSupportSectionActions {...supportModalProps} />
           </div>

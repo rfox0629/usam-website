@@ -33,10 +33,44 @@ const visibilityOptions = [
   { label: "Private", value: "private" },
 ] as const;
 
-const statusOptions = [
+const partnerStatusOptions = [
   { label: "Active", value: "active" },
   { label: "Inactive", value: "inactive" },
   { label: "Archived", value: "archived" },
+] as const;
+
+const requestStatusOptions = [
+  { label: "Open", value: "open" },
+  { label: "Covered", value: "covered" },
+  { label: "Answered", value: "answered" },
+  { label: "Archived", value: "archived" },
+] as const;
+
+const urgencyOptions = [
+  { label: "Normal", value: "normal" },
+  { label: "Important", value: "important" },
+  { label: "Urgent", value: "urgent" },
+] as const;
+
+const confidentialityOptions = [
+  { label: "General", value: "general" },
+  { label: "Missionary Couple", value: "missionary_couple" },
+  { label: "Kitchen Table", value: "kitchen_table" },
+  { label: "Confidential", value: "confidential" },
+] as const;
+
+const prayerCategoryOptions = [
+  { label: "General", value: "General" },
+  { label: "Kitchen Table", value: "Kitchen Table" },
+  { label: "Missionary Couple", value: "Missionary Couple" },
+  { label: "Leadership", value: "Leadership" },
+  { label: "City / State", value: "City / State" },
+  { label: "Finance", value: "Finance" },
+  { label: "Family", value: "Family" },
+  { label: "Salvation", value: "Salvation" },
+  { label: "Healing", value: "Healing" },
+  { label: "Deliverance", value: "Deliverance" },
+  { label: "Travel", value: "Travel" },
 ] as const;
 
 type PrayerAdminTab = (typeof tabs)[number]["key"];
@@ -76,13 +110,16 @@ type PrayerPartnerRow = {
 
 type PrayerRequestRow = {
   category: string | null;
+  confidentiality_level: "general" | "missionary_couple" | "kitchen_table" | "confidential";
   created_at: string;
   description: string;
   household_id: string | null;
   id: string;
-  status: "active" | "archived";
+  request: string;
+  status: "active" | "open" | "covered" | "answered" | "archived";
   title: string;
   updated_at: string | null;
+  urgency: "normal" | "important" | "urgent";
   visibility: "public" | "team" | "private";
 };
 
@@ -141,6 +178,10 @@ function statusLabel(value: string) {
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function normalizeRequestStatus(value?: string | null) {
+  return value === "active" ? "open" : value ?? "open";
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -266,7 +307,7 @@ function TabNav({ activeTab }: { activeTab: PrayerAdminTab }) {
               ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
               : "border-stone-800 text-stone-300 hover:border-stone-700 hover:text-stone-100"
           }`}
-          href={`/admin/prayer?tab=${tab.key}`}
+          href={`/admin/prayer-team?tab=${tab.key}`}
           key={tab.key}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
@@ -313,7 +354,7 @@ async function loadPrayerAdminData(): Promise<PrayerAdminData> {
       .order("created_at", { ascending: false }),
     supabase
       .from("prayer_requests")
-      .select("id, household_id, title, description, category, visibility, status, created_at, updated_at")
+      .select("id, household_id, related_household_id, title, request, description, category, visibility, urgency, confidentiality_level, status, created_at, updated_at")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -375,7 +416,7 @@ function PartnersTab({
         <MetricCard label="States / Regions" value={String(stateCount)} />
       </div>
 
-      <form className="grid gap-3 border border-stone-800 bg-[#080808]/80 p-4 lg:grid-cols-[1.2fr_1fr_0.7fr_0.7fr_0.7fr_auto_auto]" action="/admin/prayer" method="get">
+      <form className="grid gap-3 border border-stone-800 bg-[#080808]/80 p-4 lg:grid-cols-[1.2fr_1fr_0.7fr_0.7fr_0.7fr_auto_auto]" action="/admin/prayer-team" method="get">
         <input name="tab" type="hidden" value="partners" />
         <input
           className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]"
@@ -399,12 +440,12 @@ function PartnersTab({
         </select>
         <select className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={params.status ?? ""} name="status">
           <option value="">All statuses</option>
-          {statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+          {partnerStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
         </select>
         <button className="min-h-10 border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
           Filter
         </button>
-        <Link className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]" href="/admin/prayer/export" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <Link className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]" href="/admin/prayer-team/export" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Export CSV
         </Link>
       </form>
@@ -450,7 +491,12 @@ function RequestForm({
       {request ? <input name="request_id" type="hidden" value={request.id} /> : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field defaultValue={request?.title} label="Title" name="title" required />
-        <Field defaultValue={request?.category} label="Category" name="category" />
+        <SelectField
+          defaultValue={request?.category ?? "General"}
+          label="Category"
+          name="category"
+          options={prayerCategoryOptions.map((option) => ({ label: option.label, value: option.value }))}
+        />
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <SelectField
@@ -468,19 +514,30 @@ function RequestForm({
           name="visibility"
           options={visibilityOptions.map((option) => ({ label: option.label, value: option.value }))}
         />
+        <SelectField
+          defaultValue={request?.urgency ?? "normal"}
+          label="Urgency"
+          name="urgency"
+          options={urgencyOptions.map((option) => ({ label: option.label, value: option.value }))}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField
+          defaultValue={request?.confidentiality_level ?? "general"}
+          label="Confidentiality"
+          name="confidentiality_level"
+          options={confidentialityOptions.map((option) => ({ label: option.label, value: option.value }))}
+        />
         {isEditing ? (
           <SelectField
-            defaultValue={request?.status ?? "active"}
+            defaultValue={normalizeRequestStatus(request?.status)}
             label="Status"
             name="status"
-            options={[
-              { label: "Active", value: "active" },
-              { label: "Archived", value: "archived" },
-            ]}
+            options={requestStatusOptions.map((option) => ({ label: option.label, value: option.value }))}
           />
         ) : null}
       </div>
-      <TextArea defaultValue={request?.description} label="Short Description" name="description" required />
+      <TextArea defaultValue={request?.description || request?.request} label="Prayer Request" name="description" required />
       <div className="flex flex-col gap-3 sm:flex-row">
         <button className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 text-xs uppercase tracking-[0.2em] text-black hover:bg-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
           {isEditing ? "Save Request" : "Create Request"}
@@ -517,12 +574,12 @@ function RequestsTab({
             return (
               <Link
                 className={`grid gap-3 p-4 transition-colors hover:bg-stone-950/70 lg:grid-cols-[1.3fr_1fr_0.6fr_0.6fr_0.7fr_0.45fr] lg:items-center ${selectedRequest?.id === request.id ? "bg-[#D4A63D]/5" : ""}`}
-                href={`/admin/prayer?tab=requests&request=${request.id}`}
+                href={`/admin/prayer-team?tab=requests&request=${request.id}`}
                 key={request.id}
               >
                 <div>
                   <p className="font-medium text-stone-100">{request.title}</p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-stone-500">{request.description}</p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-stone-500">{request.description || request.request}</p>
                 </div>
                 <p className="text-sm text-stone-300">{household?.display_name ?? "General"}</p>
                 <StatusBadge status={request.visibility} />
@@ -631,12 +688,12 @@ function EmailPreviewTab({
     : households[0];
   const previewRequests: MissionaryPrayerRequest[] = requests
     .filter((request) => request.household_id === selectedHousehold?.id)
-    .filter((request) => request.status === "active" && (request.visibility === "public" || request.visibility === "team"))
+    .filter((request) => (request.status === "active" || request.status === "open") && (request.visibility === "public" || request.visibility === "team"))
     .slice(0, 5)
     .map((request) => ({
       category: request.category,
       date: request.created_at,
-      description: request.description,
+      description: request.description || request.request,
       id: request.id,
       title: request.title,
       visibility: request.visibility as "public" | "team",
@@ -652,7 +709,7 @@ function EmailPreviewTab({
 
   return (
     <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-      <form className="border border-stone-800 bg-[#080808]/80 p-5" action="/admin/prayer" method="get">
+      <form className="border border-stone-800 bg-[#080808]/80 p-5" action="/admin/prayer-team" method="get">
         <input name="tab" type="hidden" value="email" />
         <SelectField
           defaultValue={selectedHousehold?.id ?? ""}
@@ -705,7 +762,7 @@ export default async function PrayerTeamAdminPage({
   return (
     <AdminShell
       active="prayer"
-      description="Manage prayer partners, household prayer requests, state coverage, and the welcome email."
+      description="Manage approved prayer partners, prayer requests, household coverage, state and region coverage, missionary couple coverage, and future DOS kitchen table prayer alerts."
       title="Prayer Team"
     >
       <div className="space-y-5">

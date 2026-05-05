@@ -12,15 +12,10 @@ export type SupportCommitmentSource = "missionary_profile" | "general_support_pa
 export type GivingCommitmentFormProps = {
   defaultAllocation?: string | null;
   displayMode?: "section" | "modal";
-  generalFundPercentage?: number;
   householdId?: string | null;
   householdName?: string | null;
-  initialCommittedMonthlySupport?: number;
   initialGiftType?: CommitmentGiftType;
-  monthlyGoal?: number;
-  onCommitmentSubmitted?: (amount: number) => void;
   profileSlug?: string | null;
-  receivedMonthlySupport?: number;
   resolvedMonthlyGivingUrl?: string | null;
   resolvedOneTimeGivingUrl?: string | null;
   source?: SupportCommitmentSource;
@@ -149,14 +144,10 @@ function SelectField({
 export function GivingCommitmentForm({
   defaultAllocation,
   displayMode = "section",
-  generalFundPercentage = 10,
   householdId = null,
   householdName,
-  initialCommittedMonthlySupport,
   initialGiftType = "monthly",
-  onCommitmentSubmitted,
   profileSlug = null,
-  receivedMonthlySupport = 0,
   resolvedMonthlyGivingUrl,
   resolvedOneTimeGivingUrl,
   source = "missionary_profile",
@@ -184,8 +175,6 @@ export function GivingCommitmentForm({
   const [allocationPreference, setAllocationPreference] = useState(allocationLabel);
   const [status, setStatus] = useState<"error" | "idle" | "submitting" | "success">("idle");
   const [errorMessage, setErrorMessage] = useState("");
-  const [, setCommittedMonthlySupport] = useState(initialCommittedMonthlySupport ?? receivedMonthlySupport);
-  const pendingMonthlyCommitment = useRef(0);
   const redirectStarted = useRef(false);
   const redirectUrl = useRef(getGivingUrl(resolvedMonthlyGivingUrl, "monthly"));
 
@@ -202,18 +191,6 @@ export function GivingCommitmentForm({
   useEffect(() => {
     setAllocationPreference(allocationLabel);
   }, [allocationLabel]);
-
-  useEffect(() => {
-    if (status !== "success" || pendingMonthlyCommitment.current <= 0) {
-      return;
-    }
-
-    const amount = pendingMonthlyCommitment.current;
-    pendingMonthlyCommitment.current = 0;
-
-    setCommittedMonthlySupport((current) => current + amount);
-    onCommitmentSubmitted?.(amount);
-  }, [onCommitmentSubmitted, status]);
 
   useEffect(() => {
     if (status !== "success" || redirectStarted.current) {
@@ -234,13 +211,9 @@ export function GivingCommitmentForm({
     const activeAmount = giftType === "monthly" ? monthlyAmount : oneTimeAmount;
     const otherAmount = activeAmount === "Other" ? parseAmount(formData.get("otherAmount")) : null;
     const selectedAmount = activeAmount === "Other" ? "Other" : activeAmount;
-    const monthlyCommitmentAmount = giftType === "monthly"
-      ? otherAmount ?? parseAmount(activeAmount)
-      : 0;
     const nextRedirectUrl = giftType === "monthly" ? resolvedMonthlyUrl : resolvedOneTimeUrl;
 
     redirectUrl.current = nextRedirectUrl;
-    pendingMonthlyCommitment.current = monthlyCommitmentAmount;
     setStatus("submitting");
     setErrorMessage("");
 
@@ -279,7 +252,6 @@ export function GivingCommitmentForm({
 
       setStatus("success");
     } catch (error) {
-      pendingMonthlyCommitment.current = 0;
       setErrorMessage(error instanceof Error ? error.message : "Unable to submit this commitment.");
       setStatus("error");
     }

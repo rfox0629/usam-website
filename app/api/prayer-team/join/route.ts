@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import type { MissionaryPrayerRequest } from "@/src/data/missionaries";
-import { sendPrayerTeamWelcomeEmail } from "@/src/lib/prayer/email";
+import { createFormSubmission } from "@/src/lib/forms/form-submissions";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type JoinPrayerTeamPayload = {
@@ -22,15 +21,6 @@ type HouseholdRow = {
 
 type PersonRow = {
   missionary_number: string | null;
-};
-
-type PrayerRequestRow = {
-  category: string | null;
-  created_at: string;
-  description: string;
-  id: string;
-  title: string;
-  visibility: "public" | "team" | "private";
 };
 
 const sourceValues = [
@@ -59,23 +49,19 @@ function isSourceValue(value: string): value is typeof sourceValues[number] {
   return sourceValues.includes(value as typeof sourceValues[number]);
 }
 
-function mapPrayerRequests(requests: readonly PrayerRequestRow[]): MissionaryPrayerRequest[] {
-  return requests
-    .filter((request) => request.visibility === "public" || request.visibility === "team")
-    .map((request) => ({
-      category: request.category,
-      date: request.created_at,
-      description: request.description,
-      id: request.id,
-      title: request.title,
-      visibility: request.visibility as "public" | "team",
-    }));
-}
-
 function isMissingPrayerTeamTable(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return message.includes("prayer_partners") || message.includes("prayer_requests");
+  return message.includes("form_submissions");
+}
+
+function splitName(name: string) {
+  const [firstName = "", ...rest] = name.trim().split(/\s+/);
+
+  return {
+    firstName,
+    lastName: rest.join(" "),
+  };
 }
 
 export async function POST(request: Request) {
@@ -130,87 +116,49 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This missionary household is not available." }, { status: 404 });
   }
 
-  const [peopleResult, requestResult] = await Promise.all([
-    supabase
-      .from("missionary_people")
-      .select("missionary_number")
-      .eq("household_id", household.id)
-      .eq("is_public", true)
-      .order("missionary_number", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("prayer_requests")
-      .select("id, title, description, category, visibility, created_at")
-      .eq("household_id", household.id)
-      .eq("status", "active")
-      .in("visibility", ["public", "team"])
-      .order("created_at", { ascending: false })
-      .limit(12),
-  ]);
-
-  if (requestResult.error && isMissingPrayerTeamTable(requestResult.error)) {
-    return NextResponse.json({ error: "Prayer Team database tables are not ready yet." }, { status: 503 });
-  }
-
-  if (requestResult.error) {
-    return NextResponse.json({ error: "Unable to load current prayer requests." }, { status: 500 });
-  }
+  const peopleResult = await supabase
+    .from("missionary_people")
+    .select("missionary_number")
+    .eq("household_id", household.id)
+    .eq("is_public", true)
+    .order("missionary_number", { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
   const missionaryNumber = peopleResult.error
     ? null
     : ((peopleResult.data as PersonRow | null)?.missionary_number ?? null);
-  const timestamp = new Date().toISOString();
-  const partnerResult = await supabase
-    .from("prayer_partners")
-    .upsert(
-      {
-        email,
-        name,
-        recruited_by_household_id: household.id,
-        recruited_by_household_name: household.display_name,
-        recruited_by_household_number: missionaryNumber,
-        recruited_by_profile_slug: household.slug,
-        region: asNullableString(payload.region),
-        source,
-        state: asNullableString(payload.state),
-        status: "active",
-        updated_at: timestamp,
-      },
-      {
-        onConflict: "email,recruited_by_household_id",
-      },
-    )
-    .select("id")
-    .single();
+  const { firstName, lastName } = splitName(name);
 
-  if (partnerResult.error) {
-    if (isMissingPrayerTeamTable(partnerResult.error)) {
-      return NextResponse.json({ error: "Prayer Team database tables are not ready yet." }, { status: 503 });
+  const submissionResult = await createFormSubmission({
+    email,
+    firstName,
+    formType: "prayer_team_application",
+    lastName,
+    message: `Prayer team application for ${household.display_name}`,
+    payload: {
+      recruited_by_household_id: household.id,
+      recruited_by_household_name: household.display_name,
+      recruited_by_household_number: missionaryNumber,
+      recruited_by_profile_slug: household.slug,
+      region: asNullableString(payload.region),
+      source,
+      state: asNullableString(payload.state),
+    },
+    sourcePage: `/missionaries/${household.slug}`,
+  });
+
+  // TODO: Future email/SMS/DOS integration can notify admins when household
+  // profile prayer team applications arrive and route alerts after approval.
+  if (submissionResult.error) {
+    if (isMissingPrayerTeamTable({ message: submissionResult.error })) {
+      return NextResponse.json({ error: "Prayer Team application database table is not ready yet." }, { status: 503 });
     }
 
-    return NextResponse.json({ error: "Unable to save your prayer team signup." }, { status: 500 });
-  }
-
-  const prayerRequests = mapPrayerRequests((requestResult.data ?? []) as PrayerRequestRow[]);
-  let emailStatus = "skipped";
-
-  try {
-    const emailResult = await sendPrayerTeamWelcomeEmail({
-      householdName: household.display_name,
-      name,
-      prayerRequests,
-      profileSlug: household.slug,
-      to: email,
-    });
-    emailStatus = emailResult.status;
-  } catch (error) {
-    console.error("Prayer team welcome email failed:", error instanceof Error ? error.message : "Unknown email error");
-    emailStatus = "failed";
+    return NextResponse.json({ error: "Unable to save your prayer team application." }, { status: 500 });
   }
 
   return NextResponse.json({
-    emailStatus,
-    prayerRequests,
+    applicationStatus: "submitted",
   });
 }

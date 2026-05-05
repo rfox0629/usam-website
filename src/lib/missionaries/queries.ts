@@ -857,7 +857,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
         .from("prayer_requests")
         .select("id, title, description, category, visibility, created_at")
         .eq("household_id", household.id)
-        .eq("status", "active")
+        .in("status", ["active", "open"])
         .eq("visibility", "public")
         .order("created_at", { ascending: false })
         .limit(6),

@@ -5,7 +5,7 @@ import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/li
 import { updateFinancialFreedomInquiryStatus, updateMajorGiftInquiryStatus } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Inquiries | USA Missionaries",
+  title: "Financial Freedom Admin | USA Missionaries",
   robots: {
     follow: false,
     index: false,
@@ -739,9 +739,9 @@ export default async function FinancialFreedomAdminPage({
 
     return (
       <AdminShell
-        active="inquiries"
-        description="Review financial requests and major gift conversations that need follow-up."
-        title="Inquiries"
+        active="financial-freedom"
+        description="Review Financial Freedom requests that need follow-up."
+        title="Financial Freedom"
       >
         <InquiryTabs activeType="major-gift" />
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
@@ -772,9 +772,9 @@ export default async function FinancialFreedomAdminPage({
 
   return (
     <AdminShell
-      active="inquiries"
-      description="Review financial requests and major gift conversations that need follow-up."
-      title="Inquiries"
+      active="financial-freedom"
+      description="Review Financial Freedom requests that need follow-up."
+      title="Financial Freedom"
     >
       <InquiryTabs activeType="financial-freedom" />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">

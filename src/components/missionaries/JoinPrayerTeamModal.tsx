@@ -17,9 +17,8 @@ const sourceOptions = [
 type PrayerTeamSource = typeof sourceOptions[number]["value"];
 
 type PrayerTeamSignupResponse = {
-  emailStatus?: string;
+  applicationStatus?: string;
   error?: string;
-  prayerRequests?: MissionaryPrayerRequest[];
 };
 
 type JoinPrayerTeamModalProps = {
@@ -156,15 +155,12 @@ export function JoinPrayerTeamModal({
   householdId,
   householdName,
   householdNumber,
-  initialPrayerRequests = [],
   profileSlug,
   variant = "gold",
 }: JoinPrayerTeamModalProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [showRequests, setShowRequests] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [error, setError] = useState("");
-  const [requests, setRequests] = useState<readonly MissionaryPrayerRequest[]>(initialPrayerRequests);
   const [formValues, setFormValues] = useState<{
     email: string;
     name: string;
@@ -189,7 +185,6 @@ export function JoinPrayerTeamModal({
     }
 
     setIsOpen(false);
-    setShowRequests(false);
     setError("");
   }
 
@@ -224,7 +219,6 @@ export function JoinPrayerTeamModal({
       return;
     }
 
-    setRequests(result.prayerRequests ?? initialPrayerRequests);
     setStatus("success");
   }
 
@@ -248,7 +242,7 @@ export function JoinPrayerTeamModal({
                   Prayer Team
                 </p>
                 <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-                  {status === "success" ? "You're In" : "Join The Prayer Team"}
+                  {status === "success" ? "Application Received" : "Join The Prayer Team"}
                 </h3>
               </div>
               <button
@@ -265,36 +259,21 @@ export function JoinPrayerTeamModal({
             {status === "success" ? (
               <div className="mt-6">
                 <p className="text-sm leading-7 text-stone-300">
-                  Thank you for joining the prayer team for {householdName}. Check your email for the latest prayer requests.
+                  Thank you for applying to join the prayer team for {householdName}. Our team will review your request and follow up with next steps.
                 </p>
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    className={buttonClassName("gold")}
-                    onClick={() => setShowRequests((current) => !current)}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    type="button"
-                  >
-                    View Prayer Requests
-                  </button>
-                  <button
-                    className={buttonClassName("outline")}
-                    onClick={closeModal}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    type="button"
-                  >
-                    Done
-                  </button>
-                </div>
-                {showRequests ? (
-                  <div className="mt-5">
-                    <PrayerRequestList requests={requests} />
-                  </div>
-                ) : null}
+                <button
+                  className={`${buttonClassName("outline")} mt-5`}
+                  onClick={closeModal}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  Done
+                </button>
               </div>
             ) : (
               <form className="mt-6 space-y-4" onSubmit={submitForm}>
                 <p className="text-sm leading-7 text-stone-300">
-                  Join the prayer team for {householdName}. We will send current requests and occasional updates.
+                  Apply to join the prayer team for {householdName}. Approved prayer partners can receive current requests and future alerts.
                 </p>
                 <label className="block">
                   <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -362,7 +341,7 @@ export function JoinPrayerTeamModal({
                   </select>
                 </label>
                 <p className="text-xs leading-5 text-stone-500">
-                  We use this information to send prayer updates and understand how each household is building its prayer team.
+                  We use this information to review prayer team applications and understand how each household is building prayer coverage.
                 </p>
                 {error ? (
                   <p className="border border-red-500/30 bg-red-950/20 p-3 text-sm leading-6 text-red-100">
@@ -375,7 +354,7 @@ export function JoinPrayerTeamModal({
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="submit"
                 >
-                  {status === "submitting" ? "Joining" : "Join The Prayer Team"}
+                  {status === "submitting" ? "Submitting" : "Submit Application"}
                 </button>
               </form>
             )}

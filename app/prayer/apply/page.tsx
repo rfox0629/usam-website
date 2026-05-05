@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { PrimaryNav } from "../../../components/PrimaryNav";
 import { PrayerPartnerApplicationForm } from "./PrayerPartnerApplicationForm";
 
@@ -19,6 +20,8 @@ export default async function PrayerPartnerApplicationPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  redirect("/prayer/join");
+
   const params = await searchParams;
 
   return (
