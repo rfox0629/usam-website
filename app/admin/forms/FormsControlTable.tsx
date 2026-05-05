@@ -251,17 +251,15 @@ export function FormsControlTable({ rows }: { rows: readonly FormControlRow[] })
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
           <div className="overflow-x-auto">
-            <table className="min-w-[1260px] w-full border-collapse text-left">
+            <table className="min-w-[980px] w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-stone-800/70 text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  <th className="px-4 py-3 font-bold">Form Name</th>
-                  <th className="px-4 py-3 font-bold">URL</th>
-                  <th className="px-4 py-3 font-bold">Form Type</th>
+                  <th className="w-[30%] px-4 py-3 font-bold">Form Name</th>
                   <th className="px-4 py-3 font-bold">Status</th>
                   <th className="px-4 py-3 font-bold">Access</th>
                   <th className="px-4 py-3 font-bold">Routes To</th>
-                  <th className="px-4 py-3 text-right font-bold">Submissions Count</th>
-                  <th className="px-4 py-3 font-bold">Last Submission Date</th>
+                  <th className="px-4 py-3 text-right font-bold">Submissions</th>
+                  <th className="px-4 py-3 font-bold">Last Activity</th>
                   <th className="px-4 py-3 font-bold">Actions</th>
                 </tr>
               </thead>
@@ -284,8 +282,6 @@ export function FormsControlTable({ rows }: { rows: readonly FormControlRow[] })
                     <td className="px-4 py-3">
                       <p className="font-medium text-stone-100">{row.formName}</p>
                     </td>
-                    <td className="px-4 py-3 text-sm text-stone-400">{row.url}</td>
-                    <td className="px-4 py-3 text-sm text-stone-400">{row.formType}</td>
                     <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
                     <td className="px-4 py-3"><AccessBadge access={row.access} /></td>
                     <td className="px-4 py-3"><RouteBadge routesTo={row.routesTo} /></td>
@@ -303,7 +299,7 @@ export function FormsControlTable({ rows }: { rows: readonly FormControlRow[] })
                   </tr>
                 )) : (
                   <tr>
-                    <td className="px-4 py-8 text-sm text-stone-400" colSpan={9}>
+                    <td className="px-4 py-8 text-sm text-stone-400" colSpan={7}>
                       No forms match these filters.
                     </td>
                   </tr>

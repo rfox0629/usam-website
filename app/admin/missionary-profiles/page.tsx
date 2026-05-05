@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
 };
 
-const householdBaseSelect = "id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order";
+const householdBaseSelect = "id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order, updated_at";
 const householdFeatureColumns = [
   "show_household",
   "show_photos",

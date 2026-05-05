@@ -54,6 +54,7 @@ export type AdminHousehold = {
   story: string | null;
   public_visible: boolean | null;
   sort_order: number | null;
+  updated_at?: string | null;
   primary_state?: string | null;
   serving_scope?: ServingScope | string | null;
   secondary_states?: string[] | null;
@@ -1266,11 +1267,48 @@ function StatPreview({ label, value }: { label: string; value: string }) {
   );
 }
 
+function formatProfileUpdatedDate(value: string | null | undefined) {
+  if (!value) {
+    return "Not tracked";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not tracked";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function ProfileVisibilityBadge({ profile }: { profile: AdminProfile }) {
+  const isPublic = isProfilePublic(profile);
+
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
+        isPublic
+          ? "border-green-500/25 bg-green-950/30 text-green-300"
+          : "border-stone-700 bg-stone-900/70 text-stone-400"
+      }`}
+      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+    >
+      {isPublic ? "Live" : "Hidden"}
+    </span>
+  );
+}
+
 export function MissionaryProfilesAdminDashboard({ initialProfiles }: MissionaryProfilesAdminDashboardProps) {
   const router = useRouter();
   const [profiles, setProfiles] = useState(initialProfiles);
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState<EditorTab>("profile");
+  const [profileQuery, setProfileQuery] = useState("");
+  const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
   const [saving, setSaving] = useState(false);
   const [uploadStates, setUploadStates] = useState<Record<MissionaryImageSlot, UploadState>>({
@@ -1295,6 +1333,28 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     [profiles, selectedId],
   );
   const selectedProfileSupportMode = selectedProfile ? getSupportMode(selectedProfile) : "household";
+  const filteredProfiles = useMemo(() => {
+    const normalizedQuery = profileQuery.trim().toLowerCase();
+
+    return profiles.filter((profile) => {
+      const publicProfile = isProfilePublic(profile);
+      const searchable = [
+        profile.display_name,
+        profile.slug,
+        profile.short_mission,
+        getProfilePrimaryState(profile),
+        getProfileServingScope(profile),
+        getProfileRegion(profile),
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      return (!normalizedQuery || searchable.includes(normalizedQuery))
+        && (!profileVisibilityFilter
+          || (profileVisibilityFilter === "live" && publicProfile)
+          || (profileVisibilityFilter === "hidden" && !publicProfile));
+    });
+  }, [profileQuery, profileVisibilityFilter, profiles]);
+  const liveProfiles = profiles.filter((profile) => isProfilePublic(profile)).length;
+  const hiddenProfiles = profiles.length - liveProfiles;
 
   useEffect(() => {
     if (!selectedProfile || selectedProfileSupportMode !== "household_nomination") {
@@ -1755,21 +1815,37 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   if (!selectedProfile) {
     return (
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Household Selection
-            </p>
-            <h2 className="mt-2 text-4xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-              Choose A Profile
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
-              Select a missionary household to edit its public profile, media, team, support routing, and prayer settings.
-            </p>
-          </div>
+      <div className="space-y-5">
+        <div className="grid gap-3 md:grid-cols-3">
+          <StatPreview label="Total Profiles" value={String(profiles.length)} />
+          <StatPreview label="Live Profiles" value={String(liveProfiles)} />
+          <StatPreview label="Hidden Profiles" value={String(hiddenProfiles)} />
+        </div>
+
+        <div className="grid gap-3 border border-stone-800/75 bg-[#080808]/85 p-3 md:grid-cols-[minmax(240px,1fr)_220px_auto]">
+          <label className="block">
+            <span className="sr-only">Search missionary profiles</span>
+            <input
+              className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
+              onChange={(event) => setProfileQuery(event.target.value)}
+              placeholder="Search profiles, slugs, states, or mission"
+              value={profileQuery}
+            />
+          </label>
+          <label className="block">
+            <span className="sr-only">Filter by visibility</span>
+            <select
+              className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+              onChange={(event) => setProfileVisibilityFilter(event.target.value)}
+              value={profileVisibilityFilter}
+            >
+              <option value="">All Visibility</option>
+              <option value="live">Live</option>
+              <option value="hidden">Hidden</option>
+            </select>
+          </label>
           <button
-            className="inline-flex min-h-11 items-center justify-center border border-stone-700 px-5 py-3 text-xs uppercase tracking-[0.22em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-5 text-xs uppercase tracking-[0.22em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
             disabled={isRefreshing}
             onClick={refreshProfiles}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -1784,26 +1860,56 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             No missionary households found yet.
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {profiles.map((profile) => (
-              <button
-                className="group border border-stone-800 bg-stone-950/45 p-5 text-left transition-colors hover:border-[#D4A63D]/70 hover:bg-[#D4A63D]/5"
-                key={profile.id}
-                onClick={() => openProfile(profile.id)}
-                type="button"
-              >
-                <span className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  {isProfilePublic(profile) ? "Public" : "Hidden"}
-                </span>
-                <span className="mt-3 block text-2xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-                  {profile.display_name}
-                </span>
-                <span className="mt-3 block text-sm text-stone-300">/{profile.slug}</span>
-                <span className="mt-5 inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.2em] text-stone-100 transition-colors group-hover:border-[#D4A63D] group-hover:text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Edit Profile
-                </span>
-              </button>
-            ))}
+          <div className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
+            <div className="overflow-x-auto">
+              <table className="min-w-[820px] w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-stone-800/70 text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <th className="w-[34%] px-4 py-3 font-bold">Missionary Profile</th>
+                    <th className="px-4 py-3 font-bold">Visible</th>
+                    <th className="px-4 py-3 font-bold">Location</th>
+                    <th className="px-4 py-3 font-bold">Last Updated</th>
+                    <th className="px-4 py-3 font-bold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-900">
+                  {filteredProfiles.length > 0 ? filteredProfiles.map((profile) => (
+                    <tr className="transition-colors hover:bg-stone-950/80" key={profile.id}>
+                      <td className="px-4 py-4">
+                        <p className="font-medium text-stone-100">{profile.display_name}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <ProfileVisibilityBadge profile={profile} />
+                      </td>
+                      <td className="px-4 py-4 text-sm text-stone-300">
+                        {getProfileLocationVisibility(profile) === "hidden"
+                          ? "Undisclosed"
+                          : getProfilePrimaryState(profile) || "Not set"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-stone-400">
+                        {formatProfileUpdatedDate(profile.updated_at)}
+                      </td>
+                      <td className="px-4 py-4">
+                        <button
+                          className="inline-flex min-h-8 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                          onClick={() => openProfile(profile.id)}
+                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                          type="button"
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td className="px-4 py-8 text-sm text-stone-400" colSpan={5}>
+                        No missionary profiles match these filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
