@@ -55,9 +55,9 @@ const baseAllocationPreferences = [
   "Unsure",
 ] as const;
 
-const inputClassName = "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15";
-const selectClassName = "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-sm text-stone-950 shadow-sm outline-none transition focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15";
-const textareaClassName = "mt-2 min-h-28 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm leading-6 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15";
+const inputClassName = "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+const selectClassName = "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+const textareaClassName = "mt-2 min-h-24 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-6 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
 
 function parseAmount(value: FormDataEntryValue | null) {
   if (typeof value !== "string") {
@@ -72,7 +72,7 @@ function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor: strin
   return (
     <label
       htmlFor={htmlFor}
-      className="text-[11px] uppercase tracking-[0.18em] text-stone-700"
+      className="text-[11px] uppercase tracking-[0.15em] text-stone-700"
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}
@@ -83,7 +83,7 @@ function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor: strin
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <h3
-      className="text-sm font-bold uppercase tracking-[0.16em] text-stone-950"
+      className="text-[12px] font-bold uppercase tracking-[0.16em] text-stone-900"
       style={{ fontFamily: font.rajdhani }}
     >
       {children}
@@ -170,8 +170,8 @@ export function GivingCommitmentForm({
   }, [allocationLabel]);
 
   const [giftType, setGiftType] = useState<CommitmentGiftType>(initialGiftType);
-  const [monthlyAmount, setMonthlyAmount] = useState("200");
-  const [oneTimeAmount, setOneTimeAmount] = useState("250");
+  const [monthlyAmount, setMonthlyAmount] = useState("");
+  const [oneTimeAmount, setOneTimeAmount] = useState("");
   const [allocationPreference, setAllocationPreference] = useState(allocationLabel);
   const [status, setStatus] = useState<"error" | "idle" | "submitting" | "success">("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -258,27 +258,27 @@ export function GivingCommitmentForm({
   }
 
   const outerClassName = displayMode === "modal"
-    ? "rounded-[28px] border border-stone-200 bg-[#f8f4ec] p-4 shadow-[0_24px_80px_rgba(28,25,23,0.18)] md:p-6"
-    : "rounded-[28px] border border-stone-200 bg-[#f8f4ec] p-4 shadow-[0_20px_70px_rgba(28,25,23,0.12)] md:p-6 lg:col-span-3";
+    ? "rounded-[28px] border border-stone-200 bg-[#fbfaf7] p-4 shadow-[0_28px_90px_rgba(12,10,9,0.28)] md:p-6"
+    : "rounded-[28px] border border-stone-200 bg-[#fbfaf7] p-4 shadow-[0_20px_70px_rgba(28,25,23,0.12)] md:p-6 lg:col-span-3";
 
   return (
     <section className={outerClassName}>
-      <div className="space-y-5">
-        <div className="rounded-2xl border border-[#eadfca] bg-[#fffdf7] p-5 shadow-sm md:p-6">
+      <div className="space-y-4">
+        <div className="px-1 pb-1 pr-12 pt-1 md:px-2 md:pr-14">
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {contextName}
           </p>
-          <h2 className="mt-3 text-2xl font-semibold leading-tight text-stone-950 md:text-3xl">
+          <h2 className="mt-3 text-3xl font-semibold leading-tight text-stone-950 md:text-4xl">
             {formTitle}
           </h2>
-          <p className="mt-3 max-w-3xl text-base leading-7 text-stone-800">
+          <p className="mt-4 max-w-3xl text-base leading-7 text-stone-700">
             Start here so we can connect your gift to the right missionary or fund. After submitting, you'll be taken to our secure giving page.
           </p>
-          <p className="mt-4 rounded-xl border border-[#eadfca] bg-[#f8f4ec] px-4 py-3 text-sm leading-6 text-stone-700">
+          <p className="mt-4 rounded-2xl border border-[#eadfca] bg-[#fff7df] px-4 py-3 text-sm leading-6 text-stone-700">
             A portion of every missionary support commitment helps sustain USAM leadership, operations, and national expansion.
           </p>
           {!isHouseholdSupport ? (
-            <p className="mt-4 rounded-xl border border-[#D4A63D]/40 bg-[#fff7df] px-4 py-3 text-sm leading-6 text-stone-800">
+            <p className="mt-3 rounded-2xl border border-[#D4A63D]/40 bg-[#fff7df] px-4 py-3 text-sm leading-6 text-stone-800">
               {supportExplanation || "This missionary household is not currently raising personal support. You can still give toward the broader mission through the selected fund."}
             </p>
           ) : null}
@@ -292,7 +292,7 @@ export function GivingCommitmentForm({
         ) : null}
 
         {status !== "success" ? (
-          <form className="space-y-5" onSubmit={submitCommitment}>
+          <form className="space-y-4" onSubmit={submitCommitment}>
             <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-6">
               <SectionTitle>Contact Information</SectionTitle>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -326,6 +326,7 @@ export function GivingCommitmentForm({
 
                 {giftType === "monthly" ? (
                   <SelectField id="monthlyAmount" label="Monthly Amount" name="monthlyAmount" value={monthlyAmount} onChange={setMonthlyAmount}>
+                    <option value="">Select amount</option>
                     {monthlyAmounts.map((amount) => (
                       <option key={amount.value} value={amount.value}>{amount.label}</option>
                     ))}
@@ -334,6 +335,7 @@ export function GivingCommitmentForm({
 
                 {giftType === "onetime" ? (
                   <SelectField id="oneTimeAmount" label="One Time Amount" name="oneTimeAmount" value={oneTimeAmount} onChange={setOneTimeAmount}>
+                    <option value="">Select amount</option>
                     {oneTimeAmounts.map((amount) => (
                       <option key={amount.value} value={amount.value}>{amount.label}</option>
                     ))}
@@ -372,7 +374,7 @@ export function GivingCommitmentForm({
             </div>
 
             <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-6">
-              <SectionTitle>Message / Notes</SectionTitle>
+              <SectionTitle>Optional Note</SectionTitle>
               <textarea id="message" name="message" rows={4} className={textareaClassName} />
             </div>
 
@@ -382,14 +384,20 @@ export function GivingCommitmentForm({
               </div>
             ) : null}
 
-            <button
-              type="submit"
-              disabled={status === "submitting"}
-              className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.24em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_14px_34px_rgba(212,166,61,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            >
-              {status === "submitting" ? "Submitting..." : "Submit Commitment"}
-            </button>
+            <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-6">
+              <SectionTitle>Submit</SectionTitle>
+              <button
+                type="submit"
+                disabled={status === "submitting"}
+                className="mt-4 inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_14px_34px_rgba(212,166,61,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              >
+                {status === "submitting" ? "Submitting..." : "Continue to Secure Giving"}
+              </button>
+              <p className="mt-3 text-center text-sm leading-6 text-stone-600">
+                Your information helps us connect your gift to the right missionary or fund.
+              </p>
+            </div>
           </form>
         ) : null}
       </div>

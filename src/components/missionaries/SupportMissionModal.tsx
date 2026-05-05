@@ -68,18 +68,18 @@ export function SupportMissionModal({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-stone-950/70 px-4 pb-6 pt-24 backdrop-blur-sm sm:pt-28 md:pt-32"
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-stone-950/75 px-4 pb-10 pt-20 backdrop-blur-md sm:px-5 sm:pt-24 md:pt-28"
       role="dialog"
       onMouseDown={onClose}
     >
       <div
-        className="relative w-full max-w-4xl rounded-[30px] border border-stone-200 bg-[#f8f4ec] p-3 text-stone-950 shadow-[0_30px_120px_rgba(28,25,23,0.34)] md:p-4"
+        className="relative w-full max-w-[840px] text-stone-950"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button
           type="button"
           aria-label="Close support form"
-          className="absolute right-5 top-5 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-800 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-[#9a6b12]"
+          className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-800 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-[#9a6b12] md:right-5 md:top-5"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           onClick={onClose}
         >
