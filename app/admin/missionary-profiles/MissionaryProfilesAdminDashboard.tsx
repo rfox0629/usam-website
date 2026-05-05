@@ -835,6 +835,33 @@ function getProfileLocationVisibility(profile: AdminProfile) {
   return normalizeLocationVisibility(profile.location_visibility);
 }
 
+function getServingLabelPreview(profile: AdminProfile) {
+  const customServingLabel = profile.custom_serving_label?.trim();
+
+  if (customServingLabel) {
+    return customServingLabel;
+  }
+
+  const primaryState = getProfilePrimaryState(profile);
+  const region = getProfileRegion(profile);
+
+  switch (getProfileServingScope(profile)) {
+    case "local":
+      return "Serving Locally";
+    case "statewide":
+      return primaryState ? `Serving in ${primaryState}` : "Serving Statewide";
+    case "regional": {
+      const regionLabel = ministryRegionOptions.find((option) => option.value === region)?.label;
+      return region && region !== "other" && regionLabel ? `Serving the ${regionLabel}` : "Serving Regionally";
+    }
+    case "global":
+      return "Serving Globally";
+    case "nationwide":
+    default:
+      return "Serving Nationwide";
+  }
+}
+
 function getSupportMode(profile: AdminProfile): AdminSupportMode {
   return normalizeSupportRoutingMode(typeof profile.support_mode === "string" ? profile.support_mode : null);
 }
@@ -2676,12 +2703,22 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 options={locationVisibilityOptions}
                 value={getProfileLocationVisibility(selectedProfile)}
               />
-                <ProfileField
-                helperText="Optional. If filled, this replaces the generated serving text."
-                label="Custom Serving Label"
-                onChange={(value) => updateHouseholdField("custom_serving_label", value)}
-                value={selectedProfile.custom_serving_label}
-              />
+                <div>
+                  <ProfileField
+                    helperText="Optional. Overrides the default 'Serving in [Location]' text shown on the public profile."
+                    label="Custom Serving Label"
+                    onChange={(value) => updateHouseholdField("custom_serving_label", value)}
+                    value={selectedProfile.custom_serving_label}
+                  />
+                  <div className="mt-3 rounded-xl border border-[#e2ded5] bg-white p-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Public Preview
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#111111]">
+                      {getServingLabelPreview(selectedProfile)}
+                    </p>
+                  </div>
+                </div>
               </div>
               <div className="mt-6">
                 <ProfileTextArea

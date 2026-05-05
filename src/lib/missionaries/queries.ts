@@ -372,10 +372,16 @@ function hasMissingFruitItemsTableError(error: { message?: string } | null | und
   return message.includes("missionary_fruit_items");
 }
 
-function hasMissingTeamMembersTableError(error: { message?: string } | null | undefined) {
+function hasMissingTeamMembersTableError(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code ?? "";
   const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
 
-  return message.includes("missionary_team_members");
+  return missingRelation && message.includes("missionary_team_members");
 }
 
 function mapPrayerRequests(requests: readonly PrayerRequestRow[] = []): MissionaryPrayerRequest[] {

@@ -219,10 +219,16 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
   ].some((columnName) => message.includes(columnName));
 }
 
-function hasMissingTeamMembersTableError(error: { message?: string } | null | undefined) {
+function hasMissingTeamMembersTableError(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code ?? "";
   const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
 
-  return message.includes("missionary_team_members");
+  return missingRelation && message.includes("missionary_team_members");
 }
 
 function hasMissingSupportLinkColumnsError(error: { message?: string } | null | undefined) {
@@ -596,13 +602,18 @@ export async function POST(request: Request) {
     revalidatePath(`/missionaries/${originalSlug}`);
   }
 
+  if (!savedTeamMembers) {
+    return NextResponse.json({
+      error: "Team members were not saved because the missionary_team_members table is missing. Apply the missionary team members migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
+
   return NextResponse.json({
     message: [
       "Missionary profile saved.",
       savedFeatureFields ? "" : "Apply the profile features migration before feature controls can persist.",
       savedSupportLinkFields ? "" : "Apply the support major gift migration before giving links and major gift settings can persist.",
       savedEncounterSubmissions ? "" : "Unable to persist Encounter review settings.",
-      savedTeamMembers ? "" : "Apply the missionary team members migration before Team members can persist.",
     ].filter(Boolean).join(" "),
     slug,
   });
