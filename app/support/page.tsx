@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PrimaryNav } from "../../components/PrimaryNav";
 import { ViewTeamComingSoonButton } from "./ViewTeamComingSoonButton";
+import { DEFAULT_GIVING_URL } from "@/src/lib/giving";
 
 export const metadata: Metadata = {
   title: "Support the Mission | USA Missionaries",
@@ -73,7 +74,7 @@ export default function SupportPage() {
       title: "Standard Giving",
       description: "One-time or recurring support. Simple and secure.",
       cta: "Give Now",
-      href: "https://usa-missionaries-506166.churchcenter.com/giving",
+      href: DEFAULT_GIVING_URL,
       variant: "primary" as const,
       featured: true,
     },

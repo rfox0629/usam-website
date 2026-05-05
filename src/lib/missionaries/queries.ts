@@ -312,6 +312,10 @@ function isEnabledByDefault(value: boolean | null | undefined) {
 }
 
 function toSupportMode(value: string | null | undefined): MissionarySupportMode {
+  if (value === "nominate_household") {
+    return "household_nomination";
+  }
+
   return supportModes.includes(value as MissionarySupportMode) ? value as MissionarySupportMode : "household";
 }
 
@@ -413,6 +417,7 @@ function mapHouseholdToMissionary({
   prayerRequests = [],
   support = null,
   supportTargetHousehold = null,
+  supportTargetSettings = null,
   tags = [],
 }: {
   fruitItems?: readonly FruitItemRow[];
@@ -421,6 +426,7 @@ function mapHouseholdToMissionary({
   prayerRequests?: readonly PrayerRequestRow[];
   support?: SupportSettingsRow | null;
   supportTargetHousehold?: SupportTargetHouseholdRow | null;
+  supportTargetSettings?: SupportSettingsRow | null;
   tags?: readonly TagRow[];
 }): Missionary {
   const sortedPeople = sortPeople(people);
@@ -432,6 +438,7 @@ function mapHouseholdToMissionary({
   const roleType = normalizeRoleType(household.role_type);
   const location = primaryState ?? household.location ?? "United States";
   const supportMode = toSupportMode(household.support_mode);
+  const hasNominationTarget = supportMode === "household_nomination" && Boolean(supportTargetHousehold);
   const showSupport = isEnabledByDefault(household.show_support) && supportMode !== "hidden";
   const showPhotos = isEnabledByDefault(household.show_photos);
 
@@ -489,9 +496,13 @@ function mapHouseholdToMissionary({
       majorGiftPublicDescription: support?.major_gift_public_description ?? null,
       mode: supportMode,
       monthlyButtonLabel: support?.monthly_button_label ?? null,
-      monthlyGivingUrl: support?.monthly_giving_url ?? null,
+      monthlyGivingUrl: hasNominationTarget
+        ? supportTargetSettings?.monthly_giving_url ?? null
+        : support?.monthly_giving_url ?? null,
       oneTimeButtonLabel: support?.one_time_button_label ?? null,
-      oneTimeGivingUrl: support?.one_time_giving_url ?? null,
+      oneTimeGivingUrl: hasNominationTarget
+        ? supportTargetSettings?.one_time_giving_url ?? null
+        : support?.one_time_giving_url ?? null,
       publicLabel: household.support_public_label ?? null,
       targetFund: household.support_target_fund ?? null,
       targetHouseholdId: household.support_target_household_id ?? null,
@@ -755,7 +766,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
       ? household.support_target_household_id
       : "";
 
-    const [peopleResult, tagsResult, supportResult, supportTargetResult, prayerRequestsResult, fruitItemsResult] = await Promise.all([
+    const [peopleResult, tagsResult, supportResult, supportTargetResult, supportTargetSettingsResult, prayerRequestsResult, fruitItemsResult] = await Promise.all([
       supabase
         .from("missionary_people")
         .select("missionary_number, first_name, last_name, role, sort_order")
@@ -777,6 +788,13 @@ export async function getMissionaryProfileBySlug(slug: string) {
           .select("id, display_name, slug")
           .eq("id", supportTargetHouseholdId)
           .eq("public_visible", true)
+          .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supportTargetHouseholdId
+        ? supabase
+          .from("missionary_support_settings")
+          .select("show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description")
+          .eq("household_id", supportTargetHouseholdId)
           .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       supabase
@@ -817,6 +835,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
       tags: (tagsResult.data ?? []) as TagRow[],
       support: supportResult.error ? null : (supportResult.data as SupportSettingsRow | null),
       supportTargetHousehold: supportTargetResult.error ? null : (supportTargetResult.data as SupportTargetHouseholdRow | null),
+      supportTargetSettings: supportTargetSettingsResult.error ? null : (supportTargetSettingsResult.data as SupportSettingsRow | null),
     });
   } catch {
     return getMissionaryBySlug(slug);

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { FundingCommitmentForm } from "@/components/missionaries/FundingCommitmentForm";
+import { FundingCommitmentForm, type CommitmentGiftType } from "@/components/missionaries/FundingCommitmentForm";
 
-const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 type SupportMissionModalProps = {
   isOpen: boolean;
@@ -17,6 +17,7 @@ type SupportMissionModalProps = {
   supportPublicLabel?: string;
   supportTargetFund?: string | null;
   supportTargetHouseholdName?: string | null;
+  initialGiftType?: CommitmentGiftType;
   onClose: () => void;
 };
 
@@ -32,6 +33,7 @@ export function SupportMissionModal({
   supportPublicLabel,
   supportTargetFund,
   supportTargetHouseholdName,
+  initialGiftType = "Monthly",
   onClose,
 }: SupportMissionModalProps) {
   useEffect(() => {
@@ -61,37 +63,37 @@ export function SupportMissionModal({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 px-4 py-6 backdrop-blur-sm"
       role="dialog"
       onMouseDown={onClose}
     >
       <div
-        className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto border border-stone-800 bg-[#050505] p-5 shadow-[0_30px_120px_rgba(0,0,0,0.62)] md:p-8"
+        className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[30px] border border-stone-200 bg-[#f8f4ec] p-4 text-stone-950 shadow-[0_30px_120px_rgba(28,25,23,0.34)] md:p-6"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button
           type="button"
           aria-label="Close support form"
-          className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center border border-white/[0.18] bg-white/[0.04] text-sm uppercase tracking-[0.16em] text-stone-200 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+          className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-800 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-[#9a6b12]"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           onClick={onClose}
         >
           X
         </button>
 
-        <div className="pr-12">
-          <p className="text-[11px] uppercase tracking-[0.26em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Commitment Form
+        <div className="rounded-3xl border border-[#eadfca] bg-white px-5 py-6 pr-14 shadow-sm md:px-7">
+          <p className="text-[11px] uppercase tracking-[0.24em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            {missionaryName}
           </p>
-          <h2 className="mt-3 text-4xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
+          <h2 className="mt-3 text-2xl font-semibold leading-tight text-stone-950 md:text-3xl">
             {supportButtonLabel}
           </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-400 md:text-base">
-            {supportExplanation || "Document your giving commitment today. A USAM team member will follow up with the giving link and next steps."}
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-700 md:text-base">
+            Choose the gift type and allocation preference below, then continue to the secure giving page.
           </p>
         </div>
 
-        <div className="mt-7">
+        <div className="mt-5">
           <FundingCommitmentForm
             missionaryName={missionaryName}
             missionarySlug={missionarySlug}
@@ -102,6 +104,7 @@ export function SupportMissionModal({
             supportPublicLabel={supportPublicLabel}
             supportTargetFund={supportTargetFund}
             supportTargetHouseholdName={supportTargetHouseholdName}
+            initialGiftType={initialGiftType}
             displayMode="modal"
           />
         </div>

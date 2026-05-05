@@ -127,6 +127,10 @@ function asStringArray(value: unknown) {
 }
 
 function asSupportMode(value: unknown) {
+  if (value === "nominate_household") {
+    return "household_nomination";
+  }
+
   return supportModes.includes(value as typeof supportModes[number])
     ? value as typeof supportModes[number]
     : "household";

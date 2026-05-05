@@ -3,8 +3,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import type { CommitmentGiftType } from "@/components/missionaries/FundingCommitmentForm";
 import { MajorGiftInquiryModal } from "@/src/components/missionaries/MajorGiftInquiryModal";
 import { SupportMissionModal } from "@/src/components/missionaries/SupportMissionModal";
+import { getGivingUrl } from "@/src/lib/giving";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -39,20 +41,18 @@ function secondaryButtonClassName() {
   return "inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#D4A63D] hover:bg-white/[0.04] sm:w-auto sm:min-w-[208px]";
 }
 
-function supportUrl(value: string | null | undefined, fallback: string | null | undefined, type: "monthly" | "onetime") {
-  const baseUrl = value?.trim() || fallback?.trim() || "/support";
-  const separator = baseUrl.includes("?") ? "&" : "?";
-
-  return `${baseUrl}${separator}type=${type}`;
-}
-
 function useSupportModal() {
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [initialGiftType, setInitialGiftType] = useState<CommitmentGiftType>("Monthly");
 
   return {
     closeModal: () => setIsSupportModalOpen(false),
+    initialGiftType,
     isSupportModalOpen,
-    openModal: () => setIsSupportModalOpen(true),
+    openModal: (giftType: CommitmentGiftType = "Monthly") => {
+      setInitialGiftType(giftType);
+      setIsSupportModalOpen(true);
+    },
   };
 }
 
@@ -61,7 +61,6 @@ export function HeroSupportActions(props: SharedSupportProps) {
     extraAction,
     monthlyButtonLabel = "Support Monthly",
     monthlyGivingUrl,
-    oneTimeGivingUrl,
     showSupport = true,
   } = props;
 
@@ -70,7 +69,7 @@ export function HeroSupportActions(props: SharedSupportProps) {
       {showSupport ? (
         <Link
           className={primaryButtonClassName()}
-          href={supportUrl(monthlyGivingUrl, oneTimeGivingUrl, "monthly")}
+          href={getGivingUrl(monthlyGivingUrl, "monthly")}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
           {monthlyButtonLabel}
@@ -82,7 +81,8 @@ export function HeroSupportActions(props: SharedSupportProps) {
 }
 
 export function MonthlySupportActions(props: SharedSupportProps) {
-  const { closeModal, isSupportModalOpen, openModal } = useSupportModal();
+  const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
+  const triggerLabel = props.supportButtonLabel || props.monthlyButtonLabel || "Submit Commitment";
 
   return (
     <>
@@ -91,21 +91,15 @@ export function MonthlySupportActions(props: SharedSupportProps) {
           type="button"
           className={primaryButtonClassName()}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          onClick={openModal}
+          onClick={() => openModal("Monthly")}
         >
-          Give Monthly
+          {triggerLabel}
         </button>
-        <Link
-          href="/support"
-          className={secondaryButtonClassName()}
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-        >
-          Give One Time
-        </Link>
       </div>
 
       <SupportMissionModal
         {...props}
+        initialGiftType={initialGiftType}
         isOpen={isSupportModalOpen}
         onClose={closeModal}
       />
@@ -136,14 +130,14 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
     <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
       <Link
         className={primaryButtonClassName()}
-        href={supportUrl(monthlyGivingUrl, oneTimeGivingUrl, "monthly")}
+        href={getGivingUrl(monthlyGivingUrl, "monthly")}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
       >
         {monthlyButtonLabel}
       </Link>
       <Link
         className={secondaryButtonClassName()}
-        href={supportUrl(oneTimeGivingUrl, monthlyGivingUrl, "onetime")}
+        href={getGivingUrl(oneTimeGivingUrl, "onetime")}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
       >
         {oneTimeButtonLabel}

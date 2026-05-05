@@ -143,6 +143,14 @@ type UploadState = {
   status: "idle" | "uploading" | "success" | "error";
 };
 
+type TargetHouseholdOption = {
+  display_name: string;
+  id: string;
+  slug: string;
+};
+
+type TargetHouseholdLoadState = "error" | "idle" | "loading" | "success";
+
 type EditorTab = "profile" | "features" | "images" | "story" | "fruit" | "support" | "prayer";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
@@ -244,32 +252,8 @@ const regionOptions = [
   ...ministryRegionOptions,
 ];
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(value);
-}
-
 function toNumber(value: number | null | undefined) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
-}
-
-function calculatePreview(profile: AdminProfile) {
-  const support = profile.support ?? emptySupport(profile.id);
-  const annualGoal = toNumber(support.annual_goal);
-  const annualizedReceived = toNumber(support.monthly_received) * 12;
-  const annualizedCommitted = toNumber(support.monthly_committed) * 12;
-  const remainingAnnualNeed = Math.max(annualGoal - annualizedReceived, 0);
-  const receivedPercent = annualGoal > 0 ? annualizedReceived / annualGoal : 0;
-
-  return {
-    annualizedCommitted,
-    annualizedReceived,
-    receivedPercent,
-    remainingAnnualNeed,
-  };
 }
 
 function fruitSourceLabel(source: AdminFruitSource | string | null | undefined) {
@@ -547,12 +531,14 @@ function TextArea({
 }
 
 function SelectField({
+  disabled = false,
   helperText,
   label,
   onChange,
   options,
   value,
 }: {
+  disabled?: boolean;
   helperText?: string;
   label: string;
   onChange: (value: string) => void;
@@ -565,7 +551,8 @@ function SelectField({
         {label}
       </span>
       <select
-        className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+        className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         value={value ?? ""}
       >
@@ -636,6 +623,10 @@ function getProfileLocationVisibility(profile: AdminProfile) {
 
 function getSupportMode(profile: AdminProfile): AdminSupportMode {
   const value = profile.support_mode;
+
+  if (value === "nominate_household") {
+    return "household_nomination";
+  }
 
   return supportModeOptions.some((option) => option.value === value)
     ? value as AdminSupportMode
@@ -961,6 +952,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     directory: { status: "idle" },
     hero: { status: "idle" },
   });
+  const [targetHouseholdError, setTargetHouseholdError] = useState("");
+  const [targetHouseholdLoadState, setTargetHouseholdLoadState] = useState<TargetHouseholdLoadState>("idle");
+  const [targetHouseholds, setTargetHouseholds] = useState<TargetHouseholdOption[]>([]);
   const [isRefreshing, startRefreshTransition] = useTransition();
 
   useEffect(() => {
@@ -975,8 +969,57 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     () => profiles.find((profile) => profile.id === selectedId),
     [profiles, selectedId],
   );
+  const selectedProfileSupportMode = selectedProfile ? getSupportMode(selectedProfile) : "household";
 
-  const preview = selectedProfile ? calculatePreview(selectedProfile) : null;
+  useEffect(() => {
+    if (!selectedProfile || selectedProfileSupportMode !== "household_nomination") {
+      setTargetHouseholdError("");
+      setTargetHouseholdLoadState("idle");
+      setTargetHouseholds([]);
+      return;
+    }
+
+    let isActive = true;
+    const controller = new AbortController();
+
+    setTargetHouseholdError("");
+    setTargetHouseholdLoadState("loading");
+
+    fetch(`/api/admin/missionary-profiles/households?exclude=${encodeURIComponent(selectedProfile.id)}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({})) as {
+          error?: string;
+          households?: TargetHouseholdOption[];
+        };
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "Unable to load missionary households.");
+        }
+
+        if (!isActive) {
+          return;
+        }
+
+        setTargetHouseholds(Array.isArray(result.households) ? result.households : []);
+        setTargetHouseholdLoadState("success");
+      })
+      .catch((error: unknown) => {
+        if (!isActive || controller.signal.aborted) {
+          return;
+        }
+
+        setTargetHouseholds([]);
+        setTargetHouseholdError(error instanceof Error ? error.message : "Unable to load missionary households.");
+        setTargetHouseholdLoadState("error");
+      });
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [selectedProfile?.id, selectedProfileSupportMode]);
 
   function updateSelected(nextProfile: AdminProfile) {
     setProfiles((currentProfiles) => currentProfiles.map((profile) => (profile.id === nextProfile.id ? nextProfile : profile)));
@@ -1382,14 +1425,17 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   }
 
   const support = selectedProfile.support ?? emptySupport(selectedProfile.id);
-  const supportMode = getSupportMode(selectedProfile);
-  const selectedSupportMode = supportModeOptions.find((option) => option.value === supportMode) ?? supportModeOptions[0];
-  const householdTargetOptions = [
-    { label: "Select a household", value: "" },
-    ...profiles
-      .filter((profile) => profile.id !== selectedProfile.id)
-      .map((profile) => ({ label: profile.display_name, value: profile.id })),
-  ];
+  const supportMode = selectedProfileSupportMode;
+  const selectedSupportModeOption = supportModeOptions.find((option) => option.value === supportMode) ?? supportModeOptions[0];
+  const targetHouseholdOptions = targetHouseholdLoadState === "loading"
+    ? [{ label: "Loading households...", value: "" }]
+    : targetHouseholds.length > 0
+      ? [
+        { label: "Select a household", value: "" },
+        ...targetHouseholds.map((household) => ({ label: household.display_name, value: household.id })),
+      ]
+      : [{ label: "No other missionary households available.", value: "" }];
+  const targetHouseholdSelectDisabled = targetHouseholdLoadState !== "success" || targetHouseholds.length === 0;
   const fundOptions = [
     { label: "General Fund", value: "general_fund" },
     { label: "State Leadership Fund", value: "state_leader" },
@@ -1515,8 +1561,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "profile" ? (
           <SectionIntro
-            description="The public name, URL, primary state, serving scope, and short mission statement."
-            title="Basic Profile"
+            description="Controls the public hero section, directory visibility, location display, and short mission statement."
+            title="Profile"
           >
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Display Name" onChange={(value) => updateHouseholdField("display_name", value)} value={selectedProfile.display_name} />
@@ -1562,7 +1608,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 onChange={(value) => updateHouseholdField("custom_serving_label", value)}
                 value={selectedProfile.custom_serving_label}
               />
-              <Field label="Sort Order" onChange={(value) => updateHouseholdField("sort_order", value)} type="number" value={selectedProfile.sort_order ?? 0} />
             </div>
             <div className="mt-4">
               <TextArea
@@ -1583,14 +1628,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 />
                 Public visible in the missionary directory
               </label>
-              {preview ? (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <StatPreview label="Annualized Received" value={formatCurrency(preview.annualizedReceived)} />
-                  <StatPreview label="Annualized Committed" value={formatCurrency(preview.annualizedCommitted)} />
-                  <StatPreview label="Remaining Annual Need" value={formatCurrency(preview.remainingAnnualNeed)} />
-                  <StatPreview label="Received Percent" value={`${Math.round(preview.receivedPercent * 100)}%`} />
-                </div>
-              ) : null}
             </div>
           </SectionIntro>
           ) : null}
@@ -1655,96 +1692,69 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           {activeTab === "support" ? (
           <SectionIntro
             description="Choose where giving invitations should route for this household."
-            title="Support Routing"
+            title="Support"
           >
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-              <div className="space-y-4">
-                <SelectField
-                  helperText={selectedSupportMode.description}
-                  label="Support Mode"
-                  onChange={(value) => updateSupportMode(value as AdminSupportMode)}
-                  options={supportModeOptions.map((option) => ({ label: option.label, value: option.value }))}
-                  value={supportMode}
-                />
-
-                {supportMode === "household_nomination" ? (
+            <div className="space-y-7">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Support Routing
+                </p>
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
                   <SelectField
-                    helperText="If this target is missing on the public page, support falls back to the General Fund."
-                    label="Target Household"
-                    onChange={(value) => updateHouseholdField("support_target_household_id", value || null)}
-                    options={householdTargetOptions}
-                    value={selectedProfile.support_target_household_id}
+                    helperText={selectedSupportModeOption.description}
+                    label="Support Mode"
+                    onChange={(value) => updateSupportMode(value as AdminSupportMode)}
+                    options={supportModeOptions.map((option) => ({ label: option.label, value: option.value }))}
+                    value={supportMode}
                   />
-                ) : null}
 
-                {["general_fund", "state_leader", "regional_leader", "national_leadership"].includes(supportMode) ? (
-                  <SelectField
-                    helperText="Stored as the routing fund for the commitment record."
-                    label="Target Fund"
-                    onChange={(value) => updateHouseholdField("support_target_fund", value)}
-                    options={fundOptions}
-                    value={selectedProfile.support_target_fund || supportMode}
-                  />
-                ) : null}
+                  {supportMode === "household_nomination" ? (
+                    <div>
+                      <SelectField
+                        disabled={targetHouseholdSelectDisabled}
+                        helperText="Select a missionary household to receive support from this profile."
+                        label="Target Household"
+                        onChange={(value) => updateHouseholdField("support_target_household_id", value || null)}
+                        options={targetHouseholdOptions}
+                        value={targetHouseholdSelectDisabled ? "" : selectedProfile.support_target_household_id}
+                      />
+                      {targetHouseholdError ? (
+                        <p className="mt-2 border border-red-500/30 bg-red-950/20 p-3 text-xs leading-5 text-red-200">
+                          {targetHouseholdError}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
 
-                <Field
-                  helperText="Optional public heading for the support section."
-                  label="Public Label"
-                  onChange={(value) => updateHouseholdField("support_public_label", value)}
-                  value={selectedProfile.support_public_label}
-                />
-                <Field
-                  helperText="Legacy monthly button fallback. Defaults to Support Monthly when left blank."
-                  label="Button Label"
-                  onChange={(value) => updateHouseholdField("support_button_label", value)}
-                  value={selectedProfile.support_button_label}
-                />
-                <TextArea
-                  helperText="Optional public explanation. Keep it simple and avoid internal employment details."
-                  label="Support Explanation"
-                  onChange={(value) => updateHouseholdField("support_explanation", value)}
-                  rows={4}
-                  value={selectedProfile.support_explanation}
-                />
-                <div className="border-t border-stone-800/70 pt-5">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Giving Links
-                  </p>
-                  <div className="mt-4 grid gap-4">
-                    <Field
-                      helperText="Public monthly support button appends ?type=monthly."
-                      label="Monthly Giving URL"
-                      onChange={(value) => updateSupportField("monthly_giving_url", value)}
-                      value={support.monthly_giving_url}
+                  {["general_fund", "state_leader", "regional_leader", "national_leadership"].includes(supportMode) ? (
+                    <SelectField
+                      helperText="Stored as the routing fund for the commitment record."
+                      label="Target Fund"
+                      onChange={(value) => updateHouseholdField("support_target_fund", value)}
+                      options={fundOptions}
+                      value={selectedProfile.support_target_fund || supportMode}
                     />
-                    <Field
-                      helperText="Public one-time giving button appends ?type=onetime."
-                      label="One-Time Giving URL"
-                      onChange={(value) => updateSupportField("one_time_giving_url", value)}
-                      value={support.one_time_giving_url}
-                    />
-                  </div>
+                  ) : null}
                 </div>
-                <div className="border-t border-stone-800/70 pt-5">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Button Labels
-                  </p>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <Field label="Monthly Button Label" onChange={(value) => updateSupportField("monthly_button_label", value)} value={support.monthly_button_label ?? "Support Monthly"} />
-                    <Field label="One-Time Button Label" onChange={(value) => updateSupportField("one_time_button_label", value)} value={support.one_time_button_label ?? "Give One Time"} />
-                    <Field label="Major Gift Button Label" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
-                  </div>
+                <div className="mt-4">
+                  <TextArea
+                    helperText="Public donor-facing explanation shown in the Support This Mission section."
+                    label="Support Explanation"
+                    onChange={(value) => updateHouseholdField("support_explanation", value)}
+                    rows={4}
+                    value={selectedProfile.support_explanation}
+                  />
                 </div>
               </div>
 
-              <div className="border-t border-stone-800/70 pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+              <div className="border-t border-stone-800/70 pt-6">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Household Fundraising Numbers
+                  Fundraising Numbers
                 </p>
                 <p className="mt-2 text-sm leading-6 text-stone-300">
                   These numbers power the progress dashboard when support is routed to this household.
                 </p>
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <Field label="Annual Goal" onChange={(value) => updateSupportField("annual_goal", value)} type="number" value={support.annual_goal ?? 0} />
                   <Field label="Monthly Goal" onChange={(value) => updateSupportField("monthly_goal", value)} type="number" value={support.monthly_goal ?? 0} />
                   <Field label="Monthly Received" onChange={(value) => updateSupportField("monthly_received", value)} type="number" value={support.monthly_received ?? 0} />
@@ -1752,36 +1762,74 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   <Field label="General Fund %" onChange={(value) => updateSupportField("general_fund_percentage", value)} type="number" value={support.general_fund_percentage ?? 10} />
                 </div>
                 <div className="mt-4">
-                  <TextArea label="Goal Basis" onChange={(value) => updateSupportField("goal_basis", value)} rows={3} value={support.goal_basis} />
+                  <TextArea
+                    helperText="Optional note explaining how this support goal was calculated."
+                    label="Goal Calculation Note"
+                    onChange={(value) => updateSupportField("goal_basis", value)}
+                    rows={3}
+                    value={support.goal_basis}
+                  />
                 </div>
-                <div className="mt-6 border-t border-stone-800/70 pt-5">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Major Gift Settings
-                  </p>
-                  <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-stone-200">
-                    <input
-                      checked={support.enable_major_gift_inquiry !== false}
-                      className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                      onChange={(event) => updateSupportField("enable_major_gift_inquiry", event.target.checked)}
-                      type="checkbox"
-                    />
-                    Enable major gift inquiry modal
-                  </label>
-                  <div className="mt-4 grid gap-4">
-                    <Field
-                      helperText="Notification target when email is configured."
-                      label="Major Gift Notify Email"
-                      onChange={(value) => updateSupportField("major_gift_notify_email", value)}
-                      value={support.major_gift_notify_email ?? "ryan@usamissionaries.org"}
-                    />
-                    <TextArea
-                      helperText="Optional public description in the major gift modal."
-                      label="Major Gift Public Description"
-                      onChange={(value) => updateSupportField("major_gift_public_description", value)}
-                      rows={3}
-                      value={support.major_gift_public_description}
-                    />
-                  </div>
+              </div>
+
+              <div className="border-t border-stone-800/70 pt-6">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Giving Links
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <Field
+                    helperText="If blank, defaults to Church Center giving link with monthly selected."
+                    label="Monthly Giving URL"
+                    onChange={(value) => updateSupportField("monthly_giving_url", value)}
+                    value={support.monthly_giving_url}
+                  />
+                  <Field
+                    helperText="If blank, defaults to Church Center giving link with one-time selected."
+                    label="One-Time Giving URL"
+                    onChange={(value) => updateSupportField("one_time_giving_url", value)}
+                    value={support.one_time_giving_url}
+                  />
+                </div>
+              </div>
+
+              <div className="border-t border-stone-800/70 pt-6">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Button Labels
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <Field label="Monthly Button Label" onChange={(value) => updateSupportField("monthly_button_label", value)} value={support.monthly_button_label ?? "Support Monthly"} />
+                  <Field label="One-Time Button Label" onChange={(value) => updateSupportField("one_time_button_label", value)} value={support.one_time_button_label ?? "Give One Time"} />
+                  <Field label="Major Gift Button Label" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
+                </div>
+              </div>
+
+              <div className="border-t border-stone-800/70 pt-6">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Major Gift Settings
+                </p>
+                <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-stone-200">
+                  <input
+                    checked={support.enable_major_gift_inquiry !== false}
+                    className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                    onChange={(event) => updateSupportField("enable_major_gift_inquiry", event.target.checked)}
+                    type="checkbox"
+                  />
+                  Enable major gift inquiry modal
+                </label>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <Field
+                    helperText="Notification target when email is configured."
+                    label="Major Gift Notify Email"
+                    onChange={(value) => updateSupportField("major_gift_notify_email", value)}
+                    value={support.major_gift_notify_email ?? "ryan@usamissionaries.org"}
+                  />
+                  <TextArea
+                    helperText="Optional public description in the major gift modal."
+                    label="Major Gift Public Description"
+                    onChange={(value) => updateSupportField("major_gift_public_description", value)}
+                    rows={3}
+                    value={support.major_gift_public_description}
+                  />
                 </div>
               </div>
             </div>
