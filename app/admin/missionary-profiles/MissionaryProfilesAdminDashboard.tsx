@@ -54,7 +54,6 @@ export type AdminHousehold = {
   story: string | null;
   public_visible: boolean | null;
   sort_order: number | null;
-  updated_at?: string | null;
   primary_state?: string | null;
   serving_scope?: ServingScope | string | null;
   secondary_states?: string[] | null;
@@ -92,7 +91,6 @@ export type AdminSupportSettings = {
   monthly_received: number | null;
   general_fund_percentage: number | null;
   goal_basis: string | null;
-  updated_at?: string | null;
   monthly_giving_url?: string | null;
   one_time_giving_url?: string | null;
   monthly_button_label?: string | null;
@@ -171,7 +169,7 @@ type TargetHouseholdOption = {
 
 type TargetHouseholdLoadState = "error" | "idle" | "loading" | "success";
 
-type ControlSection = "profile" | "media" | "team" | "story" | "fruit" | "support" | "prayer";
+type EditorTab = "profile" | "features" | "media" | "team" | "story" | "fruit" | "support" | "prayer";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
   annual_goal: 0,
@@ -259,54 +257,15 @@ const featureDescriptions = {
   show_prayer: "Shows the prayer invitation and prayer team call to action.",
 } as const;
 
-const profileControlSections: Array<{
-  description: string;
-  featureField: keyof typeof featureDescriptions;
-  label: string;
-  value: ControlSection;
-}> = [
-  {
-    description: "Hero identity, location display, role, slug, and short mission statement.",
-    featureField: "show_household",
-    label: "Profile",
-    value: "profile",
-  },
-  {
-    description: "Directory image, hero family image, and public media visibility.",
-    featureField: "show_photos",
-    label: "Media",
-    value: "media",
-  },
-  {
-    description: "Public team or household members connected to this profile.",
-    featureField: "show_team",
-    label: "Team",
-    value: "team",
-  },
-  {
-    description: "Our Story content shown below the hero when public and populated.",
-    featureField: "show_story",
-    label: "Story",
-    value: "story",
-  },
-  {
-    description: "Testimonies, reviews, updates, DOS fruit, and public featured items.",
-    featureField: "show_fruit",
-    label: "Fruit",
-    value: "fruit",
-  },
-  {
-    description: "Support routing, donor-facing explanation, giving links, and major gift settings.",
-    featureField: "show_support",
-    label: "Support",
-    value: "support",
-  },
-  {
-    description: "Prayer invitation, prayer team CTA, and prayer request settings.",
-    featureField: "show_prayer",
-    label: "Prayer",
-    value: "prayer",
-  },
+const editorTabs: Array<{ label: string; value: EditorTab }> = [
+  { label: "Profile", value: "profile" },
+  { label: "Features", value: "features" },
+  { label: "Media", value: "media" },
+  { label: "Team", value: "team" },
+  { label: "Story", value: "story" },
+  { label: "Fruit", value: "fruit" },
+  { label: "Support", value: "support" },
+  { label: "Prayer", value: "prayer" },
 ];
 
 const stateOptions = [
@@ -699,6 +658,32 @@ function SelectField({
   );
 }
 
+function SectionIntro({
+  children,
+  description,
+  title,
+}: {
+  children: ReactNode;
+  description?: string;
+  title: string;
+}) {
+  return (
+    <div>
+      <div className="mb-6 max-w-3xl">
+        <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {title}
+        </p>
+        {description ? (
+          <p className="mt-2 text-sm leading-6 text-stone-300">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function getFeatureValue(profile: AdminProfile, field: keyof typeof featureDescriptions) {
   return profile[field] !== false;
 }
@@ -731,139 +716,46 @@ function getSupportMode(profile: AdminProfile): AdminSupportMode {
   return normalizeSupportRoutingMode(typeof profile.support_mode === "string" ? profile.support_mode : null);
 }
 
-function formatLastUpdated(value: string | null | undefined) {
-  if (!value) {
-    return "Not tracked";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Not tracked";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
-function latestDate(values: Array<string | null | undefined>) {
-  const timestamps = values
-    .map((value) => {
-      const date = new Date(value ?? "");
-
-      return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-    })
-    .filter(Boolean);
-
-  if (timestamps.length === 0) {
-    return null;
-  }
-
-  return new Date(Math.max(...timestamps)).toISOString();
-}
-
-function getControlSection(section: ControlSection) {
-  return profileControlSections.find((controlSection) => controlSection.value === section) ?? profileControlSections[0];
-}
-
-function getSectionVisible(profile: AdminProfile, section: ControlSection) {
-  if (section === "support") {
-    return getFeatureValue(profile, "show_support") && getSupportMode(profile) !== "hidden";
-  }
-
-  return getFeatureValue(profile, getControlSection(section).featureField);
-}
-
-function getSectionLastUpdated(profile: AdminProfile, section: ControlSection) {
-  switch (section) {
-    case "fruit":
-      return formatLastUpdated(latestDate((profile.fruitItems ?? []).map((item) => item.updated_at ?? item.created_at)));
-    case "support":
-      return formatLastUpdated(profile.support?.updated_at ?? profile.updated_at);
-    case "team":
-      return formatLastUpdated(latestDate((profile.teamMembers ?? []).map((member) => member.updated_at ?? member.created_at)));
-    default:
-      return formatLastUpdated(profile.updated_at);
-  }
-}
-
-function VisibilityBadge({ visible }: { visible: boolean }) {
-  return (
-    <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
-      visible
-        ? "border-green-500/25 bg-green-950/30 text-green-300"
-        : "border-stone-700 bg-stone-900/70 text-stone-400"
-    }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-      {visible ? "On" : "Off"}
-    </span>
-  );
-}
-
-function SectionControlTable({
-  activeSection,
-  onEdit,
-  onToggle,
-  profile,
+function FeatureToggleCard({
+  checked,
+  description,
+  label,
+  onChange,
 }: {
-  activeSection: ControlSection;
-  onEdit: (section: ControlSection) => void;
-  onToggle: (section: ControlSection, visible: boolean) => void;
-  profile: AdminProfile;
+  checked: boolean;
+  description: string;
+  label: string;
+  onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
-      <div className="hidden grid-cols-[0.8fr_0.45fr_minmax(0,1.7fr)_0.65fr_0.45fr] gap-4 border-b border-stone-800/70 px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-stone-500 md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        <span>Section</span>
-        <span>Visible</span>
-        <span>Description</span>
-        <span>Last Updated</span>
-        <span>Actions</span>
+    <article className="border border-stone-800/70 bg-[#070707] p-3.5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-base font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
+            {label}
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-stone-300">
+            {description}
+          </p>
+        </div>
+        <span className={`shrink-0 border px-2 py-1 text-[10px] uppercase tracking-[0.18em] ${
+          checked
+            ? "border-[#D4A63D]/40 bg-[#D4A63D]/10 text-[#F5B942]"
+            : "border-stone-700 bg-stone-900 text-stone-300"
+        }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {checked ? "Visible" : "Hidden"}
+        </span>
       </div>
-      <div className="divide-y divide-stone-900">
-        {profileControlSections.map((section) => {
-          const visible = getSectionVisible(profile, section.value);
-          const isActive = activeSection === section.value;
-
-          return (
-            <div
-              className={`grid gap-3 px-4 py-3 text-left text-sm transition-colors md:grid-cols-[0.8fr_0.45fr_minmax(0,1.7fr)_0.65fr_0.45fr] md:items-center md:gap-4 ${
-                isActive ? "bg-[#C9A24A]/5" : "hover:bg-stone-950/70"
-              }`}
-              key={section.value}
-            >
-              <button
-                className="text-left font-semibold text-stone-100"
-                onClick={() => onEdit(section.value)}
-                type="button"
-              >
-                {section.label}
-              </button>
-              <button
-                aria-label={`${visible ? "Hide" : "Show"} ${section.label}`}
-                className="flex items-center"
-                onClick={() => onToggle(section.value, !visible)}
-                type="button"
-              >
-                <VisibilityBadge visible={visible} />
-              </button>
-              <p className="text-sm leading-6 text-stone-400">{section.description}</p>
-              <p className="text-xs text-stone-500 md:text-sm">{getSectionLastUpdated(profile, section.value)}</p>
-              <button
-                className="inline-flex min-h-8 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                onClick={() => onEdit(section.value)}
-                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                type="button"
-              >
-                Edit
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+      <label className="mt-3 flex items-center justify-between gap-4 border-t border-stone-800/70 pt-3 text-sm text-stone-200">
+        <span>{checked ? "Show on public profile" : "Hidden from public profile"}</span>
+        <input
+          checked={checked}
+          className="h-4 w-4 accent-[#D4A63D]"
+          onChange={(event) => onChange(event.target.checked)}
+          type="checkbox"
+        />
+      </label>
+    </article>
   );
 }
 
@@ -1374,191 +1266,11 @@ function StatPreview({ label, value }: { label: string; value: string }) {
   );
 }
 
-function profileSearchText(profile: AdminProfile) {
-  return [
-    profile.display_name,
-    profile.slug,
-    getProfilePrimaryState(profile),
-    getProfileServingScope(profile),
-    getProfileRegion(profile),
-    getProfileRoleType(profile),
-    profile.short_mission,
-  ].filter(Boolean).join(" ").toLowerCase();
-}
-
-function ProfileVisibilityBadge({ profile }: { profile: AdminProfile }) {
-  const isPublic = isProfilePublic(profile);
-
-  return (
-    <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
-      isPublic
-        ? "border-green-500/25 bg-green-950/30 text-green-300"
-        : "border-stone-700 bg-stone-900/70 text-stone-400"
-    }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-      {isPublic ? "Live" : "Hidden"}
-    </span>
-  );
-}
-
-function ProfileSelectionTable({
-  activeProfileId,
-  onEdit,
-  onPreview,
-  profiles,
-}: {
-  activeProfileId: string;
-  onEdit: (profileId: string) => void;
-  onPreview: (profileId: string) => void;
-  profiles: readonly AdminProfile[];
-}) {
-  return (
-    <section className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
-      <div className="hidden grid-cols-[1fr_0.75fr_0.65fr_0.8fr_0.65fr_0.65fr] gap-3 border-b border-stone-800/70 px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-stone-500 lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        {["Missionary Profile", "Slug", "Visible", "Location", "Last Updated", "Actions"].map((heading) => (
-          <span key={heading}>{heading}</span>
-        ))}
-      </div>
-      <div className="divide-y divide-stone-900">
-        {profiles.length > 0 ? profiles.map((profile) => {
-          const isActive = activeProfileId === profile.id;
-
-          return (
-            <div
-              className={`grid w-full gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-stone-950/80 lg:grid-cols-[1fr_0.75fr_0.65fr_0.8fr_0.65fr_0.65fr] lg:items-center ${
-                isActive ? "bg-[#C9A24A]/5" : ""
-              }`}
-              key={profile.id}
-              onClick={() => onPreview(profile.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onPreview(profile.id);
-                }
-              }}
-              role="button"
-              tabIndex={0}
-            >
-              <span className="min-w-0">
-                <span className="block truncate font-semibold text-stone-100">{profile.display_name}</span>
-                <span className="mt-1 line-clamp-1 text-xs text-stone-500">{profile.short_mission || "No short mission yet"}</span>
-              </span>
-              <span className="truncate text-stone-400">/{profile.slug}</span>
-              <span><ProfileVisibilityBadge profile={profile} /></span>
-              <span className="text-stone-400">{getProfilePrimaryState(profile) || "Undisclosed"}</span>
-              <span className="text-stone-500">{formatLastUpdated(profile.updated_at)}</span>
-              <span className="flex flex-wrap gap-2">
-                <button
-                  className="inline-flex min-h-8 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onEdit(profile.id);
-                  }}
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  type="button"
-                >
-                  Edit
-                </button>
-              </span>
-            </div>
-          );
-        }) : (
-          <div className="p-6 text-sm leading-7 text-stone-400">
-            No missionary profiles match the current filters. Clear search or create a household record to begin.
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function ProfileSelectionDrawer({
-  onEdit,
-  profile,
-}: {
-  onEdit: (profileId: string) => void;
-  profile: AdminProfile | null;
-}) {
-  if (!profile) {
-    return (
-      <aside className="border border-stone-800/75 bg-[#080808]/85 p-6 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)]">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Profile Detail
-        </p>
-        <p className="mt-4 text-sm leading-7 text-stone-400">
-          Select a missionary profile to review visibility, section readiness, and the next editing action.
-        </p>
-      </aside>
-    );
-  }
-
-  const visibleSections = profileControlSections.filter((section) => getSectionVisible(profile, section.value)).length;
-  const teamCount = profile.teamMembers?.length ?? 0;
-  const fruitCount = profile.fruitItems?.length ?? 0;
-
-  return (
-    <aside className="border border-stone-800/75 bg-[#080808]/85 p-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto">
-      <div className="border-b border-stone-800/70 pb-4">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Profile Detail
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{profile.display_name}</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <ProfileVisibilityBadge profile={profile} />
-          <span className="inline-flex min-h-6 items-center border border-stone-700 bg-stone-900/70 px-2 text-[9px] uppercase tracking-[0.16em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            /{profile.slug}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-        <StatPreview label="Visible Sections" value={`${visibleSections}/7`} />
-        <StatPreview label="Team Members" value={String(teamCount)} />
-        <StatPreview label="Fruit Items" value={String(fruitCount)} />
-      </div>
-
-      <div className="mt-5 space-y-4 text-sm leading-6 text-stone-300">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Location / Scope
-          </p>
-          <p className="mt-1">
-            {[getProfilePrimaryState(profile) || "Undisclosed", getProfileServingScope(profile), getProfileRegion(profile)].filter(Boolean).join(" / ")}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Short Mission
-          </p>
-          <p className="mt-1">{profile.short_mission || "No short mission entered yet."}</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Last Updated
-          </p>
-          <p className="mt-1">{formatLastUpdated(profile.updated_at)}</p>
-        </div>
-      </div>
-
-      <button
-        className="mt-6 inline-flex min-h-10 w-full items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942]"
-        onClick={() => onEdit(profile.id)}
-        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-        type="button"
-      >
-        Edit Profile
-      </button>
-    </aside>
-  );
-}
-
 export function MissionaryProfilesAdminDashboard({ initialProfiles }: MissionaryProfilesAdminDashboardProps) {
   const router = useRouter();
   const [profiles, setProfiles] = useState(initialProfiles);
-  const [profilePreviewId, setProfilePreviewId] = useState(initialProfiles[0]?.id ?? "");
-  const [profileQuery, setProfileQuery] = useState("");
-  const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [selectedId, setSelectedId] = useState("");
-  const [activeSection, setActiveSection] = useState<ControlSection>("profile");
+  const [activeTab, setActiveTab] = useState<EditorTab>("profile");
   const [status, setStatus] = useState<StatusMessage>(null);
   const [saving, setSaving] = useState(false);
   const [uploadStates, setUploadStates] = useState<Record<MissionaryImageSlot, UploadState>>({
@@ -1576,11 +1288,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     if (selectedId && !initialProfiles.some((profile) => profile.id === selectedId)) {
       setSelectedId("");
     }
-
-    if (profilePreviewId && !initialProfiles.some((profile) => profile.id === profilePreviewId)) {
-      setProfilePreviewId(initialProfiles[0]?.id ?? "");
-    }
-  }, [initialProfiles, profilePreviewId, selectedId]);
+  }, [initialProfiles, selectedId]);
 
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedId),
@@ -1652,14 +1360,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   function openProfile(profileId: string) {
     setSelectedId(profileId);
-    setProfilePreviewId(profileId);
-    setActiveSection("profile");
+    setActiveTab("profile");
     resetTransientEditorState();
   }
 
   function closeProfile() {
     setSelectedId("");
-    setActiveSection("profile");
+    setActiveTab("profile");
     resetTransientEditorState();
   }
 
@@ -1771,15 +1478,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         show_support: showSupport,
       },
     });
-  }
-
-  function updateControlSectionVisibility(section: ControlSection, value: boolean) {
-    if (section === "support") {
-      updateSupportMode(value ? "household" : "hidden");
-      return;
-    }
-
-    updateFeatureField(getControlSection(section).featureField, value);
   }
 
   function updateSupportField(field: keyof AdminSupportSettings, value: boolean | number | string) {
@@ -1977,7 +1675,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         text: "Choose a primary state before saving, or set location visibility to hidden.",
         tone: "error",
       });
-      setActiveSection("profile");
+      setActiveTab("profile");
       return;
     }
 
@@ -2055,54 +1753,23 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     router.refresh();
   }
 
-  const normalizedProfileQuery = profileQuery.trim().toLowerCase();
-  const visibleProfileCount = profiles.filter(isProfilePublic).length;
-  const hiddenProfileCount = profiles.length - visibleProfileCount;
-  const filteredProfiles = profiles.filter((profile) => (
-    (!normalizedProfileQuery || profileSearchText(profile).includes(normalizedProfileQuery))
-    && (
-      !profileVisibilityFilter
-      || (profileVisibilityFilter === "live" ? isProfilePublic(profile) : !isProfilePublic(profile))
-    )
-  ));
-  const previewProfile = filteredProfiles.find((profile) => profile.id === profilePreviewId)
-    ?? filteredProfiles[0]
-    ?? profiles[0]
-    ?? null;
-
   if (!selectedProfile) {
     return (
-      <div className="space-y-5">
-        <div className="grid gap-3 md:grid-cols-3">
-          <StatPreview label="Total Profiles" value={String(profiles.length)} />
-          <StatPreview label="Live Profiles" value={String(visibleProfileCount)} />
-          <StatPreview label="Hidden Profiles" value={String(hiddenProfileCount)} />
-        </div>
-
-        <div className="grid gap-3 border border-stone-800 bg-[#080808]/85 p-3 lg:grid-cols-[minmax(220px,1fr)_220px_auto]">
-          <label className="block">
-            <span className="sr-only">Search profiles</span>
-            <input
-              className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
-              onChange={(event) => setProfileQuery(event.target.value)}
-              placeholder="Search profiles, slugs, states, or mission"
-              value={profileQuery}
-            />
-          </label>
-          <label className="block">
-            <span className="sr-only">Profile visibility</span>
-            <select
-              className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
-              onChange={(event) => setProfileVisibilityFilter(event.target.value)}
-              value={profileVisibilityFilter}
-            >
-              <option value="">All Visibility</option>
-              <option value="live">Live</option>
-              <option value="hidden">Hidden</option>
-            </select>
-          </label>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Household Selection
+            </p>
+            <h2 className="mt-2 text-4xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+              Choose A Profile
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
+              Select a missionary household to edit its public profile, media, team, support routing, and prayer settings.
+            </p>
+          </div>
           <button
-            className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            className="inline-flex min-h-11 items-center justify-center border border-stone-700 px-5 py-3 text-xs uppercase tracking-[0.22em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
             disabled={isRefreshing}
             onClick={refreshProfiles}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -2113,18 +1780,30 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         </div>
 
         {profiles.length === 0 ? (
-          <div className="border border-stone-800 bg-[#080808]/85 p-8 text-sm leading-7 text-stone-300">
-            No missionary households found yet. Profiles will appear here after a household record exists in Supabase.
+          <div className="border border-stone-800 bg-stone-950/55 p-8 text-stone-300">
+            No missionary households found yet.
           </div>
         ) : (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <ProfileSelectionTable
-              activeProfileId={previewProfile?.id ?? ""}
-              onEdit={openProfile}
-              onPreview={setProfilePreviewId}
-              profiles={filteredProfiles}
-            />
-            <ProfileSelectionDrawer onEdit={openProfile} profile={previewProfile} />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {profiles.map((profile) => (
+              <button
+                className="group border border-stone-800 bg-stone-950/45 p-5 text-left transition-colors hover:border-[#D4A63D]/70 hover:bg-[#D4A63D]/5"
+                key={profile.id}
+                onClick={() => openProfile(profile.id)}
+                type="button"
+              >
+                <span className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {isProfilePublic(profile) ? "Public" : "Hidden"}
+                </span>
+                <span className="mt-3 block text-2xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                  {profile.display_name}
+                </span>
+                <span className="mt-3 block text-sm text-stone-300">/{profile.slug}</span>
+                <span className="mt-5 inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.2em] text-stone-100 transition-colors group-hover:border-[#D4A63D] group-hover:text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Edit Profile
+                </span>
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -2146,16 +1825,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const showLeadershipPlaceholder = supportMode === "state_leader" || supportMode === "regional_leader";
   const showSupportActions = supportMode !== "hidden";
   const showGivingSettings = showSupportActions;
-  const activeControlSection = getControlSection(activeSection);
-  const activeSectionVisible = getSectionVisible(selectedProfile, activeSection);
-
   return (
-    <div className="space-y-4">
-      <section className="border border-stone-800/75 bg-stone-950/35">
-        <div className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+    <div className="space-y-6">
+      <section className="bg-stone-950/35 p-5 md:p-7">
+        <div className="flex flex-col gap-4 border-b border-stone-800/80 pb-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <button
-              className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+              className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.22em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
               onClick={closeProfile}
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               type="button"
@@ -2163,19 +1839,19 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               Back
             </button>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Editing Household
               </p>
-              <h2 className="mt-1 text-2xl font-bold uppercase leading-none text-stone-100 md:text-3xl" style={{ fontFamily: font.oswald }}>
+              <h2 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
                 {selectedProfile.display_name}
               </h2>
-              <p className="mt-1 text-sm text-stone-300">/{selectedProfile.slug}</p>
+              <p className="mt-2 text-sm text-stone-300">/{selectedProfile.slug}</p>
             </div>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
-              className="inline-flex min-h-10 items-center justify-center bg-[#D4A63D] px-5 py-2 text-xs uppercase tracking-[0.2em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 py-3 text-xs uppercase tracking-[0.22em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={saving}
               onClick={saveSelectedProfile}
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -2187,7 +1863,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         </div>
 
         {status ? (
-          <p className={`mx-4 mb-4 border p-3 text-sm ${
+          <p className={`mt-5 border p-4 text-sm ${
             status.tone === "success"
               ? "border-[#D4A63D]/30 bg-[#D4A63D]/10 text-stone-100"
               : "border-red-500/30 bg-red-950/20 text-red-200"
@@ -2196,48 +1872,87 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </p>
         ) : null}
 
-        <div className="grid gap-4 border-t border-stone-800/80 p-4 xl:grid-cols-[minmax(0,1fr)_430px]">
-          <SectionControlTable
-            activeSection={activeSection}
-            onEdit={setActiveSection}
-            onToggle={updateControlSectionVisibility}
-            profile={selectedProfile}
-          />
+        <div className="mt-6 overflow-x-auto border-b border-stone-800/80">
+          <div className="flex min-w-max gap-2" role="tablist">
+            {editorTabs.map((tab) => (
+              <button
+                aria-selected={activeTab === tab.value}
+                className={`border-b-2 px-4 py-3 text-[11px] uppercase tracking-[0.22em] transition-colors ${
+                  activeTab === tab.value
+                    ? "border-[#D4A63D] text-[#F5B942]"
+                    : "border-transparent text-stone-300 hover:text-stone-100"
+                }`}
+                key={tab.value}
+                onClick={() => setActiveTab(tab.value)}
+                role="tab"
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                type="button"
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          <aside className="border border-stone-800/75 bg-[#080808]/90 p-4 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto">
-            <div className="border-b border-stone-800/70 pb-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Edit Section
-                  </p>
-                  <h3 className="mt-2 text-2xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-                    {activeControlSection.label}
-                  </h3>
-                </div>
-                <VisibilityBadge visible={activeSectionVisible} />
-              </div>
-              <p className="mt-3 text-sm leading-6 text-stone-400">
-                {activeControlSection.description}
-              </p>
-              <label className="mt-4 flex items-center justify-between gap-4 border border-stone-800 bg-[#050505] px-3 py-3 text-sm text-stone-200">
-                <span>Show on public profile</span>
-                <input
-                  checked={activeSectionVisible}
-                  className="h-4 w-4 accent-[#D4A63D]"
-                  onChange={(event) => updateControlSectionVisibility(activeSection, event.target.checked)}
-                  type="checkbox"
-                />
-              </label>
+        <div className="mt-8">
+          {activeTab === "features" ? (
+          <SectionIntro
+            description="Turn public profile sections on or off without deleting their content."
+            title="Profile Features"
+          >
+            <div className="grid gap-4 xl:grid-cols-2">
+              <FeatureToggleCard
+                checked={getFeatureValue(selectedProfile, "show_household")}
+                description={featureDescriptions.show_household}
+                label="Profile Visibility"
+                onChange={(value) => updateFeatureField("show_household", value)}
+              />
+              <FeatureToggleCard
+                checked={getFeatureValue(selectedProfile, "show_photos")}
+                description={featureDescriptions.show_photos}
+                label="Media"
+                onChange={(value) => updateFeatureField("show_photos", value)}
+              />
+              <FeatureToggleCard
+                checked={getFeatureValue(selectedProfile, "show_team")}
+                description={featureDescriptions.show_team}
+                label="Team"
+                onChange={(value) => updateFeatureField("show_team", value)}
+              />
+              <FeatureToggleCard
+                checked={getFeatureValue(selectedProfile, "show_story")}
+                description={featureDescriptions.show_story}
+                label="Our Story"
+                onChange={(value) => updateFeatureField("show_story", value)}
+              />
+              <FeatureToggleCard
+                checked={getFeatureValue(selectedProfile, "show_fruit")}
+                description={featureDescriptions.show_fruit}
+                label="Fruit From The Field"
+                onChange={(value) => updateFeatureField("show_fruit", value)}
+              />
+              <FeatureToggleCard
+                checked={getFeatureValue(selectedProfile, "show_support") && supportMode !== "hidden"}
+                description={featureDescriptions.show_support}
+                label="Support This Mission"
+                onChange={(value) => updateSupportMode(value ? "household" : "hidden")}
+              />
+              <FeatureToggleCard
+                checked={getFeatureValue(selectedProfile, "show_prayer")}
+                description={featureDescriptions.show_prayer}
+                label="Prayer"
+                onChange={(value) => updateFeatureField("show_prayer", value)}
+              />
             </div>
+          </SectionIntro>
+          ) : null}
 
-            <div className="mt-5">
-              {activeSection === "profile" ? (
-              <div className="space-y-4">
-                <p className="text-sm leading-6 text-stone-400">
-                  Controls the public hero section, location display, and short mission statement.
-                </p>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+          {activeTab === "profile" ? (
+          <SectionIntro
+            description="Controls the public hero section, location display, and short mission statement."
+            title="Profile"
+          >
+            <div className="grid gap-4 md:grid-cols-2">
               <Field label="Display Name" onChange={(value) => updateHouseholdField("display_name", value)} value={selectedProfile.display_name} />
               <Field label="Slug" onChange={(value) => updateHouseholdField("slug", value)} value={selectedProfile.slug} />
               <SelectField
@@ -2282,6 +1997,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 value={selectedProfile.custom_serving_label}
               />
             </div>
+            <div className="mt-4">
               <TextArea
                 helperText="Shown in the public hero."
                 label="Short Mission"
@@ -2289,14 +2005,16 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 rows={3}
                 value={selectedProfile.short_mission}
               />
-              </div>
+            </div>
+          </SectionIntro>
           ) : null}
 
-              {activeSection === "media" ? (
-              <div className="space-y-4">
-                <p className="text-sm leading-6 text-stone-400">
-                  Media used on the directory card and as the household overlay on the shared profile hero background.
-                </p>
+          {activeTab === "media" ? (
+          <SectionIntro
+            description="Media used on the directory card and as the household overlay on the shared profile hero background."
+            title="Media"
+          >
+            <div className="grid gap-4 md:grid-cols-2">
               <ImageUploadField
                 helperText="Used on /missionaries cards."
                 label="Directory Card Image"
@@ -2316,13 +2034,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 value={selectedProfile.hero_image_url}
               />
             </div>
+          </SectionIntro>
           ) : null}
 
-              {activeSection === "team" ? (
-              <div className="space-y-4">
-                <p className="text-sm leading-6 text-stone-400">
-                  Manage public team and household members connected to this profile. Future DOS user connections can attach here.
-                </p>
+          {activeTab === "team" ? (
+          <SectionIntro
+            description="Manage public team and household members connected to this profile. Future DOS user connections can attach here."
+            title="Team"
+          >
             <TeamMemberManager
               allItems={profiles.flatMap((profile) => profile.teamMembers ?? [])}
               items={selectedProfile.teamMembers ?? []}
@@ -2331,14 +2050,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               onRemove={removeTeamMember}
               onUpdate={updateTeamMember}
             />
-              </div>
+          </SectionIntro>
           ) : null}
 
-              {activeSection === "story" ? (
-              <div className="space-y-4">
-                <p className="text-sm leading-6 text-stone-400">
-                  Story content remains editable even when the section is hidden.
-                </p>
+          {activeTab === "story" ? (
+          <SectionIntro
+            description="Story content remains editable even when the section is hidden."
+            title="Story"
+          >
             <TextArea
               helperText="Separate paragraphs with a blank line. If empty, the public Our Story section hides automatically."
               label="Our Story"
@@ -2346,33 +2065,34 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               rows={10}
               value={selectedProfile.story}
             />
-              </div>
+          </SectionIntro>
           ) : null}
 
-              {activeSection === "fruit" ? (
-              <div className="space-y-4">
-                <p className="text-sm leading-6 text-stone-400">
-                  Fruit From The Field can include testimonies, reviews, ministry updates, and reports from DOS. Featured items appear on the public profile first.
-                </p>
+          {activeTab === "fruit" ? (
+          <SectionIntro
+            description="Fruit From The Field can include testimonies, reviews, ministry updates, and reports from DOS. Featured items appear on the public profile first."
+            title="Fruit From The Field"
+          >
             <FruitFeedManager
               items={selectedProfile.fruitItems ?? []}
               onAdd={addFruitItem}
               onQuickAction={quickUpdateFruitItem}
               onUpdate={updateFruitItem}
             />
-              </div>
+          </SectionIntro>
           ) : null}
 
-              {activeSection === "support" ? (
+          {activeTab === "support" ? (
+          <SectionIntro
+            description="Configure public support routing, donor-facing copy, giving links, and major gift options."
+            title="Support"
+          >
             <div className="space-y-7">
-              <p className="text-sm leading-6 text-stone-400">
-                Configure public support routing, donor-facing copy, giving links, and major gift options.
-              </p>
               <div>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Support Routing
                 </p>
-                <div className="mt-4 grid gap-4">
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
                   <SelectField
                     helperText={selectedSupportModeOption.description}
                     label="Support Mode"
@@ -2504,14 +2224,17 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               </div>
               ) : null}
             </div>
+          </SectionIntro>
           ) : null}
 
-              {activeSection === "prayer" ? (
-            <div className="space-y-5">
-              <p className="text-sm leading-6 text-stone-400">
-                Control the public prayer section and the Join The Prayer Team flow.
-              </p>
+          {activeTab === "prayer" ? (
+          <SectionIntro
+            description="Control the public prayer section and the Join The Prayer Team flow."
+            title="Prayer"
+          >
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
               <div className="space-y-5">
+                <div className="grid gap-4 md:grid-cols-2">
                   <label className="flex min-h-24 items-start justify-between gap-4 border border-stone-800 bg-[#070707] p-4 text-sm text-stone-100">
                     <span>
                       <span className="block text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -2544,7 +2267,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       type="checkbox"
                     />
                   </label>
+                </div>
 
+                <div className="grid gap-4 md:grid-cols-2">
                   <Field
                     helperText="Defaults to Join The Prayer Team."
                     label="Prayer CTA Label"
@@ -2571,7 +2296,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   rows={4}
                   value={selectedProfile.prayer_section_description}
                 />
-              <aside className="border border-stone-800 bg-[#070707] p-4">
+              </div>
+
+              <aside className="border border-stone-800 bg-[#070707] p-5">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Prayer Team Snapshot
                 </p>
@@ -2588,21 +2315,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </Link>
               </aside>
             </div>
+          </SectionIntro>
           ) : null}
-            </div>
-
-            <div className="mt-6 border-t border-stone-800/70 pt-4">
-              <button
-                className="inline-flex min-h-10 w-full items-center justify-center bg-[#D4A63D] px-5 py-2 text-xs uppercase tracking-[0.2em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={saving}
-                onClick={saveSelectedProfile}
-                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                type="button"
-              >
-                {saving ? "Saving" : "Save Section"}
-              </button>
-            </div>
-          </aside>
         </div>
       </section>
     </div>
