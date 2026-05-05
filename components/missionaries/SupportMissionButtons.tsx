@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import type { CommitmentGiftType } from "@/components/missionaries/FundingCommitmentForm";
 import { MajorGiftInquiryModal } from "@/src/components/missionaries/MajorGiftInquiryModal";
 import { SupportMissionModal } from "@/src/components/missionaries/SupportMissionModal";
-import { getGivingUrl } from "@/src/lib/giving";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -57,26 +55,36 @@ function useSupportModal() {
 }
 
 export function HeroSupportActions(props: SharedSupportProps) {
+  const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
   const {
     extraAction,
     monthlyButtonLabel = "Support Monthly",
-    monthlyGivingUrl,
     showSupport = true,
   } = props;
 
   return (
-    <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:gap-4 md:mt-10">
-      {showSupport ? (
-        <Link
-          className={primaryButtonClassName()}
-          href={getGivingUrl(monthlyGivingUrl, "monthly")}
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-        >
-          {monthlyButtonLabel}
-        </Link>
-      ) : null}
-      {extraAction}
-    </div>
+    <>
+      <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:gap-4 md:mt-10">
+        {showSupport ? (
+          <button
+            className={primaryButtonClassName()}
+            onClick={() => openModal("Monthly")}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            {monthlyButtonLabel}
+          </button>
+        ) : null}
+        {extraAction}
+      </div>
+
+      <SupportMissionModal
+        {...props}
+        initialGiftType={initialGiftType}
+        isOpen={isSupportModalOpen}
+        onClose={closeModal}
+      />
+    </>
   );
 }
 
@@ -108,6 +116,7 @@ export function MonthlySupportActions(props: SharedSupportProps) {
 }
 
 export function ProfileSupportSectionActions(props: SharedSupportProps) {
+  const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
   const {
     enableMajorGiftInquiry = true,
     majorGiftButtonLabel = "Contact About Major Gift",
@@ -116,9 +125,7 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
     missionaryName,
     missionarySlug,
     monthlyButtonLabel = "Support Monthly",
-    monthlyGivingUrl,
     oneTimeButtonLabel = "Give One Time",
-    oneTimeGivingUrl,
     showSupport = true,
   } = props;
 
@@ -127,30 +134,41 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
   }
 
   return (
-    <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-      <Link
-        className={primaryButtonClassName()}
-        href={getGivingUrl(monthlyGivingUrl, "monthly")}
-        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-      >
-        {monthlyButtonLabel}
-      </Link>
-      <Link
-        className={secondaryButtonClassName()}
-        href={getGivingUrl(oneTimeGivingUrl, "onetime")}
-        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-      >
-        {oneTimeButtonLabel}
-      </Link>
-      {enableMajorGiftInquiry ? (
-        <MajorGiftInquiryModal
-          buttonLabel={majorGiftButtonLabel}
-          description={majorGiftPublicDescription}
-          householdId={missionaryId}
-          householdName={missionaryName}
-          profileSlug={missionarySlug}
-        />
-      ) : null}
-    </div>
+    <>
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <button
+          className={primaryButtonClassName()}
+          onClick={() => openModal("Monthly")}
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          type="button"
+        >
+          {monthlyButtonLabel}
+        </button>
+        <button
+          className={secondaryButtonClassName()}
+          onClick={() => openModal("One Time")}
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          type="button"
+        >
+          {oneTimeButtonLabel}
+        </button>
+        {enableMajorGiftInquiry ? (
+          <MajorGiftInquiryModal
+            buttonLabel={majorGiftButtonLabel}
+            description={majorGiftPublicDescription}
+            householdId={missionaryId}
+            householdName={missionaryName}
+            profileSlug={missionarySlug}
+          />
+        ) : null}
+      </div>
+
+      <SupportMissionModal
+        {...props}
+        initialGiftType={initialGiftType}
+        isOpen={isSupportModalOpen}
+        onClose={closeModal}
+      />
+    </>
   );
 }

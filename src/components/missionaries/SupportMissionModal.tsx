@@ -10,6 +10,8 @@ type SupportMissionModalProps = {
   missionaryName: string;
   missionarySlug: string;
   monthlyGoal: number;
+  monthlyGivingUrl?: string | null;
+  oneTimeGivingUrl?: string | null;
   receivedMonthlySupport: number;
   supportButtonLabel?: string;
   supportExplanation?: string;
@@ -26,6 +28,8 @@ export function SupportMissionModal({
   missionaryName,
   missionarySlug,
   monthlyGoal,
+  monthlyGivingUrl,
+  oneTimeGivingUrl,
   receivedMonthlySupport,
   supportButtonLabel = "Support This Mission",
   supportExplanation,
@@ -98,6 +102,8 @@ export function SupportMissionModal({
             missionaryName={missionaryName}
             missionarySlug={missionarySlug}
             monthlyGoal={monthlyGoal}
+            monthlyGivingUrl={monthlyGivingUrl}
+            oneTimeGivingUrl={oneTimeGivingUrl}
             receivedMonthlySupport={receivedMonthlySupport}
             supportExplanation={supportExplanation}
             supportMode={supportMode}

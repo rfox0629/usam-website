@@ -3,7 +3,7 @@
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useForm, ValidationError } from "@formspree/react";
-import { DEFAULT_GIVING_URL } from "@/src/lib/giving";
+import { DEFAULT_GIVING_URL, getGivingUrl } from "@/src/lib/giving";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -13,6 +13,8 @@ export type FundingCommitmentFormProps = {
   missionaryName: string;
   missionarySlug: string;
   monthlyGoal: number;
+  monthlyGivingUrl?: string | null;
+  oneTimeGivingUrl?: string | null;
   receivedMonthlySupport: number;
   initialCommittedMonthlySupport?: number;
   generalFundPercentage?: number;
@@ -154,6 +156,8 @@ function SelectField({
 export function FundingCommitmentForm({
   missionaryName,
   missionarySlug,
+  monthlyGivingUrl,
+  oneTimeGivingUrl,
   receivedMonthlySupport,
   initialCommittedMonthlySupport,
   generalFundPercentage = 10,
@@ -174,6 +178,7 @@ export function FundingCommitmentForm({
   const [, setCommittedMonthlySupport] = useState(initialCommittedMonthlySupport ?? receivedMonthlySupport);
   const pendingMonthlyCommitment = useRef(0);
   const redirectStarted = useRef(false);
+  const redirectUrl = useRef(DEFAULT_GIVING_URL);
 
   const isHouseholdSupport = supportMode === "household";
   const allocationLabel = supportPublicLabel || (isHouseholdSupport ? "Support this missionary" : "Support the General Mission Fund");
@@ -199,7 +204,7 @@ export function FundingCommitmentForm({
 
     redirectStarted.current = true;
     const timer = window.setTimeout(() => {
-      window.location.assign(DEFAULT_GIVING_URL);
+      window.location.assign(redirectUrl.current);
     }, 1400);
 
     return () => window.clearTimeout(timer);
@@ -213,6 +218,11 @@ export function FundingCommitmentForm({
       ? parseAmount(formData.get("otherAmount"))
       : parseAmount(submittedMonthlyAmount);
 
+    redirectUrl.current = submittedGiftType === "Monthly"
+      ? getGivingUrl(monthlyGivingUrl, "monthly")
+      : submittedGiftType === "One Time"
+        ? getGivingUrl(oneTimeGivingUrl, "onetime")
+        : DEFAULT_GIVING_URL;
     pendingMonthlyCommitment.current = submittedGiftType === "Monthly" ? monthlyCommitmentAmount : 0;
     handleSubmit(event);
   }
