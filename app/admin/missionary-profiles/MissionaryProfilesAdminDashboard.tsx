@@ -76,6 +76,8 @@ export type AdminHousehold = {
   show_support?: boolean | null;
   show_prayer?: boolean | null;
   fruit_from_field?: string | null;
+  original_story?: string | null;
+  public_story?: string | null;
   support_mode?: AdminSupportMode | string | null;
   support_target_household_id?: string | null;
   support_target_fund?: string | null;
@@ -179,6 +181,11 @@ type CutoutGenerationState = {
   path?: string;
   previewUrl?: string;
   status: "idle" | "generating" | "success" | "error";
+};
+
+type StoryRefinementState = {
+  message?: string;
+  status: "idle" | "refining" | "success" | "error";
 };
 
 const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
@@ -1137,7 +1144,7 @@ function hasRenderableTeam(profile: AdminProfile) {
 }
 
 function hasRenderableStory(profile: AdminProfile) {
-  return hasTextContent(profile.story);
+  return hasTextContent(profile.story) || hasTextContent(profile.public_story);
 }
 
 function hasRenderableFruit(profile: AdminProfile) {
@@ -2057,6 +2064,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [cutoutGenerationState, setCutoutGenerationState] = useState<CutoutGenerationState>({
     status: "idle",
   });
+  const [storyRefinementState, setStoryRefinementState] = useState<StoryRefinementState>({
+    status: "idle",
+  });
   const [targetHouseholdError, setTargetHouseholdError] = useState("");
   const [targetHouseholdLoadState, setTargetHouseholdLoadState] = useState<TargetHouseholdLoadState>("idle");
   const [targetHouseholds, setTargetHouseholds] = useState<TargetHouseholdOption[]>([]);
@@ -2079,6 +2089,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     setIsCutoutModalOpen(false);
     setCutoutSettings(defaultCutoutGenerationSettings);
     setCutoutGenerationState({ status: "idle" });
+    setStoryRefinementState({ status: "idle" });
   }, [selectedId]);
 
   const selectedProfileSupportMode = selectedProfile ? getSupportMode(selectedProfile) : "household";
@@ -2187,6 +2198,18 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     updateSelected({
       ...selectedProfile,
       [field]: field === "sort_order" ? Number(value) : value,
+    });
+  }
+
+  function updateRefinedStory(value: string) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      public_story: value,
+      story: value,
     });
   }
 
@@ -2576,6 +2599,59 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     }
   }
 
+  async function refineStoryWithAI() {
+    if (!selectedProfile) {
+      return;
+    }
+
+    const originalStory = selectedProfile.original_story?.trim();
+
+    if (!originalStory) {
+      setStoryRefinementState({
+        message: "Add an Original Story before refining.",
+        status: "error",
+      });
+      return;
+    }
+
+    setStoryRefinementState({
+      message: "Refining story with AI...",
+      status: "refining",
+    });
+
+    try {
+      const response = await fetch("/api/admin/missionary-profiles/refine-story", {
+        body: JSON.stringify({
+          householdName: selectedProfile.display_name,
+          originalStory,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        refinedStory?: string;
+      };
+
+      if (!response.ok || !result.refinedStory) {
+        throw new Error(result.error || "We could not refine the story. Please try again.");
+      }
+
+      updateRefinedStory(result.refinedStory);
+      setStoryRefinementState({
+        message: "Refined story generated. Review it, then click Save Updates.",
+        status: "success",
+      });
+    } catch (error) {
+      setStoryRefinementState({
+        message: error instanceof Error ? error.message : "We could not refine the story. Please try again.",
+        status: "error",
+      });
+    }
+  }
+
   function refreshProfiles() {
     setStatus(null);
     startRefreshTransition(() => {
@@ -2618,12 +2694,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           location: primaryState,
           custom_serving_label: selectedProfile.custom_serving_label,
           location_visibility: locationVisibility,
+          original_story: selectedProfile.original_story,
           primary_state: primaryState,
           profile_image_url: selectedProfile.profile_image_url,
           prayer_cta_label: selectedProfile.prayer_cta_label,
           prayer_destination: selectedProfile.prayer_destination,
           prayer_section_description: selectedProfile.prayer_section_description,
           prayer_section_headline: selectedProfile.prayer_section_headline,
+          public_story: selectedProfile.public_story ?? selectedProfile.story,
           public_visible: isProfilePublic(selectedProfile),
           secondary_states: selectedProfile.secondary_states ?? [],
           serving_scope: getProfileServingScope(selectedProfile),
@@ -3159,16 +3237,81 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "story" ? (
           <SectionIntro
-            description="Story content remains editable even when the section is hidden."
+            description="Use the left side for the original submitted story. Use the right side for the edited public version."
             title="Story"
           >
-            <TextArea
-              helperText="Separate paragraphs with a blank line. If empty, the public Our Story section hides automatically."
-              label="Our Story"
-              onChange={(value) => updateHouseholdField("story", value)}
-              rows={10}
-              value={selectedProfile.story}
-            />
+            <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
+              Use the left side for the original submitted story. Use the right side for the edited public version.
+            </div>
+            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+              <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Raw Intake
+                  </p>
+                  <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                    Original Story
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-[#6f6658]">
+                    Raw story or form response from the missionary household.
+                  </p>
+                </div>
+                <div className="mt-4">
+                  <TextArea
+                    helperText="Preserve the raw story exactly as submitted or pasted. Future intake form submissions will populate this field."
+                    label="Original Story"
+                    onChange={(value) => updateHouseholdField("original_story", value)}
+                    rows={14}
+                    value={selectedProfile.original_story}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Public Version
+                    </p>
+                    <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                      Refined Public Story
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-[#6f6658]">
+                      AI assisted version used on the public profile.
+                    </p>
+                  </div>
+                  <button
+                    className={lightPrimaryButtonClass}
+                    disabled={storyRefinementState.status === "refining"}
+                    onClick={refineStoryWithAI}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    {storyRefinementState.status === "refining" ? "Refining" : "Refine With AI"}
+                  </button>
+                </div>
+
+                {storyRefinementState.message ? (
+                  <p className={`mt-4 rounded-xl border p-3 text-sm leading-6 ${
+                    storyRefinementState.status === "error"
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658]"
+                  }`}>
+                    {storyRefinementState.message}
+                  </p>
+                ) : null}
+
+                <div className="mt-4">
+                  <TextArea
+                    helperText="Separate paragraphs with a blank line. This version appears publicly in the Our Story section after you save."
+                    label="Refined Story"
+                    onChange={updateRefinedStory}
+                    rows={14}
+                    value={selectedProfile.public_story ?? selectedProfile.story}
+                  />
+                </div>
+              </div>
+            </div>
           </SectionIntro>
           ) : null}
 

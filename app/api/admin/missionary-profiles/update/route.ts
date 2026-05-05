@@ -36,11 +36,13 @@ type UpdatePayload = {
     fruit_from_field?: unknown;
     hero_image_url?: unknown;
     location?: unknown;
+    original_story?: unknown;
     profile_image_url?: unknown;
     prayer_cta_label?: unknown;
     prayer_destination?: unknown;
     prayer_section_description?: unknown;
     prayer_section_headline?: unknown;
+    public_story?: unknown;
     public_visible?: unknown;
     primary_state?: unknown;
     region?: unknown;
@@ -221,6 +223,8 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
     "custom_serving_label",
     "location_visibility",
     "fruit_from_field",
+    "original_story",
+    "public_story",
     "support_mode",
     "support_target_household_id",
     "support_target_fund",
@@ -316,6 +320,7 @@ export async function POST(request: Request) {
   const roleType = normalizeRoleType(asString(household.role_type));
   const locationVisibility = normalizeLocationVisibility(asString(household.location_visibility));
   const showHousehold = asPublicProfileVisibility(household.show_household, household.public_visible);
+  const publicStory = asNullableString(household.public_story) ?? asNullableString(household.story);
 
   const householdUpdate = {
     custom_serving_label: asNullableString(household.custom_serving_label),
@@ -325,12 +330,14 @@ export async function POST(request: Request) {
     hero_image_url: asNullableString(household.hero_image_url),
     location: primaryState,
     location_visibility: locationVisibility,
+    original_story: asNullableString(household.original_story),
     prayer_cta_label: asNullableString(household.prayer_cta_label),
     prayer_destination: asNullableString(household.prayer_destination),
     prayer_section_description: asNullableString(household.prayer_section_description),
     prayer_section_headline: asNullableString(household.prayer_section_headline),
     primary_state: primaryState,
     profile_image_url: asNullableString(household.profile_image_url),
+    public_story: publicStory,
     public_visible: showHousehold,
     region: ministryRegion,
     role_type: roleType,
@@ -346,7 +353,7 @@ export async function POST(request: Request) {
     short_mission: asNullableString(household.short_mission),
     slug,
     sort_order: asNumber(household.sort_order),
-    story: asNullableString(household.story),
+    story: publicStory,
     support_button_label: asNullableString(household.support_button_label),
     support_explanation: asNullableString(household.support_explanation),
     support_mode: supportMode,
