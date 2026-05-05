@@ -116,6 +116,18 @@ function asNullableString(value: unknown) {
   return nextValue ? nextValue : null;
 }
 
+function asPublicRosterNumber(value: unknown) {
+  const nextValue = asString(value).replace(/^#/, "");
+
+  if (!nextValue) {
+    return null;
+  }
+
+  return /^\d{1,4}$/.test(nextValue)
+    ? nextValue.padStart(4, "0")
+    : nextValue;
+}
+
 function asNumber(value: unknown) {
   const nextValue = typeof value === "number" ? value : Number(asString(value));
 
@@ -497,6 +509,7 @@ export async function POST(request: Request) {
     const sanitizedTeamMembers = payload.teamMembers
       .map((member) => {
         const displayName = asString(member.display_name);
+        const publicNumber = asPublicRosterNumber(member.public_number);
 
         if (!displayName) {
           return null;
@@ -509,7 +522,7 @@ export async function POST(request: Request) {
             dos_user_id: asNullableString(member.dos_user_id),
             household_id: householdId,
             is_public: member.is_public !== false,
-            public_number: asNullableString(member.public_number),
+            public_number: publicNumber,
             role_title: asNullableString(member.role_title),
             short_description: asNullableString(member.short_description),
             sort_order: asNumber(member.sort_order),
@@ -519,6 +532,60 @@ export async function POST(request: Request) {
         };
       })
       .filter((member): member is NonNullable<typeof member> => Boolean(member));
+    const invalidPublicNumber = sanitizedTeamMembers.find((member) => (
+      member.record.public_number !== null && !/^\d{4}$/.test(member.record.public_number)
+    ));
+
+    if (invalidPublicNumber) {
+      return NextResponse.json({
+        error: `Public number for ${invalidPublicNumber.record.display_name} must be 4 digits, like 0009.`,
+      }, { status: 400 });
+    }
+
+    const seenPublicNumbers = new Map<string, string>();
+
+    for (const member of sanitizedTeamMembers) {
+      const publicNumber = member.record.public_number;
+
+      if (!publicNumber) {
+        continue;
+      }
+
+      const existingName = seenPublicNumbers.get(publicNumber);
+
+      if (existingName) {
+        return NextResponse.json({
+          error: `Public number ${publicNumber} is duplicated by ${existingName} and ${member.record.display_name}.`,
+        }, { status: 400 });
+      }
+
+      seenPublicNumbers.set(publicNumber, member.record.display_name);
+    }
+
+    const publicNumbers = Array.from(seenPublicNumbers.keys());
+
+    if (publicNumbers.length > 0) {
+      const { data: existingNumberRows, error: existingNumberError } = await supabase
+        .from("missionary_team_members")
+        .select("id, display_name, public_number")
+        .in("public_number", publicNumbers);
+
+      if (existingNumberError && !hasMissingTeamMembersTableError(existingNumberError)) {
+        return NextResponse.json({ error: existingNumberError.message }, { status: 500 });
+      }
+
+      const submittedIds = new Set(sanitizedTeamMembers.map((member) => member.id).filter(isExistingUuid));
+      const conflictingRow = (existingNumberRows ?? []).find((row) => (
+        row.public_number && !submittedIds.has(row.id)
+      ));
+
+      if (conflictingRow) {
+        return NextResponse.json({
+          error: `Public number ${conflictingRow.public_number} is already used by ${conflictingRow.display_name}.`,
+        }, { status: 400 });
+      }
+    }
+
     const existingTeamMembers = sanitizedTeamMembers
       .filter((member) => isExistingUuid(member.id))
       .map((member) => ({ ...member.record, id: member.id }));

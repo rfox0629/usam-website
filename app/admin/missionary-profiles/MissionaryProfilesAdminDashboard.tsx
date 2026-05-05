@@ -338,7 +338,41 @@ function newFruitItem(householdId: string): AdminFruitItem {
   };
 }
 
-function newTeamMember(householdId: string): AdminTeamMember {
+function normalizePublicRosterNumber(value: string | null | undefined) {
+  const trimmedValue = value?.trim().replace(/^#/, "") ?? "";
+
+  if (!trimmedValue) {
+    return "";
+  }
+
+  return /^\d{1,4}$/.test(trimmedValue)
+    ? trimmedValue.padStart(4, "0")
+    : trimmedValue;
+}
+
+function publicRosterNumberValue(value: string | null | undefined) {
+  const normalizedValue = normalizePublicRosterNumber(value);
+
+  return /^\d{4}$/.test(normalizedValue) ? normalizedValue : "";
+}
+
+function nextPublicRosterNumber(profiles: readonly AdminProfile[]) {
+  const usedNumbers = new Set(
+    profiles
+      .flatMap((profile) => profile.teamMembers ?? [])
+      .map((member) => publicRosterNumberValue(member.public_number))
+      .filter(Boolean),
+  );
+  let nextNumber = 1;
+
+  while (usedNumbers.has(String(nextNumber).padStart(4, "0"))) {
+    nextNumber += 1;
+  }
+
+  return String(nextNumber).padStart(4, "0");
+}
+
+function newTeamMember(householdId: string, publicNumber = ""): AdminTeamMember {
   const timestamp = new Date().toISOString();
 
   return {
@@ -348,7 +382,7 @@ function newTeamMember(householdId: string): AdminTeamMember {
     household_id: householdId,
     id: `new-${Date.now()}`,
     is_public: true,
-    public_number: "",
+    public_number: publicNumber,
     role_title: "",
     short_description: "",
     sort_order: 0,
@@ -364,12 +398,14 @@ function Field({
   onChange,
   type = "text",
   value,
+  warningText,
 }: {
   helperText?: string;
   label: string;
   onChange: (value: string) => void;
   type?: string;
   value: number | string | null | undefined;
+  warningText?: string;
 }) {
   return (
     <label className="block">
@@ -385,6 +421,11 @@ function Field({
       {helperText ? (
         <span className="mt-2 block text-xs leading-5 text-stone-500">
           {helperText}
+        </span>
+      ) : null}
+      {warningText ? (
+        <span className="mt-2 block text-xs leading-5 text-[#F5B942]">
+          {warningText}
         </span>
       ) : null}
     </label>
@@ -1017,21 +1058,33 @@ function FruitFeedManager({
 }
 
 function TeamMemberManager({
+  allItems,
   items,
   onAdd,
   onArchive,
   onRemove,
   onUpdate,
 }: {
+  allItems: readonly AdminTeamMember[];
   items: readonly AdminTeamMember[];
   onAdd: () => void;
   onArchive: (memberId: string) => void;
   onRemove: (memberId: string) => void;
   onUpdate: (memberId: string, patch: Partial<AdminTeamMember>) => void;
 }) {
+  const numberOwners = allItems.reduce((owners, member) => {
+    const publicNumber = publicRosterNumberValue(member.public_number);
+
+    if (!publicNumber) {
+      return owners;
+    }
+
+    owners.set(publicNumber, [...(owners.get(publicNumber) ?? []), member]);
+    return owners;
+  }, new Map<string, AdminTeamMember[]>());
   const sortedItems = [...items].sort((first, second) => (
     toNumber(first.sort_order) - toNumber(second.sort_order)
-    || (first.public_number ?? "").localeCompare(second.public_number ?? "", undefined, { numeric: true })
+    || publicRosterNumberValue(first.public_number).localeCompare(publicRosterNumberValue(second.public_number), undefined, { numeric: true })
     || first.display_name.localeCompare(second.display_name)
   ));
   const publicCount = sortedItems.filter((member) => member.status === "active" && member.is_public !== false).length;
@@ -1054,6 +1107,10 @@ function TeamMemberManager({
         </button>
       </div>
 
+      <p className="max-w-3xl text-sm leading-6 text-stone-400">
+        Public numbers are global across USA Missionaries. The UUID stays as the real database ID; this number is only the public roster display.
+      </p>
+
       {sortedItems.length === 0 ? (
         <div className="border border-stone-800 bg-[#050505] p-5 text-sm leading-7 text-stone-400">
           No team members yet. Add public household or ministry team members connected to this profile.
@@ -1061,7 +1118,46 @@ function TeamMemberManager({
       ) : (
         <div className="space-y-4">
           {sortedItems.map((member) => (
-            <div className="border border-stone-800 bg-[#050505] p-4" key={member.id}>
+            <TeamMemberRow
+              key={member.id}
+              member={member}
+              numberOwners={numberOwners}
+              onArchive={onArchive}
+              onRemove={onRemove}
+              onUpdate={onUpdate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TeamMemberRow({
+  member,
+  numberOwners,
+  onArchive,
+  onRemove,
+  onUpdate,
+}: {
+  member: AdminTeamMember;
+  numberOwners: Map<string, AdminTeamMember[]>;
+  onArchive: (memberId: string) => void;
+  onRemove: (memberId: string) => void;
+  onUpdate: (memberId: string, patch: Partial<AdminTeamMember>) => void;
+}) {
+  const publicNumber = normalizePublicRosterNumber(member.public_number);
+  const duplicateOwner = publicRosterNumberValue(member.public_number)
+    ? (numberOwners.get(publicRosterNumberValue(member.public_number)) ?? []).find((owner) => owner.id !== member.id)
+    : undefined;
+  const numberWarning = publicNumber && !/^\d{4}$/.test(publicNumber)
+    ? "Use a 4-digit global roster number, like 0009."
+    : duplicateOwner
+      ? `Duplicate public number. Already used by ${duplicateOwner.display_name || "another team member"}.`
+      : undefined;
+
+  return (
+    <div className="border border-stone-800 bg-[#050505] p-4">
               <div className="flex flex-col gap-3 border-b border-stone-800/70 pb-4 md:flex-row md:items-start md:justify-between">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -1100,10 +1196,11 @@ function TeamMemberManager({
                   value={member.display_name}
                 />
                 <Field
-                  helperText="Example: #001"
+                  helperText="Global 4-digit display number. Public pages show it as #0009."
                   label="Public Number"
                   onChange={(value) => onUpdate(member.id, { public_number: value })}
                   value={member.public_number}
+                  warningText={numberWarning}
                 />
                 <Field
                   label="Role / Title"
@@ -1153,10 +1250,6 @@ function TeamMemberManager({
                 Public visible
               </label>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -1484,11 +1577,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       return;
     }
 
+    const suggestedPublicNumber = nextPublicRosterNumber(profiles);
+
     updateSelected({
       ...selectedProfile,
       teamMembers: [
         ...(selectedProfile.teamMembers ?? []),
-        newTeamMember(selectedProfile.id),
+        newTeamMember(selectedProfile.id, suggestedPublicNumber),
       ],
     });
   }
@@ -1948,6 +2043,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             title="Team"
           >
             <TeamMemberManager
+              allItems={profiles.flatMap((profile) => profile.teamMembers ?? [])}
               items={selectedProfile.teamMembers ?? []}
               onAdd={addTeamMember}
               onArchive={archiveTeamMember}

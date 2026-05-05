@@ -426,13 +426,19 @@ function mapFruitItems(items: readonly FruitItemRow[] = []): MissionaryFruitItem
 }
 
 function toPublicNumber(value: string | null | undefined) {
-  const trimmedValue = value?.trim();
+  const trimmedValue = value?.trim().replace(/^#/, "");
 
   if (!trimmedValue) {
     return null;
   }
 
-  return trimmedValue.startsWith("#") ? trimmedValue : `#${trimmedValue}`;
+  return `#${/^\d{1,4}$/.test(trimmedValue) ? trimmedValue.padStart(4, "0") : trimmedValue}`;
+}
+
+function publicNumberSortValue(value: string | null | undefined) {
+  const trimmedValue = value?.trim().replace(/^#/, "") ?? "";
+
+  return /^\d{1,4}$/.test(trimmedValue) ? trimmedValue.padStart(4, "0") : trimmedValue;
 }
 
 function mapTeamMembers(items: readonly TeamMemberRow[] = []) {
@@ -445,7 +451,7 @@ function mapTeamMembers(items: readonly TeamMemberRow[] = []) {
         return sortOrderDifference;
       }
 
-      return (first.public_number ?? "").localeCompare(second.public_number ?? "", undefined, { numeric: true })
+      return publicNumberSortValue(first.public_number).localeCompare(publicNumberSortValue(second.public_number), undefined, { numeric: true })
         || first.display_name.localeCompare(second.display_name);
     })
     .map((item) => ({

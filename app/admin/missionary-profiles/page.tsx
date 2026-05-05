@@ -239,7 +239,6 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       .from("missionary_team_members")
       .select("id, household_id, display_name, public_number, role_title, short_description, sort_order, is_public, dos_user_id, source, status, created_at, updated_at")
       .in("household_id", ids)
-      .neq("status", "archived")
       .order("sort_order", { ascending: true })
       .order("public_number", { ascending: true })
       .order("display_name", { ascending: true });
