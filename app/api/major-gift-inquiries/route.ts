@@ -190,6 +190,7 @@ export async function POST(request: Request) {
 
   const majorGiftInquiryId = (insertResult.data as { id?: string } | null)?.id ?? null;
   await createFormSubmission({
+    assignedTeam: "support_team",
     email,
     firstName,
     formType: "major_gift",

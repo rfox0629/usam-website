@@ -49,6 +49,7 @@ export async function submitPrayerPartnerApplication(formData: FormData) {
   const smsAlerts = getBoolean(formData, "sms_alerts");
 
   const { error } = await createFormSubmission({
+    assignedTeam: "prayer_team",
     email,
     firstName,
     formType: "prayer_team_application",

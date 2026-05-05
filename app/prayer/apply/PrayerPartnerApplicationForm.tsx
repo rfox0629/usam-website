@@ -18,11 +18,11 @@ const availabilityOptions = [
 ] as const;
 
 function fieldClassName() {
-  return "mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D] md:text-sm";
+  return "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
 }
 
 function textAreaClassName() {
-  return "mt-2 min-h-[150px] w-full border border-stone-700 bg-[#050505] px-4 py-3 text-base leading-8 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D] md:text-sm md:leading-7";
+  return "mt-2 min-h-[150px] w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-8 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm md:leading-7";
 }
 
 function FieldLabel({
@@ -37,7 +37,7 @@ function FieldLabel({
   return (
     <label
       htmlFor={htmlFor}
-      className="text-xs uppercase tracking-[0.14em] text-stone-300"
+      className="text-xs uppercase tracking-[0.14em] text-stone-700"
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}
@@ -108,7 +108,7 @@ function Checkbox({
   value?: string;
 }) {
   return (
-    <label className="flex min-h-12 gap-3 border border-stone-800 bg-[#050505] p-4 text-sm leading-6 text-stone-300 transition-colors hover:border-[#D4A63D]/70">
+    <label className="flex min-h-12 gap-3 rounded-xl border border-stone-200 bg-white p-4 text-sm leading-6 text-stone-700 transition-colors hover:border-[#D4A63D]/70">
       <input
         type="checkbox"
         name={name}
@@ -130,14 +130,14 @@ export function PrayerPartnerApplicationForm({
 }) {
   if (submitted) {
     return (
-      <div className="border border-[#D4A63D]/30 bg-[#D4A63D]/10 p-7 text-base leading-8 text-stone-100 md:p-10">
-        <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+      <div className="rounded-[28px] border border-emerald-200 bg-emerald-50 p-7 text-base leading-8 text-emerald-950 shadow-sm md:p-10">
+        <p className="text-[11px] uppercase tracking-[0.22em] text-emerald-700" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Application Received
         </p>
-        <h2 className="mt-4 text-4xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+        <h2 className="mt-4 text-4xl font-bold uppercase leading-none text-emerald-950" style={{ fontFamily: font.oswald }}>
           Thank you
         </h2>
-        <p className="mt-5 max-w-3xl text-stone-300">
+        <p className="mt-5 max-w-3xl text-emerald-900">
           Thank you for applying to join the USA Missionaries Prayer Team. Our team will review your request and follow up with next steps.
         </p>
       </div>
@@ -145,15 +145,16 @@ export function PrayerPartnerApplicationForm({
   }
 
   return (
-    <form action={submitPrayerPartnerApplication} className="space-y-6">
+    <form action={submitPrayerPartnerApplication} className="rounded-[28px] border border-stone-200 bg-[#fbfaf7] p-4 shadow-[0_28px_90px_rgba(12,10,9,0.18)] md:p-6">
       {error ? (
-        <div className="border border-red-500/30 bg-red-950/20 p-5 text-sm leading-7 text-red-200">
+        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm leading-7 text-red-800">
           {errorMessages[error] ?? errorMessages.submit}
         </div>
       ) : null}
 
-      <section className="border border-stone-800/70 bg-stone-950/55 p-5 md:p-7 lg:p-8">
-        <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+      <div className="space-y-4">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-7 lg:p-8">
+        <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-stone-900" style={{ fontFamily: font.rajdhani }}>
           Prayer Partner Intake
         </p>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
@@ -172,8 +173,8 @@ export function PrayerPartnerApplicationForm({
         </div>
       </section>
 
-      <section className="border border-stone-800/70 bg-stone-950/55 p-5 md:p-7 lg:p-8">
-        <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-7 lg:p-8">
+        <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-stone-900" style={{ fontFamily: font.rajdhani }}>
           Alerts And Availability
         </p>
         <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -182,7 +183,7 @@ export function PrayerPartnerApplicationForm({
         </div>
 
         <div className="mt-6">
-          <p className="text-xs uppercase tracking-[0.14em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-xs uppercase tracking-[0.14em] text-stone-700" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Availability
           </p>
           <div className="mt-3 grid gap-4 md:grid-cols-2">
@@ -193,19 +194,20 @@ export function PrayerPartnerApplicationForm({
         </div>
       </section>
 
-      <section className="border border-stone-800/70 bg-stone-950/55 p-5 md:p-7 lg:p-8">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-7 lg:p-8">
         <Checkbox name="confidentiality_agreement" required>
           I understand this is a confidential prayer assignment and I will not share sensitive requests publicly.
         </Checkbox>
 
         <button
           type="submit"
-          className="mt-6 inline-flex min-h-12 w-full items-center justify-center bg-stone-100 px-7 py-3.5 text-center text-sm uppercase tracking-[0.2em] text-stone-950 transition-colors hover:bg-amber-200 sm:w-auto"
+          className="mt-6 inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_14px_34px_rgba(212,166,61,0.22)]"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
           Request to Join the Prayer Team
         </button>
       </section>
+      </div>
     </form>
   );
 }

@@ -88,6 +88,27 @@ export async function markSupportSubmissionReviewed(formData: FormData) {
   redirectToSubmission(submissionId, "saved=reviewed");
 }
 
+export async function markSupportSubmissionFollowUp(formData: FormData) {
+  const submissionId = getString(formData, "submission_id");
+
+  if (!submissionId) {
+    redirect("/admin/support-team?error=missing");
+  }
+
+  const supabase = await getAdminClient();
+  const { error } = await supabase
+    .from("form_submissions")
+    .update({ priority: "high", status: "follow_up" })
+    .eq("id", submissionId);
+
+  if (error) {
+    redirectToSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/support-team");
+  redirectToSubmission(submissionId, "saved=follow-up");
+}
+
 export async function archiveSupportSubmission(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 

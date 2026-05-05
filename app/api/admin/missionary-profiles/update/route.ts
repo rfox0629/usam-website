@@ -280,10 +280,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Household ID, display name, and slug are required." }, { status: 400 });
   }
 
-  // Formspree captures submissions.
-  // Admin reviews manually.
-  // Approved numbers are updated here.
-  // Supabase stores approved public profile data.
+  // Public forms capture submissions in Supabase.
+  // Admin reviews manually, then approved public profile data is updated here.
   // Accounting remains the financial source of truth.
   const supabase = createSupabaseAdminClient();
   const timestamp = new Date().toISOString();

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { AdminShell } from "../_components/AdminShell";
 import {
   archiveSupportSubmission,
+  markSupportSubmissionFollowUp,
   markSupportSubmissionReviewed,
   updateSupportSubmission,
 } from "./actions";
@@ -40,9 +41,11 @@ const priorities = [
 const supportFormTypes = [
   { label: "All Types", value: "" },
   { label: "Financial Freedom", value: "financial_freedom" },
+  { label: "Field Reports Access", value: "field_report_access" },
   { label: "Major Gifts", value: "major_gift" },
   { label: "Contact", value: "contact" },
   { label: "Support / Giving", value: "support_giving" },
+  { label: "System Waitlist", value: "system_waitlist" },
   { label: "Missionary Application", value: "missionary_application" },
   { label: "General", value: "general" },
 ] as const;
@@ -61,6 +64,7 @@ type SearchParams = {
 };
 
 type FormSubmission = {
+  assigned_team: "prayer_team" | "support_team" | null;
   assigned_to: string | null;
   created_at: string;
   email: string | null;
@@ -107,6 +111,10 @@ function formTypeLabel(value: string) {
       return "Major Gift";
     case "support_giving":
       return "Support / Giving";
+    case "field_report_access":
+      return "Field Reports Access";
+    case "system_waitlist":
+      return "System Waitlist";
     case "missionary_application":
       return "Missionary Application";
     default:
@@ -220,7 +228,8 @@ async function loadSupportSubmissions() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("form_submissions")
-    .select("id, form_type, source_page, first_name, last_name, email, phone, message, payload, status, priority, assigned_to, internal_notes, created_at, updated_at")
+    .select("id, form_type, source_page, first_name, last_name, email, phone, message, payload, status, priority, assigned_team, assigned_to, internal_notes, created_at, updated_at")
+    .eq("assigned_team", "support_team")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -409,6 +418,12 @@ function SubmissionDetail({ submission }: { submission?: FormSubmission }) {
             Mark Reviewed
           </button>
         </form>
+        <form action={markSupportSubmissionFollowUp}>
+          <input name="submission_id" type="hidden" value={submission.id} />
+          <button className="inline-flex min-h-10 items-center justify-center border border-blue-400/35 bg-blue-950/20 px-4 text-[11px] uppercase tracking-[0.18em] text-blue-200 hover:border-blue-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+            Personal Follow Up
+          </button>
+        </form>
         <form action={archiveSupportSubmission}>
           <input name="submission_id" type="hidden" value={submission.id} />
           <button className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 hover:border-red-400 hover:text-red-200" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
@@ -442,7 +457,8 @@ export default async function SupportTeamPage({
     : filteredSubmissions[0];
   const newSubmissions = submissions.filter((submission) => submission.status === "new").length;
   const followUp = submissions.filter((submission) => submission.status === "follow_up").length;
-  const highValueLeads = submissions.filter((submission) => submission.priority === "high" || submission.priority === "urgent" || submission.form_type === "major_gift").length;
+  const majorGifts = submissions.filter((submission) => submission.form_type === "major_gift").length;
+  const systemWaitlist = submissions.filter((submission) => submission.form_type === "system_waitlist").length;
 
   return (
     <AdminShell
@@ -467,10 +483,11 @@ export default async function SupportTeamPage({
           </p>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-4">
           <MetricCard label="New Submissions" value={newSubmissions} />
           <MetricCard label="Needs Follow Up" value={followUp} />
-          <MetricCard label="High Value Leads" value={highValueLeads} />
+          <MetricCard label="Major Gifts" value={majorGifts} />
+          <MetricCard label="System Waitlist" value={systemWaitlist} />
         </div>
 
         <FilterBar params={params} />

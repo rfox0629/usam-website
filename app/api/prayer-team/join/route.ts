@@ -131,6 +131,7 @@ export async function POST(request: Request) {
   const { firstName, lastName } = splitName(name);
 
   const submissionResult = await createFormSubmission({
+    assignedTeam: "prayer_team",
     email,
     firstName,
     formType: "prayer_team_application",

@@ -4,15 +4,20 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 
 export type FormSubmissionType =
   | "financial_freedom"
+  | "field_report_access"
   | "major_gift"
   | "contact"
   | "support_giving"
   | "prayer_request"
   | "prayer_team_application"
   | "missionary_application"
+  | "system_waitlist"
   | "general";
 
+export type AssignedTeam = "prayer_team" | "support_team";
+
 type CreateFormSubmissionInput = {
+  assignedTeam?: AssignedTeam;
   email?: string | null;
   firstName?: string | null;
   formType: FormSubmissionType;
@@ -31,6 +36,12 @@ function cleanString(value: string | null | undefined) {
   return nextValue ? nextValue : null;
 }
 
+export function getAssignedTeamForFormType(formType: FormSubmissionType): AssignedTeam {
+  return formType === "prayer_team_application" || formType === "prayer_request"
+    ? "prayer_team"
+    : "support_team";
+}
+
 export async function createFormSubmission(input: CreateFormSubmissionInput) {
   if (!isSupabaseAdminConfigured()) {
     return {
@@ -43,6 +54,7 @@ export async function createFormSubmission(input: CreateFormSubmissionInput) {
   const { data, error } = await supabase
     .from("form_submissions")
     .insert({
+      assigned_team: input.assignedTeam ?? getAssignedTeamForFormType(input.formType),
       email: cleanString(input.email)?.toLowerCase() ?? null,
       first_name: cleanString(input.firstName),
       form_type: input.formType,

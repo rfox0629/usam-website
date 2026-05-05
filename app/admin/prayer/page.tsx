@@ -134,6 +134,7 @@ type PrayerRequestRow = {
 };
 
 type PrayerSubmissionRow = {
+  assigned_team: "prayer_team" | "support_team" | null;
   assigned_to: string | null;
   created_at: string;
   email: string | null;
@@ -410,7 +411,8 @@ async function loadPrayerAdminData(): Promise<PrayerAdminData> {
       .order("created_at", { ascending: false }),
     supabase
       .from("form_submissions")
-      .select("id, form_type, source_page, first_name, last_name, email, phone, message, payload, status, assigned_to, internal_notes, created_at")
+      .select("id, form_type, source_page, first_name, last_name, email, phone, message, payload, status, assigned_team, assigned_to, internal_notes, created_at")
+      .eq("assigned_team", "prayer_team")
       .in("form_type", ["prayer_team_application", "prayer_request"])
       .order("created_at", { ascending: false }),
   ]);

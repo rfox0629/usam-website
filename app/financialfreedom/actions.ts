@@ -206,6 +206,7 @@ export async function submitFinancialFreedomInquiry(formData: FormData) {
 
   const { firstName, lastName } = splitFullName(fullName);
   await createFormSubmission({
+    assignedTeam: "support_team",
     email,
     firstName,
     formType: "financial_freedom",

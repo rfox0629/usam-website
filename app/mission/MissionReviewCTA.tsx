@@ -1,34 +1,63 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import {
+  PublicCheckbox,
+  PublicFieldLabel,
+  PublicFormGrid,
+  PublicFormHeader,
+  PublicFormMessage,
+  PublicFormSection,
+  PublicFormShell,
+  PublicSubmitButton,
+  PublicTextarea,
+  PublicTextInput,
+} from "@/components/forms/PublicForm";
+import { getAllStrings, getString, submitPublicForm } from "@/components/forms/submitPublicForm";
 
-const font = { rajdhani: "'Rajdhani', sans-serif", oswald: "'Oswald', sans-serif" };
+const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 type ModalType = "experience" | "story";
 type Status = "idle" | "success" | "error";
 
-const fieldClass =
-  "w-full rounded-md border border-[#2A2F36] bg-white/[0.06] px-4 py-[14px] text-base font-normal text-white outline-none transition-all placeholder:text-[#6B7280] hover:border-[#3A414B] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
-const labelClass = "mb-4 block text-[12px] font-medium uppercase tracking-[0.18em] text-[#BFC3C9]";
-const optionClass =
-  "flex cursor-pointer items-start gap-3 rounded-md border border-[#2A2F36] bg-white/[0.04] px-4 py-[14px] text-sm font-medium leading-6 text-[#D1D5DB] transition-colors hover:border-[#3A414B] hover:bg-white/[0.08]";
+const experienceOptions = [
+  "Life giving",
+  "Encouraging",
+  "Peaceful",
+  "Challenging in a good way",
+  "Transformational",
+  "Not sure yet",
+] as const;
+
+const lifeChangeOptions = [
+  "I feel closer to God",
+  "I reconciled a relationship",
+  "I surrendered something",
+  "I made a decision to follow Jesus",
+  "I joined a group",
+  "I requested baptism",
+  "Still processing",
+] as const;
 
 export function MissionReviewCTA() {
   const [activeModal, setActiveModal] = useState<ModalType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
-
+  const [errorMessage, setErrorMessage] = useState("");
   const isOpen = activeModal !== null;
+  const isStory = activeModal === "story";
 
   function openModal(type: ModalType) {
     setActiveModal(type);
     setStatus("idle");
+    setErrorMessage("");
   }
 
   function closeModal() {
     if (isSubmitting) return;
     setActiveModal(null);
     setStatus("idle");
+    setErrorMessage("");
   }
 
   useEffect(() => {
@@ -41,40 +70,57 @@ export function MissionReviewCTA() {
     }
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
   }, [isOpen, isSubmitting]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>, endpoint: string) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setStatus("idle");
+    setErrorMessage("");
 
     const form = event.currentTarget;
     const formData = new FormData(form);
+    const submissionKind = isStory ? "mission_story" : "mission_quick_review";
+    const firstName = isStory ? getString(formData, "firstName") : getString(formData, "name").split(/\s+/)[0] ?? "";
+    const lastName = isStory
+      ? getString(formData, "lastName")
+      : getString(formData, "name").split(/\s+/).slice(1).join(" ");
+    const message = isStory ? getString(formData, "impact") : getString(formData, "review");
 
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-        headers: {
-          Accept: "application/json",
+      await submitPublicForm({
+        email: getString(formData, "email"),
+        firstName,
+        formType: "general",
+        lastName,
+        message,
+        payload: {
+          experience_description: getAllStrings(formData, "experienceDescription"),
+          impact: getString(formData, "impact"),
+          life_change: getAllStrings(formData, "lifeChange"),
+          other: getString(formData, "other"),
+          permission: getString(formData, "permission"),
+          review: getString(formData, "review"),
+          submission_kind: submissionKind,
         },
+        sourcePage: "/mission",
       });
-
-      if (!response.ok) {
-        throw new Error("Submission failed");
-      }
 
       form.reset();
       setStatus("success");
-    } catch {
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to submit this form.");
       setStatus("error");
     } finally {
       setIsSubmitting(false);
     }
   }
-
-  const isStory = activeModal === "story";
 
   return (
     <div className="mt-10">
@@ -100,235 +146,132 @@ export function MissionReviewCTA() {
         Quick Review is one or two sentences. Share Your Story is for a deeper testimony.
       </p>
 
-      {isOpen && (
+      {isOpen ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-10 backdrop-blur-sm md:py-14"
           role="dialog"
           aria-modal="true"
           aria-labelledby="mission-review-title"
           onClick={closeModal}
         >
-          <div
-            className="relative max-h-[calc(100vh-48px)] w-[calc(100%-32px)] max-w-[560px] overflow-y-auto rounded-[10px] border border-[#2A2F36] bg-[#0b0b0c] p-[22px] shadow-[0_24px_80px_rgba(0,0,0,0.6)] md:p-8"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={closeModal}
-              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center border border-[#2A2F36] text-xl leading-none text-[#D1D5DB] transition-colors hover:border-[#3A414B] hover:text-white"
-              aria-label="Close form"
-            >
-              &times;
-            </button>
+          <div className="relative w-full" onClick={(event) => event.stopPropagation()}>
+            <PublicFormShell size="standard">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                aria-label="Close form"
+              >
+                &times;
+              </button>
 
-            {status === "success" ? (
-              <div className="pr-8">
-                <h2 id="mission-review-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
-                  Thank you.
-                </h2>
-                <p className="mt-4 text-base font-normal leading-7 text-[#D1D5DB]">
-                  {isStory
-                    ? "Thank you for sharing your story. We will steward it with care."
-                    : "Thank you. Your words help others understand what God is doing through USA Missionaries."}
-                </p>
-                {!isStory && (
-                  <p className="mt-3 text-sm leading-6 text-[#9CA3AF]">
-                    If you are willing to share more about your experience, we may follow up with a private reflection form.
-                  </p>
+              <div className="space-y-4">
+                <PublicFormHeader
+                  eyebrow="Mission Feedback"
+                  title={<span id="mission-review-title">{isStory ? "Tell Your Story" : "Share Your Experience"}</span>}
+                  description={isStory ? "Share what God did, what changed, or how the evening impacted you." : "Help others understand the mission in your own words."}
+                  note="Your submission is reviewed before anything is shared publicly."
+                />
+
+                {status === "success" ? (
+                  <PublicFormMessage>
+                    {isStory
+                      ? "Thank you for sharing your story. We will steward it with care."
+                      : "Thank you. Your words help others understand what God is doing through USA Missionaries."}
+                  </PublicFormMessage>
+                ) : (
+                  <form className="space-y-4" onSubmit={handleSubmit}>
+                    {isStory ? <StoryFields /> : <ExperienceFields />}
+
+                    {status === "error" ? (
+                      <PublicFormMessage tone="error">
+                        {errorMessage || "Something went wrong. Please try again or email info@usamissionaries.org."}
+                      </PublicFormMessage>
+                    ) : null}
+
+                    <PublicFormSection title="Submit">
+                      <PublicSubmitButton disabled={isSubmitting}>
+                        {isSubmitting ? "Submitting..." : isStory ? "Submit Story" : "Submit Review"}
+                      </PublicSubmitButton>
+                    </PublicFormSection>
+                  </form>
                 )}
               </div>
-            ) : isStory ? (
-              <StoryForm
-                status={status}
-                isSubmitting={isSubmitting}
-                onSubmit={(event) => handleSubmit(event, "https://formspree.io/f/mnjlwgyz")}
-              />
-            ) : (
-              <ExperienceForm
-                status={status}
-                isSubmitting={isSubmitting}
-                onSubmit={(event) => handleSubmit(event, "https://formspree.io/f/xojyrjad")}
-              />
-            )}
+            </PublicFormShell>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
-function ExperienceForm({
-  status,
-  isSubmitting,
-  onSubmit,
-}: {
-  status: Status;
-  isSubmitting: boolean;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-}) {
+function ExperienceFields() {
   return (
     <>
-      <div className="pr-8">
-        <h2 id="mission-review-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
-          Share Your Experience
-        </h2>
-        <p className="mt-2 text-base font-normal leading-7 text-[#D1D5DB]">
-          Help others understand the mission in your own words.
-        </p>
-      </div>
+      <PublicFormSection title="Contact Information">
+        <PublicFormGrid>
+          <PublicTextInput label="Name" name="name" required />
+          <PublicTextInput label="Email" name="email" type="email" autoComplete="email" required />
+        </PublicFormGrid>
+      </PublicFormSection>
 
-      <form className="mt-7" method="POST" onSubmit={onSubmit}>
-        <input type="hidden" name="_subject" value="New USA Missionaries Review" />
-
-        <div className="mb-5">
-          <label htmlFor="mission-review-name" className={labelClass}>
-            Name
-          </label>
-          <input id="mission-review-name" type="text" name="name" required placeholder="Your name" className={fieldClass} />
-        </div>
-
-        <div className="mb-6">
-          <label htmlFor="mission-review-email" className={labelClass}>
-            Email
-          </label>
-          <input id="mission-review-email" type="email" name="email" required placeholder="Your email address" className={fieldClass} />
-        </div>
-
-        <div className="mb-6">
-          <label
-            htmlFor="mission-review-response"
-            className="mb-4 block text-[13px] font-medium uppercase leading-[1.5] tracking-[0.18em] text-[#BFC3C9]"
-          >
-            How would you describe USA Missionaries to someone who&rsquo;s never heard of it?
-          </label>
-          <textarea
-            id="mission-review-response"
-            name="review"
-            required
-            placeholder="Write your response here..."
-            className={`${fieldClass} min-h-[160px] resize-none p-4 leading-[1.5]`}
-          />
-        </div>
-
-        <PermissionField />
-
-        <SubmitArea
-          status={status}
-          isSubmitting={isSubmitting}
-          submitText="Submit Review"
-          submittingText="Submitting..."
+      <PublicFormSection title="Review">
+        <PublicTextarea
+          label="How would you describe USA Missionaries to someone who's never heard of it?"
+          name="review"
+          placeholder="Write your response here..."
+          required
+          rows={5}
         />
-      </form>
+      </PublicFormSection>
+
+      <PermissionField />
     </>
   );
 }
 
-function StoryForm({
-  status,
-  isSubmitting,
-  onSubmit,
-}: {
-  status: Status;
-  isSubmitting: boolean;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-}) {
+function StoryFields() {
   return (
     <>
-      <div className="pr-8">
-        <h2 id="mission-review-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
-          Tell Your Story
-        </h2>
-        <p className="mt-2 text-base font-normal leading-7 text-[#D1D5DB]">
-          Share what God did, what changed, or how the evening impacted you.
-        </p>
-      </div>
+      <PublicFormSection title="Contact Information">
+        <PublicFormGrid>
+          <PublicTextInput label="First Name" name="firstName" required />
+          <PublicTextInput label="Last Name" name="lastName" required />
+          <PublicTextInput label="Email" name="email" type="email" autoComplete="email" required />
+        </PublicFormGrid>
+      </PublicFormSection>
 
-      <form className="mt-7" method="POST" onSubmit={onSubmit}>
-        <input type="hidden" name="_subject" value="New USA Missionaries Story" />
+      <CheckboxGroup
+        legend="How would you describe your experience?"
+        name="experienceDescription"
+        options={experienceOptions}
+      />
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label htmlFor="mission-story-first-name" className={labelClass}>
-              First name
-            </label>
-            <input id="mission-story-first-name" type="text" name="first_name" required className={fieldClass} />
-          </div>
-          <div>
-            <label htmlFor="mission-story-last-name" className={labelClass}>
-              Last name
-            </label>
-            <input id="mission-story-last-name" type="text" name="last_name" required className={fieldClass} />
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <label htmlFor="mission-story-email" className={labelClass}>
-            Email
-          </label>
-          <input id="mission-story-email" type="email" name="email" required className={fieldClass} />
-        </div>
-
-        <CheckboxGroup
-          legend="How would you describe your experience?"
-          name="experience_description"
-          options={[
-            "Life giving",
-            "Encouraging",
-            "Peaceful",
-            "Challenging in a good way",
-            "Transformational",
-            "Not sure yet",
-          ]}
+      <PublicFormSection title="Story">
+        <PublicTextarea
+          label="What impact did the evening have on you?"
+          name="impact"
+          placeholder="Write your response here..."
+          required
+          rows={5}
         />
+      </PublicFormSection>
 
-        <div className="mt-6">
-          <label htmlFor="mission-story-impact" className={labelClass}>
-            What impact did the evening have on you?
-          </label>
-          <textarea
-            id="mission-story-impact"
-            name="impact"
-            required
-            placeholder="Write your response here..."
-            className={`${fieldClass} min-h-[140px] resize-none p-4 leading-[1.5]`}
-          />
-        </div>
+      <CheckboxGroup
+        legend="Did anything change in your life because of this gathering?"
+        name="lifeChange"
+        options={lifeChangeOptions}
+      />
 
-        <CheckboxGroup
-          legend="Did anything change in your life because of this gathering?"
-          name="life_change"
-          options={[
-            "I feel closer to God",
-            "I reconciled a relationship",
-            "I surrendered something",
-            "I made a decision to follow Jesus",
-            "I joined a group",
-            "I requested baptism",
-            "Still processing",
-          ]}
+      <PublicFormSection title="Additional Notes">
+        <PublicTextarea
+          label="Other"
+          name="other"
+          placeholder="Anything else you want to share?"
         />
+      </PublicFormSection>
 
-        <div className="mt-6">
-          <label htmlFor="mission-story-other" className={labelClass}>
-            Other
-          </label>
-          <textarea
-            id="mission-story-other"
-            name="other"
-            placeholder="Anything else you want to share?"
-            className={`${fieldClass} min-h-[100px] resize-none p-4 leading-[1.5]`}
-          />
-        </div>
-
-        <PermissionField legend="May we share your testimony?" privateOption="No, please keep my story private" />
-
-        <SubmitArea
-          status={status}
-          isSubmitting={isSubmitting}
-          submitText="Submit Story"
-          submittingText="Submitting..."
-        />
-      </form>
+      <PermissionField legend="May we share your testimony?" privateOption="No, please keep my story private" />
     </>
   );
 }
@@ -340,22 +283,18 @@ function CheckboxGroup({
 }: {
   legend: string;
   name: string;
-  options: string[];
+  options: readonly string[];
 }) {
   return (
-    <fieldset className="mt-6">
-      <legend className={labelClass}>
-        {legend}
-      </legend>
-      <div className="grid gap-3">
+    <PublicFormSection title={legend}>
+      <div className="grid gap-3 md:grid-cols-2">
         {options.map((option) => (
-          <label key={option} className={optionClass}>
-            <input type="checkbox" name={name} value={option} className="mt-1 h-4 w-4 rounded accent-[#d4a017]" />
-            <span>{option}</span>
-          </label>
+          <PublicCheckbox key={option} name={name} value={option}>
+            {option}
+          </PublicCheckbox>
         ))}
       </div>
-    </fieldset>
+    </PublicFormSection>
   );
 }
 
@@ -367,49 +306,18 @@ function PermissionField({
   privateOption?: string;
 }) {
   return (
-    <fieldset className="mb-8 mt-6">
-      <legend className={labelClass}>
-        {legend}
-      </legend>
-      <div className="grid gap-3">
-        {["Yes, anonymously", "Yes, with my name included", privateOption].map((option) => (
-          <label key={option} className={optionClass}>
-            <input type="radio" name="permission" value={option} required className="mt-1 h-4 w-4 accent-[#d4a017]" />
-            <span>{option}</span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
-function SubmitArea({
-  status,
-  isSubmitting,
-  submitText,
-  submittingText,
-}: {
-  status: Status;
-  isSubmitting: boolean;
-  submitText: string;
-  submittingText: string;
-}) {
-  return (
-    <div className="mt-8 flex flex-col gap-3">
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="inline-flex min-h-12 w-full items-center justify-center rounded border-0 bg-[#d4a017] px-6 py-[14px] text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-200 ease-out hover:bg-[#e0ad2f] active:bg-[#c89514] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-        style={{ fontFamily: font.rajdhani }}
-      >
-        {isSubmitting ? submittingText : submitText}
-      </button>
-
-      {status === "error" && (
-        <p className="text-sm leading-6 text-amber-400">
-          Something went wrong. Please try again or email info@usamissionaries.org.
-        </p>
-      )}
-    </div>
+    <PublicFormSection title={legend}>
+      <fieldset>
+        <PublicFieldLabel>{legend}</PublicFieldLabel>
+        <div className="mt-3 grid gap-3">
+          {["Yes, anonymously", "Yes, with my name included", privateOption].map((option) => (
+            <label key={option} className="flex min-h-12 items-start gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-[#D4A63D]/55">
+              <input type="radio" name="permission" value={option} required className="mt-1 h-4 w-4 accent-[#D4A63D]" />
+              <span>{option}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    </PublicFormSection>
   );
 }

@@ -30,11 +30,11 @@ const snapshotFields = [
 ] as const;
 
 function fieldClassName() {
-  return "mt-2 min-h-12 w-full rounded-xl border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D] md:text-sm";
+  return "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
 }
 
 function textAreaClassName() {
-  return "mt-2 min-h-[145px] w-full rounded-xl border border-stone-700 bg-[#050505] px-4 py-3 text-base leading-8 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D] md:text-sm md:leading-7";
+  return "mt-2 min-h-[145px] w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-8 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm md:leading-7";
 }
 
 function FieldLabel({
@@ -49,7 +49,7 @@ function FieldLabel({
   return (
     <label
       htmlFor={htmlFor}
-      className="text-xs uppercase tracking-[0.14em] text-stone-300"
+      className="text-xs uppercase tracking-[0.14em] text-stone-700"
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}
@@ -68,12 +68,12 @@ function SectionCard({
   description?: string;
 }) {
   return (
-    <section className="rounded-2xl border border-stone-800/70 bg-stone-950/55 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.18)] md:p-7 lg:p-8">
-      <h2 className="text-2xl font-semibold leading-tight text-stone-100 md:text-3xl">
+    <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-7 lg:p-8">
+      <h2 className="text-2xl font-semibold leading-tight text-stone-950 md:text-3xl">
         {title}
       </h2>
       {description ? (
-        <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-400 md:text-base md:leading-8">
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-600 md:text-base md:leading-8">
           {description}
         </p>
       ) : null}
@@ -147,7 +147,7 @@ function ConsentCheckbox({
   name: string;
 }) {
   return (
-    <label className="flex gap-3 rounded-xl border border-stone-800 bg-[#050505] p-4 text-sm leading-7 text-stone-300 transition-colors hover:border-[#D4A63D]/70">
+    <label className="flex gap-3 rounded-xl border border-stone-200 bg-white p-4 text-sm leading-7 text-stone-700 transition-colors hover:border-[#D4A63D]/70">
       <input
         type="checkbox"
         name={name}
@@ -170,14 +170,14 @@ export function FinancialFreedomInquiryForm({
 }) {
   if (submitted) {
     return (
-      <div className="rounded-2xl border border-[#D4A63D]/30 bg-[#D4A63D]/10 p-7 text-base leading-8 text-stone-100 md:p-10">
-        <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+      <div className="rounded-[28px] border border-emerald-200 bg-emerald-50 p-7 text-base leading-8 text-emerald-950 shadow-sm md:p-10">
+        <p className="text-[11px] uppercase tracking-[0.22em] text-emerald-700" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Inquiry Received
         </p>
-        <h2 className="mt-4 text-4xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+        <h2 className="mt-4 text-4xl font-bold leading-none text-emerald-950" style={{ fontFamily: font.oswald }}>
           Inquiry received
         </h2>
-        <p className="mt-5 max-w-3xl text-stone-300">
+        <p className="mt-5 max-w-3xl text-emerald-900">
           Thank you. Your inquiry has been received. We will review it carefully and follow up with next steps.
         </p>
         {uploadPartial ? (
@@ -190,19 +190,20 @@ export function FinancialFreedomInquiryForm({
   }
 
   return (
-    <form action={submitFinancialFreedomInquiry} className="space-y-6 md:space-y-7">
+    <form action={submitFinancialFreedomInquiry} className="rounded-[28px] border border-stone-200 bg-[#fbfaf7] p-4 shadow-[0_28px_90px_rgba(12,10,9,0.18)] md:p-6">
       {error ? (
-        <div className="rounded-2xl border border-red-500/30 bg-red-950/20 p-5 text-sm leading-7 text-red-200">
+        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm leading-7 text-red-800">
           {errorMessages[error] ?? errorMessages.submit}
         </div>
       ) : null}
 
+      <div className="space-y-4">
       <SectionCard
         title="Start Here"
         description="This guided intake helps us understand where support may be useful. Keep answers approximate and only share what you are comfortable sharing."
       >
-        <div className="rounded-2xl border border-[#D4A63D]/25 bg-[#D4A63D]/10 p-5 text-sm leading-7 text-stone-300 md:p-6">
-          <p className="text-base font-semibold text-stone-100">
+        <div className="rounded-2xl border border-[#e2b84e]/45 bg-[#fff3cf] p-5 text-sm leading-7 text-stone-800 md:p-6">
+          <p className="text-base font-semibold text-stone-950">
             Before you share
           </p>
           <p className="mt-2">
@@ -222,7 +223,7 @@ export function FinancialFreedomInquiryForm({
       <SectionCard title="What Would You Like Help With?" description="Choose the areas where clarity would be most helpful right now.">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {helpAreas.map((area) => (
-            <label key={area.name} className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-800 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-300 transition-colors hover:border-[#D4A63D]/70">
+            <label key={area.name} className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-[#D4A63D]/70">
               <input
                 type="checkbox"
                 name={area.name}
@@ -269,7 +270,7 @@ export function FinancialFreedomInquiryForm({
         description="You may upload redacted screenshots or documents that help us understand your financial picture."
       >
         <div className="space-y-4">
-          <p className="text-sm leading-7 text-stone-400">
+          <p className="text-sm leading-7 text-stone-600">
             Please remove or cover full account numbers, Social Security numbers, addresses, passwords, and any information you do not want reviewed.
           </p>
           <p className="text-sm leading-7 text-stone-500">
@@ -293,17 +294,18 @@ export function FinancialFreedomInquiryForm({
         </div>
       </SectionCard>
 
-      <div className="flex flex-col gap-5 rounded-2xl border border-stone-800/70 bg-[#070707] p-5 md:flex-row md:items-center md:justify-between md:p-6">
-        <p className="max-w-2xl text-sm leading-7 text-stone-400">
+      <div className="flex flex-col gap-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between md:p-6">
+        <p className="max-w-2xl text-sm leading-7 text-stone-600">
           Your inquiry will be reviewed by approved admins only. Public visitors cannot read submitted inquiry data.
         </p>
         <button
           type="submit"
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-stone-100 px-7 py-3 text-xs uppercase tracking-[0.2em] text-stone-950 transition-colors hover:bg-amber-200 sm:w-auto"
+          className="inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_14px_34px_rgba(212,166,61,0.22)] sm:w-auto"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
           Submit Inquiry
         </button>
+      </div>
       </div>
     </form>
   );

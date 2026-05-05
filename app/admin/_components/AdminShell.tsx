@@ -8,7 +8,7 @@ const adminNavGroups = [
     items: [
       { activeKey: "dashboard", href: "/admin/dashboard", label: "Dashboard" },
       { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", label: "Missionary Profiles" },
-      { activeKey: "forms-pages", href: "/admin/inquiries", label: "Forms & Pages" },
+      { activeKey: "forms-pages", href: "/admin/forms", label: "Forms & Pages" },
       { activeKey: "prayer", href: "/admin/prayer-team", label: "Prayer Team" },
       { activeKey: "support-team", href: "/admin/support-team", label: "Support Team" },
     ],

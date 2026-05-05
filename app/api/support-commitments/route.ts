@@ -149,6 +149,7 @@ export async function POST(request: Request) {
 
   const commitmentId = (insertResult.data as { id?: string } | null)?.id ?? null;
   await createFormSubmission({
+    assignedTeam: "support_team",
     email,
     firstName,
     formType: "support_giving",
@@ -156,10 +157,14 @@ export async function POST(request: Request) {
     message: asNullableString(payload.message),
     payload: {
       allocation_preference: asNullableString(payload.allocationPreference),
+      amount: asNullableString(payload.selectedAmount) ?? asNullableNumber(payload.otherAmount),
       default_allocation: asNullableString(payload.defaultAllocation),
       gift_type: giftType,
       household_id: asNullableString(payload.householdId),
       household_name: asNullableString(payload.householdName),
+      missionary_name: asNullableString(payload.householdName),
+      missionary_profile_id: asNullableString(payload.householdId),
+      note: asNullableString(payload.message),
       other_amount: asNullableNumber(payload.otherAmount),
       profile_slug: asNullableString(payload.profileSlug),
       redirect_giving_url: asNullableString(payload.redirectGivingUrl),

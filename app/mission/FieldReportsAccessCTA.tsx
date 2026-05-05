@@ -1,12 +1,20 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import {
+  PublicCheckbox,
+  PublicFormGrid,
+  PublicFormHeader,
+  PublicFormMessage,
+  PublicFormSection,
+  PublicFormShell,
+  PublicSubmitButton,
+  PublicTextarea,
+  PublicTextInput,
+} from "@/components/forms/PublicForm";
+import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
 
-const font = { rajdhani: "'Rajdhani', sans-serif", oswald: "'Oswald', sans-serif" };
-const endpoint = "https://formspree.io/f/xrerjoke";
-const fieldClass =
-  "w-full rounded-md border border-[#2A2F36] bg-white/[0.06] px-4 py-[14px] text-base font-normal text-white outline-none transition-all placeholder:text-[#6B7280] hover:border-[#3A414B] focus:border-[#d4a017] focus:shadow-[0_0_0_1px_rgba(212,160,23,0.4)]";
-const labelClass = "mb-4 block text-[12px] font-medium uppercase tracking-[0.18em] text-[#BFC3C9]";
+const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 type Status = "idle" | "success" | "error";
 
@@ -14,16 +22,19 @@ export function FieldReportsAccessCTA() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
+  const [errorMessage, setErrorMessage] = useState("");
 
   function openModal() {
     setIsOpen(true);
     setStatus("idle");
+    setErrorMessage("");
   }
 
   function closeModal() {
     if (isSubmitting) return;
     setIsOpen(false);
     setStatus("idle");
+    setErrorMessage("");
   }
 
   useEffect(() => {
@@ -36,33 +47,43 @@ export function FieldReportsAccessCTA() {
     }
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
   }, [isOpen, isSubmitting]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setStatus("idle");
+    setErrorMessage("");
 
     const form = event.currentTarget;
     const formData = new FormData(form);
 
     try {
-      const response = await fetch(form.action, {
-        method: "POST",
-        body: formData,
-        headers: {
-          Accept: "application/json",
+      await submitPublicForm({
+        email: getString(formData, "email"),
+        firstName: getString(formData, "firstName"),
+        formType: "field_report_access",
+        lastName: getString(formData, "lastName"),
+        message: getString(formData, "reason"),
+        payload: {
+          follow_up_allowed: formData.get("followUpAllowed") === "on",
+          organization_or_church: getString(formData, "organization"),
+          reason_for_request: getString(formData, "reason"),
         },
+        phone: getString(formData, "phone"),
+        sourcePage: "/mission",
       });
-
-      if (!response.ok) {
-        throw new Error("Submission failed");
-      }
 
       form.reset();
       setStatus("success");
-    } catch {
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to submit this request.");
       setStatus("error");
     } finally {
       setIsSubmitting(false);
@@ -80,124 +101,81 @@ export function FieldReportsAccessCTA() {
         Request Access to Field Reports
       </button>
 
-      {isOpen && (
+      {isOpen ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-10 backdrop-blur-sm md:py-14"
           role="dialog"
           aria-modal="true"
           aria-labelledby="field-reports-access-title"
           onClick={closeModal}
         >
-          <div
-            className="relative max-h-[calc(100vh-48px)] w-[calc(100%-32px)] max-w-[560px] overflow-y-auto rounded-[10px] border border-[#2A2F36] bg-[#111113] p-[22px] shadow-[0_24px_80px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)] md:p-8"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={closeModal}
-              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center border border-[#2A2F36] text-xl leading-none text-[#D1D5DB] transition-colors hover:border-[#3A414B] hover:text-white"
-              aria-label="Close field reports access form"
-            >
-              &times;
-            </button>
+          <div className="relative w-full" onClick={(event) => event.stopPropagation()}>
+            <PublicFormShell size="standard">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                aria-label="Close field reports access form"
+              >
+                &times;
+              </button>
 
-            {status === "success" ? (
-              <div className="pr-8">
-                <h2 id="field-reports-access-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
-                  Thank you.
-                </h2>
-                <p className="mt-4 text-base font-normal leading-7 text-[#D1D5DB]">
-                  Thank you. Your request has been received. Our team will review it and follow up soon.
-                </p>
+              <div className="space-y-4">
+                <PublicFormHeader
+                  eyebrow="Field Reports"
+                  title={<span id="field-reports-access-title">Request Field Reports Access</span>}
+                  description="For churches, leaders, and ministry partners seeking a high-level view of what God is doing through the movement."
+                  note="Field Reports are private and intended for trusted leaders, partner churches, and approved ministry stakeholders."
+                />
+
+                {status === "success" ? (
+                  <PublicFormMessage>
+                    Thank you. Your request has been received. Our team will review it and follow up with next steps.
+                  </PublicFormMessage>
+                ) : (
+                  <form className="space-y-4" onSubmit={handleSubmit}>
+                    <PublicFormSection title="Contact Information">
+                      <PublicFormGrid>
+                        <PublicTextInput label="First Name" name="firstName" required />
+                        <PublicTextInput label="Last Name" name="lastName" required />
+                        <PublicTextInput label="Email" name="email" type="email" autoComplete="email" required />
+                        <PublicTextInput label="Phone" name="phone" type="tel" autoComplete="tel" />
+                        <PublicTextInput label="Organization / Church" name="organization" required />
+                      </PublicFormGrid>
+                    </PublicFormSection>
+
+                    <PublicFormSection title="Request Details">
+                      <div className="space-y-4">
+                        <PublicTextarea
+                          label="Reason for Request"
+                          name="reason"
+                          placeholder="Briefly share how you are connected to USA Missionaries or why you would like access."
+                          required
+                        />
+                        <PublicCheckbox name="followUpAllowed">
+                          Yes, USA Missionaries may follow up with me about this request.
+                        </PublicCheckbox>
+                      </div>
+                    </PublicFormSection>
+
+                    {status === "error" ? (
+                      <PublicFormMessage tone="error">
+                        {errorMessage || "Something went wrong. Please try again or email info@usamissionaries.org."}
+                      </PublicFormMessage>
+                    ) : null}
+
+                    <PublicFormSection title="Submit">
+                      <PublicSubmitButton disabled={isSubmitting}>
+                        {isSubmitting ? "Submitting..." : "Request Access"}
+                      </PublicSubmitButton>
+                    </PublicFormSection>
+                  </form>
+                )}
               </div>
-            ) : (
-              <>
-                <div className="pr-8">
-                  <h2 id="field-reports-access-title" className="text-[28px] font-bold uppercase leading-[1.4] text-white" style={{ fontFamily: font.oswald }}>
-                    Request Field Reports Access
-                  </h2>
-                  <p className="mt-2 text-base font-normal leading-7 text-[#D1D5DB]">
-                    For churches, leaders, and ministry partners seeking a high-level view of what God is doing through the movement.
-                  </p>
-                </div>
-
-                <form className="mt-7" action={endpoint} method="POST" onSubmit={handleSubmit}>
-                  <input type="hidden" name="_subject" value="Field Reports Access Request" />
-
-                  <div className="mb-5">
-                    <label htmlFor="field-reports-name" className={labelClass}>
-                      Full Name
-                    </label>
-                    <input id="field-reports-name" type="text" name="name" required className={fieldClass} />
-                  </div>
-
-                  <div className="mb-5">
-                    <label htmlFor="field-reports-email" className={labelClass}>
-                      Email
-                    </label>
-                    <input id="field-reports-email" type="email" name="email" required className={fieldClass} />
-                  </div>
-
-                  <div className="mb-5">
-                    <label htmlFor="field-reports-organization" className={labelClass}>
-                      Organization / Church
-                    </label>
-                    <input id="field-reports-organization" type="text" name="organization" required className={fieldClass} />
-                  </div>
-
-                  <div className="mb-5">
-                    <label htmlFor="field-reports-role" className={labelClass}>
-                      Role
-                    </label>
-                    <input
-                      id="field-reports-role"
-                      type="text"
-                      name="role"
-                      required
-                      placeholder="Pastor, ministry leader, donor, partner, etc."
-                      className={fieldClass}
-                    />
-                  </div>
-
-                  <div className="mb-6">
-                    <label htmlFor="field-reports-reason" className={labelClass}>
-                      Why are you requesting access?
-                    </label>
-                    <textarea
-                      id="field-reports-reason"
-                      name="reason"
-                      required
-                      placeholder="Briefly share how you are connected to USA Missionaries or why you would like access."
-                      className={`${fieldClass} min-h-[140px] resize-none p-4 leading-[1.5]`}
-                    />
-                  </div>
-
-                  <p className="rounded-md border border-[#2A2F36] bg-white/[0.045] px-4 py-3 text-sm leading-6 text-[#9CA3AF]">
-                    Field Reports are private and intended for trusted leaders, partner churches, and approved ministry stakeholders. Individual stories and personal details are stewarded with care.
-                  </p>
-
-                  <div className="mt-8 flex flex-col gap-3">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="inline-flex min-h-12 w-full items-center justify-center rounded border-0 bg-[#d4a017] px-6 py-[14px] text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-200 ease-out hover:bg-[#e0ad2f] active:bg-[#c89514] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                      style={{ fontFamily: font.rajdhani }}
-                    >
-                      {isSubmitting ? "Submitting..." : "Request Access"}
-                    </button>
-
-                    {status === "error" && (
-                      <p className="text-sm leading-6 text-amber-400">
-                        Something went wrong. Please try again or email info@usamissionaries.org.
-                      </p>
-                    )}
-                  </div>
-                </form>
-              </>
-            )}
+            </PublicFormShell>
           </div>
         </div>
-      )}
+      ) : null}
     </>
   );
 }
