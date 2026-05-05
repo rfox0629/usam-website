@@ -872,7 +872,6 @@ type FeatureVisibilityRow = {
   checked: boolean;
   description: string;
   label: string;
-  manageTab: EditorTab;
   onChange: (checked: boolean) => void;
   publicStatus: FeaturePublicPageStatus;
   statusMessage: string;
@@ -955,51 +954,36 @@ function getFeatureStatusLabel(status: FeaturePublicPageStatus) {
   }
 }
 
-function FeatureVisibilityTable({
-  onManage,
-  rows,
-}: {
-  onManage: (tab: EditorTab) => void;
-  rows: FeatureVisibilityRow[];
-}) {
+function FeatureVisibilityTable({ rows }: { rows: FeatureVisibilityRow[] }) {
   return (
     <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-      <div className="overflow-x-auto">
-      <table className="min-w-[1120px] w-full border-collapse text-left">
+      <table className="w-full table-fixed border-collapse text-left">
         <thead>
           <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-            <th className="w-[19%] border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <th className="w-[58%] border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Section
             </th>
-            <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Description
-            </th>
-            <th className="w-[170px] border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <th className="w-[22%] border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Toggle
             </th>
-            <th className="w-[230px] border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Public Page Status
-            </th>
-            <th className="w-[120px] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Manage
+            <th className="w-[20%] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Status
             </th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr className="border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7]" key={row.label}>
-              <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                <span className="text-sm font-bold uppercase text-[#111111]" style={{ fontFamily: font.oswald }}>
+              <td className="border-r border-[#e2ded5] px-4 py-2.5 align-middle">
+                <span className="block text-sm font-bold uppercase leading-5 text-[#111111]" style={{ fontFamily: font.oswald }}>
                   {row.label}
                 </span>
-              </td>
-              <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                <p className="max-w-3xl text-sm leading-5 text-[#4b443b]">
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-[#7b746a]">
                   {row.description}
                 </p>
               </td>
-              <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                <label className="inline-flex cursor-pointer items-center gap-3 text-xs text-[#111111]">
+              <td className="border-r border-[#e2ded5] px-4 py-2.5 align-middle">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[#111111]">
                   <input
                     checked={row.checked}
                     className="sr-only"
@@ -1024,31 +1008,22 @@ function FeatureVisibilityTable({
                   </span>
                 </label>
               </td>
-              <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                <div className="space-y-2">
-                  <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${getFeatureStatusBadgeClasses(row.publicStatus)}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {getFeatureStatusLabel(row.publicStatus)}
-                  </span>
-                  <p className="max-w-[240px] text-xs leading-5 text-[#7b746a]">
-                    {row.statusMessage}
-                  </p>
-                </div>
-              </td>
-              <td className="px-4 py-3 align-middle">
-                <button
-                  className={lightSecondaryButtonClass}
-                  onClick={() => onManage(row.manageTab)}
+              <td className="px-4 py-2.5 align-middle">
+                <span
+                  className={`inline-flex min-h-6 items-center rounded-full border px-2.5 text-[9px] uppercase tracking-[0.16em] ${getFeatureStatusBadgeClasses(row.publicStatus)}`}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  type="button"
+                  title={row.statusMessage}
                 >
-                  Manage
-                </button>
+                  {getFeatureStatusLabel(row.publicStatus)}
+                </span>
+                <span className="sr-only">
+                  {row.statusMessage}
+                </span>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      </div>
     </div>
   );
 }
@@ -2585,13 +2560,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             title="Profile Features"
           >
             <FeatureVisibilityTable
-              onManage={changeEditorTab}
               rows={[
                 {
                   checked: getFeatureValue(selectedProfile, "show_household"),
                   description: featureDescriptions.show_household,
                   label: "Profile Visibility",
-                  manageTab: "profile",
                   onChange: (value) => updateFeatureField("show_household", value),
                   publicStatus: profileVisibilityStatus.status,
                   statusMessage: profileVisibilityStatus.message,
@@ -2600,7 +2573,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   checked: getFeatureValue(selectedProfile, "show_photos"),
                   description: featureDescriptions.show_photos,
                   label: "Media",
-                  manageTab: "media",
                   onChange: (value) => updateFeatureField("show_photos", value),
                   publicStatus: mediaStatus.status,
                   statusMessage: mediaStatus.message,
@@ -2609,7 +2581,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   checked: getFeatureValue(selectedProfile, "show_team"),
                   description: featureDescriptions.show_team,
                   label: "Team",
-                  manageTab: "team",
                   onChange: (value) => updateFeatureField("show_team", value),
                   publicStatus: teamStatus.status,
                   statusMessage: teamStatus.message,
@@ -2618,7 +2589,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   checked: getFeatureValue(selectedProfile, "show_story"),
                   description: featureDescriptions.show_story,
                   label: "Our Story",
-                  manageTab: "story",
                   onChange: (value) => updateFeatureField("show_story", value),
                   publicStatus: storyStatus.status,
                   statusMessage: storyStatus.message,
@@ -2627,7 +2597,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   checked: getFeatureValue(selectedProfile, "show_fruit"),
                   description: featureDescriptions.show_fruit,
                   label: "Fruit",
-                  manageTab: "fruit",
                   onChange: (value) => updateFeatureField("show_fruit", value),
                   publicStatus: fruitStatus.status,
                   statusMessage: fruitStatus.message,
@@ -2636,7 +2605,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   checked: getFeatureValue(selectedProfile, "show_support"),
                   description: featureDescriptions.show_support,
                   label: "Support",
-                  manageTab: "support",
                   onChange: (value) => updateSupportMode(value ? "household" : "hidden"),
                   publicStatus: supportStatus.status,
                   statusMessage: supportStatus.message,
@@ -2645,7 +2613,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   checked: getFeatureValue(selectedProfile, "show_prayer"),
                   description: featureDescriptions.show_prayer,
                   label: "Prayer",
-                  manageTab: "prayer",
                   onChange: (value) => updateFeatureField("show_prayer", value),
                   publicStatus: prayerStatus.status,
                   statusMessage: prayerStatus.message,
