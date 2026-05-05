@@ -113,6 +113,22 @@ function asPublicRosterNumber(value: unknown) {
     : nextValue;
 }
 
+function publicRosterNumberToInteger(value: unknown) {
+  const rosterNumber = asPublicRosterNumber(value);
+
+  if (!rosterNumber || !/^\d{4}$/.test(rosterNumber)) {
+    return null;
+  }
+
+  const parsedValue = Number.parseInt(rosterNumber, 10);
+
+  return Number.isFinite(parsedValue) && parsedValue > 1 ? parsedValue : null;
+}
+
+function formatPublicRosterNumber(value: number) {
+  return String(value).padStart(4, "0");
+}
+
 function asNumber(value: unknown) {
   const nextValue = typeof value === "number" ? value : Number(asString(value));
 
@@ -505,6 +521,35 @@ export async function POST(request: Request) {
         };
       })
       .filter((member): member is NonNullable<typeof member> => Boolean(member));
+
+    const membersMissingPublicNumbers = sanitizedTeamMembers.filter((member) => !member.record.public_number);
+
+    if (membersMissingPublicNumbers.length > 0) {
+      const { data: publicNumberRows, error: publicNumberLoadError } = await supabase
+        .from("missionary_team_members")
+        .select("public_number");
+
+      if (publicNumberLoadError && !hasMissingTeamMembersTableError(publicNumberLoadError)) {
+        return NextResponse.json({ error: publicNumberLoadError.message }, { status: 500 });
+      }
+
+      if (!publicNumberLoadError) {
+        const existingPublicNumberValues = (publicNumberRows ?? [])
+          .map((row) => publicRosterNumberToInteger(row.public_number))
+          .filter((value): value is number => typeof value === "number");
+        const submittedPublicNumberValues = sanitizedTeamMembers
+          .map((member) => publicRosterNumberToInteger(member.record.public_number))
+          .filter((value): value is number => typeof value === "number");
+        const highestRosterNumber = Math.max(1, ...existingPublicNumberValues, ...submittedPublicNumberValues);
+        let nextRosterNumber = Math.max(2, highestRosterNumber + 1);
+
+        for (const member of membersMissingPublicNumbers) {
+          member.record.public_number = formatPublicRosterNumber(nextRosterNumber);
+          nextRosterNumber += 1;
+        }
+      }
+    }
+
     const invalidPublicNumber = sanitizedTeamMembers.find((member) => (
       member.record.public_number !== null && !/^\d{4}$/.test(member.record.public_number)
     ));
@@ -512,6 +557,14 @@ export async function POST(request: Request) {
     if (invalidPublicNumber) {
       return NextResponse.json({
         error: `Public number for ${invalidPublicNumber.record.display_name} must be 4 digits, like 0009.`,
+      }, { status: 400 });
+    }
+
+    const reservedPublicNumber = sanitizedTeamMembers.find((member) => member.record.public_number === "0001");
+
+    if (reservedPublicNumber) {
+      return NextResponse.json({
+        error: "Public number 0001 is reserved and cannot be assigned to a team member.",
       }, { status: 400 });
     }
 

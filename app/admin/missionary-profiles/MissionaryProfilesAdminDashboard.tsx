@@ -335,19 +335,13 @@ function publicRosterNumberValue(value: string | null | undefined) {
 }
 
 function nextPublicRosterNumber(profiles: readonly AdminProfile[]) {
-  const usedNumbers = new Set(
-    profiles
-      .flatMap((profile) => profile.teamMembers ?? [])
-      .map((member) => publicRosterNumberValue(member.public_number))
-      .filter(Boolean),
-  );
-  let nextNumber = 1;
+  const highestAssignedNumber = profiles
+    .flatMap((profile) => profile.teamMembers ?? [])
+    .map((member) => Number.parseInt(publicRosterNumberValue(member.public_number), 10))
+    .filter((value) => Number.isFinite(value) && value > 1)
+    .reduce((highest, value) => Math.max(highest, value), 1);
 
-  while (usedNumbers.has(String(nextNumber).padStart(4, "0"))) {
-    nextNumber += 1;
-  }
-
-  return String(nextNumber).padStart(4, "0");
+  return String(Math.max(2, highestAssignedNumber + 1)).padStart(4, "0");
 }
 
 function newTeamMember(householdId: string, publicNumber = ""): AdminTeamMember {
@@ -1521,7 +1515,7 @@ function TeamMemberRow({
       <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
         <div className="flex flex-col gap-1">
           <span className="text-sm font-semibold text-[#111111]">
-            {member.display_name || "New Team Member"}
+            {member.display_name || "Name required"}
           </span>
           {member.public_number ? (
             <span className="text-[10px] uppercase tracking-[0.16em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -1616,11 +1610,13 @@ function TeamMemberEditor({
   const duplicateOwner = publicRosterNumberValue(member.public_number)
     ? (numberOwners.get(publicRosterNumberValue(member.public_number)) ?? []).find((owner) => owner.id !== member.id)
     : undefined;
-  const numberWarning = publicNumber && !/^\d{4}$/.test(publicNumber)
-    ? "Use a 4-digit global roster number, like 0009."
-    : duplicateOwner
-      ? `Duplicate public number. Already used by ${duplicateOwner.display_name || "another team member"}.`
-      : undefined;
+  const numberWarning = publicNumber === "0001"
+    ? "0001 is permanently reserved and cannot be assigned to a team member."
+    : publicNumber && !/^\d{4}$/.test(publicNumber)
+      ? "Use a 4-digit global roster number, like 0009."
+      : duplicateOwner
+        ? `Duplicate public number. Already used by ${duplicateOwner.display_name || "another team member"}.`
+        : undefined;
 
   return (
     <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
@@ -1630,7 +1626,7 @@ function TeamMemberEditor({
             {member.source === "dos" ? "DOS" : "Website Admin"}
           </p>
           <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-            Edit {member.display_name || "New Team Member"}
+            Edit {member.display_name || "Team Member"}
           </h3>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1672,13 +1668,22 @@ function TeamMemberEditor({
           onChange={(value) => onUpdate(member.id, { display_name: value })}
           value={member.display_name}
         />
-        <Field
-          helperText="Global 4-digit display number. Public pages show it as #0009."
-          label="Public Number"
-          onChange={(value) => onUpdate(member.id, { public_number: value })}
-          value={member.public_number}
-          warningText={numberWarning}
-        />
+        <div>
+          <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Public Number
+          </span>
+          <div className={`${lightInputClass} flex items-center font-semibold`} aria-readonly="true">
+            {publicNumber ? `#${publicNumber}` : "Assigned on add"}
+          </div>
+          <span className={lightHelperClass}>
+            System assigned globally. #0001 is reserved and cannot be assigned to a person.
+          </span>
+          {numberWarning ? (
+            <span className="mt-2 block text-[12px] leading-5 text-red-700">
+              {numberWarning}
+            </span>
+          ) : null}
+        </div>
         <Field
           label="Role / Title"
           onChange={(value) => onUpdate(member.id, { role_title: value })}
