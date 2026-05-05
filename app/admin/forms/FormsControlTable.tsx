@@ -9,10 +9,10 @@ export type FormControlRow = {
   formName: string;
   formType: string;
   lastSubmissionLabel: string;
-  routesTo: "Prayer Team" | "Support Team";
+  routesTo: "Prayer Team" | "Support Team" | "System/Auth";
   status: "Draft" | "Live";
-  submissionsHref: string;
-  totalSubmissions: number;
+  submissionsHref?: string;
+  totalSubmissions: number | string;
   url: string;
 };
 
@@ -35,13 +35,16 @@ function StatusBadge({ status }: { status: FormControlRow["status"] }) {
 
 function RouteBadge({ routesTo }: { routesTo: FormControlRow["routesTo"] }) {
   const isPrayer = routesTo === "Prayer Team";
+  const isSystem = routesTo === "System/Auth";
 
   return (
     <span
       className={`inline-flex min-h-6 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.14em] ${
         isPrayer
           ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
-          : "border-blue-400/25 bg-blue-950/30 text-blue-300"
+          : isSystem
+            ? "border-green-500/25 bg-green-950/30 text-green-300"
+            : "border-blue-400/25 bg-blue-950/30 text-blue-300"
       }`}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
@@ -172,8 +175,10 @@ function DetailDrawer({
 
       <div className="mt-7 grid gap-3">
         <ActionLink href={form.url}>View Form</ActionLink>
-        <ActionLink href={form.submissionsHref} variant="gold">View Submissions</ActionLink>
-        <ActionLink href={form.submissionsHref}>Edit Routing</ActionLink>
+        {form.submissionsHref ? (
+          <ActionLink href={form.submissionsHref} variant="gold">View Submissions</ActionLink>
+        ) : null}
+        <ActionLink href={form.submissionsHref ?? form.url}>Edit Routing</ActionLink>
         <button
           className="inline-flex min-h-10 items-center justify-center border border-stone-800 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-500"
           disabled
@@ -268,8 +273,10 @@ export function FormsControlTable({ rows }: { rows: readonly FormControlRow[] })
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <ActionLink href={row.url}>View Form</ActionLink>
-                        <ActionLink href={row.submissionsHref} variant="gold">View Submissions</ActionLink>
-                        <ActionLink href={row.submissionsHref}>Edit Routing</ActionLink>
+                        {row.submissionsHref ? (
+                          <ActionLink href={row.submissionsHref} variant="gold">View Submissions</ActionLink>
+                        ) : null}
+                        <ActionLink href={row.submissionsHref ?? row.url}>Edit Routing</ActionLink>
                       </div>
                     </td>
                   </tr>

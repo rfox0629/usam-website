@@ -16,12 +16,19 @@ export const dynamic = "force-dynamic";
 
 const forms = [
   {
+    formName: "System Access Code",
+    formType: "system_access_code",
+    routesTo: "System/Auth",
+    status: "Live",
+    url: "/system",
+  },
+  {
     formName: "Prayer Team Application",
     formType: "prayer_team_application",
     routesTo: "Prayer Team",
     status: "Live",
     submissionsHref: "/admin/prayer-team?tab=applications",
-    url: "/prayer/join",
+    url: "/prayer",
   },
   {
     formName: "Prayer Request",
@@ -151,6 +158,16 @@ export default async function FormsPagesAdminPage() {
     });
   }
   const rows: FormControlRow[] = forms.map((form) => {
+    if (form.formType === "system_access_code") {
+      return {
+        ...form,
+        lastSubmissionLabel: "N/A",
+        routesTo: form.routesTo,
+        status: form.status,
+        totalSubmissions: "N/A",
+      };
+    }
+
     const stats = statsByType.get(form.formType);
 
     return {

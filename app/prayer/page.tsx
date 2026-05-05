@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PrimaryNav } from "../../components/PrimaryNav";
+import { PrayerTeamApplicationModal } from "./PrayerTeamApplicationModal";
 
 export const metadata: Metadata = {
   title: "Prayer | USA Missionaries",
@@ -7,34 +8,6 @@ export const metadata: Metadata = {
 };
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-
-function ExternalActionLink({
-  href,
-  children,
-  variant = "primary",
-  className = "",
-}: {
-  href: string;
-  children: React.ReactNode;
-  variant?: "primary" | "secondary";
-  className?: string;
-}) {
-  const variantClassName = variant === "primary"
-    ? "bg-stone-100 text-stone-950 hover:bg-amber-200"
-    : "border border-stone-600 text-stone-300 hover:border-stone-400 hover:text-stone-100";
-
-  return (
-    <a
-      href={href}
-      target={href.startsWith("http") ? "_blank" : undefined}
-      rel={href.startsWith("http") ? "noreferrer" : undefined}
-      className={`inline-block min-h-[48px] px-7 py-3.5 text-center text-sm uppercase tracking-[0.2em] transition-all duration-300 ${variantClassName} ${className}`}
-      style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
-    >
-      {children}
-    </a>
-  );
-}
 
 const prayerRows = [
   { focus: "Tables", status: "Covered", tone: "amber" },
@@ -88,8 +61,17 @@ function PrayerCoverageBoard() {
   );
 }
 
-export default function PrayerPage() {
-  const signupLink = "/prayer/join";
+type SearchParams = {
+  join?: string;
+};
+
+export default async function PrayerPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const shouldOpenApplication = params.join === "1";
   const points = [
     "Prayer coverage for the mission",
     "Updates on key needs and opportunities",
@@ -125,7 +107,9 @@ export default function PrayerPage() {
               Prayer is not secondary to the mission. It is part of the mission. USA Missionaries depends on faithful prayer coverage for open doors, transformed lives, strengthened leaders, and endurance in the field.
             </p>
             <div className="mt-9">
-              <ExternalActionLink href={signupLink}>Join the Prayer Team</ExternalActionLink>
+              <PrayerTeamApplicationModal initialOpen={shouldOpenApplication}>
+                Join the Prayer Team
+              </PrayerTeamApplicationModal>
             </div>
           </div>
 
@@ -157,7 +141,9 @@ export default function PrayerPage() {
             Join us in covering the mission with prayer from wherever you are. Faithful intercession helps strengthen the work, sustain the field, and create room for what God is doing across cities.
           </p>
           <div className="mt-10">
-            <ExternalActionLink href={signupLink} variant="secondary">Open Prayer Signup</ExternalActionLink>
+            <PrayerTeamApplicationModal variant="secondary">
+              Join the Prayer Team
+            </PrayerTeamApplicationModal>
           </div>
         </div>
       </section>

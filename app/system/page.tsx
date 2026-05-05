@@ -108,7 +108,18 @@ function DashboardPanel() {
   );
 }
 
-export default function SystemPage() {
+type SearchParams = {
+  access?: string;
+};
+
+export default async function SystemPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const shouldOpenAccessCode = params.access === "1";
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#050505] text-stone-100">
       <PrimaryNav active="dos" />
@@ -141,7 +152,7 @@ export default function SystemPage() {
               A discipleship platform designed to connect leaders, track movement, and support multiplication at scale.
             </p>
 
-            <WaitingListCTA />
+            <WaitingListCTA initialAccessOpen={shouldOpenAccessCode} />
           </div>
 
           <DashboardPanel />
