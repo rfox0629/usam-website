@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import { FundingCommitmentForm, type CommitmentGiftType } from "@/components/missionaries/FundingCommitmentForm";
+import { GivingCommitmentForm, type CommitmentGiftType, type SupportCommitmentSource } from "@/components/missionaries/GivingCommitmentForm";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 type SupportMissionModalProps = {
   isOpen: boolean;
-  missionaryName: string;
-  missionarySlug: string;
-  monthlyGoal: number;
+  defaultAllocation?: string | null;
+  householdId?: string | null;
+  householdName: string;
+  monthlyGoal?: number;
   monthlyGivingUrl?: string | null;
   oneTimeGivingUrl?: string | null;
-  receivedMonthlySupport: number;
+  profileSlug?: string | null;
+  receivedMonthlySupport?: number;
+  source?: SupportCommitmentSource;
   supportButtonLabel?: string;
   supportExplanation?: string;
   supportMode?: string;
@@ -25,13 +28,15 @@ type SupportMissionModalProps = {
 
 export function SupportMissionModal({
   isOpen,
-  missionaryName,
-  missionarySlug,
+  defaultAllocation,
+  householdId,
+  householdName,
   monthlyGoal,
   monthlyGivingUrl,
   oneTimeGivingUrl,
+  profileSlug,
   receivedMonthlySupport,
-  supportButtonLabel = "Support This Mission",
+  source = "missionary_profile",
   supportExplanation,
   supportMode,
   supportPublicLabel,
@@ -67,53 +72,41 @@ export function SupportMissionModal({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-stone-950/70 px-4 pb-6 pt-24 backdrop-blur-sm sm:pt-28 md:pt-32"
       role="dialog"
       onMouseDown={onClose}
     >
       <div
-        className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[30px] border border-stone-200 bg-[#f8f4ec] p-4 text-stone-950 shadow-[0_30px_120px_rgba(28,25,23,0.34)] md:p-6"
+        className="relative w-full max-w-4xl rounded-[30px] border border-stone-200 bg-[#f8f4ec] p-3 text-stone-950 shadow-[0_30px_120px_rgba(28,25,23,0.34)] md:p-4"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button
           type="button"
           aria-label="Close support form"
-          className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-800 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-[#9a6b12]"
+          className="absolute right-5 top-5 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-800 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-[#9a6b12]"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           onClick={onClose}
         >
           X
         </button>
 
-        <div className="rounded-3xl border border-[#eadfca] bg-white px-5 py-6 pr-14 shadow-sm md:px-7">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            {missionaryName}
-          </p>
-          <h2 className="mt-3 text-2xl font-semibold leading-tight text-stone-950 md:text-3xl">
-            {supportButtonLabel}
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-700 md:text-base">
-            Choose the gift type and allocation preference below, then continue to the secure giving page.
-          </p>
-        </div>
-
-        <div className="mt-5">
-          <FundingCommitmentForm
-            missionaryName={missionaryName}
-            missionarySlug={missionarySlug}
-            monthlyGoal={monthlyGoal}
-            monthlyGivingUrl={monthlyGivingUrl}
-            oneTimeGivingUrl={oneTimeGivingUrl}
-            receivedMonthlySupport={receivedMonthlySupport}
-            supportExplanation={supportExplanation}
-            supportMode={supportMode}
-            supportPublicLabel={supportPublicLabel}
-            supportTargetFund={supportTargetFund}
-            supportTargetHouseholdName={supportTargetHouseholdName}
-            initialGiftType={initialGiftType}
-            displayMode="modal"
-          />
-        </div>
+        <GivingCommitmentForm
+          defaultAllocation={defaultAllocation ?? supportPublicLabel}
+          displayMode="modal"
+          householdId={householdId}
+          householdName={householdName}
+          initialGiftType={initialGiftType}
+          monthlyGoal={monthlyGoal}
+          profileSlug={profileSlug}
+          receivedMonthlySupport={receivedMonthlySupport}
+          resolvedMonthlyGivingUrl={monthlyGivingUrl}
+          resolvedOneTimeGivingUrl={oneTimeGivingUrl}
+          source={source}
+          supportExplanation={supportExplanation}
+          supportMode={supportMode}
+          supportTargetFund={supportTargetFund}
+          supportTargetHouseholdName={supportTargetHouseholdName}
+        />
       </div>
     </div>
   );

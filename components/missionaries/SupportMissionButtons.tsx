@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import type { CommitmentGiftType } from "@/components/missionaries/FundingCommitmentForm";
+import type { CommitmentGiftType } from "@/components/missionaries/GivingCommitmentForm";
 import { MajorGiftInquiryModal } from "@/src/components/missionaries/MajorGiftInquiryModal";
 import { SupportMissionModal } from "@/src/components/missionaries/SupportMissionModal";
 
@@ -54,6 +54,41 @@ function useSupportModal() {
   };
 }
 
+function ProfileSupportModal({
+  initialGiftType,
+  isOpen,
+  onClose,
+  props,
+}: {
+  initialGiftType: CommitmentGiftType;
+  isOpen: boolean;
+  onClose: () => void;
+  props: SharedSupportProps;
+}) {
+  return (
+    <SupportMissionModal
+      defaultAllocation={props.supportPublicLabel}
+      householdId={props.missionaryId}
+      householdName={props.missionaryName}
+      initialGiftType={initialGiftType}
+      isOpen={isOpen}
+      monthlyGivingUrl={props.monthlyGivingUrl}
+      monthlyGoal={props.monthlyGoal}
+      onClose={onClose}
+      oneTimeGivingUrl={props.oneTimeGivingUrl}
+      profileSlug={props.missionarySlug}
+      receivedMonthlySupport={props.receivedMonthlySupport}
+      source="missionary_profile"
+      supportButtonLabel={props.supportButtonLabel}
+      supportExplanation={props.supportExplanation}
+      supportMode={props.supportMode}
+      supportPublicLabel={props.supportPublicLabel}
+      supportTargetFund={props.supportTargetFund}
+      supportTargetHouseholdName={props.supportTargetHouseholdName}
+    />
+  );
+}
+
 export function HeroSupportActions(props: SharedSupportProps) {
   const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
   const {
@@ -78,11 +113,11 @@ export function HeroSupportActions(props: SharedSupportProps) {
         {extraAction}
       </div>
 
-      <SupportMissionModal
-        {...props}
+      <ProfileSupportModal
         initialGiftType={initialGiftType}
         isOpen={isSupportModalOpen}
         onClose={closeModal}
+        props={props}
       />
     </>
   );
@@ -105,11 +140,11 @@ export function MonthlySupportActions(props: SharedSupportProps) {
         </button>
       </div>
 
-      <SupportMissionModal
-        {...props}
+      <ProfileSupportModal
         initialGiftType={initialGiftType}
         isOpen={isSupportModalOpen}
         onClose={closeModal}
+        props={props}
       />
     </>
   );
@@ -163,11 +198,11 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
         ) : null}
       </div>
 
-      <SupportMissionModal
-        {...props}
+      <ProfileSupportModal
         initialGiftType={initialGiftType}
         isOpen={isSupportModalOpen}
         onClose={closeModal}
+        props={props}
       />
     </>
   );

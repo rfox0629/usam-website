@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PrimaryNav } from "../../components/PrimaryNav";
+import { GeneralSupportGivingButton } from "./GeneralSupportGivingButton";
 import { ViewTeamComingSoonButton } from "./ViewTeamComingSoonButton";
-import { DEFAULT_GIVING_URL } from "@/src/lib/giving";
 
 export const metadata: Metadata = {
   title: "Support the Mission | USA Missionaries",
@@ -74,7 +74,7 @@ export default function SupportPage() {
       title: "Standard Giving",
       description: "One-time or recurring support. Simple and secure.",
       cta: "Give Now",
-      href: DEFAULT_GIVING_URL,
+      href: "",
       variant: "primary" as const,
       featured: true,
     },
@@ -196,9 +196,15 @@ export default function SupportPage() {
                   {option.description}
                 </p>
                 <div className="mt-8">
-                  <ExternalActionLink href={option.href} variant={option.variant}>
-                    {option.cta}
-                  </ExternalActionLink>
+                  {option.title === "Standard Giving" ? (
+                    <GeneralSupportGivingButton>
+                      {option.cta}
+                    </GeneralSupportGivingButton>
+                  ) : (
+                    <ExternalActionLink href={option.href} variant={option.variant}>
+                      {option.cta}
+                    </ExternalActionLink>
+                  )}
                 </div>
               </div>
             ))}
