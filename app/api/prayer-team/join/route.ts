@@ -16,6 +16,7 @@ type JoinPrayerTeamPayload = {
 type HouseholdRow = {
   display_name: string;
   id: string;
+  show_household?: boolean | null;
   slug: string;
 };
 
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient();
   const householdQuery = supabase
     .from("missionary_households")
-    .select("id, display_name, slug")
+    .select("id, display_name, slug, show_household")
     .eq("public_visible", true)
     .limit(1);
   const householdResult = householdId
@@ -122,7 +123,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to load this missionary household." }, { status: 500 });
   }
 
-  const household = householdResult.data as HouseholdRow | null;
+  const householdData = householdResult.data as HouseholdRow | null;
+  const household = householdData?.show_household === false ? null : householdData;
 
   if (!household) {
     return NextResponse.json({ error: "This missionary household is not available." }, { status: 404 });

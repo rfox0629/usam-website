@@ -18,6 +18,7 @@ import {
   profileLocationLine,
   normalizeRoleType,
 } from "@/src/lib/missionaries/location";
+import { normalizeSupportRoutingMode } from "@/src/lib/missionaries/support-routing";
 import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/lib/supabase/server";
 
 const roleTags = [
@@ -40,19 +41,11 @@ const functionTags = [
 ] as const satisfies readonly MissionaryFunctionTag[];
 
 const directoryImageFallback = "/fox-family.png";
-const supportModes = [
-  "household",
-  "general_fund",
-  "state_leader",
-  "regional_leader",
-  "national_leadership",
-  "household_nomination",
-  "hidden",
-] as const satisfies readonly MissionarySupportMode[];
 const householdBaseSelect = "id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order";
 const householdFeatureSelect = [
   "show_household",
   "show_photos",
+  "show_team",
   "show_story",
   "show_fruit",
   "show_support",
@@ -92,6 +85,7 @@ type HouseholdRow = {
   sort_order: number | null;
   show_household?: boolean | null;
   show_photos?: boolean | null;
+  show_team?: boolean | null;
   show_story?: boolean | null;
   show_fruit?: boolean | null;
   show_support?: boolean | null;
@@ -130,6 +124,18 @@ type TagRow = {
   tag_type: "role" | "function";
 };
 
+type TeamMemberRow = {
+  display_name: string;
+  dos_user_id: string | null;
+  id: string;
+  is_public: boolean | null;
+  public_number: string | null;
+  role_title: string | null;
+  short_description: string | null;
+  sort_order: number | null;
+  status: "active" | "hidden" | "archived";
+};
+
 type SupportSettingsRow = {
   show_support: boolean | null;
   annual_goal: number | null;
@@ -156,6 +162,7 @@ type DirectoryHouseholdRow = HouseholdRow & {
 type SupportTargetHouseholdRow = {
   id: string;
   display_name: string;
+  show_household?: boolean | null;
   slug: string;
 };
 
@@ -188,6 +195,7 @@ export type MissionaryHouseholdDirectoryRow = {
   display_name: string;
   location: string | null;
   profile_image_url: string | null;
+  show_household?: boolean | null;
   show_photos?: boolean | null;
   primary_state?: string | null;
   serving_scope?: string | null;
@@ -311,12 +319,12 @@ function isEnabledByDefault(value: boolean | null | undefined) {
   return value !== false;
 }
 
-function toSupportMode(value: string | null | undefined): MissionarySupportMode {
-  if (value === "nominate_household") {
-    return "household_nomination";
-  }
+function isHouseholdPubliclyVisible(household: { show_household?: boolean | null }) {
+  return isEnabledByDefault(household.show_household);
+}
 
-  return supportModes.includes(value as MissionarySupportMode) ? value as MissionarySupportMode : "household";
+function toSupportMode(value: string | null | undefined): MissionarySupportMode {
+  return normalizeSupportRoutingMode(value) as MissionarySupportMode;
 }
 
 function hasMissingFeatureColumnsError(error: { message?: string } | null | undefined) {
@@ -325,6 +333,7 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
   return [
     "show_household",
     "show_photos",
+    "show_team",
     "show_story",
     "show_fruit",
     "show_support",
@@ -361,6 +370,12 @@ function hasMissingFruitItemsTableError(error: { message?: string } | null | und
   const message = error?.message ?? "";
 
   return message.includes("missionary_fruit_items");
+}
+
+function hasMissingTeamMembersTableError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("missionary_team_members");
 }
 
 function mapPrayerRequests(requests: readonly PrayerRequestRow[] = []): MissionaryPrayerRequest[] {
@@ -410,6 +425,57 @@ function mapFruitItems(items: readonly FruitItemRow[] = []): MissionaryFruitItem
     });
 }
 
+function toPublicNumber(value: string | null | undefined) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  return trimmedValue.startsWith("#") ? trimmedValue : `#${trimmedValue}`;
+}
+
+function mapLegacyPeopleToTeamMembers(people: readonly PersonRow[] = []) {
+  return sortPeople(people).map((person) => {
+    const displayName = [person.first_name, person.last_name].filter(Boolean).join(" ");
+
+    return {
+      displayName,
+      publicNumber: toPublicNumber(person.missionary_number),
+      roleTitle: person.role,
+      shortDescription: null,
+      sortOrder: person.sort_order ?? 0,
+    };
+  }).filter((member) => Boolean(member.displayName));
+}
+
+function mapTeamMembers(items: readonly TeamMemberRow[] = [], people: readonly PersonRow[] = []) {
+  if (items.length === 0) {
+    return mapLegacyPeopleToTeamMembers(people);
+  }
+
+  return [...items]
+    .filter((item) => item.status === "active" && item.is_public !== false)
+    .sort((first, second) => {
+      const sortOrderDifference = (first.sort_order ?? 0) - (second.sort_order ?? 0);
+
+      if (sortOrderDifference !== 0) {
+        return sortOrderDifference;
+      }
+
+      return (first.public_number ?? "").localeCompare(second.public_number ?? "", undefined, { numeric: true })
+        || first.display_name.localeCompare(second.display_name);
+    })
+    .map((item) => ({
+      displayName: item.display_name,
+      dosUserId: item.dos_user_id,
+      publicNumber: toPublicNumber(item.public_number),
+      roleTitle: item.role_title,
+      shortDescription: item.short_description,
+      sortOrder: item.sort_order ?? 0,
+    }));
+}
+
 function mapHouseholdToMissionary({
   fruitItems = [],
   household,
@@ -419,6 +485,7 @@ function mapHouseholdToMissionary({
   supportTargetHousehold = null,
   supportTargetSettings = null,
   tags = [],
+  teamMembers = [],
 }: {
   fruitItems?: readonly FruitItemRow[];
   household: HouseholdRow;
@@ -428,6 +495,7 @@ function mapHouseholdToMissionary({
   supportTargetHousehold?: SupportTargetHouseholdRow | null;
   supportTargetSettings?: SupportSettingsRow | null;
   tags?: readonly TagRow[];
+  teamMembers?: readonly TeamMemberRow[];
 }): Missionary {
   const sortedPeople = sortPeople(people);
   const mappedTags = mapTags(tags);
@@ -441,6 +509,16 @@ function mapHouseholdToMissionary({
   const hasNominationTarget = supportMode === "household_nomination" && Boolean(supportTargetHousehold);
   const showSupport = isEnabledByDefault(household.show_support) && supportMode !== "hidden";
   const showPhotos = isEnabledByDefault(household.show_photos);
+  const monthlyGivingUrl = supportMode === "household"
+    ? support?.monthly_giving_url ?? null
+    : hasNominationTarget
+      ? supportTargetSettings?.monthly_giving_url ?? null
+      : null;
+  const oneTimeGivingUrl = supportMode === "household"
+    ? support?.one_time_giving_url ?? null
+    : hasNominationTarget
+      ? supportTargetSettings?.one_time_giving_url ?? null
+      : null;
 
   return {
     id: household.id,
@@ -470,18 +548,14 @@ function mapHouseholdToMissionary({
     functionTags: mappedTags.functionTags,
     heroImage: showPhotos ? toOptionalPublicImageSource(household.hero_image_url) : undefined,
     headerImage: showPhotos ? toPublicImageSource(household.profile_image_url, directoryImageFallback) : undefined,
-    householdMembers: sortedPeople.map((person) => ({
-      firstName: person.first_name,
-      lastName: person.last_name,
-      missionaryNumber: person.missionary_number,
-      role: person.role,
-    })),
+    householdMembers: mapTeamMembers(teamMembers, sortedPeople),
     story: household.story ?? undefined,
     fruitFromField: household.fruit_from_field ?? undefined,
     fruitItems: mapFruitItems(fruitItems),
     features: {
       showHousehold: isEnabledByDefault(household.show_household),
       showPhotos,
+      showTeam: isEnabledByDefault(household.show_team),
       showStory: isEnabledByDefault(household.show_story),
       showFruit: isEnabledByDefault(household.show_fruit),
       showSupport,
@@ -496,13 +570,9 @@ function mapHouseholdToMissionary({
       majorGiftPublicDescription: support?.major_gift_public_description ?? null,
       mode: supportMode,
       monthlyButtonLabel: support?.monthly_button_label ?? null,
-      monthlyGivingUrl: hasNominationTarget
-        ? supportTargetSettings?.monthly_giving_url ?? null
-        : support?.monthly_giving_url ?? null,
+      monthlyGivingUrl,
       oneTimeButtonLabel: support?.one_time_button_label ?? null,
-      oneTimeGivingUrl: hasNominationTarget
-        ? supportTargetSettings?.one_time_giving_url ?? null
-        : support?.one_time_giving_url ?? null,
+      oneTimeGivingUrl,
       publicLabel: household.support_public_label ?? null,
       targetFund: household.support_target_fund ?? null,
       targetHouseholdId: household.support_target_household_id ?? null,
@@ -536,6 +606,7 @@ export async function getMissionaryDirectory() {
         location,
         profile_image_url,
         hero_image_url,
+        show_household,
         show_photos,
         primary_state,
         serving_scope,
@@ -607,11 +678,13 @@ export async function getMissionaryDirectory() {
       return missionaries;
     }
 
-    return (data as DirectoryHouseholdRow[]).map((household) => mapHouseholdToMissionary({
-      household,
-      people: household.missionary_people ?? [],
-      tags: household.missionary_tags ?? [],
-    }));
+    return (data as DirectoryHouseholdRow[])
+      .filter(isHouseholdPubliclyVisible)
+      .map((household) => mapHouseholdToMissionary({
+        household,
+        people: household.missionary_people ?? [],
+        tags: household.missionary_tags ?? [],
+      }));
   } catch {
     return missionaries;
   }
@@ -640,6 +713,7 @@ export async function getMissionaryHouseholdsResult(): Promise<MissionaryHouseho
         display_name,
         location,
         profile_image_url,
+        show_household,
         show_photos,
         primary_state,
         serving_scope,
@@ -707,7 +781,7 @@ export async function getMissionaryHouseholdsResult(): Promise<MissionaryHouseho
     // If no data is returned, RLS may be blocking access.
     return {
       connected: true,
-      data: (data ?? []) as MissionaryHouseholdDirectoryRow[],
+      data: ((data ?? []) as MissionaryHouseholdDirectoryRow[]).filter(isHouseholdPubliclyVisible),
       error: null,
     };
   } catch (error) {
@@ -758,7 +832,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
       return getMissionaryBySlug(slug);
     }
 
-    if (!household) {
+    if (!household || !isHouseholdPubliclyVisible(household)) {
       return undefined;
     }
 
@@ -766,7 +840,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
       ? household.support_target_household_id
       : "";
 
-    const [peopleResult, tagsResult, supportResult, supportTargetResult, supportTargetSettingsResult, prayerRequestsResult, fruitItemsResult] = await Promise.all([
+    const [peopleResult, tagsResult, supportResult, supportTargetResult, supportTargetSettingsResult, prayerRequestsResult, fruitItemsResult, teamMembersResult] = await Promise.all([
       supabase
         .from("missionary_people")
         .select("missionary_number, first_name, last_name, role, sort_order")
@@ -785,7 +859,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
       supportTargetHouseholdId
         ? supabase
           .from("missionary_households")
-          .select("id, display_name, slug")
+          .select("id, display_name, slug, show_household")
           .eq("id", supportTargetHouseholdId)
           .eq("public_visible", true)
           .maybeSingle()
@@ -817,11 +891,24 @@ export async function getMissionaryProfileBySlug(slug: string) {
         .order("sort_order", { ascending: true })
         .order("testimony_date", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false }),
+      supabase
+        .from("missionary_team_members")
+        .select("id, display_name, public_number, role_title, short_description, sort_order, is_public, dos_user_id, status")
+        .eq("household_id", household.id)
+        .eq("status", "active")
+        .eq("is_public", true)
+        .order("sort_order", { ascending: true })
+        .order("public_number", { ascending: true })
+        .order("display_name", { ascending: true }),
     ]);
 
     if (peopleResult.error || tagsResult.error) {
       return getMissionaryBySlug(slug);
     }
+
+    const supportTargetHousehold = supportTargetResult.error
+      ? null
+      : (supportTargetResult.data as SupportTargetHouseholdRow | null);
 
     return mapHouseholdToMissionary({
       household: household as HouseholdRow,
@@ -834,8 +921,11 @@ export async function getMissionaryProfileBySlug(slug: string) {
         : (prayerRequestsResult.data ?? []) as PrayerRequestRow[],
       tags: (tagsResult.data ?? []) as TagRow[],
       support: supportResult.error ? null : (supportResult.data as SupportSettingsRow | null),
-      supportTargetHousehold: supportTargetResult.error ? null : (supportTargetResult.data as SupportTargetHouseholdRow | null),
+      supportTargetHousehold: supportTargetHousehold?.show_household === false ? null : supportTargetHousehold,
       supportTargetSettings: supportTargetSettingsResult.error ? null : (supportTargetSettingsResult.data as SupportSettingsRow | null),
+      teamMembers: teamMembersResult.error && hasMissingTeamMembersTableError(teamMembersResult.error)
+        ? []
+        : (teamMembersResult.data ?? []) as TeamMemberRow[],
     });
   } catch {
     return getMissionaryBySlug(slug);

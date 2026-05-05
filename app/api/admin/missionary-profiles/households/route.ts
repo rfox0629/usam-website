@@ -5,6 +5,7 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 type HouseholdOptionRow = {
   display_name: string;
   id: string;
+  show_household?: boolean | null;
   slug: string;
 };
 
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
   const supabase = createSupabaseAdminClient();
   let query = supabase
     .from("missionary_households")
-    .select("id, display_name, slug")
+    .select("id, display_name, slug, show_household")
     .eq("public_visible", true)
     .order("display_name", { ascending: true });
 
@@ -47,10 +48,12 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
-    households: ((data ?? []) as HouseholdOptionRow[]).map((household) => ({
-      display_name: household.display_name,
-      id: household.id,
-      slug: household.slug,
-    })),
+    households: ((data ?? []) as HouseholdOptionRow[])
+      .filter((household) => household.show_household !== false)
+      .map((household) => ({
+        display_name: household.display_name,
+        id: household.id,
+        slug: household.slug,
+      })),
   });
 }

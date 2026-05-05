@@ -37,6 +37,7 @@ type DashboardProfile = {
   location: string | null;
   profile_image_url: string | null;
   public_visible: boolean | null;
+  show_household?: boolean | null;
   short_mission: string | null;
   slug: string;
   story: string | null;
@@ -214,7 +215,7 @@ async function getDashboardData(): Promise<DashboardData> {
   const [householdResult, supportResult, inquiryResult, majorGiftResult] = await Promise.all([
     supabase
       .from("missionary_households")
-      .select("id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, updated_at")
+      .select("id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, show_household, updated_at")
       .order("updated_at", { ascending: false }),
     supabase
       .from("missionary_support_settings")
@@ -247,7 +248,7 @@ async function getDashboardData(): Promise<DashboardData> {
   const majorGiftInquiries = majorGiftResult.error
     ? []
     : (majorGiftResult.data ?? []) as DashboardMajorGiftInquiry[];
-  const activeProfiles = profiles.filter((profile) => profile.public_visible);
+  const activeProfiles = profiles.filter((profile) => profile.show_household !== false);
   const incompleteProfiles = activeProfiles.filter(isIncompleteProfile);
   const latestInquiries = [
     ...inquiries.map((inquiry) => ({

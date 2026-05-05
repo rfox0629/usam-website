@@ -5,6 +5,7 @@ import {
   type AdminFruitItem,
   type AdminProfile,
   type AdminSupportSettings,
+  type AdminTeamMember,
 } from "./MissionaryProfilesAdminDashboard";
 import { AdminShell } from "../_components/AdminShell";
 import { getAdminAuthorization } from "@/src/lib/admin-auth";
@@ -22,6 +23,7 @@ const householdBaseSelect = "id, slug, display_name, location, profile_image_url
 const householdFeatureColumns = [
   "show_household",
   "show_photos",
+  "show_team",
   "show_story",
   "show_fruit",
   "show_support",
@@ -53,6 +55,7 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
   return [
     "show_household",
     "show_photos",
+    "show_team",
     "show_story",
     "show_fruit",
     "show_support",
@@ -89,6 +92,12 @@ function isMissingFruitItemsTable(error: { message?: string } | null | undefined
   const message = error?.message ?? "";
 
   return message.includes("missionary_fruit_items");
+}
+
+function isMissingTeamMembersTable(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("missionary_team_members");
 }
 
 function isMissingSupportLinkColumns(error: { message?: string } | null | undefined) {
@@ -141,6 +150,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const activePrayerRequestCountByHouseholdId = new Map<string, number>();
   const fruitItemsByHouseholdId = new Map<string, AdminFruitItem[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
+  const teamMembersByHouseholdId = new Map<string, AdminTeamMember[]>();
 
   if (ids.length > 0) {
     const supportResult = await supabase
@@ -224,6 +234,26 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       currentItems.push(item);
       fruitItemsByHouseholdId.set(item.household_id, currentItems);
     });
+
+    const teamMembersResult = await supabase
+      .from("missionary_team_members")
+      .select("id, household_id, display_name, public_number, role_title, short_description, sort_order, is_public, dos_user_id, source, status, created_at, updated_at")
+      .in("household_id", ids)
+      .neq("status", "archived")
+      .order("sort_order", { ascending: true })
+      .order("public_number", { ascending: true })
+      .order("display_name", { ascending: true });
+
+    if (teamMembersResult.error && !isMissingTeamMembersTable(teamMembersResult.error)) {
+      return { error: teamMembersResult.error.message, profiles: [] };
+    }
+
+    ((teamMembersResult.data ?? []) as AdminTeamMember[]).forEach((member) => {
+      const currentMembers = teamMembersByHouseholdId.get(member.household_id) ?? [];
+
+      currentMembers.push(member);
+      teamMembersByHouseholdId.set(member.household_id, currentMembers);
+    });
   }
 
   return {
@@ -233,6 +263,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       fruitItems: fruitItemsByHouseholdId.get(household.id) ?? [],
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
+      teamMembers: teamMembersByHouseholdId.get(household.id) ?? [],
     })),
   };
 }

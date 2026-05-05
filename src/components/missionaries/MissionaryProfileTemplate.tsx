@@ -6,7 +6,8 @@ import { HeroSupportActions, ProfileSupportSectionActions } from "@/components/m
 import { StoryReadMoreButton } from "@/components/missionaries/StoryReadMoreButton";
 import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromTheFieldModal";
 import { JoinPrayerTeamModal, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
-import type { Missionary, MissionaryFruitItem, MissionarySupportMode } from "@/src/data/missionaries";
+import type { Missionary, MissionaryFruitItem } from "@/src/data/missionaries";
+import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
 import { FundingDashboard } from "./FundingDashboard";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -80,50 +81,24 @@ function getTopFruitItems(items: readonly MissionaryFruitItem[]) {
   return [...featured, ...newest].slice(0, 3);
 }
 
-function toTitleFromMode(mode: MissionarySupportMode) {
-  switch (mode) {
-    case "general_fund":
-      return "USA Missionaries General Fund";
-    case "state_leader":
-      return "State Leadership Fund";
-    case "regional_leader":
-      return "Regional Leadership Fund";
-    case "national_leadership":
-      return "National Leadership";
-    case "household_nomination":
-      return "Recommended Missionary Household";
-    case "hidden":
-      return "Support This Mission";
-    case "household":
-    default:
-      return "Support This Mission";
-  }
-}
-
 function getSupportDefaults(missionary: Missionary) {
   const requestedMode = missionary.supportRouting?.mode ?? "household";
   const missingTarget = requestedMode === "household_nomination" && !missionary.supportRouting?.targetHouseholdName;
   const mode = missingTarget ? "general_fund" : requestedMode;
-  const routeLabel = missingTarget
-    ? "USA Missionaries General Fund"
-    : missionary.supportRouting?.targetHouseholdName || missionary.supportRouting?.targetFund || toTitleFromMode(mode);
-  const publicLabel = missionary.supportRouting?.publicLabel || routeLabel;
-  const buttonLabel = missionary.supportRouting?.buttonLabel || "Support Monthly";
-  const explanation = missionary.supportRouting?.explanation || (
-    mode === "household"
-      ? "Your support helps sustain the laborers who are reaching, discipling, and multiplying the mission across America."
-      : `This missionary household is not currently raising personal support. You can still give toward the broader mission through ${routeLabel}.`
-  );
+  const publicCopy = getSupportRoutingPublicCopy(mode, missionary.supportRouting?.targetHouseholdName);
+  const publicLabel = publicCopy.title;
+  const monthlyButtonLabel = missionary.supportRouting?.monthlyButtonLabel || "Support Monthly";
+  const explanation = missionary.supportRouting?.explanation || publicCopy.explanation;
 
   return {
-    buttonLabel,
+    buttonLabel: monthlyButtonLabel,
     enableMajorGiftInquiry: missionary.supportRouting?.enableMajorGiftInquiry !== false,
     explanation,
     isHouseholdFundraising: mode === "household",
     majorGiftButtonLabel: missionary.supportRouting?.majorGiftButtonLabel || "Contact About Major Gift",
     majorGiftPublicDescription: missionary.supportRouting?.majorGiftPublicDescription ?? null,
     mode,
-    monthlyButtonLabel: missionary.supportRouting?.monthlyButtonLabel || buttonLabel,
+    monthlyButtonLabel,
     monthlyGivingUrl: missionary.supportRouting?.monthlyGivingUrl ?? null,
     oneTimeButtonLabel: missionary.supportRouting?.oneTimeButtonLabel || "Give One Time",
     oneTimeGivingUrl: missionary.supportRouting?.oneTimeGivingUrl ?? null,
@@ -177,60 +152,46 @@ function SectionHeading({
   );
 }
 
-function MissionaryHouseholdSection({ missionary }: { missionary: Missionary }) {
+function TeamSection({ missionary }: { missionary: Missionary }) {
   const members = missionary.householdMembers ?? [];
 
   return (
     <section className="border-t border-stone-900/80 px-6 py-12 md:py-16">
       <div className="mx-auto max-w-6xl border border-stone-800/80 bg-[#080808] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.24)] md:p-8">
-        <div className="grid gap-7 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-          <div>
-            <div className="mb-4 h-px w-12 bg-[#D4A63D]" />
-            <h2 className="text-3xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
-              Missionary Household
-            </h2>
-            <p className="mt-4 text-[12px] uppercase tracking-[0.22em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              {missionary.locationLine}
-            </p>
-          </div>
-          <div>
-            <h3 className="text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
-              {missionary.name}
-            </h3>
-            <p className="mt-4 text-base leading-8 text-stone-200">
-              {missionary.statement}
-            </p>
-            {members.length > 0 ? (
-              <p className="mt-4 text-sm leading-7 text-stone-400">
-                This household includes {members.length} public team {members.length === 1 ? "member" : "members"} connected to the mission.
-              </p>
-            ) : null}
-          </div>
+        <div>
+          <div className="mb-4 h-px w-12 bg-[#D4A63D]" />
+          <h2 className="text-3xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
+            Team
+          </h2>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-400">
+            This household includes {members.length} public team {members.length === 1 ? "member" : "members"} connected to the mission.
+          </p>
         </div>
 
-        {members.length > 0 ? (
-          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {members.map((member) => {
-              const fullName = [member.firstName, member.lastName].filter(Boolean).join(" ");
-
-              return (
-                <article key={`${member.missionaryNumber}-${fullName}`} className="border border-stone-800 bg-[#050505] p-4">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    #{member.missionaryNumber}
-                  </p>
-                  <h3 className="mt-2 text-xl font-bold leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
-                    {fullName}
-                  </h3>
-                  {member.role ? (
-                    <p className="mt-2 text-sm text-stone-500">
-                      {member.role}
-                    </p>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        ) : null}
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {members.map((member) => (
+            <article key={`${member.publicNumber ?? "member"}-${member.displayName}`} className="border border-stone-800 bg-[#050505] p-4">
+              {member.publicNumber ? (
+                <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {member.publicNumber}
+                </p>
+              ) : null}
+              <h3 className="mt-2 text-xl font-bold leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+                {member.displayName}
+              </h3>
+              {member.roleTitle ? (
+                <p className="mt-2 text-sm text-stone-400">
+                  {member.roleTitle}
+                </p>
+              ) : null}
+              {member.shortDescription ? (
+                <p className="mt-3 text-sm leading-6 text-stone-500">
+                  {member.shortDescription}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -416,6 +377,7 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
     showFruit: true,
     showHousehold: true,
     showPhotos: true,
+    showTeam: true,
     showPrayer: true,
     showStory: true,
     showSupport: missionary.supportEnabled ?? true,
@@ -427,8 +389,8 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
   const storyParagraphs = storedStoryParagraphs ?? fallbackStoryParagraphs;
   const storyPreview = storedStoryParagraphs?.[0] ?? (missionary.slug === "ryan-brooke-fox" ? ryanBrookeStoryPreview : storyParagraphs?.[0] ?? "");
   const fruitItems = missionary.fruitItems ?? [];
-  const showHousehold = features.showHousehold;
   const showPhotos = features.showPhotos;
+  const showTeam = features.showTeam && Boolean(missionary.householdMembers?.length);
   const showStory = features.showStory && Boolean(storyParagraphs?.length);
   const showFruit = features.showFruit && fruitItems.length > 0;
   const supportDefaults = getSupportDefaults(missionary);
@@ -481,8 +443,8 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
         actions={<HeroSupportActions {...supportModalProps} />}
       />
 
-      {showHousehold ? (
-        <MissionaryHouseholdSection missionary={missionary} />
+      {showTeam ? (
+        <TeamSection missionary={missionary} />
       ) : null}
 
       {showStory && storyParagraphs ? (
@@ -491,6 +453,10 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
 
       {showFruit ? (
         <FruitSection fruitItems={fruitItems} />
+      ) : null}
+
+      {showPrayer ? (
+        <PrayerSection missionary={missionary} />
       ) : null}
 
       {showSupport ? (
@@ -520,10 +486,6 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
             <ProfileSupportSectionActions {...supportModalProps} />
           </div>
         </section>
-      ) : null}
-
-      {showPrayer ? (
-        <PrayerSection missionary={missionary} />
       ) : null}
     </main>
   );

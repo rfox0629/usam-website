@@ -12,6 +12,11 @@ import {
   type MissionaryImageSlot,
 } from "@/src/lib/missionaries/profile-image-upload";
 import {
+  normalizeSupportRoutingMode,
+  supportRoutingModeDetails,
+  type SupportRoutingMode,
+} from "@/src/lib/missionaries/support-routing";
+import {
   locationVisibilityOptions,
   ministryRegionOptions,
   normalizeLocationVisibility,
@@ -30,18 +35,13 @@ import {
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
-export type AdminSupportMode =
-  | "household"
-  | "general_fund"
-  | "state_leader"
-  | "regional_leader"
-  | "national_leadership"
-  | "household_nomination"
-  | "hidden";
+export type AdminSupportMode = SupportRoutingMode;
 
 export type AdminFruitSource = "website_admin" | "dos" | "public_form";
 export type AdminFruitStatus = "draft" | "published" | "hidden" | "archived";
 export type AdminFruitVisibility = "private" | "internal" | "public";
+export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
+export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 
 export type AdminHousehold = {
   id: string;
@@ -63,6 +63,7 @@ export type AdminHousehold = {
   location_visibility?: LocationVisibility | string | null;
   show_household?: boolean | null;
   show_photos?: boolean | null;
+  show_team?: boolean | null;
   show_story?: boolean | null;
   show_fruit?: boolean | null;
   show_support?: boolean | null;
@@ -122,11 +123,28 @@ export type AdminFruitItem = {
   updated_at: string | null;
 };
 
+export type AdminTeamMember = {
+  created_at: string;
+  display_name: string;
+  dos_user_id: string | null;
+  household_id: string;
+  id: string;
+  is_public: boolean | null;
+  public_number: string | null;
+  role_title: string | null;
+  short_description: string | null;
+  sort_order: number | null;
+  source: AdminTeamMemberSource;
+  status: AdminTeamMemberStatus;
+  updated_at: string | null;
+};
+
 export type AdminProfile = AdminHousehold & {
   activePrayerRequestCount?: number;
   fruitItems?: AdminFruitItem[];
   prayerPartnerCount?: number;
   support?: AdminSupportSettings;
+  teamMembers?: AdminTeamMember[];
 };
 
 type MissionaryProfilesAdminDashboardProps = {
@@ -151,7 +169,7 @@ type TargetHouseholdOption = {
 
 type TargetHouseholdLoadState = "error" | "idle" | "loading" | "success";
 
-type EditorTab = "profile" | "features" | "images" | "story" | "fruit" | "support" | "prayer";
+type EditorTab = "profile" | "features" | "media" | "team" | "story" | "fruit" | "support" | "prayer";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
   annual_goal: 0,
@@ -223,9 +241,16 @@ const fruitVisibilityOptions: Array<{ label: string; value: AdminFruitVisibility
   { label: "Public", value: "public" },
 ];
 
+const teamMemberStatusOptions: Array<{ label: string; value: AdminTeamMemberStatus }> = [
+  { label: "Active", value: "active" },
+  { label: "Hidden", value: "hidden" },
+  { label: "Archived", value: "archived" },
+];
+
 const featureDescriptions = {
-  show_household: "Shows household name, location, short mission, and intro details.",
-  show_photos: "Shows public profile photos and directory images. Turn off for a more discreet profile.",
+  show_household: "Controls whether this profile appears publicly in the directory and can be viewed.",
+  show_photos: "Shows public profile media including images and future assets. Turn off for a more discreet profile.",
+  show_team: "Shows public team or household members connected to this profile.",
   show_story: "Shows the public Our Story section.",
   show_fruit: "Shows testimonies, reviews, updates, and field fruit.",
   show_support: "Shows giving and support invitations.",
@@ -235,7 +260,8 @@ const featureDescriptions = {
 const editorTabs: Array<{ label: string; value: EditorTab }> = [
   { label: "Profile", value: "profile" },
   { label: "Features", value: "features" },
-  { label: "Images", value: "images" },
+  { label: "Media", value: "media" },
+  { label: "Team", value: "team" },
   { label: "Story", value: "story" },
   { label: "Fruit", value: "fruit" },
   { label: "Support", value: "support" },
@@ -309,6 +335,26 @@ function newFruitItem(householdId: string): AdminFruitItem {
     title: "",
     updated_at: timestamp,
     visibility: "private",
+  };
+}
+
+function newTeamMember(householdId: string): AdminTeamMember {
+  const timestamp = new Date().toISOString();
+
+  return {
+    created_at: timestamp,
+    display_name: "",
+    dos_user_id: "",
+    household_id: householdId,
+    id: `new-${Date.now()}`,
+    is_public: true,
+    public_number: "",
+    role_title: "",
+    short_description: "",
+    sort_order: 0,
+    source: "website_admin",
+    status: "active",
+    updated_at: timestamp,
   };
 }
 
@@ -601,6 +647,10 @@ function getFeatureValue(profile: AdminProfile, field: keyof typeof featureDescr
   return profile[field] !== false;
 }
 
+function isProfilePublic(profile: AdminProfile) {
+  return getFeatureValue(profile, "show_household");
+}
+
 function getProfilePrimaryState(profile: AdminProfile) {
   return normalizePrimaryState(profile.primary_state) ?? normalizePrimaryState(profile.location) ?? "";
 }
@@ -622,15 +672,7 @@ function getProfileLocationVisibility(profile: AdminProfile) {
 }
 
 function getSupportMode(profile: AdminProfile): AdminSupportMode {
-  const value = profile.support_mode;
-
-  if (value === "nominate_household") {
-    return "household_nomination";
-  }
-
-  return supportModeOptions.some((option) => option.value === value)
-    ? value as AdminSupportMode
-    : "household";
+  return normalizeSupportRoutingMode(typeof profile.support_mode === "string" ? profile.support_mode : null);
 }
 
 function FeatureToggleCard({
@@ -830,6 +872,52 @@ function FruitItemCard({
   );
 }
 
+function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
+  const detail = supportRoutingModeDetails[mode];
+
+  return (
+    <div className="border border-stone-800/70 bg-[#070707] p-4">
+      <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        Mode Behavior
+      </p>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Public Page Says
+          </p>
+          <p className="mt-2 text-sm leading-6 text-stone-200">
+            {detail.publicMeaning}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Giving Buttons Route
+          </p>
+          <p className="mt-2 text-sm leading-6 text-stone-200">
+            {detail.adminRouting}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Missing Target
+          </p>
+          <p className="mt-2 text-sm leading-6 text-stone-200">
+            {detail.adminFallback}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Admin Saves
+          </p>
+          <p className="mt-2 text-sm leading-6 text-stone-200">
+            {detail.adminSavedFields}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FruitItemSection({
   emptyText,
   items,
@@ -924,6 +1012,150 @@ function FruitFeedManager({
         onUpdate={onUpdate}
         title="DOS Submitted Items"
       />
+    </div>
+  );
+}
+
+function TeamMemberManager({
+  items,
+  onAdd,
+  onArchive,
+  onRemove,
+  onUpdate,
+}: {
+  items: readonly AdminTeamMember[];
+  onAdd: () => void;
+  onArchive: (memberId: string) => void;
+  onRemove: (memberId: string) => void;
+  onUpdate: (memberId: string, patch: Partial<AdminTeamMember>) => void;
+}) {
+  const sortedItems = [...items].sort((first, second) => (
+    toNumber(first.sort_order) - toNumber(second.sort_order)
+    || (first.public_number ?? "").localeCompare(second.public_number ?? "", undefined, { numeric: true })
+    || first.display_name.localeCompare(second.display_name)
+  ));
+  const publicCount = sortedItems.filter((member) => member.status === "active" && member.is_public !== false).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <StatPreview label="Public Members" value={String(publicCount)} />
+          <StatPreview label="Total Managed" value={String(sortedItems.length)} />
+          <StatPreview label="DOS Ready" value={String(sortedItems.filter((member) => member.dos_user_id).length)} />
+        </div>
+        <button
+          className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 py-3 text-xs uppercase tracking-[0.22em] text-black transition-all hover:bg-[#F5B942]"
+          onClick={onAdd}
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          type="button"
+        >
+          Add Team Member
+        </button>
+      </div>
+
+      {sortedItems.length === 0 ? (
+        <div className="border border-stone-800 bg-[#050505] p-5 text-sm leading-7 text-stone-400">
+          No team members yet. Add public household or ministry team members connected to this profile.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {sortedItems.map((member) => (
+            <div className="border border-stone-800 bg-[#050505] p-4" key={member.id}>
+              <div className="flex flex-col gap-3 border-b border-stone-800/70 pb-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {member.source === "dos" ? "DOS" : "Website Admin"}
+                  </p>
+                  <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+                    {member.display_name || "New Team Member"}
+                  </h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {member.id.startsWith("new-") ? (
+                    <button
+                      className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-red-400 hover:text-red-200"
+                      onClick={() => onRemove(member.id)}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      Delete
+                    </button>
+                  ) : null}
+                  <button
+                    className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                    onClick={() => onArchive(member.id)}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    Archive
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <Field
+                  label="Display Name"
+                  onChange={(value) => onUpdate(member.id, { display_name: value })}
+                  value={member.display_name}
+                />
+                <Field
+                  helperText="Example: #001"
+                  label="Public Number"
+                  onChange={(value) => onUpdate(member.id, { public_number: value })}
+                  value={member.public_number}
+                />
+                <Field
+                  label="Role / Title"
+                  onChange={(value) => onUpdate(member.id, { role_title: value })}
+                  value={member.role_title}
+                />
+                <Field
+                  label="Sort Order"
+                  onChange={(value) => onUpdate(member.id, { sort_order: Number(value) })}
+                  type="number"
+                  value={member.sort_order ?? 0}
+                />
+                <SelectField
+                  label="Status"
+                  onChange={(value) => onUpdate(member.id, { status: value as AdminTeamMemberStatus, is_public: value === "active" })}
+                  options={teamMemberStatusOptions}
+                  value={member.status}
+                />
+                <Field
+                  helperText="Future DOS connection placeholder."
+                  label="DOS User ID"
+                  onChange={(value) => onUpdate(member.id, { dos_user_id: value })}
+                  value={member.dos_user_id}
+                />
+              </div>
+
+              <div className="mt-4">
+                <TextArea
+                  helperText="Optional short public note for this team member."
+                  label="Short Description"
+                  onChange={(value) => onUpdate(member.id, { short_description: value })}
+                  rows={3}
+                  value={member.short_description}
+                />
+              </div>
+
+              <label className="mt-4 inline-flex items-center gap-3 text-sm text-stone-200">
+                <input
+                  checked={member.is_public !== false && member.status === "active"}
+                  className="h-4 w-4 accent-[#D4A63D]"
+                  onChange={(event) => onUpdate(member.id, {
+                    is_public: event.target.checked,
+                    status: event.target.checked ? "active" : "hidden",
+                  })}
+                  type="checkbox"
+                />
+                Public visible
+              </label>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1122,6 +1354,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     updateSelected({
       ...selectedProfile,
       [field]: value,
+      public_visible: field === "show_household" ? value : selectedProfile.public_visible,
       support: field === "show_support"
         ? {
           ...(selectedProfile.support ?? emptySupport(selectedProfile.id)),
@@ -1137,11 +1370,16 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     }
 
     const showSupport = nextMode !== "hidden";
+    const targetFund = ["general_fund", "state_leader", "regional_leader", "national_leadership"].includes(nextMode)
+      ? nextMode
+      : null;
 
     updateSelected({
       ...selectedProfile,
       show_support: showSupport,
       support_mode: nextMode,
+      support_target_fund: targetFund,
+      support_target_household_id: nextMode === "household_nomination" ? selectedProfile.support_target_household_id : null,
       support: {
         ...(selectedProfile.support ?? emptySupport(selectedProfile.id)),
         show_support: showSupport,
@@ -1220,6 +1458,57 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     }[action] as Partial<AdminFruitItem>;
 
     updateFruitItem(itemId, patch);
+  }
+
+  function updateTeamMember(memberId: string, patch: Partial<AdminTeamMember>) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      teamMembers: (selectedProfile.teamMembers ?? []).map((member) => (
+        member.id === memberId
+          ? {
+            ...member,
+            ...patch,
+            updated_at: new Date().toISOString(),
+          }
+          : member
+      )),
+    });
+  }
+
+  function addTeamMember() {
+    if (!selectedProfile) {
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      teamMembers: [
+        ...(selectedProfile.teamMembers ?? []),
+        newTeamMember(selectedProfile.id),
+      ],
+    });
+  }
+
+  function archiveTeamMember(memberId: string) {
+    updateTeamMember(memberId, {
+      is_public: false,
+      status: "archived",
+    });
+  }
+
+  function removeTeamMember(memberId: string) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      teamMembers: (selectedProfile.teamMembers ?? []).filter((member) => member.id !== memberId),
+    });
   }
 
   async function uploadImage(slot: MissionaryImageSlot, file: File) {
@@ -1314,7 +1603,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           prayer_destination: selectedProfile.prayer_destination,
           prayer_section_description: selectedProfile.prayer_section_description,
           prayer_section_headline: selectedProfile.prayer_section_headline,
-          public_visible: selectedProfile.public_visible,
+          public_visible: isProfilePublic(selectedProfile),
           secondary_states: selectedProfile.secondary_states ?? [],
           serving_scope: getProfileServingScope(selectedProfile),
           region: getProfileRegion(selectedProfile) || null,
@@ -1322,6 +1611,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           show_fruit: selectedProfile.show_fruit,
           show_household: selectedProfile.show_household,
           show_photos: selectedProfile.show_photos,
+          show_team: selectedProfile.show_team,
           show_prayer: selectedProfile.show_prayer,
           show_story: selectedProfile.show_story,
           show_support: selectedProfile.show_support,
@@ -1340,6 +1630,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         fruitItems: selectedProfile.fruitItems ?? [],
         originalSlug: initialProfiles.find((profile) => profile.id === selectedProfile.id)?.slug,
         support: selectedProfile.support ?? emptySupport(selectedProfile.id),
+        teamMembers: selectedProfile.teamMembers ?? [],
       }),
       credentials: "same-origin",
       headers: {
@@ -1379,7 +1670,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               Choose A Profile
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
-              Select a missionary household to edit its public profile, images, features, support routing, and prayer settings.
+              Select a missionary household to edit its public profile, media, team, support routing, and prayer settings.
             </p>
           </div>
           <button
@@ -1407,7 +1698,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 type="button"
               >
                 <span className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  {profile.public_visible ? "Public" : "Hidden"}
+                  {isProfilePublic(profile) ? "Public" : "Hidden"}
                 </span>
                 <span className="mt-3 block text-2xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
                   {profile.display_name}
@@ -1436,13 +1727,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       ]
       : [{ label: "No other missionary households available.", value: "" }];
   const targetHouseholdSelectDisabled = targetHouseholdLoadState !== "success" || targetHouseholds.length === 0;
-  const fundOptions = [
-    { label: "General Fund", value: "general_fund" },
-    { label: "State Leadership Fund", value: "state_leader" },
-    { label: "Regional Leadership Fund", value: "regional_leader" },
-    { label: "National Leadership Fund", value: "national_leadership" },
-  ];
-
+  const showFundraisingSettings = supportMode === "household";
+  const showGivingSettings = supportMode === "household";
+  const showLeadershipPlaceholder = supportMode === "state_leader" || supportMode === "regional_leader";
+  const showSupportActions = supportMode !== "hidden";
   return (
     <div className="space-y-6">
       <section className="bg-stone-950/35 p-5 md:p-7">
@@ -1522,14 +1810,20 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               <FeatureToggleCard
                 checked={getFeatureValue(selectedProfile, "show_household")}
                 description={featureDescriptions.show_household}
-                label="Missionary Household"
+                label="Profile Visibility"
                 onChange={(value) => updateFeatureField("show_household", value)}
               />
               <FeatureToggleCard
                 checked={getFeatureValue(selectedProfile, "show_photos")}
                 description={featureDescriptions.show_photos}
-                label="Photos"
+                label="Media"
                 onChange={(value) => updateFeatureField("show_photos", value)}
+              />
+              <FeatureToggleCard
+                checked={getFeatureValue(selectedProfile, "show_team")}
+                description={featureDescriptions.show_team}
+                label="Team"
+                onChange={(value) => updateFeatureField("show_team", value)}
               />
               <FeatureToggleCard
                 checked={getFeatureValue(selectedProfile, "show_story")}
@@ -1561,7 +1855,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "profile" ? (
           <SectionIntro
-            description="Controls the public hero section, directory visibility, location display, and short mission statement."
+            description="Controls the public hero section, location display, and short mission statement."
             title="Profile"
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -1611,31 +1905,20 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             </div>
             <div className="mt-4">
               <TextArea
-                helperText="Connected to the Missionary Household intro and profile hero."
+                helperText="Shown in the public hero."
                 label="Short Mission"
                 onChange={(value) => updateHouseholdField("short_mission", value)}
                 rows={3}
                 value={selectedProfile.short_mission}
               />
             </div>
-            <div className="mt-6 flex flex-col gap-6 border-t border-stone-800/70 pt-6">
-              <label className="inline-flex items-center gap-3 text-sm text-stone-100">
-                <input
-                  checked={selectedProfile.public_visible !== false}
-                  className="h-4 w-4 accent-[#D4A63D]"
-                  onChange={(event) => updateHouseholdField("public_visible", event.target.checked)}
-                  type="checkbox"
-                />
-                Public visible in the missionary directory
-              </label>
-            </div>
           </SectionIntro>
           ) : null}
 
-          {activeTab === "images" ? (
+          {activeTab === "media" ? (
           <SectionIntro
-            description="Images used on the directory card and as the household overlay on the shared profile hero background."
-            title="Images"
+            description="Media used on the directory card and as the household overlay on the shared profile hero background."
+            title="Media"
           >
             <div className="grid gap-4 md:grid-cols-2">
               <ImageUploadField
@@ -1657,6 +1940,21 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 value={selectedProfile.hero_image_url}
               />
             </div>
+          </SectionIntro>
+          ) : null}
+
+          {activeTab === "team" ? (
+          <SectionIntro
+            description="Manage public team and household members connected to this profile. Future DOS user connections can attach here."
+            title="Team"
+          >
+            <TeamMemberManager
+              items={selectedProfile.teamMembers ?? []}
+              onAdd={addTeamMember}
+              onArchive={archiveTeamMember}
+              onRemove={removeTeamMember}
+              onUpdate={updateTeamMember}
+            />
           </SectionIntro>
           ) : null}
 
@@ -1726,15 +2024,30 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     </div>
                   ) : null}
 
-                  {["general_fund", "state_leader", "regional_leader", "national_leadership"].includes(supportMode) ? (
-                    <SelectField
-                      helperText="Stored as the routing fund for the commitment record."
-                      label="Target Fund"
-                      onChange={(value) => updateHouseholdField("support_target_fund", value)}
-                      options={fundOptions}
-                      value={selectedProfile.support_target_fund || supportMode}
-                    />
+                  {showLeadershipPlaceholder ? (
+                    <div className="border border-stone-800 bg-[#050505] p-4 text-sm leading-6 text-stone-300">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-stone-200" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        {supportMode === "state_leader" ? "State Leader Target" : "Regional Leader Target"}
+                      </p>
+                      <p className="mt-2">
+                        Leadership target dropdowns are future-ready. Until a leader target exists, public giving falls back to the General Fund.
+                      </p>
+                    </div>
                   ) : null}
+
+                  {supportMode === "general_fund" || supportMode === "national_leadership" ? (
+                    <div className="border border-stone-800 bg-[#050505] p-4 text-sm leading-6 text-stone-300">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-stone-200" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Routing Note
+                      </p>
+                      <p className="mt-2">
+                        This mode uses the default Church Center giving link. Internal allocation can be handled in the giving platform.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="mt-4">
+                  <SupportModeSummary mode={supportMode} />
                 </div>
                 <div className="mt-4">
                   <TextArea
@@ -1747,6 +2060,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </div>
               </div>
 
+              {showFundraisingSettings ? (
               <div className="border-t border-stone-800/70 pt-6">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Fundraising Numbers
@@ -1771,7 +2085,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   />
                 </div>
               </div>
+              ) : null}
 
+              {showGivingSettings ? (
               <div className="border-t border-stone-800/70 pt-6">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Giving Links
@@ -1791,7 +2107,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   />
                 </div>
               </div>
+              ) : null}
 
+              {showSupportActions ? (
               <div className="border-t border-stone-800/70 pt-6">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Button Labels
@@ -1802,7 +2120,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   <Field label="Major Gift Button Label" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
                 </div>
               </div>
+              ) : null}
 
+              {showSupportActions ? (
               <div className="border-t border-stone-800/70 pt-6">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Major Gift Settings
@@ -1832,6 +2152,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   />
                 </div>
               </div>
+              ) : null}
             </div>
           </SectionIntro>
           ) : null}

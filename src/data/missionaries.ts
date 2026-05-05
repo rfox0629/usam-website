@@ -39,6 +39,7 @@ export type MissionarySupportMode =
 export type MissionaryProfileFeatures = {
   showHousehold: boolean;
   showPhotos: boolean;
+  showTeam: boolean;
   showStory: boolean;
   showFruit: boolean;
   showSupport: boolean;
@@ -95,10 +96,12 @@ export type MissionaryFruitItem = {
 };
 
 export type MissionaryHouseholdMember = {
-  missionaryNumber: string;
-  firstName: string;
-  lastName?: string | null;
-  role?: string | null;
+  displayName: string;
+  dosUserId?: string | null;
+  publicNumber?: string | null;
+  roleTitle?: string | null;
+  shortDescription?: string | null;
+  sortOrder?: number | null;
 };
 
 export type Missionary = {

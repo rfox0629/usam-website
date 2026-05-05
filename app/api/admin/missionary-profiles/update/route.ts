@@ -8,6 +8,7 @@ import {
   normalizeRoleType,
   normalizeServingScope,
 } from "@/src/lib/missionaries/location";
+import { normalizeSupportRoutingMode } from "@/src/lib/missionaries/support-routing";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type UpdatePayload = {
@@ -28,6 +29,18 @@ type UpdatePayload = {
     testimony_date?: unknown;
     title?: unknown;
     visibility?: unknown;
+  }>;
+  teamMembers?: Array<{
+    display_name?: unknown;
+    dos_user_id?: unknown;
+    id?: unknown;
+    is_public?: unknown;
+    public_number?: unknown;
+    role_title?: unknown;
+    short_description?: unknown;
+    sort_order?: unknown;
+    source?: unknown;
+    status?: unknown;
   }>;
   household?: {
     display_name?: unknown;
@@ -51,6 +64,7 @@ type UpdatePayload = {
     show_fruit?: unknown;
     show_household?: unknown;
     show_photos?: unknown;
+    show_team?: unknown;
     show_prayer?: unknown;
     show_story?: unknown;
     show_support?: unknown;
@@ -86,19 +100,11 @@ type UpdatePayload = {
   };
 };
 
-const supportModes = [
-  "household",
-  "general_fund",
-  "state_leader",
-  "regional_leader",
-  "national_leadership",
-  "household_nomination",
-  "hidden",
-] as const;
-
 const fruitSources = ["website_admin", "dos", "public_form"] as const;
 const fruitStatuses = ["draft", "published", "hidden", "archived"] as const;
 const fruitVisibilities = ["private", "internal", "public"] as const;
+const teamMemberSources = ["website_admin", "dos", "public_form"] as const;
+const teamMemberStatuses = ["active", "hidden", "archived"] as const;
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -120,6 +126,18 @@ function asBooleanDefaultTrue(value: unknown) {
   return value !== false;
 }
 
+function asPublicProfileVisibility(showHousehold: unknown, legacyPublicVisible: unknown) {
+  if (typeof showHousehold === "boolean") {
+    return showHousehold;
+  }
+
+  if (typeof legacyPublicVisible === "boolean") {
+    return legacyPublicVisible;
+  }
+
+  return true;
+}
+
 function asStringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
@@ -127,13 +145,7 @@ function asStringArray(value: unknown) {
 }
 
 function asSupportMode(value: unknown) {
-  if (value === "nominate_household") {
-    return "household_nomination";
-  }
-
-  return supportModes.includes(value as typeof supportModes[number])
-    ? value as typeof supportModes[number]
-    : "household";
+  return normalizeSupportRoutingMode(typeof value === "string" ? value : null);
 }
 
 function asFruitSource(value: unknown) {
@@ -154,6 +166,18 @@ function asFruitVisibility(value: unknown) {
     : "private";
 }
 
+function asTeamMemberSource(value: unknown) {
+  return teamMemberSources.includes(value as typeof teamMemberSources[number])
+    ? value as typeof teamMemberSources[number]
+    : "website_admin";
+}
+
+function asTeamMemberStatus(value: unknown) {
+  return teamMemberStatuses.includes(value as typeof teamMemberStatuses[number])
+    ? value as typeof teamMemberStatuses[number]
+    : "active";
+}
+
 function isExistingUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -167,6 +191,7 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
     "show_fruit",
     "show_support",
     "show_photos",
+    "show_team",
     "show_prayer",
     "primary_state",
     "serving_scope",
@@ -194,6 +219,12 @@ function hasMissingFruitItemsTableError(error: { message?: string } | null | und
   const message = error?.message ?? "";
 
   return message.includes("missionary_fruit_items");
+}
+
+function hasMissingTeamMembersTableError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("missionary_team_members");
 }
 
 function hasMissingSupportLinkColumnsError(error: { message?: string } | null | undefined) {
@@ -258,11 +289,15 @@ export async function POST(request: Request) {
   const timestamp = new Date().toISOString();
   const supportMode = asSupportMode(household.support_mode);
   const showSupport = supportMode !== "hidden" && asBooleanDefaultTrue(household.show_support);
+  const supportTargetFund = ["general_fund", "state_leader", "regional_leader", "national_leadership"].includes(supportMode)
+    ? supportMode
+    : null;
   const primaryState = normalizePrimaryState(asString(household.primary_state) || asString(household.location));
   const servingScope = normalizeServingScope(asString(household.serving_scope));
   const ministryRegion = normalizeMinistryRegion(asString(household.region));
   const roleType = normalizeRoleType(asString(household.role_type));
   const locationVisibility = normalizeLocationVisibility(asString(household.location_visibility));
+  const showHousehold = asPublicProfileVisibility(household.show_household, household.public_visible);
 
   const householdUpdate = {
     custom_serving_label: asNullableString(household.custom_serving_label),
@@ -278,14 +313,15 @@ export async function POST(request: Request) {
     prayer_section_headline: asNullableString(household.prayer_section_headline),
     primary_state: primaryState,
     profile_image_url: asNullableString(household.profile_image_url),
-    public_visible: Boolean(household.public_visible),
+    public_visible: showHousehold,
     region: ministryRegion,
     role_type: roleType,
     secondary_states: asStringArray(household.secondary_states),
     serving_scope: servingScope,
     show_fruit: asBooleanDefaultTrue(household.show_fruit),
-    show_household: asBooleanDefaultTrue(household.show_household),
+    show_household: showHousehold,
     show_photos: asBooleanDefaultTrue(household.show_photos),
+    show_team: asBooleanDefaultTrue(household.show_team),
     show_prayer: asBooleanDefaultTrue(household.show_prayer),
     show_story: asBooleanDefaultTrue(household.show_story),
     show_support: showSupport,
@@ -297,8 +333,8 @@ export async function POST(request: Request) {
     support_explanation: asNullableString(household.support_explanation),
     support_mode: supportMode,
     support_public_label: asNullableString(household.support_public_label),
-    support_target_fund: asNullableString(household.support_target_fund),
-    support_target_household_id: asNullableString(household.support_target_household_id),
+    support_target_fund: supportTargetFund,
+    support_target_household_id: supportMode === "household_nomination" ? asNullableString(household.support_target_household_id) : null,
     updated_at: timestamp,
   };
   const householdBaseUpdate = {
@@ -457,6 +493,70 @@ export async function POST(request: Request) {
     }
   }
 
+  let savedTeamMembers = true;
+
+  if (Array.isArray(payload.teamMembers)) {
+    const sanitizedTeamMembers = payload.teamMembers
+      .map((member) => {
+        const displayName = asString(member.display_name);
+
+        if (!displayName) {
+          return null;
+        }
+
+        return {
+          id: asString(member.id),
+          record: {
+            display_name: displayName,
+            dos_user_id: asNullableString(member.dos_user_id),
+            household_id: householdId,
+            is_public: member.is_public !== false,
+            public_number: asNullableString(member.public_number),
+            role_title: asNullableString(member.role_title),
+            short_description: asNullableString(member.short_description),
+            sort_order: asNumber(member.sort_order),
+            source: asTeamMemberSource(member.source),
+            status: asTeamMemberStatus(member.status),
+          },
+        };
+      })
+      .filter((member): member is NonNullable<typeof member> => Boolean(member));
+    const existingTeamMembers = sanitizedTeamMembers
+      .filter((member) => isExistingUuid(member.id))
+      .map((member) => ({ ...member.record, id: member.id }));
+    const newTeamMembers = sanitizedTeamMembers
+      .filter((member) => !isExistingUuid(member.id) && member.record.status !== "archived")
+      .map((member) => member.record);
+
+    if (existingTeamMembers.length > 0) {
+      const { error: teamUpdateError } = await supabase
+        .from("missionary_team_members")
+        .upsert(existingTeamMembers, { onConflict: "id" });
+
+      if (teamUpdateError) {
+        if (hasMissingTeamMembersTableError(teamUpdateError)) {
+          savedTeamMembers = false;
+        } else {
+          return NextResponse.json({ error: teamUpdateError.message }, { status: 500 });
+        }
+      }
+    }
+
+    if (newTeamMembers.length > 0 && savedTeamMembers) {
+      const { error: teamInsertError } = await supabase
+        .from("missionary_team_members")
+        .insert(newTeamMembers);
+
+      if (teamInsertError) {
+        if (hasMissingTeamMembersTableError(teamInsertError)) {
+          savedTeamMembers = false;
+        } else {
+          return NextResponse.json({ error: teamInsertError.message }, { status: 500 });
+        }
+      }
+    }
+  }
+
   revalidatePath("/missionaries");
   revalidatePath(`/missionaries/${slug}`);
 
@@ -470,6 +570,7 @@ export async function POST(request: Request) {
       savedFeatureFields ? "" : "Apply the profile features migration before feature controls can persist.",
       savedSupportLinkFields ? "" : "Apply the support major gift migration before giving links and major gift settings can persist.",
       savedFruitItems ? "" : "Apply the missionary fruit items migration before Fruit From The Field items can persist.",
+      savedTeamMembers ? "" : "Apply the missionary team members migration before Team members can persist.",
     ].filter(Boolean).join(" "),
     slug,
   });
