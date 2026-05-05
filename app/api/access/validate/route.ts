@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
   const response = NextResponse.json({
     ok: true,
-    redirectTo: source === "team" ? "/missionaries" : "/system#system-preview",
+    redirectTo: source === "team" ? "/missionaries" : "/system/preview",
   });
 
   response.cookies.set(USAM_ACCESS_COOKIE_NAME, token, accessCookieOptions());

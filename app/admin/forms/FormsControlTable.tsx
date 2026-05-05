@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 export type FormControlRow = {
+  access: "Protected" | "Public";
   formName: string;
   formType: string;
   lastSubmissionLabel: string;
@@ -29,6 +30,23 @@ function StatusBadge({ status }: { status: FormControlRow["status"] }) {
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {isLive ? "Live" : "Draft"}
+    </span>
+  );
+}
+
+function AccessBadge({ access }: { access: FormControlRow["access"] }) {
+  const isProtected = access === "Protected";
+
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.14em] ${
+        isProtected
+          ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
+          : "border-stone-700 bg-stone-900/70 text-stone-300"
+      }`}
+      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+    >
+      {access}
     </span>
   );
 }
@@ -168,6 +186,7 @@ function DetailDrawer({
         <DetailItem label="URL" value={<Link className="hover:text-[#F5B942]" href={form.url}>{form.url}</Link>} />
         <DetailItem label="Form Type" value={form.formType} />
         <DetailItem label="Status" value={<StatusBadge status={form.status} />} />
+        <DetailItem label="Access" value={<AccessBadge access={form.access} />} />
         <DetailItem label="Routes To" value={<RouteBadge routesTo={form.routesTo} />} />
         <DetailItem label="Submissions Count" value={form.totalSubmissions} />
         <DetailItem label="Last Submission Date" value={form.lastSubmissionLabel} />
@@ -232,13 +251,14 @@ export function FormsControlTable({ rows }: { rows: readonly FormControlRow[] })
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
           <div className="overflow-x-auto">
-            <table className="min-w-[1180px] w-full border-collapse text-left">
+            <table className="min-w-[1260px] w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-stone-800/70 text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   <th className="px-4 py-3 font-bold">Form Name</th>
                   <th className="px-4 py-3 font-bold">URL</th>
                   <th className="px-4 py-3 font-bold">Form Type</th>
                   <th className="px-4 py-3 font-bold">Status</th>
+                  <th className="px-4 py-3 font-bold">Access</th>
                   <th className="px-4 py-3 font-bold">Routes To</th>
                   <th className="px-4 py-3 text-right font-bold">Submissions Count</th>
                   <th className="px-4 py-3 font-bold">Last Submission Date</th>
@@ -267,6 +287,7 @@ export function FormsControlTable({ rows }: { rows: readonly FormControlRow[] })
                     <td className="px-4 py-3 text-sm text-stone-400">{row.url}</td>
                     <td className="px-4 py-3 text-sm text-stone-400">{row.formType}</td>
                     <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
+                    <td className="px-4 py-3"><AccessBadge access={row.access} /></td>
                     <td className="px-4 py-3"><RouteBadge routesTo={row.routesTo} /></td>
                     <td className="px-4 py-3 text-right text-sm tabular-nums text-stone-200">{row.totalSubmissions}</td>
                     <td className="px-4 py-3 text-sm text-stone-400">{row.lastSubmissionLabel}</td>
@@ -282,7 +303,7 @@ export function FormsControlTable({ rows }: { rows: readonly FormControlRow[] })
                   </tr>
                 )) : (
                   <tr>
-                    <td className="px-4 py-8 text-sm text-stone-400" colSpan={8}>
+                    <td className="px-4 py-8 text-sm text-stone-400" colSpan={9}>
                       No forms match these filters.
                     </td>
                   </tr>

@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
-  const response = NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true, redirectTo: "/system/preview" });
 
   response.cookies.set(USAM_ACCESS_COOKIE_NAME, token, accessCookieOptions());
 

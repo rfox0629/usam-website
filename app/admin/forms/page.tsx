@@ -30,6 +30,13 @@ const forms = [
     url: "/support",
   },
   {
+    formName: "DOS Preview",
+    formType: "protected_page",
+    routesTo: "System/Auth",
+    status: "Live",
+    url: "/system/preview",
+  },
+  {
     formName: "Prayer Team Application",
     formType: "prayer_team_application",
     routesTo: "Prayer Team",
@@ -165,13 +172,14 @@ export default async function FormsPagesAdminPage() {
     });
   }
   const rows: FormControlRow[] = forms.map((form) => {
-    if (form.formType === "system_access_code" || form.formType === "team_access_code") {
+    if (form.formType === "system_access_code" || form.formType === "team_access_code" || form.formType === "protected_page") {
       return {
         ...form,
+        access: form.formType === "protected_page" ? "Protected" : "Public",
         lastSubmissionLabel: "N/A",
         routesTo: form.routesTo,
         status: form.status,
-        totalSubmissions: "N/A",
+        totalSubmissions: form.formType === "protected_page" ? "Protected" : "N/A",
       };
     }
 
@@ -179,6 +187,7 @@ export default async function FormsPagesAdminPage() {
 
     return {
       ...form,
+      access: "Public",
       lastSubmissionLabel: formatDate(stats?.lastSubmission),
       routesTo: form.routesTo,
       status: form.status,

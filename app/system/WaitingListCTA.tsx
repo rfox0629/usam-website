@@ -114,7 +114,7 @@ export function WaitingListCTA({
           alreadyHasAccess={hasAccess}
           initialOpen={initialAccessOpen}
           onSecondaryClick={openWaitlistModal}
-          redirectPath="/system#system-preview"
+          redirectPath="/system/preview"
           secondaryLabel="Join Waiting List"
           sourcePage="/system"
           triggerClassName="inline-flex min-h-12 w-full items-center justify-center border border-stone-600 bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-stone-100 transition-all duration-300 hover:border-stone-300 hover:bg-white/[0.04] sm:w-[250px] lg:w-auto"
