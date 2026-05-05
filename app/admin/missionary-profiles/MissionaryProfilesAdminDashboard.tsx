@@ -171,6 +171,7 @@ type TargetHouseholdOption = {
 type TargetHouseholdLoadState = "error" | "idle" | "loading" | "success";
 
 type EditorTab = "profile" | "features" | "media" | "team" | "story" | "encounters" | "fruit" | "support" | "prayer";
+type SupportSubsection = "advanced" | "buttons" | "giving" | "gifts" | "progress";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
   annual_goal: 0,
@@ -257,6 +258,14 @@ const editorTabs: Array<{ label: string; value: EditorTab }> = [
   { label: "Prayer", value: "prayer" },
 ];
 
+const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
+  { label: "Fundraising Progress", value: "progress" },
+  { label: "Giving Links", value: "giving" },
+  { label: "Button Labels", value: "buttons" },
+  { label: "Major Gift Settings", value: "gifts" },
+  { label: "Advanced Settings", value: "advanced" },
+];
+
 const stateOptions = [
   { label: "Select state", value: "" },
   ...usStates.map((state) => ({ label: state, value: state })),
@@ -269,6 +278,42 @@ const regionOptions = [
 
 function toNumber(value: number | null | undefined) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function calculateMonthlyGoal(annualGoal: number | null | undefined) {
+  const goal = toNumber(annualGoal);
+
+  return goal > 0 ? Math.round(goal / 12) : 0;
+}
+
+function formatCurrency(value: number | null | undefined) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+    style: "currency",
+    currency: "USD",
+  }).format(toNumber(value));
+}
+
+function getSupportProgressPercentage(monthlyCommitted: number | null | undefined, monthlyGoal: number | null | undefined) {
+  const goal = toNumber(monthlyGoal);
+
+  if (goal <= 0) {
+    return 0;
+  }
+
+  return Math.round((toNumber(monthlyCommitted) / goal) * 100);
+}
+
+function getSupportProgressFillClass(progressPercentage: number) {
+  if (progressPercentage >= 100) {
+    return "bg-green-600";
+  }
+
+  if (progressPercentage >= 50) {
+    return "bg-gradient-to-r from-[#D4A63D] to-green-500";
+  }
+
+  return "bg-[#D4A63D]";
 }
 
 function normalizePublicRosterNumber(value: string | null | undefined) {
@@ -686,6 +731,47 @@ function SelectField({
           </option>
         ))}
       </select>
+      {helperText ? (
+        <span className={lightHelperClass}>
+          {helperText}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function CurrencyField({
+  helperText,
+  label,
+  onChange,
+  readOnly = false,
+  value,
+}: {
+  helperText?: string;
+  label: string;
+  onChange?: (value: number) => void;
+  readOnly?: boolean;
+  value: number | null | undefined;
+}) {
+  return (
+    <label className="block">
+      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </span>
+      <span className="relative mt-2 block">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-[#7b746a]">
+          $
+        </span>
+        <input
+          className={`${lightInputClass} mt-0 pl-8 ${readOnly ? "bg-[#fbfaf7] text-[#4b443b]" : ""}`}
+          inputMode="decimal"
+          min="0"
+          onChange={(event) => onChange?.(Number(event.target.value))}
+          readOnly={readOnly}
+          type="number"
+          value={toNumber(value)}
+        />
+      </span>
       {helperText ? (
         <span className={lightHelperClass}>
           {helperText}
@@ -1223,6 +1309,77 @@ function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
   );
 }
 
+function FundraisingProgressControls({
+  monthlyGoal,
+  onAnnualGoalChange,
+  onMonthlyCommittedChange,
+  support,
+}: {
+  monthlyGoal: number;
+  onAnnualGoalChange: (value: number) => void;
+  onMonthlyCommittedChange: (value: number) => void;
+  support: AdminSupportSettings;
+}) {
+  const monthlyCommitted = toNumber(support.monthly_committed);
+  const progressPercentage = getSupportProgressPercentage(monthlyCommitted, monthlyGoal);
+  const visualProgressPercentage = Math.min(Math.max(progressPercentage, 0), 100);
+
+  return (
+    <div className="space-y-5">
+      <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        Fundraising Progress
+      </p>
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <CurrencyField
+          helperText="Annual fundraising goal for this household."
+          label="Annual Goal"
+          onChange={onAnnualGoalChange}
+          value={support.annual_goal}
+        />
+        <CurrencyField
+          helperText="Calculated from Annual Goal divided by 12."
+          label="Monthly Goal"
+          readOnly
+          value={monthlyGoal}
+        />
+        <CurrencyField
+          helperText="Current monthly support already committed."
+          label="Monthly Committed"
+          onChange={onMonthlyCommittedChange}
+          value={support.monthly_committed}
+        />
+      </div>
+
+      <div className="mt-5 rounded-xl border border-[#e2ded5] bg-white p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Raised Progress
+            </p>
+            <p className="mt-2 text-sm font-semibold text-[#111111]">
+              {formatCurrency(monthlyCommitted)} / {formatCurrency(monthlyGoal)} monthly committed
+            </p>
+          </div>
+          <p className="text-sm font-semibold text-[#111111]">
+            {progressPercentage}% raised
+          </p>
+        </div>
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-[#e9e3d8]">
+          <div
+            className={`h-full rounded-full transition-all ${getSupportProgressFillClass(progressPercentage)}`}
+            style={{ width: `${visualProgressPercentage}%` }}
+          />
+        </div>
+        {monthlyGoal <= 0 ? (
+          <p className="mt-3 text-xs leading-5 text-[#7b746a]">
+            Enter an annual goal to calculate the monthly progress percentage.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 
 function TeamMemberManager({
   allItems,
@@ -1626,6 +1783,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [profiles, setProfiles] = useState(initialProfiles);
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState<EditorTab>("profile");
+  const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("progress");
   const [profileQuery, setProfileQuery] = useState("");
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
@@ -1818,6 +1976,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
   }
 
+  function changeEditorTab(tab: EditorTab) {
+    setActiveTab(tab);
+
+    if (tab === "support") {
+      setSupportSubsection("progress");
+    }
+  }
+
   function updateFeatureField(field: keyof typeof featureDescriptions, value: boolean) {
     if (!selectedProfile) {
       return;
@@ -1878,6 +2044,24 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       support: {
         ...currentSupport,
         [field]: numericFields.includes(field) ? Number(value) : value,
+      },
+    });
+  }
+
+  function updateAnnualGoal(value: number) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    const annualGoal = Math.max(0, toNumber(value));
+    const currentSupport = selectedProfile.support ?? emptySupport(selectedProfile.id);
+
+    updateSelected({
+      ...selectedProfile,
+      support: {
+        ...currentSupport,
+        annual_goal: annualGoal,
+        monthly_goal: calculateMonthlyGoal(annualGoal),
       },
     });
   }
@@ -2039,6 +2223,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     setSaving(true);
     setStatus(null);
+    const supportPayload = selectedProfile.support ?? emptySupport(selectedProfile.id);
+    const supportWithCalculatedMonthlyGoal = {
+      ...supportPayload,
+      monthly_goal: calculateMonthlyGoal(supportPayload.annual_goal),
+    };
 
     const response = await fetch("/api/admin/missionary-profiles/update", {
       body: JSON.stringify({
@@ -2082,7 +2271,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         householdId: selectedProfile.id,
         encounterSubmissions: selectedProfile.encounterSubmissions ?? [],
         originalSlug: initialProfiles.find((profile) => profile.id === selectedProfile.id)?.slug,
-        support: selectedProfile.support ?? emptySupport(selectedProfile.id),
+        support: supportWithCalculatedMonthlyGoal,
         teamMembers: selectedProfile.teamMembers ?? [],
       }),
       credentials: "same-origin",
@@ -2216,6 +2405,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   const support = selectedProfile.support ?? emptySupport(selectedProfile.id);
   const supportMode = selectedProfileSupportMode;
+  const calculatedMonthlyGoal = calculateMonthlyGoal(support.annual_goal);
   const selectedSupportModeOption = supportModeOptions.find((option) => option.value === supportMode) ?? supportModeOptions[0];
   const targetHouseholdOptions = targetHouseholdLoadState === "loading"
     ? [{ label: "Loading households...", value: "" }]
@@ -2227,8 +2417,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       : [{ label: "No other missionary households available.", value: "" }];
   const targetHouseholdSelectDisabled = targetHouseholdLoadState !== "success" || targetHouseholds.length === 0;
   const showLeadershipPlaceholder = supportMode === "state_leader" || supportMode === "regional_leader";
-  const showSupportActions = supportMode !== "hidden";
-  const showGivingSettings = showSupportActions;
   const prayerBehavior = selectedProfile.enable_prayer_team === false ? "link" : "modal";
   const prayerButtonLabel = selectedProfile.prayer_cta_label || "Join The Prayer Team";
   const prayerHeadline = selectedProfile.prayer_section_headline || "Prayer Requests";
@@ -2352,7 +2540,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     : "border-transparent text-stone-300 hover:text-stone-100"
                 }`}
                 key={tab.value}
-                onClick={() => setActiveTab(tab.value)}
+                onClick={() => changeEditorTab(tab.value)}
                 role="tab"
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 type="button"
@@ -2370,7 +2558,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             title="Profile Features"
           >
             <FeatureVisibilityTable
-              onManage={setActiveTab}
+              onManage={changeEditorTab}
               rows={[
                 {
                   checked: getFeatureValue(selectedProfile, "show_household"),
@@ -2594,12 +2782,125 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Configure public support routing, donor-facing copy, giving links, and major gift options."
             title="Support"
           >
-            <div className="space-y-7">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Support Routing
-                </p>
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="space-y-6">
+              <div className="flex flex-wrap gap-2 border-b border-[#e2ded5] pb-3">
+                {supportSubsectionOptions.map((option) => (
+                  <button
+                    aria-pressed={supportSubsection === option.value}
+                    className={`rounded-md border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                      supportSubsection === option.value
+                        ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                        : "border-[#d7d2c8] bg-white text-[#4b443b] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                    }`}
+                    key={option.value}
+                    onClick={() => setSupportSubsection(option.value)}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {supportSubsection === "progress" ? (
+                <div className="space-y-5">
+                  <FundraisingProgressControls
+                    monthlyGoal={calculatedMonthlyGoal}
+                    onAnnualGoalChange={updateAnnualGoal}
+                    onMonthlyCommittedChange={(value) => updateSupportField("monthly_committed", Math.max(0, toNumber(value)))}
+                    support={support}
+                  />
+                  <div className={`border-t ${lightDividerClass} pt-5`}>
+                    <TextArea
+                      helperText="Public donor-facing explanation shown in the Support This Mission section."
+                      label="Support Explanation"
+                      onChange={(value) => updateHouseholdField("support_explanation", value)}
+                      rows={4}
+                      value={selectedProfile.support_explanation}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {supportSubsection === "giving" ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Giving Links
+                  </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <Field
+                      helperText="If blank, defaults to Church Center giving link with monthly selected."
+                      label="Monthly Giving URL"
+                      onChange={(value) => updateSupportField("monthly_giving_url", value)}
+                      value={support.monthly_giving_url}
+                    />
+                    <Field
+                      helperText="If blank, defaults to Church Center giving link with one-time selected."
+                      label="One-Time Giving URL"
+                      onChange={(value) => updateSupportField("one_time_giving_url", value)}
+                      value={support.one_time_giving_url}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {supportSubsection === "buttons" ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Button Labels
+                  </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <Field label="Monthly Button Label" onChange={(value) => updateSupportField("monthly_button_label", value)} value={support.monthly_button_label ?? "Support Monthly"} />
+                    <Field label="One-Time Button Label" onChange={(value) => updateSupportField("one_time_button_label", value)} value={support.one_time_button_label ?? "Give One Time"} />
+                    <Field label="Major Gift Button Label" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
+                  </div>
+                </div>
+              ) : null}
+
+              {supportSubsection === "gifts" ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Major Gift Settings
+                  </p>
+                  <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-[#4b443b]">
+                    <input
+                      checked={support.enable_major_gift_inquiry !== false}
+                      className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                      onChange={(event) => updateSupportField("enable_major_gift_inquiry", event.target.checked)}
+                      type="checkbox"
+                    />
+                    Enable major gift inquiry modal
+                  </label>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <Field
+                      helperText="Notification target when email is configured."
+                      label="Major Gift Notify Email"
+                      onChange={(value) => updateSupportField("major_gift_notify_email", value)}
+                      value={support.major_gift_notify_email ?? "ryan@usamissionaries.org"}
+                    />
+                    <TextArea
+                      helperText="Optional public description in the major gift modal."
+                      label="Major Gift Public Description"
+                      onChange={(value) => updateSupportField("major_gift_public_description", value)}
+                      rows={3}
+                      value={support.major_gift_public_description}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {supportSubsection === "advanced" ? (
+                <div className="space-y-5">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Advanced Settings
+                    </p>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+                      Control support routing, target fallbacks, and admin-only behavior for this profile.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
                   <SelectField
                     helperText={selectedSupportModeOption.description}
                     label="Support Mode"
@@ -2648,87 +2949,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     </div>
                   ) : null}
                 </div>
-                <div className="mt-4">
+
                   <SupportModeSummary mode={supportMode} />
                 </div>
-                <div className="mt-4">
-                  <TextArea
-                    helperText="Public donor-facing explanation shown in the Support This Mission section."
-                    label="Support Explanation"
-                    onChange={(value) => updateHouseholdField("support_explanation", value)}
-                    rows={4}
-                    value={selectedProfile.support_explanation}
-                  />
-                </div>
-              </div>
-
-              {/* TODO: Reintroduce fundraising numbers when real data tracking and dashboard is built. */}
-
-              {showGivingSettings ? (
-              <div className={`border-t ${lightDividerClass} pt-6`}>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Giving Links
-                </p>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <Field
-                    helperText="If blank, defaults to Church Center giving link with monthly selected."
-                    label="Monthly Giving URL"
-                    onChange={(value) => updateSupportField("monthly_giving_url", value)}
-                    value={support.monthly_giving_url}
-                  />
-                  <Field
-                    helperText="If blank, defaults to Church Center giving link with one-time selected."
-                    label="One-Time Giving URL"
-                    onChange={(value) => updateSupportField("one_time_giving_url", value)}
-                    value={support.one_time_giving_url}
-                  />
-                </div>
-              </div>
-              ) : null}
-
-              {showSupportActions ? (
-              <div className={`border-t ${lightDividerClass} pt-6`}>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Button Labels
-                </p>
-                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  <Field label="Monthly Button Label" onChange={(value) => updateSupportField("monthly_button_label", value)} value={support.monthly_button_label ?? "Support Monthly"} />
-                  <Field label="One-Time Button Label" onChange={(value) => updateSupportField("one_time_button_label", value)} value={support.one_time_button_label ?? "Give One Time"} />
-                  <Field label="Major Gift Button Label" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
-                </div>
-              </div>
-              ) : null}
-
-              {showSupportActions ? (
-              <div className={`border-t ${lightDividerClass} pt-6`}>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Major Gift Settings
-                </p>
-                <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-[#4b443b]">
-                  <input
-                    checked={support.enable_major_gift_inquiry !== false}
-                    className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                    onChange={(event) => updateSupportField("enable_major_gift_inquiry", event.target.checked)}
-                    type="checkbox"
-                  />
-                  Enable major gift inquiry modal
-                </label>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <Field
-                    helperText="Notification target when email is configured."
-                    label="Major Gift Notify Email"
-                    onChange={(value) => updateSupportField("major_gift_notify_email", value)}
-                    value={support.major_gift_notify_email ?? "ryan@usamissionaries.org"}
-                  />
-                  <TextArea
-                    helperText="Optional public description in the major gift modal."
-                    label="Major Gift Public Description"
-                    onChange={(value) => updateSupportField("major_gift_public_description", value)}
-                    rows={3}
-                    value={support.major_gift_public_description}
-                  />
-                </div>
-              </div>
               ) : null}
             </div>
           </SectionIntro>

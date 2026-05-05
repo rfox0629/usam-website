@@ -63,6 +63,38 @@ function formatPrayerDate(value: string) {
   }).format(date);
 }
 
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+    style: "currency",
+    currency: "USD",
+  }).format(value);
+}
+
+function calculateMonthlyGoal(annualGoal: number) {
+  return annualGoal > 0 ? Math.round(annualGoal / 12) : 0;
+}
+
+function getProgressPercentage(monthlyCommitted: number, monthlyGoal: number) {
+  if (monthlyGoal <= 0) {
+    return 0;
+  }
+
+  return Math.round((monthlyCommitted / monthlyGoal) * 100);
+}
+
+function getProgressFillClass(progressPercentage: number) {
+  if (progressPercentage >= 100) {
+    return "bg-green-500";
+  }
+
+  if (progressPercentage >= 50) {
+    return "bg-gradient-to-r from-[#D4A63D] to-green-500";
+  }
+
+  return "bg-[#D4A63D]";
+}
+
 function fruitDateValue(item: MissionaryFruitItem) {
   const date = new Date(item.testimonyDate ?? item.createdAt);
 
@@ -148,6 +180,70 @@ function SectionHeading({
       <p className="mt-5 text-base leading-8 text-stone-400 md:text-lg">
         {subtitle}
       </p>
+    </div>
+  );
+}
+
+function SupportProgressSummary({ missionary }: { missionary: Missionary }) {
+  const annualGoal = missionary.funding.annualGoal ?? 0;
+  const monthlyGoal = missionary.funding.monthlyGoal > 0
+    ? missionary.funding.monthlyGoal
+    : calculateMonthlyGoal(annualGoal);
+  const monthlyCommitted = missionary.funding.monthlyCommitted ?? 0;
+  const hasProgressData = annualGoal > 0 || monthlyGoal > 0 || monthlyCommitted > 0;
+
+  if (!hasProgressData) {
+    return null;
+  }
+
+  const progressPercentage = getProgressPercentage(monthlyCommitted, monthlyGoal);
+  const visualProgressPercentage = Math.min(Math.max(progressPercentage, 0), 100);
+
+  return (
+    <div className="mt-10 max-w-4xl border border-stone-800 bg-[#080808] p-5 md:p-6">
+      <div className="grid gap-4 md:grid-cols-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Annual Goal
+          </p>
+          <p className="mt-2 text-2xl font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
+            {formatMoney(annualGoal)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Monthly Goal
+          </p>
+          <p className="mt-2 text-2xl font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
+            {formatMoney(monthlyGoal)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Monthly Committed
+          </p>
+          <p className="mt-2 text-2xl font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
+            {formatMoney(monthlyCommitted)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <p className="text-sm leading-6 text-stone-300">
+            {formatMoney(monthlyCommitted)} / {formatMoney(monthlyGoal)} monthly committed
+          </p>
+          <p className="text-sm font-semibold text-stone-100">
+            {progressPercentage}% raised
+          </p>
+        </div>
+        <div className="mt-3 h-3 overflow-hidden rounded-full bg-stone-900">
+          <div
+            className={`h-full rounded-full transition-all ${getProgressFillClass(progressPercentage)}`}
+            style={{ width: `${visualProgressPercentage}%` }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -483,6 +579,8 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
               title="Support This Mission"
               subtitle={supportDefaults.explanation}
             />
+
+            <SupportProgressSummary missionary={missionary} />
 
             <ProfileSupportSectionActions {...supportModalProps} />
           </div>
