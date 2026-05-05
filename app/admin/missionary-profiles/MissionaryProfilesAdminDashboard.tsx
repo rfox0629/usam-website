@@ -717,46 +717,76 @@ function getSupportMode(profile: AdminProfile): AdminSupportMode {
   return normalizeSupportRoutingMode(typeof profile.support_mode === "string" ? profile.support_mode : null);
 }
 
-function FeatureToggleCard({
-  checked,
-  description,
-  label,
-  onChange,
+function FeatureVisibilityTable({
+  rows,
 }: {
+  rows: Array<{
   checked: boolean;
   description: string;
   label: string;
   onChange: (checked: boolean) => void;
+  }>;
 }) {
   return (
-    <article className="border border-stone-800/70 bg-[#070707] p-3.5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-base font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
-            {label}
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-stone-300">
-            {description}
-          </p>
-        </div>
-        <span className={`shrink-0 border px-2 py-1 text-[10px] uppercase tracking-[0.18em] ${
-          checked
-            ? "border-[#D4A63D]/40 bg-[#D4A63D]/10 text-[#F5B942]"
-            : "border-stone-700 bg-stone-900 text-stone-300"
-        }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          {checked ? "Visible" : "Hidden"}
-        </span>
-      </div>
-      <label className="mt-3 flex items-center justify-between gap-4 border-t border-stone-800/70 pt-3 text-sm text-stone-200">
-        <span>{checked ? "Show on public profile" : "Hidden from public profile"}</span>
-        <input
-          checked={checked}
-          className="h-4 w-4 accent-[#D4A63D]"
-          onChange={(event) => onChange(event.target.checked)}
-          type="checkbox"
-        />
-      </label>
-    </article>
+    <div className="overflow-x-auto border border-stone-800/80 bg-[#060606]">
+      <table className="min-w-[760px] w-full border-collapse text-left">
+        <thead>
+          <tr className="border-b border-stone-800/80">
+            <th className="w-[24%] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Section
+            </th>
+            <th className="px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Description
+            </th>
+            <th className="w-[170px] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Visible
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr className="border-b border-stone-900 transition-colors last:border-b-0 hover:bg-stone-950/80" key={row.label}>
+              <td className="px-4 py-3 align-middle">
+                <span className="text-sm font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
+                  {row.label}
+                </span>
+              </td>
+              <td className="px-4 py-3 align-middle">
+                <p className="max-w-3xl text-sm leading-5 text-stone-300">
+                  {row.description}
+                </p>
+              </td>
+              <td className="px-4 py-3 align-middle">
+                <label className="inline-flex cursor-pointer items-center gap-3 text-xs text-stone-200">
+                  <input
+                    checked={row.checked}
+                    className="sr-only"
+                    onChange={(event) => row.onChange(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span className={`relative h-5 w-9 rounded-full border transition-colors ${
+                    row.checked
+                      ? "border-[#D4A63D]/70 bg-[#D4A63D]/25"
+                      : "border-stone-700 bg-stone-900"
+                  }`}>
+                    <span className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform ${
+                      row.checked
+                        ? "translate-x-4 bg-[#F5B942]"
+                        : "translate-x-1 bg-stone-500"
+                    }`} />
+                  </span>
+                  <span className={`text-[10px] uppercase tracking-[0.16em] ${
+                    row.checked ? "text-[#F5B942]" : "text-stone-500"
+                  }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {row.checked ? "Visible" : "Hidden"}
+                  </span>
+                </label>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -2006,50 +2036,52 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Turn public profile sections on or off without deleting their content."
             title="Profile Features"
           >
-            <div className="grid gap-4 xl:grid-cols-2">
-              <FeatureToggleCard
-                checked={getFeatureValue(selectedProfile, "show_household")}
-                description={featureDescriptions.show_household}
-                label="Profile Visibility"
-                onChange={(value) => updateFeatureField("show_household", value)}
-              />
-              <FeatureToggleCard
-                checked={getFeatureValue(selectedProfile, "show_photos")}
-                description={featureDescriptions.show_photos}
-                label="Media"
-                onChange={(value) => updateFeatureField("show_photos", value)}
-              />
-              <FeatureToggleCard
-                checked={getFeatureValue(selectedProfile, "show_team")}
-                description={featureDescriptions.show_team}
-                label="Team"
-                onChange={(value) => updateFeatureField("show_team", value)}
-              />
-              <FeatureToggleCard
-                checked={getFeatureValue(selectedProfile, "show_story")}
-                description={featureDescriptions.show_story}
-                label="Our Story"
-                onChange={(value) => updateFeatureField("show_story", value)}
-              />
-              <FeatureToggleCard
-                checked={getFeatureValue(selectedProfile, "show_fruit")}
-                description={featureDescriptions.show_fruit}
-                label="Fruit From The Field"
-                onChange={(value) => updateFeatureField("show_fruit", value)}
-              />
-              <FeatureToggleCard
-                checked={getFeatureValue(selectedProfile, "show_support") && supportMode !== "hidden"}
-                description={featureDescriptions.show_support}
-                label="Support This Mission"
-                onChange={(value) => updateSupportMode(value ? "household" : "hidden")}
-              />
-              <FeatureToggleCard
-                checked={getFeatureValue(selectedProfile, "show_prayer")}
-                description={featureDescriptions.show_prayer}
-                label="Prayer"
-                onChange={(value) => updateFeatureField("show_prayer", value)}
-              />
-            </div>
+            <FeatureVisibilityTable
+              rows={[
+                {
+                  checked: getFeatureValue(selectedProfile, "show_household"),
+                  description: featureDescriptions.show_household,
+                  label: "Profile Visibility",
+                  onChange: (value) => updateFeatureField("show_household", value),
+                },
+                {
+                  checked: getFeatureValue(selectedProfile, "show_photos"),
+                  description: featureDescriptions.show_photos,
+                  label: "Media",
+                  onChange: (value) => updateFeatureField("show_photos", value),
+                },
+                {
+                  checked: getFeatureValue(selectedProfile, "show_team"),
+                  description: featureDescriptions.show_team,
+                  label: "Team",
+                  onChange: (value) => updateFeatureField("show_team", value),
+                },
+                {
+                  checked: getFeatureValue(selectedProfile, "show_story"),
+                  description: featureDescriptions.show_story,
+                  label: "Our Story",
+                  onChange: (value) => updateFeatureField("show_story", value),
+                },
+                {
+                  checked: getFeatureValue(selectedProfile, "show_fruit"),
+                  description: featureDescriptions.show_fruit,
+                  label: "Fruit",
+                  onChange: (value) => updateFeatureField("show_fruit", value),
+                },
+                {
+                  checked: getFeatureValue(selectedProfile, "show_support") && supportMode !== "hidden",
+                  description: featureDescriptions.show_support,
+                  label: "Support",
+                  onChange: (value) => updateSupportMode(value ? "household" : "hidden"),
+                },
+                {
+                  checked: getFeatureValue(selectedProfile, "show_prayer"),
+                  description: featureDescriptions.show_prayer,
+                  label: "Prayer",
+                  onChange: (value) => updateFeatureField("show_prayer", value),
+                },
+              ]}
+            />
           </SectionIntro>
           ) : null}
 

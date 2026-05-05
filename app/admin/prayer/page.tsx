@@ -404,15 +404,36 @@ function UrgencyBadge({ urgency }: { urgency: RequestUrgency }) {
   return <Badge tone={tone}>{titleLabel(urgency)}</Badge>;
 }
 
-function MetricCard({ label, value }: { label: string; value: number | string }) {
+function InlineStatBar({
+  stats,
+}: {
+  stats: Array<{ label: string; tone?: "amber" | "green" | "red"; value: number | string }>;
+}) {
+  const toneClassName = {
+    amber: "text-[#E4C465]",
+    green: "text-green-300",
+    red: "text-red-200",
+  } as const;
+
   return (
-    <div className="border border-stone-800/75 bg-[#080808]/85 p-4">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        {label}
-      </p>
-      <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-        {value}
-      </p>
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+      {stats.map((stat, index) => (
+        <div className="flex items-baseline gap-2" key={stat.label}>
+          {index > 0 ? <span className="hidden h-4 w-px bg-stone-800 sm:inline-block" /> : null}
+          <span
+            className="text-[10px] uppercase tracking-[0.18em] text-stone-500"
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          >
+            {stat.label}
+          </span>
+          <span
+            className={`text-xl font-bold leading-none ${stat.tone ? toneClassName[stat.tone] : "text-stone-100"}`}
+            style={{ fontFamily: font.oswald }}
+          >
+            {stat.value}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -648,14 +669,16 @@ function SummaryCards({
   ]);
 
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-      <MetricCard label="Active Prayer Partners" value={activePartners} />
-      <MetricCard label="Pending Applications" value={pendingApplications} />
-      <MetricCard label="Open Prayer Requests" value={openRequests} />
-      <MetricCard label="Needs Coverage" value={needsCoverage} />
-      <MetricCard label="Covered This Week" value={coveredThisWeek} />
-      <MetricCard label="States / Regions Covered" value={coverageKeys.size} />
-    </div>
+    <InlineStatBar
+      stats={[
+        { label: "Active Partners", tone: "green", value: activePartners },
+        { label: "Pending Applications", tone: "amber", value: pendingApplications },
+        { label: "Open Requests", value: openRequests },
+        { label: "Needs Coverage", tone: "amber", value: needsCoverage },
+        { label: "Covered (Last 7 Days)", tone: "green", value: coveredThisWeek },
+        { label: "States / Regions", value: coverageKeys.size },
+      ]}
+    />
   );
 }
 
