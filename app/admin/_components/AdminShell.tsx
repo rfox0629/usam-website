@@ -15,14 +15,6 @@ const adminNavGroups = [
   },
   {
     items: [
-      { activeKey: "financial-freedom", href: "/admin/financial-freedom", label: "Financial Freedom" },
-      { activeKey: "stewardship", href: "/admin/stewardship", label: "Stewardship" },
-      { activeKey: "support", href: "/admin/support", label: "Support" },
-    ],
-    title: "Operations",
-  },
-  {
-    items: [
       { activeKey: "pages", href: "/admin/pages", label: "Pages" },
       { activeKey: "uploads", href: "/admin/uploads", label: "Uploads" },
       { activeKey: "settings", href: "/admin/settings", label: "Settings" },
@@ -31,7 +23,10 @@ const adminNavGroups = [
   },
 ] as const;
 
-export type AdminNavKey = (typeof adminNavGroups)[number]["items"][number]["activeKey"];
+type VisibleAdminNavKey = (typeof adminNavGroups)[number]["items"][number]["activeKey"];
+type HiddenAdminNavKey = "financial-freedom" | "stewardship" | "support";
+
+export type AdminNavKey = VisibleAdminNavKey | HiddenAdminNavKey;
 
 function AdminNavLink({
   active,
