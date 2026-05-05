@@ -435,25 +435,7 @@ function toPublicNumber(value: string | null | undefined) {
   return trimmedValue.startsWith("#") ? trimmedValue : `#${trimmedValue}`;
 }
 
-function mapLegacyPeopleToTeamMembers(people: readonly PersonRow[] = []) {
-  return sortPeople(people).map((person) => {
-    const displayName = [person.first_name, person.last_name].filter(Boolean).join(" ");
-
-    return {
-      displayName,
-      publicNumber: toPublicNumber(person.missionary_number),
-      roleTitle: person.role,
-      shortDescription: null,
-      sortOrder: person.sort_order ?? 0,
-    };
-  }).filter((member) => Boolean(member.displayName));
-}
-
-function mapTeamMembers(items: readonly TeamMemberRow[] = [], people: readonly PersonRow[] = []) {
-  if (items.length === 0) {
-    return mapLegacyPeopleToTeamMembers(people);
-  }
-
+function mapTeamMembers(items: readonly TeamMemberRow[] = []) {
   return [...items]
     .filter((item) => item.status === "active" && item.is_public !== false)
     .sort((first, second) => {
@@ -548,7 +530,7 @@ function mapHouseholdToMissionary({
     functionTags: mappedTags.functionTags,
     heroImage: showPhotos ? toOptionalPublicImageSource(household.hero_image_url) : undefined,
     headerImage: showPhotos ? toPublicImageSource(household.profile_image_url, directoryImageFallback) : undefined,
-    householdMembers: mapTeamMembers(teamMembers, sortedPeople),
+    householdMembers: mapTeamMembers(teamMembers),
     story: household.story ?? undefined,
     fruitFromField: household.fruit_from_field ?? undefined,
     fruitItems: mapFruitItems(fruitItems),
