@@ -1,23 +1,31 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/src/lib/supabase/client";
+import {
+  MISSIONARY_IMAGE_MAX_BYTES,
+  MISSIONARY_IMAGES_BUCKET,
+  missionaryImageMimeTypes,
+  toMissionaryImageStorageSlug,
+  type MissionaryImageSlot,
+} from "./profile-image-constants";
 
-export const MISSIONARY_IMAGES_BUCKET = "missionary-images";
-export const MISSIONARY_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-
-export const missionaryImageMimeTypes = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-] as const;
-
-export type MissionaryImageSlot = "directory" | "hero";
+export {
+  MISSIONARY_IMAGE_MAX_BYTES,
+  MISSIONARY_IMAGES_BUCKET,
+  missionaryImageMimeTypes,
+  type MissionaryImageSlot,
+};
 
 type UploadMissionaryProfileImageArgs = {
   file: File;
   householdId: string;
   slot: MissionaryImageSlot;
   slug: string;
+};
+
+type SaveGeneratedMissionaryHeroImageArgs = {
+  householdId: string;
+  publicUrl: string;
 };
 
 export function validateMissionaryImageFile(file: File) {
@@ -30,14 +38,6 @@ export function validateMissionaryImageFile(file: File) {
   }
 
   return null;
-}
-
-function toStorageSlug(slug: string) {
-  return slug
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 function getImageExtension(file: File) {
@@ -53,7 +53,7 @@ function getImageExtension(file: File) {
 }
 
 export function getMissionaryImagePath(slug: string, slot: MissionaryImageSlot, file: File) {
-  const storageSlug = toStorageSlug(slug);
+  const storageSlug = toMissionaryImageStorageSlug(slug);
 
   if (!storageSlug) {
     throw new Error("A profile slug is required before uploading images.");
@@ -109,4 +109,22 @@ export async function uploadMissionaryProfileImage({
     path,
     publicUrl: data.publicUrl,
   };
+}
+
+export async function saveGeneratedMissionaryHeroImage({
+  householdId,
+  publicUrl,
+}: SaveGeneratedMissionaryHeroImageArgs) {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("missionary_households")
+    .update({
+      hero_image_url: publicUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", householdId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
   missionaryImageMimeTypes,
+  saveGeneratedMissionaryHeroImage,
   uploadMissionaryProfileImage,
   validateMissionaryImageFile,
   type MissionaryImageSlot,
@@ -38,6 +39,7 @@ const lightPanelClass = "max-w-[900px] rounded-[18px] border border-[#e2ded5] bg
 const lightInputClass = "mt-2 min-h-12 w-full rounded-xl border border-[#d7d2c8] bg-white px-3.5 py-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]";
 const lightLabelClass = "text-[11px] uppercase tracking-[0.16em] text-[#6f6658]";
 const lightHelperClass = "mt-2 block text-[12px] leading-5 text-[#7b746a]";
+const lightPrimaryButtonClass = "inline-flex items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60";
 const lightSecondaryButtonClass = "inline-flex items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
 const lightDividerClass = "border-[#e2ded5]";
 
@@ -160,6 +162,33 @@ type StatusMessage = {
 type UploadState = {
   message?: string;
   status: "idle" | "uploading" | "success" | "error";
+};
+
+type CutoutGenerationSettings = {
+  addCamoFatigues: boolean;
+  addFacePaint: boolean;
+  addHats: boolean;
+  addUsamPatch: boolean;
+  blurFaces: boolean;
+  keepFacesNatural: boolean;
+  removeBackground: boolean;
+};
+
+type CutoutGenerationState = {
+  message?: string;
+  path?: string;
+  previewUrl?: string;
+  status: "idle" | "generating" | "success" | "error";
+};
+
+const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
+  addCamoFatigues: true,
+  addFacePaint: false,
+  addHats: false,
+  addUsamPatch: true,
+  blurFaces: false,
+  keepFacesNatural: true,
+  removeBackground: true,
 };
 
 type TargetHouseholdOption = {
@@ -656,6 +685,230 @@ function ImageUploadField({
           />
         </div>
       </details>
+    </div>
+  );
+}
+
+function CutoutSettingToggle({
+  checked,
+  description,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  description: string;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start gap-3 rounded-xl border border-[#e2ded5] bg-white p-3">
+      <input
+        checked={checked}
+        className="mt-1 h-4 w-4 accent-[#D4A63D]"
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+      <span>
+        <span className="block text-sm font-semibold text-[#111111]">
+          {label}
+        </span>
+        <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
+          {description}
+        </span>
+      </span>
+    </label>
+  );
+}
+
+function MissionaryCutoutGenerationModal({
+  generationState,
+  householdName,
+  onClose,
+  onGenerate,
+  onSettingsChange,
+  onUse,
+  settings,
+  sourceImageUrl,
+}: {
+  generationState: CutoutGenerationState;
+  householdName: string;
+  onClose: () => void;
+  onGenerate: () => void;
+  onSettingsChange: (settings: CutoutGenerationSettings) => void;
+  onUse: () => void;
+  settings: CutoutGenerationSettings;
+  sourceImageUrl: string;
+}) {
+  const isGenerating = generationState.status === "generating";
+
+  function updateSetting(key: keyof CutoutGenerationSettings, value: boolean) {
+    onSettingsChange({
+      ...settings,
+      [key]: value,
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
+      <div className="mx-auto max-w-4xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              AI Media
+            </p>
+            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+              Generate Missionary Cutout
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
+              Use the uploaded directory photo for {householdName} to create a transparent hero family image. Review the preview before replacing the current hero image.
+            </p>
+          </div>
+          <button
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+            onClick={onClose}
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Source Photo
+            </p>
+            <div className="mt-3 overflow-hidden rounded-xl border border-[#d7d2c8] bg-white p-3">
+              <img
+                alt="Directory source preview"
+                className="max-h-72 w-full object-contain"
+                src={sourceImageUrl}
+              />
+            </div>
+            <p className="mt-3 rounded-xl border border-[#e2ded5] bg-white p-3 text-xs leading-5 text-[#6f6658]">
+              This does not auto-replace your hero image. Generated files are stored as previews until you choose “Use as Hero Image.”
+            </p>
+          </div>
+
+          <div>
+            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Generation Settings
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <CutoutSettingToggle
+                checked={settings.addCamoFatigues}
+                description="Dress subjects in black/white field uniforms."
+                label="Add camo fatigues"
+                onChange={(checked) => updateSetting("addCamoFatigues", checked)}
+              />
+              <CutoutSettingToggle
+                checked={settings.addHats}
+                description="Optional matching hats where natural."
+                label="Add hats"
+                onChange={(checked) => updateSetting("addHats", checked)}
+              />
+              <CutoutSettingToggle
+                checked={settings.addUsamPatch}
+                description="Add a small USAM patch where appropriate."
+                label="Add USAM patch"
+                onChange={(checked) => updateSetting("addUsamPatch", checked)}
+              />
+              <CutoutSettingToggle
+                checked={settings.addFacePaint}
+                description="Optional subtle field styling."
+                label="Add face paint"
+                onChange={(checked) => updateSetting("addFacePaint", checked)}
+              />
+              <CutoutSettingToggle
+                checked={settings.blurFaces}
+                description="Use for more discreet public profiles."
+                label="Blur faces"
+                onChange={(checked) => updateSetting("blurFaces", checked)}
+              />
+              <CutoutSettingToggle
+                checked={settings.removeBackground}
+                description="Create a transparent PNG cutout."
+                label="Remove background"
+                onChange={(checked) => updateSetting("removeBackground", checked)}
+              />
+              <CutoutSettingToggle
+                checked={settings.keepFacesNatural}
+                description="Preserve family likeness and natural faces."
+                label="Keep faces natural"
+                onChange={(checked) => updateSetting("keepFacesNatural", checked)}
+              />
+            </div>
+
+            <div className="mt-5 rounded-xl border border-[#d7d2c8] bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-[#111111]">
+                    Generated Preview
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                    Transparent PNG previews appear here after generation.
+                  </p>
+                </div>
+                <button
+                  className={lightPrimaryButtonClass}
+                  disabled={isGenerating}
+                  onClick={onGenerate}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  {generationState.previewUrl ? "Regenerate" : "Generate Preview"}
+                </button>
+              </div>
+
+              <div className="relative mt-4 flex min-h-72 items-center justify-center overflow-hidden rounded-xl border border-[#e2ded5] bg-[linear-gradient(45deg,#f1eee7_25%,transparent_25%),linear-gradient(-45deg,#f1eee7_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f1eee7_75%),linear-gradient(-45deg,transparent_75%,#f1eee7_75%)] bg-[length:24px_24px] bg-[position:0_0,0_12px,12px_-12px,-12px_0]">
+                {generationState.previewUrl ? (
+                  <img
+                    alt="Generated missionary cutout preview"
+                    className="max-h-80 w-full object-contain p-3"
+                    src={generationState.previewUrl}
+                  />
+                ) : (
+                  <p className="px-4 text-center text-xs uppercase tracking-[0.18em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    No preview generated yet
+                  </p>
+                )}
+                {isGenerating ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/85 px-4 text-center text-xs uppercase tracking-[0.2em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {generationState.message || "Generating image. This may take a moment."}
+                  </div>
+                ) : null}
+              </div>
+
+              {generationState.message ? (
+                <p className={`mt-3 text-sm leading-6 ${
+                  generationState.status === "error" ? "text-red-700" : "text-[#6f6658]"
+                }`}>
+                  {generationState.message}
+                </p>
+              ) : null}
+
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  className={lightSecondaryButtonClass}
+                  onClick={onClose}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className={lightPrimaryButtonClass}
+                  disabled={!generationState.previewUrl || isGenerating}
+                  onClick={onUse}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  Use as Hero Image
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1799,6 +2052,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     directory: { status: "idle" },
     hero: { status: "idle" },
   });
+  const [isCutoutModalOpen, setIsCutoutModalOpen] = useState(false);
+  const [cutoutSettings, setCutoutSettings] = useState<CutoutGenerationSettings>(defaultCutoutGenerationSettings);
+  const [cutoutGenerationState, setCutoutGenerationState] = useState<CutoutGenerationState>({
+    status: "idle",
+  });
   const [targetHouseholdError, setTargetHouseholdError] = useState("");
   const [targetHouseholdLoadState, setTargetHouseholdLoadState] = useState<TargetHouseholdLoadState>("idle");
   const [targetHouseholds, setTargetHouseholds] = useState<TargetHouseholdOption[]>([]);
@@ -1816,6 +2074,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     () => profiles.find((profile) => profile.id === selectedId),
     [profiles, selectedId],
   );
+
+  useEffect(() => {
+    setIsCutoutModalOpen(false);
+    setCutoutSettings(defaultCutoutGenerationSettings);
+    setCutoutGenerationState({ status: "idle" });
+  }, [selectedId]);
+
   const selectedProfileSupportMode = selectedProfile ? getSupportMode(selectedProfile) : "household";
   const filteredProfiles = useMemo(() => {
     const normalizedQuery = profileQuery.trim().toLowerCase();
@@ -2200,6 +2465,113 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           message: error instanceof Error ? error.message : "Unable to upload image.",
           status: "error",
         },
+      }));
+    }
+  }
+
+  function openCutoutModal() {
+    if (!selectedProfile?.profile_image_url?.trim()) {
+      setUploadStates((currentState) => ({
+        ...currentState,
+        directory: {
+          message: "Upload a directory image before generating a cutout.",
+          status: "error",
+        },
+      }));
+      return;
+    }
+
+    setCutoutSettings(defaultCutoutGenerationSettings);
+    setCutoutGenerationState({ status: "idle" });
+    setIsCutoutModalOpen(true);
+  }
+
+  async function generateMissionaryCutout() {
+    if (!selectedProfile?.profile_image_url?.trim()) {
+      setCutoutGenerationState({
+        message: "Upload a directory image before generating a cutout.",
+        status: "error",
+      });
+      return;
+    }
+
+    setCutoutGenerationState({
+      message: "Generating image. This may take a moment.",
+      status: "generating",
+    });
+
+    try {
+      const response = await fetch("/api/admin/missionary-profiles/generate-cutout", {
+        body: JSON.stringify({
+          householdId: selectedProfile.id,
+          settings: cutoutSettings,
+          slug: selectedProfile.slug,
+          sourceImageUrl: selectedProfile.profile_image_url,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        path?: string;
+        publicUrl?: string;
+      };
+
+      if (!response.ok || !result.publicUrl) {
+        throw new Error(result.error || "We could not generate the image. Please try again or upload manually.");
+      }
+
+      setCutoutGenerationState({
+        message: "Preview generated. Review it before using it as the hero image.",
+        path: result.path,
+        previewUrl: result.publicUrl,
+        status: "success",
+      });
+    } catch (error) {
+      setCutoutGenerationState({
+        message: error instanceof Error ? error.message : "We could not generate the image. Please try again or upload manually.",
+        status: "error",
+      });
+    }
+  }
+
+  async function useGeneratedHeroImage() {
+    if (!selectedProfile || !cutoutGenerationState.previewUrl) {
+      return;
+    }
+
+    setCutoutGenerationState((currentState) => ({
+      ...currentState,
+      message: "Saving generated image as hero image...",
+      status: "generating",
+    }));
+
+    try {
+      await saveGeneratedMissionaryHeroImage({
+        householdId: selectedProfile.id,
+        publicUrl: cutoutGenerationState.previewUrl,
+      });
+      updateSelected({
+        ...selectedProfile,
+        hero_image_url: cutoutGenerationState.previewUrl,
+      });
+      setUploadStates((currentState) => ({
+        ...currentState,
+        hero: {
+          message: "Generated cutout saved as Hero Family Image.",
+          status: "success",
+        },
+      }));
+      setIsCutoutModalOpen(false);
+      setCutoutGenerationState({ status: "idle" });
+      router.refresh();
+    } catch (error) {
+      setCutoutGenerationState((currentState) => ({
+        ...currentState,
+        message: error instanceof Error ? error.message : "Generated image could not be saved.",
+        status: "error",
       }));
     }
   }
@@ -2711,17 +3083,40 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             title="Media"
           >
             <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <ImageUploadField
+                  helperText="Normal uploaded family/couple photo used on /missionaries cards."
+                  label="Directory Card Image"
+                  onChange={(value) => updateHouseholdField("profile_image_url", value)}
+                  onUpload={uploadImage}
+                  slot="directory"
+                  uploadState={uploadStates.directory}
+                  value={selectedProfile.profile_image_url}
+                />
+                <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[#111111]">
+                        AI hero cutout
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                        Generate a transparent PNG from the directory image. You review before it replaces the hero image.
+                      </p>
+                    </div>
+                    <button
+                      className={lightPrimaryButtonClass}
+                      disabled={!selectedProfile.profile_image_url?.trim()}
+                      onClick={openCutoutModal}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      Generate Missionary Cutout
+                    </button>
+                  </div>
+                </div>
+              </div>
               <ImageUploadField
-                helperText="Used on /missionaries cards."
-                label="Directory Card Image"
-                onChange={(value) => updateHouseholdField("profile_image_url", value)}
-                onUpload={uploadImage}
-                slot="directory"
-                uploadState={uploadStates.directory}
-                value={selectedProfile.profile_image_url}
-              />
-              <ImageUploadField
-                helperText="This image appears on top of the shared profile background."
+                helperText="Generated transparent PNG/cutout image. This appears on top of the shared profile background."
                 label="Hero Family Image"
                 onChange={(value) => updateHouseholdField("hero_image_url", value)}
                 onUpload={uploadImage}
@@ -2730,6 +3125,18 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 value={selectedProfile.hero_image_url}
               />
             </div>
+            {isCutoutModalOpen && selectedProfile.profile_image_url?.trim() ? (
+              <MissionaryCutoutGenerationModal
+                generationState={cutoutGenerationState}
+                householdName={selectedProfile.display_name}
+                onClose={() => setIsCutoutModalOpen(false)}
+                onGenerate={generateMissionaryCutout}
+                onSettingsChange={setCutoutSettings}
+                onUse={useGeneratedHeroImage}
+                settings={cutoutSettings}
+                sourceImageUrl={selectedProfile.profile_image_url}
+              />
+            ) : null}
           </SectionIntro>
           ) : null}
 
