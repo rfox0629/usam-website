@@ -41,13 +41,13 @@ function secondaryButtonClassName() {
 
 function useSupportModal() {
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
-  const [initialGiftType, setInitialGiftType] = useState<CommitmentGiftType>("Monthly");
+  const [initialGiftType, setInitialGiftType] = useState<CommitmentGiftType>("monthly");
 
   return {
     closeModal: () => setIsSupportModalOpen(false),
     initialGiftType,
     isSupportModalOpen,
-    openModal: (giftType: CommitmentGiftType = "Monthly") => {
+    openModal: (giftType: CommitmentGiftType = "monthly") => {
       setInitialGiftType(giftType);
       setIsSupportModalOpen(true);
     },
@@ -103,7 +103,7 @@ export function HeroSupportActions(props: SharedSupportProps) {
         {showSupport ? (
           <button
             className={primaryButtonClassName()}
-            onClick={() => openModal("Monthly")}
+            onClick={() => openModal("monthly")}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="button"
           >
@@ -134,7 +134,7 @@ export function MonthlySupportActions(props: SharedSupportProps) {
           type="button"
           className={primaryButtonClassName()}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          onClick={() => openModal("Monthly")}
+          onClick={() => openModal("monthly")}
         >
           {triggerLabel}
         </button>
@@ -173,7 +173,7 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
           className={primaryButtonClassName()}
-          onClick={() => openModal("Monthly")}
+          onClick={() => openModal("monthly")}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
         >
@@ -181,7 +181,7 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
         </button>
         <button
           className={secondaryButtonClassName()}
-          onClick={() => openModal("One Time")}
+          onClick={() => openModal("onetime")}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
         >

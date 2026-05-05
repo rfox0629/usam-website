@@ -23,7 +23,7 @@ export function GeneralSupportGivingButton({ children }: { children: React.React
         defaultAllocation="Support the General Mission Fund"
         householdId={null}
         householdName="USA Missionaries"
-        initialGiftType="Monthly"
+        initialGiftType="monthly"
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         profileSlug={null}

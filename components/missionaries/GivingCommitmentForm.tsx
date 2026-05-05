@@ -6,7 +6,7 @@ import { getGivingUrl } from "@/src/lib/giving";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
-export type CommitmentGiftType = "Monthly" | "One Time";
+export type CommitmentGiftType = "monthly" | "onetime";
 export type SupportCommitmentSource = "missionary_profile" | "general_support_page";
 
 export type GivingCommitmentFormProps = {
@@ -30,9 +30,9 @@ export type GivingCommitmentFormProps = {
   supportTargetHouseholdName?: string | null;
 };
 
-const giftTypeOptions: readonly CommitmentGiftType[] = [
-  "Monthly",
-  "One Time",
+const giftTypeOptions: readonly { label: string; value: CommitmentGiftType }[] = [
+  { label: "Monthly", value: "monthly" },
+  { label: "One Time", value: "onetime" },
 ] as const;
 
 const monthlyAmounts = [
@@ -71,10 +71,6 @@ function parseAmount(value: FormDataEntryValue | null) {
 
   const amount = Number(value.replace(/[^0-9.]/g, ""));
   return Number.isFinite(amount) ? amount : 0;
-}
-
-function toApiGiftType(giftType: CommitmentGiftType) {
-  return giftType === "Monthly" ? "monthly" : "one_time";
 }
 
 function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor: string }) {
@@ -157,7 +153,7 @@ export function GivingCommitmentForm({
   householdId = null,
   householdName,
   initialCommittedMonthlySupport,
-  initialGiftType = "Monthly",
+  initialGiftType = "monthly",
   onCommitmentSubmitted,
   profileSlug = null,
   receivedMonthlySupport = 0,
@@ -194,10 +190,8 @@ export function GivingCommitmentForm({
   const redirectUrl = useRef(getGivingUrl(resolvedMonthlyGivingUrl, "monthly"));
 
   const isHouseholdSupport = supportMode === "household";
-  const showOtherAmount = (giftType === "Monthly" && monthlyAmount === "Other") || (giftType === "One Time" && oneTimeAmount === "Other");
-  const formTitle = source === "general_support_page"
-    ? "Support the Mission"
-    : giftType === "Monthly" ? "Support Monthly" : "Give One Time";
+  const showOtherAmount = (giftType === "monthly" && monthlyAmount === "Other") || (giftType === "onetime" && oneTimeAmount === "Other");
+  const formTitle = giftType === "monthly" ? "Support Monthly" : "Give One Time";
   const resolvedMonthlyUrl = getGivingUrl(resolvedMonthlyGivingUrl, "monthly");
   const resolvedOneTimeUrl = getGivingUrl(resolvedOneTimeGivingUrl, "onetime");
 
@@ -237,13 +231,13 @@ export function GivingCommitmentForm({
   async function submitCommitment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const activeAmount = giftType === "Monthly" ? monthlyAmount : oneTimeAmount;
+    const activeAmount = giftType === "monthly" ? monthlyAmount : oneTimeAmount;
     const otherAmount = activeAmount === "Other" ? parseAmount(formData.get("otherAmount")) : null;
     const selectedAmount = activeAmount === "Other" ? "Other" : activeAmount;
-    const monthlyCommitmentAmount = giftType === "Monthly"
+    const monthlyCommitmentAmount = giftType === "monthly"
       ? otherAmount ?? parseAmount(activeAmount)
       : 0;
-    const nextRedirectUrl = giftType === "Monthly" ? resolvedMonthlyUrl : resolvedOneTimeUrl;
+    const nextRedirectUrl = giftType === "monthly" ? resolvedMonthlyUrl : resolvedOneTimeUrl;
 
     redirectUrl.current = nextRedirectUrl;
     pendingMonthlyCommitment.current = monthlyCommitmentAmount;
@@ -257,7 +251,7 @@ export function GivingCommitmentForm({
           defaultAllocation: allocationLabel,
           email: String(formData.get("email") ?? ""),
           firstName: String(formData.get("firstName") ?? ""),
-          giftType: toApiGiftType(giftType),
+          giftType,
           householdId,
           householdName: contextName,
           lastName: String(formData.get("lastName") ?? ""),
@@ -352,13 +346,13 @@ export function GivingCommitmentForm({
             <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-6">
               <SectionTitle>Gift Details</SectionTitle>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <SelectField id="giftType" label="Gift Type" name="giftType" value={giftType} onChange={(value) => setGiftType(value as CommitmentGiftType)}>
+                <SelectField id="giftType" label="Gift Type" name="gift_type" value={giftType} onChange={(value) => setGiftType(value as CommitmentGiftType)}>
                   {giftTypeOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </SelectField>
 
-                {giftType === "Monthly" ? (
+                {giftType === "monthly" ? (
                   <SelectField id="monthlyAmount" label="Monthly Amount" name="monthlyAmount" value={monthlyAmount} onChange={setMonthlyAmount}>
                     {monthlyAmounts.map((amount) => (
                       <option key={amount.value} value={amount.value}>{amount.label}</option>
@@ -366,7 +360,7 @@ export function GivingCommitmentForm({
                   </SelectField>
                 ) : null}
 
-                {giftType === "One Time" ? (
+                {giftType === "onetime" ? (
                   <SelectField id="oneTimeAmount" label="One Time Amount" name="oneTimeAmount" value={oneTimeAmount} onChange={setOneTimeAmount}>
                     {oneTimeAmounts.map((amount) => (
                       <option key={amount.value} value={amount.value}>{amount.label}</option>

@@ -42,7 +42,7 @@ export function SupportMissionModal({
   supportPublicLabel,
   supportTargetFund,
   supportTargetHouseholdName,
-  initialGiftType = "Monthly",
+  initialGiftType = "monthly",
   onClose,
 }: SupportMissionModalProps) {
   useEffect(() => {

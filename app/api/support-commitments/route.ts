@@ -54,6 +54,10 @@ function isValidEmail(value: string) {
 function toGiftType(value: unknown) {
   const valueString = asString(value);
 
+  if (valueString === "onetime") {
+    return "one_time";
+  }
+
   return giftTypes.includes(valueString as typeof giftTypes[number])
     ? valueString as typeof giftTypes[number]
     : null;
