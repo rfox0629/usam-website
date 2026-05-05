@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { AccessLogoutButton } from "../../components/forms/AccessLogoutButton";
 import { PrimaryNav } from "../../components/PrimaryNav";
 import { MissionaryDirectory, type MissionaryDirectoryProfile } from "./MissionaryDirectory";
 import { getMissionaryHouseholdsResult, type MissionaryHouseholdDirectoryRow } from "@/src/lib/missionaries/queries";
 import { normalizeLocationVisibility, normalizePrimaryState } from "@/src/lib/missionaries/location";
+import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
   title: "Missionary Team | USA Missionaries",
@@ -85,6 +89,13 @@ function ActionLink({
 }
 
 export default async function MissionariesPage() {
+  const cookieStore = await cookies();
+  const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
+
+  if (!hasAccess) {
+    redirect("/support?team=1");
+  }
+
   const missionaryHouseholdsResult = await getMissionaryHouseholdsResult();
   const missionaries = missionaryHouseholdsResult.data.map(mapHouseholdToDirectoryProfile);
   const emptyMessage = missionaryHouseholdsResult.error
@@ -111,6 +122,7 @@ export default async function MissionariesPage() {
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <ActionLink href="/support">Support The Mission</ActionLink>
             <ActionLink href="/mission" variant="secondary">Become A Missionary</ActionLink>
+            <AccessLogoutButton redirectTo="/support?team=1">Exit Team View</AccessLogoutButton>
           </div>
         </div>
       </section>

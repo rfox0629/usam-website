@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { PrimaryNav } from "../../components/PrimaryNav";
 import { GeneralSupportGivingButton } from "./GeneralSupportGivingButton";
 import { ViewTeamComingSoonButton } from "./ViewTeamComingSoonButton";
+import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
   title: "Support the Mission | USA Missionaries",
@@ -61,7 +63,19 @@ function ExternalActionLink({
   );
 }
 
-export default function SupportPage() {
+type SearchParams = {
+  team?: string;
+};
+
+export default async function SupportPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const cookieStore = await cookies();
+  const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
+  const shouldOpenTeamAccess = params.team === "1" && !hasAccess;
   const resourceAreas = [
     "Equipping and training leaders",
     "Supporting active missionaries",
@@ -117,7 +131,7 @@ export default function SupportPage() {
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <ActionLink href="#giving">Give Now</ActionLink>
-            <ViewTeamComingSoonButton />
+            <ViewTeamComingSoonButton hasAccess={hasAccess} initialOpen={shouldOpenTeamAccess} />
           </div>
         </div>
       </section>

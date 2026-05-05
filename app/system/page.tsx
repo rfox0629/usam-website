@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { PrimaryNav } from "../../components/PrimaryNav";
+import { AccessLogoutButton } from "../../components/forms/AccessLogoutButton";
 import { WaitingListCTA } from "./WaitingListCTA";
+import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
   title: "System Layer | USA Missionaries",
@@ -110,6 +113,7 @@ function DashboardPanel() {
 
 type SearchParams = {
   access?: string;
+  waitlist?: string;
 };
 
 export default async function SystemPage({
@@ -118,7 +122,10 @@ export default async function SystemPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const shouldOpenAccessCode = params.access === "1";
+  const cookieStore = await cookies();
+  const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
+  const shouldOpenWaitlist = params.waitlist === "1";
+  const shouldOpenAccessCode = params.access === "1" || (!hasAccess && !shouldOpenWaitlist);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#050505] text-stone-100">
@@ -152,7 +159,16 @@ export default async function SystemPage({
               A discipleship platform designed to connect leaders, track movement, and support multiplication at scale.
             </p>
 
-            <WaitingListCTA initialAccessOpen={shouldOpenAccessCode} />
+            <WaitingListCTA
+              hasAccess={hasAccess}
+              initialAccessOpen={shouldOpenAccessCode}
+              initialWaitlistOpen={shouldOpenWaitlist}
+            />
+            {hasAccess ? (
+              <div className="mt-4">
+                <AccessLogoutButton>Exit System</AccessLogoutButton>
+              </div>
+            ) : null}
           </div>
 
           <DashboardPanel />

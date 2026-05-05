@@ -23,6 +23,13 @@ const forms = [
     url: "/system",
   },
   {
+    formName: "Team Access Code",
+    formType: "team_access_code",
+    routesTo: "System/Auth",
+    status: "Live",
+    url: "/support",
+  },
+  {
     formName: "Prayer Team Application",
     formType: "prayer_team_application",
     routesTo: "Prayer Team",
@@ -158,7 +165,7 @@ export default async function FormsPagesAdminPage() {
     });
   }
   const rows: FormControlRow[] = forms.map((form) => {
-    if (form.formType === "system_access_code") {
+    if (form.formType === "system_access_code" || form.formType === "team_access_code") {
       return {
         ...form,
         lastSubmissionLabel: "N/A",
