@@ -358,6 +358,110 @@ function Field({
   );
 }
 
+function ProfileField({
+  helperText,
+  label,
+  onChange,
+  type = "text",
+  value,
+}: {
+  helperText?: string;
+  label: string;
+  onChange: (value: string) => void;
+  type?: string;
+  value: number | string | null | undefined;
+}) {
+  return (
+    <label className="mb-0 block">
+      <span className="text-[11px] uppercase tracking-[0.08em] text-[#cccccc]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </span>
+      <input
+        className="mt-2 w-full rounded-md border border-[#333333] bg-[#111111] p-3 text-sm text-white outline-none transition-colors placeholder:text-stone-500 focus:border-[#d4a62a]"
+        onChange={(event) => onChange(event.target.value)}
+        type={type}
+        value={value ?? ""}
+      />
+      {helperText ? (
+        <span className="mt-2 block text-xs leading-5 text-[#888888]">
+          {helperText}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function ProfileSelectField({
+  helperText,
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  helperText?: string;
+  label: string;
+  onChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  value: string | null | undefined;
+}) {
+  return (
+    <label className="mb-0 block">
+      <span className="text-[11px] uppercase tracking-[0.08em] text-[#cccccc]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </span>
+      <select
+        className="mt-2 w-full rounded-md border border-[#333333] bg-[#111111] p-3 text-sm text-white outline-none transition-colors focus:border-[#d4a62a]"
+        onChange={(event) => onChange(event.target.value)}
+        value={value ?? ""}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {helperText ? (
+        <span className="mt-2 block text-xs leading-5 text-[#888888]">
+          {helperText}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function ProfileTextArea({
+  helperText,
+  label,
+  onChange,
+  rows = 4,
+  value,
+}: {
+  helperText?: string;
+  label: string;
+  onChange: (value: string) => void;
+  rows?: number;
+  value: string | null | undefined;
+}) {
+  return (
+    <label className="mb-0 block">
+      <span className="text-[11px] uppercase tracking-[0.08em] text-[#cccccc]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </span>
+      <textarea
+        className="mt-2 w-full rounded-md border border-[#333333] bg-[#111111] p-3 text-sm leading-6 text-white outline-none transition-colors placeholder:text-stone-500 focus:border-[#d4a62a]"
+        onChange={(event) => onChange(event.target.value)}
+        rows={rows}
+        value={value ?? ""}
+      />
+      {helperText ? (
+        <span className="mt-2 block text-xs leading-5 text-[#888888]">
+          {helperText}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
 function ImageUploadField({
   helperText,
   label,
@@ -2135,65 +2239,72 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           ) : null}
 
           {activeTab === "profile" ? (
-          <SectionIntro
-            description="Controls the public hero section, location display, and short mission statement."
-            title="Profile"
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Display Name" onChange={(value) => updateHouseholdField("display_name", value)} value={selectedProfile.display_name} />
-              <Field label="Slug" onChange={(value) => updateHouseholdField("slug", value)} value={selectedProfile.slug} />
-              <SelectField
+          <div className="max-w-[900px]">
+            <div className="mb-5 max-w-3xl">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Profile
+              </p>
+              <p className="mt-2 text-sm leading-6 text-stone-300">
+                Controls the public hero section, location display, and short mission statement.
+              </p>
+            </div>
+            <div className="mt-5 max-w-[900px] rounded-lg border border-[#222222] bg-[#0a0a0a] p-6">
+              <div className="grid gap-x-4 gap-y-6 md:grid-cols-2">
+                <ProfileField label="Display Name" onChange={(value) => updateHouseholdField("display_name", value)} value={selectedProfile.display_name} />
+                <ProfileField label="Slug" onChange={(value) => updateHouseholdField("slug", value)} value={selectedProfile.slug} />
+                <ProfileSelectField
                 helperText="Required unless location visibility is hidden."
                 label="Primary State"
                 onChange={updatePrimaryState}
                 options={stateOptions}
                 value={getProfilePrimaryState(selectedProfile)}
               />
-              <SelectField
+                <ProfileSelectField
                 helperText="Controls the public serving line."
                 label="Serving Scope"
                 onChange={updateServingScope}
                 options={servingScopeOptions}
                 value={getProfileServingScope(selectedProfile)}
               />
-              <SelectField
+                <ProfileSelectField
                 helperText="Used when serving scope is regional."
                 label="Region"
                 onChange={updateRegion}
                 options={regionOptions}
                 value={getProfileRegion(selectedProfile)}
               />
-              <SelectField
+                <ProfileSelectField
                 helperText="Prepares profiles for state, regional, and national leadership views."
                 label="Role Type"
                 onChange={updateRoleType}
                 options={roleTypeOptions}
                 value={getProfileRoleType(selectedProfile)}
               />
-              <SelectField
+                <ProfileSelectField
                 helperText="Hidden keeps the actual state off public profile and directory displays."
                 label="Location Visibility"
                 onChange={updateLocationVisibility}
                 options={locationVisibilityOptions}
                 value={getProfileLocationVisibility(selectedProfile)}
               />
-              <Field
+                <ProfileField
                 helperText="Optional. If filled, this replaces the generated serving text."
                 label="Custom Serving Label"
                 onChange={(value) => updateHouseholdField("custom_serving_label", value)}
                 value={selectedProfile.custom_serving_label}
               />
-            </div>
-            <div className="mt-4">
-              <TextArea
+              </div>
+              <div className="mt-6">
+                <ProfileTextArea
                 helperText="Shown in the public hero."
                 label="Short Mission"
                 onChange={(value) => updateHouseholdField("short_mission", value)}
                 rows={3}
                 value={selectedProfile.short_mission}
               />
+              </div>
             </div>
-          </SectionIntro>
+          </div>
           ) : null}
 
           {activeTab === "media" ? (
