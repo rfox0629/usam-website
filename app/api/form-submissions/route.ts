@@ -22,6 +22,7 @@ const allowedFormTypes = [
   "field_report_access",
   "join_mission_interest",
   "major_gift",
+  "missionary_profile_review",
   "contact",
   "support_giving",
   "prayer_request",

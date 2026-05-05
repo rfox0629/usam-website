@@ -486,6 +486,7 @@ function mapHouseholdToMissionary({
   teamMembers?: readonly TeamMemberRow[];
 }): Missionary {
   const sortedPeople = sortPeople(people);
+  const mappedFruitItems = mapFruitItems(fruitItems);
   const mappedTags = mapTags(tags);
   const primaryState = normalizePrimaryState(household.primary_state) ?? normalizePrimaryState(household.location);
   const servingScope = normalizeServingScope(household.serving_scope);
@@ -539,7 +540,7 @@ function mapHouseholdToMissionary({
     householdMembers: mapTeamMembers(teamMembers),
     story: household.story ?? undefined,
     fruitFromField: household.fruit_from_field ?? undefined,
-    fruitItems: mapFruitItems(fruitItems),
+    fruitItems: mappedFruitItems,
     features: {
       showHousehold: isEnabledByDefault(household.show_household),
       showPhotos,

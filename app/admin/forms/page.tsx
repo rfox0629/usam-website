@@ -77,6 +77,14 @@ const forms = [
     url: "/missionaries/ryan-brooke-fox",
   },
   {
+    formName: "Missionary Profile Review",
+    formType: "missionary_profile_review",
+    routesTo: "Support Team",
+    status: "Live",
+    submissionsHref: "/admin/support-team?type=missionary_profile_review",
+    url: "/missionaries/ryan-brooke-fox",
+  },
+  {
     formName: "Financial Freedom Request",
     formType: "financial_freedom",
     routesTo: "Support Team",

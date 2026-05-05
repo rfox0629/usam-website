@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import {
   MissionaryProfilesAdminDashboard,
+  type AdminEncounterStatus,
+  type AdminEncounterSubmission,
   type AdminHousehold,
-  type AdminFruitItem,
   type AdminProfile,
   type AdminSupportSettings,
   type AdminTeamMember,
@@ -48,6 +49,71 @@ const householdFeatureColumns = [
   "custom_serving_label",
   "location_visibility",
 ].join(", ");
+const encounterStatuses = ["new", "reviewed", "hidden", "archived"] as const satisfies readonly AdminEncounterStatus[];
+
+type EncounterSubmissionRow = {
+  created_at: string;
+  email: string | null;
+  first_name: string | null;
+  form_type: string;
+  id: string;
+  last_name: string | null;
+  message: string | null;
+  payload: Record<string, unknown> | null;
+  source_page: string | null;
+  status: string | null;
+  updated_at: string | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function payloadString(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function payloadBoolean(payload: Record<string, unknown>, key: string) {
+  return payload[key] === true;
+}
+
+function getEncounterStatus(row: EncounterSubmissionRow, payload: Record<string, unknown>): AdminEncounterStatus {
+  const status = payloadString(payload, "profile_encounter_status") || payloadString(payload, "encounter_status");
+
+  if (encounterStatuses.includes(status as AdminEncounterStatus)) {
+    return status as AdminEncounterStatus;
+  }
+
+  if (encounterStatuses.includes(row.status as AdminEncounterStatus)) {
+    return row.status as AdminEncounterStatus;
+  }
+
+  return "new";
+}
+
+function getPermissionToShare(payload: Record<string, unknown>) {
+  return payloadBoolean(payload, "permission_to_share")
+    || payloadString(payload, "permission_to_share").toLowerCase() === "true"
+    || payloadString(payload, "permission").toLowerCase().startsWith("yes");
+}
+
+function getSubmitterName(row: EncounterSubmissionRow, payload: Record<string, unknown>) {
+  const payloadName = payloadString(payload, "submitter_name");
+  const fullName = [row.first_name, row.last_name].filter(Boolean).join(" ").trim();
+
+  return payloadName || fullName || "Unknown";
+}
+
+function getReviewText(row: EncounterSubmissionRow, payload: Record<string, unknown>) {
+  return payloadString(payload, "review_text")
+    || payloadString(payload, "testimony_text")
+    || payloadString(payload, "testimony")
+    || payloadString(payload, "review")
+    || row.message
+    || "";
+}
 
 function hasMissingFeatureColumnsError(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
@@ -88,10 +154,10 @@ function isMissingPrayerTeamTable(error: { message?: string } | null | undefined
   return message.includes("prayer_partners") || message.includes("prayer_requests");
 }
 
-function isMissingFruitItemsTable(error: { message?: string } | null | undefined) {
+function isMissingFormSubmissionsTable(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return message.includes("missionary_fruit_items");
+  return message.includes("form_submissions");
 }
 
 function isMissingTeamMembersTable(error: { message?: string } | null | undefined) {
@@ -148,7 +214,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const ids = (households ?? []).map((household) => household.id);
   const supportByHouseholdId = new Map<string, AdminSupportSettings>();
   const activePrayerRequestCountByHouseholdId = new Map<string, number>();
-  const fruitItemsByHouseholdId = new Map<string, AdminFruitItem[]>();
+  const encounterSubmissionsByHouseholdId = new Map<string, AdminEncounterSubmission[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
   const teamMembersByHouseholdId = new Map<string, AdminTeamMember[]>();
 
@@ -215,24 +281,51 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       );
     });
 
-    const fruitItemsResult = await supabase
-      .from("missionary_fruit_items")
-      .select("id, household_id, source, source_app, source_external_id, title, body, category, testimony_date, submitted_by_name, submitted_by_user_id, permission_to_share, missionary_public_approved, visibility, status, is_featured, sort_order, created_at, updated_at")
-      .in("household_id", ids)
-      .order("is_featured", { ascending: false })
-      .order("sort_order", { ascending: true })
-      .order("testimony_date", { ascending: false, nullsFirst: false })
+    const encounterSubmissionResult = await supabase
+      .from("form_submissions")
+      .select("id, form_type, first_name, last_name, email, message, payload, status, source_page, created_at, updated_at")
+      .eq("form_type", "missionary_profile_review")
       .order("created_at", { ascending: false });
 
-    if (fruitItemsResult.error && !isMissingFruitItemsTable(fruitItemsResult.error)) {
-      return { error: fruitItemsResult.error.message, profiles: [] };
+    if (encounterSubmissionResult.error && !isMissingFormSubmissionsTable(encounterSubmissionResult.error)) {
+      return { error: encounterSubmissionResult.error.message, profiles: [] };
     }
 
-    ((fruitItemsResult.data ?? []) as AdminFruitItem[]).forEach((item) => {
-      const currentItems = fruitItemsByHouseholdId.get(item.household_id) ?? [];
+    ((encounterSubmissionResult.data ?? []) as EncounterSubmissionRow[]).forEach((row) => {
+      if (row.form_type !== "missionary_profile_review") {
+        return;
+      }
 
-      currentItems.push(item);
-      fruitItemsByHouseholdId.set(item.household_id, currentItems);
+      const payload = isRecord(row.payload) ? row.payload : {};
+      const matchingHouseholdId = ids.find((id) => (
+        payloadString(payload, "missionary_profile_id") === id
+        || payloadString(payload, "missionary_household_id") === id
+        || payloadString(payload, "household_id") === id
+      ));
+
+      if (!matchingHouseholdId) {
+        return;
+      }
+
+      const currentItems = encounterSubmissionsByHouseholdId.get(matchingHouseholdId) ?? [];
+
+      currentItems.push({
+        created_at: row.created_at,
+        email: row.email,
+        first_name: row.first_name,
+        form_type: "missionary_profile_review",
+        id: row.id,
+        last_name: row.last_name,
+        message: row.message,
+        permission_to_share: getPermissionToShare(payload),
+        payload,
+        review_text: getReviewText(row, payload),
+        source_page: row.source_page,
+        status: getEncounterStatus(row, payload),
+        submitter_name: getSubmitterName(row, payload),
+        updated_at: row.updated_at,
+      });
+      encounterSubmissionsByHouseholdId.set(matchingHouseholdId, currentItems);
     });
 
     const teamMembersResult = await supabase
@@ -259,7 +352,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     profiles: (households ?? []).map((household) => ({
       ...(household as AdminHousehold),
       activePrayerRequestCount: activePrayerRequestCountByHouseholdId.get(household.id) ?? 0,
-      fruitItems: fruitItemsByHouseholdId.get(household.id) ?? [],
+      encounterSubmissions: encounterSubmissionsByHouseholdId.get(household.id) ?? [],
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
       teamMembers: teamMembersByHouseholdId.get(household.id) ?? [],

@@ -12,23 +12,10 @@ import { normalizeSupportRoutingMode } from "@/src/lib/missionaries/support-rout
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type UpdatePayload = {
-  fruitItems?: Array<{
-    body?: unknown;
-    category?: unknown;
+  encounterSubmissions?: Array<{
     id?: unknown;
-    is_featured?: unknown;
-    missionary_public_approved?: unknown;
-    permission_to_share?: unknown;
-    sort_order?: unknown;
-    source?: unknown;
-    source_app?: unknown;
-    source_external_id?: unknown;
+    payload?: unknown;
     status?: unknown;
-    submitted_by_name?: unknown;
-    submitted_by_user_id?: unknown;
-    testimony_date?: unknown;
-    title?: unknown;
-    visibility?: unknown;
   }>;
   teamMembers?: Array<{
     display_name?: unknown;
@@ -100,9 +87,7 @@ type UpdatePayload = {
   };
 };
 
-const fruitSources = ["website_admin", "dos", "public_form"] as const;
-const fruitStatuses = ["draft", "published", "hidden", "archived"] as const;
-const fruitVisibilities = ["private", "internal", "public"] as const;
+const encounterStatuses = ["new", "reviewed", "hidden", "archived"] as const;
 const teamMemberSources = ["website_admin", "dos", "public_form"] as const;
 const teamMemberStatuses = ["active", "hidden", "archived"] as const;
 
@@ -156,26 +141,33 @@ function asStringArray(value: unknown) {
     : [];
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
 function asSupportMode(value: unknown) {
   return normalizeSupportRoutingMode(typeof value === "string" ? value : null);
 }
 
-function asFruitSource(value: unknown) {
-  return fruitSources.includes(value as typeof fruitSources[number])
-    ? value as typeof fruitSources[number]
-    : "website_admin";
+function asEncounterStatus(value: unknown) {
+  return encounterStatuses.includes(value as typeof encounterStatuses[number])
+    ? value as typeof encounterStatuses[number]
+    : "new";
 }
 
-function asFruitStatus(value: unknown) {
-  return fruitStatuses.includes(value as typeof fruitStatuses[number])
-    ? value as typeof fruitStatuses[number]
-    : "draft";
-}
-
-function asFruitVisibility(value: unknown) {
-  return fruitVisibilities.includes(value as typeof fruitVisibilities[number])
-    ? value as typeof fruitVisibilities[number]
-    : "private";
+function toFormSubmissionWorkflowStatus(value: typeof encounterStatuses[number]) {
+  switch (value) {
+    case "archived":
+      return "archived";
+    case "reviewed":
+    case "hidden":
+      return "reviewed";
+    case "new":
+    default:
+      return "new";
+  }
 }
 
 function asTeamMemberSource(value: unknown) {
@@ -225,12 +217,6 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
     "prayer_section_headline",
     "prayer_section_description",
   ].some((columnName) => message.includes(columnName));
-}
-
-function hasMissingFruitItemsTableError(error: { message?: string } | null | undefined) {
-  const message = error?.message ?? "";
-
-  return message.includes("missionary_fruit_items");
 }
 
 function hasMissingTeamMembersTableError(error: { message?: string } | null | undefined) {
@@ -433,71 +419,52 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: supportError.message }, { status: 500 });
   }
 
-  let savedFruitItems = true;
+  let savedEncounterSubmissions = true;
 
-  if (Array.isArray(payload.fruitItems)) {
-    const sanitizedFruitItems = payload.fruitItems
-      .map((item) => {
-        const body = asString(item.body);
+  if (Array.isArray(payload.encounterSubmissions)) {
+    const submittedEncounterSubmissions = payload.encounterSubmissions
+      .map((submission) => ({
+        id: asString(submission.id),
+        status: asEncounterStatus(submission.status),
+      }))
+      .filter((submission) => isExistingUuid(submission.id));
 
-        if (!body) {
-          return null;
-        }
+    if (submittedEncounterSubmissions.length > 0) {
+      const submissionIds = submittedEncounterSubmissions.map((submission) => submission.id);
+      const { data: existingSubmissions, error: existingSubmissionsError } = await supabase
+        .from("form_submissions")
+        .select("id, payload")
+        .in("id", submissionIds);
 
-        return {
-          id: asString(item.id),
-          record: {
-            body,
-            category: asNullableString(item.category),
-            household_id: householdId,
-            is_featured: item.is_featured === true,
-            missionary_public_approved: item.missionary_public_approved === true,
-            permission_to_share: item.permission_to_share === true,
-            sort_order: asNumber(item.sort_order),
-            source: asFruitSource(item.source),
-            source_app: asNullableString(item.source_app),
-            source_external_id: asNullableString(item.source_external_id),
-            status: asFruitStatus(item.status),
-            submitted_by_name: asNullableString(item.submitted_by_name),
-            submitted_by_user_id: asNullableString(item.submitted_by_user_id),
-            testimony_date: asNullableString(item.testimony_date),
-            title: asNullableString(item.title),
-            visibility: asFruitVisibility(item.visibility),
-          },
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item));
-    const existingFruitItems = sanitizedFruitItems
-      .filter((item) => isExistingUuid(item.id))
-      .map((item) => ({ ...item.record, id: item.id }));
-    const newFruitItems = sanitizedFruitItems
-      .filter((item) => !isExistingUuid(item.id))
-      .map((item) => item.record);
-
-    if (existingFruitItems.length > 0) {
-      const { error: fruitUpdateError } = await supabase
-        .from("missionary_fruit_items")
-        .upsert(existingFruitItems, { onConflict: "id" });
-
-      if (fruitUpdateError) {
-        if (hasMissingFruitItemsTableError(fruitUpdateError)) {
-          savedFruitItems = false;
-        } else {
-          return NextResponse.json({ error: fruitUpdateError.message }, { status: 500 });
-        }
+      if (existingSubmissionsError) {
+        return NextResponse.json({ error: existingSubmissionsError.message }, { status: 500 });
       }
-    }
 
-    if (newFruitItems.length > 0 && savedFruitItems) {
-      const { error: fruitInsertError } = await supabase
-        .from("missionary_fruit_items")
-        .insert(newFruitItems);
+      const existingPayloadById = new Map(
+        (existingSubmissions ?? []).map((submission) => [
+          submission.id as string,
+          asRecord((submission as { payload?: unknown }).payload),
+        ]),
+      );
 
-      if (fruitInsertError) {
-        if (hasMissingFruitItemsTableError(fruitInsertError)) {
-          savedFruitItems = false;
-        } else {
-          return NextResponse.json({ error: fruitInsertError.message }, { status: 500 });
+      for (const submission of submittedEncounterSubmissions) {
+        const existingPayload = existingPayloadById.get(submission.id) ?? {};
+        const nextPayload = {
+          ...existingPayload,
+          profile_encounter_status: submission.status,
+        };
+        const { error: updateSubmissionError } = await supabase
+          .from("form_submissions")
+          .update({
+            payload: nextPayload,
+            status: toFormSubmissionWorkflowStatus(submission.status),
+            updated_at: timestamp,
+          })
+          .eq("id", submission.id);
+
+        if (updateSubmissionError) {
+          savedEncounterSubmissions = false;
+          return NextResponse.json({ error: updateSubmissionError.message }, { status: 500 });
         }
       }
     }
@@ -634,7 +601,7 @@ export async function POST(request: Request) {
       "Missionary profile saved.",
       savedFeatureFields ? "" : "Apply the profile features migration before feature controls can persist.",
       savedSupportLinkFields ? "" : "Apply the support major gift migration before giving links and major gift settings can persist.",
-      savedFruitItems ? "" : "Apply the missionary fruit items migration before Fruit From The Field items can persist.",
+      savedEncounterSubmissions ? "" : "Unable to persist Encounter review settings.",
       savedTeamMembers ? "" : "Apply the missionary team members migration before Team members can persist.",
     ].filter(Boolean).join(" "),
     slug,

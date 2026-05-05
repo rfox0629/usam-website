@@ -37,9 +37,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 export type AdminSupportMode = SupportRoutingMode;
 
-export type AdminFruitSource = "website_admin" | "dos" | "public_form";
-export type AdminFruitStatus = "draft" | "published" | "hidden" | "archived";
-export type AdminFruitVisibility = "private" | "internal" | "public";
+export type AdminEncounterStatus = "new" | "reviewed" | "hidden" | "archived";
 export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
 export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 
@@ -102,25 +100,20 @@ export type AdminSupportSettings = {
   major_gift_public_description?: string | null;
 };
 
-export type AdminFruitItem = {
-  id: string;
-  household_id: string;
-  source: AdminFruitSource;
-  source_app: string | null;
-  source_external_id: string | null;
-  title: string | null;
-  body: string;
-  category: string | null;
-  testimony_date: string | null;
-  submitted_by_name: string | null;
-  submitted_by_user_id: string | null;
-  permission_to_share: boolean | null;
-  missionary_public_approved: boolean | null;
-  visibility: AdminFruitVisibility;
-  status: AdminFruitStatus;
-  is_featured: boolean | null;
-  sort_order: number | null;
+export type AdminEncounterSubmission = {
   created_at: string;
+  email: string | null;
+  first_name: string | null;
+  form_type: "missionary_profile_review";
+  id: string;
+  last_name: string | null;
+  message: string | null;
+  permission_to_share: boolean;
+  payload: Record<string, unknown>;
+  review_text: string;
+  source_page: string | null;
+  status: AdminEncounterStatus;
+  submitter_name: string;
   updated_at: string | null;
 };
 
@@ -142,7 +135,7 @@ export type AdminTeamMember = {
 
 export type AdminProfile = AdminHousehold & {
   activePrayerRequestCount?: number;
-  fruitItems?: AdminFruitItem[];
+  encounterSubmissions?: AdminEncounterSubmission[];
   prayerPartnerCount?: number;
   support?: AdminSupportSettings;
   teamMembers?: AdminTeamMember[];
@@ -170,7 +163,7 @@ type TargetHouseholdOption = {
 
 type TargetHouseholdLoadState = "error" | "idle" | "loading" | "success";
 
-type EditorTab = "profile" | "features" | "media" | "team" | "story" | "fruit" | "support" | "prayer";
+type EditorTab = "profile" | "features" | "media" | "team" | "story" | "encounters" | "fruit" | "support" | "prayer";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
   annual_goal: 0,
@@ -229,19 +222,6 @@ const supportModeOptions: Array<{ description: string; label: string; value: Adm
   },
 ];
 
-const fruitStatusOptions: Array<{ label: string; value: AdminFruitStatus }> = [
-  { label: "Draft", value: "draft" },
-  { label: "Published", value: "published" },
-  { label: "Hidden", value: "hidden" },
-  { label: "Archived", value: "archived" },
-];
-
-const fruitVisibilityOptions: Array<{ label: string; value: AdminFruitVisibility }> = [
-  { label: "Private", value: "private" },
-  { label: "Internal", value: "internal" },
-  { label: "Public", value: "public" },
-];
-
 const teamMemberStatusOptions: Array<{ label: string; value: AdminTeamMemberStatus }> = [
   { label: "Active", value: "active" },
   { label: "Hidden", value: "hidden" },
@@ -261,9 +241,10 @@ const featureDescriptions = {
 const editorTabs: Array<{ label: string; value: EditorTab }> = [
   { label: "Profile", value: "profile" },
   { label: "Features", value: "features" },
-  { label: "Media", value: "media" },
   { label: "Team", value: "team" },
+  { label: "Media", value: "media" },
   { label: "Story", value: "story" },
+  { label: "Encounters", value: "encounters" },
   { label: "Fruit", value: "fruit" },
   { label: "Support", value: "support" },
   { label: "Prayer", value: "prayer" },
@@ -281,62 +262,6 @@ const regionOptions = [
 
 function toNumber(value: number | null | undefined) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
-}
-
-function fruitSourceLabel(source: AdminFruitSource | string | null | undefined) {
-  switch (source) {
-    case "dos":
-      return "DOS";
-    case "public_form":
-      return "Public Form";
-    case "website_admin":
-    default:
-      return "Website Admin";
-  }
-}
-
-function fruitDateValue(item: AdminFruitItem) {
-  const date = new Date(item.testimony_date ?? item.created_at);
-
-  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-}
-
-function getTopFruitItems(items: readonly AdminFruitItem[]) {
-  const featured = items
-    .filter((item) => item.status === "published" && item.visibility === "public" && item.permission_to_share === true && item.missionary_public_approved === true && item.is_featured === true)
-    .sort((first, second) => toNumber(first.sort_order) - toNumber(second.sort_order) || fruitDateValue(second) - fruitDateValue(first));
-  const featuredIds = new Set(featured.map((item) => item.id));
-  const newest = items
-    .filter((item) => item.status === "published" && item.visibility === "public" && item.permission_to_share === true && item.missionary_public_approved === true && !featuredIds.has(item.id))
-    .sort((first, second) => fruitDateValue(second) - fruitDateValue(first));
-
-  return [...featured, ...newest].slice(0, 3);
-}
-
-function newFruitItem(householdId: string): AdminFruitItem {
-  const timestamp = new Date().toISOString();
-
-  return {
-    body: "",
-    category: "",
-    created_at: timestamp,
-    household_id: householdId,
-    id: `new-${Date.now()}`,
-    is_featured: false,
-    missionary_public_approved: false,
-    permission_to_share: false,
-    sort_order: 0,
-    source: "website_admin",
-    source_app: null,
-    source_external_id: null,
-    status: "draft",
-    submitted_by_name: "",
-    submitted_by_user_id: null,
-    testimony_date: null,
-    title: "",
-    updated_at: timestamp,
-    visibility: "private",
-  };
 }
 
 function normalizePublicRosterNumber(value: string | null | undefined) {
@@ -410,17 +335,17 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-[11px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
       <input
-        className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+        className="mt-2 min-h-12 w-full rounded-md border border-[#333333] bg-[#111111] px-3.5 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
         onChange={(event) => onChange(event.target.value)}
         type={type}
         value={value ?? ""}
       />
       {helperText ? (
-        <span className="mt-2 block text-xs leading-5 text-stone-500">
+        <span className="mt-2 block text-xs leading-5 text-stone-400">
           {helperText}
         </span>
       ) : null}
@@ -489,7 +414,7 @@ function ImageUploadField({
         {helperText}
       </p>
 
-      <div className="relative mt-3 overflow-hidden border border-stone-800 bg-[#050505]">
+      <div className="relative mt-3 overflow-hidden rounded-lg border border-[#333333] bg-[#111111]">
         {imageUrl ? (
           <div className="flex h-56 items-center justify-center p-3 md:h-64">
             <img
@@ -501,7 +426,7 @@ function ImageUploadField({
             />
           </div>
         ) : (
-          <div className="flex h-56 items-center justify-center px-4 text-center text-xs uppercase tracking-[0.18em] text-stone-500 md:h-64" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <div className="flex h-56 items-center justify-center px-4 text-center text-xs uppercase tracking-[0.18em] text-stone-400 md:h-64" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             No image selected
           </div>
         )}
@@ -518,10 +443,10 @@ function ImageUploadField({
       </div>
 
       <div
-        className={`mt-3 border border-dashed p-4 transition-colors ${
+        className={`mt-3 rounded-lg border border-dashed p-4 transition-colors ${
           isDragActive
             ? "border-[#D4A63D] bg-[#D4A63D]/10"
-            : "border-stone-700 bg-[#050505]"
+            : "border-[#333333] bg-[#111111]"
         }`}
         onDragLeave={() => setIsDragActive(false)}
         onDragOver={(event) => {
@@ -568,11 +493,11 @@ function ImageUploadField({
         ) : null}
       </div>
 
-      <details className="mt-3 border border-stone-800 bg-black/20">
-        <summary className="cursor-pointer px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <details className="mt-3 rounded-md border border-[#333333] bg-[#111111]">
+        <summary className="cursor-pointer px-3.5 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Manual URL fallback
         </summary>
-        <div className="border-t border-stone-800 p-3">
+        <div className="border-t border-[#333333] p-3.5">
           <Field
             helperText="Dev fallback. Uploaded images save the full Supabase public URL here automatically."
             label="Image URL"
@@ -600,11 +525,11 @@ function TextArea({
 }) {
   return (
     <label className="block">
-      <span className="text-[11px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
       <textarea
-        className="mt-2 w-full border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+        className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3.5 py-3 text-sm leading-6 text-stone-950 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
         value={value ?? ""}
@@ -639,7 +564,7 @@ function SelectField({
         {label}
       </span>
       <select
-        className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-2 min-h-12 w-full rounded-md border border-[#333333] bg-[#111111] px-3.5 py-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D] disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         value={value ?? ""}
@@ -669,8 +594,8 @@ function SectionIntro({
   title: string;
 }) {
   return (
-    <div>
-      <div className="mb-6 max-w-3xl">
+    <div className="max-w-[900px]">
+      <div className="mb-5 max-w-3xl">
         <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {title}
         </p>
@@ -680,7 +605,9 @@ function SectionIntro({
           </p>
         ) : null}
       </div>
-      {children}
+      <div className="rounded-lg border border-[#222222] bg-[#0a0a0a] p-5 md:p-6">
+        {children}
+      </div>
     </div>
   );
 }
@@ -728,30 +655,31 @@ function FeatureVisibilityTable({
   }>;
 }) {
   return (
-    <div className="overflow-x-auto border border-stone-800/80 bg-[#060606]">
+    <div className="overflow-hidden rounded-lg border border-[#222222] bg-[#0f0f0f]">
+      <div className="overflow-x-auto">
       <table className="min-w-[760px] w-full border-collapse text-left">
         <thead>
-          <tr className="border-b border-stone-800/80">
-            <th className="w-[24%] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <tr className="border-b border-[#222222]">
+            <th className="w-[24%] border-r border-[#222222] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Section
             </th>
-            <th className="px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <th className="border-r border-[#222222] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Description
             </th>
-            <th className="w-[170px] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <th className="w-[170px] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Visible
             </th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr className="border-b border-stone-900 transition-colors last:border-b-0 hover:bg-stone-950/80" key={row.label}>
-              <td className="px-4 py-3 align-middle">
+            <tr className="border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515]" key={row.label}>
+              <td className="border-r border-[#222222] px-4 py-3 align-middle">
                 <span className="text-sm font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
                   {row.label}
                 </span>
               </td>
-              <td className="px-4 py-3 align-middle">
+              <td className="border-r border-[#222222] px-4 py-3 align-middle">
                 <p className="max-w-3xl text-sm leading-5 text-stone-300">
                   {row.description}
                 </p>
@@ -786,161 +714,245 @@ function FeatureVisibilityTable({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
 
-function FruitItemStatusBadge({ item }: { item: AdminFruitItem }) {
-  const isPublic = item.status === "published"
-    && item.visibility === "public"
-    && item.permission_to_share === true
-    && item.missionary_public_approved === true;
+function encounterStatusLabel(value: AdminEncounterStatus) {
+  switch (value) {
+    case "reviewed":
+      return "Reviewed";
+    case "hidden":
+      return "Hidden";
+    case "archived":
+      return "Archived";
+    case "new":
+    default:
+      return "New";
+  }
+}
+
+function truncateText(value: string, maxLength = 120) {
+  return value.length > maxLength ? `${value.slice(0, maxLength).trim()}...` : value;
+}
+
+function EncounterStatusBadge({ status }: { status: AdminEncounterStatus }) {
+  const className = {
+    archived: "border-stone-700 bg-stone-900/70 text-stone-400",
+    hidden: "border-stone-700 bg-stone-900/70 text-stone-300",
+    new: "border-[#D4A63D]/35 bg-[#D4A63D]/10 text-[#F5B942]",
+    reviewed: "border-green-500/25 bg-green-950/30 text-green-300",
+  }[status];
 
   return (
-    <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
-      isPublic
-        ? "border-[#D4A63D]/40 bg-[#D4A63D]/10 text-[#F5B942]"
-        : "border-stone-700 bg-stone-900/70 text-stone-300"
-    }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-      {isPublic ? "Public" : item.status}
+    <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      {encounterStatusLabel(status)}
     </span>
   );
 }
 
-function FruitItemCard({
-  item,
+function EncounterSubmissionManager({
+  items,
   onQuickAction,
-  onUpdate,
 }: {
-  item: AdminFruitItem;
-  onQuickAction: (itemId: string, action: "archive" | "feature" | "hide" | "publish" | "unfeature") => void;
-  onUpdate: (itemId: string, patch: Partial<AdminFruitItem>) => void;
+  items: readonly AdminEncounterSubmission[];
+  onQuickAction: (submissionId: string, action: "archive" | "hide" | "review") => void;
 }) {
-  const isDosItem = item.source === "dos";
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(items[0]?.id ?? null);
+  const selectedSubmission = items.find((item) => item.id === selectedSubmissionId) ?? null;
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setSelectedSubmissionId(null);
+      return;
+    }
+
+    if (!selectedSubmissionId || !items.some((item) => item.id === selectedSubmissionId)) {
+      setSelectedSubmissionId(items[0].id);
+    }
+  }, [items, selectedSubmissionId]);
 
   return (
-    <article className="border border-stone-800/75 bg-[#070707] p-4">
-      <div className="flex flex-col gap-3 border-b border-stone-800/70 pb-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <FruitItemStatusBadge item={item} />
-            <span className="border border-stone-700 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              {fruitSourceLabel(item.source)}
-            </span>
-            {item.is_featured ? (
-              <span className="border border-[#D4A63D]/40 bg-[#D4A63D]/10 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Featured
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-2 text-xs leading-5 text-stone-400">
-            {isDosItem
-              ? "DOS submitted items can become public automatically when approval and visibility fields are set."
-              : "Website admin item. Publish only after permission and missionary approval are confirmed."}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
-            onClick={() => onQuickAction(item.id, item.is_featured ? "unfeature" : "feature")}
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            type="button"
-          >
-            {item.is_featured ? "Unfeature" : "Feature"}
-          </button>
-          <button
-            className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
-            onClick={() => onQuickAction(item.id, "publish")}
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            type="button"
-          >
-            Publish
-          </button>
-          <button
-            className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
-            onClick={() => onQuickAction(item.id, "hide")}
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            type="button"
-          >
-            Hide
-          </button>
-          <button
-            className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-red-400 hover:text-red-200"
-            onClick={() => onQuickAction(item.id, "archive")}
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            type="button"
-          >
-            Archive
-          </button>
+    <div className="space-y-4">
+      {items.length === 0 ? (
+        <p className="text-sm leading-6 text-stone-400">
+          No reviews or testimonies have been submitted for this profile yet.
+        </p>
+      ) : null}
+
+      <div className="overflow-hidden rounded-lg border border-[#222222] bg-[#0f0f0f]">
+        <div className="overflow-x-auto">
+        <table className="min-w-[1040px] w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-[#222222]">
+              {["Name", "Email", "Submitted Text", "Permission to Share", "Status", "Date", "Actions"].map((heading) => (
+                <th
+                  className="border-r border-[#222222] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300 last:border-r-0"
+                  key={heading}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                >
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr
+                className={`border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515] ${selectedSubmissionId === item.id ? "bg-[#151515]" : ""}`}
+                key={item.id}
+              >
+                <td className="border-r border-[#222222] px-4 py-3 align-middle">
+                  <span className="text-sm font-semibold text-stone-100">
+                    {item.submitter_name || "Unknown"}
+                  </span>
+                </td>
+                <td className="border-r border-[#222222] px-4 py-3 align-middle text-sm text-stone-300">
+                  {item.email || "Not provided"}
+                </td>
+                <td className="max-w-[300px] border-r border-[#222222] px-4 py-3 align-middle text-sm leading-6 text-stone-300">
+                  {truncateText(item.review_text || item.message || "No testimony text submitted.")}
+                </td>
+                <td className="border-r border-[#222222] px-4 py-3 align-middle">
+                  <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
+                    item.permission_to_share
+                      ? "border-green-500/25 bg-green-950/30 text-green-300"
+                      : "border-stone-700 bg-stone-900/70 text-stone-400"
+                  }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {item.permission_to_share ? "Yes" : "No"}
+                  </span>
+                </td>
+                <td className="border-r border-[#222222] px-4 py-3 align-middle">
+                  <EncounterStatusBadge status={item.status} />
+                </td>
+                <td className="border-r border-[#222222] px-4 py-3 align-middle text-sm text-stone-300">
+                  {formatProfileUpdatedDate(item.created_at)}
+                </td>
+                <td className="px-4 py-3 align-middle">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      onClick={() => setSelectedSubmissionId(item.id)}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      View
+                    </button>
+                    <button
+                      className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      onClick={() => onQuickAction(item.id, "review")}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      Mark Reviewed
+                    </button>
+                    <button
+                      className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      onClick={() => onQuickAction(item.id, "hide")}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      Hide
+                    </button>
+                    <button
+                      className="border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-100 hover:border-red-400 hover:text-red-200"
+                      onClick={() => onQuickAction(item.id, "archive")}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      Archive
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="space-y-4">
-          <Field label="Title" onChange={(value) => onUpdate(item.id, { title: value })} value={item.title} />
-          <TextArea label="Body / Testimony" onChange={(value) => onUpdate(item.id, { body: value })} rows={5} value={item.body} />
-          <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Category" onChange={(value) => onUpdate(item.id, { category: value })} value={item.category} />
-            <Field label="Testimony Date" onChange={(value) => onUpdate(item.id, { testimony_date: value || null })} type="date" value={item.testimony_date} />
-            <Field label="Submitted By" onChange={(value) => onUpdate(item.id, { submitted_by_name: value })} value={item.submitted_by_name} />
-          </div>
-        </div>
-
-        <div className="space-y-4 border-t border-stone-800 pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-          <SelectField
-            label="Status"
-            onChange={(value) => onUpdate(item.id, { status: value as AdminFruitStatus })}
-            options={fruitStatusOptions}
-            value={item.status}
-          />
-          <SelectField
-            label="Visibility"
-            onChange={(value) => onUpdate(item.id, { visibility: value as AdminFruitVisibility })}
-            options={fruitVisibilityOptions}
-            value={item.visibility}
-          />
-          <Field label="Sort Order" onChange={(value) => onUpdate(item.id, { sort_order: Number(value) })} type="number" value={item.sort_order ?? 0} />
-          <label className="flex items-start gap-3 text-sm leading-6 text-stone-200">
-            <input
-              checked={item.is_featured === true}
-              className="mt-1 h-4 w-4 accent-[#D4A63D]"
-              onChange={(event) => onUpdate(item.id, { is_featured: event.target.checked })}
-              type="checkbox"
-            />
-            Featured item
-          </label>
-          <label className="flex items-start gap-3 text-sm leading-6 text-stone-200">
-            <input
-              checked={item.permission_to_share === true}
-              className="mt-1 h-4 w-4 accent-[#D4A63D]"
-              onChange={(event) => onUpdate(item.id, { permission_to_share: event.target.checked })}
-              type="checkbox"
-            />
-            Permission to share
-          </label>
-          <label className="flex items-start gap-3 text-sm leading-6 text-stone-200">
-            <input
-              checked={item.missionary_public_approved === true}
-              className="mt-1 h-4 w-4 accent-[#D4A63D]"
-              onChange={(event) => onUpdate(item.id, { missionary_public_approved: event.target.checked })}
-              type="checkbox"
-            />
-            Missionary approved public display
-          </label>
-          <details className="border border-stone-800 bg-black/20">
-            <summary className="cursor-pointer px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              View Source
-            </summary>
-            <div className="space-y-2 border-t border-stone-800 p-3 text-xs leading-5 text-stone-400">
-              <p>Source: {fruitSourceLabel(item.source)}</p>
-              <p>App: {item.source_app || "—"}</p>
-              <p>External ID: {item.source_external_id || "—"}</p>
-              <p>User ID: {item.submitted_by_user_id || "—"}</p>
+      {selectedSubmission ? (
+        <div className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Encounter
+              </p>
+              <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+                {selectedSubmission.submitter_name || "Submitted Review"}
+              </h3>
             </div>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <DetailText label="Email" value={selectedSubmission.email || "Not provided"} />
+            <DetailText label="Permission to Share" value={selectedSubmission.permission_to_share ? "Yes" : "No"} />
+            <DetailText label="Status" value={encounterStatusLabel(selectedSubmission.status)} />
+          </div>
+          <div className="mt-4 rounded-md border border-[#222222] bg-[#111111] p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Submitted Text
+            </p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-stone-200">
+              {selectedSubmission.review_text || selectedSubmission.message || "No testimony text submitted."}
+            </p>
+          </div>
+          <div className="mt-4">
+            <DetailText label="Source Page" value={selectedSubmission.source_page || "Not tracked"} />
+          </div>
+          <details className="mt-4 rounded-md border border-[#222222] bg-[#111111]">
+            <summary className="cursor-pointer px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Full Payload
+            </summary>
+            <pre className="max-h-72 overflow-auto border-t border-[#222222] p-3 text-xs leading-5 text-stone-300">
+              {JSON.stringify(selectedSubmission.payload, null, 2)}
+            </pre>
           </details>
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FruitPlanningState() {
+  const sections = ["Featured Fruit", "Public Testimonies", "Ministry Outcomes", "DOS Submitted Fruit"];
+
+  return (
+    <div className="space-y-5">
+      <div className="max-w-3xl">
+        <h3 className="text-2xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+          Fruit
+        </h3>
+        <p className="mt-3 text-sm leading-7 text-stone-400">
+          Fruit will summarize reviewed encounters into public outcomes, testimonies, and reports connected to this profile.
+        </p>
       </div>
-    </article>
+      <div className="grid gap-3 md:grid-cols-2">
+        {sections.map((section) => (
+          <div className="rounded-lg border border-[#222222] bg-[#111111] p-4" key={section}>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {section}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-stone-400">
+              Planned for the curated fruit workflow.
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DetailText({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </p>
+      <p className="mt-2 text-sm leading-6 text-stone-200">
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -948,13 +960,13 @@ function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
   const detail = supportRoutingModeDetails[mode];
 
   return (
-    <div className="border border-stone-800/70 bg-[#070707] p-4">
+    <div className="rounded-lg border border-[#222222] bg-[#111111] p-4">
       <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         Mode Behavior
       </p>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Public Page Says
           </p>
           <p className="mt-2 text-sm leading-6 text-stone-200">
@@ -962,7 +974,7 @@ function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
           </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Giving Buttons Route
           </p>
           <p className="mt-2 text-sm leading-6 text-stone-200">
@@ -970,7 +982,7 @@ function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
           </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Missing Target
           </p>
           <p className="mt-2 text-sm leading-6 text-stone-200">
@@ -978,7 +990,7 @@ function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
           </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Admin Saves
           </p>
           <p className="mt-2 text-sm leading-6 text-stone-200">
@@ -990,107 +1002,11 @@ function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
   );
 }
 
-function FruitItemSection({
-  emptyText,
-  items,
-  onQuickAction,
-  onUpdate,
-  title,
-}: {
-  emptyText: string;
-  items: readonly AdminFruitItem[];
-  onQuickAction: (itemId: string, action: "archive" | "feature" | "hide" | "publish" | "unfeature") => void;
-  onUpdate: (itemId: string, patch: Partial<AdminFruitItem>) => void;
-  title: string;
-}) {
-  return (
-    <section>
-      <h3 className="text-xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-        {title}
-      </h3>
-      <div className="mt-4 space-y-4">
-        {items.length > 0 ? items.map((item) => (
-          <FruitItemCard item={item} key={item.id} onQuickAction={onQuickAction} onUpdate={onUpdate} />
-        )) : (
-          <p className="border border-stone-800 bg-[#070707] p-4 text-sm leading-6 text-stone-400">
-            {emptyText}
-          </p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function FruitFeedManager({
-  items,
-  onAdd,
-  onQuickAction,
-  onUpdate,
-}: {
-  items: readonly AdminFruitItem[];
-  onAdd: () => void;
-  onQuickAction: (itemId: string, action: "archive" | "feature" | "hide" | "publish" | "unfeature") => void;
-  onUpdate: (itemId: string, patch: Partial<AdminFruitItem>) => void;
-}) {
-  const topItems = getTopFruitItems(items);
-  const publishedItems = items.filter((item) => item.status === "published");
-  const hiddenItems = items.filter((item) => item.status === "draft" || item.status === "hidden" || item.status === "archived");
-  const dosItems = items.filter((item) => item.source === "dos");
-
-  return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="grid gap-3 sm:grid-cols-4">
-          <StatPreview label="Featured / Top" value={String(topItems.length)} />
-          <StatPreview label="Published" value={String(publishedItems.length)} />
-          <StatPreview label="Draft Hidden Archived" value={String(hiddenItems.length)} />
-          <StatPreview label="DOS Submitted" value={String(dosItems.length)} />
-        </div>
-        <button
-          className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 py-3 text-xs uppercase tracking-[0.22em] text-black transition-all hover:bg-[#F5B942]"
-          onClick={onAdd}
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          type="button"
-        >
-          Add Testimony
-        </button>
-      </div>
-
-      <FruitItemSection
-        emptyText="No featured public items yet. Featured items appear first on the public profile."
-        items={topItems}
-        onQuickAction={onQuickAction}
-        onUpdate={onUpdate}
-        title="Featured / Top 3 Items"
-      />
-      <FruitItemSection
-        emptyText="No published items yet."
-        items={publishedItems}
-        onQuickAction={onQuickAction}
-        onUpdate={onUpdate}
-        title="All Published Items"
-      />
-      <FruitItemSection
-        emptyText="No draft, hidden, or archived items."
-        items={hiddenItems}
-        onQuickAction={onQuickAction}
-        onUpdate={onUpdate}
-        title="Draft / Hidden / Archived Items"
-      />
-      <FruitItemSection
-        emptyText="DOS submitted items will appear here when DOS begins sending profile fruit."
-        items={dosItems}
-        onQuickAction={onQuickAction}
-        onUpdate={onUpdate}
-        title="DOS Submitted Items"
-      />
-    </div>
-  );
-}
 
 function TeamMemberManager({
   allItems,
   items,
+  locationLabel,
   onAdd,
   onArchive,
   onRemove,
@@ -1098,11 +1014,14 @@ function TeamMemberManager({
 }: {
   allItems: readonly AdminTeamMember[];
   items: readonly AdminTeamMember[];
+  locationLabel: string;
   onAdd: () => void;
   onArchive: (memberId: string) => void;
   onRemove: (memberId: string) => void;
   onUpdate: (memberId: string, patch: Partial<AdminTeamMember>) => void;
 }) {
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [shouldEditNewestMember, setShouldEditNewestMember] = useState(false);
   const numberOwners = allItems.reduce((owners, member) => {
     const publicNumber = publicRosterNumberValue(member.public_number);
 
@@ -1118,19 +1037,30 @@ function TeamMemberManager({
     || publicRosterNumberValue(first.public_number).localeCompare(publicRosterNumberValue(second.public_number), undefined, { numeric: true })
     || first.display_name.localeCompare(second.display_name)
   ));
-  const publicCount = sortedItems.filter((member) => member.status === "active" && member.is_public !== false).length;
+  const editingMember = sortedItems.find((member) => member.id === editingMemberId);
+
+  useEffect(() => {
+    if (!shouldEditNewestMember || sortedItems.length === 0) {
+      return;
+    }
+
+    const newestDraft = [...sortedItems].reverse().find((member) => member.id.startsWith("new-"));
+    setEditingMemberId((newestDraft ?? sortedItems[sortedItems.length - 1]).id);
+    setShouldEditNewestMember(false);
+  }, [shouldEditNewestMember, sortedItems]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <StatPreview label="Public Members" value={String(publicCount)} />
-          <StatPreview label="Total Managed" value={String(sortedItems.length)} />
-          <StatPreview label="DOS Ready" value={String(sortedItems.filter((member) => member.dos_user_id).length)} />
-        </div>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <p className="max-w-3xl text-sm leading-6 text-stone-400">
+          Public numbers are global across USA Missionaries. The UUID stays as the real database ID; this number is only the public roster display.
+        </p>
         <button
           className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 py-3 text-xs uppercase tracking-[0.22em] text-black transition-all hover:bg-[#F5B942]"
-          onClick={onAdd}
+          onClick={() => {
+            setShouldEditNewestMember(true);
+            onAdd();
+          }}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
         >
@@ -1138,42 +1068,167 @@ function TeamMemberManager({
         </button>
       </div>
 
-      <p className="max-w-3xl text-sm leading-6 text-stone-400">
-        Public numbers are global across USA Missionaries. The UUID stays as the real database ID; this number is only the public roster display.
-      </p>
-
       {sortedItems.length === 0 ? (
-        <div className="border border-stone-800 bg-[#050505] p-5 text-sm leading-7 text-stone-400">
-          No team members yet. Add public household or ministry team members connected to this profile.
+        <p className="text-sm leading-6 text-stone-400">
+          No team members yet. Add household or ministry team members connected to this profile.
+        </p>
+      ) : null}
+
+      <div className="overflow-hidden rounded-lg border border-[#222222] bg-[#0f0f0f]">
+        <div className="overflow-x-auto">
+        <table className="min-w-[840px] w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-[#222222]">
+              {["Name", "Role", "Location", "Status", "Public", "Actions"].map((heading) => (
+                <th
+                  className="border-r border-[#222222] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-stone-300 last:border-r-0"
+                  key={heading}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                >
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sortedItems.map((member) => (
+              <TeamMemberRow
+                key={member.id}
+                isEditing={editingMemberId === member.id}
+                locationLabel={locationLabel}
+                member={member}
+                onEdit={() => setEditingMemberId(member.id)}
+                onUpdate={onUpdate}
+              />
+            ))}
+          </tbody>
+        </table>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {sortedItems.map((member) => (
-            <TeamMemberRow
-              key={member.id}
-              member={member}
-              numberOwners={numberOwners}
-              onArchive={onArchive}
-              onRemove={onRemove}
-              onUpdate={onUpdate}
-            />
-          ))}
-        </div>
-      )}
+      </div>
+
+      {editingMember ? (
+        <TeamMemberEditor
+          member={editingMember}
+          numberOwners={numberOwners}
+          onArchive={onArchive}
+          onClose={() => setEditingMemberId(null)}
+          onRemove={onRemove}
+          onUpdate={onUpdate}
+        />
+      ) : null}
     </div>
   );
 }
 
 function TeamMemberRow({
+  isEditing,
+  locationLabel,
+  member,
+  onEdit,
+  onUpdate,
+}: {
+  isEditing: boolean;
+  locationLabel: string;
+  member: AdminTeamMember;
+  onEdit: () => void;
+  onUpdate: (memberId: string, patch: Partial<AdminTeamMember>) => void;
+}) {
+  const isActive = member.status === "active";
+  const isPublic = member.is_public !== false && isActive;
+
+  return (
+    <tr className={`border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515] ${isEditing ? "bg-[#151515]" : ""}`}>
+      <td className="border-r border-[#222222] px-4 py-3 align-middle">
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-semibold text-stone-100">
+            {member.display_name || "New Team Member"}
+          </span>
+          {member.public_number ? (
+            <span className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              #{normalizePublicRosterNumber(member.public_number)}
+            </span>
+          ) : null}
+        </div>
+      </td>
+      <td className="border-r border-[#222222] px-4 py-3 align-middle text-sm text-stone-300">
+        {member.role_title || "Not set"}
+      </td>
+      <td className="border-r border-[#222222] px-4 py-3 align-middle text-sm text-stone-300">
+        {locationLabel || "Not set"}
+      </td>
+      <td className="border-r border-[#222222] px-4 py-3 align-middle">
+        <TeamStatusBadge isActive={isActive} />
+      </td>
+      <td className="border-r border-[#222222] px-4 py-3 align-middle">
+        <label className="inline-flex cursor-pointer items-center gap-3 text-xs text-stone-200">
+          <input
+            checked={isPublic}
+            className="sr-only"
+            onChange={(event) => onUpdate(member.id, {
+              is_public: event.target.checked,
+              status: event.target.checked ? "active" : "hidden",
+            })}
+            type="checkbox"
+          />
+          <span className={`relative h-5 w-9 rounded-full border transition-colors ${
+            isPublic
+              ? "border-[#D4A63D]/70 bg-[#D4A63D]/25"
+              : "border-stone-700 bg-stone-900"
+          }`}>
+            <span className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform ${
+              isPublic
+                ? "translate-x-4 bg-[#F5B942]"
+                : "translate-x-1 bg-stone-500"
+            }`} />
+          </span>
+          <span className={`text-[10px] uppercase tracking-[0.16em] ${
+            isPublic ? "text-[#F5B942]" : "text-stone-500"
+          }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            {isPublic ? "On" : "Off"}
+          </span>
+        </label>
+      </td>
+      <td className="px-4 py-3 align-middle">
+        <button
+          className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+          onClick={onEdit}
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          type="button"
+        >
+          Edit
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+function TeamStatusBadge({ isActive }: { isActive: boolean }) {
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
+        isActive
+          ? "border-green-500/25 bg-green-950/30 text-green-300"
+          : "border-stone-700 bg-stone-900/70 text-stone-400"
+      }`}
+      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+    >
+      {isActive ? "Active" : "Inactive"}
+    </span>
+  );
+}
+
+function TeamMemberEditor({
   member,
   numberOwners,
   onArchive,
+  onClose,
   onRemove,
   onUpdate,
 }: {
   member: AdminTeamMember;
   numberOwners: Map<string, AdminTeamMember[]>;
   onArchive: (memberId: string) => void;
+  onClose: () => void;
   onRemove: (memberId: string) => void;
   onUpdate: (memberId: string, patch: Partial<AdminTeamMember>) => void;
 }) {
@@ -1188,106 +1243,117 @@ function TeamMemberRow({
       : undefined;
 
   return (
-    <div className="border border-stone-800 bg-[#050505] p-4">
-              <div className="flex flex-col gap-3 border-b border-stone-800/70 pb-4 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {member.source === "dos" ? "DOS" : "Website Admin"}
-                  </p>
-                  <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
-                    {member.display_name || "New Team Member"}
-                  </h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {member.id.startsWith("new-") ? (
-                    <button
-                      className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-red-400 hover:text-red-200"
-                      onClick={() => onRemove(member.id)}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      Delete
-                    </button>
-                  ) : null}
-                  <button
-                    className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                    onClick={() => onArchive(member.id)}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    type="button"
-                  >
-                    Archive
-                  </button>
-                </div>
-              </div>
+    <div className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            {member.source === "dos" ? "DOS" : "Website Admin"}
+          </p>
+          <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+            Edit {member.display_name || "New Team Member"}
+          </h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {member.id.startsWith("new-") ? (
+            <button
+              className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-red-400 hover:text-red-200"
+              onClick={() => {
+                onRemove(member.id);
+                onClose();
+              }}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              Delete
+            </button>
+          ) : null}
+          <button
+            className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            onClick={() => onArchive(member.id)}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            Archive
+          </button>
+          <button
+            className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            onClick={onClose}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+      </div>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <Field
-                  label="Display Name"
-                  onChange={(value) => onUpdate(member.id, { display_name: value })}
-                  value={member.display_name}
-                />
-                <Field
-                  helperText="Global 4-digit display number. Public pages show it as #0009."
-                  label="Public Number"
-                  onChange={(value) => onUpdate(member.id, { public_number: value })}
-                  value={member.public_number}
-                  warningText={numberWarning}
-                />
-                <Field
-                  label="Role / Title"
-                  onChange={(value) => onUpdate(member.id, { role_title: value })}
-                  value={member.role_title}
-                />
-                <Field
-                  label="Sort Order"
-                  onChange={(value) => onUpdate(member.id, { sort_order: Number(value) })}
-                  type="number"
-                  value={member.sort_order ?? 0}
-                />
-                <SelectField
-                  label="Status"
-                  onChange={(value) => onUpdate(member.id, { status: value as AdminTeamMemberStatus, is_public: value === "active" })}
-                  options={teamMemberStatusOptions}
-                  value={member.status}
-                />
-                <Field
-                  helperText="Future DOS connection placeholder."
-                  label="DOS User ID"
-                  onChange={(value) => onUpdate(member.id, { dos_user_id: value })}
-                  value={member.dos_user_id}
-                />
-              </div>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <Field
+          label="Display Name"
+          onChange={(value) => onUpdate(member.id, { display_name: value })}
+          value={member.display_name}
+        />
+        <Field
+          helperText="Global 4-digit display number. Public pages show it as #0009."
+          label="Public Number"
+          onChange={(value) => onUpdate(member.id, { public_number: value })}
+          value={member.public_number}
+          warningText={numberWarning}
+        />
+        <Field
+          label="Role / Title"
+          onChange={(value) => onUpdate(member.id, { role_title: value })}
+          value={member.role_title}
+        />
+        <Field
+          label="Sort Order"
+          onChange={(value) => onUpdate(member.id, { sort_order: Number(value) })}
+          type="number"
+          value={member.sort_order ?? 0}
+        />
+        <SelectField
+          label="Status"
+          onChange={(value) => onUpdate(member.id, { status: value as AdminTeamMemberStatus, is_public: value === "active" })}
+          options={teamMemberStatusOptions}
+          value={member.status}
+        />
+        <Field
+          helperText="Future DOS connection placeholder."
+          label="DOS User ID"
+          onChange={(value) => onUpdate(member.id, { dos_user_id: value })}
+          value={member.dos_user_id}
+        />
+      </div>
 
-              <div className="mt-4">
-                <TextArea
-                  helperText="Optional short public note for this team member."
-                  label="Short Description"
-                  onChange={(value) => onUpdate(member.id, { short_description: value })}
-                  rows={3}
-                  value={member.short_description}
-                />
-              </div>
+      <div className="mt-4">
+        <TextArea
+          helperText="Optional short public note for this team member."
+          label="Short Description"
+          onChange={(value) => onUpdate(member.id, { short_description: value })}
+          rows={3}
+          value={member.short_description}
+        />
+      </div>
 
-              <label className="mt-4 inline-flex items-center gap-3 text-sm text-stone-200">
-                <input
-                  checked={member.is_public !== false && member.status === "active"}
-                  className="h-4 w-4 accent-[#D4A63D]"
-                  onChange={(event) => onUpdate(member.id, {
-                    is_public: event.target.checked,
-                    status: event.target.checked ? "active" : "hidden",
-                  })}
-                  type="checkbox"
-                />
-                Public visible
-              </label>
-            </div>
+      <label className="mt-4 inline-flex items-center gap-3 text-sm text-stone-200">
+        <input
+          checked={member.is_public !== false && member.status === "active"}
+          className="h-4 w-4 accent-[#D4A63D]"
+          onChange={(event) => onUpdate(member.id, {
+            is_public: event.target.checked,
+            status: event.target.checked ? "active" : "hidden",
+          })}
+          type="checkbox"
+        />
+        Public visible
+      </label>
+    </div>
   );
 }
 
 function StatPreview({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-stone-800 bg-black/35 p-4">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+    <div className="rounded-lg border border-[#222222] bg-[#111111] p-4">
+      <p className="text-[10px] uppercase tracking-[0.22em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </p>
       <p className="mt-2 text-2xl font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
@@ -1593,15 +1659,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
   }
 
-  function updateFruitItem(itemId: string, patch: Partial<AdminFruitItem>) {
+  function updateEncounterSubmission(submissionId: string, patch: Partial<AdminEncounterSubmission>) {
     if (!selectedProfile) {
       return;
     }
 
     updateSelected({
       ...selectedProfile,
-      fruitItems: (selectedProfile.fruitItems ?? []).map((item) => (
-        item.id === itemId
+      encounterSubmissions: (selectedProfile.encounterSubmissions ?? []).map((item) => (
+        item.id === submissionId
           ? {
             ...item,
             ...patch,
@@ -1612,35 +1678,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
   }
 
-  function addFruitItem() {
-    if (!selectedProfile) {
-      return;
-    }
-
-    updateSelected({
-      ...selectedProfile,
-      fruitItems: [
-        newFruitItem(selectedProfile.id),
-        ...(selectedProfile.fruitItems ?? []),
-      ],
-    });
-  }
-
-  function quickUpdateFruitItem(itemId: string, action: "archive" | "feature" | "hide" | "publish" | "unfeature") {
+  function quickUpdateEncounterSubmission(submissionId: string, action: "archive" | "hide" | "review") {
     const patch = {
-      archive: { status: "archived", is_featured: false },
-      feature: { is_featured: true },
-      hide: { status: "hidden", is_featured: false },
-      publish: {
-        missionary_public_approved: true,
-        permission_to_share: true,
-        status: "published",
-        visibility: "public",
-      },
-      unfeature: { is_featured: false },
-    }[action] as Partial<AdminFruitItem>;
+      archive: { status: "archived" },
+      hide: { status: "hidden" },
+      review: { status: "reviewed" },
+    }[action] as Partial<AdminEncounterSubmission>;
 
-    updateFruitItem(itemId, patch);
+    updateEncounterSubmission(submissionId, patch);
   }
 
   function updateTeamMember(memberId: string, patch: Partial<AdminTeamMember>) {
@@ -1812,7 +1857,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           support_target_household_id: selectedProfile.support_target_household_id,
         },
         householdId: selectedProfile.id,
-        fruitItems: selectedProfile.fruitItems ?? [],
+        encounterSubmissions: selectedProfile.encounterSubmissions ?? [],
         originalSlug: initialProfiles.find((profile) => profile.id === selectedProfile.id)?.slug,
         support: selectedProfile.support ?? emptySupport(selectedProfile.id),
         teamMembers: selectedProfile.teamMembers ?? [],
@@ -1852,11 +1897,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           <StatPreview label="Hidden Profiles" value={String(hiddenProfiles)} />
         </div>
 
-        <div className="grid gap-3 border border-stone-800/75 bg-[#080808]/85 p-3 md:grid-cols-[minmax(240px,1fr)_220px_auto]">
+        <div className="grid gap-3 rounded-lg border border-[#222222] bg-[#0a0a0a] p-4 md:grid-cols-[minmax(240px,1fr)_220px_auto]">
           <label className="block">
             <span className="sr-only">Search missionary profiles</span>
             <input
-              className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
+              className="min-h-12 w-full rounded-md border border-[#333333] bg-[#111111] px-3.5 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
               onChange={(event) => setProfileQuery(event.target.value)}
               placeholder="Search profiles, slugs, states, or mission"
               value={profileQuery}
@@ -1865,7 +1910,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           <label className="block">
             <span className="sr-only">Filter by visibility</span>
             <select
-              className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+              className="min-h-12 w-full rounded-md border border-[#333333] bg-[#111111] px-3.5 py-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
               onChange={(event) => setProfileVisibilityFilter(event.target.value)}
               value={profileVisibilityFilter}
             >
@@ -1886,37 +1931,37 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         </div>
 
         {profiles.length === 0 ? (
-          <div className="border border-stone-800 bg-stone-950/55 p-8 text-stone-300">
+          <div className="rounded-lg border border-[#222222] bg-[#0a0a0a] p-8 text-stone-300">
             No missionary households found yet.
           </div>
         ) : (
-          <div className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
+          <div className="overflow-hidden rounded-lg border border-[#222222] bg-[#0f0f0f]">
             <div className="overflow-x-auto">
               <table className="min-w-[820px] w-full border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-stone-800/70 text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    <th className="w-[34%] px-4 py-3 font-bold">Missionary Profile</th>
-                    <th className="px-4 py-3 font-bold">Visible</th>
-                    <th className="px-4 py-3 font-bold">Location</th>
-                    <th className="px-4 py-3 font-bold">Last Updated</th>
+                  <tr className="border-b border-[#222222] text-[10px] uppercase tracking-[0.18em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <th className="w-[34%] border-r border-[#222222] px-4 py-3 font-bold">Missionary Profile</th>
+                    <th className="border-r border-[#222222] px-4 py-3 font-bold">Visible</th>
+                    <th className="border-r border-[#222222] px-4 py-3 font-bold">Location</th>
+                    <th className="border-r border-[#222222] px-4 py-3 font-bold">Last Updated</th>
                     <th className="px-4 py-3 font-bold">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-900">
+                <tbody>
                   {filteredProfiles.length > 0 ? filteredProfiles.map((profile) => (
-                    <tr className="transition-colors hover:bg-stone-950/80" key={profile.id}>
-                      <td className="px-4 py-4">
+                    <tr className="border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515]" key={profile.id}>
+                      <td className="border-r border-[#222222] px-4 py-4">
                         <p className="font-medium text-stone-100">{profile.display_name}</p>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="border-r border-[#222222] px-4 py-4">
                         <ProfileVisibilityBadge profile={profile} />
                       </td>
-                      <td className="px-4 py-4 text-sm text-stone-300">
+                      <td className="border-r border-[#222222] px-4 py-4 text-sm text-stone-300">
                         {getProfileLocationVisibility(profile) === "hidden"
                           ? "Undisclosed"
                           : getProfilePrimaryState(profile) || "Not set"}
                       </td>
-                      <td className="px-4 py-4 text-sm text-stone-400">
+                      <td className="border-r border-[#222222] px-4 py-4 text-sm text-stone-300">
                         {formatProfileUpdatedDate(profile.updated_at)}
                       </td>
                       <td className="px-4 py-4">
@@ -1961,6 +2006,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const showLeadershipPlaceholder = supportMode === "state_leader" || supportMode === "regional_leader";
   const showSupportActions = supportMode !== "hidden";
   const showGivingSettings = showSupportActions;
+  const prayerBehavior = selectedProfile.enable_prayer_team === false ? "link" : "modal";
+  const prayerButtonLabel = selectedProfile.prayer_cta_label || "Join The Prayer Team";
+  const prayerHeadline = selectedProfile.prayer_section_headline || "Prayer Requests";
+  const prayerDescription = selectedProfile.prayer_section_description || "Stand with this household in prayer as they reach, disciple, and serve across the mission field.";
   return (
     <div className="space-y-6">
       <section className="bg-stone-950/35 p-5 md:p-7">
@@ -2183,6 +2232,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             <TeamMemberManager
               allItems={profiles.flatMap((profile) => profile.teamMembers ?? [])}
               items={selectedProfile.teamMembers ?? []}
+              locationLabel={getProfilePrimaryState(selectedProfile) || selectedProfile.location || ""}
               onAdd={addTeamMember}
               onArchive={archiveTeamMember}
               onRemove={removeTeamMember}
@@ -2206,17 +2256,24 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </SectionIntro>
           ) : null}
 
+          {activeTab === "encounters" ? (
+          <SectionIntro
+            description="Raw submitted reviews, testimonies, and profile forms exactly as people submitted them."
+            title="Encounters"
+          >
+            <EncounterSubmissionManager
+              items={selectedProfile.encounterSubmissions ?? []}
+              onQuickAction={quickUpdateEncounterSubmission}
+            />
+          </SectionIntro>
+          ) : null}
+
           {activeTab === "fruit" ? (
           <SectionIntro
-            description="Fruit From The Field can include testimonies, reviews, ministry updates, and reports from DOS. Featured items appear on the public profile first."
-            title="Fruit From The Field"
+            description="Curated public outcomes, testimonies, and reports will be built from reviewed encounters later."
+            title="Fruit"
           >
-            <FruitFeedManager
-              items={selectedProfile.fruitItems ?? []}
-              onAdd={addFruitItem}
-              onQuickAction={quickUpdateFruitItem}
-              onUpdate={updateFruitItem}
-            />
+            <FruitPlanningState />
           </SectionIntro>
           ) : null}
 
@@ -2258,7 +2315,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   ) : null}
 
                   {showLeadershipPlaceholder ? (
-                    <div className="border border-stone-800 bg-[#050505] p-4 text-sm leading-6 text-stone-300">
+                    <div className="rounded-lg border border-[#222222] bg-[#111111] p-4 text-sm leading-6 text-stone-300">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-stone-200" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         {supportMode === "state_leader" ? "State Leader Target" : "Regional Leader Target"}
                       </p>
@@ -2269,7 +2326,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   ) : null}
 
                   {supportMode === "general_fund" || supportMode === "national_leadership" ? (
-                    <div className="border border-stone-800 bg-[#050505] p-4 text-sm leading-6 text-stone-300">
+                    <div className="rounded-lg border border-[#222222] bg-[#111111] p-4 text-sm leading-6 text-stone-300">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-stone-200" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Routing Note
                       </p>
@@ -2296,7 +2353,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               {/* TODO: Reintroduce fundraising numbers when real data tracking and dashboard is built. */}
 
               {showGivingSettings ? (
-              <div className="border-t border-stone-800/70 pt-6">
+              <div className="border-t border-[#222222] pt-6">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Giving Links
                 </p>
@@ -2318,7 +2375,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               ) : null}
 
               {showSupportActions ? (
-              <div className="border-t border-stone-800/70 pt-6">
+              <div className="border-t border-[#222222] pt-6">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Button Labels
                 </p>
@@ -2331,7 +2388,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               ) : null}
 
               {showSupportActions ? (
-              <div className="border-t border-stone-800/70 pt-6">
+              <div className="border-t border-[#222222] pt-6">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Major Gift Settings
                 </p>
@@ -2370,16 +2427,19 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Control the public prayer section and the Join The Prayer Team flow."
             title="Prayer"
           >
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="space-y-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="flex min-h-24 items-start justify-between gap-4 border border-stone-800 bg-[#070707] p-4 text-sm text-stone-100">
+            <div className="space-y-7">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Visibility
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <label className="flex items-start justify-between gap-4 rounded-lg border border-[#222222] bg-[#111111] p-4 text-sm text-stone-100">
                     <span>
                       <span className="block text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Show Prayer Section
                       </span>
                       <span className="mt-2 block leading-6 text-stone-400">
-                        Controls whether the Prayer Requests section renders on the public profile.
+                        Controls whether the prayer section renders on the public profile.
                       </span>
                     </span>
                     <input
@@ -2389,13 +2449,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       type="checkbox"
                     />
                   </label>
-                  <label className="flex min-h-24 items-start justify-between gap-4 border border-stone-800 bg-[#070707] p-4 text-sm text-stone-100">
+                  <label className="flex items-start justify-between gap-4 rounded-lg border border-[#222222] bg-[#111111] p-4 text-sm text-stone-100">
                     <span>
                       <span className="block text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Enable Join Prayer Team
                       </span>
                       <span className="mt-2 block leading-6 text-stone-400">
-                        Shows the signup modal near the hero buttons and inside the prayer section.
+                        Enables the prayer-team modal entry point. Disable when the CTA should use a fallback link.
                       </span>
                     </span>
                     <input
@@ -2406,21 +2466,45 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     />
                   </label>
                 </div>
+              </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+              <div className="border-t border-[#222222] pt-6">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Call To Action
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <Field
                     helperText="Defaults to Join The Prayer Team."
-                    label="Prayer CTA Label"
+                    label="Button Label"
                     onChange={(value) => updateHouseholdField("prayer_cta_label", value)}
                     value={selectedProfile.prayer_cta_label}
                   />
-                  <Field
-                    helperText="Fallback URL if the prayer team modal is disabled."
-                    label="Prayer Destination"
-                    onChange={(value) => updateHouseholdField("prayer_destination", value)}
-                    value={selectedProfile.prayer_destination}
+                  <SelectField
+                    helperText="Modal opens the profile-aware prayer team signup. Link uses the fallback URL."
+                    label="Behavior"
+                    onChange={(value) => updateHouseholdField("enable_prayer_team", value !== "link")}
+                    options={[
+                      { label: "Modal", value: "modal" },
+                      { label: "Link", value: "link" },
+                    ]}
+                    value={prayerBehavior}
                   />
+                  {prayerBehavior === "link" ? (
+                    <Field
+                      helperText="Used when Behavior is Link. Defaults to /prayer if blank."
+                      label="Fallback URL"
+                      onChange={(value) => updateHouseholdField("prayer_destination", value)}
+                      value={selectedProfile.prayer_destination}
+                    />
+                  ) : null}
                 </div>
+              </div>
+
+              <div className="border-t border-[#222222] pt-6">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Public Content
+                </p>
+                <div className="mt-4 grid gap-4">
                 <Field
                   helperText="Optional public heading. Defaults to Prayer Requests."
                   label="Prayer Section Headline"
@@ -2434,24 +2518,51 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   rows={4}
                   value={selectedProfile.prayer_section_description}
                 />
+                </div>
               </div>
 
-              <aside className="border border-stone-800 bg-[#070707] p-5">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Prayer Team Snapshot
-                </p>
-                <div className="mt-4 grid gap-3">
-                  <StatPreview label="Recruited Partners" value={String(selectedProfile.prayerPartnerCount ?? 0)} />
-                  <StatPreview label="Active Requests" value={String(selectedProfile.activePrayerRequestCount ?? 0)} />
+              <div className="border-t border-[#222222] pt-6">
+                <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Preview
+                    </p>
+                    <div className="mt-4 rounded-lg border border-[#222222] bg-[#111111] p-5">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Button
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-stone-100">
+                        {prayerButtonLabel}
+                      </p>
+                      <p className="mt-5 text-[10px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Headline
+                      </p>
+                      <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+                        {prayerHeadline}
+                      </h3>
+                      <p className="mt-3 text-sm leading-7 text-stone-300">
+                        {prayerDescription}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Prayer Team
+                    </p>
+                    <div className="mt-4 grid gap-3">
+                      <StatPreview label="Recruited Partners" value={String(selectedProfile.prayerPartnerCount ?? 0)} />
+                      <StatPreview label="Active Requests" value={String(selectedProfile.activePrayerRequestCount ?? 0)} />
+                      <Link
+                        className="inline-flex min-h-10 w-full items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                        href={`/admin/prayer-team?tab=requests&household=${selectedProfile.id}`}
+                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      >
+                        Manage In Prayer Team
+                      </Link>
+                    </div>
+                  </div>
                 </div>
-                <Link
-                  className="mt-4 inline-flex min-h-10 w-full items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                  href={`/admin/prayer-team?tab=requests&household=${selectedProfile.id}`}
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                >
-                  Manage In Prayer Team
-                </Link>
-              </aside>
+              </div>
             </div>
           </SectionIntro>
           ) : null}

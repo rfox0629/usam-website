@@ -6,6 +6,7 @@ import { HeroSupportActions, ProfileSupportSectionActions } from "@/components/m
 import { StoryReadMoreButton } from "@/components/missionaries/StoryReadMoreButton";
 import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromTheFieldModal";
 import { JoinPrayerTeamModal, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
+import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
 import type { Missionary, MissionaryFruitItem } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
 
@@ -228,8 +229,10 @@ function StorySection({
 
 function FruitSection({
   fruitItems,
+  missionary,
 }: {
   fruitItems: readonly MissionaryFruitItem[];
+  missionary: Missionary;
 }) {
   const topFruitItems = getTopFruitItems(fruitItems);
 
@@ -282,7 +285,14 @@ function FruitSection({
             </div>
 
             <div className="mt-8">
-              <FruitFromTheFieldModal items={fruitItems} />
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <FruitFromTheFieldModal items={fruitItems} />
+                <MissionaryProfileReviewModal
+                  missionaryId={missionary.id}
+                  missionaryName={missionary.name}
+                  profileSlug={missionary.slug}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -448,7 +458,7 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
       ) : null}
 
       {showFruit ? (
-        <FruitSection fruitItems={fruitItems} />
+        <FruitSection fruitItems={fruitItems} missionary={missionary} />
       ) : null}
 
       {showPrayer ? (

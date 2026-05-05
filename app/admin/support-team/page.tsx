@@ -49,6 +49,7 @@ const supportFormTypes = [
   { label: "Major Gifts", value: "major_gift" },
   { label: "Contact", value: "contact" },
   { label: "Support / Giving", value: "support_giving" },
+  { label: "Missionary Profile Review", value: "missionary_profile_review" },
   { label: "Join the Mission Interest", value: "join_mission_interest" },
   { label: "System Waitlist", value: "system_waitlist" },
   { label: "Missionary Application", value: "missionary_application" },
@@ -122,6 +123,8 @@ function formTypeLabel(value: string) {
       return "Major Gift";
     case "support_giving":
       return "Support / Giving";
+    case "missionary_profile_review":
+      return "Missionary Profile Review";
     case "join_mission_interest":
       return "Join the Mission Interest";
     case "field_report_access":
