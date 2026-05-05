@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-
-const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+import { adminFont } from "./AdminUI";
 
 const adminNavGroups = [
   {
@@ -54,11 +53,13 @@ function AdminNavLink({
 
 export function AdminShell({
   active,
+  action,
   children,
   description,
   title,
 }: {
   active: AdminNavKey;
+  action?: ReactNode;
   children: ReactNode;
   description: string;
   title: string;
@@ -68,7 +69,7 @@ export function AdminShell({
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-stone-800/80 bg-[#070707] px-4 py-5 md:flex md:flex-col">
         <Link href="/admin/dashboard" className="flex min-h-11 items-center gap-3 border-b border-stone-800/70 pb-5">
           <span className="h-2 w-2 rotate-45 bg-[#C9A24A]" />
-          <span className="text-xl font-semibold text-stone-100" style={{ fontFamily: font.oswald }}>
+          <span className="text-xl font-semibold text-stone-100" style={{ fontFamily: adminFont.oswald }}>
             Admin
           </span>
         </Link>
@@ -76,7 +77,7 @@ export function AdminShell({
         <nav className="mt-6 flex flex-1 flex-col gap-5" aria-label="Admin navigation">
           {adminNavGroups.map((group) => (
             <div key={group.title}>
-              <p className="mb-2 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="mb-2 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
                 {group.title}
               </p>
               <div className="flex flex-col gap-1">
@@ -96,7 +97,7 @@ export function AdminShell({
         <Link
           className="mt-6 text-xs uppercase tracking-[0.16em] text-stone-500 transition-colors hover:text-[#C9A24A]"
           href="/"
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
         >
           Back to Site
         </Link>
@@ -107,14 +108,14 @@ export function AdminShell({
           <div className="flex items-center justify-between gap-4">
             <Link href="/admin/dashboard" className="flex items-center gap-3">
               <span className="h-2 w-2 rotate-45 bg-[#C9A24A]" />
-              <span className="text-lg font-semibold text-stone-100" style={{ fontFamily: font.oswald }}>
+              <span className="text-lg font-semibold text-stone-100" style={{ fontFamily: adminFont.oswald }}>
                 Admin
               </span>
             </Link>
             <Link
               className="text-xs uppercase tracking-[0.16em] text-stone-500"
               href="/"
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
             >
               Site
             </Link>
@@ -122,7 +123,7 @@ export function AdminShell({
           <nav className="mt-3 flex gap-4 overflow-x-auto pb-1" aria-label="Admin mobile navigation">
             {adminNavGroups.map((group) => (
               <div key={group.title} className="shrink-0">
-                <p className="mb-1 text-[9px] uppercase tracking-[0.14em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <p className="mb-1 text-[9px] uppercase tracking-[0.14em] text-stone-400" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
                   {group.title}
                 </p>
                 <div className="flex gap-2">
@@ -147,13 +148,16 @@ export function AdminShell({
 
         <section className="px-4 py-6 md:px-8 md:py-8 xl:px-10">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-6 border-b border-stone-800/70 pb-5">
-              <h1 className="text-3xl font-semibold tracking-tight text-stone-100 md:text-4xl">
-                {title}
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400 md:text-base">
-                {description}
-              </p>
+            <div className="mb-6 flex flex-col gap-4 border-b border-stone-800/70 pb-5 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight text-stone-100 md:text-4xl">
+                  {title}
+                </h1>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400 md:text-base">
+                  {description}
+                </p>
+              </div>
+              {action ? <div className="shrink-0">{action}</div> : null}
             </div>
 
             {children}

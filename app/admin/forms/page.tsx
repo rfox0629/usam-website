@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { AdminShell } from "../_components/AdminShell";
+import { AdminActionLink } from "../_components/AdminUI";
+import { FormsControlTable, type FormControlRow } from "./FormsControlTable";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
@@ -12,8 +13,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
-
-const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 const forms = [
   {
@@ -95,62 +94,6 @@ type SubmissionSummary = {
   form_type: string;
 };
 
-function StatusBadge({ status }: { status: "Draft" | "Live" }) {
-  return (
-    <span
-      className={`inline-flex min-h-6 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.14em] ${
-        status === "Live"
-          ? "border-green-500/25 bg-green-950/30 text-green-300"
-          : "border-stone-700 bg-stone-900/70 text-stone-300"
-      }`}
-      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-    >
-      {status}
-    </span>
-  );
-}
-
-function RouteBadge({ routesTo }: { routesTo: string }) {
-  const isPrayer = routesTo === "Prayer Team";
-
-  return (
-    <span
-      className={`inline-flex min-h-6 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.14em] ${
-        isPrayer
-          ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
-          : "border-blue-400/25 bg-blue-950/30 text-blue-300"
-      }`}
-      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-    >
-      {routesTo}
-    </span>
-  );
-}
-
-function ActionLink({
-  children,
-  href,
-  variant = "outline",
-}: {
-  children: string;
-  href: string;
-  variant?: "gold" | "outline";
-}) {
-  return (
-    <Link
-      className={`inline-flex min-h-10 items-center justify-center px-4 text-[11px] uppercase tracking-[0.18em] transition-colors ${
-        variant === "gold"
-          ? "border border-transparent bg-[#D4A63D] text-black hover:bg-[#F5B942]"
-          : "border border-stone-700 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
-      }`}
-      href={href}
-      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-    >
-      {children}
-    </Link>
-  );
-}
-
 function formatDate(value?: string) {
   if (!value) {
     return "No submissions";
@@ -207,68 +150,32 @@ export default async function FormsPagesAdminPage() {
       total: current.total + 1,
     });
   }
+  const rows: FormControlRow[] = forms.map((form) => {
+    const stats = statsByType.get(form.formType);
+
+    return {
+      ...form,
+      lastSubmissionLabel: formatDate(stats?.lastSubmission),
+      routesTo: form.routesTo,
+      status: form.status,
+      totalSubmissions: stats?.total ?? 0,
+    };
+  });
 
   return (
     <AdminShell
       active="forms-pages"
+      action={<AdminActionLink href="/admin/forms" variant="gold">+ Add New Form</AdminActionLink>}
       description="Control public-facing forms, page entry points, and which operating team receives each submission."
       title="Forms & Pages"
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         {error ? (
           <p className="border border-red-500/30 bg-red-950/20 p-4 text-sm leading-6 text-red-100">
             Form summary data is not ready: {error}. Apply the form_submissions migration to the usam-website Supabase project.
           </p>
         ) : null}
-
-        <div className="border border-stone-800/75 bg-[#080808]/85 p-5">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Routing Rule
-          </p>
-          <p className="mt-3 max-w-4xl text-sm leading-7 text-stone-300">
-            This page is a public forms control panel. Teams work submissions in Prayer Team or Support Team, based on the assigned route.
-          </p>
-        </div>
-
-        <div className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
-          <div className="hidden grid-cols-[1.1fr_0.85fr_0.7fr_0.45fr_0.65fr_0.55fr_0.65fr_1fr] gap-4 border-b border-stone-800/70 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-stone-500 xl:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            <span>Form Name</span>
-            <span>URL</span>
-            <span>Form Type</span>
-            <span>Status</span>
-            <span>Routes To</span>
-            <span>Total</span>
-            <span>Last Submission</span>
-            <span>Actions</span>
-          </div>
-          <div className="divide-y divide-stone-900">
-            {forms.map((form) => {
-              const stats = statsByType.get(form.formType);
-
-              return (
-                <article className="grid gap-3 p-4 xl:grid-cols-[1.1fr_0.85fr_0.7fr_0.45fr_0.65fr_0.55fr_0.65fr_1fr] xl:items-center" key={form.formName}>
-                  <div>
-                    <p className="font-medium text-stone-100">{form.formName}</p>
-                    <p className="mt-1 text-xs text-stone-500 xl:hidden">{form.formType}</p>
-                  </div>
-                  <Link className="text-sm text-stone-300 hover:text-[#F5B942]" href={form.url}>
-                    {form.url}
-                  </Link>
-                  <p className="text-sm text-stone-400">{form.formType}</p>
-                  <StatusBadge status={form.status} />
-                  <RouteBadge routesTo={form.routesTo} />
-                  <p className="text-sm text-stone-300">{stats?.total ?? 0}</p>
-                  <p className="text-sm text-stone-400">{formatDate(stats?.lastSubmission)}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <ActionLink href={form.url}>View Form</ActionLink>
-                    <ActionLink href={form.submissionsHref} variant="gold">View Submissions</ActionLink>
-                    <ActionLink href={form.submissionsHref}>Edit Routing</ActionLink>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </div>
+        <FormsControlTable rows={rows} />
       </div>
     </AdminShell>
   );

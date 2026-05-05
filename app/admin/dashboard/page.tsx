@@ -564,7 +564,7 @@ function QuickActionsPanel() {
   const actions = [
     { href: "/admin/missionary-profiles", label: "Add Missionary" },
     { href: "/admin/uploads", label: "Upload Photos" },
-    { href: "/admin/support", label: "View Reports" },
+    { href: "/admin/support-team", label: "View Reports" },
     { href: "/admin/settings", label: "Settings" },
   ] as const;
 
@@ -599,7 +599,7 @@ export default async function AdminDashboardPage() {
   const metrics = [
     { href: "/admin/missionary-profiles", label: "Missionaries", value: hasDataError ? "-" : formatMetric(data.activeMissionaries) },
     { href: "/admin/support-team?status=new", label: "New Inquiries", value: hasDataError ? "-" : formatMetric(data.newInquiries) },
-    { href: "/admin/support", label: "Support This Month", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
+    { href: "/admin/support-team", label: "Support This Month", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
     { href: "#todays-work", label: "Pending Reviews", value: hasDataError ? "-" : formatMetric(data.pendingReviews) },
   ] as const;
 

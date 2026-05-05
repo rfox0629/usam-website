@@ -7,9 +7,19 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 
 const visibilityOptions = ["public", "team", "private"] as const;
 const statusOptions = ["open", "covered", "answered", "archived"] as const;
-const submissionStatuses = ["new", "reviewed", "follow_up", "converted", "archived"] as const;
+const submissionStatuses = ["new", "reviewed", "needs_follow_up", "converted", "archived"] as const;
 const urgencyOptions = ["normal", "important", "urgent"] as const;
 const confidentialityOptions = ["general", "missionary_couple", "kitchen_table", "confidential"] as const;
+const partnerStatuses = ["active", "inactive", "pending", "declined"] as const;
+const partnerPermissions = [
+  "view_general_requests",
+  "view_missionary_couple_requests",
+  "view_kitchen_table_alerts",
+  "view_confidential_requests",
+  "receive_email_alerts",
+  "receive_sms_alerts",
+  "prayer_admin",
+] as const;
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -34,6 +44,10 @@ function getStatus(value: string) {
 }
 
 function getSubmissionStatus(value: string) {
+  if (value === "follow_up") {
+    return "needs_follow_up";
+  }
+
   return submissionStatuses.includes(value as typeof submissionStatuses[number])
     ? value as typeof submissionStatuses[number]
     : "new";
@@ -49,6 +63,49 @@ function getConfidentialityLevel(value: string) {
   return confidentialityOptions.includes(value as typeof confidentialityOptions[number])
     ? value as typeof confidentialityOptions[number]
     : "general";
+}
+
+function getPartnerStatus(value: string) {
+  return partnerStatuses.includes(value as typeof partnerStatuses[number])
+    ? value as typeof partnerStatuses[number]
+    : "active";
+}
+
+function getPartnerIds(formData: FormData) {
+  return formData
+    .getAll("partner_ids")
+    .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+    .map((value) => value.trim());
+}
+
+function getPermissionRecord(formData: FormData) {
+  const selectedPermissions = new Set(
+    formData
+      .getAll("permissions")
+      .filter((value): value is string => typeof value === "string")
+  );
+
+  return Object.fromEntries(
+    partnerPermissions.map((permission) => [permission, selectedPermissions.has(permission)])
+  );
+}
+
+function getAssignedCoverage(formData: FormData) {
+  const value = getString(formData, "assigned_coverage");
+
+  if (!value) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    throw new Error("Assigned coverage must be valid JSON.");
+  }
 }
 
 function asPayloadRecord(value: unknown): Record<string, unknown> {
@@ -95,27 +152,40 @@ function redirectToPrayerSubmission(submissionId: string, suffix = "saved=1") {
   redirect(`/admin/prayer-team?tab=applications&submission=${submissionId}&${suffix}`);
 }
 
+function redirectToPrayerRequest(requestId: string, suffix = "saved=1") {
+  redirect(`/admin/prayer-team?tab=requests&request=${requestId}&${suffix}`);
+}
+
+function redirectToPrayerPartner(partnerId: string, suffix = "saved=1") {
+  redirect(`/admin/prayer-team?tab=partners&partner=${partnerId}&${suffix}`);
+}
+
 export async function createPrayerRequest(formData: FormData) {
   const supabase = await getPrayerAdminClient();
-  const householdId = getString(formData, "household_id");
+  const householdId = getString(formData, "related_household_id") || getString(formData, "household_id");
   const title = getString(formData, "title");
-  const description = getString(formData, "description");
+  const request = getString(formData, "request") || getString(formData, "description");
 
-  if (!title || !description) {
+  if (!title || !request) {
     redirect("/admin/prayer-team?tab=requests&error=missing");
   }
 
   const normalizedHouseholdId = asNullableString(householdId);
+  const partnerIds = getPartnerIds(formData);
 
   const { error } = await supabase
     .from("prayer_requests")
     .insert({
       category: asNullableString(getString(formData, "category")),
       confidentiality_level: getConfidentialityLevel(getString(formData, "confidentiality_level")),
-      description,
+      assigned_partner_ids: partnerIds.length > 0 ? partnerIds : null,
+      description: request,
       household_id: normalizedHouseholdId,
+      prayer_notes: asNullableString(getString(formData, "prayer_notes")),
+      related_region: asNullableString(getString(formData, "related_region")),
       related_household_id: normalizedHouseholdId,
-      request: description,
+      related_state: asNullableString(getString(formData, "related_state")),
+      request,
       status: "open",
       title,
       urgency: getUrgency(getString(formData, "urgency")),
@@ -136,23 +206,26 @@ export async function updatePrayerRequest(formData: FormData) {
   const supabase = await getPrayerAdminClient();
   const requestId = getString(formData, "request_id");
   const title = getString(formData, "title");
-  const description = getString(formData, "description");
+  const request = getString(formData, "request") || getString(formData, "description");
 
-  if (!requestId || !title || !description) {
+  if (!requestId || !title || !request) {
     redirect("/admin/prayer-team?tab=requests&error=missing");
   }
 
-  const normalizedHouseholdId = asNullableString(getString(formData, "household_id"));
+  const normalizedHouseholdId = asNullableString(getString(formData, "related_household_id") || getString(formData, "household_id"));
 
   const { error } = await supabase
     .from("prayer_requests")
     .update({
       category: asNullableString(getString(formData, "category")),
       confidentiality_level: getConfidentialityLevel(getString(formData, "confidentiality_level")),
-      description,
+      description: request,
       household_id: normalizedHouseholdId,
+      prayer_notes: asNullableString(getString(formData, "prayer_notes")),
+      related_region: asNullableString(getString(formData, "related_region")),
       related_household_id: normalizedHouseholdId,
-      request: description,
+      related_state: asNullableString(getString(formData, "related_state")),
+      request,
       status: getStatus(getString(formData, "status")),
       title,
       urgency: getUrgency(getString(formData, "urgency")),
@@ -166,6 +239,116 @@ export async function updatePrayerRequest(formData: FormData) {
 
   revalidatePath("/admin/prayer-team");
   redirect(`/admin/prayer-team?tab=requests&request=${requestId}&saved=updated`);
+}
+
+export async function assignPrayerRequestPartners(formData: FormData) {
+  const supabase = await getPrayerAdminClient();
+  const requestId = getString(formData, "request_id");
+
+  if (!requestId) {
+    redirect("/admin/prayer-team?tab=requests&error=missing");
+  }
+
+  const { error } = await supabase
+    .from("prayer_requests")
+    .update({
+      assigned_partner_ids: getPartnerIds(formData),
+      prayer_notes: asNullableString(getString(formData, "prayer_notes")),
+    })
+    .eq("id", requestId);
+
+  if (error) {
+    redirectToPrayerRequest(requestId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/prayer-team");
+  redirectToPrayerRequest(requestId, "saved=assigned");
+}
+
+export async function markPrayerRequestPrayed(formData: FormData) {
+  const supabase = await getPrayerAdminClient();
+  const requestId = getString(formData, "request_id");
+
+  if (!requestId) {
+    redirect("/admin/prayer-team?tab=requests&error=missing");
+  }
+
+  const { data, error: readError } = await supabase
+    .from("prayer_requests")
+    .select("prayed_count")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (readError || !data) {
+    redirectToPrayerRequest(requestId, `error=${encodeURIComponent(readError?.message ?? "Prayer request not found")}`);
+  }
+
+  const prayedCount = typeof (data as { prayed_count?: unknown }).prayed_count === "number"
+    ? (data as { prayed_count: number }).prayed_count
+    : 0;
+
+  const { error } = await supabase
+    .from("prayer_requests")
+    .update({
+      last_prayed_at: new Date().toISOString(),
+      prayed_count: prayedCount + 1,
+    })
+    .eq("id", requestId);
+
+  if (error) {
+    redirectToPrayerRequest(requestId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/prayer-team");
+  redirectToPrayerRequest(requestId, "saved=prayed");
+}
+
+export async function markPrayerRequestCovered(formData: FormData) {
+  const supabase = await getPrayerAdminClient();
+  const requestId = getString(formData, "request_id");
+
+  if (!requestId) {
+    redirect("/admin/prayer-team?tab=requests&error=missing");
+  }
+
+  const { error } = await supabase
+    .from("prayer_requests")
+    .update({
+      last_prayed_at: new Date().toISOString(),
+      status: "covered",
+    })
+    .eq("id", requestId);
+
+  if (error) {
+    redirectToPrayerRequest(requestId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/prayer-team");
+  redirectToPrayerRequest(requestId, "saved=covered");
+}
+
+export async function markPrayerRequestAnswered(formData: FormData) {
+  const supabase = await getPrayerAdminClient();
+  const requestId = getString(formData, "request_id");
+
+  if (!requestId) {
+    redirect("/admin/prayer-team?tab=requests&error=missing");
+  }
+
+  const { error } = await supabase
+    .from("prayer_requests")
+    .update({
+      answered_at: new Date().toISOString(),
+      status: "answered",
+    })
+    .eq("id", requestId);
+
+  if (error) {
+    redirectToPrayerRequest(requestId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/prayer-team");
+  redirectToPrayerRequest(requestId, "saved=answered");
 }
 
 export async function archivePrayerRequest(formData: FormData) {
@@ -186,7 +369,7 @@ export async function archivePrayerRequest(formData: FormData) {
   }
 
   revalidatePath("/admin/prayer-team");
-  redirect("/admin/prayer-team?tab=requests&saved=archived");
+  redirectToPrayerRequest(requestId, "saved=archived");
 }
 
 export async function updatePrayerSubmission(formData: FormData) {
@@ -233,6 +416,48 @@ export async function markPrayerSubmissionReviewed(formData: FormData) {
 
   revalidatePath("/admin/prayer-team");
   redirectToPrayerSubmission(submissionId, "saved=reviewed");
+}
+
+export async function markPrayerSubmissionNeedsFollowUp(formData: FormData) {
+  const supabase = await getPrayerAdminClient();
+  const submissionId = getString(formData, "submission_id");
+
+  if (!submissionId) {
+    redirect("/admin/prayer-team?tab=applications&error=missing");
+  }
+
+  const { error } = await supabase
+    .from("form_submissions")
+    .update({ status: "needs_follow_up" })
+    .eq("id", submissionId);
+
+  if (error) {
+    redirectToPrayerSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/prayer-team");
+  redirectToPrayerSubmission(submissionId, "saved=needs-follow-up");
+}
+
+export async function declinePrayerTeamApplication(formData: FormData) {
+  const supabase = await getPrayerAdminClient();
+  const submissionId = getString(formData, "submission_id");
+
+  if (!submissionId) {
+    redirect("/admin/prayer-team?tab=applications&error=missing");
+  }
+
+  const { error } = await supabase
+    .from("form_submissions")
+    .update({ status: "archived" })
+    .eq("id", submissionId);
+
+  if (error) {
+    redirectToPrayerSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/prayer-team");
+  redirectToPrayerSubmission(submissionId, "saved=declined");
 }
 
 export async function archivePrayerSubmission(formData: FormData) {
@@ -290,6 +515,7 @@ export async function approvePrayerTeamApplication(formData: FormData) {
 
   const recruitedByHouseholdName = payloadString(payload, "recruited_by_household_name");
   const partnerRecord = {
+    assigned_coverage: {},
     availability: payloadStringArray(payload, "availability"),
     church_affiliation: asNullableString(payloadString(payload, "church_affiliation")),
     city: asNullableString(payloadString(payload, "city")),
@@ -351,4 +577,61 @@ export async function approvePrayerTeamApplication(formData: FormData) {
 
   revalidatePath("/admin/prayer-team");
   redirectToPrayerSubmission(submissionId, "saved=converted");
+}
+
+export async function updatePrayerPartner(formData: FormData) {
+  const supabase = await getPrayerAdminClient();
+  const partnerId = getString(formData, "partner_id");
+
+  if (!partnerId) {
+    redirect("/admin/prayer-team?tab=partners&error=missing");
+  }
+
+  let assignedCoverage: Record<string, unknown> = {};
+
+  try {
+    assignedCoverage = getAssignedCoverage(formData);
+  } catch (error) {
+    redirectToPrayerPartner(partnerId, `error=${encodeURIComponent(error instanceof Error ? error.message : "Invalid coverage JSON")}`);
+  }
+
+  const { error } = await supabase
+    .from("prayer_partners")
+    .update({
+      assigned_coverage: assignedCoverage,
+      email_alerts: getString(formData, "email_alerts") === "on",
+      internal_notes: asNullableString(getString(formData, "internal_notes")),
+      permissions: getPermissionRecord(formData),
+      sms_alerts: getString(formData, "sms_alerts") === "on",
+      status: getPartnerStatus(getString(formData, "status")),
+    })
+    .eq("id", partnerId);
+
+  if (error) {
+    redirectToPrayerPartner(partnerId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/prayer-team");
+  redirectToPrayerPartner(partnerId);
+}
+
+export async function deactivatePrayerPartner(formData: FormData) {
+  const supabase = await getPrayerAdminClient();
+  const partnerId = getString(formData, "partner_id");
+
+  if (!partnerId) {
+    redirect("/admin/prayer-team?tab=partners&error=missing");
+  }
+
+  const { error } = await supabase
+    .from("prayer_partners")
+    .update({ status: "inactive" })
+    .eq("id", partnerId);
+
+  if (error) {
+    redirectToPrayerPartner(partnerId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/prayer-team");
+  redirectToPrayerPartner(partnerId, "saved=deactivated");
 }

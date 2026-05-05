@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
 };
 
-const householdBaseSelect = "id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order";
+const householdBaseSelect = "id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order, updated_at";
 const householdFeatureColumns = [
   "show_household",
   "show_photos",
@@ -155,7 +155,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   if (ids.length > 0) {
     const supportResult = await supabase
       .from("missionary_support_settings")
-      .select("household_id, show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description")
+      .select("household_id, show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis, updated_at, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description")
       .in("household_id", ids);
     const fallbackSupportResult = supportResult.error && isMissingSupportLinkColumns(supportResult.error)
       ? await supabase
