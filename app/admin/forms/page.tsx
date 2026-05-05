@@ -61,6 +61,14 @@ const forms = [
     url: "/support",
   },
   {
+    formName: "Join the Mission Interest",
+    formType: "join_mission_interest",
+    routesTo: "Support Team",
+    status: "Live",
+    submissionsHref: "/admin/support-team?type=join_mission_interest",
+    url: "/",
+  },
+  {
     formName: "Major Gift Inquiry",
     formType: "major_gift",
     routesTo: "Support Team",

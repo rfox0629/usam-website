@@ -20,6 +20,7 @@ type PublicFormPayload = {
 const allowedFormTypes = [
   "financial_freedom",
   "field_report_access",
+  "join_mission_interest",
   "major_gift",
   "contact",
   "support_giving",
