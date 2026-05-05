@@ -13,9 +13,18 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 
 type UpdatePayload = {
   encounterSubmissions?: Array<{
+    encounter_date?: unknown;
     id?: unknown;
-    payload?: unknown;
+    missionary_household_id?: unknown;
+    missionary_profile_id?: unknown;
+    original_testimony?: unknown;
+    permission_to_share?: unknown;
+    public_summary?: unknown;
+    source?: unknown;
     status?: unknown;
+    submitter_email?: unknown;
+    submitter_name?: unknown;
+    submitter_phone?: unknown;
   }>;
   teamMembers?: Array<{
     display_name?: unknown;
@@ -89,7 +98,8 @@ type UpdatePayload = {
   };
 };
 
-const encounterStatuses = ["new", "reviewed", "hidden", "archived"] as const;
+const encounterSources = ["manual", "public_form", "dos"] as const;
+const encounterStatuses = ["new", "reviewed", "published", "hidden", "archived"] as const;
 const teamMemberSources = ["website_admin", "dos", "public_form"] as const;
 const teamMemberStatuses = ["active", "hidden", "archived"] as const;
 
@@ -101,6 +111,12 @@ function asNullableString(value: unknown) {
   const nextValue = asString(value);
 
   return nextValue ? nextValue : null;
+}
+
+function asNullableDateString(value: unknown) {
+  const nextValue = asString(value);
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(nextValue) ? nextValue : null;
 }
 
 function asPublicRosterNumber(value: unknown) {
@@ -175,17 +191,10 @@ function asEncounterStatus(value: unknown) {
     : "new";
 }
 
-function toFormSubmissionWorkflowStatus(value: typeof encounterStatuses[number]) {
-  switch (value) {
-    case "archived":
-      return "archived";
-    case "reviewed":
-    case "hidden":
-      return "reviewed";
-    case "new":
-    default:
-      return "new";
-  }
+function asEncounterSource(value: unknown) {
+  return encounterSources.includes(value as typeof encounterSources[number])
+    ? value as typeof encounterSources[number]
+    : "manual";
 }
 
 function asTeamMemberSource(value: unknown) {
@@ -249,6 +258,18 @@ function hasMissingTeamMembersTableError(error: { code?: string; message?: strin
     || message.toLowerCase().includes("could not find the table");
 
   return missingRelation && message.includes("missionary_team_members");
+}
+
+function hasMissingEncountersTableError(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
+
+  return missingRelation && message.includes("missionary_encounters");
 }
 
 function hasMissingSupportLinkColumnsError(error: { message?: string } | null | undefined) {
@@ -451,49 +472,64 @@ export async function POST(request: Request) {
   let savedEncounterSubmissions = true;
 
   if (Array.isArray(payload.encounterSubmissions)) {
-    const submittedEncounterSubmissions = payload.encounterSubmissions
-      .map((submission) => ({
-        id: asString(submission.id),
-        status: asEncounterStatus(submission.status),
-      }))
-      .filter((submission) => isExistingUuid(submission.id));
+    const sanitizedEncounterSubmissions = payload.encounterSubmissions
+      .map((submission) => {
+        const originalTestimony = asString(submission.original_testimony);
 
-    if (submittedEncounterSubmissions.length > 0) {
-      const submissionIds = submittedEncounterSubmissions.map((submission) => submission.id);
-      const { data: existingSubmissions, error: existingSubmissionsError } = await supabase
-        .from("form_submissions")
-        .select("id, payload")
-        .in("id", submissionIds);
+        if (!originalTestimony) {
+          return null;
+        }
 
-      if (existingSubmissionsError) {
-        return NextResponse.json({ error: existingSubmissionsError.message }, { status: 500 });
-      }
-
-      const existingPayloadById = new Map(
-        (existingSubmissions ?? []).map((submission) => [
-          submission.id as string,
-          asRecord((submission as { payload?: unknown }).payload),
-        ]),
-      );
-
-      for (const submission of submittedEncounterSubmissions) {
-        const existingPayload = existingPayloadById.get(submission.id) ?? {};
-        const nextPayload = {
-          ...existingPayload,
-          profile_encounter_status: submission.status,
-        };
-        const { error: updateSubmissionError } = await supabase
-          .from("form_submissions")
-          .update({
-            payload: nextPayload,
-            status: toFormSubmissionWorkflowStatus(submission.status),
+        return {
+          id: asString(submission.id),
+          record: {
+            encounter_date: asNullableDateString(submission.encounter_date),
+            missionary_household_id: householdId,
+            missionary_profile_id: householdId,
+            original_testimony: originalTestimony,
+            permission_to_share: submission.permission_to_share === true,
+            public_summary: asNullableString(submission.public_summary),
+            source: asEncounterSource(submission.source),
+            status: asEncounterStatus(submission.status),
+            submitter_email: asNullableString(submission.submitter_email),
+            submitter_name: asNullableString(submission.submitter_name),
+            submitter_phone: asNullableString(submission.submitter_phone),
             updated_at: timestamp,
-          })
-          .eq("id", submission.id);
+          },
+        };
+      })
+      .filter((submission): submission is NonNullable<typeof submission> => Boolean(submission));
+    const existingEncounterSubmissions = sanitizedEncounterSubmissions
+      .filter((submission) => isExistingUuid(submission.id))
+      .map((submission) => ({ ...submission.record, id: submission.id }));
+    const newEncounterSubmissions = sanitizedEncounterSubmissions
+      .filter((submission) => !isExistingUuid(submission.id))
+      .map((submission) => submission.record);
 
-        if (updateSubmissionError) {
+    if (existingEncounterSubmissions.length > 0) {
+      const { error: encounterUpdateError } = await supabase
+        .from("missionary_encounters")
+        .upsert(existingEncounterSubmissions, { onConflict: "id" });
+
+      if (encounterUpdateError) {
+        if (hasMissingEncountersTableError(encounterUpdateError)) {
           savedEncounterSubmissions = false;
-          return NextResponse.json({ error: updateSubmissionError.message }, { status: 500 });
+        } else {
+          return NextResponse.json({ error: encounterUpdateError.message }, { status: 500 });
+        }
+      }
+    }
+
+    if (newEncounterSubmissions.length > 0 && savedEncounterSubmissions) {
+      const { error: encounterInsertError } = await supabase
+        .from("missionary_encounters")
+        .insert(newEncounterSubmissions);
+
+      if (encounterInsertError) {
+        if (hasMissingEncountersTableError(encounterInsertError)) {
+          savedEncounterSubmissions = false;
+        } else {
+          return NextResponse.json({ error: encounterInsertError.message }, { status: 500 });
         }
       }
     }
@@ -668,12 +704,17 @@ export async function POST(request: Request) {
     }, { status: 500 });
   }
 
+  if (!savedEncounterSubmissions) {
+    return NextResponse.json({
+      error: "Encounters were not saved because the missionary_encounters table is missing. Apply the missionary encounters migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
+
   return NextResponse.json({
     message: [
       "Missionary profile saved.",
       savedFeatureFields ? "" : "Apply the profile features migration before feature controls can persist.",
       savedSupportLinkFields ? "" : "Apply the support major gift migration before giving links and major gift settings can persist.",
-      savedEncounterSubmissions ? "" : "Unable to persist Encounter review settings.",
     ].filter(Boolean).join(" "),
     slug,
   });

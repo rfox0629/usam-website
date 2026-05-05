@@ -51,19 +51,23 @@ const householdFeatureColumns = [
   "custom_serving_label",
   "location_visibility",
 ].join(", ");
-const encounterStatuses = ["new", "reviewed", "hidden", "archived"] as const satisfies readonly AdminEncounterStatus[];
+const encounterStatuses = ["new", "reviewed", "published", "hidden", "archived"] as const satisfies readonly AdminEncounterStatus[];
+const encounterSources = ["manual", "public_form", "dos"] as const;
 
-type EncounterSubmissionRow = {
+type EncounterRow = {
   created_at: string;
-  email: string | null;
-  first_name: string | null;
-  form_type: string;
+  encounter_date: string | null;
   id: string;
-  last_name: string | null;
-  message: string | null;
-  payload: Record<string, unknown> | null;
-  source_page: string | null;
-  status: string | null;
+  missionary_household_id: string | null;
+  missionary_profile_id: string | null;
+  original_testimony: string;
+  permission_to_share: boolean | null;
+  public_summary: string | null;
+  source: string | null;
+  status: AdminEncounterStatus | string | null;
+  submitter_email: string | null;
+  submitter_name: string | null;
+  submitter_phone: string | null;
   updated_at: string | null;
 };
 
@@ -85,7 +89,7 @@ function payloadBoolean(payload: Record<string, unknown>, key: string) {
   return payload[key] === true;
 }
 
-function getEncounterStatus(row: EncounterSubmissionRow, payload: Record<string, unknown>): AdminEncounterStatus {
+function getEncounterStatus(row: { status: string | null }, payload: Record<string, unknown>): AdminEncounterStatus {
   const status = payloadString(payload, "profile_encounter_status") || payloadString(payload, "encounter_status");
 
   if (encounterStatuses.includes(status as AdminEncounterStatus)) {
@@ -99,20 +103,28 @@ function getEncounterStatus(row: EncounterSubmissionRow, payload: Record<string,
   return "new";
 }
 
+function getEncounterRecordStatus(value: string | null): AdminEncounterStatus {
+  return encounterStatuses.includes(value as AdminEncounterStatus) ? value as AdminEncounterStatus : "new";
+}
+
+function getEncounterRecordSource(value: string | null): AdminEncounterSubmission["source"] {
+  return encounterSources.includes(value as AdminEncounterSubmission["source"]) ? value as AdminEncounterSubmission["source"] : "manual";
+}
+
 function getPermissionToShare(payload: Record<string, unknown>) {
   return payloadBoolean(payload, "permission_to_share")
     || payloadString(payload, "permission_to_share").toLowerCase() === "true"
     || payloadString(payload, "permission").toLowerCase().startsWith("yes");
 }
 
-function getSubmitterName(row: EncounterSubmissionRow, payload: Record<string, unknown>) {
+function getSubmitterName(row: { first_name?: string | null; last_name?: string | null }, payload: Record<string, unknown>) {
   const payloadName = payloadString(payload, "submitter_name");
   const fullName = [row.first_name, row.last_name].filter(Boolean).join(" ").trim();
 
   return payloadName || fullName || "Unknown";
 }
 
-function getReviewText(row: EncounterSubmissionRow, payload: Record<string, unknown>) {
+function getReviewText(row: { message?: string | null }, payload: Record<string, unknown>) {
   return payloadString(payload, "review_text")
     || payloadString(payload, "testimony_text")
     || payloadString(payload, "testimony")
@@ -166,6 +178,18 @@ function isMissingFormSubmissionsTable(error: { message?: string } | null | unde
   const message = error?.message ?? "";
 
   return message.includes("form_submissions");
+}
+
+function isMissingEncountersTable(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
+
+  return missingRelation && message.includes("missionary_encounters");
 }
 
 function isMissingFruitItemsTable(error: { message?: string } | null | undefined) {
@@ -302,29 +326,21 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       );
     });
 
-    const encounterSubmissionResult = await supabase
-      .from("form_submissions")
-      .select("id, form_type, first_name, last_name, email, message, payload, status, source_page, created_at, updated_at")
-      .eq("form_type", "missionary_profile_review")
+    const encountersResult = await supabase
+      .from("missionary_encounters")
+      .select("id, missionary_profile_id, missionary_household_id, submitter_name, submitter_email, submitter_phone, encounter_date, original_testimony, public_summary, permission_to_share, status, source, created_at, updated_at")
+      .in("missionary_household_id", ids)
+      .order("encounter_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
 
-    if (encounterSubmissionResult.error && !isMissingFormSubmissionsTable(encounterSubmissionResult.error)) {
-      return { error: encounterSubmissionResult.error.message, profiles: [] };
+    if (encountersResult.error && !isMissingEncountersTable(encountersResult.error)) {
+      return { error: encountersResult.error.message, profiles: [] };
     }
 
-    ((encounterSubmissionResult.data ?? []) as EncounterSubmissionRow[]).forEach((row) => {
-      if (row.form_type !== "missionary_profile_review") {
-        return;
-      }
+    ((encountersResult.data ?? []) as EncounterRow[]).forEach((row) => {
+      const matchingHouseholdId = row.missionary_household_id ?? row.missionary_profile_id;
 
-      const payload = isRecord(row.payload) ? row.payload : {};
-      const matchingHouseholdId = ids.find((id) => (
-        payloadString(payload, "missionary_profile_id") === id
-        || payloadString(payload, "missionary_household_id") === id
-        || payloadString(payload, "household_id") === id
-      ));
-
-      if (!matchingHouseholdId) {
+      if (!matchingHouseholdId || !ids.includes(matchingHouseholdId)) {
         return;
       }
 
@@ -332,18 +348,18 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
 
       currentItems.push({
         created_at: row.created_at,
-        email: row.email,
-        first_name: row.first_name,
-        form_type: "missionary_profile_review",
+        encounter_date: row.encounter_date,
         id: row.id,
-        last_name: row.last_name,
-        message: row.message,
-        permission_to_share: getPermissionToShare(payload),
-        payload,
-        review_text: getReviewText(row, payload),
-        source_page: row.source_page,
-        status: getEncounterStatus(row, payload),
-        submitter_name: getSubmitterName(row, payload),
+        missionary_household_id: row.missionary_household_id,
+        missionary_profile_id: row.missionary_profile_id,
+        original_testimony: row.original_testimony,
+        permission_to_share: row.permission_to_share === true,
+        public_summary: row.public_summary,
+        source: getEncounterRecordSource(row.source),
+        status: getEncounterRecordStatus(row.status),
+        submitter_email: row.submitter_email,
+        submitter_name: row.submitter_name,
+        submitter_phone: row.submitter_phone,
         updated_at: row.updated_at,
       });
       encounterSubmissionsByHouseholdId.set(matchingHouseholdId, currentItems);

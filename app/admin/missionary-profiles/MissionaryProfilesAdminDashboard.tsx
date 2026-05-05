@@ -45,7 +45,8 @@ const lightDividerClass = "border-[#e2ded5]";
 
 export type AdminSupportMode = SupportRoutingMode;
 
-export type AdminEncounterStatus = "new" | "reviewed" | "hidden" | "archived";
+export type AdminEncounterStatus = "new" | "reviewed" | "published" | "hidden" | "archived";
+export type AdminEncounterSource = "manual" | "public_form" | "dos";
 export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
 export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 
@@ -112,18 +113,18 @@ export type AdminSupportSettings = {
 
 export type AdminEncounterSubmission = {
   created_at: string;
-  email: string | null;
-  first_name: string | null;
-  form_type: "missionary_profile_review";
+  encounter_date: string | null;
   id: string;
-  last_name: string | null;
-  message: string | null;
+  missionary_household_id: string | null;
+  missionary_profile_id: string | null;
+  original_testimony: string;
   permission_to_share: boolean;
-  payload: Record<string, unknown>;
-  review_text: string;
-  source_page: string | null;
+  public_summary: string | null;
+  source: AdminEncounterSource;
   status: AdminEncounterStatus;
-  submitter_name: string;
+  submitter_email: string | null;
+  submitter_name: string | null;
+  submitter_phone: string | null;
   updated_at: string | null;
 };
 
@@ -186,6 +187,12 @@ type CutoutGenerationState = {
 type StoryRefinementState = {
   message?: string;
   status: "idle" | "refining" | "success" | "error";
+};
+
+type EncounterSummaryState = {
+  encounterId?: string;
+  message?: string;
+  status: "idle" | "summarizing" | "success" | "error";
 };
 
 const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
@@ -396,6 +403,27 @@ function newTeamMember(householdId: string, publicNumber = ""): AdminTeamMember 
     sort_order: 0,
     source: "website_admin",
     status: "active",
+    updated_at: timestamp,
+  };
+}
+
+function newEncounter(householdId: string): AdminEncounterSubmission {
+  const timestamp = new Date().toISOString();
+
+  return {
+    created_at: timestamp,
+    encounter_date: null,
+    id: `new-${Date.now()}`,
+    missionary_household_id: householdId,
+    missionary_profile_id: householdId,
+    original_testimony: "",
+    permission_to_share: false,
+    public_summary: "",
+    source: "manual",
+    status: "new",
+    submitter_email: "",
+    submitter_name: "",
+    submitter_phone: "",
     updated_at: timestamp,
   };
 }
@@ -1284,6 +1312,8 @@ function FeatureVisibilityTable({ rows }: { rows: FeatureVisibilityRow[] }) {
 
 function encounterStatusLabel(value: AdminEncounterStatus) {
   switch (value) {
+    case "published":
+      return "Published";
     case "reviewed":
       return "Reviewed";
     case "hidden":
@@ -1305,6 +1335,7 @@ function EncounterStatusBadge({ status }: { status: AdminEncounterStatus }) {
     archived: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
     hidden: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
     new: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
+    published: "border-green-200 bg-green-50 text-green-800",
     reviewed: "border-green-200 bg-green-50 text-green-800",
   }[status];
 
@@ -1315,43 +1346,77 @@ function EncounterStatusBadge({ status }: { status: AdminEncounterStatus }) {
   );
 }
 
+function encounterSourceLabel(value: AdminEncounterSource) {
+  switch (value) {
+    case "dos":
+      return "DOS";
+    case "public_form":
+      return "Public Form";
+    case "manual":
+    default:
+      return "Manual";
+  }
+}
+
 function EncounterSubmissionManager({
   items,
-  onQuickAction,
+  onAdd,
+  onQuickStatus,
+  onSummarize,
+  onUpdate,
+  summaryState,
 }: {
   items: readonly AdminEncounterSubmission[];
-  onQuickAction: (submissionId: string, action: "archive" | "hide" | "review") => void;
+  onAdd: () => string | null;
+  onQuickStatus: (submissionId: string, status: AdminEncounterStatus) => void;
+  onSummarize: (submissionId: string) => void;
+  onUpdate: (submissionId: string, patch: Partial<AdminEncounterSubmission>) => void;
+  summaryState: EncounterSummaryState;
 }) {
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(items[0]?.id ?? null);
-  const selectedSubmission = items.find((item) => item.id === selectedSubmissionId) ?? null;
+  const [editingEncounterId, setEditingEncounterId] = useState<string | null>(null);
+  const editingEncounter = items.find((item) => item.id === editingEncounterId) ?? null;
 
   useEffect(() => {
-    if (items.length === 0) {
-      setSelectedSubmissionId(null);
-      return;
+    if (editingEncounterId && !items.some((item) => item.id === editingEncounterId)) {
+      setEditingEncounterId(null);
     }
-
-    if (!selectedSubmissionId || !items.some((item) => item.id === selectedSubmissionId)) {
-      setSelectedSubmissionId(items[0].id);
-    }
-  }, [items, selectedSubmissionId]);
+  }, [editingEncounterId, items]);
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-2xl text-sm leading-6 text-[#7b746a]">
+          Encounters are raw testimony, review, or story records. Fruit will later turn reviewed encounters into structured outcomes like salvation, healing, baptism, and discipleship.
+        </p>
+        <button
+          className={lightPrimaryButtonClass}
+          onClick={() => {
+            const newEncounterId = onAdd();
+
+            if (newEncounterId) {
+              setEditingEncounterId(newEncounterId);
+            }
+          }}
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          type="button"
+        >
+          Add Encounter
+        </button>
+      </div>
+
       {items.length === 0 ? (
-        <p className="text-sm leading-6 text-[#7b746a]">
-          No reviews or testimonies have been submitted for this profile yet.
+        <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
+          No encounters have been added or submitted for this profile yet.
         </p>
       ) : null}
 
       <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-        <div className="overflow-x-auto">
-        <table className="min-w-[1040px] w-full border-collapse text-left">
+        <table className="w-full table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-              {["Name", "Email", "Submitted Text", "Permission to Share", "Status", "Date", "Actions"].map((heading) => (
+              {["Name", "Email", "Original Testimony", "Public Summary", "Permission", "Status", "Date", "Actions"].map((heading) => (
                 <th
-                  className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0"
+                  className="border-r border-[#e2ded5] px-3 py-3 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] last:border-r-0"
                   key={heading}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 >
@@ -1362,23 +1427,26 @@ function EncounterSubmissionManager({
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr
-                className={`border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7] ${selectedSubmissionId === item.id ? "bg-[#fbfaf7]" : ""}`}
-                key={item.id}
-              >
-                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                  <span className="text-sm font-semibold text-[#111111]">
+              <tr className="border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7]" key={item.id}>
+                <td className="border-r border-[#e2ded5] px-3 py-3 align-middle">
+                  <span className="block truncate text-sm font-semibold text-[#111111]">
                     {item.submitter_name || "Unknown"}
                   </span>
+                  <span className="mt-1 block text-[10px] uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {encounterSourceLabel(item.source)}
+                  </span>
                 </td>
-                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                  {item.email || "Not provided"}
+                <td className="border-r border-[#e2ded5] px-3 py-3 align-middle text-sm text-[#4b443b]">
+                  <span className="block truncate">{item.submitter_email || "Not provided"}</span>
                 </td>
-                <td className="max-w-[300px] border-r border-[#e2ded5] px-4 py-3 align-middle text-sm leading-6 text-[#4b443b]">
-                  {truncateText(item.review_text || item.message || "No testimony text submitted.")}
+                <td className="border-r border-[#e2ded5] px-3 py-3 align-middle text-sm leading-5 text-[#4b443b]">
+                  {truncateText(item.original_testimony || "No testimony entered.", 96)}
                 </td>
-                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                  <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
+                <td className="border-r border-[#e2ded5] px-3 py-3 align-middle text-sm leading-5 text-[#4b443b]">
+                  {truncateText(item.public_summary || "Not summarized yet.", 96)}
+                </td>
+                <td className="border-r border-[#e2ded5] px-3 py-3 align-middle">
+                  <span className={`inline-flex min-h-6 items-center rounded-full border px-2 text-[9px] uppercase tracking-[0.14em] ${
                     item.permission_to_share
                       ? "border-green-200 bg-green-50 text-green-800"
                       : "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]"
@@ -1386,99 +1454,170 @@ function EncounterSubmissionManager({
                     {item.permission_to_share ? "Yes" : "No"}
                   </span>
                 </td>
-                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+                <td className="border-r border-[#e2ded5] px-3 py-3 align-middle">
                   <EncounterStatusBadge status={item.status} />
                 </td>
-                <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                  {formatProfileUpdatedDate(item.created_at)}
+                <td className="border-r border-[#e2ded5] px-3 py-3 align-middle text-sm text-[#4b443b]">
+                  {item.encounter_date ? formatProfileUpdatedDate(item.encounter_date) : formatProfileUpdatedDate(item.created_at)}
                 </td>
-                <td className="px-4 py-3 align-middle">
+                <td className="px-3 py-3 align-middle">
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      className={lightSecondaryButtonClass}
-                      onClick={() => setSelectedSubmissionId(item.id)}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      View
+                    <button className={lightSecondaryButtonClass} onClick={() => setEditingEncounterId(item.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">View</button>
+                    <button className={lightSecondaryButtonClass} onClick={() => setEditingEncounterId(item.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Edit</button>
+                    <button className={lightSecondaryButtonClass} disabled={summaryState.status === "summarizing" && summaryState.encounterId === item.id} onClick={() => onSummarize(item.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                      {summaryState.status === "summarizing" && summaryState.encounterId === item.id ? "Summarizing" : "Summarize"}
                     </button>
-                    <button
-                      className={lightSecondaryButtonClass}
-                      onClick={() => onQuickAction(item.id, "review")}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      Mark Reviewed
-                    </button>
-                    <button
-                      className={lightSecondaryButtonClass}
-                      onClick={() => onQuickAction(item.id, "hide")}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      Hide
-                    </button>
-                    <button
-                      className="rounded-md border border-red-200 bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-red-700 hover:border-red-400 hover:text-red-800"
-                      onClick={() => onQuickAction(item.id, "archive")}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      Archive
-                    </button>
+                    <button className={lightSecondaryButtonClass} onClick={() => onQuickStatus(item.id, "published")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Publish</button>
+                    <button className={lightSecondaryButtonClass} onClick={() => onQuickStatus(item.id, "hidden")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Hide</button>
+                    <button className="rounded-md border border-red-200 bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-red-700 hover:border-red-400 hover:text-red-800" onClick={() => onQuickStatus(item.id, "archived")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Archive</button>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        </div>
       </div>
 
-      {selectedSubmission ? (
-        <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Encounter
-              </p>
-              <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                {selectedSubmission.submitter_name || "Submitted Review"}
-              </h3>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <DetailText label="Email" value={selectedSubmission.email || "Not provided"} />
-            <DetailText label="Permission to Share" value={selectedSubmission.permission_to_share ? "Yes" : "No"} />
-            <DetailText label="Status" value={encounterStatusLabel(selectedSubmission.status)} />
-          </div>
-          <div className="mt-4 rounded-xl border border-[#e2ded5] bg-[#fbfaf7] p-4">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Submitted Text
-            </p>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#111111]">
-              {selectedSubmission.review_text || selectedSubmission.message || "No testimony text submitted."}
-            </p>
-          </div>
-          <div className="mt-4">
-            <DetailText label="Source Page" value={selectedSubmission.source_page || "Not tracked"} />
-          </div>
-          <details className="mt-4 rounded-xl border border-[#e2ded5] bg-[#fbfaf7]">
-            <summary className="cursor-pointer px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Full Payload
-            </summary>
-            <pre className="max-h-72 overflow-auto border-t border-[#e2ded5] p-3 text-xs leading-5 text-[#4b443b]">
-              {JSON.stringify(selectedSubmission.payload, null, 2)}
-            </pre>
-          </details>
-        </div>
+      {summaryState.message ? (
+        <p className={`rounded-xl border p-3 text-sm leading-6 ${
+          summaryState.status === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-[#e2ded5] bg-white text-[#6f6658]"
+        }`}>
+          {summaryState.message}
+        </p>
+      ) : null}
+
+      {editingEncounter ? (
+        <EncounterEditorModal
+          encounter={editingEncounter}
+          onClose={() => setEditingEncounterId(null)}
+          onSummarize={() => onSummarize(editingEncounter.id)}
+          onUpdate={onUpdate}
+          summaryState={summaryState}
+        />
       ) : null}
     </div>
   );
 }
 
+function EncounterEditorModal({
+  encounter,
+  onClose,
+  onSummarize,
+  onUpdate,
+  summaryState,
+}: {
+  encounter: AdminEncounterSubmission;
+  onClose: () => void;
+  onSummarize: () => void;
+  onUpdate: (submissionId: string, patch: Partial<AdminEncounterSubmission>) => void;
+  summaryState: EncounterSummaryState;
+}) {
+  const isSummarizing = summaryState.status === "summarizing" && summaryState.encounterId === encounter.id;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
+      <div className="mx-auto max-w-4xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Encounter
+            </p>
+            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+              {encounter.id.startsWith("new-") ? "Add Encounter" : "Edit Encounter"}
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
+              Keep the original testimony exact. Use the public summary for edited, shareable copy.
+            </p>
+          </div>
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <Field label="Name" onChange={(value) => onUpdate(encounter.id, { submitter_name: value })} value={encounter.submitter_name} />
+          <Field label="Email" onChange={(value) => onUpdate(encounter.id, { submitter_email: value })} value={encounter.submitter_email} />
+          <Field label="Phone" onChange={(value) => onUpdate(encounter.id, { submitter_phone: value })} value={encounter.submitter_phone} />
+          <Field label="Encounter Date" onChange={(value) => onUpdate(encounter.id, { encounter_date: value })} type="date" value={encounter.encounter_date} />
+          <SelectField
+            label="Permission to Share"
+            onChange={(value) => onUpdate(encounter.id, { permission_to_share: value === "yes" })}
+            options={[
+              { label: "Yes", value: "yes" },
+              { label: "No", value: "no" },
+            ]}
+            value={encounter.permission_to_share ? "yes" : "no"}
+          />
+          <SelectField
+            label="Status"
+            onChange={(value) => onUpdate(encounter.id, { status: value as AdminEncounterStatus })}
+            options={[
+              { label: "New", value: "new" },
+              { label: "Reviewed", value: "reviewed" },
+              { label: "Published", value: "published" },
+              { label: "Hidden", value: "hidden" },
+              { label: "Archived", value: "archived" },
+            ]}
+            value={encounter.status}
+          />
+        </div>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+            <TextArea
+              helperText="This stores the person's exact words. Do not edit this automatically."
+              label="Original Testimony / Review"
+              onChange={(value) => onUpdate(encounter.id, { original_testimony: value })}
+              rows={12}
+              value={encounter.original_testimony}
+            />
+          </div>
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#111111]">
+                  Public Summary
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                  Shortened version for the public profile. Admins can edit before saving.
+                </p>
+              </div>
+              <button className={lightPrimaryButtonClass} disabled={isSummarizing} onClick={onSummarize} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                {isSummarizing ? "Summarizing" : "Summarize With AI"}
+              </button>
+            </div>
+            <TextArea
+              helperText="AI summaries never overwrite the original testimony."
+              label="Public Summary"
+              onChange={(value) => onUpdate(encounter.id, { public_summary: value })}
+              rows={12}
+              value={encounter.public_summary}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FruitPlanningState() {
-  const sections = ["Featured Fruit", "Public Testimonies", "Ministry Outcomes", "DOS Submitted Fruit"];
+  const sections = [
+    "Salvation",
+    "Baptism",
+    "Healing",
+    "Deliverance",
+    "Church Connection",
+    "Discipleship",
+    "Breakthrough",
+    "Prayer Answered",
+    "Other",
+  ];
 
   return (
     <div className="space-y-5">
@@ -1487,17 +1626,17 @@ function FruitPlanningState() {
           Fruit
         </h3>
         <p className="mt-3 text-sm leading-7 text-[#7b746a]">
-          Fruit will summarize reviewed encounters into public outcomes, testimonies, and reports connected to this profile.
+          Fruit will summarize reviewed encounters into structured public outcomes, testimonies, and reports connected to this profile.
         </p>
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-3">
         {sections.map((section) => (
           <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={section}>
             <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {section}
             </p>
             <p className="mt-3 text-sm leading-6 text-[#7b746a]">
-              Planned for the curated fruit workflow.
+              Planned outcome selection connected to encounters.
             </p>
           </div>
         ))}
@@ -2067,6 +2206,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [storyRefinementState, setStoryRefinementState] = useState<StoryRefinementState>({
     status: "idle",
   });
+  const [encounterSummaryState, setEncounterSummaryState] = useState<EncounterSummaryState>({
+    status: "idle",
+  });
   const [targetHouseholdError, setTargetHouseholdError] = useState("");
   const [targetHouseholdLoadState, setTargetHouseholdLoadState] = useState<TargetHouseholdLoadState>("idle");
   const [targetHouseholds, setTargetHouseholds] = useState<TargetHouseholdOption[]>([]);
@@ -2090,6 +2232,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     setCutoutSettings(defaultCutoutGenerationSettings);
     setCutoutGenerationState({ status: "idle" });
     setStoryRefinementState({ status: "idle" });
+    setEncounterSummaryState({ status: "idle" });
   }, [selectedId]);
 
   const selectedProfileSupportMode = selectedProfile ? getSupportMode(selectedProfile) : "household";
@@ -2380,14 +2523,85 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
   }
 
-  function quickUpdateEncounterSubmission(submissionId: string, action: "archive" | "hide" | "review") {
-    const patch = {
-      archive: { status: "archived" },
-      hide: { status: "hidden" },
-      review: { status: "reviewed" },
-    }[action] as Partial<AdminEncounterSubmission>;
+  function addEncounter() {
+    if (!selectedProfile) {
+      return null;
+    }
 
-    updateEncounterSubmission(submissionId, patch);
+    const encounter = newEncounter(selectedProfile.id);
+
+    updateSelected({
+      ...selectedProfile,
+      encounterSubmissions: [
+        encounter,
+        ...(selectedProfile.encounterSubmissions ?? []),
+      ],
+    });
+
+    return encounter.id;
+  }
+
+  function quickUpdateEncounterStatus(submissionId: string, status: AdminEncounterStatus) {
+    updateEncounterSubmission(submissionId, { status });
+  }
+
+  async function summarizeEncounter(submissionId: string) {
+    const encounter = selectedProfile?.encounterSubmissions?.find((item) => item.id === submissionId);
+
+    if (!encounter) {
+      return;
+    }
+
+    if (!encounter.original_testimony.trim()) {
+      setEncounterSummaryState({
+        encounterId: submissionId,
+        message: "Add the original testimony before summarizing.",
+        status: "error",
+      });
+      return;
+    }
+
+    setEncounterSummaryState({
+      encounterId: submissionId,
+      message: "Summarizing encounter with AI...",
+      status: "summarizing",
+    });
+
+    try {
+      const response = await fetch("/api/admin/missionary-profiles/summarize-encounter", {
+        body: JSON.stringify({
+          originalTestimony: encounter.original_testimony,
+          submitterName: encounter.submitter_name,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        publicSummary?: string;
+      };
+
+      if (!response.ok || !result.publicSummary) {
+        throw new Error(result.error || "We could not summarize the encounter. Please try again.");
+      }
+
+      updateEncounterSubmission(submissionId, {
+        public_summary: result.publicSummary,
+      });
+      setEncounterSummaryState({
+        encounterId: submissionId,
+        message: "Public summary generated. Review it, then click Save Updates.",
+        status: "success",
+      });
+    } catch (error) {
+      setEncounterSummaryState({
+        encounterId: submissionId,
+        message: error instanceof Error ? error.message : "We could not summarize the encounter. Please try again.",
+        status: "error",
+      });
+    }
   }
 
   function updateTeamMember(memberId: string, patch: Partial<AdminTeamMember>) {
@@ -3322,7 +3536,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           >
             <EncounterSubmissionManager
               items={selectedProfile.encounterSubmissions ?? []}
-              onQuickAction={quickUpdateEncounterSubmission}
+              onAdd={addEncounter}
+              onQuickStatus={quickUpdateEncounterStatus}
+              onSummarize={summarizeEncounter}
+              onUpdate={updateEncounterSubmission}
+              summaryState={encounterSummaryState}
             />
           </SectionIntro>
           ) : null}
