@@ -55,6 +55,8 @@ export type AdminEncounterSource = "manual" | "public_form" | "dos";
 export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
 export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 
+// Profiles (PF) public read model. Command Center owns review and publishing;
+// public pages only display approved profile content.
 export type AdminHousehold = {
   id: string;
   slug: string;
@@ -116,6 +118,8 @@ export type AdminSupportSettings = {
   major_gift_public_description?: string | null;
 };
 
+// Fruit data intent: raw encounter records can later be created by Field (FD)
+// daily workflows, then reviewed in Command Center before Profile publishing.
 export type AdminEncounterSubmission = {
   created_at: string;
   encounter_date: string | null;
@@ -133,6 +137,9 @@ export type AdminEncounterSubmission = {
   updated_at: string | null;
 };
 
+// People data intent: team members are the first public roster surface that
+// Field (FD) can later connect to missionary users without using public_number
+// for relationships.
 export type AdminTeamMember = {
   created_at: string;
   display_name: string;
@@ -1282,6 +1289,22 @@ function SectionIntro({
   );
 }
 
+function DataFlowLabels({ items }: { items: string[] }) {
+  return (
+    <div className="my-4 flex flex-wrap gap-2">
+      {items.map((item) => (
+        <span
+          className="rounded-full border border-[#e2ded5] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]"
+          key={item}
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+        >
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function getFeatureValue(profile: AdminProfile, field: keyof typeof featureDescriptions) {
   return profile[field] !== false;
 }
@@ -1578,9 +1601,12 @@ function EncounterSubmissionManager({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-2xl text-sm leading-6 text-[#7b746a]">
-          Encounters are raw testimony, review, or story records. Fruit will later turn reviewed encounters into structured outcomes like salvation, healing, baptism, and discipleship.
-        </p>
+        <div className="max-w-2xl">
+          <p className="text-sm leading-6 text-[#7b746a]">
+            Encounters are raw testimony, review, or story records. Fruit will later turn reviewed encounters into structured outcomes like salvation, healing, baptism, and discipleship.
+          </p>
+          <DataFlowLabels items={["Raw -> Reviewed -> Published", "Stored in Command Center", "Available in Field"]} />
+        </div>
         <button
           className={lightPrimaryButtonClass}
           onClick={() => {
@@ -1842,6 +1868,7 @@ function FruitPlanningState() {
         <p className="mt-3 text-sm leading-7 text-[#7b746a]">
           Fruit is built from reviewed encounters. Use Encounters to store the original testimony or review. Use Fruit to publish curated summaries and outcome counts.
         </p>
+        <DataFlowLabels items={["Reviewed -> Published", "Published to Profile", "Available in Field"]} />
       </div>
 
       <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
@@ -3708,9 +3735,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "media" ? (
           <SectionIntro
-            description="Media used on the directory card and as the household overlay on the shared profile hero background."
+            description="Media used on the directory card and as the household overlay on the shared profile hero background. Managed in Command Center and visible on Profile after save."
             title="Media"
           >
+            <DataFlowLabels items={["Raw upload -> Reviewed -> Published", "Managed in Command Center", "Visible on Profile"]} />
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <ImageUploadField
@@ -3796,6 +3824,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           >
             <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
               Use the left side for the original submitted story. Use the right side for the edited public version.
+              <DataFlowLabels items={["Raw -> Reviewed -> Published", "Stored in Command Center", "Published to Profile"]} />
             </div>
             <div className="mt-5 grid gap-5 lg:grid-cols-2">
               <div className="rounded-xl border border-[#e2ded5] bg-white p-5">

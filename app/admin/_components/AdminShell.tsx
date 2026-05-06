@@ -5,7 +5,7 @@ import { adminFont } from "./AdminUI";
 const adminNavGroups = [
   {
     items: [
-      { activeKey: "dashboard", href: "/admin/dashboard", label: "Dashboard" },
+      { activeKey: "dashboard", href: "/admin/dashboard", label: "Command Center" },
       { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", label: "Missionary Profiles" },
       { activeKey: "public-experience", href: "/admin/public-experience", label: "Public Experience" },
       { activeKey: "prayer", href: "/admin/prayer-team", label: "Prayer Team" },
@@ -69,7 +69,7 @@ export function AdminShell({
         <Link href="/admin/dashboard" className="flex min-h-11 items-center gap-3 border-b border-stone-800/70 pb-5">
           <span className="h-2 w-2 rotate-45 bg-[#C9A24A]" />
           <span className="text-xl font-semibold text-stone-100" style={{ fontFamily: adminFont.oswald }}>
-            Admin
+            Command Center
           </span>
         </Link>
 
@@ -108,7 +108,7 @@ export function AdminShell({
             <Link href="/admin/dashboard" className="flex items-center gap-3">
               <span className="h-2 w-2 rotate-45 bg-[#C9A24A]" />
               <span className="text-lg font-semibold text-stone-100" style={{ fontFamily: adminFont.oswald }}>
-                Admin
+                Command Center
               </span>
             </Link>
             <Link

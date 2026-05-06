@@ -339,6 +339,9 @@ export async function POST(request: Request) {
   // Public forms capture submissions in Supabase.
   // Admin reviews manually, then approved public profile data is updated here.
   // Accounting remains the financial source of truth.
+  // Field (FD) can later submit People, Meetings, Fruit, and Tasks into
+  // lightweight intake endpoints; this Command Center route stays focused on
+  // review and Profile publishing.
   const supabase = createSupabaseAdminClient();
   const timestamp = new Date().toISOString();
   const supportMode = asSupportMode(household.support_mode);

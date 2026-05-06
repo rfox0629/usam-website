@@ -6,7 +6,7 @@ import { getAdminAuthorization } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Mission Control | USA Missionaries",
+  title: "Command Center | USA Missionaries",
   robots: {
     follow: false,
     index: false,
@@ -606,8 +606,8 @@ export default async function AdminDashboardPage() {
   return (
     <AdminShell
       active="dashboard"
-      description="Mission Control for the actions that need attention today."
-      title="Mission Control"
+      description="Command Center for the actions that need attention today."
+      title="Command Center"
     >
       <div className="space-y-6">
         {data.error ? (

@@ -109,7 +109,7 @@ export async function POST(request: Request) {
 
   // TODO: Future Church Center webhook can reconcile completed donations against
   // support_commitments by donor email, amount, timing, and profile_slug.
-  // TODO: Future accounting dashboard can show donor intent vs completed giving.
+    // TODO: Future accounting view in Command Center can show donor intent vs completed giving.
   const insertResult = await supabase
     .from("support_commitments")
     .insert({

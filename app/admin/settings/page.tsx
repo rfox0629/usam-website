@@ -263,7 +263,7 @@ export default async function AdminSettingsPage({
                 Admin Access & Permissions
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400">
-                Manage Supabase Auth users allowed into the admin dashboard. Access codes remain as an optional backup for protected public experiences, not the primary admin login system.
+                Manage Supabase Auth users allowed into the Command Center. Access codes remain as an optional backup for protected public experiences, not the primary admin login system.
               </p>
               <p className="mt-2 text-xs leading-5 text-stone-500">
                 TODO: Expand permissions per feature for DOS, Prayer, Support, and missionary-specific review workflows.
