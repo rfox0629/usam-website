@@ -63,6 +63,7 @@ export type AdminOutcomeTag =
   | "Prayer Answered"
   | "Salvation";
 export type AdminTableType = "coffee" | "group" | "kitchen_table";
+export type AdminFieldPersonStatus = "active" | "archived" | "discipleship" | "follow_up" | "new" | "paused";
 export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
 export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 
@@ -145,6 +146,26 @@ export type AdminMissionaryTable = {
   updated_at: string | null;
 };
 
+// Your Field (People) is the internal relationship map shared by Command
+// Center and future Field. These records are not public Profile Team members.
+export type AdminFieldPerson = {
+  church: string | null;
+  created_at: string;
+  created_by: string | null;
+  email: string | null;
+  engagement_level: string | null;
+  household_id: string;
+  id: string;
+  last_activity_at: string | null;
+  name: string;
+  notes: string | null;
+  phone: string;
+  relationship_type: string | null;
+  source: "command_center" | "field";
+  status: AdminFieldPersonStatus;
+  updated_at: string | null;
+};
+
 // Encounters are the raw intake layer for testimonies, forms, reviews, and
 // story material. Field (FD) can create these later; Command Center reviews
 // them before any approved Fruit is derived.
@@ -192,6 +213,7 @@ export type AdminTeamMember = {
 export type AdminProfile = AdminHousehold & {
   activePrayerRequestCount?: number;
   encounterSubmissions?: AdminEncounterSubmission[];
+  fieldPeople?: AdminFieldPerson[];
   prayerPartnerCount?: number;
   publicFruitItemCount?: number;
   support?: AdminSupportSettings;
@@ -251,6 +273,16 @@ type QuickEncounterDraft = {
   length: "long" | "short";
   name: string;
   text: string;
+};
+
+type FieldPersonDraft = {
+  church: string;
+  email: string;
+  name: string;
+  notes: string;
+  phone: string;
+  relationshipType: string;
+  status: AdminFieldPersonStatus;
 };
 
 const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
@@ -364,6 +396,15 @@ const tableTypeOptions: Array<{ label: string; value: AdminTableType }> = [
   { label: "Kitchen Table", value: "kitchen_table" },
   { label: "Coffee", value: "coffee" },
   { label: "Group", value: "group" },
+];
+
+const fieldPersonStatusOptions: Array<{ label: string; value: AdminFieldPersonStatus }> = [
+  { label: "New", value: "new" },
+  { label: "Active", value: "active" },
+  { label: "Follow Up", value: "follow_up" },
+  { label: "Discipleship", value: "discipleship" },
+  { label: "Paused", value: "paused" },
+  { label: "Archived", value: "archived" },
 ];
 
 const encounterStatusOptions: Array<{ label: string; value: AdminEncounterStatus }> = [
@@ -1423,7 +1464,8 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
   return (
     <div className="space-y-5">
       <DataFlowLabels items={["Operations managed in Command Center", "Profiles show approved public content", "Field app is future"]} />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <StatPreview label="Your Field" tone="light" value={String(profile.fieldPeople?.length ?? 0)} />
         <StatPreview label="Tables" tone="light" value={String(profile.tables?.length ?? 0)} />
         <StatPreview label="Encounters" tone="light" value={String(profile.encounterSubmissions?.length ?? 0)} />
         <StatPreview label="Approved Fruit" tone="light" value={String(profile.encounterSubmissions?.filter((encounter) => encounter.status === "approved").length ?? 0)} />
@@ -1759,6 +1801,319 @@ function tableDateValue(value: string | null | undefined) {
   const date = new Date(`${value}T00:00:00`);
 
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function fieldPersonStatusLabel(value: AdminFieldPersonStatus | string | null | undefined) {
+  switch (value) {
+    case "active":
+      return "Active";
+    case "archived":
+      return "Archived";
+    case "discipleship":
+      return "Discipleship";
+    case "follow_up":
+      return "Follow Up";
+    case "paused":
+      return "Paused";
+    case "new":
+    default:
+      return "New";
+  }
+}
+
+function FieldPersonStatusBadge({ status }: { status: AdminFieldPersonStatus }) {
+  const className = {
+    active: "border-green-200 bg-green-50 text-green-800",
+    archived: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
+    discipleship: "border-green-200 bg-green-50 text-green-800",
+    follow_up: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
+    new: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
+    paused: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
+  }[status];
+
+  return (
+    <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      {fieldPersonStatusLabel(status)}
+    </span>
+  );
+}
+
+function personLastActivityLabel(person: AdminFieldPerson) {
+  return formatProfileUpdatedDate(person.last_activity_at ?? person.updated_at ?? person.created_at);
+}
+
+function PeopleManager({
+  items,
+  onSave,
+}: {
+  items: readonly AdminFieldPerson[];
+  onSave: (draft: FieldPersonDraft, personId?: string) => Promise<boolean>;
+}) {
+  const sortedPeople = useMemo(
+    () => [...items].sort((first, second) => (
+      (new Date(second.last_activity_at ?? second.updated_at ?? second.created_at).getTime() || 0)
+      - (new Date(first.last_activity_at ?? first.updated_at ?? first.created_at).getTime() || 0)
+      || first.name.localeCompare(second.name)
+    )),
+    [items],
+  );
+  const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
+  const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
+  const editingPerson = sortedPeople.find((person) => person.id === editingPersonId) ?? null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-w-2xl">
+          <p className="text-sm leading-6 text-[#7b746a]">
+            Internal people connected to this missionary household. Add only the basics now, then enrich the record after real interactions.
+          </p>
+          <DataFlowLabels items={["Internal by default", "Feeds Field", "Powers follow-up"]} />
+        </div>
+        <button
+          className={lightPrimaryButtonClass}
+          onClick={() => setIsAddPersonOpen(true)}
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          type="button"
+        >
+          + Add Person
+        </button>
+      </div>
+
+      {sortedPeople.length === 0 ? (
+        <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
+          No people have been added yet.
+        </p>
+      ) : null}
+
+      <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+        <div className="overflow-x-auto">
+          <table className="min-w-[860px] w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
+                {["Name", "Phone", "Status", "Relationship Type", "Last Activity", "Actions"].map((heading) => (
+                  <th
+                    className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0"
+                    key={heading}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  >
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedPeople.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-4 text-sm text-[#7b746a]" colSpan={6}>
+                    Add a person to start building Your Field.
+                  </td>
+                </tr>
+              ) : null}
+              {sortedPeople.map((person) => (
+                <tr className="border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7]" key={person.id}>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+                    <span className="block text-sm font-semibold text-[#111111]">
+                      {person.name}
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-[#7b746a]">
+                      {person.email || "No email"}
+                    </span>
+                  </td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
+                    {person.phone}
+                  </td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+                    <FieldPersonStatusBadge status={person.status} />
+                  </td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
+                    {person.relationship_type?.trim() || "Not set"}
+                  </td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
+                    {personLastActivityLabel(person)}
+                  </td>
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex flex-wrap gap-2">
+                      <button className={lightSecondaryButtonClass} onClick={() => setEditingPersonId(person.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                        View
+                      </button>
+                      <button className={lightSecondaryButtonClass} onClick={() => setEditingPersonId(person.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                        Edit
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {isAddPersonOpen ? (
+        <PersonEditorModal
+          mode="add"
+          onClose={() => setIsAddPersonOpen(false)}
+          onSave={async (draft) => {
+            const saved = await onSave(draft);
+
+            if (saved) {
+              setIsAddPersonOpen(false);
+            }
+
+            return saved;
+          }}
+        />
+      ) : null}
+
+      {editingPerson ? (
+        <PersonEditorModal
+          mode="edit"
+          onClose={() => setEditingPersonId(null)}
+          onSave={async (draft) => {
+            const saved = await onSave(draft, editingPerson.id);
+
+            if (saved) {
+              setEditingPersonId(null);
+            }
+
+            return saved;
+          }}
+          person={editingPerson}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function PersonEditorModal({
+  mode,
+  onClose,
+  onSave,
+  person,
+}: {
+  mode: "add" | "edit";
+  onClose: () => void;
+  onSave: (draft: FieldPersonDraft) => Promise<boolean>;
+  person?: AdminFieldPerson;
+}) {
+  const [draft, setDraft] = useState<FieldPersonDraft>({
+    church: person?.church ?? "",
+    email: person?.email ?? "",
+    name: person?.name ?? "",
+    notes: person?.notes ?? "",
+    phone: person?.phone ?? "",
+    relationshipType: person?.relationship_type ?? "",
+    status: person?.status ?? "new",
+  });
+  const [showOptional, setShowOptional] = useState(mode === "edit");
+  const [isSaving, setIsSaving] = useState(false);
+  const canSave = Boolean(draft.name.trim() && draft.phone.trim());
+
+  async function savePerson() {
+    if (!canSave || isSaving) {
+      return;
+    }
+
+    setIsSaving(true);
+    const saved = await onSave(draft);
+
+    if (!saved) {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
+      <div className="mx-auto max-w-2xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Your Field
+            </p>
+            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+              {mode === "add" ? "Add Person" : `Edit ${person?.name || "Person"}`}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-[#4b443b]">
+              Name and phone are enough to save. More detail can be added after meetings and follow-up.
+            </p>
+          </div>
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <Field
+            label="Name"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, name: value }))}
+            value={draft.name}
+          />
+          <Field
+            label="Phone"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, phone: value }))}
+            value={draft.phone}
+          />
+        </div>
+
+        <button
+          className={`${lightSecondaryButtonClass} mt-5`}
+          onClick={() => setShowOptional((currentValue) => !currentValue)}
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          type="button"
+        >
+          {showOptional ? "Hide Optional" : "Optional Details"}
+        </button>
+
+        {showOptional ? (
+          <div className="mt-5 space-y-4">
+            {mode === "edit" ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <SelectField
+                  label="Status"
+                  onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, status: value as AdminFieldPersonStatus }))}
+                  options={fieldPersonStatusOptions}
+                  value={draft.status}
+                />
+                <Field
+                  label="Relationship Type"
+                  onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, relationshipType: value }))}
+                  value={draft.relationshipType}
+                />
+              </div>
+            ) : null}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                label="Email"
+                onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, email: value }))}
+                value={draft.email}
+              />
+              <Field
+                label="Church"
+                onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, church: value }))}
+                value={draft.church}
+              />
+            </div>
+            <TextArea
+              helperText="Internal notes only. Not public by default."
+              label="Notes"
+              onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, notes: value }))}
+              rows={4}
+              value={draft.notes}
+            />
+          </div>
+        ) : null}
+
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Cancel
+          </button>
+          <button className={lightPrimaryButtonClass} disabled={!canSave || isSaving} onClick={savePerson} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            {isSaving ? "Saving" : "Save Person"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function tableTimeGroup(table: AdminMissionaryTable): "earlier" | "this-week" | "today" {
@@ -3374,6 +3729,56 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     setProfiles((currentProfiles) => currentProfiles.map((profile) => (profile.id === nextProfile.id ? nextProfile : profile)));
   }
 
+  async function saveFieldPerson(draft: FieldPersonDraft, personId?: string) {
+    if (!selectedProfile) {
+      return false;
+    }
+
+    const response = await fetch("/api/admin/missionary-profiles/people", {
+      body: JSON.stringify({
+        church: draft.church,
+        email: draft.email,
+        householdId: selectedProfile.id,
+        id: personId,
+        name: draft.name,
+        notes: draft.notes,
+        phone: draft.phone,
+        relationship_type: draft.relationshipType,
+        status: draft.status,
+      }),
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: personId ? "PATCH" : "POST",
+    });
+    const result = await response.json().catch(() => ({})) as {
+      error?: string;
+      person?: AdminFieldPerson;
+    };
+
+    if (!response.ok || !result.person) {
+      setStatus({
+        text: typeof result.error === "string" ? result.error : "Unable to save person.",
+        tone: "error",
+      });
+      return false;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      fieldPeople: personId
+        ? (selectedProfile.fieldPeople ?? []).map((person) => (person.id === result.person?.id ? result.person : person))
+        : [result.person, ...(selectedProfile.fieldPeople ?? [])],
+    });
+    setStatus({
+      text: personId ? "Person updated." : "Person added to Your Field.",
+      tone: "success",
+    });
+
+    return true;
+  }
+
   function resetTransientEditorState() {
     setStatus(null);
     setUploadStates({
@@ -4361,10 +4766,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Internal people connected to this missionary household. These records power Tables, prayer follow-up, Fruit, and future Field activity. Not public by default."
             title="People"
           >
-            <WorkspacePlanningState
-              description="People will track internal ministry relationships such as people being met with, discipled, prayed for, or followed up with. This is intentionally separate from the public Team roster."
-              labels={["Internal by default", "Future Field creates and updates", "Feeds Tables, prayer follow-up, and Fruit"]}
-              title="Operations Model"
+            <PeopleManager
+              items={selectedProfile.fieldPeople ?? []}
+              onSave={saveFieldPerson}
             />
           </SectionIntro>
           ) : null}

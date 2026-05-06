@@ -4,6 +4,8 @@ import {
   type AdminEncounterStatus,
   type AdminEncounterSubmission,
   type AdminEncounterSubmissionType,
+  type AdminFieldPerson,
+  type AdminFieldPersonStatus,
   type AdminHousehold,
   type AdminMissionaryTable,
   type AdminOutcomeTag,
@@ -58,6 +60,7 @@ const householdFeatureColumns = [
 const encounterStatuses = ["raw", "reviewed", "approved", "hidden", "archived"] as const satisfies readonly AdminEncounterStatus[];
 const encounterSources = ["manual", "public_form", "dos"] as const;
 const encounterSubmissionTypes = ["quick_response", "full_testimony"] as const satisfies readonly AdminEncounterSubmissionType[];
+const fieldPersonStatuses = ["new", "active", "follow_up", "discipleship", "paused", "archived"] as const satisfies readonly AdminFieldPersonStatus[];
 const outcomeTagOptions = [
   "Salvation",
   "Baptism",
@@ -101,6 +104,24 @@ type MissionaryTableRow = {
   source: string | null;
   table_date: string | null;
   table_type: string | null;
+  updated_at: string | null;
+};
+
+type FieldPersonRow = {
+  church: string | null;
+  created_at: string;
+  created_by: string | null;
+  email: string | null;
+  engagement_level: string | null;
+  household_id: string;
+  id: string;
+  last_activity_at: string | null;
+  name: string;
+  notes: string | null;
+  phone: string;
+  relationship_type: string | null;
+  source: string | null;
+  status: string | null;
   updated_at: string | null;
 };
 
@@ -183,6 +204,14 @@ function getTableType(value: string | null): AdminTableType {
 }
 
 function getTableSource(value: string | null): AdminMissionaryTable["source"] {
+  return value === "field" ? "field" : "command_center";
+}
+
+function getFieldPersonStatus(value: string | null): AdminFieldPersonStatus {
+  return fieldPersonStatuses.includes(value as AdminFieldPersonStatus) ? value as AdminFieldPersonStatus : "new";
+}
+
+function getFieldPersonSource(value: string | null): AdminFieldPerson["source"] {
   return value === "field" ? "field" : "command_center";
 }
 
@@ -285,6 +314,18 @@ function isMissingTablesTable(error: { code?: string; message?: string } | null 
   return missingRelation && message.includes("missionary_tables");
 }
 
+function isMissingFieldPeopleTable(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
+
+  return missingRelation && message.includes("missionary_field_people");
+}
+
 function isMissingEncounterPipelineColumns(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
@@ -364,6 +405,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const supportByHouseholdId = new Map<string, AdminSupportSettings>();
   const activePrayerRequestCountByHouseholdId = new Map<string, number>();
   const encounterSubmissionsByHouseholdId = new Map<string, AdminEncounterSubmission[]>();
+  const fieldPeopleByHouseholdId = new Map<string, AdminFieldPerson[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
   const publicFruitItemCountByHouseholdId = new Map<string, number>();
   const tablesByHouseholdId = new Map<string, AdminMissionaryTable[]>();
@@ -472,6 +514,45 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       tablesByHouseholdId.set(table.household_id, currentTables);
     });
 
+    const fieldPeopleResult = await supabase
+      .from("missionary_field_people")
+      .select("id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, created_at, updated_at")
+      .in("household_id", ids)
+      .order("last_activity_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false })
+      .order("name", { ascending: true });
+
+    if (fieldPeopleResult.error && !isMissingFieldPeopleTable(fieldPeopleResult.error)) {
+      return { error: fieldPeopleResult.error.message, profiles: [] };
+    }
+
+    ((fieldPeopleResult.data ?? []) as FieldPersonRow[]).forEach((person) => {
+      if (!person.household_id || !ids.includes(person.household_id)) {
+        return;
+      }
+
+      const currentPeople = fieldPeopleByHouseholdId.get(person.household_id) ?? [];
+
+      currentPeople.push({
+        church: person.church,
+        created_at: person.created_at,
+        created_by: person.created_by,
+        email: person.email,
+        engagement_level: person.engagement_level,
+        household_id: person.household_id,
+        id: person.id,
+        last_activity_at: person.last_activity_at,
+        name: person.name,
+        notes: person.notes,
+        phone: person.phone,
+        relationship_type: person.relationship_type,
+        source: getFieldPersonSource(person.source),
+        status: getFieldPersonStatus(person.status),
+        updated_at: person.updated_at,
+      });
+      fieldPeopleByHouseholdId.set(person.household_id, currentPeople);
+    });
+
     // Intake workflow placeholder: missionaries will eventually submit profile
     // details through public forms. Those raw submissions should appear here for
     // master_admin/admin/reviewer review, then a human updates and publishes the
@@ -577,6 +658,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       ...(household as AdminHousehold),
       activePrayerRequestCount: activePrayerRequestCountByHouseholdId.get(household.id) ?? 0,
       encounterSubmissions: encounterSubmissionsByHouseholdId.get(household.id) ?? [],
+      fieldPeople: fieldPeopleByHouseholdId.get(household.id) ?? [],
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
       publicFruitItemCount: publicFruitItemCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
