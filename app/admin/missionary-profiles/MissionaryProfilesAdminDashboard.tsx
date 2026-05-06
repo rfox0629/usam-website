@@ -178,12 +178,16 @@ type CutoutGenerationSettings = {
   addHats: boolean;
   addUsamPatch: boolean;
   blurFaces: boolean;
+  editMode: "conservative" | "stylized";
   keepFacesNatural: boolean;
   removeBackground: boolean;
+  styleReferenceImageDataUrl: string | null;
+  styleReferenceImageName: string | null;
 };
 
 type CutoutGenerationState = {
   message?: string;
+  modelLabel?: string;
   path?: string;
   previewUrl?: string;
   status: "idle" | "generating" | "success" | "error";
@@ -206,8 +210,11 @@ const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
   addHats: false,
   addUsamPatch: true,
   blurFaces: false,
+  editMode: "conservative",
   keepFacesNatural: true,
   removeBackground: true,
+  styleReferenceImageDataUrl: null,
+  styleReferenceImageName: null,
 };
 
 type TargetHouseholdOption = {
@@ -773,8 +780,10 @@ function MissionaryCutoutGenerationModal({
   generationState,
   householdName,
   isConfigured,
+  isReviewConfirmed,
   onClose,
   onGenerate,
+  onReviewConfirmedChange,
   onSettingsChange,
   onUse,
   settings,
@@ -783,19 +792,71 @@ function MissionaryCutoutGenerationModal({
   generationState: CutoutGenerationState;
   householdName: string;
   isConfigured: boolean | null;
+  isReviewConfirmed: boolean;
   onClose: () => void;
   onGenerate: () => void;
+  onReviewConfirmedChange: (confirmed: boolean) => void;
   onSettingsChange: (settings: CutoutGenerationSettings) => void;
   onUse: () => void;
   settings: CutoutGenerationSettings;
   sourceImageUrl: string;
 }) {
   const isGenerating = generationState.status === "generating";
+  const [styleReferenceError, setStyleReferenceError] = useState("");
 
-  function updateSetting(key: keyof CutoutGenerationSettings, value: boolean) {
+  function updateSetting<K extends keyof CutoutGenerationSettings>(key: K, value: CutoutGenerationSettings[K]) {
     onSettingsChange({
       ...settings,
       [key]: value,
+    });
+  }
+
+  function handleStyleReferenceUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!missionaryImageMimeTypes.includes(file.type as typeof missionaryImageMimeTypes[number])) {
+      setStyleReferenceError("Use a JPG, PNG, or WebP style reference image.");
+      return;
+    }
+
+    if (file.size > MISSIONARY_IMAGE_MAX_BYTES) {
+      setStyleReferenceError("Style reference image must be 5MB or smaller.");
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+
+      if (!result.startsWith("data:image/")) {
+        setStyleReferenceError("Unable to read the selected style reference image.");
+        return;
+      }
+
+      setStyleReferenceError("");
+      onSettingsChange({
+        ...settings,
+        styleReferenceImageDataUrl: result,
+        styleReferenceImageName: file.name,
+      });
+    };
+    reader.onerror = () => {
+      setStyleReferenceError("Unable to read the selected style reference image.");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearStyleReferenceImage() {
+    setStyleReferenceError("");
+    onSettingsChange({
+      ...settings,
+      styleReferenceImageDataUrl: null,
+      styleReferenceImageName: null,
     });
   }
 
@@ -812,6 +873,9 @@ function MissionaryCutoutGenerationModal({
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
               Use the uploaded directory photo for {householdName} to create a transparent hero family image. Review the preview before replacing the current hero image.
+            </p>
+            <p className="mt-3 max-w-2xl rounded-xl border border-[#d7d2c8] bg-white p-3 text-xs leading-5 text-[#6f6658]">
+              AI drafts may alter likeness. Review carefully before publishing. If likeness is inaccurate, regenerate or upload a professionally edited cutout.
             </p>
           </div>
           <button
@@ -838,12 +902,106 @@ function MissionaryCutoutGenerationModal({
             <p className="mt-3 rounded-xl border border-[#e2ded5] bg-white p-3 text-xs leading-5 text-[#6f6658]">
               This does not auto-replace your hero image. Generated files are stored as previews until you choose “Use as Hero Image.”
             </p>
+            <div className="mt-4 rounded-xl border border-[#d7d2c8] bg-white p-4">
+              <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Optional Style Reference Image
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+                Use an approved hero image to guide clothing, patch, crop, and cutout style. The source family photo still controls identity.
+              </p>
+              {settings.styleReferenceImageDataUrl ? (
+                <div className="mt-3 overflow-hidden rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
+                  <img
+                    alt="Style reference preview"
+                    className="max-h-48 w-full object-contain"
+                    src={settings.styleReferenceImageDataUrl}
+                  />
+                </div>
+              ) : null}
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <label
+                  className={`${lightSecondaryButtonClass} cursor-pointer`}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                >
+                  Upload Style Reference
+                  <input
+                    accept={missionaryImageMimeTypes.join(",")}
+                    className="sr-only"
+                    onChange={handleStyleReferenceUpload}
+                    type="file"
+                  />
+                </label>
+                {settings.styleReferenceImageDataUrl ? (
+                  <button
+                    className={lightSecondaryButtonClass}
+                    onClick={clearStyleReferenceImage}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    Remove Reference
+                  </button>
+                ) : null}
+              </div>
+              {settings.styleReferenceImageName ? (
+                <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+                  Using {settings.styleReferenceImageName}
+                </p>
+              ) : null}
+              {styleReferenceError ? (
+                <p className="mt-2 text-xs leading-5 text-red-700">
+                  {styleReferenceError}
+                </p>
+              ) : null}
+            </div>
           </div>
 
           <div>
             <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Generation Settings
             </p>
+            <div className="mt-3 rounded-xl border border-[#d7d2c8] bg-white p-4">
+              <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Edit Mode
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {[
+                  {
+                    description: "Minimal changes. Prioritizes exact family likeness and original arrangement.",
+                    label: "Conservative edit",
+                    value: "conservative" as const,
+                  },
+                  {
+                    description: "More style, still using the original photo as the identity reference.",
+                    label: "Stylized edit",
+                    value: "stylized" as const,
+                  },
+                ].map((option) => (
+                  <label
+                    className={`cursor-pointer rounded-xl border p-3 transition-colors ${
+                      settings.editMode === option.value
+                        ? "border-[#c8952d] bg-[#fff7e3]"
+                        : "border-[#e2ded5] bg-[#f8f6f1] hover:border-[#c8952d]"
+                    }`}
+                    key={option.value}
+                  >
+                    <input
+                      checked={settings.editMode === option.value}
+                      className="sr-only"
+                      name="cutout_edit_mode"
+                      onChange={() => updateSetting("editMode", option.value)}
+                      type="radio"
+                      value={option.value}
+                    />
+                    <span className="block text-sm font-semibold text-[#111111]">
+                      {option.label}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
+                      {option.description}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <CutoutSettingToggle
                 checked={settings.addCamoFatigues}
@@ -895,6 +1053,11 @@ function MissionaryCutoutGenerationModal({
                   <p className="text-sm font-semibold text-[#111111]">
                     Generated Preview
                   </p>
+                  {generationState.modelLabel ? (
+                    <span className="mt-2 inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Generated with {generationState.modelLabel}
+                    </span>
+                  ) : null}
                   <p className="mt-1 text-xs leading-5 text-[#7b746a]">
                     Transparent PNG previews appear here after generation.
                   </p>
@@ -937,6 +1100,20 @@ function MissionaryCutoutGenerationModal({
                 </p>
               ) : null}
 
+              {generationState.previewUrl ? (
+                <label className="mt-4 flex items-start gap-3 rounded-xl border border-[#d7d2c8] bg-white p-3 text-sm leading-6 text-[#4b443b]">
+                  <input
+                    checked={isReviewConfirmed}
+                    className="mt-1 h-4 w-4 shrink-0 accent-[#D4A63D]"
+                    onChange={(event) => onReviewConfirmedChange(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>
+                    I reviewed this image and confirm the people look accurate.
+                  </span>
+                </label>
+              ) : null}
+
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <button
                   className={lightSecondaryButtonClass}
@@ -948,7 +1125,7 @@ function MissionaryCutoutGenerationModal({
                 </button>
                 <button
                   className={lightPrimaryButtonClass}
-                  disabled={!generationState.previewUrl || isGenerating}
+                  disabled={!generationState.previewUrl || isGenerating || !isReviewConfirmed}
                   onClick={onUse}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
@@ -2256,6 +2433,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [cutoutGenerationState, setCutoutGenerationState] = useState<CutoutGenerationState>({
     status: "idle",
   });
+  const [isCutoutReviewConfirmed, setIsCutoutReviewConfirmed] = useState(false);
   const [storyRefinementState, setStoryRefinementState] = useState<StoryRefinementState>({
     status: "idle",
   });
@@ -2347,6 +2525,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   useEffect(() => {
     setIsCutoutModalOpen(false);
     setCutoutSettings(defaultCutoutGenerationSettings);
+    setIsCutoutReviewConfirmed(false);
     setCutoutGenerationState({ status: "idle" });
     setStoryRefinementState({ status: "idle" });
     setEncounterSummaryState({ status: "idle" });
@@ -2841,6 +3020,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     setCutoutSettings(defaultCutoutGenerationSettings);
     setCutoutGenerationState({ status: "idle" });
+    setIsCutoutReviewConfirmed(false);
     setIsCutoutGenerationConfigured(null);
     setIsCutoutModalOpen(true);
   }
@@ -2866,6 +3046,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       message: "Generating image...",
       status: "generating",
     });
+    setIsCutoutReviewConfirmed(false);
 
     try {
       const response = await fetch("/api/admin/missionary-profiles/generate-cutout", {
@@ -2882,6 +3063,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       });
       const result = await response.json().catch(() => ({})) as {
         error?: string;
+        modelLabel?: string;
         path?: string;
         publicUrl?: string;
       };
@@ -2891,7 +3073,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       }
 
       setCutoutGenerationState({
-        message: "Preview generated. Review it before using it as the hero image.",
+        message: `Preview generated${result.modelLabel ? ` with ${result.modelLabel}` : ""}. Review it before using it as the hero image.`,
+        modelLabel: result.modelLabel,
         path: result.path,
         previewUrl: result.publicUrl,
         status: "success",
@@ -2906,6 +3089,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   async function useGeneratedHeroImage() {
     if (!selectedProfile || !cutoutGenerationState.previewUrl) {
+      return;
+    }
+
+    if (!isCutoutReviewConfirmed) {
+      setCutoutGenerationState((currentState) => ({
+        ...currentState,
+        message: "Review and confirm the people look accurate before using this image.",
+        status: "error",
+      }));
       return;
     }
 
@@ -2933,6 +3125,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       }));
       setIsCutoutModalOpen(false);
       setCutoutGenerationState({ status: "idle" });
+      setIsCutoutReviewConfirmed(false);
       router.refresh();
     } catch (error) {
       setCutoutGenerationState((currentState) => ({
@@ -3566,8 +3759,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 generationState={cutoutGenerationState}
                 householdName={selectedProfile.display_name}
                 isConfigured={isCutoutGenerationConfigured}
+                isReviewConfirmed={isCutoutReviewConfirmed}
                 onClose={() => setIsCutoutModalOpen(false)}
                 onGenerate={generateMissionaryCutout}
+                onReviewConfirmedChange={setIsCutoutReviewConfirmed}
                 onSettingsChange={setCutoutSettings}
                 onUse={useGeneratedHeroImage}
                 settings={cutoutSettings}

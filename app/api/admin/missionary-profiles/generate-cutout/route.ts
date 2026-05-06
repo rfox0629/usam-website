@@ -7,13 +7,14 @@ import {
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 type GenerateCutoutPayload = {
   householdId?: unknown;
   settings?: unknown;
   slug?: unknown;
   sourceImageUrl?: unknown;
+  styleReferenceImageDataUrl?: unknown;
 };
 
 type CutoutSettings = {
@@ -22,11 +23,13 @@ type CutoutSettings = {
   addHats: boolean;
   addUsamPatch: boolean;
   blurFaces: boolean;
+  editMode: "conservative" | "stylized";
   keepFacesNatural: boolean;
   removeBackground: boolean;
+  styleReferenceImageDataUrl: string | null;
 };
 
-type OpenAIImageResponse = {
+type OpenAIImageApiResponse = {
   data?: Array<{
     b64_json?: string;
     revised_prompt?: string;
@@ -37,14 +40,37 @@ type OpenAIImageResponse = {
   };
 };
 
+type OpenAIResponsesImageResponse = {
+  error?: {
+    code?: string;
+    message?: string;
+    type?: string;
+  };
+  output?: Array<{
+    id?: string;
+    result?: string;
+    revised_prompt?: string;
+    status?: string;
+    type?: string;
+  }>;
+  status?: string;
+};
+
+type ImageInput = {
+  arrayBuffer: ArrayBuffer;
+  contentType: string;
+};
+
 const defaultCutoutSettings: CutoutSettings = {
   addCamoFatigues: true,
   addFacePaint: false,
   addHats: false,
   addUsamPatch: true,
   blurFaces: false,
+  editMode: "conservative",
   keepFacesNatural: true,
   removeBackground: true,
+  styleReferenceImageDataUrl: null,
 };
 
 function asString(value: unknown) {
@@ -53,6 +79,16 @@ function asString(value: unknown) {
 
 function asBoolean(value: unknown, fallback: boolean) {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function normalizeEditMode(value: unknown): CutoutSettings["editMode"] {
+  return value === "stylized" ? "stylized" : "conservative";
+}
+
+function normalizeStyleReferenceImageDataUrl(value: unknown) {
+  const dataUrl = asString(value);
+
+  return dataUrl.startsWith("data:image/") ? dataUrl : null;
 }
 
 function normalizeCutoutSettings(value: unknown): CutoutSettings {
@@ -66,33 +102,55 @@ function normalizeCutoutSettings(value: unknown): CutoutSettings {
     addHats: asBoolean(settings.addHats, defaultCutoutSettings.addHats),
     addUsamPatch: asBoolean(settings.addUsamPatch, defaultCutoutSettings.addUsamPatch),
     blurFaces: asBoolean(settings.blurFaces, defaultCutoutSettings.blurFaces),
+    editMode: normalizeEditMode(settings.editMode),
     keepFacesNatural: asBoolean(settings.keepFacesNatural, defaultCutoutSettings.keepFacesNatural),
     removeBackground: asBoolean(settings.removeBackground, defaultCutoutSettings.removeBackground),
+    styleReferenceImageDataUrl: normalizeStyleReferenceImageDataUrl(settings.styleReferenceImageDataUrl),
   };
 }
 
-function buildCutoutPrompt(settings: CutoutSettings) {
+function buildCutoutPrompt(settings: CutoutSettings, hasStyleReferenceImage: boolean) {
   const instructions = [
-    "Create a clean transparent PNG cutout of this family.",
-    "Preserve natural faces.",
-    "Keep it realistic and respectful.",
+    "Edit the provided source image. Preserve the exact people, faces, ages, smiles, family arrangement, and facial likeness from the source photo. Do not generate a different family. Do not change identity.",
+    "The first image is the source family photo. It controls identity, faces, ages, family composition, body arrangement, facial likeness, smiles, hair, and posture.",
+    "Do not generate a different family. Do not alter facial identity. Do not change ethnicity, age, gender, hair, smiles, facial structure, or the number of people.",
+    "Keep the same family composition and preserve body positions, spacing, and group arrangement as much as possible.",
+    "Do not invent new people. Do not add strangers. Do not crop heads, faces, hands, or bodies out of the image.",
+    "Include the full family with clean margins around the group.",
+    "Use a landscape-friendly frame so the full group can fit comfortably without cutting anyone off.",
+    "Avoid cartoon-like faces, plastic skin, generic stock-photo faces, or beauty-filtered identity changes.",
+    "Prioritize likeness preservation over style changes.",
+    "Prioritize likeness over styling.",
+    "Keep the result realistic, respectful, and photo-based.",
     "Do not add weapons, military rank, official military insignia, or law-enforcement marks.",
   ];
 
+  if (hasStyleReferenceImage) {
+    instructions.push("The second image is an optional approved style reference. Use the reference image only as style direction for clothing, hats, patches, crop, and transparent cutout style.");
+  } else {
+    instructions.push("No approved style reference image was provided. Use only the selected settings and preserve the source image as closely as possible.");
+  }
+
+  if (settings.editMode === "conservative") {
+    instructions.push("Use conservative edit mode: make minimal changes beyond clothing styling and background handling.");
+  } else {
+    instructions.push("Use stylized edit mode, but still preserve the exact people and natural facial likeness from the source photo.");
+  }
+
   if (settings.addCamoFatigues) {
-    instructions.push("Dress them in subtle black/white missionary field attire.");
+    instructions.push("Apply black/white digital camo missionary field attire similar to the approved USA Missionaries hero image style, while preserving the original faces, posture, and group arrangement.");
   } else {
     instructions.push("Keep clothing tasteful, simple, and close to the original photo.");
   }
 
   if (settings.addHats) {
-    instructions.push("Add simple matching hats only where they look natural.");
+    instructions.push("Add simple matching hats only if they look natural. Hats must not cover eyes, faces, smiles, hairline, or identifying facial features.");
   } else {
     instructions.push("Do not add hats.");
   }
 
   if (settings.addUsamPatch) {
-    instructions.push("Add a small USA Missionaries patch where appropriate.");
+    instructions.push("Add a small subtle USA Missionaries patch on clothing or a hat where appropriate. Do not let the patch obscure faces or hands.");
   } else {
     instructions.push("Do not add a USA Missionaries patch.");
   }
@@ -106,14 +164,18 @@ function buildCutoutPrompt(settings: CutoutSettings) {
   if (settings.blurFaces) {
     instructions.push("Softly blur faces for privacy while preserving the group silhouette.");
   } else if (settings.keepFacesNatural) {
-    instructions.push("Keep faces natural.");
+    instructions.push("Keep faces natural. Facial accuracy is more important than the outfit transformation.");
   }
 
   if (settings.removeBackground) {
-    instructions.push("Remove the background completely.");
+    instructions.push("Remove the background completely and output a clean transparent PNG cutout.");
   } else {
-    instructions.push("Keep the subject edges clean and avoid adding a busy background.");
+    instructions.push("Do not remove the background. Keep the original setting as much as possible and avoid adding a busy new background.");
   }
+
+  instructions.push(
+    "Negative instructions: do not create new faces, do not change identity, do not crop heads or bodies, do not add strangers, do not make cartoon-like faces, do not replace the family with generic people, and do not change the number of people.",
+  );
 
   // Future AI styles can branch here, such as formal portrait, field report,
   // discreet/sensitive profile, or leadership variants.
@@ -163,6 +225,29 @@ async function fetchSourceImage(sourceImageUrl: string, requestUrl: string) {
   };
 }
 
+function parseDataUrlImage(dataUrl: string): ImageInput | null {
+  const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const buffer = Buffer.from(match[2], "base64");
+
+  if (buffer.byteLength > 50 * 1024 * 1024) {
+    throw new Error("Style reference image must be smaller than 50MB for generation.");
+  }
+
+  return {
+    arrayBuffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
+    contentType: match[1],
+  };
+}
+
+function toImageDataUrl(image: ImageInput) {
+  return `data:${image.contentType};base64,${Buffer.from(image.arrayBuffer).toString("base64")}`;
+}
+
 function getSourceFileName(contentType: string) {
   if (contentType === "image/png") {
     return "source.png";
@@ -187,12 +272,14 @@ function getOpenAiApiKey() {
 
 async function createCutoutImage({
   sourceImage,
+  styleReferenceImage,
   prompt,
   settings,
 }: {
   prompt: string;
   settings: CutoutSettings;
-  sourceImage: Awaited<ReturnType<typeof fetchSourceImage>>;
+  sourceImage: ImageInput;
+  styleReferenceImage: ImageInput | null;
 }) {
   const openAiApiKey = getOpenAiApiKey();
 
@@ -200,22 +287,150 @@ async function createCutoutImage({
     throw new Error("Add OPENAI_API_KEY to .env.local and restart the server to enable image generation.");
   }
 
+  try {
+    return await createCutoutImageWithResponses({
+      openAiApiKey,
+      prompt,
+      settings,
+      sourceImage,
+      styleReferenceImage,
+    });
+  } catch (responsesError) {
+    try {
+      return await createCutoutImageWithGptImageFallback({
+        openAiApiKey,
+        prompt,
+        settings,
+        sourceImage,
+        styleReferenceImage,
+      });
+    } catch (fallbackError) {
+      const responsesMessage = responsesError instanceof Error ? responsesError.message : "Responses API image generation failed.";
+      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "GPT Image 2 fallback failed.";
+
+      throw new Error(`${responsesMessage} GPT Image 2 fallback also failed: ${fallbackMessage}`);
+    }
+  }
+}
+
+async function createCutoutImageWithResponses({
+  openAiApiKey,
+  sourceImage,
+  styleReferenceImage,
+  prompt,
+  settings,
+}: {
+  openAiApiKey: string;
+  prompt: string;
+  settings: CutoutSettings;
+  sourceImage: ImageInput;
+  styleReferenceImage: ImageInput | null;
+}) {
+  const content: Array<Record<string, string>> = [
+    {
+      text: prompt,
+      type: "input_text",
+    },
+    {
+      image_url: toImageDataUrl(sourceImage),
+      type: "input_image",
+    },
+  ];
+
+  if (styleReferenceImage) {
+    content.push({
+      image_url: toImageDataUrl(styleReferenceImage),
+      type: "input_image",
+    });
+  }
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    body: JSON.stringify({
+      input: [
+        {
+          content,
+          role: "user",
+        },
+      ],
+      model: "gpt-5.5",
+      tool_choice: { type: "image_generation" },
+      tools: [
+        {
+          action: "edit",
+          background: settings.removeBackground ? "transparent" : "auto",
+          output_format: "png",
+          quality: settings.editMode === "conservative" ? "high" : "medium",
+          size: "1536x1024",
+          type: "image_generation",
+        },
+      ],
+    }),
+    headers: {
+      Authorization: `Bearer ${openAiApiKey}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  const result = await response.json() as OpenAIResponsesImageResponse;
+
+  if (!response.ok) {
+    throw new Error(result.error?.message || "GPT 5.5 image generation is not available.");
+  }
+
+  const imageResult = result.output?.find((output) => (
+    output.type === "image_generation_call" && typeof output.result === "string"
+  ));
+
+  if (!imageResult?.result) {
+    throw new Error("GPT 5.5 did not return an image preview.");
+  }
+
+  return {
+    buffer: Buffer.from(imageResult.result, "base64"),
+    model: "gpt-5.5",
+    modelLabel: "GPT 5.5",
+    revisedPrompt: imageResult.revised_prompt ?? null,
+  };
+}
+
+async function createCutoutImageWithGptImageFallback({
+  openAiApiKey,
+  sourceImage,
+  styleReferenceImage,
+  prompt,
+  settings,
+}: {
+  openAiApiKey: string;
+  prompt: string;
+  settings: CutoutSettings;
+  sourceImage: ImageInput;
+  styleReferenceImage: ImageInput | null;
+}) {
+  const formData = new FormData();
   const sourceFile = new File(
     [sourceImage.arrayBuffer],
     getSourceFileName(sourceImage.contentType),
     { type: sourceImage.contentType },
   );
-  const formData = new FormData();
 
-  formData.append("model", "gpt-image-1");
-  formData.append("image", sourceFile);
+  formData.append("model", "gpt-image-2");
+  formData.append("image[]", sourceFile);
+
+  if (styleReferenceImage) {
+    const styleReferenceFile = new File(
+      [styleReferenceImage.arrayBuffer],
+      `style-reference-${getSourceFileName(styleReferenceImage.contentType)}`,
+      { type: styleReferenceImage.contentType },
+    );
+
+    formData.append("image[]", styleReferenceFile);
+  }
+
   formData.append("prompt", prompt);
   formData.append("n", "1");
-  formData.append("size", "1024x1536");
-  formData.append("quality", "medium");
-  formData.append("input_fidelity", "high");
+  formData.append("size", "1536x1024");
+  formData.append("quality", settings.editMode === "conservative" ? "high" : "medium");
   formData.append("output_format", "png");
-  formData.append("background", "transparent");
 
   const response = await fetch("https://api.openai.com/v1/images/edits", {
     body: formData,
@@ -224,10 +439,10 @@ async function createCutoutImage({
     },
     method: "POST",
   });
-  const result = await response.json() as OpenAIImageResponse;
+  const result = await response.json() as OpenAIImageApiResponse;
 
   if (!response.ok) {
-    throw new Error(result.error?.message || "OpenAI could not generate the image.");
+    throw new Error(result.error?.message || "GPT Image 2 could not generate the image.");
   }
 
   const imageResult = result.data?.[0];
@@ -235,6 +450,8 @@ async function createCutoutImage({
   if (imageResult?.b64_json) {
     return {
       buffer: Buffer.from(imageResult.b64_json, "base64"),
+      model: "gpt-image-2",
+      modelLabel: "GPT Image 2",
       revisedPrompt: imageResult.revised_prompt ?? null,
     };
   }
@@ -248,11 +465,13 @@ async function createCutoutImage({
 
     return {
       buffer: Buffer.from(await imageResponse.arrayBuffer()),
+      model: "gpt-image-2",
+      modelLabel: "GPT Image 2",
       revisedPrompt: imageResult.revised_prompt ?? null,
     };
   }
 
-  throw new Error("OpenAI did not return a generated image.");
+  throw new Error("GPT Image 2 did not return a generated image.");
 }
 
 export async function POST(request: Request) {
@@ -285,7 +504,13 @@ export async function POST(request: Request) {
   const householdId = asString(payload.householdId);
   const slug = toMissionaryImageStorageSlug(asString(payload.slug));
   const sourceImageUrl = asString(payload.sourceImageUrl);
+  const rawSettings = typeof payload.settings === "object" && payload.settings !== null
+    ? payload.settings as Record<string, unknown>
+    : {};
   const settings = normalizeCutoutSettings(payload.settings);
+  const styleReferenceImageDataUrl = settings.styleReferenceImageDataUrl
+    ?? normalizeStyleReferenceImageDataUrl(payload.styleReferenceImageDataUrl)
+    ?? normalizeStyleReferenceImageDataUrl(rawSettings.styleReferenceImageDataUrl);
 
   if (!householdId || !slug || !sourceImageUrl) {
     return NextResponse.json({ error: "Household, slug, and source image are required." }, { status: 400 });
@@ -293,11 +518,13 @@ export async function POST(request: Request) {
 
   try {
     const sourceImage = await fetchSourceImage(sourceImageUrl, request.url);
-    const prompt = buildCutoutPrompt(settings);
+    const styleReferenceImage = styleReferenceImageDataUrl ? parseDataUrlImage(styleReferenceImageDataUrl) : null;
+    const prompt = buildCutoutPrompt(settings, Boolean(styleReferenceImage));
     const generatedImage = await createCutoutImage({
       prompt,
       settings,
       sourceImage,
+      styleReferenceImage,
     });
     const supabase = createSupabaseAdminClient();
     const storagePath = `households/${slug}/hero-cutout-${Date.now()}.png`;
@@ -318,6 +545,8 @@ export async function POST(request: Request) {
       .getPublicUrl(storagePath);
 
     return NextResponse.json({
+      model: generatedImage.model,
+      modelLabel: generatedImage.modelLabel,
       path: storagePath,
       publicUrl: data.publicUrl,
       revisedPrompt: generatedImage.revisedPrompt,

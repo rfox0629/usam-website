@@ -248,6 +248,12 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
   ].some((columnName) => message.includes(columnName));
 }
 
+function hasMissingStoryVersionColumnsError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["original_story", "public_story"].some((columnName) => message.includes(columnName));
+}
+
 function hasMissingTeamMembersTableError(error: { code?: string; message?: string } | null | undefined) {
   const code = error?.code ?? "";
   const message = error?.message ?? "";
@@ -347,6 +353,7 @@ export async function POST(request: Request) {
   const locationVisibility = normalizeLocationVisibility(asString(household.location_visibility));
   const showHousehold = asPublicProfileVisibility(household.show_household, household.public_visible);
   const publicStory = asNullableString(household.public_story) ?? asNullableString(household.story);
+  const originalStory = asNullableString(household.original_story);
 
   const householdUpdate = {
     custom_serving_label: asNullableString(household.custom_serving_label),
@@ -356,7 +363,7 @@ export async function POST(request: Request) {
     hero_image_url: asNullableString(household.hero_image_url),
     location: primaryState,
     location_visibility: locationVisibility,
-    original_story: asNullableString(household.original_story),
+    original_story: originalStory,
     prayer_cta_label: asNullableString(household.prayer_cta_label),
     prayer_destination: asNullableString(household.prayer_destination),
     prayer_section_description: asNullableString(household.prayer_section_description),
@@ -400,12 +407,24 @@ export async function POST(request: Request) {
     story: householdUpdate.story,
     updated_at: timestamp,
   };
+  const householdStoryUpdate = {
+    original_story: originalStory,
+    public_story: publicStory,
+    story: publicStory,
+    updated_at: timestamp,
+  };
 
   let savedFeatureFields = true;
   let { error: householdError } = await supabase
     .from("missionary_households")
     .update(householdUpdate)
     .eq("id", householdId);
+
+  if (householdError && hasMissingStoryVersionColumnsError(householdError)) {
+    return NextResponse.json({
+      error: "Original Story and Refined Public Story were not saved because the missionary story version columns are missing. Apply the missionary story versions migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
 
   if (householdError && hasMissingFeatureColumnsError(householdError)) {
     savedFeatureFields = false;
@@ -415,6 +434,23 @@ export async function POST(request: Request) {
       .eq("id", householdId);
 
     householdError = fallbackResult.error;
+
+    if (!householdError) {
+      const storyResult = await supabase
+        .from("missionary_households")
+        .update(householdStoryUpdate)
+        .eq("id", householdId);
+
+      if (storyResult.error) {
+        if (hasMissingStoryVersionColumnsError(storyResult.error)) {
+          return NextResponse.json({
+            error: "Original Story and Refined Public Story were not saved because the missionary story version columns are missing. Apply the missionary story versions migration to the connected Supabase project.",
+          }, { status: 500 });
+        }
+
+        householdError = storyResult.error;
+      }
+    }
   }
 
   if (householdError) {

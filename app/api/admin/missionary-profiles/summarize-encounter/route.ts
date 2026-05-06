@@ -69,7 +69,7 @@ export async function POST(request: Request) {
   }
 
   const originalTestimony = asString(payload.originalTestimony);
-  const submitterName = asString(payload.submitterName) || "the person who shared this encounter";
+  const submitterName = asString(payload.submitterName) || "the encounter submitter";
 
   if (!originalTestimony) {
     return NextResponse.json({ error: "Add the original testimony before summarizing." }, { status: 400 });
@@ -100,9 +100,14 @@ export async function POST(request: Request) {
         },
       ],
       instructions: [
-        "You summarize missionary encounter testimonies for USA Missionaries admin review.",
-        "Write only a short public summary, one to three sentences.",
+        "You prepare public-safe missionary encounter testimony summaries for USA Missionaries admin review.",
+        "Write only a short public summary, one to three sentences, in first person.",
+        "Make it sound like the submitter wrote a short testimony themselves.",
+        "Use I, me, my, we, or us when appropriate based on the original testimony.",
+        "Do not use they, the person, he, she, the submitter, the participant, this individual, or any third-person framing.",
+        "Do not write phrases like They described, They shared, The person said, or The submitter felt.",
         "Keep the meaning close to the original.",
+        "Keep it public-safe by removing private names, contact details, exact locations, medical specifics, or sensitive ministry details that should not be public.",
         "Do not add facts, names, outcomes, scripture references, locations, or details that were not provided.",
         "Do not over polish.",
         "Keep it warm, clear, faithful, and natural.",
