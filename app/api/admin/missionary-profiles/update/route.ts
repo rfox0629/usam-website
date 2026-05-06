@@ -21,6 +21,7 @@ type UpdatePayload = {
     missionary_household_id?: unknown;
     missionary_profile_id?: unknown;
     original_testimony?: unknown;
+    outcome_tags?: unknown;
     permission_to_share?: unknown;
     public_summary?: unknown;
     source?: unknown;
@@ -28,6 +29,17 @@ type UpdatePayload = {
     submitter_email?: unknown;
     submitter_name?: unknown;
     submitter_phone?: unknown;
+    table_id?: unknown;
+  }>;
+  // Tables are CC meeting records. They connect daily ministry meetings to raw
+  // Encounters now and future Field activity later.
+  tables?: Array<{
+    id?: unknown;
+    notes?: unknown;
+    participant_names?: unknown;
+    source?: unknown;
+    table_date?: unknown;
+    table_type?: unknown;
   }>;
   // Team is a PF public roster only. Do not store disciples, follow-up
   // relationships, or field relationship graph data here.
@@ -104,7 +116,19 @@ type UpdatePayload = {
 };
 
 const encounterSources = ["manual", "public_form", "dos"] as const;
-const encounterStatuses = ["new", "reviewed", "published", "hidden", "archived"] as const;
+const encounterStatuses = ["raw", "reviewed", "approved", "hidden", "archived"] as const;
+const outcomeTagOptions = [
+  "Salvation",
+  "Baptism",
+  "Healing",
+  "Deliverance",
+  "Church Connection",
+  "Discipleship",
+  "Prayer Answered",
+  "Other",
+] as const;
+const tableSources = ["command_center", "field"] as const;
+const tableTypes = ["kitchen_table", "coffee", "group"] as const;
 const teamMemberSources = ["website_admin", "dos", "public_form"] as const;
 const teamMemberStatuses = ["active", "hidden", "archived"] as const;
 
@@ -191,15 +215,41 @@ function asSupportMode(value: unknown) {
 }
 
 function asEncounterStatus(value: unknown) {
+  if (value === "new") {
+    return "raw";
+  }
+
+  if (value === "published") {
+    return "approved";
+  }
+
   return encounterStatuses.includes(value as typeof encounterStatuses[number])
     ? value as typeof encounterStatuses[number]
-    : "new";
+    : "raw";
 }
 
 function asEncounterSource(value: unknown) {
   return encounterSources.includes(value as typeof encounterSources[number])
     ? value as typeof encounterSources[number]
     : "manual";
+}
+
+function asOutcomeTags(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is typeof outcomeTagOptions[number] => outcomeTagOptions.includes(item as typeof outcomeTagOptions[number]))
+    : [];
+}
+
+function asTableSource(value: unknown) {
+  return tableSources.includes(value as typeof tableSources[number])
+    ? value as typeof tableSources[number]
+    : "command_center";
+}
+
+function asTableType(value: unknown) {
+  return tableTypes.includes(value as typeof tableTypes[number])
+    ? value as typeof tableTypes[number]
+    : "kitchen_table";
 }
 
 function asTeamMemberSource(value: unknown) {
@@ -281,6 +331,54 @@ function hasMissingEncountersTableError(error: { code?: string; message?: string
     || message.toLowerCase().includes("could not find the table");
 
   return missingRelation && message.includes("missionary_encounters");
+}
+
+function hasMissingTablesTableError(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
+
+  return missingRelation && message.includes("missionary_tables");
+}
+
+function hasMissingEncounterPipelineColumnsError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["table_id", "outcome_tags"].some((columnName) => message.includes(columnName));
+}
+
+function hasMissingTablePipelineColumnsError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["participant_names"].some((columnName) => message.includes(columnName));
+}
+
+function hasLegacyEncounterStatusConstraintError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("missionary_encounters_status_check");
+}
+
+function hasMissingFruitItemsTableError(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
+
+  return missingRelation && message.includes("missionary_fruit_items");
+}
+
+function hasMissingFruitEncounterColumnError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("encounter_id");
 }
 
 function hasMissingSupportLinkColumnsError(error: { message?: string } | null | undefined) {
@@ -518,7 +616,78 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: supportError.message }, { status: 500 });
   }
 
+  let savedTables = true;
+  const tableIdMap = new Map<string, string>();
+
+  if (Array.isArray(payload.tables)) {
+    const sanitizedTables = payload.tables
+      .map((table) => {
+        const id = asString(table.id);
+        const tableDate = asNullableDateString(table.table_date) ?? timestamp.slice(0, 10);
+
+        return {
+          id,
+          record: {
+            household_id: householdId,
+            notes: asNullableString(table.notes),
+            participant_names: asStringArray(table.participant_names),
+            source: asTableSource(table.source),
+            table_date: tableDate,
+            table_type: asTableType(table.table_type),
+            updated_at: timestamp,
+          },
+        };
+      });
+    const existingTables = sanitizedTables
+      .filter((table) => isExistingUuid(table.id))
+      .map((table) => ({ ...table.record, id: table.id }));
+    const newTables = sanitizedTables
+      .filter((table) => !isExistingUuid(table.id));
+
+    existingTables.forEach((table) => {
+      tableIdMap.set(table.id, table.id);
+    });
+
+    if (existingTables.length > 0) {
+      const { error: tableUpdateError } = await supabase
+        .from("missionary_tables")
+        .upsert(existingTables, { onConflict: "id" });
+
+      if (tableUpdateError) {
+        if (hasMissingTablesTableError(tableUpdateError) || hasMissingTablePipelineColumnsError(tableUpdateError)) {
+          savedTables = false;
+        } else {
+          return NextResponse.json({ error: tableUpdateError.message }, { status: 500 });
+        }
+      }
+    }
+
+    if (newTables.length > 0 && savedTables) {
+      const { data: insertedTables, error: tableInsertError } = await supabase
+        .from("missionary_tables")
+        .insert(newTables.map((table) => table.record))
+        .select("id");
+
+      if (tableInsertError) {
+        if (hasMissingTablesTableError(tableInsertError) || hasMissingTablePipelineColumnsError(tableInsertError)) {
+          savedTables = false;
+        } else {
+          return NextResponse.json({ error: tableInsertError.message }, { status: 500 });
+        }
+      } else {
+        (insertedTables ?? []).forEach((insertedTable, index) => {
+          const temporaryId = newTables[index]?.id;
+
+          if (temporaryId && insertedTable.id) {
+            tableIdMap.set(temporaryId, insertedTable.id);
+          }
+        });
+      }
+    }
+  }
+
   let savedEncounterSubmissions = true;
+  let syncedFruitItems = true;
 
   if (Array.isArray(payload.encounterSubmissions)) {
     const sanitizedEncounterSubmissions = payload.encounterSubmissions
@@ -529,6 +698,12 @@ export async function POST(request: Request) {
           return null;
         }
 
+        const status = asEncounterStatus(submission.status);
+        const submittedTableId = asNullableString(submission.table_id);
+        const mappedTableId = submittedTableId
+          ? tableIdMap.get(submittedTableId) ?? (isExistingUuid(submittedTableId) ? submittedTableId : null)
+          : null;
+
         return {
           id: asString(submission.id),
           record: {
@@ -536,13 +711,15 @@ export async function POST(request: Request) {
             missionary_household_id: householdId,
             missionary_profile_id: householdId,
             original_testimony: originalTestimony,
-            permission_to_share: submission.permission_to_share === true,
+            outcome_tags: asOutcomeTags(submission.outcome_tags),
+            permission_to_share: status === "approved" || submission.permission_to_share === true,
             public_summary: asNullableString(submission.public_summary),
             source: asEncounterSource(submission.source),
-            status: asEncounterStatus(submission.status),
+            status,
             submitter_email: asNullableString(submission.submitter_email),
             submitter_name: asNullableString(submission.submitter_name),
             submitter_phone: asNullableString(submission.submitter_phone),
+            table_id: mappedTableId,
             updated_at: timestamp,
           },
         };
@@ -552,8 +729,11 @@ export async function POST(request: Request) {
       .filter((submission) => isExistingUuid(submission.id))
       .map((submission) => ({ ...submission.record, id: submission.id }));
     const newEncounterSubmissions = sanitizedEncounterSubmissions
-      .filter((submission) => !isExistingUuid(submission.id))
-      .map((submission) => submission.record);
+      .filter((submission) => !isExistingUuid(submission.id));
+    const savedEncounterRecords: Array<{
+      id: string;
+      record: typeof sanitizedEncounterSubmissions[number]["record"];
+    }> = [];
 
     if (existingEncounterSubmissions.length > 0) {
       const { error: encounterUpdateError } = await supabase
@@ -561,24 +741,137 @@ export async function POST(request: Request) {
         .upsert(existingEncounterSubmissions, { onConflict: "id" });
 
       if (encounterUpdateError) {
-        if (hasMissingEncountersTableError(encounterUpdateError)) {
+        if (
+          hasMissingEncountersTableError(encounterUpdateError)
+          || hasMissingEncounterPipelineColumnsError(encounterUpdateError)
+          || hasLegacyEncounterStatusConstraintError(encounterUpdateError)
+        ) {
           savedEncounterSubmissions = false;
         } else {
           return NextResponse.json({ error: encounterUpdateError.message }, { status: 500 });
         }
+      } else {
+        existingEncounterSubmissions.forEach((submission) => {
+          savedEncounterRecords.push({ id: submission.id, record: submission });
+        });
       }
     }
 
     if (newEncounterSubmissions.length > 0 && savedEncounterSubmissions) {
-      const { error: encounterInsertError } = await supabase
+      const { data: insertedEncounters, error: encounterInsertError } = await supabase
         .from("missionary_encounters")
-        .insert(newEncounterSubmissions);
+        .insert(newEncounterSubmissions.map((submission) => submission.record))
+        .select("id");
 
       if (encounterInsertError) {
-        if (hasMissingEncountersTableError(encounterInsertError)) {
+        if (
+          hasMissingEncountersTableError(encounterInsertError)
+          || hasMissingEncounterPipelineColumnsError(encounterInsertError)
+          || hasLegacyEncounterStatusConstraintError(encounterInsertError)
+        ) {
           savedEncounterSubmissions = false;
         } else {
           return NextResponse.json({ error: encounterInsertError.message }, { status: 500 });
+        }
+      } else {
+        (insertedEncounters ?? []).forEach((insertedEncounter, index) => {
+          const record = newEncounterSubmissions[index]?.record;
+
+          if (insertedEncounter.id && record) {
+            savedEncounterRecords.push({ id: insertedEncounter.id, record });
+          }
+        });
+      }
+    }
+
+    if (savedEncounterSubmissions && savedEncounterRecords.length > 0) {
+      const approvedFruitRecords = savedEncounterRecords.filter(({ record }) => (
+        record.status === "approved" && Boolean(record.public_summary)
+      ));
+      const hiddenFruitEncounterIds = savedEncounterRecords
+        .filter(({ record }) => record.status !== "approved")
+        .map(({ id }) => id);
+
+      if (hiddenFruitEncounterIds.length > 0) {
+        const { error: hideFruitError } = await supabase
+          .from("missionary_fruit_items")
+          .update({
+            missionary_public_approved: false,
+            permission_to_share: false,
+            status: "hidden",
+            updated_at: timestamp,
+            visibility: "private",
+          })
+          .eq("household_id", householdId)
+          .eq("source", "website_admin")
+          .eq("source_app", "command_center")
+          .in("source_external_id", hiddenFruitEncounterIds);
+
+        if (hideFruitError) {
+          if (hasMissingFruitItemsTableError(hideFruitError)) {
+            syncedFruitItems = false;
+          } else {
+            return NextResponse.json({ error: hideFruitError.message }, { status: 500 });
+          }
+        }
+      }
+
+      for (const { id: encounterId, record } of approvedFruitRecords) {
+        const category = record.outcome_tags.length > 0 ? record.outcome_tags.join(", ") : "Other";
+        const summary = record.public_summary ?? "";
+        const title = record.outcome_tags[0] ?? "Field Fruit";
+        const fruitRecord = {
+          body: summary,
+          category,
+          encounter_id: encounterId,
+          household_id: householdId,
+          is_featured: false,
+          missionary_public_approved: true,
+          permission_to_share: true,
+          sort_order: 0,
+          source: "website_admin",
+          source_app: "command_center",
+          source_external_id: encounterId,
+          status: "published",
+          submitted_by_name: record.submitter_name,
+          testimony_date: record.encounter_date,
+          title,
+          updated_at: timestamp,
+          visibility: "public",
+        };
+        const { data: existingFruitItem, error: existingFruitError } = await supabase
+          .from("missionary_fruit_items")
+          .select("id")
+          .eq("source", "website_admin")
+          .eq("source_app", "command_center")
+          .eq("source_external_id", encounterId)
+          .maybeSingle();
+
+        if (existingFruitError) {
+          if (hasMissingFruitItemsTableError(existingFruitError)) {
+            syncedFruitItems = false;
+            break;
+          }
+
+          return NextResponse.json({ error: existingFruitError.message }, { status: 500 });
+        }
+
+        const fruitWriteResult = existingFruitItem?.id
+          ? await supabase
+            .from("missionary_fruit_items")
+            .update(fruitRecord)
+            .eq("id", existingFruitItem.id)
+          : await supabase
+            .from("missionary_fruit_items")
+            .insert(fruitRecord);
+
+        if (fruitWriteResult.error) {
+          if (hasMissingFruitItemsTableError(fruitWriteResult.error) || hasMissingFruitEncounterColumnError(fruitWriteResult.error)) {
+            syncedFruitItems = false;
+            break;
+          }
+
+          return NextResponse.json({ error: fruitWriteResult.error.message }, { status: 500 });
         }
       }
     }
@@ -753,9 +1046,21 @@ export async function POST(request: Request) {
     }, { status: 500 });
   }
 
+  if (!savedTables) {
+    return NextResponse.json({
+      error: "Tables were not saved because the missionary_tables table is missing. Apply the Tables, Encounters, and Fruit pipeline migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
+
   if (!savedEncounterSubmissions) {
     return NextResponse.json({
-      error: "Encounters were not saved because the missionary_encounters table is missing. Apply the missionary encounters migration to the connected Supabase project.",
+      error: "Encounters were not saved because the Tables, Encounters, and Fruit pipeline columns are missing. Apply the latest missionary pipeline migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
+
+  if (!syncedFruitItems) {
+    return NextResponse.json({
+      error: "Approved Fruit was not published because the missionary_fruit_items pipeline columns are missing. Apply the latest missionary pipeline migration to the connected Supabase project.",
     }, { status: 500 });
   }
 

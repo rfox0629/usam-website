@@ -4,8 +4,11 @@ import {
   type AdminEncounterStatus,
   type AdminEncounterSubmission,
   type AdminHousehold,
+  type AdminMissionaryTable,
+  type AdminOutcomeTag,
   type AdminProfile,
   type AdminSupportSettings,
+  type AdminTableType,
   type AdminTeamMember,
 } from "./MissionaryProfilesAdminDashboard";
 import { AdminShell } from "../_components/AdminShell";
@@ -51,8 +54,19 @@ const householdFeatureColumns = [
   "custom_serving_label",
   "location_visibility",
 ].join(", ");
-const encounterStatuses = ["new", "reviewed", "published", "hidden", "archived"] as const satisfies readonly AdminEncounterStatus[];
+const encounterStatuses = ["raw", "reviewed", "approved", "hidden", "archived"] as const satisfies readonly AdminEncounterStatus[];
 const encounterSources = ["manual", "public_form", "dos"] as const;
+const outcomeTagOptions = [
+  "Salvation",
+  "Baptism",
+  "Healing",
+  "Deliverance",
+  "Church Connection",
+  "Discipleship",
+  "Prayer Answered",
+  "Other",
+] as const satisfies readonly AdminOutcomeTag[];
+const tableTypes = ["kitchen_table", "coffee", "group"] as const satisfies readonly AdminTableType[];
 
 type EncounterRow = {
   created_at: string;
@@ -61,6 +75,7 @@ type EncounterRow = {
   missionary_household_id: string | null;
   missionary_profile_id: string | null;
   original_testimony: string;
+  outcome_tags?: string[] | null;
   permission_to_share: boolean | null;
   public_summary: string | null;
   source: string | null;
@@ -68,6 +83,19 @@ type EncounterRow = {
   submitter_email: string | null;
   submitter_name: string | null;
   submitter_phone: string | null;
+  table_id?: string | null;
+  updated_at: string | null;
+};
+
+type MissionaryTableRow = {
+  created_at: string;
+  household_id: string;
+  id: string;
+  notes: string | null;
+  participant_names?: string[] | null;
+  source: string | null;
+  table_date: string | null;
+  table_type: string | null;
   updated_at: string | null;
 };
 
@@ -96,19 +124,63 @@ function getEncounterStatus(row: { status: string | null }, payload: Record<stri
     return status as AdminEncounterStatus;
   }
 
+  if (status === "new") {
+    return "raw";
+  }
+
+  if (status === "published") {
+    return "approved";
+  }
+
   if (encounterStatuses.includes(row.status as AdminEncounterStatus)) {
     return row.status as AdminEncounterStatus;
   }
 
-  return "new";
+  if (row.status === "new") {
+    return "raw";
+  }
+
+  if (row.status === "published") {
+    return "approved";
+  }
+
+  return "raw";
 }
 
 function getEncounterRecordStatus(value: string | null): AdminEncounterStatus {
-  return encounterStatuses.includes(value as AdminEncounterStatus) ? value as AdminEncounterStatus : "new";
+  if (value === "new") {
+    return "raw";
+  }
+
+  if (value === "published") {
+    return "approved";
+  }
+
+  return encounterStatuses.includes(value as AdminEncounterStatus) ? value as AdminEncounterStatus : "raw";
 }
 
 function getEncounterRecordSource(value: string | null): AdminEncounterSubmission["source"] {
   return encounterSources.includes(value as AdminEncounterSubmission["source"]) ? value as AdminEncounterSubmission["source"] : "manual";
+}
+
+function getOutcomeTags(value: string[] | null | undefined): AdminOutcomeTag[] {
+  return Array.isArray(value)
+    ? value.filter((tag): tag is AdminOutcomeTag => outcomeTagOptions.includes(tag as AdminOutcomeTag))
+    : [];
+}
+
+function getTableType(value: string | null): AdminTableType {
+  return tableTypes.includes(value as AdminTableType) ? value as AdminTableType : "kitchen_table";
+}
+
+function getTableSource(value: string | null): AdminMissionaryTable["source"] {
+  return value === "field" ? "field" : "command_center";
+}
+
+function getTableParticipantNames(value: string[] | null | undefined) {
+  return Array.isArray(value)
+    ? value.filter((name): name is string => typeof name === "string" && Boolean(name.trim())).map((name) => name.trim())
+    : [];
 }
 
 function getPermissionToShare(payload: Record<string, unknown>) {
@@ -192,6 +264,30 @@ function isMissingEncountersTable(error: { code?: string; message?: string } | n
   return missingRelation && message.includes("missionary_encounters");
 }
 
+function isMissingTablesTable(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
+
+  return missingRelation && message.includes("missionary_tables");
+}
+
+function isMissingEncounterPipelineColumns(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["table_id", "outcome_tags"].some((columnName) => message.includes(columnName));
+}
+
+function isMissingTablePipelineColumns(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["participant_names"].some((columnName) => message.includes(columnName));
+}
+
 function isMissingFruitItemsTable(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
@@ -261,6 +357,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const encounterSubmissionsByHouseholdId = new Map<string, AdminEncounterSubmission[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
   const publicFruitItemCountByHouseholdId = new Map<string, number>();
+  const tablesByHouseholdId = new Map<string, AdminMissionaryTable[]>();
   const teamMembersByHouseholdId = new Map<string, AdminTeamMember[]>();
 
   if (ids.length > 0) {
@@ -326,22 +423,70 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       );
     });
 
+    const tablesResult = await supabase
+      .from("missionary_tables")
+      .select("id, household_id, table_date, table_type, participant_names, notes, source, created_at, updated_at")
+      .in("household_id", ids)
+      .order("table_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    const fallbackTablesResult = tablesResult.error && isMissingTablePipelineColumns(tablesResult.error)
+      ? await supabase
+        .from("missionary_tables")
+        .select("id, household_id, table_date, table_type, notes, source, created_at, updated_at")
+        .in("household_id", ids)
+        .order("table_date", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+      : tablesResult;
+
+    if (fallbackTablesResult.error && !isMissingTablesTable(fallbackTablesResult.error)) {
+      return { error: fallbackTablesResult.error.message, profiles: [] };
+    }
+
+    ((fallbackTablesResult.data ?? []) as MissionaryTableRow[]).forEach((table) => {
+      if (!table.household_id || !ids.includes(table.household_id)) {
+        return;
+      }
+
+      const currentTables = tablesByHouseholdId.get(table.household_id) ?? [];
+
+      currentTables.push({
+        created_at: table.created_at,
+        household_id: table.household_id,
+        id: table.id,
+        notes: table.notes,
+        participant_names: getTableParticipantNames(table.participant_names),
+        source: getTableSource(table.source),
+        table_date: table.table_date ?? table.created_at.slice(0, 10),
+        table_type: getTableType(table.table_type),
+        updated_at: table.updated_at,
+      });
+      tablesByHouseholdId.set(table.household_id, currentTables);
+    });
+
     // Intake workflow placeholder: missionaries will eventually submit profile
     // details through public forms. Those raw submissions should appear here for
     // master_admin/admin/reviewer review, then a human updates and publishes the
     // profile. missionary_user submissions should not directly edit public fields.
     const encountersResult = await supabase
       .from("missionary_encounters")
-      .select("id, missionary_profile_id, missionary_household_id, submitter_name, submitter_email, submitter_phone, encounter_date, original_testimony, public_summary, permission_to_share, status, source, created_at, updated_at")
+      .select("id, missionary_profile_id, missionary_household_id, table_id, submitter_name, submitter_email, submitter_phone, encounter_date, original_testimony, public_summary, outcome_tags, permission_to_share, status, source, created_at, updated_at")
       .in("missionary_household_id", ids)
       .order("encounter_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
+    const fallbackEncountersResult = encountersResult.error && isMissingEncounterPipelineColumns(encountersResult.error)
+      ? await supabase
+        .from("missionary_encounters")
+        .select("id, missionary_profile_id, missionary_household_id, submitter_name, submitter_email, submitter_phone, encounter_date, original_testimony, public_summary, permission_to_share, status, source, created_at, updated_at")
+        .in("missionary_household_id", ids)
+        .order("encounter_date", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+      : encountersResult;
 
-    if (encountersResult.error && !isMissingEncountersTable(encountersResult.error)) {
-      return { error: encountersResult.error.message, profiles: [] };
+    if (fallbackEncountersResult.error && !isMissingEncountersTable(fallbackEncountersResult.error)) {
+      return { error: fallbackEncountersResult.error.message, profiles: [] };
     }
 
-    ((encountersResult.data ?? []) as EncounterRow[]).forEach((row) => {
+    ((fallbackEncountersResult.data ?? []) as EncounterRow[]).forEach((row) => {
       const matchingHouseholdId = row.missionary_household_id ?? row.missionary_profile_id;
 
       if (!matchingHouseholdId || !ids.includes(matchingHouseholdId)) {
@@ -357,6 +502,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         missionary_household_id: row.missionary_household_id,
         missionary_profile_id: row.missionary_profile_id,
         original_testimony: row.original_testimony,
+        outcome_tags: getOutcomeTags(row.outcome_tags),
         permission_to_share: row.permission_to_share === true,
         public_summary: row.public_summary,
         source: getEncounterRecordSource(row.source),
@@ -364,6 +510,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         submitter_email: row.submitter_email,
         submitter_name: row.submitter_name,
         submitter_phone: row.submitter_phone,
+        table_id: row.table_id ?? null,
         updated_at: row.updated_at,
       });
       encounterSubmissionsByHouseholdId.set(matchingHouseholdId, currentItems);
@@ -421,6 +568,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
       publicFruitItemCount: publicFruitItemCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
+      tables: tablesByHouseholdId.get(household.id) ?? [],
       teamMembers: teamMembersByHouseholdId.get(household.id) ?? [],
     })),
   };
