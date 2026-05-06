@@ -2192,10 +2192,12 @@ function PeopleManager({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-2xl">
+          <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+            Your Field
+          </h3>
           <p className="text-sm leading-6 text-[#7b746a]">
             Internal people connected to this missionary household. Add only the basics now, then enrich the record after real interactions.
           </p>
-          <DataFlowLabels items={["Internal by default", "Feeds Field", "Powers follow-up"]} />
         </div>
         <button
           className={lightPrimaryButtonClass}
@@ -2207,18 +2209,12 @@ function PeopleManager({
         </button>
       </div>
 
-      {sortedPeople.length === 0 ? (
-        <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-          No people have been added yet.
-        </p>
-      ) : null}
-
       <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
         <div className="overflow-x-auto">
-          <table className="min-w-[860px] w-full border-collapse text-left">
+          <table className="min-w-[980px] w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-                {["Name", "Phone", "Status", "Relationship Type", "Last Activity", "Actions"].map((heading) => (
+                {["Name", "Phone", "Church", "Relationship", "Engagement", "Last Activity", "Actions"].map((heading) => (
                   <th
                     className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0"
                     key={heading}
@@ -2232,8 +2228,8 @@ function PeopleManager({
             <tbody>
               {sortedPeople.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-[#7b746a]" colSpan={6}>
-                    Add a person to start building Your Field.
+                  <td className="px-4 py-6 text-sm leading-6 text-[#7b746a]" colSpan={7}>
+                    No people added yet. Start building Your Field by adding a name and phone number.
                   </td>
                 </tr>
               ) : null}
@@ -2243,18 +2239,18 @@ function PeopleManager({
                     <span className="block text-sm font-semibold text-[#111111]">
                       {person.name}
                     </span>
-                    <span className="mt-1 block truncate text-xs text-[#7b746a]">
-                      {person.email || "No email"}
-                    </span>
                   </td>
                   <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
                     {person.phone}
                   </td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                    <FieldPersonStatusBadge status={person.status} />
+                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
+                    {person.church?.trim() || "Not set"}
                   </td>
                   <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
                     {person.relationship_type?.trim() || "Not set"}
+                  </td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
+                    {person.engagement_level?.trim() || "Not set"}
                   </td>
                   <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
                     {personLastActivityLabel(person)}
@@ -2333,7 +2329,6 @@ function PersonEditorModal({
     relationshipType: person?.relationship_type ?? "",
     status: person?.status ?? "new",
   });
-  const [showOptional, setShowOptional] = useState(mode === "edit");
   const [isSaving, setIsSaving] = useState(false);
   const canSave = Boolean(draft.name.trim() && draft.phone.trim());
 
@@ -2383,58 +2378,48 @@ function PersonEditorModal({
           />
         </div>
 
-        <button
-          className={`${lightSecondaryButtonClass} mt-5`}
-          onClick={() => setShowOptional((currentValue) => !currentValue)}
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          type="button"
-        >
-          {showOptional ? "Hide Optional" : "Optional Details"}
-        </button>
-
-        {showOptional ? (
-          <div className="mt-5 space-y-4">
+        <div className="mt-5 space-y-4">
+          <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Optional Details
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
             {mode === "edit" ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                <SelectField
-                  label="Status"
-                  onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, status: value as AdminFieldPersonStatus }))}
-                  options={fieldPersonStatusOptions}
-                  value={draft.status}
-                />
-                <Field
-                  label="Relationship Type"
-                  onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, relationshipType: value }))}
-                  value={draft.relationshipType}
-                />
-                <Field
-                  label="Engagement Level"
-                  onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, engagementLevel: value }))}
-                  value={draft.engagementLevel}
-                />
-              </div>
+              <SelectField
+                label="Status"
+                onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, status: value as AdminFieldPersonStatus }))}
+                options={fieldPersonStatusOptions}
+                value={draft.status}
+              />
             ) : null}
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field
-                label="Email"
-                onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, email: value }))}
-                value={draft.email}
-              />
-              <Field
-                label="Church"
-                onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, church: value }))}
-                value={draft.church}
-              />
-            </div>
-            <TextArea
-              helperText="Internal notes only. Not public by default."
-              label="Notes"
-              onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, notes: value }))}
-              rows={4}
-              value={draft.notes}
+            <Field
+              label="Email"
+              onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, email: value }))}
+              value={draft.email}
+            />
+            <Field
+              label="Church / Spiritual Community"
+              onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, church: value }))}
+              value={draft.church}
+            />
+            <Field
+              label="Relationship Type"
+              onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, relationshipType: value }))}
+              value={draft.relationshipType}
+            />
+            <Field
+              label="Engagement Level"
+              onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, engagementLevel: value }))}
+              value={draft.engagementLevel}
             />
           </div>
-        ) : null}
+          <TextArea
+            helperText="Internal notes only. Not public by default."
+            label="Notes"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, notes: value }))}
+            rows={4}
+            value={draft.notes}
+          />
+        </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
