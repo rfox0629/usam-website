@@ -200,24 +200,26 @@ function SupportProgressSummary({ missionary }: { missionary: Missionary }) {
 
   return (
     <div className="mt-10 max-w-4xl border border-stone-800 bg-[#080808] p-5 md:p-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="max-w-[720px]">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Fundraising Progress
           </p>
-          <p className="mt-2 text-base leading-7 text-stone-200 md:text-lg">
-            {formatMoney(monthlyCommitted)} / {formatMoney(monthlyGoal)} monthly committed
-          </p>
+          <div className="mt-2 flex flex-col gap-1 text-stone-200 sm:flex-row sm:items-center sm:gap-5">
+            <p className="text-base leading-7 md:text-lg">
+              {formatMoney(monthlyCommitted)} / {formatMoney(monthlyGoal)} monthly committed
+            </p>
+            <p className="text-sm font-semibold text-stone-100">
+              {progressPercentage}% raised
+            </p>
+          </div>
         </div>
-        <p className="text-sm font-semibold text-stone-100">
-          {progressPercentage}% raised
-        </p>
-      </div>
-      <div className="mt-4 h-3 overflow-hidden rounded-full bg-stone-900">
-        <div
-          className={`h-full rounded-full transition-all ${getProgressFillClass(progressPercentage)}`}
-          style={{ width: `${visualProgressPercentage}%` }}
-        />
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-stone-900">
+          <div
+            className={`h-full rounded-full transition-all ${getProgressFillClass(progressPercentage)}`}
+            style={{ width: `${visualProgressPercentage}%` }}
+          />
+        </div>
       </div>
     </div>
   );
