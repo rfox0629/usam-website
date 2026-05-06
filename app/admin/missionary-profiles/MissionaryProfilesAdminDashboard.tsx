@@ -2190,6 +2190,9 @@ function PeopleManager({
 
   return (
     <div className="space-y-4">
+      <div className="rounded-xl border border-[#D4A63D]/40 bg-[#fff8e8] px-4 py-3 text-sm font-semibold text-[#8a5a00]">
+        Your Field input UI loaded
+      </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-2xl">
           <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
