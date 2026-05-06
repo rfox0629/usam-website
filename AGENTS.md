@@ -75,16 +75,45 @@ Instead:
 # Data Flow
 
 Field (FD)
--> creates data
+-> creates People, Tables, Encounters, notes, and future Connection Logs
 
 Database (Supabase)
 -> stores all records
 
 Command Center (CC)
--> edits, enriches, categorizes, reviews, and approves
+-> edits, enriches, categorizes, reviews, assesses, approves, and plans next steps
 
 Profiles (PF)
 -> displays approved and curated data only
+
+---
+
+# Ministry Data Layers
+
+Keep ministry data separated by purpose:
+
+- People / Your Field = WHO the person is; persistent relationship profile
+- Tables = WHEN and HOW the meeting happened; event record
+- Encounters = WHAT the person said; raw response only
+- Review = missionary interpretation of the meeting
+- Discipleship Assessment = structured spiritual diagnostic for that meeting
+- Fruit = approved outcome derived from Encounter + Review + Assessment
+- Movement Step = what happens next
+- Connection Logs = ongoing discipleship interactions outside formal Tables
+
+Do NOT mix these layers. Do NOT store disciples or relationship data in Team.
+
+Core workflow:
+
+Your Field (People)
+-> Table
+-> Encounter
+-> Review
+-> Discipleship Assessment
+-> Profile Update Prompt
+-> Fruit
+-> Movement Step
+-> Continued discipleship
 
 ---
 
@@ -106,12 +135,17 @@ Never expose RAW or REVIEWED data publicly.
 
 Build and maintain these Command Center modules:
 
-1. People
+1. Your Field (People)
 2. Tables
-3. Fruit
-4. Library
-5. In Season
-6. Profiles (publishing layer)
+3. Encounters
+4. Review
+5. Discipleship Assessment
+6. Connection Logs
+7. Fruit
+8. Movement Step
+9. Library
+10. In Season
+11. Profiles (publishing layer)
 
 Each module must:
 - be clearly separated
@@ -140,7 +174,11 @@ Profiles must display only approved and curated content.
 ### Command Center (CC)
 Operational data:
 - Encounters: raw submissions such as testimonies, forms, reviews, and story intake
-- Fruit: reviewed and structured outcomes derived from Encounters
+- Review: missionary interpretation of a meeting
+- Discipleship Assessment: structured spiritual insights tied to a meeting
+- Fruit: approved outcomes derived from Encounters + Review + Assessment
+- Movement Step: next action after an interaction
+- Connection Logs: ongoing discipleship interactions outside formal Tables
 
 Command Center owns review, cleanup, structuring, and publishing decisions.
 
@@ -155,27 +193,238 @@ Missionary Workspace rules:
 - Do NOT use Team to store disciples or ministry relationships
 - Team is public-facing roster content only
 - Encounters is the intake layer for testimonies, forms, reviews, and raw story material
-- Fruit is derived from Encounters
+- Review, Assessment, and Movement Step belong to interactions, not public Team records
+- Fruit is derived from approved Encounter + Review + Assessment data
 - Fruit is the only structured output shown across CC, PF, and future FD
 
 ---
 
-# People Model
+# Your Field (People)
+
+Your Field is the relational map of everyone in a missionary's life.
+
+No artificial limit. Do NOT use "100 people" language.
 
 Use a single shared People table across CC and FD.
 
 Required fields:
 - name
-- contact info
+- phone
+
+Optional collapsed fields:
+- email
+- address
+- church
+- family info
+- notes
+
+Always editable in the interface:
+- relationship type
+- engagement level
+- church / spiritual community
+
+Post-interaction fields:
 - status
-- tags
-- notes (internal)
+- relationship type
+- engagement level
+- church
+
+These should be updated after meetings, not required upfront.
+
+Source fields:
 - source: 'field' | 'command_center'
 - created_by
 - created_at
 
 People are created primarily in FD and managed/refined in CC.
 Command Center must allow full editing and enrichment.
+
+People insights should be prepared for:
+- total time spent
+- number of interactions
+- last interaction
+- table count
+
+Discipleship Circles are plan-only for now:
+- Closest 3
+- Core 12
+- Broader 70
+
+These will later be based on time spent, frequency, and recency. Do NOT automate yet.
+
+---
+
+# Tables
+
+Tables are meeting events.
+
+Fields:
+- date, default today
+- type: Kitchen Table, Coffee, Phone, Zoom, Group, Other
+- people linked to Your Field
+- notes
+- teaching used, future Library link
+
+UX:
+- modal or slide-over
+- fast entry under 30 seconds
+- default values
+- buttons: Save Table, Save + Add Encounter
+
+Movement Step is selectable from Tables.
+
+---
+
+# Encounters
+
+Encounters capture raw participant response.
+
+Sources:
+- short form
+- long testimony
+- manual entry
+
+Fields:
+- name
+- email optional
+- raw response text
+- linked table
+- status: RAW
+
+Do NOT store church, relationship type, or engagement level in Encounters.
+
+---
+
+# Review
+
+Review is the missionary interpretation layer.
+
+Fields:
+- how the meeting went
+- key observations
+- breakthroughs or concerns
+- movement step
+- follow up needed
+
+Review data stays internal unless it is explicitly transformed into approved Fruit.
+
+---
+
+# Discipleship Assessment
+
+Discipleship Assessment is nested under Review and belongs to the meeting, not People.
+
+Fields:
+- teaching used: Kitchen Table Gospel, Are You Really a Disciple, Commands of Jesus
+- questions covered
+- responses / notes
+- readiness: Not ready, Curious, Open, Ready to follow, Actively following
+- areas needing follow up: Repentance, Baptism, Scripture, Prayer, Community, Obedience
+
+Do NOT store assessment diagnostics in People.
+
+---
+
+# Profile Update Prompt
+
+After completing Review, prompt:
+
+"What did you learn about this person?"
+
+Allow updating only missing or incomplete Person fields:
+- relationship type
+- engagement level
+- church
+
+Save updates to the Person record. Do NOT duplicate data.
+
+---
+
+# Connection Logs
+
+Connection Logs track ongoing discipleship outside formal Tables.
+
+Examples:
+- phone call
+- Zoom
+- text
+- coffee
+- prayer
+- discipleship meeting
+
+Fields:
+- person
+- date
+- duration
+- interaction type
+- notes
+- movement step
+- follow up
+
+Connection Logs must be extremely fast to log and feed People insights and future Discipleship Circles.
+
+---
+
+# Fruit
+
+Fruit is approved output derived from Encounter + Review + Assessment.
+
+Fields:
+- summary
+- outcome tags: Salvation, Baptism, Healing, Deliverance, Church Connection, Discipleship, Prayer Answered, Other
+- linked person
+- linked table
+- status: APPROVED
+
+Rules:
+- only APPROVED Fruit goes to Profiles (PF)
+- raw data remains internal
+- approved Fruit is the only thing that later feeds Profile and Field
+
+---
+
+# Movement Step
+
+Every interaction should lead to a next step.
+
+Options:
+- Continue meeting
+- Begin discipleship
+- Send follow up
+- Invite to group
+- Connect to church
+- Connect to ministry
+- Hand off
+- Pray and wait
+- Other
+
+Movement Step is selectable in Tables, Review, and Connection Logs.
+
+---
+
+# Library
+
+Library is a light teaching-framework store.
+
+Examples:
+- Kitchen Table Gospel
+- Commands of Jesus
+
+Tables can reference Library items in the future.
+
+---
+
+# In Season
+
+In Season tracks current focus.
+
+Fields:
+- current focus
+- prayer emphasis
+- active people
+- active tables
+
+Keep it simple.
 
 ---
 
