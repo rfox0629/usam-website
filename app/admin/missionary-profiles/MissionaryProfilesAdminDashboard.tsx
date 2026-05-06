@@ -215,6 +215,7 @@ type TargetHouseholdLoadState = "error" | "idle" | "loading" | "success";
 
 type EditorTab = "profile" | "features" | "media" | "team" | "story" | "encounters" | "fruit" | "support" | "prayer";
 type SupportSubsection = "advanced" | "buttons" | "giving" | "gifts" | "progress";
+type PrayerSubsection = "content" | "cta" | "preview" | "team" | "visibility";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
   annual_goal: 0,
@@ -307,6 +308,14 @@ const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection 
   { label: "Button Labels", value: "buttons" },
   { label: "Major Gift Settings", value: "gifts" },
   { label: "Advanced Settings", value: "advanced" },
+];
+
+const prayerSubsectionOptions: Array<{ label: string; value: PrayerSubsection }> = [
+  { label: "Visibility", value: "visibility" },
+  { label: "Call To Action", value: "cta" },
+  { label: "Public Content", value: "content" },
+  { label: "Prayer Team", value: "team" },
+  { label: "Preview", value: "preview" },
 ];
 
 const stateOptions = [
@@ -2225,6 +2234,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState<EditorTab>("profile");
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("progress");
+  const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("visibility");
   const [profileQuery, setProfileQuery] = useState("");
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
@@ -2454,6 +2464,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     if (tab === "support") {
       setSupportSubsection("progress");
+    }
+
+    if (tab === "prayer") {
+      setPrayerSubsection("visibility");
     }
   }
 
@@ -3774,142 +3788,183 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Control the public prayer section and the Join The Prayer Team flow."
             title="Prayer"
           >
-            <div className="space-y-7">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Visibility
-                </p>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <label className="flex items-start justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
-                    <span>
-                      <span className="block text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Show Prayer Section
-                      </span>
-                      <span className="mt-2 block leading-6 text-[#7b746a]">
-                        Controls whether the prayer section renders on the public profile.
-                      </span>
-                    </span>
-                    <input
-                      checked={selectedProfile.show_prayer !== false}
-                      className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                      onChange={(event) => updateFeatureField("show_prayer", event.target.checked)}
-                      type="checkbox"
-                    />
-                  </label>
-                  <label className="flex items-start justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
-                    <span>
-                      <span className="block text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Enable Join Prayer Team
-                      </span>
-                      <span className="mt-2 block leading-6 text-[#7b746a]">
-                        Enables the prayer-team modal entry point. Disable when the CTA should use a fallback link.
-                      </span>
-                    </span>
-                    <input
-                      checked={selectedProfile.enable_prayer_team !== false}
-                      className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                      onChange={(event) => updateHouseholdField("enable_prayer_team", event.target.checked)}
-                      type="checkbox"
-                    />
-                  </label>
-                </div>
+            <div className="space-y-6">
+              <div className="flex flex-wrap gap-2 border-b border-[#e2ded5] pb-3">
+                {prayerSubsectionOptions.map((option) => (
+                  <button
+                    aria-pressed={prayerSubsection === option.value}
+                    className={`rounded-md border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                      prayerSubsection === option.value
+                        ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                        : "border-[#d7d2c8] bg-white text-[#4b443b] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                    }`}
+                    key={option.value}
+                    onClick={() => setPrayerSubsection(option.value)}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
 
-              <div className={`border-t ${lightDividerClass} pt-6`}>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Call To Action
-                </p>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <Field
-                    helperText="Defaults to Join The Prayer Team."
-                    label="Button Label"
-                    onChange={(value) => updateHouseholdField("prayer_cta_label", value)}
-                    value={selectedProfile.prayer_cta_label}
-                  />
-                  <SelectField
-                    helperText="Modal opens the profile-aware prayer team signup. Link uses the fallback URL."
-                    label="Behavior"
-                    onChange={(value) => updateHouseholdField("enable_prayer_team", value !== "link")}
-                    options={[
-                      { label: "Modal", value: "modal" },
-                      { label: "Link", value: "link" },
-                    ]}
-                    value={prayerBehavior}
-                  />
-                  {prayerBehavior === "link" ? (
+              {prayerSubsection === "visibility" ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Visibility
+                  </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <label className="flex items-start justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
+                      <span>
+                        <span className="block text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Show Prayer Section
+                        </span>
+                        <span className="mt-2 block leading-6 text-[#7b746a]">
+                          Controls whether the prayer section renders on the public profile.
+                        </span>
+                      </span>
+                      <input
+                        checked={selectedProfile.show_prayer !== false}
+                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                        onChange={(event) => updateFeatureField("show_prayer", event.target.checked)}
+                        type="checkbox"
+                      />
+                    </label>
+                    <label className="flex items-start justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
+                      <span>
+                        <span className="block text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Enable Join Prayer Team
+                        </span>
+                        <span className="mt-2 block leading-6 text-[#7b746a]">
+                          Enables the prayer-team modal entry point. Disable when the CTA should use a fallback link.
+                        </span>
+                      </span>
+                      <input
+                        checked={selectedProfile.enable_prayer_team !== false}
+                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                        onChange={(event) => updateHouseholdField("enable_prayer_team", event.target.checked)}
+                        type="checkbox"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ) : null}
+
+              {prayerSubsection === "cta" ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Call To Action
+                  </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <Field
-                      helperText="Used when Behavior is Link. Defaults to /prayer if blank."
-                      label="Fallback URL"
-                      onChange={(value) => updateHouseholdField("prayer_destination", value)}
-                      value={selectedProfile.prayer_destination}
+                      helperText="Defaults to Join The Prayer Team."
+                      label="Button Label"
+                      onChange={(value) => updateHouseholdField("prayer_cta_label", value)}
+                      value={selectedProfile.prayer_cta_label}
                     />
-                  ) : null}
-                </div>
-              </div>
-
-              <div className={`border-t ${lightDividerClass} pt-6`}>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Public Content
-                </p>
-                <div className="mt-4 grid gap-4">
-                <Field
-                  helperText="Optional public heading. Defaults to Prayer Requests."
-                  label="Prayer Section Headline"
-                  onChange={(value) => updateHouseholdField("prayer_section_headline", value)}
-                  value={selectedProfile.prayer_section_headline}
-                />
-                <TextArea
-                  helperText="Optional public description shown beside current prayer requests."
-                  label="Prayer Section Description"
-                  onChange={(value) => updateHouseholdField("prayer_section_description", value)}
-                  rows={4}
-                  value={selectedProfile.prayer_section_description}
-                />
-                </div>
-              </div>
-
-              <div className={`border-t ${lightDividerClass} pt-6`}>
-                <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Preview
-                    </p>
-                    <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-5">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Button
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-[#111111]">
-                        {prayerButtonLabel}
-                      </p>
-                      <p className="mt-5 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Headline
-                      </p>
-                      <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                        {prayerHeadline}
-                      </h3>
-                      <p className="mt-3 text-sm leading-7 text-[#4b443b]">
-                        {prayerDescription}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Prayer Team
-                    </p>
-                    <div className="mt-4 grid gap-3">
-                      <StatPreview label="Recruited Partners" tone="light" value={String(selectedProfile.prayerPartnerCount ?? 0)} />
-                      <StatPreview label="Active Requests" tone="light" value={String(selectedProfile.activePrayerRequestCount ?? 0)} />
-                      <Link
-                        className={`${lightSecondaryButtonClass} min-h-10 w-full`}
-                        href={`/admin/prayer-team?tab=requests&household=${selectedProfile.id}`}
-                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      >
-                        Manage In Prayer Team
-                      </Link>
-                    </div>
+                    <SelectField
+                      helperText="Modal opens the profile-aware prayer team signup. Link uses the fallback URL."
+                      label="Behavior"
+                      onChange={(value) => updateHouseholdField("enable_prayer_team", value !== "link")}
+                      options={[
+                        { label: "Modal", value: "modal" },
+                        { label: "Link", value: "link" },
+                      ]}
+                      value={prayerBehavior}
+                    />
+                    {prayerBehavior === "link" ? (
+                      <Field
+                        helperText="Used when Behavior is Link. Defaults to /prayer if blank."
+                        label="Fallback URL"
+                        onChange={(value) => updateHouseholdField("prayer_destination", value)}
+                        value={selectedProfile.prayer_destination}
+                      />
+                    ) : null}
                   </div>
                 </div>
-              </div>
+              ) : null}
+
+              {prayerSubsection === "content" ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Public Content
+                  </p>
+                  <div className="mt-4 grid gap-4">
+                    <Field
+                      helperText="Optional public heading. Defaults to Prayer Requests."
+                      label="Prayer Section Headline"
+                      onChange={(value) => updateHouseholdField("prayer_section_headline", value)}
+                      value={selectedProfile.prayer_section_headline}
+                    />
+                    <TextArea
+                      helperText="Optional public description shown beside current prayer requests."
+                      label="Prayer Section Description"
+                      onChange={(value) => updateHouseholdField("prayer_section_description", value)}
+                      rows={4}
+                      value={selectedProfile.prayer_section_description}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {prayerSubsection === "team" ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Prayer Team
+                  </p>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+                    Prayer partners and active requests are managed from the Prayer Team admin hub. This profile view only shows the connected totals.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <StatPreview label="Recruited Partners" tone="light" value={String(selectedProfile.prayerPartnerCount ?? 0)} />
+                    <StatPreview label="Active Requests" tone="light" value={String(selectedProfile.activePrayerRequestCount ?? 0)} />
+                  </div>
+                  <Link
+                    className={`${lightSecondaryButtonClass} mt-4 min-h-10 w-full sm:w-auto`}
+                    href={`/admin/prayer-team?tab=requests&household=${selectedProfile.id}`}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  >
+                    Manage In Prayer Team
+                  </Link>
+                </div>
+              ) : null}
+
+              {prayerSubsection === "preview" ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Preview
+                  </p>
+                  <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Button
+                        </p>
+                        <p className="mt-2 text-sm font-semibold text-[#111111]">
+                          {prayerButtonLabel}
+                        </p>
+                      </div>
+                      <div className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Opens {prayerBehavior === "link" ? "Link" : "Modal"}
+                      </div>
+                    </div>
+                    {prayerBehavior === "link" ? (
+                      <p className="mt-3 text-xs leading-5 text-[#7b746a]">
+                        Fallback URL: {selectedProfile.prayer_destination || "/prayer"}
+                      </p>
+                    ) : null}
+                    <p className="mt-5 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Headline
+                    </p>
+                    <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                      {prayerHeadline}
+                    </h3>
+                    <p className="mt-3 text-sm leading-7 text-[#4b443b]">
+                      {prayerDescription}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </SectionIntro>
           ) : null}
