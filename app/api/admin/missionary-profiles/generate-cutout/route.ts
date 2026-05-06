@@ -47,15 +47,6 @@ const defaultCutoutSettings: CutoutSettings = {
   removeBackground: true,
 };
 
-const cutoutPrompt = [
-  "Create a clean transparent PNG cutout of this family.",
-  "Preserve natural faces.",
-  "Dress them in subtle black/white missionary field attire.",
-  "Add a small USA Missionaries patch where appropriate.",
-  "Do not use face paint.",
-  "Keep it realistic and respectful.",
-].join(" ");
-
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -81,10 +72,52 @@ function normalizeCutoutSettings(value: unknown): CutoutSettings {
 }
 
 function buildCutoutPrompt(settings: CutoutSettings) {
-  void settings;
+  const instructions = [
+    "Create a clean transparent PNG cutout of this family.",
+    "Preserve natural faces.",
+    "Keep it realistic and respectful.",
+    "Do not add weapons, military rank, official military insignia, or law-enforcement marks.",
+  ];
+
+  if (settings.addCamoFatigues) {
+    instructions.push("Dress them in subtle black/white missionary field attire.");
+  } else {
+    instructions.push("Keep clothing tasteful, simple, and close to the original photo.");
+  }
+
+  if (settings.addHats) {
+    instructions.push("Add simple matching hats only where they look natural.");
+  } else {
+    instructions.push("Do not add hats.");
+  }
+
+  if (settings.addUsamPatch) {
+    instructions.push("Add a small USA Missionaries patch where appropriate.");
+  } else {
+    instructions.push("Do not add a USA Missionaries patch.");
+  }
+
+  if (settings.addFacePaint) {
+    instructions.push("Add very subtle field-style face paint while keeping faces natural and respectful.");
+  } else {
+    instructions.push("Do not use face paint.");
+  }
+
+  if (settings.blurFaces) {
+    instructions.push("Softly blur faces for privacy while preserving the group silhouette.");
+  } else if (settings.keepFacesNatural) {
+    instructions.push("Keep faces natural.");
+  }
+
+  if (settings.removeBackground) {
+    instructions.push("Remove the background completely.");
+  } else {
+    instructions.push("Keep the subject edges clean and avoid adding a busy background.");
+  }
+
   // Future AI styles can branch here, such as formal portrait, field report,
   // discreet/sensitive profile, or leadership variants.
-  return cutoutPrompt;
+  return instructions.join(" ");
 }
 
 function toSourceUrl(sourceImageUrl: string, requestUrl: string) {
@@ -294,4 +327,24 @@ export async function POST(request: Request) {
       error: error instanceof Error ? error.message : "We could not generate the image. Please try again or upload manually.",
     }, { status: 500 });
   }
+}
+
+export async function GET() {
+  const authorization = await getAdminAuthorization();
+
+  if (authorization.status === "unauthenticated") {
+    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  }
+
+  if (authorization.status === "unauthorized") {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
+  if (authorization.status === "configuration_error") {
+    return NextResponse.json({ error: authorization.message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    configured: Boolean(getOpenAiApiKey()),
+  });
 }

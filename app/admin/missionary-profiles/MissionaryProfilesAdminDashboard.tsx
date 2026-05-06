@@ -772,6 +772,7 @@ function CutoutSettingToggle({
 function MissionaryCutoutGenerationModal({
   generationState,
   householdName,
+  isConfigured,
   onClose,
   onGenerate,
   onSettingsChange,
@@ -781,6 +782,7 @@ function MissionaryCutoutGenerationModal({
 }: {
   generationState: CutoutGenerationState;
   householdName: string;
+  isConfigured: boolean | null;
   onClose: () => void;
   onGenerate: () => void;
   onSettingsChange: (settings: CutoutGenerationSettings) => void;
@@ -899,7 +901,7 @@ function MissionaryCutoutGenerationModal({
                 </div>
                 <button
                   className={lightPrimaryButtonClass}
-                  disabled={isGenerating}
+                  disabled={isGenerating || isConfigured === false}
                   onClick={onGenerate}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
@@ -2249,6 +2251,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     hero: { status: "idle" },
   });
   const [isCutoutModalOpen, setIsCutoutModalOpen] = useState(false);
+  const [isCutoutGenerationConfigured, setIsCutoutGenerationConfigured] = useState<boolean | null>(null);
   const [cutoutSettings, setCutoutSettings] = useState<CutoutGenerationSettings>(defaultCutoutGenerationSettings);
   const [cutoutGenerationState, setCutoutGenerationState] = useState<CutoutGenerationState>({
     status: "idle",
@@ -2271,6 +2274,70 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       setSelectedId("");
     }
   }, [initialProfiles, selectedId]);
+
+  useEffect(() => {
+    if (!isCutoutModalOpen) {
+      return;
+    }
+
+    let ignore = false;
+
+    setIsCutoutGenerationConfigured(null);
+
+    async function checkCutoutConfiguration() {
+      try {
+        const response = await fetch("/api/admin/missionary-profiles/generate-cutout", {
+          method: "GET",
+        });
+        const result = await response.json().catch(() => ({})) as {
+          configured?: boolean;
+          error?: string;
+        };
+
+        if (ignore) {
+          return;
+        }
+
+        if (!response.ok) {
+          setIsCutoutGenerationConfigured(false);
+          setCutoutGenerationState({
+            message: result.error || "Unable to check image generation configuration.",
+            status: "error",
+          });
+          return;
+        }
+
+        setIsCutoutGenerationConfigured(result.configured === true);
+
+        if (result.configured !== true) {
+          setCutoutGenerationState({
+            message: "OpenAI image generation is not configured. Add OPENAI_API_KEY and restart the server to enable image generation.",
+            status: "error",
+          });
+        } else {
+          setCutoutGenerationState((currentState) => (
+            currentState.status === "error" && currentState.message?.includes("OPENAI_API_KEY")
+              ? { status: "idle" }
+              : currentState
+          ));
+        }
+      } catch {
+        if (!ignore) {
+          setIsCutoutGenerationConfigured(false);
+          setCutoutGenerationState({
+            message: "Unable to check image generation configuration.",
+            status: "error",
+          });
+        }
+      }
+    }
+
+    checkCutoutConfiguration();
+
+    return () => {
+      ignore = true;
+    };
+  }, [isCutoutModalOpen]);
 
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedId),
@@ -2774,10 +2841,19 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     setCutoutSettings(defaultCutoutGenerationSettings);
     setCutoutGenerationState({ status: "idle" });
+    setIsCutoutGenerationConfigured(null);
     setIsCutoutModalOpen(true);
   }
 
   async function generateMissionaryCutout() {
+    if (isCutoutGenerationConfigured === false) {
+      setCutoutGenerationState({
+        message: "OpenAI image generation is not configured. Add OPENAI_API_KEY and restart the server to enable image generation.",
+        status: "error",
+      });
+      return;
+    }
+
     if (!selectedProfile?.profile_image_url?.trim()) {
       setCutoutGenerationState({
         message: "Upload a directory image before generating a cutout.",
@@ -3307,20 +3383,20 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   statusMessage: profileVisibilityStatus.message,
                 },
                 {
-                  checked: getFeatureValue(selectedProfile, "show_photos"),
-                  description: featureDescriptions.show_photos,
-                  label: "Media",
-                  onChange: (value) => updateFeatureField("show_photos", value),
-                  publicStatus: mediaStatus.status,
-                  statusMessage: mediaStatus.message,
-                },
-                {
                   checked: getFeatureValue(selectedProfile, "show_team"),
                   description: featureDescriptions.show_team,
                   label: "Team",
                   onChange: (value) => updateFeatureField("show_team", value),
                   publicStatus: teamStatus.status,
                   statusMessage: teamStatus.message,
+                },
+                {
+                  checked: getFeatureValue(selectedProfile, "show_photos"),
+                  description: featureDescriptions.show_photos,
+                  label: "Media",
+                  onChange: (value) => updateFeatureField("show_photos", value),
+                  publicStatus: mediaStatus.status,
+                  statusMessage: mediaStatus.message,
                 },
                 {
                   checked: getFeatureValue(selectedProfile, "show_story"),
@@ -3489,6 +3565,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               <MissionaryCutoutGenerationModal
                 generationState={cutoutGenerationState}
                 householdName={selectedProfile.display_name}
+                isConfigured={isCutoutGenerationConfigured}
                 onClose={() => setIsCutoutModalOpen(false)}
                 onGenerate={generateMissionaryCutout}
                 onSettingsChange={setCutoutSettings}
