@@ -156,10 +156,10 @@ begin
 end $$;
 
 comment on table public.missionary_encounters is
-  'Raw testimony, review, and story encounters connected to missionary profiles. Future DOS integrations can insert source=dos records here.';
+  'Command Center raw intake for testimonies, forms, reviews, and story material connected to missionary profiles. Field can create encounters later. Encounters are never public until reviewed and derived into Fruit.';
 
 comment on column public.missionary_encounters.original_testimony is
   'Exact submitted or entered words. Do not rewrite automatically.';
 
 comment on column public.missionary_encounters.public_summary is
-  'Admin-reviewed public summary generated manually or with AI.';
+  'Admin-reviewed summary for review workflow. This is not a Fruit record until explicitly structured and approved.';

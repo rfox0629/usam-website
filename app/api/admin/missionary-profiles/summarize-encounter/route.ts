@@ -9,6 +9,8 @@ type SummarizeEncounterPayload = {
   submitterName?: unknown;
 };
 
+// Command Center helper: summarize raw Encounter intake for review. This does
+// not publish content by itself and should not be treated as a Fruit record.
 type OpenAITextResponse = {
   error?: {
     message?: string;

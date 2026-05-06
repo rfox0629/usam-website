@@ -20,7 +20,7 @@ const uploadRows: AdminResourceControlRow[] = [
       { label: "Storage Bucket", value: "missionary-images" },
       { label: "Public Use", value: "Missionary directory and public profiles" },
     ],
-    owner: "Missionary Profiles",
+    owner: "Missionary Workspaces",
     secondaryHref: "/missionaries",
     secondaryLabel: "View Directory",
     status: "Active",

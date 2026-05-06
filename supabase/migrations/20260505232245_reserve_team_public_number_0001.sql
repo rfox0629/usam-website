@@ -45,6 +45,6 @@ begin
       );
 
     comment on column public.missionary_team_members.public_number is
-      'Global display-only USA Missionaries roster number. UUID remains the backend relationship ID. 0001 is reserved and must not be assigned to a stored team member.';
+      'Global display-only USA Missionaries roster number. UUID remains the backend database ID. 0001 is reserved and must not be assigned to a stored team member.';
   end if;
 end $$;

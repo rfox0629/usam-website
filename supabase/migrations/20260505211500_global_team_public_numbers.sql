@@ -174,4 +174,4 @@ begin
 end $$;
 
 comment on column public.missionary_team_members.public_number is
-  'Global display-only USA Missionaries public roster number. UUID remains the backend relationship ID.';
+  'Global display-only USA Missionaries public roster number. UUID remains the backend database ID.';

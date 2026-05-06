@@ -29,17 +29,6 @@ type CutoutSettings = {
   styleReferenceImageDataUrl: string | null;
 };
 
-type OpenAIImageApiResponse = {
-  data?: Array<{
-    b64_json?: string;
-    revised_prompt?: string;
-    url?: string;
-  }>;
-  error?: {
-    message?: string;
-  };
-};
-
 type OpenAIResponsesImageResponse = {
   error?: {
     code?: string;
@@ -60,6 +49,9 @@ type ImageInput = {
   arrayBuffer: ArrayBuffer;
   contentType: string;
 };
+
+const cutoutGenerationModel = "gpt-5.5";
+const cutoutGenerationModelLabel = "GPT 5.5";
 
 const defaultCutoutSettings: CutoutSettings = {
   addCamoFatigues: true,
@@ -248,18 +240,6 @@ function toImageDataUrl(image: ImageInput) {
   return `data:${image.contentType};base64,${Buffer.from(image.arrayBuffer).toString("base64")}`;
 }
 
-function getSourceFileName(contentType: string) {
-  if (contentType === "image/png") {
-    return "source.png";
-  }
-
-  if (contentType === "image/webp") {
-    return "source.webp";
-  }
-
-  return "source.jpg";
-}
-
 function getOpenAiApiKey() {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
 
@@ -287,29 +267,22 @@ async function createCutoutImage({
     throw new Error("Add OPENAI_API_KEY to .env.local and restart the server to enable image generation.");
   }
 
-  try {
-    return await createCutoutImageWithResponses({
-      openAiApiKey,
-      prompt,
-      settings,
-      sourceImage,
-      styleReferenceImage,
-    });
-  } catch (responsesError) {
-    try {
-      return await createCutoutImageWithGptImageFallback({
-        openAiApiKey,
-        prompt,
-        settings,
-        sourceImage,
-        styleReferenceImage,
-      });
-    } catch (fallbackError) {
-      const responsesMessage = responsesError instanceof Error ? responsesError.message : "Responses API image generation failed.";
-      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "GPT Image 2 fallback failed.";
+  return createCutoutImageWithResponses({
+    openAiApiKey,
+    prompt,
+    settings,
+    sourceImage,
+    styleReferenceImage,
+  });
+}
 
-      throw new Error(`${responsesMessage} GPT Image 2 fallback also failed: ${fallbackMessage}`);
-    }
+async function parseOpenAIJsonResponse(response: Response) {
+  const responseText = await response.text();
+
+  try {
+    return JSON.parse(responseText) as OpenAIResponsesImageResponse;
+  } catch {
+    throw new Error(`${cutoutGenerationModelLabel} returned a non-JSON response (${response.status}). Confirm this project has Responses API image generation access for ${cutoutGenerationModel}.`);
   }
 }
 
@@ -352,7 +325,7 @@ async function createCutoutImageWithResponses({
           role: "user",
         },
       ],
-      model: "gpt-5.5",
+      model: cutoutGenerationModel,
       tool_choice: { type: "image_generation" },
       tools: [
         {
@@ -371,10 +344,10 @@ async function createCutoutImageWithResponses({
     },
     method: "POST",
   });
-  const result = await response.json() as OpenAIResponsesImageResponse;
+  const result = await parseOpenAIJsonResponse(response);
 
   if (!response.ok) {
-    throw new Error(result.error?.message || "GPT 5.5 image generation is not available.");
+    throw new Error(result.error?.message || `${cutoutGenerationModelLabel} image generation is not available.`);
   }
 
   const imageResult = result.output?.find((output) => (
@@ -382,96 +355,15 @@ async function createCutoutImageWithResponses({
   ));
 
   if (!imageResult?.result) {
-    throw new Error("GPT 5.5 did not return an image preview.");
+    throw new Error(`${cutoutGenerationModelLabel} did not return an image preview.`);
   }
 
   return {
     buffer: Buffer.from(imageResult.result, "base64"),
-    model: "gpt-5.5",
-    modelLabel: "GPT 5.5",
+    model: cutoutGenerationModel,
+    modelLabel: cutoutGenerationModelLabel,
     revisedPrompt: imageResult.revised_prompt ?? null,
   };
-}
-
-async function createCutoutImageWithGptImageFallback({
-  openAiApiKey,
-  sourceImage,
-  styleReferenceImage,
-  prompt,
-  settings,
-}: {
-  openAiApiKey: string;
-  prompt: string;
-  settings: CutoutSettings;
-  sourceImage: ImageInput;
-  styleReferenceImage: ImageInput | null;
-}) {
-  const formData = new FormData();
-  const sourceFile = new File(
-    [sourceImage.arrayBuffer],
-    getSourceFileName(sourceImage.contentType),
-    { type: sourceImage.contentType },
-  );
-
-  formData.append("model", "gpt-image-2");
-  formData.append("image[]", sourceFile);
-
-  if (styleReferenceImage) {
-    const styleReferenceFile = new File(
-      [styleReferenceImage.arrayBuffer],
-      `style-reference-${getSourceFileName(styleReferenceImage.contentType)}`,
-      { type: styleReferenceImage.contentType },
-    );
-
-    formData.append("image[]", styleReferenceFile);
-  }
-
-  formData.append("prompt", prompt);
-  formData.append("n", "1");
-  formData.append("size", "1536x1024");
-  formData.append("quality", settings.editMode === "conservative" ? "high" : "medium");
-  formData.append("output_format", "png");
-
-  const response = await fetch("https://api.openai.com/v1/images/edits", {
-    body: formData,
-    headers: {
-      Authorization: `Bearer ${openAiApiKey}`,
-    },
-    method: "POST",
-  });
-  const result = await response.json() as OpenAIImageApiResponse;
-
-  if (!response.ok) {
-    throw new Error(result.error?.message || "GPT Image 2 could not generate the image.");
-  }
-
-  const imageResult = result.data?.[0];
-
-  if (imageResult?.b64_json) {
-    return {
-      buffer: Buffer.from(imageResult.b64_json, "base64"),
-      model: "gpt-image-2",
-      modelLabel: "GPT Image 2",
-      revisedPrompt: imageResult.revised_prompt ?? null,
-    };
-  }
-
-  if (imageResult?.url) {
-    const imageResponse = await fetch(imageResult.url);
-
-    if (!imageResponse.ok) {
-      throw new Error("Generated image could not be downloaded.");
-    }
-
-    return {
-      buffer: Buffer.from(await imageResponse.arrayBuffer()),
-      model: "gpt-image-2",
-      modelLabel: "GPT Image 2",
-      revisedPrompt: imageResult.revised_prompt ?? null,
-    };
-  }
-
-  throw new Error("GPT Image 2 did not return a generated image.");
 }
 
 export async function POST(request: Request) {
@@ -575,5 +467,7 @@ export async function GET() {
 
   return NextResponse.json({
     configured: Boolean(getOpenAiApiKey()),
+    model: cutoutGenerationModel,
+    modelLabel: cutoutGenerationModelLabel,
   });
 }

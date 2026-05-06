@@ -53,7 +53,7 @@ const publicPages: PublicPageRow[] = [
     id: "missionaries",
     lastUpdated: "Live Data",
     manageHref: "/admin/missionary-profiles",
-    owner: "Missionary Profiles",
+    owner: "Missionary Workspaces",
     pageName: "Missionaries",
     status: "Live",
     url: "/missionaries",

@@ -55,8 +55,10 @@ export type AdminEncounterSource = "manual" | "public_form" | "dos";
 export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
 export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 
-// Profiles (PF) public read model. Command Center owns review and publishing;
-// public pages only display approved profile content.
+// Profiles (PF) public read model. These fields control public profile
+// content: Profile, Features, Team roster, Media, Story, Support, and Prayer.
+// Command Center owns review and publishing; public pages display only
+// approved profile content.
 export type AdminHousehold = {
   id: string;
   slug: string;
@@ -118,8 +120,9 @@ export type AdminSupportSettings = {
   major_gift_public_description?: string | null;
 };
 
-// Fruit data intent: raw encounter records can later be created by Field (FD)
-// daily workflows, then reviewed in Command Center before Profile publishing.
+// Encounters are the raw intake layer for testimonies, forms, reviews, and
+// story material. Field (FD) can create these later; Command Center reviews
+// them before any approved Fruit is derived.
 export type AdminEncounterSubmission = {
   created_at: string;
   encounter_date: string | null;
@@ -137,9 +140,9 @@ export type AdminEncounterSubmission = {
   updated_at: string | null;
 };
 
-// People data intent: team members are the first public roster surface that
-// Field (FD) can later connect to missionary users without using public_number
-// for relationships.
+// Team is a public-facing roster surface only. Do not use it to store
+// disciples, follow-up contacts, or ministry relationships; those belong in
+// future People/Tables relationship models.
 export type AdminTeamMember = {
   created_at: string;
   display_name: string;
@@ -232,7 +235,21 @@ type TargetHouseholdOption = {
 
 type TargetHouseholdLoadState = "error" | "idle" | "loading" | "success";
 
-type EditorTab = "profile" | "features" | "media" | "team" | "story" | "encounters" | "fruit" | "support" | "prayer";
+type EditorTab =
+  | "overview"
+  | "people"
+  | "tables"
+  | "encounters"
+  | "fruit"
+  | "library"
+  | "in-season"
+  | "profile"
+  | "features"
+  | "team"
+  | "media"
+  | "story"
+  | "support"
+  | "prayer";
 type SupportSubsection = "advanced" | "buttons" | "giving" | "gifts" | "progress";
 type PrayerSubsection = "content" | "cta" | "preview" | "team" | "visibility";
 
@@ -309,16 +326,34 @@ const featureDescriptions = {
   show_prayer: "Shows the prayer invitation and prayer team call to action.",
 } as const;
 
-const editorTabs: Array<{ label: string; value: EditorTab }> = [
-  { label: "Profile", value: "profile" },
-  { label: "Features", value: "features" },
-  { label: "Team", value: "team" },
-  { label: "Media", value: "media" },
-  { label: "Story", value: "story" },
-  { label: "Encounters", value: "encounters" },
-  { label: "Fruit", value: "fruit" },
-  { label: "Support", value: "support" },
-  { label: "Prayer", value: "prayer" },
+const editorTabGroups: Array<{
+  label: "Operations" | "Profile";
+  tabs: Array<{ destinations: string[]; label: string; value: EditorTab }>;
+}> = [
+  {
+    label: "Operations",
+    tabs: [
+      { destinations: ["CC Only"], label: "Overview", value: "overview" },
+      { destinations: ["Feeds Field"], label: "People", value: "people" },
+      { destinations: ["Feeds Field"], label: "Tables", value: "tables" },
+      { destinations: ["Feeds Field"], label: "Encounters", value: "encounters" },
+      { destinations: ["Updates Profile", "Feeds Field"], label: "Fruit", value: "fruit" },
+      { destinations: ["Feeds Field"], label: "Library", value: "library" },
+      { destinations: ["Feeds Field"], label: "In Season", value: "in-season" },
+    ],
+  },
+  {
+    label: "Profile",
+    tabs: [
+      { destinations: ["Updates Profile"], label: "Profile", value: "profile" },
+      { destinations: ["Updates Profile"], label: "Features", value: "features" },
+      { destinations: ["Updates Profile"], label: "Team", value: "team" },
+      { destinations: ["Updates Profile"], label: "Media", value: "media" },
+      { destinations: ["Updates Profile"], label: "Story", value: "story" },
+      { destinations: ["Updates Profile"], label: "Support", value: "support" },
+      { destinations: ["Updates Profile", "Feeds Field"], label: "Prayer", value: "prayer" },
+    ],
+  },
 ];
 
 const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
@@ -1064,7 +1099,11 @@ function MissionaryCutoutGenerationModal({
                     <span className="mt-2 inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       Generated with {generationState.modelLabel}
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="mt-2 inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Model: GPT 5.5
+                    </span>
+                  )}
                   <p className="mt-1 text-xs leading-5 text-[#7b746a]">
                     Transparent PNG previews appear here after generation.
                   </p>
@@ -1301,6 +1340,45 @@ function DataFlowLabels({ items }: { items: string[] }) {
           {item}
         </span>
       ))}
+    </div>
+  );
+}
+
+function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
+  return (
+    <div className="space-y-5">
+      <DataFlowLabels items={["Operations managed in Command Center", "Profiles show approved public content", "Field app is future"]} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatPreview label="Encounters" tone="light" value={String(profile.encounterSubmissions?.length ?? 0)} />
+        <StatPreview label="Public Fruit" tone="light" value={String(profile.publicFruitItemCount ?? 0)} />
+        <StatPreview label="Public Team" tone="light" value={String(profile.teamMembers?.filter((member) => member.status === "active" && member.is_public !== false).length ?? 0)} />
+        <StatPreview label="Prayer Requests" tone="light" value={String(profile.activePrayerRequestCount ?? 0)} />
+      </div>
+      <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
+        This workspace separates operational ministry activity from public profile content. Operations prepare People, Tables, Encounters, Fruit, Library, and In Season for future Field use; Profile tabs control what can appear publicly.
+      </div>
+    </div>
+  );
+}
+
+function WorkspacePlanningState({
+  description,
+  labels,
+  title,
+}: {
+  description: string;
+  labels: string[];
+  title: string;
+}) {
+  return (
+    <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#4b443b]">
+      <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {title}
+      </p>
+      <p className="mt-2">
+        {description}
+      </p>
+      <DataFlowLabels items={labels} />
     </div>
   );
 }
@@ -1827,9 +1905,8 @@ function EncounterEditorModal({
 
 function FruitPlanningState() {
   // Fruit is the curated output layer. Future fruit records should reference
-  // missionary_encounters.id rather than duplicating raw testimony text. DOS can
-  // later submit structured outcome data here, and the public profile should
-  // render Fruit records instead of raw Encounter records.
+  // missionary_encounters.id rather than duplicating raw testimony text. Field
+  // (FD) can later display Fruit summaries instead of raw Encounter records.
   const outcomeCounts = [
     "Salvation",
     "Baptism",
@@ -2443,7 +2520,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const router = useRouter();
   const [profiles, setProfiles] = useState(initialProfiles);
   const [selectedId, setSelectedId] = useState("");
-  const [activeTab, setActiveTab] = useState<EditorTab>("profile");
+  const [activeTab, setActiveTab] = useState<EditorTab>("overview");
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("progress");
   const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("visibility");
   const [profileQuery, setProfileQuery] = useState("");
@@ -2516,7 +2593,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
         if (result.configured !== true) {
           setCutoutGenerationState({
-            message: "OpenAI image generation is not configured. Add OPENAI_API_KEY and restart the server to enable image generation.",
+            message: "OpenAI GPT 5.5 image generation is not configured. Add OPENAI_API_KEY and restart the server to enable image generation.",
             status: "error",
           });
         } else {
@@ -2646,13 +2723,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   function openProfile(profileId: string) {
     setSelectedId(profileId);
-    setActiveTab("profile");
+    setActiveTab("overview");
     resetTransientEditorState();
   }
 
   function closeProfile() {
     setSelectedId("");
-    setActiveTab("profile");
+    setActiveTab("overview");
     resetTransientEditorState();
   }
 
@@ -3055,7 +3132,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   async function generateMissionaryCutout() {
     if (isCutoutGenerationConfigured === false) {
       setCutoutGenerationState({
-        message: "OpenAI image generation is not configured. Add OPENAI_API_KEY and restart the server to enable image generation.",
+        message: "OpenAI GPT 5.5 image generation is not configured. Add OPENAI_API_KEY and restart the server to enable image generation.",
         status: "error",
       });
       return;
@@ -3306,7 +3383,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     if (!response.ok) {
       setStatus({
-        text: typeof result.error === "string" ? result.error : "Unable to save missionary profile.",
+        text: typeof result.error === "string" ? result.error : "Unable to save missionary workspace.",
         tone: "error",
       });
       setSaving(false);
@@ -3314,7 +3391,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     }
 
     setStatus({
-      text: typeof result.message === "string" ? result.message : "Missionary profile saved.",
+      text: typeof result.message === "string" ? result.message : "Missionary workspace saved.",
       tone: "success",
     });
     setSaving(false);
@@ -3325,18 +3402,18 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     return (
       <div className="space-y-5">
         <div className="grid gap-3 md:grid-cols-3">
-          <StatPreview label="Total Profiles" value={String(profiles.length)} />
+          <StatPreview label="Total Workspaces" value={String(profiles.length)} />
           <StatPreview label="Live Profiles" value={String(liveProfiles)} />
           <StatPreview label="Hidden Profiles" value={String(hiddenProfiles)} />
         </div>
 
         <div className="grid gap-3 rounded-lg border border-[#222222] bg-[#0a0a0a] p-4 md:grid-cols-[minmax(240px,1fr)_220px_auto]">
           <label className="block">
-            <span className="sr-only">Search missionary profiles</span>
+            <span className="sr-only">Search missionary workspaces</span>
             <input
               className="min-h-12 w-full rounded-md border border-[#333333] bg-[#111111] px-3.5 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
               onChange={(event) => setProfileQuery(event.target.value)}
-              placeholder="Search profiles, slugs, states, or mission"
+              placeholder="Search workspaces, slugs, states, or mission"
               value={profileQuery}
             />
           </label>
@@ -3373,7 +3450,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               <table className="min-w-[820px] w-full border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#222222] text-[10px] uppercase tracking-[0.18em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    <th className="w-[34%] border-r border-[#222222] px-4 py-3 font-bold">Missionary Profile</th>
+                    <th className="w-[34%] border-r border-[#222222] px-4 py-3 font-bold">Missionary Workspace</th>
                     <th className="border-r border-[#222222] px-4 py-3 font-bold">Visible</th>
                     <th className="border-r border-[#222222] px-4 py-3 font-bold">Location</th>
                     <th className="border-r border-[#222222] px-4 py-3 font-bold">Last Updated</th>
@@ -3411,7 +3488,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   )) : (
                     <tr>
                       <td className="px-4 py-8 text-sm text-stone-400" colSpan={5}>
-                        No missionary profiles match these filters.
+                        No missionary workspaces match these filters.
                       </td>
                     </tr>
                   )}
@@ -3564,29 +3641,80 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </p>
         ) : null}
 
-        <div className="mt-6 overflow-x-auto border-b border-stone-800/80">
-          <div className="flex min-w-max gap-2" role="tablist">
-            {editorTabs.map((tab) => (
-              <button
-                aria-selected={activeTab === tab.value}
-                className={`border-b-2 px-4 py-3 text-[11px] uppercase tracking-[0.22em] transition-colors ${
-                  activeTab === tab.value
-                    ? "border-[#D4A63D] text-[#F5B942]"
-                    : "border-transparent text-stone-300 hover:text-stone-100"
-                }`}
-                key={tab.value}
-                onClick={() => changeEditorTab(tab.value)}
-                role="tab"
-                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                type="button"
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        <div className="mt-6 space-y-4 border-b border-stone-800/80 pb-1">
+          {editorTabGroups.map((group) => (
+            <div key={group.label}>
+              <p className="px-1 text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                {group.label}
+              </p>
+              <div className="mt-1 overflow-x-auto">
+                <div className="flex min-w-max gap-2" role="tablist" aria-label={`${group.label} tabs`}>
+                  {group.tabs.map((tab) => (
+                    <button
+                      aria-selected={activeTab === tab.value}
+                      className={`border-b-2 px-4 py-3 text-left uppercase transition-colors ${
+                        activeTab === tab.value
+                          ? "border-[#D4A63D] text-[#F5B942]"
+                          : "border-transparent text-stone-300 hover:text-stone-100"
+                      }`}
+                      key={tab.value}
+                      onClick={() => changeEditorTab(tab.value)}
+                      role="tab"
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      <span className="block text-[11px] tracking-[0.22em]">
+                        {tab.label}
+                      </span>
+                      <span className={`mt-1 block text-[8px] leading-3 tracking-[0.12em] ${
+                        activeTab === tab.value ? "text-[#D4A63D]/80" : "text-stone-500"
+                      }`}>
+                        {tab.destinations.join(" + ")}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="mt-8">
+          {activeTab === "overview" ? (
+          <SectionIntro
+            description="Workspace summary for missionary operations and public profile publishing."
+            title="Overview"
+          >
+            <WorkspaceOverview profile={selectedProfile} />
+          </SectionIntro>
+          ) : null}
+
+          {activeTab === "people" ? (
+          <SectionIntro
+            description="Internal people connected to this missionary household. These records power Tables, prayer follow-up, Fruit, and future Field activity. Not public by default."
+            title="People"
+          >
+            <WorkspacePlanningState
+              description="People will track internal ministry relationships such as people being met with, discipled, prayed for, or followed up with. This is intentionally separate from the public Team roster."
+              labels={["Internal by default", "Future Field creates and updates", "Feeds Tables, prayer follow-up, and Fruit"]}
+              title="Operations Model"
+            />
+          </SectionIntro>
+          ) : null}
+
+          {activeTab === "tables" ? (
+          <SectionIntro
+            description="Internal table meetings and ministry gatherings connected to this missionary household."
+            title="Tables"
+          >
+            <WorkspacePlanningState
+              description="Tables will connect ministry meetings to People, Encounters, prayer follow-up, and Fruit. This structure is reserved for Command Center now and future Field workflows later."
+              labels={["Internal operations", "Connects People and Encounters", "Future Field activity"]}
+              title="Operations Model"
+            />
+          </SectionIntro>
+          ) : null}
+
           {activeTab === "features" ? (
           <SectionIntro
             description="Turn public profile sections on or off without deleting their content."
@@ -3802,7 +3930,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "team" ? (
           <SectionIntro
-            description="Manage public team and household members connected to this profile. Future DOS user connections can attach here."
+            description="Public team or household members displayed on the missionary Profile. Do not use this section for discipleship contacts or private ministry relationships."
             title="Team"
           >
             <TeamMemberManager
@@ -3920,6 +4048,32 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             title="Fruit"
           >
             <FruitPlanningState />
+          </SectionIntro>
+          ) : null}
+
+          {activeTab === "library" ? (
+          <SectionIntro
+            description="Internal resources, notes, and ministry materials connected to this missionary household."
+            title="Library"
+          >
+            <WorkspacePlanningState
+              description="Library will organize approved resources and reference material for Command Center and future Field use without changing public Profile behavior."
+              labels={["Internal resources", "Future Field reference", "No public publishing yet"]}
+              title="Operations Model"
+            />
+          </SectionIntro>
+          ) : null}
+
+          {activeTab === "in-season" ? (
+          <SectionIntro
+            description="Timely focus, follow-up priorities, and current ministry activity for this missionary household."
+            title="In Season"
+          >
+            <WorkspacePlanningState
+              description="In Season will help organize the current ministry focus for Command Center and future Field workflows. It does not publish anything to the public Profile by itself."
+              labels={["Current focus", "Internal operations", "Future Field summaries"]}
+              title="Operations Model"
+            />
           </SectionIntro>
           ) : null}
 

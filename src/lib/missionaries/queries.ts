@@ -127,6 +127,8 @@ type TagRow = {
   tag_type: "role" | "function";
 };
 
+// Team rows are public roster entries for Profiles (PF), not discipleship or
+// follow-up relationships.
 type TeamMemberRow = {
   display_name: string;
   dos_user_id: string | null;
@@ -178,6 +180,8 @@ type PrayerRequestRow = {
   created_at: string;
 };
 
+// Fruit is the structured output layer. Public profile queries must read only
+// approved Fruit rows and must never expose raw missionary_encounters records.
 type FruitItemRow = {
   id: string;
   title: string | null;
@@ -449,6 +453,8 @@ function mapFruitItems(items: readonly FruitItemRow[] = []): MissionaryFruitItem
     });
 }
 
+// Team is mapped as a public roster only. It is not a relationship graph and
+// must not be used for disciples, follow-up contacts, or field relationships.
 function toPublicNumber(value: string | null | undefined) {
   const trimmedValue = value?.trim().replace(/^#/, "");
 

@@ -222,6 +222,9 @@ function SupportProgressSummary({ missionary }: { missionary: Missionary }) {
   );
 }
 
+// Profiles (PF): Team is public roster content only. Disciples, people being
+// followed up with, and ministry relationships belong in future People/Tables
+// models, not this public profile section.
 function TeamSection({ missionary }: { missionary: Missionary }) {
   const members = missionary.householdMembers ?? [];
 
@@ -297,6 +300,8 @@ function StorySection({
   );
 }
 
+// Profiles (PF): render approved, curated Fruit only. Raw Encounter intake
+// stays inside Command Center until reviewed and transformed into Fruit.
 function FruitSection({
   fruitItems,
   initialReviewOpen = false,

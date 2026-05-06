@@ -281,7 +281,10 @@ begin
 end $$;
 
 comment on table public.missionary_team_members is
-  'Public and admin-managed household/team roster records for missionary profiles.';
+  'Profiles public roster records only. Do not use Team for disciples, follow-up contacts, or ministry relationship storage.';
 
 comment on column public.missionary_team_members.public_number is
-  'Global display-only USA Missionaries public roster number. UUID remains the backend relationship ID.';
+  'Global display-only USA Missionaries public roster number. UUID remains the backend database ID.';
+
+comment on column public.missionary_team_members.dos_user_id is
+  'Optional legacy/user identity reference for a public roster member. Not a relationship model.';

@@ -174,3 +174,9 @@ where trim(fruit_item.body) <> ''
       and existing.source = 'website_admin'
       and existing.body = trim(fruit_item.body)
   );
+
+comment on table public.missionary_fruit_items is
+  'Reviewed and structured Fruit derived from missionary_encounters. Approved public Fruit is the only structured outcome layer shown across Profiles and future Field summaries.';
+
+comment on column public.missionary_fruit_items.missionary_public_approved is
+  'Final publishing gate for Profiles. Raw or reviewed-only data must remain private.';

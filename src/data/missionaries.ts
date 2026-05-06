@@ -81,6 +81,8 @@ export type MissionaryPrayerRequest = {
   visibility: "public" | "team";
 };
 
+// Profiles (PF) consume only approved Fruit records. Raw Encounters stay in
+// Command Center review and are never rendered by public profile components.
 export type MissionaryFruitItem = {
   id: string;
   title?: string | null;
@@ -95,6 +97,8 @@ export type MissionaryFruitItem = {
   createdAt: string;
 };
 
+// Team is a public-facing roster surface only. Do not model disciples,
+// follow-up relationships, or ministry network edges with household members.
 export type MissionaryHouseholdMember = {
   displayName: string;
   dosUserId?: string | null;
@@ -137,7 +141,7 @@ export type Missionary = {
   prayerRequests?: readonly MissionaryPrayerRequest[];
 };
 
-// Future: replace static missionary data with Supabase/DOS profile data.
+// Future: replace static missionary data with approved Supabase Profile data.
 export const missionaries: readonly Missionary[] = [
   {
     id: "001",

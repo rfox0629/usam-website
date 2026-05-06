@@ -12,6 +12,9 @@ import { normalizeSupportRoutingMode } from "@/src/lib/missionaries/support-rout
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type UpdatePayload = {
+  // Encounters are raw CC intake. They may come from public forms now and from
+  // Field (FD) later, but they are not rendered publicly until reviewed and
+  // transformed into Fruit.
   encounterSubmissions?: Array<{
     encounter_date?: unknown;
     id?: unknown;
@@ -26,6 +29,8 @@ type UpdatePayload = {
     submitter_name?: unknown;
     submitter_phone?: unknown;
   }>;
+  // Team is a PF public roster only. Do not store disciples, follow-up
+  // relationships, or field relationship graph data here.
   teamMembers?: Array<{
     display_name?: unknown;
     dos_user_id?: unknown;
@@ -309,7 +314,7 @@ export async function POST(request: Request) {
   }
 
   // Master-admin-first workflow for now: admin and editor roles can edit the
-  // full missionary profile record. Future role layers can distinguish
+  // full missionary workspace record. Future role layers can distinguish
   // master_admin, admin, reviewer, missionary_user, prayer_team, and
   // support_team, but intake submissions should still land in admin review
   // before anything publishes.
@@ -339,9 +344,9 @@ export async function POST(request: Request) {
   // Public forms capture submissions in Supabase.
   // Admin reviews manually, then approved public profile data is updated here.
   // Accounting remains the financial source of truth.
-  // Field (FD) can later submit People, Meetings, Fruit, and Tasks into
-  // lightweight intake endpoints; this Command Center route stays focused on
-  // review and Profile publishing.
+  // Field (FD) can later create Encounters and display Fruit summaries through
+  // lightweight endpoints; this Command Center route stays focused on review
+  // and Profile publishing.
   const supabase = createSupabaseAdminClient();
   const timestamp = new Date().toISOString();
   const supportMode = asSupportMode(household.support_mode);
@@ -756,7 +761,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     message: [
-      "Missionary profile saved.",
+      "Missionary workspace saved.",
       savedFeatureFields ? "" : "Apply the profile features migration before feature controls can persist.",
       savedSupportLinkFields ? "" : "Apply the support major gift migration before giving links and major gift settings can persist.",
     ].filter(Boolean).join(" "),

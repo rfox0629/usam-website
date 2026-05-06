@@ -6,7 +6,7 @@ const adminNavGroups = [
   {
     items: [
       { activeKey: "dashboard", href: "/admin/dashboard", label: "Command Center" },
-      { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", label: "Missionary Profiles" },
+      { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", label: "Missionary Workspaces" },
       { activeKey: "public-experience", href: "/admin/public-experience", label: "Public Experience" },
       { activeKey: "prayer", href: "/admin/prayer-team", label: "Prayer Team" },
       { activeKey: "support-team", href: "/admin/support-team", label: "Support Team" },
