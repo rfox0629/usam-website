@@ -376,6 +376,22 @@ type FieldPersonDraft = {
   status: AdminFieldPersonStatus;
 };
 
+type PeopleCsvImportRow = {
+  church: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  phone: string;
+  sourceRowNumber: number;
+};
+
+type PeopleCsvImportResult = {
+  importedCount: number;
+  people: AdminFieldPerson[];
+  skippedCount: number;
+};
+
 type ConnectionDraft = {
   connectionDate: string;
   durationMinutes: string;
@@ -2169,11 +2185,104 @@ function personLastActivityLabel(person: AdminFieldPerson) {
   return formatProfileUpdatedDate(person.last_activity_at ?? person.updated_at ?? person.created_at);
 }
 
+function normalizeCsvHeader(header: string) {
+  return header
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseCsvText(text: string) {
+  const rows: string[][] = [];
+  let currentField = "";
+  let currentRow: string[] = [];
+  let isQuoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const nextCharacter = text[index + 1];
+
+    if (character === "\"") {
+      if (isQuoted && nextCharacter === "\"") {
+        currentField += "\"";
+        index += 1;
+      } else {
+        isQuoted = !isQuoted;
+      }
+      continue;
+    }
+
+    if (character === "," && !isQuoted) {
+      currentRow.push(currentField);
+      currentField = "";
+      continue;
+    }
+
+    if ((character === "\n" || character === "\r") && !isQuoted) {
+      if (character === "\r" && nextCharacter === "\n") {
+        index += 1;
+      }
+      currentRow.push(currentField);
+      rows.push(currentRow);
+      currentRow = [];
+      currentField = "";
+      continue;
+    }
+
+    currentField += character;
+  }
+
+  currentRow.push(currentField);
+  rows.push(currentRow);
+
+  const cleanedRows = rows
+    .map((row) => row.map((field) => field.trim()))
+    .filter((row) => row.some((field) => field.trim()));
+  const headers = cleanedRows[0] ?? [];
+
+  return {
+    headers,
+    rows: cleanedRows.slice(1),
+  };
+}
+
+function csvValue(headers: readonly string[], row: readonly string[], aliases: readonly string[]) {
+  const normalizedAliases = aliases.map(normalizeCsvHeader);
+  const index = headers.findIndex((header) => normalizedAliases.includes(normalizeCsvHeader(header)));
+
+  return index >= 0 ? row[index]?.trim() ?? "" : "";
+}
+
+function mapPeopleCsvRow(headers: readonly string[], row: readonly string[], rowIndex: number): PeopleCsvImportRow {
+  const firstName = csvValue(headers, row, ["First Name"]);
+  const lastName = csvValue(headers, row, ["Last Name"]);
+  const fallbackName = csvValue(headers, row, ["Name", "Full Name"]);
+
+  return {
+    church: csvValue(headers, row, ["Church Attending", "Church"]),
+    email: csvValue(headers, row, ["Home Email", "Email"]),
+    firstName,
+    lastName,
+    name: [firstName, lastName].filter(Boolean).join(" ").trim() || fallbackName,
+    phone: csvValue(headers, row, ["Mobile Phone Number", "Mobile Phone", "Phone"]),
+    sourceRowNumber: rowIndex + 2,
+  };
+}
+
+function peopleImportPhoneKey(value: string | null | undefined) {
+  return value?.replace(/\D/g, "") ?? "";
+}
+
 function PeopleManager({
   items,
+  onImport,
   onSave,
 }: {
   items: readonly AdminFieldPerson[];
+  onImport: (rows: PeopleCsvImportRow[]) => Promise<PeopleCsvImportResult | null>;
   onSave: (draft: FieldPersonDraft, personId?: string) => Promise<boolean>;
 }) {
   const sortedPeople = useMemo(
@@ -2186,13 +2295,11 @@ function PeopleManager({
   );
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const editingPerson = sortedPeople.find((person) => person.id === editingPersonId) ?? null;
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-[#D4A63D]/40 bg-[#fff8e8] px-4 py-3 text-sm font-semibold text-[#8a5a00]">
-        Your Field input UI loaded
-      </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-2xl">
           <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -2202,22 +2309,32 @@ function PeopleManager({
             Internal people connected to this missionary household. Add only the basics now, then enrich the record after real interactions.
           </p>
         </div>
-        <button
-          className={lightPrimaryButtonClass}
-          onClick={() => setIsAddPersonOpen(true)}
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          type="button"
-        >
-          + Add Person
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className={lightSecondaryButtonClass}
+            onClick={() => setIsImportOpen(true)}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            Import CSV
+          </button>
+          <button
+            className={lightPrimaryButtonClass}
+            onClick={() => setIsAddPersonOpen(true)}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            + Add Person
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
         <div className="overflow-x-auto">
-          <table className="min-w-[980px] w-full border-collapse text-left">
+          <table className="min-w-[1120px] w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-                {["Name", "Phone", "Church", "Relationship", "Engagement", "Last Activity", "Actions"].map((heading) => (
+                {["Name", "Phone", "Email", "Church", "Relationship", "Engagement", "Last Activity", "Actions"].map((heading) => (
                   <th
                     className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0"
                     key={heading}
@@ -2231,7 +2348,7 @@ function PeopleManager({
             <tbody>
               {sortedPeople.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-sm leading-6 text-[#7b746a]" colSpan={7}>
+                  <td className="px-4 py-6 text-sm leading-6 text-[#7b746a]" colSpan={8}>
                     No people added yet. Start building Your Field by adding a name and phone number.
                   </td>
                 </tr>
@@ -2245,6 +2362,9 @@ function PeopleManager({
                   </td>
                   <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
                     {person.phone}
+                  </td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
+                    {person.email?.trim() || "Not set"}
                   </td>
                   <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
                     {person.church?.trim() || "Not set"}
@@ -2291,6 +2411,14 @@ function PeopleManager({
         />
       ) : null}
 
+      {isImportOpen ? (
+        <PeopleCsvImportModal
+          existingPeople={items}
+          onClose={() => setIsImportOpen(false)}
+          onImport={onImport}
+        />
+      ) : null}
+
       {editingPerson ? (
         <PersonEditorModal
           mode="edit"
@@ -2307,6 +2435,237 @@ function PeopleManager({
           person={editingPerson}
         />
       ) : null}
+    </div>
+  );
+}
+
+function PeopleCsvImportModal({
+  existingPeople,
+  onClose,
+  onImport,
+}: {
+  existingPeople: readonly AdminFieldPerson[];
+  onClose: () => void;
+  onImport: (rows: PeopleCsvImportRow[]) => Promise<PeopleCsvImportResult | null>;
+}) {
+  const [fileName, setFileName] = useState("");
+  const [importResult, setImportResult] = useState<PeopleCsvImportResult | null>(null);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [parseError, setParseError] = useState("");
+  const [rows, setRows] = useState<PeopleCsvImportRow[]>([]);
+  const existingPhones = useMemo(
+    () => new Set(existingPeople.map((person) => peopleImportPhoneKey(person.phone)).filter(Boolean)),
+    [existingPeople],
+  );
+  const importableRows = rows.filter((row) => row.name.trim() && row.phone.trim());
+  const invalidRows = rows.length - importableRows.length;
+  const matchedRows = importableRows.filter((row) => existingPhones.has(peopleImportPhoneKey(row.phone)));
+  const previewRows = rows.slice(0, 10);
+  const canImport = importableRows.length > 0 && isConfirmed && !isImporting;
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    setFileName(file?.name ?? "");
+    setImportResult(null);
+    setIsConfirmed(false);
+    setParseError("");
+    setRows([]);
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setParseError("Choose a .csv file.");
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const parsedCsv = parseCsvText(text);
+
+      if (parsedCsv.headers.length === 0 || parsedCsv.rows.length === 0) {
+        setParseError("The CSV does not contain header and data rows.");
+        return;
+      }
+
+      setRows(parsedCsv.rows.map((row, index) => mapPeopleCsvRow(parsedCsv.headers, row, index)));
+    } catch (error) {
+      setParseError(error instanceof Error ? error.message : "Unable to parse CSV.");
+    }
+  }
+
+  async function confirmImport() {
+    if (!canImport) {
+      return;
+    }
+
+    setIsImporting(true);
+    const result = await onImport(importableRows);
+
+    setIsImporting(false);
+
+    if (result) {
+      setImportResult(result);
+      setIsConfirmed(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
+      <div className="mx-auto max-w-5xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Your Field Import
+            </p>
+            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+              Import PCO CSV
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
+              Preview the mapped People rows, then confirm before creating records in this workspace.
+            </p>
+          </div>
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="space-y-4">
+            <label className="block rounded-xl border border-dashed border-[#d7d2c8] bg-white p-4">
+              <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                CSV File
+              </span>
+              <input
+                accept=".csv,text/csv"
+                className="mt-3 block w-full text-sm text-[#4b443b] file:mr-4 file:rounded-md file:border-0 file:bg-[#D4A63D] file:px-4 file:py-2 file:text-[10px] file:uppercase file:tracking-[0.18em] file:text-black"
+                onChange={handleFileChange}
+                type="file"
+              />
+              {fileName ? (
+                <span className={lightHelperClass}>
+                  Loaded {fileName}
+                </span>
+              ) : null}
+            </label>
+
+            {parseError ? (
+              <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-800">
+                {parseError}
+              </p>
+            ) : null}
+
+            <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+              <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Preview First 10 Rows
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-[760px] w-full border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
+                      {["Name", "Phone", "Email", "Church"].map((heading) => (
+                        <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0" key={heading} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-6 text-sm leading-6 text-[#7b746a]" colSpan={4}>
+                          Upload a CSV to preview mapped People rows.
+                        </td>
+                      </tr>
+                    ) : null}
+                    {previewRows.map((row) => (
+                      <tr className="border-b border-[#e2ded5] last:border-b-0" key={row.sourceRowNumber}>
+                        <td className="border-r border-[#e2ded5] px-4 py-3 text-sm font-semibold text-[#111111]">
+                          {row.name || "Missing name"}
+                        </td>
+                        <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">
+                          {row.phone || "Missing phone"}
+                        </td>
+                        <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">
+                          {row.email || "Not provided"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#4b443b]">
+                          {row.church || "Not provided"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <aside className="space-y-4 rounded-xl border border-[#e2ded5] bg-white p-4">
+            <div>
+              <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Auto Mapping
+              </p>
+              <ul className="mt-3 space-y-2 text-sm leading-5 text-[#4b443b]">
+                <li>First + Last Name → name</li>
+                <li>Mobile Phone Number → phone</li>
+                <li>Home Email → email</li>
+                <li>Church Attending → church</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border border-[#e2ded5] bg-[#fbfaf7] p-3 text-sm leading-6 text-[#4b443b]">
+              <p>{rows.length} total CSV rows</p>
+              <p>{importableRows.length} importable rows</p>
+              <p>{matchedRows.length} existing phone matches</p>
+              <p>{invalidRows} rows missing name or phone</p>
+            </div>
+
+            <label className="flex items-start gap-3 rounded-xl border border-[#e2ded5] bg-[#fff8e8] p-3 text-sm leading-6 text-[#4b443b]">
+              <input
+                checked={isConfirmed}
+                className="mt-1"
+                disabled={importableRows.length === 0}
+                onChange={(event) => setIsConfirmed(event.target.checked)}
+                type="checkbox"
+              />
+              <span>
+                I confirm this import should create scoped records for this missionary workspace. Existing data will not be overwritten automatically.
+              </span>
+            </label>
+
+            <button
+              className={lightPrimaryButtonClass}
+              disabled={!canImport}
+              onClick={confirmImport}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              {isImporting ? "Importing" : "Confirm Import"}
+            </button>
+
+            {importResult ? (
+              <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm leading-6 text-green-900">
+                <p className="font-semibold">Import complete.</p>
+                <p>Imported {importResult.importedCount} people</p>
+                {importResult.skippedCount > 0 ? (
+                  <p>{importResult.skippedCount} rows skipped</p>
+                ) : null}
+              </div>
+            ) : null}
+          </aside>
+        </div>
+
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -5084,6 +5443,48 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     return true;
   }
 
+  async function importPeopleCsv(rows: PeopleCsvImportRow[]) {
+    if (!selectedProfile) {
+      return null;
+    }
+
+    const response = await fetch("/api/admin/missionary-profiles/people/import", {
+      body: JSON.stringify({
+        householdId: selectedProfile.id,
+        rows,
+      }),
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    const result = await response.json().catch(() => ({})) as Partial<PeopleCsvImportResult> & {
+      error?: string;
+    };
+
+    if (!response.ok || typeof result.importedCount !== "number" || !Array.isArray(result.people)) {
+      setStatus({
+        text: typeof result.error === "string" ? result.error : "Unable to import CSV.",
+        tone: "error",
+      });
+      return null;
+    }
+
+    const importResult = result as PeopleCsvImportResult;
+
+    updateSelected({
+      ...selectedProfile,
+      fieldPeople: [...importResult.people, ...(selectedProfile.fieldPeople ?? [])],
+    });
+    setStatus({
+      text: `Imported ${importResult.importedCount} people`,
+      tone: "success",
+    });
+
+    return importResult;
+  }
+
   function resetTransientEditorState() {
     setStatus(null);
     setUploadStates({
@@ -6344,6 +6745,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           >
             <PeopleManager
               items={selectedProfile.fieldPeople ?? []}
+              onImport={importPeopleCsv}
               onSave={saveFieldPerson}
             />
           </SectionIntro>
