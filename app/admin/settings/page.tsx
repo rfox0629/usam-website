@@ -24,7 +24,7 @@ type AccessCodeType = "preview" | "system" | "team";
 type SystemAccessCodeRow = {
   active: boolean;
   code: string;
-  type: AccessCodeType;
+  code_type: AccessCodeType;
   updated_at: string;
 };
 
@@ -116,8 +116,8 @@ async function loadAccessCodes() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("system_access_codes")
-    .select("code, type, active, updated_at")
-    .order("type", { ascending: true });
+    .select("code, code_type, active, updated_at")
+    .order("code_type", { ascending: true });
 
   if (error) {
     return {
@@ -142,7 +142,7 @@ export default async function AdminSettingsPage({
   const params = await searchParams;
   const { error, rows } = await loadAccessCodes();
   const message = statusMessage(params);
-  const rowByType = new Map(rows.map((row) => [row.type, row]));
+  const rowByType = new Map(rows.map((row) => [row.code_type, row]));
 
   return (
     <AdminShell

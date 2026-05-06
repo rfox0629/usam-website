@@ -21,8 +21,8 @@ type AccessCodeType = "preview" | "system" | "team";
 
 type SystemAccessCodeRow = {
   active: boolean;
+  code_type: AccessCodeType;
   code: string;
-  type: AccessCodeType;
 };
 
 export type AccessCookieOptions = {
@@ -92,8 +92,8 @@ async function getStoredAccessCodes(source: "system" | "team") {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("system_access_codes")
-    .select("code, type, active")
-    .in("type", accessCodeTypesForSource(source))
+    .select("code, code_type, active")
+    .in("code_type", accessCodeTypesForSource(source))
     .eq("active", true);
 
   if (error) {
