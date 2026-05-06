@@ -463,11 +463,22 @@ function InboxList({
             </Link>
           );
         }) : (
-          <p className="px-4 py-10 text-sm leading-6 text-stone-400">
-            {params.q || params.type || params.status || params.priority || params.assigned_to
-              ? "No support submissions match these filters."
-              : "Support submissions will appear here once public forms are connected to Supabase."}
-          </p>
+          <div className="px-4 py-10">
+            <p className="text-sm leading-6 text-stone-400">
+              {params.q || params.type || params.status || params.priority || params.assigned_to
+                ? "No support submissions match these filters."
+                : "No submissions yet. Once forms are submitted, they will appear here for review."}
+            </p>
+            {!params.q && !params.type && !params.status && !params.priority && !params.assigned_to ? (
+              <Link
+                className="mt-5 inline-flex min-h-10 items-center justify-center border border-[#D4A63D] bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942]"
+                href="/admin/public-experience?tab=forms"
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              >
+                View Forms
+              </Link>
+            ) : null}
+          </div>
         )}
       </div>
     </section>
