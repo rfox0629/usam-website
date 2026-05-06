@@ -922,7 +922,7 @@ function MissionaryCutoutGenerationModal({
                 )}
                 {isGenerating ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/85 px-4 text-center text-xs uppercase tracking-[0.2em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {generationState.message || "Generating image. This may take a moment."}
+                    {generationState.message || "Generating image..."}
                   </div>
                 ) : null}
               </div>
@@ -2787,7 +2787,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     }
 
     setCutoutGenerationState({
-      message: "Generating image. This may take a moment.",
+      message: "Generating image...",
       status: "generating",
     });
 

@@ -19,6 +19,7 @@ import {
   normalizeRoleType,
 } from "@/src/lib/missionaries/location";
 import { normalizeSupportRoutingMode } from "@/src/lib/missionaries/support-routing";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/lib/supabase/server";
 
 const roleTags = [
@@ -487,6 +488,84 @@ function mapTeamMembers(items: readonly TeamMemberRow[] = []) {
     }));
 }
 
+function legacyMissionaryNumberToPublicRosterNumber(value: string | null | undefined) {
+  const digits = value?.replace(/\D/g, "") ?? "";
+
+  if (!digits) {
+    return null;
+  }
+
+  const parsedNumber = Number.parseInt(digits, 10);
+
+  if (!Number.isFinite(parsedNumber) || parsedNumber < 1) {
+    return null;
+  }
+
+  if (digits.length >= 4 && parsedNumber >= 2) {
+    return digits.slice(-4);
+  }
+
+  // Legacy missionary_people numbers started at 001. The public roster now
+  // reserves 0001, so legacy fallback display starts real people at 0002.
+  return String(parsedNumber + 1).padStart(4, "0");
+}
+
+function mapLegacyPeopleToTeamMembers(people: readonly PersonRow[] = []): TeamMemberRow[] {
+  return people.reduce<TeamMemberRow[]>((members, person, index) => {
+      const displayName = [person.first_name, person.last_name].filter(Boolean).join(" ").trim();
+
+      if (!displayName) {
+        return members;
+      }
+
+      members.push({
+        display_name: displayName,
+        dos_user_id: null,
+        id: `legacy-${person.missionary_number || index}-${displayName}`,
+        is_public: true,
+        public_number: legacyMissionaryNumberToPublicRosterNumber(person.missionary_number),
+        role_title: person.role,
+        short_description: null,
+        sort_order: person.sort_order ?? index,
+        status: "active" as const,
+      });
+
+      return members;
+    }, []);
+}
+
+async function getPublicTeamMembersWithAdminFallback(householdId: string) {
+  if (!isSupabaseAdminConfigured()) {
+    return [];
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const result = await supabase
+      .from("missionary_team_members")
+      .select("id, display_name, public_number, role_title, short_description, sort_order, is_public, dos_user_id, status")
+      .eq("household_id", householdId)
+      .eq("status", "active")
+      .eq("is_public", true)
+      .order("sort_order", { ascending: true })
+      .order("public_number", { ascending: true })
+      .order("display_name", { ascending: true });
+
+    if (result.error) {
+      if (!hasMissingTeamMembersTableError(result.error)) {
+        console.error("Supabase team members fallback error:", result.error.message);
+      }
+
+      return [];
+    }
+
+    return (result.data ?? []) as TeamMemberRow[];
+  } catch (error) {
+    console.error("Supabase team members fallback error:", error instanceof Error ? error.message : "Unknown error.");
+    return [];
+  }
+}
+
 function mapHouseholdToMissionary({
   fruitItems = [],
   household,
@@ -948,12 +1027,25 @@ export async function getMissionaryProfileBySlug(slug: string) {
         : (fallbackSupportTargetSettingsResult.data as SupportSettingsRow | null);
     }
 
+    const people = (peopleResult.data ?? []) as PersonRow[];
+    let teamMembers = teamMembersResult.error && hasMissingTeamMembersTableError(teamMembersResult.error)
+      ? mapLegacyPeopleToTeamMembers(people)
+      : (teamMembersResult.data ?? []) as TeamMemberRow[];
+
+    if (!teamMembersResult.error && teamMembers.length === 0) {
+      const adminTeamMembers = await getPublicTeamMembersWithAdminFallback(household.id);
+
+      if (adminTeamMembers.length > 0) {
+        teamMembers = adminTeamMembers;
+      }
+    }
+
     return mapHouseholdToMissionary({
       household: household as HouseholdRow,
       fruitItems: fruitItemsResult.error && hasMissingFruitItemsTableError(fruitItemsResult.error)
         ? []
         : (fruitItemsResult.data ?? []) as FruitItemRow[],
-      people: (peopleResult.data ?? []) as PersonRow[],
+      people,
       prayerRequests: prayerRequestsResult.error && hasMissingPrayerRequestsTableError(prayerRequestsResult.error)
         ? []
         : (prayerRequestsResult.data ?? []) as PrayerRequestRow[],
@@ -961,9 +1053,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
       support: supportSettings,
       supportTargetHousehold: supportTargetHousehold?.show_household === false ? null : supportTargetHousehold,
       supportTargetSettings,
-      teamMembers: teamMembersResult.error && hasMissingTeamMembersTableError(teamMembersResult.error)
-        ? []
-        : (teamMembersResult.data ?? []) as TeamMemberRow[],
+      teamMembers,
     });
   } catch {
     return getMissionaryBySlug(slug);

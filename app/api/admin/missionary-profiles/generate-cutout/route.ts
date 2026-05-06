@@ -47,6 +47,15 @@ const defaultCutoutSettings: CutoutSettings = {
   removeBackground: true,
 };
 
+const cutoutPrompt = [
+  "Create a clean transparent PNG cutout of this family.",
+  "Preserve natural faces.",
+  "Dress them in subtle black/white missionary field attire.",
+  "Add a small USA Missionaries patch where appropriate.",
+  "Do not use face paint.",
+  "Keep it realistic and respectful.",
+].join(" ");
+
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -72,47 +81,10 @@ function normalizeCutoutSettings(value: unknown): CutoutSettings {
 }
 
 function buildCutoutPrompt(settings: CutoutSettings) {
-  const instructions = [
-    "Edit the provided family or couple photo into a polished USA Missionaries hero cutout PNG.",
-    "Preserve the subjects' likeness, ages, facial structure, skin tone, expressions, and natural proportions.",
-    "Keep the group composition close to the source photo and avoid making the people look artificial.",
-    "Use a premium editorial promotional style suitable for a public missionary profile.",
-    "Do not add weapons, military rank, official military insignia, or law-enforcement marks.",
-  ];
-
-  if (settings.addCamoFatigues) {
-    instructions.push("Dress the subjects in tasteful black and white camouflage missionary field uniforms.");
-  }
-
-  if (settings.addHats) {
-    instructions.push("Add matching black and white camouflage hats where they look natural.");
-  }
-
-  if (settings.addUsamPatch) {
-    instructions.push("Add a small USA Missionaries or USAM patch on the uniform chest or shoulder where appropriate.");
-  }
-
-  if (settings.addFacePaint) {
-    instructions.push("Add subtle black and white field face paint while keeping faces recognizable and natural.");
-  } else {
-    instructions.push("Do not add face paint.");
-  }
-
-  if (settings.blurFaces) {
-    instructions.push("Softly obscure faces for privacy while preserving the overall family or couple silhouette.");
-  } else if (settings.keepFacesNatural) {
-    instructions.push("Keep faces clear, natural, and recognizable from the source image.");
-  }
-
-  if (settings.removeBackground) {
-    instructions.push("Remove the background completely and output the subjects on a transparent background.");
-  } else {
-    instructions.push("Keep the subject isolated and avoid adding a busy background.");
-  }
-
+  void settings;
   // Future AI styles can branch here, such as formal portrait, field report,
   // discreet/sensitive profile, or leadership variants.
-  return instructions.join(" ");
+  return cutoutPrompt;
 }
 
 function toSourceUrl(sourceImageUrl: string, requestUrl: string) {
@@ -170,6 +142,16 @@ function getSourceFileName(contentType: string) {
   return "source.jpg";
 }
 
+function getOpenAiApiKey() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+  if (!apiKey) {
+    return "";
+  }
+
+  return apiKey;
+}
+
 async function createCutoutImage({
   sourceImage,
   prompt,
@@ -179,10 +161,10 @@ async function createCutoutImage({
   settings: CutoutSettings;
   sourceImage: Awaited<ReturnType<typeof fetchSourceImage>>;
 }) {
-  const openAiApiKey = process.env.OPENAI_API_KEY;
+  const openAiApiKey = getOpenAiApiKey();
 
   if (!openAiApiKey) {
-    throw new Error("OpenAI image generation is not configured.");
+    throw new Error("Add OPENAI_API_KEY to .env.local and restart the server to enable image generation.");
   }
 
   const sourceFile = new File(
@@ -192,7 +174,7 @@ async function createCutoutImage({
   );
   const formData = new FormData();
 
-  formData.append("model", process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5");
+  formData.append("model", "gpt-image-1");
   formData.append("image", sourceFile);
   formData.append("prompt", prompt);
   formData.append("n", "1");
@@ -200,7 +182,7 @@ async function createCutoutImage({
   formData.append("quality", "medium");
   formData.append("input_fidelity", "high");
   formData.append("output_format", "png");
-  formData.append("background", settings.removeBackground ? "transparent" : "opaque");
+  formData.append("background", "transparent");
 
   const response = await fetch("https://api.openai.com/v1/images/edits", {
     body: formData,

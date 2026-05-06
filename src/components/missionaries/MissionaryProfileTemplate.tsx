@@ -199,31 +199,25 @@ function SupportProgressSummary({ missionary }: { missionary: Missionary }) {
   const visualProgressPercentage = Math.min(Math.max(progressPercentage, 0), 100);
 
   return (
-    <div className="mt-10 max-w-4xl border border-stone-800 bg-[#080808] p-5 md:p-6">
-      <div className="max-w-[720px]">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Fundraising Progress
-          </p>
-          <p className="mt-2 text-2xl font-bold leading-tight text-stone-100 md:text-3xl" style={{ fontFamily: font.oswald }}>
-            {formatMoney(monthlyCommitted)} / {formatMoney(monthlyGoal)}
-          </p>
-          <div className="mt-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm leading-6 text-stone-400">
-              Monthly committed
-            </p>
-            <p className="text-sm font-semibold text-stone-100">
-              {progressPercentage}% raised
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 h-3 overflow-hidden rounded-full bg-stone-900">
-          <div
-            className={`h-full rounded-full transition-all ${getProgressFillClass(progressPercentage)}`}
-            style={{ width: `${visualProgressPercentage}%` }}
-          />
-        </div>
+    <div className="mt-10 max-w-[520px] rounded-xl border border-[#222222] bg-[#0a0a0a] p-6 shadow-[0_22px_70px_rgba(0,0,0,0.28)]">
+      <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        Fundraising Progress
+      </p>
+      <p className="mt-3 text-5xl font-bold leading-none text-stone-100 md:text-6xl" style={{ fontFamily: font.oswald }}>
+        {formatMoney(monthlyCommitted)}
+      </p>
+      <p className="mt-3 text-sm leading-6 text-stone-400">
+        of {formatMoney(monthlyGoal)} monthly goal
+      </p>
+      <div className="mt-5 h-3 overflow-hidden rounded-full bg-stone-900">
+        <div
+          className={`h-full rounded-full transition-all ${getProgressFillClass(progressPercentage)}`}
+          style={{ width: `${visualProgressPercentage}%` }}
+        />
       </div>
+      <p className="mt-4 text-sm font-semibold text-stone-100">
+        {progressPercentage}% raised
+      </p>
     </div>
   );
 }
