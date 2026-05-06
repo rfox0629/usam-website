@@ -71,6 +71,8 @@ const householdFeatureSelect = [
   "location_visibility",
 ].join(", ");
 const householdProfileSelect = `${householdBaseSelect}, ${householdFeatureSelect}`;
+const supportSettingsBaseSelect = "show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis";
+const supportSettingsFullSelect = `${supportSettingsBaseSelect}, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description`;
 
 type HouseholdRow = {
   id: string;
@@ -370,6 +372,21 @@ function hasMissingFruitItemsTableError(error: { message?: string } | null | und
   const message = error?.message ?? "";
 
   return message.includes("missionary_fruit_items");
+}
+
+function hasMissingSupportSettingsColumnsError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return [
+    "monthly_giving_url",
+    "one_time_giving_url",
+    "monthly_button_label",
+    "one_time_button_label",
+    "major_gift_button_label",
+    "enable_major_gift_inquiry",
+    "major_gift_notify_email",
+    "major_gift_public_description",
+  ].some((columnName) => message.includes(columnName));
 }
 
 function hasMissingTeamMembersTableError(error: { code?: string; message?: string } | null | undefined) {
@@ -848,7 +865,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
         .eq("household_id", household.id),
       supabase
         .from("missionary_support_settings")
-        .select("show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description")
+        .select(supportSettingsFullSelect)
         .eq("household_id", household.id)
         .maybeSingle(),
       supportTargetHouseholdId
@@ -862,7 +879,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
       supportTargetHouseholdId
         ? supabase
           .from("missionary_support_settings")
-          .select("show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description")
+          .select(supportSettingsFullSelect)
           .eq("household_id", supportTargetHouseholdId)
           .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
@@ -904,6 +921,32 @@ export async function getMissionaryProfileBySlug(slug: string) {
     const supportTargetHousehold = supportTargetResult.error
       ? null
       : (supportTargetResult.data as SupportTargetHouseholdRow | null);
+    let supportSettings = supportResult.error ? null : (supportResult.data as SupportSettingsRow | null);
+    let supportTargetSettings = supportTargetSettingsResult.error ? null : (supportTargetSettingsResult.data as SupportSettingsRow | null);
+
+    if (supportResult.error && hasMissingSupportSettingsColumnsError(supportResult.error)) {
+      const fallbackSupportResult = await supabase
+        .from("missionary_support_settings")
+        .select(supportSettingsBaseSelect)
+        .eq("household_id", household.id)
+        .maybeSingle();
+
+      supportSettings = fallbackSupportResult.error
+        ? null
+        : (fallbackSupportResult.data as SupportSettingsRow | null);
+    }
+
+    if (supportTargetSettingsResult.error && supportTargetHouseholdId && hasMissingSupportSettingsColumnsError(supportTargetSettingsResult.error)) {
+      const fallbackSupportTargetSettingsResult = await supabase
+        .from("missionary_support_settings")
+        .select(supportSettingsBaseSelect)
+        .eq("household_id", supportTargetHouseholdId)
+        .maybeSingle();
+
+      supportTargetSettings = fallbackSupportTargetSettingsResult.error
+        ? null
+        : (fallbackSupportTargetSettingsResult.data as SupportSettingsRow | null);
+    }
 
     return mapHouseholdToMissionary({
       household: household as HouseholdRow,
@@ -915,9 +958,9 @@ export async function getMissionaryProfileBySlug(slug: string) {
         ? []
         : (prayerRequestsResult.data ?? []) as PrayerRequestRow[],
       tags: (tagsResult.data ?? []) as TagRow[],
-      support: supportResult.error ? null : (supportResult.data as SupportSettingsRow | null),
+      support: supportSettings,
       supportTargetHousehold: supportTargetHousehold?.show_household === false ? null : supportTargetHousehold,
-      supportTargetSettings: supportTargetSettingsResult.error ? null : (supportTargetSettingsResult.data as SupportSettingsRow | null),
+      supportTargetSettings,
       teamMembers: teamMembersResult.error && hasMissingTeamMembersTableError(teamMembersResult.error)
         ? []
         : (teamMembersResult.data ?? []) as TeamMemberRow[],

@@ -190,9 +190,8 @@ function SupportProgressSummary({ missionary }: { missionary: Missionary }) {
     ? missionary.funding.monthlyGoal
     : calculateMonthlyGoal(annualGoal);
   const monthlyCommitted = missionary.funding.monthlyCommitted ?? 0;
-  const hasProgressData = annualGoal > 0 || monthlyGoal > 0 || monthlyCommitted > 0;
 
-  if (!hasProgressData) {
+  if (monthlyGoal <= 0) {
     return null;
   }
 
@@ -201,48 +200,24 @@ function SupportProgressSummary({ missionary }: { missionary: Missionary }) {
 
   return (
     <div className="mt-10 max-w-4xl border border-stone-800 bg-[#080808] p-5 md:p-6">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Annual Goal
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Fundraising Progress
           </p>
-          <p className="mt-2 text-2xl font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
-            {formatMoney(annualGoal)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Monthly Goal
-          </p>
-          <p className="mt-2 text-2xl font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
-            {formatMoney(monthlyGoal)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Monthly Committed
-          </p>
-          <p className="mt-2 text-2xl font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
-            {formatMoney(monthlyCommitted)}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <p className="text-sm leading-6 text-stone-300">
+          <p className="mt-2 text-base leading-7 text-stone-200 md:text-lg">
             {formatMoney(monthlyCommitted)} / {formatMoney(monthlyGoal)} monthly committed
           </p>
-          <p className="text-sm font-semibold text-stone-100">
-            {progressPercentage}% raised
-          </p>
         </div>
-        <div className="mt-3 h-3 overflow-hidden rounded-full bg-stone-900">
-          <div
-            className={`h-full rounded-full transition-all ${getProgressFillClass(progressPercentage)}`}
-            style={{ width: `${visualProgressPercentage}%` }}
-          />
-        </div>
+        <p className="text-sm font-semibold text-stone-100">
+          {progressPercentage}% raised
+        </p>
+      </div>
+      <div className="mt-4 h-3 overflow-hidden rounded-full bg-stone-900">
+        <div
+          className={`h-full rounded-full transition-all ${getProgressFillClass(progressPercentage)}`}
+          style={{ width: `${visualProgressPercentage}%` }}
+        />
       </div>
     </div>
   );
