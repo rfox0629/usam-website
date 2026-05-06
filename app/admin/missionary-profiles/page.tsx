@@ -3,6 +3,7 @@ import {
   MissionaryProfilesAdminDashboard,
   type AdminEncounterStatus,
   type AdminEncounterSubmission,
+  type AdminEncounterSubmissionType,
   type AdminHousehold,
   type AdminMissionaryTable,
   type AdminOutcomeTag,
@@ -56,6 +57,7 @@ const householdFeatureColumns = [
 ].join(", ");
 const encounterStatuses = ["raw", "reviewed", "approved", "hidden", "archived"] as const satisfies readonly AdminEncounterStatus[];
 const encounterSources = ["manual", "public_form", "dos"] as const;
+const encounterSubmissionTypes = ["quick_response", "full_testimony"] as const satisfies readonly AdminEncounterSubmissionType[];
 const outcomeTagOptions = [
   "Salvation",
   "Baptism",
@@ -70,8 +72,10 @@ const tableTypes = ["kitchen_table", "coffee", "group"] as const satisfies reado
 
 type EncounterRow = {
   created_at: string;
+  do_not_publish?: boolean | null;
   encounter_date: string | null;
   id: string;
+  internal_notes?: string | null;
   missionary_household_id: string | null;
   missionary_profile_id: string | null;
   original_testimony: string;
@@ -80,6 +84,7 @@ type EncounterRow = {
   public_summary: string | null;
   source: string | null;
   status: AdminEncounterStatus | string | null;
+  submission_type?: string | null;
   submitter_email: string | null;
   submitter_name: string | null;
   submitter_phone: string | null;
@@ -161,6 +166,10 @@ function getEncounterRecordStatus(value: string | null): AdminEncounterStatus {
 
 function getEncounterRecordSource(value: string | null): AdminEncounterSubmission["source"] {
   return encounterSources.includes(value as AdminEncounterSubmission["source"]) ? value as AdminEncounterSubmission["source"] : "manual";
+}
+
+function getEncounterSubmissionType(value: string | null | undefined): AdminEncounterSubmissionType {
+  return encounterSubmissionTypes.includes(value as AdminEncounterSubmissionType) ? value as AdminEncounterSubmissionType : "full_testimony";
 }
 
 function getOutcomeTags(value: string[] | null | undefined): AdminOutcomeTag[] {
@@ -279,7 +288,7 @@ function isMissingTablesTable(error: { code?: string; message?: string } | null 
 function isMissingEncounterPipelineColumns(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["table_id", "outcome_tags"].some((columnName) => message.includes(columnName));
+  return ["table_id", "outcome_tags", "internal_notes", "do_not_publish", "submission_type"].some((columnName) => message.includes(columnName));
 }
 
 function isMissingTablePipelineColumns(error: { message?: string } | null | undefined) {
@@ -469,7 +478,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     // profile. missionary_user submissions should not directly edit public fields.
     const encountersResult = await supabase
       .from("missionary_encounters")
-      .select("id, missionary_profile_id, missionary_household_id, table_id, submitter_name, submitter_email, submitter_phone, encounter_date, original_testimony, public_summary, outcome_tags, permission_to_share, status, source, created_at, updated_at")
+      .select("id, missionary_profile_id, missionary_household_id, table_id, submitter_name, submitter_email, submitter_phone, encounter_date, original_testimony, public_summary, internal_notes, do_not_publish, submission_type, outcome_tags, permission_to_share, status, source, created_at, updated_at")
       .in("missionary_household_id", ids)
       .order("encounter_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
@@ -497,8 +506,10 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
 
       currentItems.push({
         created_at: row.created_at,
+        do_not_publish: row.do_not_publish === true,
         encounter_date: row.encounter_date,
         id: row.id,
+        internal_notes: row.internal_notes ?? "",
         missionary_household_id: row.missionary_household_id,
         missionary_profile_id: row.missionary_profile_id,
         original_testimony: row.original_testimony,
@@ -507,6 +518,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         public_summary: row.public_summary,
         source: getEncounterRecordSource(row.source),
         status: getEncounterRecordStatus(row.status),
+        submission_type: getEncounterSubmissionType(row.submission_type),
         submitter_email: row.submitter_email,
         submitter_name: row.submitter_name,
         submitter_phone: row.submitter_phone,

@@ -16,8 +16,10 @@ type UpdatePayload = {
   // Field (FD) later, but they are not rendered publicly until reviewed and
   // transformed into Fruit.
   encounterSubmissions?: Array<{
+    do_not_publish?: unknown;
     encounter_date?: unknown;
     id?: unknown;
+    internal_notes?: unknown;
     missionary_household_id?: unknown;
     missionary_profile_id?: unknown;
     original_testimony?: unknown;
@@ -26,6 +28,7 @@ type UpdatePayload = {
     public_summary?: unknown;
     source?: unknown;
     status?: unknown;
+    submission_type?: unknown;
     submitter_email?: unknown;
     submitter_name?: unknown;
     submitter_phone?: unknown;
@@ -117,6 +120,7 @@ type UpdatePayload = {
 
 const encounterSources = ["manual", "public_form", "dos"] as const;
 const encounterStatuses = ["raw", "reviewed", "approved", "hidden", "archived"] as const;
+const encounterSubmissionTypes = ["quick_response", "full_testimony"] as const;
 const outcomeTagOptions = [
   "Salvation",
   "Baptism",
@@ -234,6 +238,12 @@ function asEncounterSource(value: unknown) {
     : "manual";
 }
 
+function asEncounterSubmissionType(value: unknown) {
+  return encounterSubmissionTypes.includes(value as typeof encounterSubmissionTypes[number])
+    ? value as typeof encounterSubmissionTypes[number]
+    : "full_testimony";
+}
+
 function asOutcomeTags(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is typeof outcomeTagOptions[number] => outcomeTagOptions.includes(item as typeof outcomeTagOptions[number]))
@@ -348,7 +358,7 @@ function hasMissingTablesTableError(error: { code?: string; message?: string } |
 function hasMissingEncounterPipelineColumnsError(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["table_id", "outcome_tags"].some((columnName) => message.includes(columnName));
+  return ["table_id", "outcome_tags", "internal_notes", "do_not_publish", "submission_type"].some((columnName) => message.includes(columnName));
 }
 
 function hasMissingTablePipelineColumnsError(error: { message?: string } | null | undefined) {
@@ -703,19 +713,23 @@ export async function POST(request: Request) {
         const mappedTableId = submittedTableId
           ? tableIdMap.get(submittedTableId) ?? (isExistingUuid(submittedTableId) ? submittedTableId : null)
           : null;
+        const doNotPublish = submission.do_not_publish === true;
 
         return {
           id: asString(submission.id),
           record: {
+            do_not_publish: doNotPublish,
             encounter_date: asNullableDateString(submission.encounter_date),
+            internal_notes: asNullableString(submission.internal_notes),
             missionary_household_id: householdId,
             missionary_profile_id: householdId,
             original_testimony: originalTestimony,
             outcome_tags: asOutcomeTags(submission.outcome_tags),
-            permission_to_share: status === "approved" || submission.permission_to_share === true,
+            permission_to_share: !doNotPublish && (status === "approved" || submission.permission_to_share === true),
             public_summary: asNullableString(submission.public_summary),
             source: asEncounterSource(submission.source),
             status,
+            submission_type: asEncounterSubmissionType(submission.submission_type),
             submitter_email: asNullableString(submission.submitter_email),
             submitter_name: asNullableString(submission.submitter_name),
             submitter_phone: asNullableString(submission.submitter_phone),
@@ -786,10 +800,10 @@ export async function POST(request: Request) {
 
     if (savedEncounterSubmissions && savedEncounterRecords.length > 0) {
       const approvedFruitRecords = savedEncounterRecords.filter(({ record }) => (
-        record.status === "approved" && Boolean(record.public_summary)
+        record.status === "approved" && Boolean(record.public_summary) && record.do_not_publish !== true
       ));
       const hiddenFruitEncounterIds = savedEncounterRecords
-        .filter(({ record }) => record.status !== "approved")
+        .filter(({ record }) => record.status !== "approved" || record.do_not_publish === true)
         .map(({ id }) => id);
 
       if (hiddenFruitEncounterIds.length > 0) {

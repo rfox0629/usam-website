@@ -52,6 +52,7 @@ export type AdminSupportMode = SupportRoutingMode;
 // support_team.
 export type AdminEncounterStatus = "raw" | "reviewed" | "approved" | "hidden" | "archived";
 export type AdminEncounterSource = "manual" | "public_form" | "dos";
+export type AdminEncounterSubmissionType = "full_testimony" | "quick_response";
 export type AdminOutcomeTag =
   | "Baptism"
   | "Church Connection"
@@ -149,8 +150,10 @@ export type AdminMissionaryTable = {
 // them before any approved Fruit is derived.
 export type AdminEncounterSubmission = {
   created_at: string;
+  do_not_publish: boolean;
   encounter_date: string | null;
   id: string;
+  internal_notes: string | null;
   missionary_household_id: string | null;
   missionary_profile_id: string | null;
   original_testimony: string;
@@ -159,6 +162,7 @@ export type AdminEncounterSubmission = {
   public_summary: string | null;
   source: AdminEncounterSource;
   status: AdminEncounterStatus;
+  submission_type: AdminEncounterSubmissionType;
   submitter_email: string | null;
   submitter_name: string | null;
   submitter_phone: string | null;
@@ -233,12 +237,6 @@ type CutoutGenerationState = {
 type StoryRefinementState = {
   message?: string;
   status: "idle" | "refining" | "success" | "error";
-};
-
-type EncounterSummaryState = {
-  encounterId?: string;
-  message?: string;
-  status: "idle" | "summarizing" | "success" | "error";
 };
 
 type TableDraft = {
@@ -372,8 +370,6 @@ const encounterStatusOptions: Array<{ label: string; value: AdminEncounterStatus
   { label: "RAW", value: "raw" },
   { label: "REVIEWED", value: "reviewed" },
   { label: "APPROVED", value: "approved" },
-  { label: "HIDDEN", value: "hidden" },
-  { label: "ARCHIVED", value: "archived" },
 ];
 
 const teamMemberStatusOptions: Array<{ label: string; value: AdminTeamMemberStatus }> = [
@@ -549,8 +545,10 @@ function newEncounter(householdId: string, table?: Pick<AdminMissionaryTable, "i
 
   return {
     created_at: timestamp,
+    do_not_publish: false,
     encounter_date: table?.table_date ?? todayDateValue(),
     id: newClientId(),
+    internal_notes: "",
     missionary_household_id: householdId,
     missionary_profile_id: householdId,
     original_testimony: "",
@@ -559,6 +557,7 @@ function newEncounter(householdId: string, table?: Pick<AdminMissionaryTable, "i
     public_summary: "",
     source: "manual",
     status: "raw",
+    submission_type: "full_testimony",
     submitter_email: "",
     submitter_name: "",
     submitter_phone: "",
@@ -1729,6 +1728,10 @@ function encounterSourceLabel(value: AdminEncounterSource) {
   }
 }
 
+function submissionTypeLabel(value: AdminEncounterSubmissionType) {
+  return value === "quick_response" ? "Quick Response" : "Full Testimony";
+}
+
 function tableTypeLabel(value: AdminTableType | string | null | undefined) {
   return tableTypeOptions.find((option) => option.value === value)?.label ?? "Kitchen Table";
 }
@@ -2172,9 +2175,7 @@ function EncounterSubmissionManager({
   onAdd,
   onEditingEncounterIdChange,
   onQuickStatus,
-  onSummarize,
   onUpdate,
-  summaryState,
   tables,
 }: {
   editingEncounterId?: string | null;
@@ -2182,9 +2183,7 @@ function EncounterSubmissionManager({
   onAdd: (table?: AdminMissionaryTable) => string | null;
   onEditingEncounterIdChange?: (encounterId: string | null) => void;
   onQuickStatus: (submissionId: string, status: AdminEncounterStatus) => void;
-  onSummarize: (submissionId: string) => void;
   onUpdate: (submissionId: string, patch: Partial<AdminEncounterSubmission>) => void;
-  summaryState: EncounterSummaryState;
   tables: readonly AdminMissionaryTable[];
 }) {
   const [localEditingEncounterId, setLocalEditingEncounterId] = useState<string | null>(null);
@@ -2241,7 +2240,7 @@ function EncounterSubmissionManager({
         <table className="w-full table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-              {["Person", "Table", "Original Testimony", "Summary", "Outcomes", "Status", "Date", "Actions"].map((heading) => (
+              {["Person", "Type", "Table", "Original Text", "Fruit Summary", "Status", "Date", "Actions"].map((heading) => (
                 <th
                   className="border-r border-[#e2ded5] px-3 py-3 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] last:border-r-0"
                   key={heading}
@@ -2270,6 +2269,9 @@ function EncounterSubmissionManager({
                   </span>
                 </td>
                 <td className="border-r border-[#e2ded5] px-3 py-3 align-middle text-sm text-[#4b443b]">
+                  {submissionTypeLabel(item.submission_type)}
+                </td>
+                <td className="border-r border-[#e2ded5] px-3 py-3 align-middle text-sm text-[#4b443b]">
                   {itemTable ? tableLabel(itemTable) : "No table"}
                 </td>
                 <td className="border-r border-[#e2ded5] px-3 py-3 align-middle text-sm leading-5 text-[#4b443b]">
@@ -2279,32 +2281,23 @@ function EncounterSubmissionManager({
                   {truncateText(item.public_summary || "Not summarized yet.", 96)}
                 </td>
                 <td className="border-r border-[#e2ded5] px-3 py-3 align-middle">
-                  <div className="flex flex-wrap gap-1.5">
-                    {item.outcome_tags.length > 0 ? item.outcome_tags.map((tag) => (
-                      <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2 py-1 text-[8px] uppercase tracking-[0.12em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        {tag}
+                  <div className="flex flex-wrap gap-2">
+                    <EncounterStatusBadge status={item.status} />
+                    {item.do_not_publish ? (
+                      <span className="inline-flex min-h-6 items-center border border-red-200 bg-red-50 px-2 text-[9px] uppercase tracking-[0.16em] text-red-700" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Private
                       </span>
-                    )) : (
-                      <span className="text-xs text-[#7b746a]">No tags</span>
-                    )}
+                    ) : null}
                   </div>
-                </td>
-                <td className="border-r border-[#e2ded5] px-3 py-3 align-middle">
-                  <EncounterStatusBadge status={item.status} />
                 </td>
                 <td className="border-r border-[#e2ded5] px-3 py-3 align-middle text-sm text-[#4b443b]">
                   {item.encounter_date ? formatProfileUpdatedDate(item.encounter_date) : formatProfileUpdatedDate(item.created_at)}
                 </td>
                 <td className="px-3 py-3 align-middle">
                   <div className="flex flex-wrap gap-2">
-                    <button className={lightSecondaryButtonClass} onClick={() => setEditingEncounterId(item.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">View</button>
-                    <button className={lightSecondaryButtonClass} onClick={() => setEditingEncounterId(item.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Edit</button>
-                    <button className={lightSecondaryButtonClass} disabled={summaryState.status === "summarizing" && summaryState.encounterId === item.id} onClick={() => onSummarize(item.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                      {summaryState.status === "summarizing" && summaryState.encounterId === item.id ? "Summarizing" : "Summarize"}
-                    </button>
-                    <button className={lightSecondaryButtonClass} onClick={() => onQuickStatus(item.id, "approved")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Approve</button>
-                    <button className={lightSecondaryButtonClass} onClick={() => onQuickStatus(item.id, "hidden")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Hide</button>
-                    <button className="rounded-md border border-red-200 bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-red-700 hover:border-red-400 hover:text-red-800" onClick={() => onQuickStatus(item.id, "archived")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Archive</button>
+                    <button className={lightSecondaryButtonClass} onClick={() => setEditingEncounterId(item.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Review</button>
+                    <button className={lightSecondaryButtonClass} disabled={!item.public_summary?.trim() || item.do_not_publish} onClick={() => onQuickStatus(item.id, "approved")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Approve</button>
+                    <button className="rounded-md border border-red-200 bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-red-700 hover:border-red-400 hover:text-red-800" onClick={() => onUpdate(item.id, { do_not_publish: true, permission_to_share: false, status: item.status === "approved" ? "reviewed" : item.status })} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Private</button>
                   </div>
                 </td>
               </tr>
@@ -2314,21 +2307,11 @@ function EncounterSubmissionManager({
         </table>
       </div>
 
-      {summaryState.message ? (
-        <p className={`rounded-xl border p-3 text-sm leading-6 ${
-          summaryState.status === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-[#e2ded5] bg-white text-[#6f6658]"
-        }`}>
-          {summaryState.message}
-        </p>
-      ) : null}
-
       {editingEncounter ? (
         <EncounterEditorModal
           encounter={editingEncounter}
           onClose={() => setEditingEncounterId(null)}
-          onSummarize={() => onSummarize(editingEncounter.id)}
           onUpdate={onUpdate}
-          summaryState={summaryState}
           tables={tables}
         />
       ) : null}
@@ -2339,29 +2322,15 @@ function EncounterSubmissionManager({
 function EncounterEditorModal({
   encounter,
   onClose,
-  onSummarize,
   onUpdate,
-  summaryState,
   tables,
 }: {
   encounter: AdminEncounterSubmission;
   onClose: () => void;
-  onSummarize: () => void;
   onUpdate: (submissionId: string, patch: Partial<AdminEncounterSubmission>) => void;
-  summaryState: EncounterSummaryState;
   tables: readonly AdminMissionaryTable[];
 }) {
-  const isSummarizing = summaryState.status === "summarizing" && summaryState.encounterId === encounter.id;
   const selectedTable = tables.find((table) => table.id === encounter.table_id);
-
-  function updateEncounterTable(tableId: string) {
-    const nextTable = tables.find((table) => table.id === tableId);
-
-    onUpdate(encounter.id, {
-      encounter_date: nextTable?.table_date ?? encounter.encounter_date,
-      table_id: nextTable?.id ?? null,
-    });
-  }
 
   function toggleOutcomeTag(tag: AdminOutcomeTag) {
     const currentTags = new Set(encounter.outcome_tags);
@@ -2375,19 +2344,41 @@ function EncounterEditorModal({
     onUpdate(encounter.id, { outcome_tags: outcomeTagOptions.filter((option) => currentTags.has(option)) });
   }
 
+  function saveReview() {
+    onUpdate(encounter.id, {
+      status: encounter.status === "approved" ? "approved" : "reviewed",
+    });
+  }
+
+  function approveAsFruit() {
+    onUpdate(encounter.id, {
+      do_not_publish: false,
+      permission_to_share: true,
+      status: "approved",
+    });
+  }
+
+  function markPrivate() {
+    onUpdate(encounter.id, {
+      do_not_publish: true,
+      permission_to_share: false,
+      status: encounter.status === "raw" || encounter.status === "approved" ? "reviewed" : encounter.status,
+    });
+  }
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
-      <div className="mx-auto max-w-4xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
+      <div className="mx-auto max-w-5xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Encounter
+              Encounter Review
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-              {encounter.id.startsWith("new-") ? "Add Encounter" : "Edit Encounter"}
+              {encounter.submitter_name?.trim() || "Unnamed Encounter"}
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-              Keep the original testimony exact. Use the summary and outcome tags for approved Fruit.
+              Review raw Encounter intake, write a public-safe Fruit summary, then approve only what should feed Profile and future Field.
             </p>
           </div>
           <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
@@ -2395,62 +2386,98 @@ function EncounterEditorModal({
           </button>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <Field label="Name" onChange={(value) => onUpdate(encounter.id, { submitter_name: value })} value={encounter.submitter_name} />
-          <Field label="Email" onChange={(value) => onUpdate(encounter.id, { submitter_email: value })} value={encounter.submitter_email} />
-          <SelectField
-            helperText={selectedTable?.notes ? truncateText(selectedTable.notes, 120) : "Connect this raw encounter to a table meeting."}
-            label="Table"
-            onChange={updateEncounterTable}
-            options={[
-              { label: "No table selected", value: "" },
-              ...tables.map((table) => ({ label: tableLabel(table), value: table.id })),
-            ]}
-            value={encounter.table_id ?? ""}
-          />
-          <Field label="Encounter Date" onChange={(value) => onUpdate(encounter.id, { encounter_date: value })} type="date" value={encounter.encounter_date} />
-          <SelectField
-            label="Status"
-            onChange={(value) => onUpdate(encounter.id, {
-              permission_to_share: value === "approved" ? true : encounter.permission_to_share,
-              status: value as AdminEncounterStatus,
-            })}
-            options={encounterStatusOptions}
-            value={encounter.status}
-          />
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+            <DetailText label="Submitted Name" value={encounter.submitter_name?.trim() || "Unknown"} />
+          </div>
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+            <DetailText label="Submitted Email" value={encounter.submitter_email?.trim() || "Not provided"} />
+          </div>
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+            <DetailText label="Submission Type" value={submissionTypeLabel(encounter.submission_type)} />
+          </div>
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Status
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <EncounterStatusBadge status={encounter.status} />
+              {encounter.do_not_publish ? (
+                <span className="inline-flex min-h-6 items-center border border-red-200 bg-red-50 px-2 text-[9px] uppercase tracking-[0.16em] text-red-700" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Private
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4 md:col-span-2">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Linked Table
+            </p>
+            {selectedTable ? (
+              <button className={`${lightSecondaryButtonClass} mt-2`} type="button" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                {tableLabel(selectedTable)}
+              </button>
+            ) : (
+              <p className="mt-2 text-sm leading-6 text-[#111111]">
+                No table linked.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
             <TextArea
-              helperText="This stores the person's exact words. Do not edit this automatically."
-              label="Original Testimony / Review"
+              helperText="Raw Encounter text stays internal and is never published directly."
+              label="Original Encounter Text"
               onChange={(value) => onUpdate(encounter.id, { original_testimony: value })}
-              rows={12}
+              rows={16}
               value={encounter.original_testimony}
             />
           </div>
           <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-[#111111]">
-                  Summary
-                </p>
-                <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                  Clean, shareable version used for Fruit after approval. Raw testimony stays internal.
-                </p>
-              </div>
-              <button className={lightPrimaryButtonClass} disabled={isSummarizing} onClick={onSummarize} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                {isSummarizing ? "Summarizing" : "Summarize With AI"}
-              </button>
-            </div>
+            <p className="text-sm font-semibold text-[#111111]">
+              Review Panel
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+              Write only what can become approved Fruit. Internal notes stay inside Command Center.
+            </p>
             <TextArea
-              helperText="AI summaries never overwrite the original testimony."
-              label="Summary"
+              helperText="This is the only text that can publish after approval."
+              label="Public Fruit Summary"
               onChange={(value) => onUpdate(encounter.id, { public_summary: value })}
-              rows={12}
+              rows={7}
               value={encounter.public_summary}
             />
+            <div className="mt-4">
+              <TextArea
+                helperText="Command Center only. Not synced to public Profile or future Field summaries."
+                label="Internal Notes"
+                onChange={(value) => onUpdate(encounter.id, { internal_notes: value })}
+                rows={5}
+                value={encounter.internal_notes}
+              />
+            </div>
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
+              <input
+                checked={encounter.do_not_publish}
+                className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                onChange={(event) => onUpdate(encounter.id, {
+                  do_not_publish: event.target.checked,
+                  permission_to_share: event.target.checked ? false : encounter.permission_to_share,
+                  status: event.target.checked && encounter.status === "approved" ? "reviewed" : encounter.status,
+                })}
+                type="checkbox"
+              />
+              <span>
+                <span className="block text-[10px] uppercase tracking-[0.16em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Sensitive / Do Not Publish
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
+                  Keeps this Encounter out of approved Fruit, Profiles, and future Field summaries.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
 
@@ -2483,13 +2510,24 @@ function EncounterEditorModal({
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button
+            className={lightSecondaryButtonClass}
+            onClick={saveReview}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            Save Review
+          </button>
+          <button
             className={lightPrimaryButtonClass}
-            disabled={!encounter.public_summary?.trim()}
-            onClick={() => onUpdate(encounter.id, { permission_to_share: true, status: "approved" })}
+            disabled={!encounter.public_summary?.trim() || encounter.do_not_publish}
+            onClick={approveAsFruit}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="button"
           >
             Approve As Fruit
+          </button>
+          <button className="rounded-md border border-red-200 bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-red-700 hover:border-red-400 hover:text-red-800" onClick={markPrivate} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Mark Private
           </button>
           <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
             Done
@@ -2509,7 +2547,7 @@ function FruitPipelineState({
 }) {
   // Fruit is the curated output layer. It references approved Encounters and
   // displays only reviewed summaries and tags, never raw testimony text.
-  const approvedFruit = encounters.filter((encounter) => encounter.status === "approved");
+  const approvedFruit = encounters.filter((encounter) => encounter.status === "approved" && !encounter.do_not_publish);
   const outcomeCounts = outcomeTagOptions.map((tag) => ({
     count: approvedFruit.filter((encounter) => encounter.outcome_tags.includes(tag)).length,
     tag,
@@ -2571,6 +2609,9 @@ function FruitPipelineState({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {table ? "Linked Table" : "No Linked Table"}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[#7b746a]">
                     {table ? tableLabel(table) : "Approved Encounter"}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-[#111111]">
@@ -2580,6 +2621,9 @@ function FruitPipelineState({
                 <EncounterStatusBadge status={encounter.status} />
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {formatProfileUpdatedDate(encounter.encounter_date ?? encounter.created_at)}
+                </span>
                 {encounter.outcome_tags.length > 0 ? encounter.outcome_tags.map((tag) => (
                   <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     {tag}
@@ -3160,9 +3204,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [storyRefinementState, setStoryRefinementState] = useState<StoryRefinementState>({
     status: "idle",
   });
-  const [encounterSummaryState, setEncounterSummaryState] = useState<EncounterSummaryState>({
-    status: "idle",
-  });
   const [focusedEncounterId, setFocusedEncounterId] = useState<string | null>(null);
   const [targetHouseholdError, setTargetHouseholdError] = useState("");
   const [targetHouseholdLoadState, setTargetHouseholdLoadState] = useState<TargetHouseholdLoadState>("idle");
@@ -3252,7 +3293,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     setIsCutoutReviewConfirmed(false);
     setCutoutGenerationState({ status: "idle" });
     setStoryRefinementState({ status: "idle" });
-    setEncounterSummaryState({ status: "idle" });
     setFocusedEncounterId(null);
   }, [selectedId]);
 
@@ -3608,6 +3648,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     const encounter = {
       ...newEncounter(selectedProfile.id, table),
       original_testimony: draft.text,
+      submission_type: draft.length === "short" ? "quick_response" as const : "full_testimony" as const,
       submitter_email: draft.email,
       submitter_name: draft.name,
     };
@@ -3629,67 +3670,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   function quickUpdateEncounterStatus(submissionId: string, status: AdminEncounterStatus) {
     updateEncounterSubmission(
       submissionId,
-      status === "approved" ? { permission_to_share: true, status } : { status },
+      status === "approved" ? { do_not_publish: false, permission_to_share: true, status } : { status },
     );
-  }
-
-  async function summarizeEncounter(submissionId: string) {
-    const encounter = selectedProfile?.encounterSubmissions?.find((item) => item.id === submissionId);
-
-    if (!encounter) {
-      return;
-    }
-
-    if (!encounter.original_testimony.trim()) {
-      setEncounterSummaryState({
-        encounterId: submissionId,
-        message: "Add the original testimony before summarizing.",
-        status: "error",
-      });
-      return;
-    }
-
-    setEncounterSummaryState({
-      encounterId: submissionId,
-      message: "Summarizing encounter with AI...",
-      status: "summarizing",
-    });
-
-    try {
-      const response = await fetch("/api/admin/missionary-profiles/summarize-encounter", {
-        body: JSON.stringify({
-          originalTestimony: encounter.original_testimony,
-          submitterName: encounter.submitter_name,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      });
-      const result = await response.json().catch(() => ({})) as {
-        error?: string;
-        publicSummary?: string;
-      };
-
-      if (!response.ok || !result.publicSummary) {
-        throw new Error(result.error || "We could not summarize the encounter. Please try again.");
-      }
-
-      updateEncounterSubmission(submissionId, {
-        public_summary: result.publicSummary,
-      });
-      setEncounterSummaryState({
-        encounterId: submissionId,
-        message: "Public summary generated. Review it, then click Save Updates.",
-        status: "success",
-      });
-    } catch (error) {
-      setEncounterSummaryState({
-        encounterId: submissionId,
-        message: error instanceof Error ? error.message : "We could not summarize the encounter. Please try again.",
-        status: "error",
-      });
-    }
   }
 
   function updateTeamMember(memberId: string, patch: Partial<AdminTeamMember>) {
@@ -4723,9 +4705,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               onAdd={addEncounter}
               onEditingEncounterIdChange={setFocusedEncounterId}
               onQuickStatus={quickUpdateEncounterStatus}
-              onSummarize={summarizeEncounter}
               onUpdate={updateEncounterSubmission}
-              summaryState={encounterSummaryState}
               tables={selectedProfile.tables ?? []}
             />
           </SectionIntro>
