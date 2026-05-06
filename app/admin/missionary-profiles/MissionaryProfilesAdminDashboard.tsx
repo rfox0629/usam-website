@@ -64,6 +64,21 @@ export type AdminOutcomeTag =
   | "Salvation";
 export type AdminTableType = "coffee" | "group" | "kitchen_table" | "other" | "phone" | "zoom";
 export type AdminFieldPersonStatus = "active" | "archived" | "discipleship" | "follow_up" | "new" | "paused";
+export type AdminMovementStep =
+  | "Begin discipleship"
+  | "Connect to church"
+  | "Connect to ministry"
+  | "Continue meeting"
+  | "Hand off"
+  | "Invite to group"
+  | "Other"
+  | "Pray and wait"
+  | "Send follow up";
+export type AdminTeachingUsed = "Are You Really a Disciple" | "Commands of Jesus" | "Kitchen Table Gospel" | "Other";
+export type AdminReadiness = "Actively following" | "Curious" | "Not ready" | "Open" | "Ready to follow";
+export type AdminAssessmentFollowUpArea = "Baptism" | "Community" | "Obedience" | "Prayer" | "Repentance" | "Scripture";
+export type AdminConnectionType = "Coffee" | "Discipleship" | "Other" | "Phone call" | "Prayer" | "Text" | "Zoom";
+export type AdminFruitStatus = "approved" | "draft" | "private";
 export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
 export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 
@@ -192,6 +207,74 @@ export type AdminEncounterSubmission = {
   updated_at: string | null;
 };
 
+export type AdminTableReview = {
+  assessment_notes: string | null;
+  breakthroughs_or_concerns: string | null;
+  created_at: string;
+  follow_up_areas: AdminAssessmentFollowUpArea[];
+  follow_up_needed: string | null;
+  household_id: string;
+  how_meeting_went: string | null;
+  id: string;
+  key_observations: string | null;
+  movement_step: AdminMovementStep | null;
+  questions_covered: string | null;
+  readiness: AdminReadiness | null;
+  table_id: string;
+  teaching_used: AdminTeachingUsed | null;
+  updated_at: string | null;
+};
+
+export type AdminFruitItem = {
+  created_at: string;
+  encounter_id: string | null;
+  field_person_id: string | null;
+  household_id: string;
+  id: string;
+  internal_notes: string | null;
+  outcome_tags: AdminOutcomeTag[];
+  status: AdminFruitStatus;
+  summary: string;
+  table_id: string | null;
+  testimony_date: string | null;
+  updated_at: string | null;
+};
+
+export type AdminConnectionLog = {
+  connection_date: string;
+  created_at: string;
+  duration_minutes: number | null;
+  field_person_id: string | null;
+  follow_up_needed: string | null;
+  household_id: string;
+  id: string;
+  interaction_type: AdminConnectionType;
+  movement_step: AdminMovementStep | null;
+  notes: string | null;
+  updated_at: string | null;
+};
+
+export type AdminLibraryItem = {
+  category: string | null;
+  content_notes: string | null;
+  created_at: string;
+  description: string | null;
+  household_id: string;
+  id: string;
+  title: string;
+  updated_at: string | null;
+};
+
+export type AdminInSeasonFocus = {
+  active_people_note: string | null;
+  active_tables_note: string | null;
+  current_focus: string | null;
+  household_id: string;
+  id: string;
+  prayer_emphasis: string | null;
+  updated_at: string | null;
+};
+
 // Team is a public-facing roster surface only. Do not use it to store
 // disciples, follow-up contacts, or ministry relationships; those belong in
 // future People/Tables relationship models.
@@ -213,12 +296,17 @@ export type AdminTeamMember = {
 
 export type AdminProfile = AdminHousehold & {
   activePrayerRequestCount?: number;
+  connectionLogs?: AdminConnectionLog[];
   encounterSubmissions?: AdminEncounterSubmission[];
   fieldPeople?: AdminFieldPerson[];
+  fruitItems?: AdminFruitItem[];
+  inSeasonFocus?: AdminInSeasonFocus;
+  libraryItems?: AdminLibraryItem[];
   prayerPartnerCount?: number;
   publicFruitItemCount?: number;
   support?: AdminSupportSettings;
   tables?: AdminMissionaryTable[];
+  tableReviews?: AdminTableReview[];
   teamMembers?: AdminTeamMember[];
 };
 
@@ -280,11 +368,40 @@ type QuickEncounterDraft = {
 type FieldPersonDraft = {
   church: string;
   email: string;
+  engagementLevel: string;
   name: string;
   notes: string;
   phone: string;
   relationshipType: string;
   status: AdminFieldPersonStatus;
+};
+
+type ConnectionDraft = {
+  connectionDate: string;
+  durationMinutes: string;
+  fieldPersonId: string;
+  followUpNeeded: string;
+  interactionType: AdminConnectionType;
+  movementStep: AdminMovementStep | "";
+  notes: string;
+};
+
+type LibraryItemDraft = {
+  category: string;
+  contentNotes: string;
+  description: string;
+  title: string;
+};
+
+type FruitDraft = {
+  encounterId: string;
+  fieldPersonId: string;
+  internalNotes: string;
+  outcomeTags: AdminOutcomeTag[];
+  status: AdminFruitStatus;
+  summary: string;
+  tableId: string;
+  testimonyDate: string;
 };
 
 const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
@@ -392,6 +509,65 @@ const outcomeTagOptions: AdminOutcomeTag[] = [
   "Discipleship",
   "Prayer Answered",
   "Other",
+];
+
+const movementStepOptions: AdminMovementStep[] = [
+  "Continue meeting",
+  "Begin discipleship",
+  "Send follow up",
+  "Invite to group",
+  "Connect to church",
+  "Connect to ministry",
+  "Hand off",
+  "Pray and wait",
+  "Other",
+];
+
+const movementStepSelectOptions: Array<{ label: string; value: string }> = [
+  { label: "Select next step", value: "" },
+  ...movementStepOptions.map((step) => ({ label: step, value: step })),
+];
+
+const teachingUsedOptions: Array<{ label: string; value: string }> = [
+  { label: "Select teaching", value: "" },
+  { label: "Kitchen Table Gospel", value: "Kitchen Table Gospel" },
+  { label: "Are You Really a Disciple", value: "Are You Really a Disciple" },
+  { label: "Commands of Jesus", value: "Commands of Jesus" },
+  { label: "Other", value: "Other" },
+];
+
+const readinessOptions: Array<{ label: string; value: string }> = [
+  { label: "Select readiness", value: "" },
+  { label: "Not ready", value: "Not ready" },
+  { label: "Curious", value: "Curious" },
+  { label: "Open", value: "Open" },
+  { label: "Ready to follow", value: "Ready to follow" },
+  { label: "Actively following", value: "Actively following" },
+];
+
+const assessmentFollowUpAreaOptions: AdminAssessmentFollowUpArea[] = [
+  "Repentance",
+  "Baptism",
+  "Scripture",
+  "Prayer",
+  "Community",
+  "Obedience",
+];
+
+const connectionTypeOptions: Array<{ label: string; value: AdminConnectionType }> = [
+  { label: "Phone call", value: "Phone call" },
+  { label: "Zoom", value: "Zoom" },
+  { label: "Text", value: "Text" },
+  { label: "Coffee", value: "Coffee" },
+  { label: "Prayer", value: "Prayer" },
+  { label: "Discipleship", value: "Discipleship" },
+  { label: "Other", value: "Other" },
+];
+
+const fruitStatusOptions: Array<{ label: string; value: AdminFruitStatus }> = [
+  { label: "Draft", value: "draft" },
+  { label: "Approved", value: "approved" },
+  { label: "Private", value: "private" },
 ];
 
 const tableTypeOptions: Array<{ label: string; value: AdminTableType }> = [
@@ -608,6 +784,92 @@ function newEncounter(householdId: string, table?: Pick<AdminMissionaryTable, "i
     submitter_name: "",
     submitter_phone: "",
     table_id: table?.id ?? null,
+    updated_at: timestamp,
+  };
+}
+
+function newTableReview(householdId: string, tableId: string): AdminTableReview {
+  const timestamp = new Date().toISOString();
+
+  return {
+    assessment_notes: "",
+    breakthroughs_or_concerns: "",
+    created_at: timestamp,
+    follow_up_areas: [],
+    follow_up_needed: "",
+    household_id: householdId,
+    how_meeting_went: "",
+    id: newClientId(),
+    key_observations: "",
+    movement_step: null,
+    questions_covered: "",
+    readiness: null,
+    table_id: tableId,
+    teaching_used: null,
+    updated_at: timestamp,
+  };
+}
+
+function newConnectionLog(householdId: string, draft: ConnectionDraft): AdminConnectionLog {
+  const timestamp = new Date().toISOString();
+
+  return {
+    connection_date: draft.connectionDate || todayDateValue(),
+    created_at: timestamp,
+    duration_minutes: Number.isFinite(Number(draft.durationMinutes)) ? Number(draft.durationMinutes) : null,
+    field_person_id: draft.fieldPersonId || null,
+    follow_up_needed: draft.followUpNeeded,
+    household_id: householdId,
+    id: newClientId(),
+    interaction_type: draft.interactionType,
+    movement_step: draft.movementStep || null,
+    notes: draft.notes,
+    updated_at: timestamp,
+  };
+}
+
+function newLibraryItem(householdId: string, draft: LibraryItemDraft): AdminLibraryItem {
+  const timestamp = new Date().toISOString();
+
+  return {
+    category: draft.category,
+    content_notes: draft.contentNotes,
+    created_at: timestamp,
+    description: draft.description,
+    household_id: householdId,
+    id: newClientId(),
+    title: draft.title,
+    updated_at: timestamp,
+  };
+}
+
+function emptyInSeasonFocus(householdId: string): AdminInSeasonFocus {
+  return {
+    active_people_note: "",
+    active_tables_note: "",
+    current_focus: "",
+    household_id: householdId,
+    id: newClientId(),
+    prayer_emphasis: "",
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function newFruitItem(householdId: string, draft: FruitDraft, table?: AdminMissionaryTable | null): AdminFruitItem {
+  const timestamp = new Date().toISOString();
+
+  return {
+    created_at: timestamp,
+    encounter_id: draft.encounterId || null,
+    field_person_id: draft.fieldPersonId || null,
+    household_id: householdId,
+    id: newClientId(),
+    internal_notes: draft.internalNotes,
+    outcome_tags: draft.outcomeTags,
+    status: draft.status,
+    summary: draft.summary,
+    table_id: draft.tableId || null,
+    testimony_date: draft.testimonyDate || table?.table_date || todayDateValue(),
     updated_at: timestamp,
   };
 }
@@ -1473,7 +1735,7 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
         <StatPreview label="Your Field" tone="light" value={String(profile.fieldPeople?.length ?? 0)} />
         <StatPreview label="Tables" tone="light" value={String(profile.tables?.length ?? 0)} />
         <StatPreview label="Encounters" tone="light" value={String(profile.encounterSubmissions?.length ?? 0)} />
-        <StatPreview label="Approved Fruit" tone="light" value={String(profile.encounterSubmissions?.filter((encounter) => encounter.status === "approved").length ?? 0)} />
+        <StatPreview label="Approved Fruit" tone="light" value={String(profile.fruitItems?.filter((fruit) => fruit.status === "approved").length ?? 0)} />
         <StatPreview label="Public Team" tone="light" value={String(profile.teamMembers?.filter((member) => member.status === "active" && member.is_public !== false).length ?? 0)} />
         <StatPreview label="Prayer Requests" tone="light" value={String(profile.activePrayerRequestCount ?? 0)} />
       </div>
@@ -1763,6 +2025,50 @@ function EncounterStatusBadge({ status }: { status: AdminEncounterStatus }) {
   );
 }
 
+function fruitStatusLabel(value: AdminFruitStatus) {
+  switch (value) {
+    case "approved":
+      return "Approved";
+    case "private":
+      return "Private";
+    case "draft":
+    default:
+      return "Draft";
+  }
+}
+
+function FruitStatusBadge({ status }: { status: AdminFruitStatus }) {
+  const className = {
+    approved: "border-green-200 bg-green-50 text-green-800",
+    draft: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
+    private: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
+  }[status];
+
+  return (
+    <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      {fruitStatusLabel(status)}
+    </span>
+  );
+}
+
+function personNameById(people: readonly AdminFieldPerson[], personId: string | null | undefined) {
+  return people.find((person) => person.id === personId)?.name ?? "Not linked";
+}
+
+function tableNameById(tables: readonly AdminMissionaryTable[], tableId: string | null | undefined) {
+  const table = tables.find((item) => item.id === tableId);
+
+  return table ? tableLabel(table) : "Not linked";
+}
+
+function formatDurationMinutes(value: number | null | undefined) {
+  if (!value) {
+    return "Not set";
+  }
+
+  return `${value} min`;
+}
+
 function encounterSourceLabel(value: AdminEncounterSource) {
   switch (value) {
     case "dos":
@@ -2020,6 +2326,7 @@ function PersonEditorModal({
   const [draft, setDraft] = useState<FieldPersonDraft>({
     church: person?.church ?? "",
     email: person?.email ?? "",
+    engagementLevel: person?.engagement_level ?? "",
     name: person?.name ?? "",
     notes: person?.notes ?? "",
     phone: person?.phone ?? "",
@@ -2099,6 +2406,11 @@ function PersonEditorModal({
                   label="Relationship Type"
                   onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, relationshipType: value }))}
                   value={draft.relationshipType}
+                />
+                <Field
+                  label="Engagement Level"
+                  onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, engagementLevel: value }))}
+                  value={draft.engagementLevel}
                 />
               </div>
             ) : null}
@@ -2185,17 +2497,29 @@ function tablePeopleLabel(table: AdminMissionaryTable, encounters: readonly Admi
 function TablesManager({
   encounters,
   fieldPeople,
+  fruitItems,
   items,
   onAddEncounter,
+  onCreateFruit,
   onCreate,
+  onUpdateFruit,
+  onUpdatePersonProfile,
+  onUpdateReview,
   onUpdate,
+  tableReviews,
 }: {
   encounters: readonly AdminEncounterSubmission[];
   fieldPeople: readonly AdminFieldPerson[];
+  fruitItems: readonly AdminFruitItem[];
   items: readonly AdminMissionaryTable[];
   onAddEncounter: (table: AdminMissionaryTable, draft: QuickEncounterDraft) => void;
+  onCreateFruit: (draft: FruitDraft, table?: AdminMissionaryTable | null) => void;
   onCreate: (draft: TableDraft) => AdminMissionaryTable | null;
+  onUpdateFruit: (fruitId: string, patch: Partial<AdminFruitItem>) => void;
+  onUpdatePersonProfile: (person: AdminFieldPerson, patch: Partial<Pick<AdminFieldPerson, "church" | "engagement_level" | "relationship_type">>) => void;
+  onUpdateReview: (tableId: string, patch: Partial<AdminTableReview>) => void;
   onUpdate: (tableId: string, draft: TableDraft) => AdminMissionaryTable | null;
+  tableReviews: readonly AdminTableReview[];
 }) {
   const sortedTables = useMemo(
     () => [...items].sort((first, second) => (
@@ -2330,7 +2654,13 @@ function TablesManager({
           <TableDetailPanel
             encounters={encounters.filter((encounter) => encounter.table_id === selectedTable?.id)}
             fieldPeople={fieldPeople}
+            fruitItems={fruitItems.filter((fruit) => fruit.table_id === selectedTable?.id)}
             onAddEncounter={(table) => setQuickEncounterTable(table)}
+            onCreateFruit={onCreateFruit}
+            onUpdateFruit={onUpdateFruit}
+            onUpdatePersonProfile={onUpdatePersonProfile}
+            onUpdateReview={onUpdateReview}
+            review={tableReviews.find((item) => item.table_id === selectedTable?.id) ?? null}
             table={selectedTable}
           />
         </div>
@@ -2370,14 +2700,29 @@ function TablesManager({
 function TableDetailPanel({
   encounters,
   fieldPeople,
+  fruitItems,
   onAddEncounter,
+  onCreateFruit,
+  onUpdateFruit,
+  onUpdatePersonProfile,
+  onUpdateReview,
+  review,
   table,
 }: {
   encounters: readonly AdminEncounterSubmission[];
   fieldPeople: readonly AdminFieldPerson[];
+  fruitItems: readonly AdminFruitItem[];
   onAddEncounter: (table: AdminMissionaryTable) => void;
+  onCreateFruit: (draft: FruitDraft, table?: AdminMissionaryTable | null) => void;
+  onUpdateFruit: (fruitId: string, patch: Partial<AdminFruitItem>) => void;
+  onUpdatePersonProfile: (person: AdminFieldPerson, patch: Partial<Pick<AdminFieldPerson, "church" | "engagement_level" | "relationship_type">>) => void;
+  onUpdateReview: (tableId: string, patch: Partial<AdminTableReview>) => void;
+  review: AdminTableReview | null;
   table: AdminMissionaryTable | null;
 }) {
+  const [editingFruit, setEditingFruit] = useState<AdminFruitItem | null>(null);
+  const [isFruitModalOpen, setIsFruitModalOpen] = useState(false);
+
   if (!table) {
     return (
       <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
@@ -2386,9 +2731,30 @@ function TableDetailPanel({
     );
   }
 
-  const peopleLabel = tableLinkedPeople(table, fieldPeople).length > 0
-    ? participantNamesText(tableLinkedPeople(table, fieldPeople))
+  const activeTable = table;
+  const peopleLabel = tableLinkedPeople(activeTable, fieldPeople).length > 0
+    ? participantNamesText(tableLinkedPeople(activeTable, fieldPeople))
     : "Not added";
+  const linkedPeople = fieldPeople.filter((person) => activeTable.field_person_ids.includes(person.id));
+  const activeReview = review ?? newTableReview(activeTable.household_id, activeTable.id);
+
+  function updateReview(patch: Partial<AdminTableReview>) {
+    onUpdateReview(activeTable.id, patch);
+  }
+
+  function toggleAssessmentArea(area: AdminAssessmentFollowUpArea) {
+    const currentAreas = new Set(activeReview.follow_up_areas);
+
+    if (currentAreas.has(area)) {
+      currentAreas.delete(area);
+    } else {
+      currentAreas.add(area);
+    }
+
+    updateReview({
+      follow_up_areas: assessmentFollowUpAreaOptions.filter((option) => currentAreas.has(option)),
+    });
+  }
 
   return (
     <aside className="space-y-4 rounded-xl border border-[#e2ded5] bg-white p-4">
@@ -2462,19 +2828,457 @@ function TableDetailPanel({
         </div>
       </div>
 
-      <div className="grid gap-3 border-t border-[#e2ded5] pt-4">
-        <WorkspacePlanningState
-          description="Review will capture missionary interpretation after the Table and Encounter are logged."
-          labels={["Coming next", "Internal only"]}
-          title="Review"
+      <div className="space-y-4 border-t border-[#e2ded5] pt-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Missionary Review
+          </p>
+          <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+            Internal interpretation of this meeting. This stays in Command Center unless it becomes approved Fruit.
+          </p>
+        </div>
+        <TextArea
+          label="How did the meeting go?"
+          onChange={(value) => updateReview({ how_meeting_went: value })}
+          rows={3}
+          value={activeReview.how_meeting_went}
         />
-        <WorkspacePlanningState
-          description="Discipleship Assessment will capture teaching used, questions covered, readiness, and follow-up needs for this meeting."
-          labels={["Nested under Table", "Not stored on People"]}
-          title="Discipleship Assessment"
+        <TextArea
+          label="Key observations"
+          onChange={(value) => updateReview({ key_observations: value })}
+          rows={3}
+          value={activeReview.key_observations}
+        />
+        <TextArea
+          label="Breakthroughs or concerns"
+          onChange={(value) => updateReview({ breakthroughs_or_concerns: value })}
+          rows={3}
+          value={activeReview.breakthroughs_or_concerns}
+        />
+        <TextArea
+          label="Follow up needed"
+          onChange={(value) => updateReview({ follow_up_needed: value })}
+          rows={3}
+          value={activeReview.follow_up_needed}
+        />
+        <SelectField
+          label="Movement Step"
+          onChange={(value) => updateReview({ movement_step: value ? value as AdminMovementStep : null })}
+          options={movementStepSelectOptions}
+          value={activeReview.movement_step ?? ""}
         />
       </div>
+
+      <div className="space-y-4 border-t border-[#e2ded5] pt-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Discipleship Assessment
+          </p>
+          <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+            Structured spiritual insight for this meeting only. Assessment data is not stored on People.
+          </p>
+        </div>
+        <SelectField
+          label="Teaching Used"
+          onChange={(value) => updateReview({ teaching_used: value ? value as AdminTeachingUsed : null })}
+          options={teachingUsedOptions}
+          value={activeReview.teaching_used ?? ""}
+        />
+        <TextArea
+          label="Questions Covered"
+          onChange={(value) => updateReview({ questions_covered: value })}
+          rows={3}
+          value={activeReview.questions_covered}
+        />
+        <TextArea
+          label="Responses / Notes"
+          onChange={(value) => updateReview({ assessment_notes: value })}
+          rows={3}
+          value={activeReview.assessment_notes}
+        />
+        <SelectField
+          label="Readiness"
+          onChange={(value) => updateReview({ readiness: value ? value as AdminReadiness : null })}
+          options={readinessOptions}
+          value={activeReview.readiness ?? ""}
+        />
+        <div>
+          <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Areas Needing Follow Up
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {assessmentFollowUpAreaOptions.map((area) => {
+              const selected = activeReview.follow_up_areas.includes(area);
+
+              return (
+                <button
+                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
+                    selected
+                      ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                      : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
+                  }`}
+                  key={area}
+                  onClick={() => toggleAssessmentArea(area)}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  {area}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {linkedPeople.length > 0 ? (
+        <div className="space-y-4 border-t border-[#e2ded5] pt-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              What did you learn about this person?
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+              Update missing Person profile fields only. These changes save to Your Field, not this Table or Encounter.
+            </p>
+          </div>
+          {linkedPeople.map((person) => (
+            <ProfileUpdatePromptCard
+              key={person.id}
+              onSave={onUpdatePersonProfile}
+              person={person}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      <div className="space-y-4 border-t border-[#e2ded5] pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Fruit
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+              Create public-safe summaries from Encounter, Review, and Assessment. Raw text and internal notes stay internal.
+            </p>
+          </div>
+          <button className={lightPrimaryButtonClass} onClick={() => setIsFruitModalOpen(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Create Fruit Summary
+          </button>
+        </div>
+        <div className="space-y-2">
+          {fruitItems.length === 0 ? (
+            <p className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm text-[#7b746a]">
+              No Fruit summary has been created for this Table yet.
+            </p>
+          ) : null}
+          {fruitItems.map((fruit) => (
+            <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={fruit.id}>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm leading-5 text-[#111111]">
+                  {truncateText(fruit.summary || "Summary needed.", 100)}
+                </p>
+                <FruitStatusBadge status={fruit.status} />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {fruit.outcome_tags.length > 0 ? fruit.outcome_tags.map((tag) => (
+                  <span className="rounded-full border border-[#e2ded5] bg-white px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {tag}
+                  </span>
+                )) : (
+                  <span className="text-xs text-[#7b746a]">No outcome tags.</span>
+                )}
+              </div>
+              <button className={`${lightSecondaryButtonClass} mt-3`} onClick={() => setEditingFruit(fruit)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                Edit Fruit
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {isFruitModalOpen ? (
+        <FruitEditorModal
+          encounters={encounters}
+          fieldPeople={fieldPeople}
+          initialTable={table}
+          onClose={() => setIsFruitModalOpen(false)}
+          onSave={(draft) => {
+            onCreateFruit(draft, table);
+            setIsFruitModalOpen(false);
+          }}
+          tables={[table]}
+        />
+      ) : null}
+
+      {editingFruit ? (
+        <FruitEditorModal
+          encounters={encounters}
+          fieldPeople={fieldPeople}
+          fruit={editingFruit}
+          initialTable={table}
+          onClose={() => setEditingFruit(null)}
+          onSave={(draft) => {
+            onUpdateFruit(editingFruit.id, {
+              encounter_id: draft.encounterId || null,
+              field_person_id: draft.fieldPersonId || null,
+              internal_notes: draft.internalNotes,
+              outcome_tags: draft.outcomeTags,
+              status: draft.status,
+              summary: draft.summary,
+              table_id: draft.tableId || null,
+              testimony_date: draft.testimonyDate || table.table_date,
+              updated_at: new Date().toISOString(),
+            });
+            setEditingFruit(null);
+          }}
+          tables={[table]}
+        />
+      ) : null}
     </aside>
+  );
+}
+
+function ProfileUpdatePromptCard({
+  onSave,
+  person,
+}: {
+  onSave: (person: AdminFieldPerson, patch: Partial<Pick<AdminFieldPerson, "church" | "engagement_level" | "relationship_type">>) => void | Promise<void>;
+  person: AdminFieldPerson;
+}) {
+  const missingRelationship = !person.relationship_type?.trim();
+  const missingEngagement = !person.engagement_level?.trim();
+  const missingChurch = !person.church?.trim();
+  const showPromptFields = missingRelationship || missingEngagement || missingChurch;
+  const [church, setChurch] = useState(person.church ?? "");
+  const [engagementLevel, setEngagementLevel] = useState(person.engagement_level ?? "");
+  const [relationshipType, setRelationshipType] = useState(person.relationship_type ?? "");
+
+  useEffect(() => {
+    setChurch(person.church ?? "");
+    setEngagementLevel(person.engagement_level ?? "");
+    setRelationshipType(person.relationship_type ?? "");
+  }, [person.church, person.engagement_level, person.relationship_type]);
+
+  const hasChanges = church !== (person.church ?? "")
+    || engagementLevel !== (person.engagement_level ?? "")
+    || relationshipType !== (person.relationship_type ?? "");
+
+  return (
+    <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
+      <p className="text-sm font-semibold text-[#111111]">
+        {person.name}
+      </p>
+      {showPromptFields ? (
+        <div className="mt-3 grid gap-3">
+          {missingRelationship ? (
+            <Field
+              label="Relationship Type"
+              onChange={setRelationshipType}
+              value={relationshipType}
+            />
+          ) : null}
+          {missingEngagement ? (
+            <Field
+              label="Engagement Level"
+              onChange={setEngagementLevel}
+              value={engagementLevel}
+            />
+          ) : null}
+          {missingChurch ? (
+            <Field
+              label="Church / Spiritual Community"
+              onChange={setChurch}
+              value={church}
+            />
+          ) : null}
+          <div>
+            <button
+              className={lightSecondaryButtonClass}
+              disabled={!hasChanges}
+              onClick={() => onSave(person, {
+                church,
+                engagement_level: engagementLevel,
+                relationship_type: relationshipType,
+              })}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              Save Person Updates
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+          Relationship type, engagement level, and church/community are already filled.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FruitEditorModal({
+  encounters,
+  fieldPeople,
+  fruit,
+  initialTable,
+  onClose,
+  onSave,
+  tables,
+}: {
+  encounters: readonly AdminEncounterSubmission[];
+  fieldPeople: readonly AdminFieldPerson[];
+  fruit?: AdminFruitItem | null;
+  initialTable?: AdminMissionaryTable | null;
+  onClose: () => void;
+  onSave: (draft: FruitDraft) => void;
+  tables: readonly AdminMissionaryTable[];
+}) {
+  const [draft, setDraft] = useState<FruitDraft>({
+    encounterId: fruit?.encounter_id ?? "",
+    fieldPersonId: fruit?.field_person_id ?? initialTable?.field_person_ids[0] ?? "",
+    internalNotes: fruit?.internal_notes ?? "",
+    outcomeTags: fruit?.outcome_tags ?? [],
+    status: fruit?.status ?? "draft",
+    summary: fruit?.summary ?? "",
+    tableId: fruit?.table_id ?? initialTable?.id ?? "",
+    testimonyDate: fruit?.testimony_date ?? initialTable?.table_date ?? todayDateValue(),
+  });
+  const tableOptions = [
+    { label: "No linked table", value: "" },
+    ...tables.map((table) => ({ label: tableLabel(table), value: table.id })),
+  ];
+  const personOptions = [
+    { label: "No linked person", value: "" },
+    ...fieldPeople.map((person) => ({ label: person.name, value: person.id })),
+  ];
+  const encounterOptions = [
+    { label: "No linked encounter", value: "" },
+    ...encounters.map((encounter) => ({
+      label: `${encounter.submitter_name?.trim() || "Unnamed"} - ${submissionTypeLabel(encounter.submission_type)}`,
+      value: encounter.id,
+    })),
+  ];
+
+  function toggleOutcomeTag(tag: AdminOutcomeTag) {
+    const currentTags = new Set(draft.outcomeTags);
+
+    if (currentTags.has(tag)) {
+      currentTags.delete(tag);
+    } else {
+      currentTags.add(tag);
+    }
+
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      outcomeTags: outcomeTagOptions.filter((option) => currentTags.has(option)),
+    }));
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
+      <div className="mx-auto max-w-3xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {fruit ? "Edit Fruit" : "Create Fruit Summary"}
+            </p>
+            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+              Fruit Summary
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
+              Approved Fruit is the public-safe outcome layer. Raw Encounter text and internal notes stay in Command Center.
+            </p>
+          </div>
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <SelectField
+            label="Linked Table"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, tableId: value }))}
+            options={tableOptions}
+            value={draft.tableId}
+          />
+          <SelectField
+            label="Linked Person"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, fieldPersonId: value }))}
+            options={personOptions}
+            value={draft.fieldPersonId}
+          />
+          <SelectField
+            label="Linked Encounter"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, encounterId: value }))}
+            options={encounterOptions}
+            value={draft.encounterId}
+          />
+          <Field
+            label="Date"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, testimonyDate: value }))}
+            type="date"
+            value={draft.testimonyDate}
+          />
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <TextArea
+            helperText="Public-safe language only. This is the summary that can later feed Profile and Field after approval."
+            label="Public Fruit Summary"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, summary: value }))}
+            rows={5}
+            value={draft.summary}
+          />
+          <TextArea
+            helperText="Internal Command Center notes. Not public and not shown in future Field summaries."
+            label="Internal Notes"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, internalNotes: value }))}
+            rows={4}
+            value={draft.internalNotes}
+          />
+          <div>
+            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Outcome Tags
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {outcomeTagOptions.map((tag) => {
+                const selected = draft.outcomeTags.includes(tag);
+
+                return (
+                  <button
+                    className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
+                      selected
+                        ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                        : "border-[#e2ded5] bg-white text-[#6f6658] hover:border-[#c8952d]"
+                    }`}
+                    key={tag}
+                    onClick={() => toggleOutcomeTag(tag)}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <SelectField
+            label="Fruit Status"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, status: value as AdminFruitStatus }))}
+            options={fruitStatusOptions}
+            value={draft.status}
+          />
+        </div>
+
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Cancel
+          </button>
+          <button className={lightPrimaryButtonClass} disabled={!draft.summary.trim()} onClick={() => onSave(draft)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Save Fruit
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -3043,103 +3847,465 @@ function EncounterEditorModal({
   );
 }
 
-function FruitPipelineState({
+function FruitManager({
   encounters,
+  fieldPeople,
+  fruitItems,
+  onUpdateFruit,
   tables,
 }: {
   encounters: readonly AdminEncounterSubmission[];
+  fieldPeople: readonly AdminFieldPerson[];
+  fruitItems: readonly AdminFruitItem[];
+  onUpdateFruit: (fruitId: string, patch: Partial<AdminFruitItem>) => void;
   tables: readonly AdminMissionaryTable[];
 }) {
-  // Fruit is the curated output layer. It references approved Encounters and
-  // displays only reviewed summaries and tags, never raw testimony text.
-  const approvedFruit = encounters.filter((encounter) => encounter.status === "approved" && !encounter.do_not_publish);
+  const [editingFruit, setEditingFruit] = useState<AdminFruitItem | null>(null);
+  const approvedFruit = fruitItems.filter((fruit) => fruit.status === "approved");
+  const visibleFruit = fruitItems.filter((fruit) => fruit.status !== "private");
   const outcomeCounts = outcomeTagOptions.map((tag) => ({
-    count: approvedFruit.filter((encounter) => encounter.outcome_tags.includes(tag)).length,
+    count: approvedFruit.filter((fruit) => fruit.outcome_tags.includes(tag)).length,
     tag,
   }));
 
   return (
     <div className="space-y-5">
       <div className="max-w-3xl">
-        <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-          Fruit
-        </h3>
-        <p className="mt-3 text-sm leading-7 text-[#7b746a]">
-          Fruit is built from approved encounters. Only clean summaries and outcome tags appear here and publish forward; raw testimony stays in Encounters.
+        <p className="text-sm leading-7 text-[#7b746a]">
+          Fruit is the approved output layer created from Encounters, Review, and Discipleship Assessment. Raw responses and internal notes stay in Command Center.
         </p>
-        <DataFlowLabels items={["APPROVED only", "Updates Profile", "Feeds Field"]} />
+        <DataFlowLabels items={["Draft -> Approved", "Updates Profile later", "Feeds Field later"]} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <StatPreview label="Approved Fruit" tone="light" value={String(approvedFruit.length)} />
-        <StatPreview label="Outcome Tags" tone="light" value={String(approvedFruit.reduce((total, encounter) => total + encounter.outcome_tags.length, 0))} />
-        <StatPreview label="Tables With Fruit" tone="light" value={String(new Set(approvedFruit.map((encounter) => encounter.table_id).filter(Boolean)).size)} />
+        <StatPreview label="Draft Fruit" tone="light" value={String(fruitItems.filter((fruit) => fruit.status === "draft").length)} />
+        <StatPreview label="Outcome Tags" tone="light" value={String(approvedFruit.reduce((total, fruit) => total + fruit.outcome_tags.length, 0))} />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Outcome Counts
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {outcomeCounts.map((outcome) => (
-              <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" key={outcome.tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                {outcome.tag}: {outcome.count}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Publishing Rule
-          </p>
-          <p className="mt-3 text-sm leading-6 text-[#7b746a]">
-            Approved Fruit is derived from Encounters and synced as public-safe summaries. Original testimony text remains internal.
-          </p>
+      <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Outcome Counts
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {outcomeCounts.map((outcome) => (
+            <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" key={outcome.tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {outcome.tag}: {outcome.count}
+            </span>
+          ))}
         </div>
       </div>
 
-      {approvedFruit.length === 0 ? (
+      {fruitItems.length === 0 ? (
         <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
-          No encounters have been approved as Fruit yet.
+          No Fruit has been approved yet. Review a Table and create a Fruit Summary to begin tracking outcomes.
         </div>
       ) : null}
 
-      <div className="space-y-3">
-        {approvedFruit.map((encounter) => {
-          const table = tables.find((item) => item.id === encounter.table_id);
-
-          return (
-            <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={encounter.id}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {table ? "Linked Table" : "No Linked Table"}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                    {table ? tableLabel(table) : "Approved Encounter"}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-[#111111]">
-                    {encounter.public_summary?.trim() || "Summary needed before this can publish cleanly."}
-                  </p>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {visibleFruit.map((fruit) => (
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={fruit.id}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm leading-6 text-[#111111]">
+                  {fruit.summary || "Summary needed."}
+                </p>
+                <div className="mt-3 grid gap-2 text-xs leading-5 text-[#7b746a]">
+                  <span>Person: {personNameById(fieldPeople, fruit.field_person_id)}</span>
+                  <span>Table: {tableNameById(tables, fruit.table_id)}</span>
+                  <span>Date: {fruit.testimony_date ? formatProfileUpdatedDate(fruit.testimony_date) : formatProfileUpdatedDate(fruit.created_at)}</span>
                 </div>
-                <EncounterStatusBadge status={encounter.status} />
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  {formatProfileUpdatedDate(encounter.encounter_date ?? encounter.created_at)}
-                </span>
-                {encounter.outcome_tags.length > 0 ? encounter.outcome_tags.map((tag) => (
-                  <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {tag}
-                  </span>
-                )) : (
-                  <span className="text-xs text-[#7b746a]">No outcome tags yet.</span>
-                )}
-              </div>
+              <FruitStatusBadge status={fruit.status} />
             </div>
-          );
-        })}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {fruit.outcome_tags.length > 0 ? fruit.outcome_tags.map((tag) => (
+                <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {tag}
+                </span>
+              )) : (
+                <span className="text-xs text-[#7b746a]">No outcome tags yet.</span>
+              )}
+            </div>
+            <button className={`${lightSecondaryButtonClass} mt-4`} onClick={() => setEditingFruit(fruit)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              View / Edit
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {editingFruit ? (
+        <FruitEditorModal
+          encounters={encounters}
+          fieldPeople={fieldPeople}
+          fruit={editingFruit}
+          initialTable={tables.find((table) => table.id === editingFruit.table_id)}
+          onClose={() => setEditingFruit(null)}
+          onSave={(draft) => {
+            onUpdateFruit(editingFruit.id, {
+              encounter_id: draft.encounterId || null,
+              field_person_id: draft.fieldPersonId || null,
+              internal_notes: draft.internalNotes,
+              outcome_tags: draft.outcomeTags,
+              status: draft.status,
+              summary: draft.summary,
+              table_id: draft.tableId || null,
+              testimony_date: draft.testimonyDate || null,
+              updated_at: new Date().toISOString(),
+            });
+            setEditingFruit(null);
+          }}
+          tables={tables}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ConnectionsManager({
+  fieldPeople,
+  items,
+  onAdd,
+  onUpdate,
+}: {
+  fieldPeople: readonly AdminFieldPerson[];
+  items: readonly AdminConnectionLog[];
+  onAdd: (draft: ConnectionDraft) => void;
+  onUpdate: (connectionId: string, draft: ConnectionDraft) => void;
+}) {
+  const [editingConnection, setEditingConnection] = useState<AdminConnectionLog | null>(null);
+  const [isAddingConnection, setIsAddingConnection] = useState(false);
+  const sortedItems = [...items].sort((first, second) => (
+    (tableDateValue(second.connection_date)?.getTime() ?? 0) - (tableDateValue(first.connection_date)?.getTime() ?? 0)
+  ));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-w-2xl">
+          <p className="text-sm leading-6 text-[#7b746a]">
+            Track ongoing discipleship outside formal Tables: calls, texts, Zoom, prayer, coffee, and follow-up.
+          </p>
+          <DataFlowLabels items={["Feeds People insights", "Feeds Field later", "Fast log"]} />
+        </div>
+        <button className={lightPrimaryButtonClass} onClick={() => setIsAddingConnection(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          + Log Connection
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+        <div className="overflow-x-auto">
+          <table className="min-w-[860px] w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
+                {["Date", "Person", "Duration", "Type", "Movement Step", "Actions"].map((heading) => (
+                  <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0" key={heading} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedItems.length > 0 ? sortedItems.map((connection) => (
+                <tr className="border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7]" key={connection.id}>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">{formatProfileUpdatedDate(connection.connection_date)}</td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm font-semibold text-[#111111]">{personNameById(fieldPeople, connection.field_person_id)}</td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">{formatDurationMinutes(connection.duration_minutes)}</td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">{connection.interaction_type}</td>
+                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">{connection.movement_step ?? "Not set"}</td>
+                  <td className="px-4 py-3">
+                    <button className={lightSecondaryButtonClass} onClick={() => setEditingConnection(connection)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                      View / Edit
+                    </button>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td className="px-4 py-6 text-sm text-[#7b746a]" colSpan={6}>
+                    No connections logged yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {isAddingConnection ? (
+        <ConnectionEditorModal
+          fieldPeople={fieldPeople}
+          onClose={() => setIsAddingConnection(false)}
+          onSave={(draft) => {
+            onAdd(draft);
+            setIsAddingConnection(false);
+          }}
+        />
+      ) : null}
+
+      {editingConnection ? (
+        <ConnectionEditorModal
+          connection={editingConnection}
+          fieldPeople={fieldPeople}
+          onClose={() => setEditingConnection(null)}
+          onSave={(draft) => {
+            onUpdate(editingConnection.id, draft);
+            setEditingConnection(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ConnectionEditorModal({
+  connection,
+  fieldPeople,
+  onClose,
+  onSave,
+}: {
+  connection?: AdminConnectionLog | null;
+  fieldPeople: readonly AdminFieldPerson[];
+  onClose: () => void;
+  onSave: (draft: ConnectionDraft) => void;
+}) {
+  const [draft, setDraft] = useState<ConnectionDraft>({
+    connectionDate: connection?.connection_date ?? todayDateValue(),
+    durationMinutes: connection?.duration_minutes ? String(connection.duration_minutes) : "",
+    fieldPersonId: connection?.field_person_id ?? "",
+    followUpNeeded: connection?.follow_up_needed ?? "",
+    interactionType: connection?.interaction_type ?? "Phone call",
+    movementStep: connection?.movement_step ?? "",
+    notes: connection?.notes ?? "",
+  });
+  const personOptions = [
+    { label: "Select person", value: "" },
+    ...fieldPeople.map((person) => ({ label: person.name, value: person.id })),
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
+      <div className="mx-auto max-w-2xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {connection ? "Edit Connection" : "Log Connection"}
+            </p>
+            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+              Ongoing Discipleship
+            </h3>
+          </div>
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <SelectField
+            label="Person"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, fieldPersonId: value }))}
+            options={personOptions}
+            value={draft.fieldPersonId}
+          />
+          <Field
+            label="Date"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, connectionDate: value }))}
+            type="date"
+            value={draft.connectionDate}
+          />
+          <Field
+            label="Duration"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, durationMinutes: value }))}
+            type="number"
+            value={draft.durationMinutes}
+          />
+          <SelectField
+            label="Interaction Type"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, interactionType: value as AdminConnectionType }))}
+            options={connectionTypeOptions}
+            value={draft.interactionType}
+          />
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <TextArea
+            label="Notes"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, notes: value }))}
+            rows={4}
+            value={draft.notes}
+          />
+          <SelectField
+            label="Movement Step"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, movementStep: value as AdminMovementStep | "" }))}
+            options={movementStepSelectOptions}
+            value={draft.movementStep}
+          />
+          <TextArea
+            label="Follow up needed"
+            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, followUpNeeded: value }))}
+            rows={3}
+            value={draft.followUpNeeded}
+          />
+        </div>
+
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Cancel
+          </button>
+          <button className={lightPrimaryButtonClass} onClick={() => onSave(draft)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Save Connection
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LibraryManager({
+  items,
+  onAdd,
+  onUpdate,
+}: {
+  items: readonly AdminLibraryItem[];
+  onAdd: (draft: LibraryItemDraft) => void;
+  onUpdate: (itemId: string, draft: LibraryItemDraft) => void;
+}) {
+  const [editingItem, setEditingItem] = useState<AdminLibraryItem | null>(null);
+  const [isAddingItem, setIsAddingItem] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-2xl text-sm leading-6 text-[#7b746a]">
+          Light teaching framework storage for Command Center now and future Table references later.
+        </p>
+        <button className={lightPrimaryButtonClass} onClick={() => setIsAddingItem(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          + Add Library Item
+        </button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {items.length > 0 ? items.map((item) => (
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={item.id}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[#111111]">{item.title}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {item.category || "Uncategorized"}
+                </p>
+              </div>
+              <button className={lightSecondaryButtonClass} onClick={() => setEditingItem(item)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                Edit
+              </button>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[#4b443b]">
+              {item.description || "No description added."}
+            </p>
+          </div>
+        )) : (
+          <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
+            No library items yet.
+          </p>
+        )}
+      </div>
+
+      {isAddingItem ? (
+        <LibraryEditorModal
+          onClose={() => setIsAddingItem(false)}
+          onSave={(draft) => {
+            onAdd(draft);
+            setIsAddingItem(false);
+          }}
+        />
+      ) : null}
+
+      {editingItem ? (
+        <LibraryEditorModal
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+          onSave={(draft) => {
+            onUpdate(editingItem.id, draft);
+            setEditingItem(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function LibraryEditorModal({
+  item,
+  onClose,
+  onSave,
+}: {
+  item?: AdminLibraryItem | null;
+  onClose: () => void;
+  onSave: (draft: LibraryItemDraft) => void;
+}) {
+  const [draft, setDraft] = useState<LibraryItemDraft>({
+    category: item?.category ?? "",
+    contentNotes: item?.content_notes ?? "",
+    description: item?.description ?? "",
+    title: item?.title ?? "",
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
+      <div className="mx-auto max-w-2xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {item ? "Edit Library Item" : "Add Library Item"}
+            </p>
+            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+              Teaching Framework
+            </h3>
+          </div>
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <Field label="Title" onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, title: value }))} value={draft.title} />
+          <Field label="Category" onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, category: value }))} value={draft.category} />
+        </div>
+        <div className="mt-5 space-y-4">
+          <TextArea label="Description" onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, description: value }))} rows={4} value={draft.description} />
+          <TextArea label="Content notes" onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, contentNotes: value }))} rows={6} value={draft.contentNotes} />
+        </div>
+
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Cancel
+          </button>
+          <button className={lightPrimaryButtonClass} disabled={!draft.title.trim()} onClick={() => onSave(draft)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            Save Library Item
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InSeasonManager({
+  focus,
+  onUpdate,
+}: {
+  focus: AdminInSeasonFocus;
+  onUpdate: (patch: Partial<AdminInSeasonFocus>) => void;
+}) {
+  return (
+    <div className="max-w-[900px] space-y-5">
+      <p className="text-sm leading-6 text-[#7b746a]">
+        Simple current focus notes for what this missionary household is carrying right now.
+      </p>
+      <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
+        <div className="grid gap-4 md:grid-cols-2">
+          <TextArea label="Current focus" onChange={(value) => onUpdate({ current_focus: value })} rows={5} value={focus.current_focus} />
+          <TextArea label="Prayer emphasis" onChange={(value) => onUpdate({ prayer_emphasis: value })} rows={5} value={focus.prayer_emphasis} />
+          <TextArea label="Active people note" onChange={(value) => onUpdate({ active_people_note: value })} rows={5} value={focus.active_people_note} />
+          <TextArea label="Active tables note" onChange={(value) => onUpdate({ active_tables_note: value })} rows={5} value={focus.active_tables_note} />
+        </div>
       </div>
     </div>
   );
@@ -3888,6 +5054,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       body: JSON.stringify({
         church: draft.church,
         email: draft.email,
+        engagement_level: draft.engagementLevel,
         householdId: selectedProfile.id,
         id: personId,
         name: draft.name,
@@ -4271,6 +5438,237 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     );
   }
 
+  function updateTableReview(tableId: string, patch: Partial<AdminTableReview>) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    const currentReviews = selectedProfile.tableReviews ?? [];
+    const existingReview = currentReviews.find((review) => review.table_id === tableId);
+    const updatedReview: AdminTableReview = {
+      ...(existingReview ?? newTableReview(selectedProfile.id, tableId)),
+      ...patch,
+      updated_at: new Date().toISOString(),
+    };
+
+    updateSelected({
+      ...selectedProfile,
+      tableReviews: existingReview
+        ? currentReviews.map((review) => (review.table_id === tableId ? updatedReview : review))
+        : [updatedReview, ...currentReviews],
+    });
+  }
+
+  function createFruitSummary(draft: FruitDraft, table?: AdminMissionaryTable | null) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    const selectedTable = table ?? (selectedProfile.tables ?? []).find((item) => item.id === draft.tableId) ?? null;
+    const fruit = newFruitItem(selectedProfile.id, draft, selectedTable);
+
+    updateSelected({
+      ...selectedProfile,
+      fruitItems: [
+        fruit,
+        ...(selectedProfile.fruitItems ?? []),
+      ],
+    });
+    setStatus({
+      text: "Fruit summary added. Click Save Updates to persist this workspace.",
+      tone: "success",
+    });
+  }
+
+  function updateFruitItem(fruitId: string, patch: Partial<AdminFruitItem>) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      fruitItems: (selectedProfile.fruitItems ?? []).map((fruit) => (
+        fruit.id === fruitId
+          ? {
+            ...fruit,
+            ...patch,
+            updated_at: new Date().toISOString(),
+          }
+          : fruit
+      )),
+    });
+    setStatus({
+      text: "Fruit updated. Click Save Updates to persist this workspace.",
+      tone: "success",
+    });
+  }
+
+  function addConnectionLog(draft: ConnectionDraft) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      connectionLogs: [
+        newConnectionLog(selectedProfile.id, draft),
+        ...(selectedProfile.connectionLogs ?? []),
+      ],
+    });
+    setStatus({
+      text: "Connection logged. Click Save Updates to persist this workspace.",
+      tone: "success",
+    });
+  }
+
+  function updateConnectionLog(connectionId: string, draft: ConnectionDraft) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      connectionLogs: (selectedProfile.connectionLogs ?? []).map((connection) => (
+        connection.id === connectionId
+          ? {
+            ...connection,
+            connection_date: draft.connectionDate || todayDateValue(),
+            duration_minutes: Number.isFinite(Number(draft.durationMinutes)) && draft.durationMinutes !== "" ? Number(draft.durationMinutes) : null,
+            field_person_id: draft.fieldPersonId || null,
+            follow_up_needed: draft.followUpNeeded,
+            interaction_type: draft.interactionType,
+            movement_step: draft.movementStep || null,
+            notes: draft.notes,
+            updated_at: new Date().toISOString(),
+          }
+          : connection
+      )),
+    });
+    setStatus({
+      text: "Connection updated. Click Save Updates to persist this workspace.",
+      tone: "success",
+    });
+  }
+
+  function addLibraryItem(draft: LibraryItemDraft) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      libraryItems: [
+        ...(selectedProfile.libraryItems ?? []),
+        newLibraryItem(selectedProfile.id, draft),
+      ],
+    });
+    setStatus({
+      text: "Library item added. Click Save Updates to persist this workspace.",
+      tone: "success",
+    });
+  }
+
+  function updateLibraryItem(itemId: string, draft: LibraryItemDraft) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      libraryItems: (selectedProfile.libraryItems ?? []).map((item) => (
+        item.id === itemId
+          ? {
+            ...item,
+            category: draft.category,
+            content_notes: draft.contentNotes,
+            description: draft.description,
+            title: draft.title,
+            updated_at: new Date().toISOString(),
+          }
+          : item
+      )),
+    });
+    setStatus({
+      text: "Library item updated. Click Save Updates to persist this workspace.",
+      tone: "success",
+    });
+  }
+
+  function updateInSeasonFocus(patch: Partial<AdminInSeasonFocus>) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    const currentFocus = selectedProfile.inSeasonFocus ?? emptyInSeasonFocus(selectedProfile.id);
+
+    updateSelected({
+      ...selectedProfile,
+      inSeasonFocus: {
+        ...currentFocus,
+        ...patch,
+        updated_at: new Date().toISOString(),
+      },
+    });
+  }
+
+  async function updatePersonFromReview(person: AdminFieldPerson, patch: Partial<Pick<AdminFieldPerson, "church" | "engagement_level" | "relationship_type">>) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    const optimisticPerson: AdminFieldPerson = {
+      ...person,
+      ...patch,
+      updated_at: new Date().toISOString(),
+    };
+
+    updateSelected({
+      ...selectedProfile,
+      fieldPeople: (selectedProfile.fieldPeople ?? []).map((item) => (item.id === person.id ? optimisticPerson : item)),
+    });
+
+    const response = await fetch("/api/admin/missionary-profiles/people", {
+      body: JSON.stringify({
+        church: optimisticPerson.church,
+        email: optimisticPerson.email,
+        engagement_level: optimisticPerson.engagement_level,
+        householdId: selectedProfile.id,
+        id: optimisticPerson.id,
+        name: optimisticPerson.name,
+        notes: optimisticPerson.notes,
+        phone: optimisticPerson.phone,
+        relationship_type: optimisticPerson.relationship_type,
+        status: optimisticPerson.status,
+      }),
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "PATCH",
+    });
+    const result = await response.json().catch(() => ({})) as {
+      error?: string;
+      person?: AdminFieldPerson;
+    };
+
+    if (!response.ok || !result.person) {
+      setStatus({
+        text: typeof result.error === "string" ? result.error : "Unable to update person from review.",
+        tone: "error",
+      });
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      fieldPeople: (selectedProfile.fieldPeople ?? []).map((item) => (item.id === result.person?.id ? result.person : item)),
+    });
+    setStatus({
+      text: "Person profile updated from review.",
+      tone: "success",
+    });
+  }
+
   function updateTeamMember(memberId: string, patch: Partial<AdminTeamMember>) {
     if (!selectedProfile) {
       return;
@@ -4590,6 +5988,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     const response = await fetch("/api/admin/missionary-profiles/update", {
       body: JSON.stringify({
+        connectionLogs: selectedProfile.connectionLogs ?? [],
+        fruitItems: selectedProfile.fruitItems ?? [],
         household: {
           display_name: selectedProfile.display_name,
           fruit_from_field: selectedProfile.fruit_from_field,
@@ -4631,8 +6031,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         },
         householdId: selectedProfile.id,
         encounterSubmissions: selectedProfile.encounterSubmissions ?? [],
+        inSeasonFocus: selectedProfile.inSeasonFocus ?? emptyInSeasonFocus(selectedProfile.id),
+        libraryItems: selectedProfile.libraryItems ?? [],
         originalSlug: initialProfiles.find((profile) => profile.id === selectedProfile.id)?.slug,
         support: supportWithCalculatedMonthlyGoal,
+        tableReviews: selectedProfile.tableReviews ?? [],
         tables: selectedProfile.tables ?? [],
         teamMembers: selectedProfile.teamMembers ?? [],
       }),
@@ -4973,10 +6376,16 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             <TablesManager
               encounters={selectedProfile.encounterSubmissions ?? []}
               fieldPeople={selectedProfile.fieldPeople ?? []}
+              fruitItems={selectedProfile.fruitItems ?? []}
               items={selectedProfile.tables ?? []}
               onAddEncounter={addEncounterFromTable}
+              onCreateFruit={createFruitSummary}
               onCreate={createMissionaryTable}
+              onUpdateFruit={updateFruitItem}
+              onUpdatePersonProfile={updatePersonFromReview}
+              onUpdateReview={updateTableReview}
               onUpdate={updateMissionaryTable}
+              tableReviews={selectedProfile.tableReviews ?? []}
             />
           </SectionIntro>
           ) : null}
@@ -5297,10 +6706,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Ongoing interactions outside formal Tables: calls, texts, Zoom, prayer, and discipleship."
             title="Connections"
           >
-            <WorkspacePlanningState
-              description="Connections will track fast ongoing discipleship activity outside formal Tables. Keep this light: person, date, duration, interaction type, notes, movement step, and follow-up."
-              labels={["Calls", "Texts", "Zoom", "Prayer", "Discipleship"]}
-              title="Operations Model"
+            <ConnectionsManager
+              fieldPeople={selectedProfile.fieldPeople ?? []}
+              items={selectedProfile.connectionLogs ?? []}
+              onAdd={addConnectionLog}
+              onUpdate={updateConnectionLog}
             />
           </SectionIntro>
           ) : null}
@@ -5310,8 +6720,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Approved summaries and outcome tags derived from Encounters. Raw testimony stays internal."
             title="Fruit"
           >
-            <FruitPipelineState
+            <FruitManager
               encounters={selectedProfile.encounterSubmissions ?? []}
+              fieldPeople={selectedProfile.fieldPeople ?? []}
+              fruitItems={selectedProfile.fruitItems ?? []}
+              onUpdateFruit={updateFruitItem}
               tables={selectedProfile.tables ?? []}
             />
           </SectionIntro>
@@ -5322,10 +6735,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Internal resources, notes, and ministry materials connected to this missionary household."
             title="Library"
           >
-            <WorkspacePlanningState
-              description="Library will organize approved resources and reference material for Command Center and future Field use without changing public Profile behavior."
-              labels={["Internal resources", "Future Field reference", "No public publishing yet"]}
-              title="Operations Model"
+            <LibraryManager
+              items={selectedProfile.libraryItems ?? []}
+              onAdd={addLibraryItem}
+              onUpdate={updateLibraryItem}
             />
           </SectionIntro>
           ) : null}
@@ -5335,10 +6748,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Timely focus, follow-up priorities, and current ministry activity for this missionary household."
             title="In Season"
           >
-            <WorkspacePlanningState
-              description="In Season will help organize the current ministry focus for Command Center and future Field workflows. It does not publish anything to the public Profile by itself."
-              labels={["Current focus", "Internal operations", "Future Field summaries"]}
-              title="Operations Model"
+            <InSeasonManager
+              focus={selectedProfile.inSeasonFocus ?? emptyInSeasonFocus(selectedProfile.id)}
+              onUpdate={updateInSeasonFocus}
             />
           </SectionIntro>
           ) : null}

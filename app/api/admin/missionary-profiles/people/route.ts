@@ -8,6 +8,7 @@ const personSelect = "id, household_id, name, phone, email, church, notes, statu
 type FieldPersonPayload = {
   church?: unknown;
   email?: unknown;
+  engagement_level?: unknown;
   householdId?: unknown;
   id?: unknown;
   name?: unknown;
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
       church: asNullableString(payload.church),
       created_by: authResult.authorization.userId,
       email: asNullableString(payload.email),
+      engagement_level: asNullableString(payload.engagement_level),
       household_id: householdId,
       name,
       notes: asNullableString(payload.notes),
@@ -149,6 +151,7 @@ export async function PATCH(request: Request) {
     .update({
       church: asNullableString(payload.church),
       email: asNullableString(payload.email),
+      engagement_level: asNullableString(payload.engagement_level),
       name,
       notes: asNullableString(payload.notes),
       phone,

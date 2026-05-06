@@ -12,6 +12,16 @@ import { normalizeSupportRoutingMode } from "@/src/lib/missionaries/support-rout
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type UpdatePayload = {
+  connectionLogs?: Array<{
+    connection_date?: unknown;
+    duration_minutes?: unknown;
+    field_person_id?: unknown;
+    follow_up_needed?: unknown;
+    id?: unknown;
+    interaction_type?: unknown;
+    movement_step?: unknown;
+    notes?: unknown;
+  }>;
   // Encounters are raw CC intake. They may come from public forms now and from
   // Field (FD) later, but they are not rendered publicly until reviewed and
   // transformed into Fruit.
@@ -44,6 +54,45 @@ type UpdatePayload = {
     source?: unknown;
     table_date?: unknown;
     table_type?: unknown;
+  }>;
+  tableReviews?: Array<{
+    assessment_notes?: unknown;
+    breakthroughs_or_concerns?: unknown;
+    follow_up_areas?: unknown;
+    follow_up_needed?: unknown;
+    how_meeting_went?: unknown;
+    id?: unknown;
+    key_observations?: unknown;
+    movement_step?: unknown;
+    questions_covered?: unknown;
+    readiness?: unknown;
+    table_id?: unknown;
+    teaching_used?: unknown;
+  }>;
+  fruitItems?: Array<{
+    encounter_id?: unknown;
+    field_person_id?: unknown;
+    id?: unknown;
+    internal_notes?: unknown;
+    outcome_tags?: unknown;
+    status?: unknown;
+    summary?: unknown;
+    table_id?: unknown;
+    testimony_date?: unknown;
+  }>;
+  inSeasonFocus?: {
+    active_people_note?: unknown;
+    active_tables_note?: unknown;
+    current_focus?: unknown;
+    id?: unknown;
+    prayer_emphasis?: unknown;
+  };
+  libraryItems?: Array<{
+    category?: unknown;
+    content_notes?: unknown;
+    description?: unknown;
+    id?: unknown;
+    title?: unknown;
   }>;
   // Team is a PF public roster only. Do not store disciples, follow-up
   // relationships, or field relationship graph data here.
@@ -134,6 +183,12 @@ const outcomeTagOptions = [
 ] as const;
 const tableSources = ["command_center", "field"] as const;
 const tableTypes = ["kitchen_table", "coffee", "phone", "zoom", "group", "other"] as const;
+const movementSteps = ["Continue meeting", "Begin discipleship", "Send follow up", "Invite to group", "Connect to church", "Connect to ministry", "Hand off", "Pray and wait", "Other"] as const;
+const teachingUsedOptions = ["Kitchen Table Gospel", "Are You Really a Disciple", "Commands of Jesus", "Other"] as const;
+const readinessOptions = ["Not ready", "Curious", "Open", "Ready to follow", "Actively following"] as const;
+const assessmentFollowUpAreas = ["Repentance", "Baptism", "Scripture", "Prayer", "Community", "Obedience"] as const;
+const connectionTypes = ["Phone call", "Zoom", "Text", "Coffee", "Prayer", "Discipleship", "Other"] as const;
+const fruitStatuses = ["draft", "approved", "private"] as const;
 const teamMemberSources = ["website_admin", "dos", "public_form"] as const;
 const teamMemberStatuses = ["active", "hidden", "archived"] as const;
 
@@ -263,6 +318,58 @@ function asTableType(value: unknown) {
     : "kitchen_table";
 }
 
+function asNullableUuid(value: unknown) {
+  const nextValue = asString(value);
+
+  return isExistingUuid(nextValue) ? nextValue : null;
+}
+
+function asMovementStep(value: unknown) {
+  return movementSteps.includes(value as typeof movementSteps[number])
+    ? value as typeof movementSteps[number]
+    : null;
+}
+
+function asTeachingUsed(value: unknown) {
+  return teachingUsedOptions.includes(value as typeof teachingUsedOptions[number])
+    ? value as typeof teachingUsedOptions[number]
+    : null;
+}
+
+function asReadiness(value: unknown) {
+  return readinessOptions.includes(value as typeof readinessOptions[number])
+    ? value as typeof readinessOptions[number]
+    : null;
+}
+
+function asAssessmentFollowUpAreas(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is typeof assessmentFollowUpAreas[number] => assessmentFollowUpAreas.includes(item as typeof assessmentFollowUpAreas[number]))
+    : [];
+}
+
+function asConnectionType(value: unknown) {
+  return connectionTypes.includes(value as typeof connectionTypes[number])
+    ? value as typeof connectionTypes[number]
+    : "Phone call";
+}
+
+function asFruitStatus(value: unknown) {
+  return fruitStatuses.includes(value as typeof fruitStatuses[number])
+    ? value as typeof fruitStatuses[number]
+    : "draft";
+}
+
+function asNullableDurationMinutes(value: unknown) {
+  if (value === null || value === undefined || asString(value) === "") {
+    return null;
+  }
+
+  const nextValue = typeof value === "number" ? value : Number(asString(value));
+
+  return Number.isFinite(nextValue) && nextValue >= 0 ? Math.round(nextValue) : null;
+}
+
 function asTeamMemberSource(value: unknown) {
   return teamMemberSources.includes(value as typeof teamMemberSources[number])
     ? value as typeof teamMemberSources[number]
@@ -356,6 +463,18 @@ function hasMissingTablesTableError(error: { code?: string; message?: string } |
   return missingRelation && message.includes("missionary_tables");
 }
 
+function hasMissingWorkflowTableError(error: { code?: string; message?: string } | null | undefined, tableName: string) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
+
+  return missingRelation && message.includes(tableName);
+}
+
 function hasMissingEncounterPipelineColumnsError(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
@@ -390,6 +509,12 @@ function hasMissingFruitEncounterColumnError(error: { message?: string } | null 
   const message = error?.message ?? "";
 
   return message.includes("encounter_id");
+}
+
+function hasMissingFruitWorkflowColumnsError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["cc_status", "table_id", "field_person_id", "internal_notes", "outcome_tags"].some((columnName) => message.includes(columnName));
 }
 
 function hasMissingSupportLinkColumnsError(error: { message?: string } | null | undefined) {
@@ -700,6 +825,7 @@ export async function POST(request: Request) {
 
   let savedEncounterSubmissions = true;
   let syncedFruitItems = true;
+  const encounterIdMap = new Map<string, string>();
 
   if (Array.isArray(payload.encounterSubmissions)) {
     const sanitizedEncounterSubmissions = payload.encounterSubmissions
@@ -768,6 +894,7 @@ export async function POST(request: Request) {
         }
       } else {
         existingEncounterSubmissions.forEach((submission) => {
+          encounterIdMap.set(submission.id, submission.id);
           savedEncounterRecords.push({ id: submission.id, record: submission });
         });
       }
@@ -791,9 +918,13 @@ export async function POST(request: Request) {
         }
       } else {
         (insertedEncounters ?? []).forEach((insertedEncounter, index) => {
+          const temporaryId = newEncounterSubmissions[index]?.id;
           const record = newEncounterSubmissions[index]?.record;
 
           if (insertedEncounter.id && record) {
+            if (temporaryId) {
+              encounterIdMap.set(temporaryId, insertedEncounter.id);
+            }
             savedEncounterRecords.push({ id: insertedEncounter.id, record });
           }
         });
@@ -839,10 +970,13 @@ export async function POST(request: Request) {
         const fruitRecord = {
           body: summary,
           category,
+          cc_status: "approved",
           encounter_id: encounterId,
           household_id: householdId,
+          internal_notes: record.internal_notes,
           is_featured: false,
           missionary_public_approved: true,
+          outcome_tags: record.outcome_tags,
           permission_to_share: true,
           sort_order: 0,
           source: "website_admin",
@@ -850,6 +984,7 @@ export async function POST(request: Request) {
           source_external_id: encounterId,
           status: "published",
           submitted_by_name: record.submitter_name,
+          table_id: record.table_id,
           testimony_date: record.encounter_date,
           title,
           updated_at: timestamp,
@@ -882,13 +1017,335 @@ export async function POST(request: Request) {
             .insert(fruitRecord);
 
         if (fruitWriteResult.error) {
-          if (hasMissingFruitItemsTableError(fruitWriteResult.error) || hasMissingFruitEncounterColumnError(fruitWriteResult.error)) {
+          if (
+            hasMissingFruitItemsTableError(fruitWriteResult.error)
+            || hasMissingFruitEncounterColumnError(fruitWriteResult.error)
+            || hasMissingFruitWorkflowColumnsError(fruitWriteResult.error)
+          ) {
             syncedFruitItems = false;
             break;
           }
 
           return NextResponse.json({ error: fruitWriteResult.error.message }, { status: 500 });
         }
+      }
+    }
+  }
+
+  let savedTableReviews = true;
+
+  if (Array.isArray(payload.tableReviews)) {
+    const reviewRecords = payload.tableReviews
+      .map((review) => {
+        const submittedTableId = asString(review.table_id);
+        const tableId = tableIdMap.get(submittedTableId) ?? (isExistingUuid(submittedTableId) ? submittedTableId : null);
+
+        if (!tableId) {
+          return null;
+        }
+
+        return {
+          assessment_notes: asNullableString(review.assessment_notes),
+          breakthroughs_or_concerns: asNullableString(review.breakthroughs_or_concerns),
+          follow_up_areas: asAssessmentFollowUpAreas(review.follow_up_areas),
+          follow_up_needed: asNullableString(review.follow_up_needed),
+          household_id: householdId,
+          how_meeting_went: asNullableString(review.how_meeting_went),
+          key_observations: asNullableString(review.key_observations),
+          movement_step: asMovementStep(review.movement_step),
+          questions_covered: asNullableString(review.questions_covered),
+          readiness: asReadiness(review.readiness),
+          table_id: tableId,
+          teaching_used: asTeachingUsed(review.teaching_used),
+          updated_at: timestamp,
+        };
+      })
+      .filter((review): review is NonNullable<typeof review> => Boolean(review));
+
+    if (reviewRecords.length > 0) {
+      const { error: reviewError } = await supabase
+        .from("missionary_table_reviews")
+        .upsert(reviewRecords, { onConflict: "table_id" });
+
+      if (reviewError) {
+        if (hasMissingWorkflowTableError(reviewError, "missionary_table_reviews")) {
+          savedTableReviews = false;
+        } else {
+          return NextResponse.json({ error: reviewError.message }, { status: 500 });
+        }
+      }
+    }
+  }
+
+  let savedCommandFruitItems = true;
+
+  if (Array.isArray(payload.fruitItems)) {
+    const sanitizedFruitItems = payload.fruitItems
+      .map((fruit) => {
+        const summary = asString(fruit.summary);
+
+        if (!summary) {
+          return null;
+        }
+
+        const submittedTableId = asString(fruit.table_id);
+        const submittedEncounterId = asString(fruit.encounter_id);
+        const tableId = tableIdMap.get(submittedTableId) ?? asNullableUuid(submittedTableId);
+        const encounterId = encounterIdMap.get(submittedEncounterId) ?? asNullableUuid(submittedEncounterId);
+        const outcomeTags = asOutcomeTags(fruit.outcome_tags);
+        const ccStatus = asFruitStatus(fruit.status);
+        const category = outcomeTags.length > 0 ? outcomeTags.join(", ") : "Other";
+
+        return {
+          id: asString(fruit.id),
+          record: {
+            body: summary,
+            category,
+            cc_status: ccStatus,
+            encounter_id: encounterId,
+            field_person_id: asNullableUuid(fruit.field_person_id),
+            household_id: householdId,
+            internal_notes: asNullableString(fruit.internal_notes),
+            outcome_tags: outcomeTags,
+            source: "website_admin",
+            source_app: "command_center",
+            table_id: tableId,
+            testimony_date: asNullableDateString(fruit.testimony_date) ?? timestamp.slice(0, 10),
+            title: outcomeTags[0] ?? "Field Fruit",
+            updated_at: timestamp,
+          },
+        };
+      })
+      .filter((fruit): fruit is NonNullable<typeof fruit> => Boolean(fruit));
+    const existingFruitItems = sanitizedFruitItems
+      .filter((fruit) => isExistingUuid(fruit.id))
+      .map((fruit) => ({
+        ...fruit.record,
+        ...(fruit.record.cc_status === "private" || fruit.record.cc_status === "draft"
+          ? {
+            missionary_public_approved: false,
+            permission_to_share: false,
+            status: fruit.record.cc_status === "private" ? "hidden" : "draft",
+            visibility: "private",
+          }
+          : {}),
+        id: fruit.id,
+      }));
+    const newFruitItems = sanitizedFruitItems
+      .filter((fruit) => !isExistingUuid(fruit.id))
+      .map((fruit) => ({
+        ...fruit.record,
+        missionary_public_approved: false,
+        permission_to_share: false,
+        status: "draft",
+        visibility: "private",
+      }));
+
+    if (existingFruitItems.length > 0) {
+      const { error: fruitUpdateError } = await supabase
+        .from("missionary_fruit_items")
+        .upsert(existingFruitItems, { onConflict: "id" });
+
+      if (fruitUpdateError) {
+        if (hasMissingFruitItemsTableError(fruitUpdateError) || hasMissingFruitWorkflowColumnsError(fruitUpdateError)) {
+          savedCommandFruitItems = false;
+        } else {
+          return NextResponse.json({ error: fruitUpdateError.message }, { status: 500 });
+        }
+      }
+    }
+
+    if (newFruitItems.length > 0 && savedCommandFruitItems) {
+      const fruitItemsToInsert: typeof newFruitItems = [];
+
+      for (const fruitRecord of newFruitItems) {
+        if (!fruitRecord.encounter_id) {
+          fruitItemsToInsert.push(fruitRecord);
+          continue;
+        }
+
+        const { data: existingFruitItem, error: existingFruitError } = await supabase
+          .from("missionary_fruit_items")
+          .select("id")
+          .eq("encounter_id", fruitRecord.encounter_id)
+          .maybeSingle();
+
+        if (existingFruitError) {
+          if (hasMissingFruitItemsTableError(existingFruitError) || hasMissingFruitWorkflowColumnsError(existingFruitError)) {
+            savedCommandFruitItems = false;
+            break;
+          }
+
+          return NextResponse.json({ error: existingFruitError.message }, { status: 500 });
+        }
+
+        if (existingFruitItem?.id) {
+          const { error: fruitUpdateError } = await supabase
+            .from("missionary_fruit_items")
+            .update(fruitRecord)
+            .eq("id", existingFruitItem.id);
+
+          if (fruitUpdateError) {
+            if (hasMissingFruitItemsTableError(fruitUpdateError) || hasMissingFruitWorkflowColumnsError(fruitUpdateError)) {
+              savedCommandFruitItems = false;
+              break;
+            }
+
+            return NextResponse.json({ error: fruitUpdateError.message }, { status: 500 });
+          }
+        } else {
+          fruitItemsToInsert.push(fruitRecord);
+        }
+      }
+
+      if (savedCommandFruitItems && fruitItemsToInsert.length > 0) {
+        const { error: fruitInsertError } = await supabase
+          .from("missionary_fruit_items")
+          .insert(fruitItemsToInsert);
+
+        if (fruitInsertError) {
+          if (hasMissingFruitItemsTableError(fruitInsertError) || hasMissingFruitWorkflowColumnsError(fruitInsertError)) {
+            savedCommandFruitItems = false;
+          } else {
+            return NextResponse.json({ error: fruitInsertError.message }, { status: 500 });
+          }
+        }
+      }
+    }
+  }
+
+  let savedConnectionLogs = true;
+
+  if (Array.isArray(payload.connectionLogs)) {
+    const sanitizedConnectionLogs = payload.connectionLogs.map((connection) => ({
+      id: asString(connection.id),
+      record: {
+        connection_date: asNullableDateString(connection.connection_date) ?? timestamp.slice(0, 10),
+        duration_minutes: asNullableDurationMinutes(connection.duration_minutes),
+        field_person_id: asNullableUuid(connection.field_person_id),
+        follow_up_needed: asNullableString(connection.follow_up_needed),
+        household_id: householdId,
+        interaction_type: asConnectionType(connection.interaction_type),
+        movement_step: asMovementStep(connection.movement_step),
+        notes: asNullableString(connection.notes),
+        updated_at: timestamp,
+      },
+    }));
+    const existingConnectionLogs = sanitizedConnectionLogs
+      .filter((connection) => isExistingUuid(connection.id))
+      .map((connection) => ({ ...connection.record, id: connection.id }));
+    const newConnectionLogs = sanitizedConnectionLogs
+      .filter((connection) => !isExistingUuid(connection.id))
+      .map((connection) => connection.record);
+
+    if (existingConnectionLogs.length > 0) {
+      const { error: connectionUpdateError } = await supabase
+        .from("missionary_connection_logs")
+        .upsert(existingConnectionLogs, { onConflict: "id" });
+
+      if (connectionUpdateError) {
+        if (hasMissingWorkflowTableError(connectionUpdateError, "missionary_connection_logs")) {
+          savedConnectionLogs = false;
+        } else {
+          return NextResponse.json({ error: connectionUpdateError.message }, { status: 500 });
+        }
+      }
+    }
+
+    if (newConnectionLogs.length > 0 && savedConnectionLogs) {
+      const { error: connectionInsertError } = await supabase
+        .from("missionary_connection_logs")
+        .insert(newConnectionLogs);
+
+      if (connectionInsertError) {
+        if (hasMissingWorkflowTableError(connectionInsertError, "missionary_connection_logs")) {
+          savedConnectionLogs = false;
+        } else {
+          return NextResponse.json({ error: connectionInsertError.message }, { status: 500 });
+        }
+      }
+    }
+  }
+
+  let savedLibraryItems = true;
+
+  if (Array.isArray(payload.libraryItems)) {
+    const sanitizedLibraryItems = payload.libraryItems
+      .map((item) => {
+        const title = asString(item.title);
+
+        if (!title) {
+          return null;
+        }
+
+        return {
+          id: asString(item.id),
+          record: {
+            category: asNullableString(item.category),
+            content_notes: asNullableString(item.content_notes),
+            description: asNullableString(item.description),
+            household_id: householdId,
+            title,
+            updated_at: timestamp,
+          },
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    const existingLibraryItems = sanitizedLibraryItems
+      .filter((item) => isExistingUuid(item.id))
+      .map((item) => ({ ...item.record, id: item.id }));
+    const newLibraryItems = sanitizedLibraryItems
+      .filter((item) => !isExistingUuid(item.id))
+      .map((item) => item.record);
+
+    if (existingLibraryItems.length > 0) {
+      const { error: libraryUpdateError } = await supabase
+        .from("missionary_library_items")
+        .upsert(existingLibraryItems, { onConflict: "id" });
+
+      if (libraryUpdateError) {
+        if (hasMissingWorkflowTableError(libraryUpdateError, "missionary_library_items")) {
+          savedLibraryItems = false;
+        } else {
+          return NextResponse.json({ error: libraryUpdateError.message }, { status: 500 });
+        }
+      }
+    }
+
+    if (newLibraryItems.length > 0 && savedLibraryItems) {
+      const { error: libraryInsertError } = await supabase
+        .from("missionary_library_items")
+        .upsert(newLibraryItems, { onConflict: "household_id,title" });
+
+      if (libraryInsertError) {
+        if (hasMissingWorkflowTableError(libraryInsertError, "missionary_library_items")) {
+          savedLibraryItems = false;
+        } else {
+          return NextResponse.json({ error: libraryInsertError.message }, { status: 500 });
+        }
+      }
+    }
+  }
+
+  let savedInSeasonFocus = true;
+
+  if (payload.inSeasonFocus) {
+    const { error: inSeasonError } = await supabase
+      .from("missionary_in_season_focus")
+      .upsert({
+        active_people_note: asNullableString(payload.inSeasonFocus.active_people_note),
+        active_tables_note: asNullableString(payload.inSeasonFocus.active_tables_note),
+        current_focus: asNullableString(payload.inSeasonFocus.current_focus),
+        household_id: householdId,
+        prayer_emphasis: asNullableString(payload.inSeasonFocus.prayer_emphasis),
+        updated_at: timestamp,
+      }, { onConflict: "household_id" });
+
+    if (inSeasonError) {
+      if (hasMissingWorkflowTableError(inSeasonError, "missionary_in_season_focus")) {
+        savedInSeasonFocus = false;
+      } else {
+        return NextResponse.json({ error: inSeasonError.message }, { status: 500 });
       }
     }
   }
@@ -1074,9 +1531,39 @@ export async function POST(request: Request) {
     }, { status: 500 });
   }
 
+  if (!savedTableReviews) {
+    return NextResponse.json({
+      error: "Table reviews were not saved because the missionary_table_reviews table is missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
+
   if (!syncedFruitItems) {
     return NextResponse.json({
       error: "Approved Fruit was not published because the missionary_fruit_items pipeline columns are missing. Apply the latest missionary pipeline migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
+
+  if (!savedCommandFruitItems) {
+    return NextResponse.json({
+      error: "Fruit summaries were not saved because the Command Center Fruit columns are missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
+
+  if (!savedConnectionLogs) {
+    return NextResponse.json({
+      error: "Connection logs were not saved because the missionary_connection_logs table is missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
+
+  if (!savedLibraryItems) {
+    return NextResponse.json({
+      error: "Library items were not saved because the missionary_library_items table is missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
+    }, { status: 500 });
+  }
+
+  if (!savedInSeasonFocus) {
+    return NextResponse.json({
+      error: "In Season focus was not saved because the missionary_in_season_focus table is missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
     }, { status: 500 });
   }
 

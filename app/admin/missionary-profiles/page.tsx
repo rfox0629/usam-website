@@ -1,17 +1,28 @@
 import type { Metadata } from "next";
 import {
   MissionaryProfilesAdminDashboard,
+  type AdminAssessmentFollowUpArea,
+  type AdminConnectionLog,
+  type AdminConnectionType,
   type AdminEncounterStatus,
   type AdminEncounterSubmission,
   type AdminEncounterSubmissionType,
   type AdminFieldPerson,
   type AdminFieldPersonStatus,
+  type AdminFruitItem,
+  type AdminFruitStatus,
   type AdminHousehold,
+  type AdminInSeasonFocus,
+  type AdminLibraryItem,
   type AdminMissionaryTable,
+  type AdminMovementStep,
   type AdminOutcomeTag,
   type AdminProfile,
+  type AdminReadiness,
   type AdminSupportSettings,
   type AdminTableType,
+  type AdminTableReview,
+  type AdminTeachingUsed,
   type AdminTeamMember,
 } from "./MissionaryProfilesAdminDashboard";
 import { AdminShell } from "../_components/AdminShell";
@@ -61,6 +72,22 @@ const encounterStatuses = ["raw", "reviewed", "approved", "hidden", "archived"] 
 const encounterSources = ["manual", "public_form", "dos"] as const;
 const encounterSubmissionTypes = ["quick_response", "full_testimony"] as const satisfies readonly AdminEncounterSubmissionType[];
 const fieldPersonStatuses = ["new", "active", "follow_up", "discipleship", "paused", "archived"] as const satisfies readonly AdminFieldPersonStatus[];
+const movementSteps = [
+  "Continue meeting",
+  "Begin discipleship",
+  "Send follow up",
+  "Invite to group",
+  "Connect to church",
+  "Connect to ministry",
+  "Hand off",
+  "Pray and wait",
+  "Other",
+] as const satisfies readonly AdminMovementStep[];
+const teachingUsedOptions = ["Kitchen Table Gospel", "Are You Really a Disciple", "Commands of Jesus", "Other"] as const satisfies readonly AdminTeachingUsed[];
+const readinessOptions = ["Not ready", "Curious", "Open", "Ready to follow", "Actively following"] as const satisfies readonly AdminReadiness[];
+const assessmentFollowUpAreas = ["Repentance", "Baptism", "Scripture", "Prayer", "Community", "Obedience"] as const satisfies readonly AdminAssessmentFollowUpArea[];
+const connectionTypes = ["Phone call", "Zoom", "Text", "Coffee", "Prayer", "Discipleship", "Other"] as const satisfies readonly AdminConnectionType[];
+const fruitStatuses = ["draft", "approved", "private"] as const satisfies readonly AdminFruitStatus[];
 const outcomeTagOptions = [
   "Salvation",
   "Baptism",
@@ -123,6 +150,74 @@ type FieldPersonRow = {
   relationship_type: string | null;
   source: string | null;
   status: string | null;
+  updated_at: string | null;
+};
+
+type TableReviewRow = {
+  assessment_notes: string | null;
+  breakthroughs_or_concerns: string | null;
+  created_at: string;
+  follow_up_areas: string[] | null;
+  follow_up_needed: string | null;
+  household_id: string;
+  how_meeting_went: string | null;
+  id: string;
+  key_observations: string | null;
+  movement_step: string | null;
+  questions_covered: string | null;
+  readiness: string | null;
+  table_id: string;
+  teaching_used: string | null;
+  updated_at: string | null;
+};
+
+type CommandFruitRow = {
+  body: string;
+  cc_status?: string | null;
+  created_at: string;
+  encounter_id?: string | null;
+  field_person_id?: string | null;
+  household_id: string;
+  id: string;
+  internal_notes?: string | null;
+  outcome_tags?: string[] | null;
+  table_id?: string | null;
+  testimony_date: string | null;
+  updated_at: string | null;
+};
+
+type ConnectionLogRow = {
+  connection_date: string;
+  created_at: string;
+  duration_minutes: number | null;
+  field_person_id: string | null;
+  follow_up_needed: string | null;
+  household_id: string;
+  id: string;
+  interaction_type: string | null;
+  movement_step: string | null;
+  notes: string | null;
+  updated_at: string | null;
+};
+
+type LibraryItemRow = {
+  category: string | null;
+  content_notes: string | null;
+  created_at: string;
+  description: string | null;
+  household_id: string;
+  id: string;
+  title: string;
+  updated_at: string | null;
+};
+
+type InSeasonFocusRow = {
+  active_people_note: string | null;
+  active_tables_note: string | null;
+  current_focus: string | null;
+  household_id: string;
+  id: string;
+  prayer_emphasis: string | null;
   updated_at: string | null;
 };
 
@@ -226,6 +321,32 @@ function getTableFieldPersonIds(value: string[] | null | undefined) {
   return Array.isArray(value)
     ? value.filter((id): id is string => typeof id === "string" && Boolean(id.trim())).map((id) => id.trim())
     : [];
+}
+
+function getMovementStep(value: string | null): AdminMovementStep | null {
+  return movementSteps.includes(value as AdminMovementStep) ? value as AdminMovementStep : null;
+}
+
+function getTeachingUsed(value: string | null): AdminTeachingUsed | null {
+  return teachingUsedOptions.includes(value as AdminTeachingUsed) ? value as AdminTeachingUsed : null;
+}
+
+function getReadiness(value: string | null): AdminReadiness | null {
+  return readinessOptions.includes(value as AdminReadiness) ? value as AdminReadiness : null;
+}
+
+function getAssessmentFollowUpAreas(value: string[] | null | undefined): AdminAssessmentFollowUpArea[] {
+  return Array.isArray(value)
+    ? value.filter((area): area is AdminAssessmentFollowUpArea => assessmentFollowUpAreas.includes(area as AdminAssessmentFollowUpArea))
+    : [];
+}
+
+function getConnectionType(value: string | null): AdminConnectionType {
+  return connectionTypes.includes(value as AdminConnectionType) ? value as AdminConnectionType : "Phone call";
+}
+
+function getFruitStatus(value: string | null | undefined): AdminFruitStatus {
+  return fruitStatuses.includes(value as AdminFruitStatus) ? value as AdminFruitStatus : "draft";
 }
 
 function getPermissionToShare(payload: Record<string, unknown>) {
@@ -333,6 +454,18 @@ function isMissingFieldPeopleTable(error: { code?: string; message?: string } | 
   return missingRelation && message.includes("missionary_field_people");
 }
 
+function isMissingWorkflowTable(error: { code?: string; message?: string } | null | undefined, tableName: string) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.toLowerCase().includes("schema cache")
+    || message.toLowerCase().includes("does not exist")
+    || message.toLowerCase().includes("could not find the table");
+
+  return missingRelation && message.includes(tableName);
+}
+
 function isMissingEncounterPipelineColumns(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
@@ -349,6 +482,12 @@ function isMissingFruitItemsTable(error: { message?: string } | null | undefined
   const message = error?.message ?? "";
 
   return message.includes("missionary_fruit_items");
+}
+
+function isMissingFruitWorkflowColumns(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["cc_status", "table_id", "field_person_id", "internal_notes", "outcome_tags"].some((columnName) => message.includes(columnName));
 }
 
 function isMissingTeamMembersTable(error: { code?: string; message?: string } | null | undefined) {
@@ -411,10 +550,15 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const ids = (households ?? []).map((household) => household.id);
   const supportByHouseholdId = new Map<string, AdminSupportSettings>();
   const activePrayerRequestCountByHouseholdId = new Map<string, number>();
+  const connectionLogsByHouseholdId = new Map<string, AdminConnectionLog[]>();
   const encounterSubmissionsByHouseholdId = new Map<string, AdminEncounterSubmission[]>();
   const fieldPeopleByHouseholdId = new Map<string, AdminFieldPerson[]>();
+  const fruitItemsByHouseholdId = new Map<string, AdminFruitItem[]>();
+  const inSeasonByHouseholdId = new Map<string, AdminInSeasonFocus>();
+  const libraryItemsByHouseholdId = new Map<string, AdminLibraryItem[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
   const publicFruitItemCountByHouseholdId = new Map<string, number>();
+  const tableReviewsByHouseholdId = new Map<string, AdminTableReview[]>();
   const tablesByHouseholdId = new Map<string, AdminMissionaryTable[]>();
   const teamMembersByHouseholdId = new Map<string, AdminTeamMember[]>();
 
@@ -617,6 +761,131 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       encounterSubmissionsByHouseholdId.set(matchingHouseholdId, currentItems);
     });
 
+    const tableReviewsResult = await supabase
+      .from("missionary_table_reviews")
+      .select("id, household_id, table_id, how_meeting_went, key_observations, breakthroughs_or_concerns, follow_up_needed, movement_step, teaching_used, questions_covered, assessment_notes, readiness, follow_up_areas, created_at, updated_at")
+      .in("household_id", ids)
+      .order("updated_at", { ascending: false });
+
+    if (tableReviewsResult.error && !isMissingWorkflowTable(tableReviewsResult.error, "missionary_table_reviews")) {
+      return { error: tableReviewsResult.error.message, profiles: [] };
+    }
+
+    ((tableReviewsResult.data ?? []) as TableReviewRow[]).forEach((review) => {
+      const currentReviews = tableReviewsByHouseholdId.get(review.household_id) ?? [];
+
+      currentReviews.push({
+        assessment_notes: review.assessment_notes,
+        breakthroughs_or_concerns: review.breakthroughs_or_concerns,
+        created_at: review.created_at,
+        follow_up_areas: getAssessmentFollowUpAreas(review.follow_up_areas),
+        follow_up_needed: review.follow_up_needed,
+        household_id: review.household_id,
+        how_meeting_went: review.how_meeting_went,
+        id: review.id,
+        key_observations: review.key_observations,
+        movement_step: getMovementStep(review.movement_step),
+        questions_covered: review.questions_covered,
+        readiness: getReadiness(review.readiness),
+        table_id: review.table_id,
+        teaching_used: getTeachingUsed(review.teaching_used),
+        updated_at: review.updated_at,
+      });
+      tableReviewsByHouseholdId.set(review.household_id, currentReviews);
+    });
+
+    const fruitItemsResult = await supabase
+      .from("missionary_fruit_items")
+      .select("id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, testimony_date, created_at, updated_at")
+      .in("household_id", ids)
+      .eq("source_app", "command_center")
+      .order("testimony_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+
+    if (fruitItemsResult.error && !isMissingFruitItemsTable(fruitItemsResult.error) && !isMissingFruitWorkflowColumns(fruitItemsResult.error)) {
+      return { error: fruitItemsResult.error.message, profiles: [] };
+    }
+
+    ((fruitItemsResult.data ?? []) as CommandFruitRow[]).forEach((fruit) => {
+      const currentFruit = fruitItemsByHouseholdId.get(fruit.household_id) ?? [];
+
+      currentFruit.push({
+        created_at: fruit.created_at,
+        encounter_id: fruit.encounter_id ?? null,
+        field_person_id: fruit.field_person_id ?? null,
+        household_id: fruit.household_id,
+        id: fruit.id,
+        internal_notes: fruit.internal_notes ?? "",
+        outcome_tags: getOutcomeTags(fruit.outcome_tags),
+        status: getFruitStatus(fruit.cc_status),
+        summary: fruit.body,
+        table_id: fruit.table_id ?? null,
+        testimony_date: fruit.testimony_date,
+        updated_at: fruit.updated_at,
+      });
+      fruitItemsByHouseholdId.set(fruit.household_id, currentFruit);
+    });
+
+    const connectionLogsResult = await supabase
+      .from("missionary_connection_logs")
+      .select("id, household_id, field_person_id, connection_date, duration_minutes, interaction_type, notes, movement_step, follow_up_needed, created_at, updated_at")
+      .in("household_id", ids)
+      .order("connection_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (connectionLogsResult.error && !isMissingWorkflowTable(connectionLogsResult.error, "missionary_connection_logs")) {
+      return { error: connectionLogsResult.error.message, profiles: [] };
+    }
+
+    ((connectionLogsResult.data ?? []) as ConnectionLogRow[]).forEach((connection) => {
+      const currentConnections = connectionLogsByHouseholdId.get(connection.household_id) ?? [];
+
+      currentConnections.push({
+        connection_date: connection.connection_date,
+        created_at: connection.created_at,
+        duration_minutes: connection.duration_minutes,
+        field_person_id: connection.field_person_id,
+        follow_up_needed: connection.follow_up_needed,
+        household_id: connection.household_id,
+        id: connection.id,
+        interaction_type: getConnectionType(connection.interaction_type),
+        movement_step: getMovementStep(connection.movement_step),
+        notes: connection.notes,
+        updated_at: connection.updated_at,
+      });
+      connectionLogsByHouseholdId.set(connection.household_id, currentConnections);
+    });
+
+    const libraryItemsResult = await supabase
+      .from("missionary_library_items")
+      .select("id, household_id, title, category, description, content_notes, created_at, updated_at")
+      .in("household_id", ids)
+      .order("title", { ascending: true });
+
+    if (libraryItemsResult.error && !isMissingWorkflowTable(libraryItemsResult.error, "missionary_library_items")) {
+      return { error: libraryItemsResult.error.message, profiles: [] };
+    }
+
+    ((libraryItemsResult.data ?? []) as LibraryItemRow[]).forEach((item) => {
+      const currentItems = libraryItemsByHouseholdId.get(item.household_id) ?? [];
+
+      currentItems.push(item);
+      libraryItemsByHouseholdId.set(item.household_id, currentItems);
+    });
+
+    const inSeasonResult = await supabase
+      .from("missionary_in_season_focus")
+      .select("id, household_id, current_focus, prayer_emphasis, active_people_note, active_tables_note, updated_at")
+      .in("household_id", ids);
+
+    if (inSeasonResult.error && !isMissingWorkflowTable(inSeasonResult.error, "missionary_in_season_focus")) {
+      return { error: inSeasonResult.error.message, profiles: [] };
+    }
+
+    ((inSeasonResult.data ?? []) as InSeasonFocusRow[]).forEach((focus) => {
+      inSeasonByHouseholdId.set(focus.household_id, focus);
+    });
+
     const publicFruitItemsResult = await supabase
       .from("missionary_fruit_items")
       .select("household_id")
@@ -665,12 +934,17 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     profiles: (households ?? []).map((household) => ({
       ...(household as AdminHousehold),
       activePrayerRequestCount: activePrayerRequestCountByHouseholdId.get(household.id) ?? 0,
+      connectionLogs: connectionLogsByHouseholdId.get(household.id) ?? [],
       encounterSubmissions: encounterSubmissionsByHouseholdId.get(household.id) ?? [],
       fieldPeople: fieldPeopleByHouseholdId.get(household.id) ?? [],
+      fruitItems: fruitItemsByHouseholdId.get(household.id) ?? [],
+      inSeasonFocus: inSeasonByHouseholdId.get(household.id),
+      libraryItems: libraryItemsByHouseholdId.get(household.id) ?? [],
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
       publicFruitItemCount: publicFruitItemCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
       tables: tablesByHouseholdId.get(household.id) ?? [],
+      tableReviews: tableReviewsByHouseholdId.get(household.id) ?? [],
       teamMembers: teamMembersByHouseholdId.get(household.id) ?? [],
     })),
   };
