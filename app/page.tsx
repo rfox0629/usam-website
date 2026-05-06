@@ -392,8 +392,8 @@ function GlobalUrgencySection() {
     value: string;
   }) {
     return (
-      <div className="flex min-h-[128px] flex-col justify-between border border-stone-800/85 bg-[linear-gradient(145deg,rgba(19,19,19,0.94),rgba(7,7,7,0.98))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-200 md:min-h-[136px] md:p-5 md:hover:border-stone-700">
-        <div className="flex items-start gap-3">
+      <div className="flex min-h-[128px] flex-col items-center justify-between border border-stone-800/85 bg-[linear-gradient(145deg,rgba(19,19,19,0.94),rgba(7,7,7,0.98))] p-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-200 md:min-h-[136px] md:items-stretch md:p-5 md:text-left md:hover:border-stone-700">
+        <div className="flex flex-col items-center gap-3 md:flex-row md:items-start">
           <IntelligenceIcon icon={icon} />
           <div className="min-w-0 pt-1">
             <p className="max-w-[15rem] text-[13px] font-semibold uppercase leading-[1.05] tracking-[0.12em] text-stone-200 md:text-sm" style={{ fontFamily: font.rajdhani }}>
