@@ -612,30 +612,30 @@ const featureDescriptions = {
 
 const editorTabGroups: Array<{
   label: "Operations" | "Profile";
-  tabs: Array<{ destinations: string[]; label: string; value: EditorTab }>;
+  tabs: Array<{ label: string; value: EditorTab }>;
 }> = [
   {
     label: "Operations",
     tabs: [
-      { destinations: ["CC Only"], label: "Overview", value: "overview" },
-      { destinations: ["Feeds Field"], label: "People", value: "people" },
-      { destinations: ["Feeds Field"], label: "Tables", value: "tables" },
-      { destinations: ["Feeds Field"], label: "Connections", value: "connections" },
-      { destinations: ["Updates Profile", "Feeds Field"], label: "Fruit", value: "fruit" },
-      { destinations: ["Feeds Field"], label: "Library", value: "library" },
-      { destinations: ["Feeds Field"], label: "In Season", value: "in-season" },
+      { label: "Overview", value: "overview" },
+      { label: "People", value: "people" },
+      { label: "Tables", value: "tables" },
+      { label: "Connections", value: "connections" },
+      { label: "Fruit", value: "fruit" },
+      { label: "Library", value: "library" },
+      { label: "In Season", value: "in-season" },
     ],
   },
   {
     label: "Profile",
     tabs: [
-      { destinations: ["Updates Profile"], label: "Profile", value: "profile" },
-      { destinations: ["Updates Profile"], label: "Features", value: "features" },
-      { destinations: ["Updates Profile"], label: "Team", value: "team" },
-      { destinations: ["Updates Profile"], label: "Media", value: "media" },
-      { destinations: ["Updates Profile"], label: "Story", value: "story" },
-      { destinations: ["Updates Profile"], label: "Support", value: "support" },
-      { destinations: ["Updates Profile", "Feeds Field"], label: "Prayer", value: "prayer" },
+      { label: "Profile", value: "profile" },
+      { label: "Features", value: "features" },
+      { label: "Team", value: "team" },
+      { label: "Media", value: "media" },
+      { label: "Story", value: "story" },
+      { label: "Support", value: "support" },
+      { label: "Prayer", value: "prayer" },
     ],
   },
 ];
@@ -6308,21 +6308,21 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </p>
         ) : null}
 
-        <div className="mt-6 space-y-4 border-b border-stone-800/80 pb-1">
+        <div className="mt-6 space-y-4 border-b border-stone-800/80 pb-4">
           {editorTabGroups.map((group) => (
             <div key={group.label}>
               <p className="px-1 text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 {group.label}
               </p>
-              <div className="mt-1 overflow-x-auto">
+              <div className="mt-2 overflow-x-auto">
                 <div className="flex min-w-max gap-2" role="tablist" aria-label={`${group.label} tabs`}>
                   {group.tabs.map((tab) => (
                     <button
                       aria-selected={activeTab === tab.value}
-                      className={`border-b-2 px-4 py-3 text-left uppercase transition-colors ${
+                      className={`rounded-md border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
                         activeTab === tab.value
-                          ? "border-[#D4A63D] text-[#F5B942]"
-                          : "border-transparent text-stone-300 hover:text-stone-100"
+                          ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                          : "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-[#D4A63D] hover:text-[#F5B942]"
                       }`}
                       key={tab.value}
                       onClick={() => changeEditorTab(tab.value)}
@@ -6330,14 +6330,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
                     >
-                      <span className="block text-[11px] tracking-[0.22em]">
-                        {tab.label}
-                      </span>
-                      <span className={`mt-1 block text-[8px] leading-3 tracking-[0.12em] ${
-                        activeTab === tab.value ? "text-[#D4A63D]/80" : "text-stone-500"
-                      }`}>
-                        {tab.destinations.join(" + ")}
-                      </span>
+                      {tab.label}
                     </button>
                   ))}
                 </div>
@@ -6349,7 +6342,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         <div className="mt-8">
           {activeTab === "overview" ? (
           <SectionIntro
-            description="Workspace summary for missionary operations and public profile publishing."
+            description="CC Only. Workspace summary for missionary operations and public profile publishing."
             title="Overview"
           >
             <WorkspaceOverview profile={selectedProfile} />
@@ -6358,7 +6351,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "people" ? (
           <SectionIntro
-            description="Internal people connected to this missionary household. These records power Tables, prayer follow-up, Fruit, and future Field activity. Not public by default."
+            description="Feeds Field. Internal people connected to this missionary household. These records power Tables, prayer follow-up, Fruit, and future Field activity. Not public by default."
             title="People"
           >
             <PeopleManager
@@ -6370,7 +6363,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "tables" ? (
           <SectionIntro
-            description="Internal table meetings and ministry gatherings connected to this missionary household."
+            description="Feeds Field. Internal table meetings and ministry gatherings connected to this missionary household."
             title="Tables"
           >
             <TablesManager
@@ -6392,7 +6385,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "features" ? (
           <SectionIntro
-            description="Turn public profile sections on or off without deleting their content."
+            description="Updates Profile. Turn public profile sections on or off without deleting their content."
             title="Profile Features"
           >
             <FeatureVisibilityTable
@@ -6465,7 +6458,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 Profile
               </p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-                Controls the public hero section, location display, and short mission statement.
+                Updates Profile. Controls the public hero section, location display, and short mission statement.
               </p>
 
               <div className="mt-6 grid gap-x-4 gap-y-6 md:grid-cols-2">
@@ -6538,7 +6531,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "media" ? (
           <SectionIntro
-            description="Media used on the directory card and as the household overlay on the shared profile hero background. Managed in Command Center and visible on Profile after save."
+            description="Updates Profile. Media used on the directory card and as the household overlay on the shared profile hero background. Managed in Command Center and visible on Profile after save."
             title="Media"
           >
             <DataFlowLabels items={["Raw upload -> Reviewed -> Published", "Managed in Command Center", "Visible on Profile"]} />
@@ -6605,7 +6598,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "team" ? (
           <SectionIntro
-            description="Public team or household members displayed on the missionary Profile. Do not use this section for discipleship contacts or private ministry relationships."
+            description="Updates Profile. Public team or household members displayed on the missionary Profile. Do not use this section for discipleship contacts or private ministry relationships."
             title="Team"
           >
             <TeamMemberManager
@@ -6622,7 +6615,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "story" ? (
           <SectionIntro
-            description="Use the left side for the original submitted story. Use the right side for the edited public version."
+            description="Updates Profile. Use the left side for the original submitted story. Use the right side for the edited public version."
             title="Story"
           >
             <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
@@ -6703,7 +6696,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "connections" ? (
           <SectionIntro
-            description="Ongoing interactions outside formal Tables: calls, texts, Zoom, prayer, and discipleship."
+            description="Feeds Field. Ongoing interactions outside formal Tables: calls, texts, Zoom, prayer, and discipleship."
             title="Connections"
           >
             <ConnectionsManager
@@ -6717,7 +6710,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "fruit" ? (
           <SectionIntro
-            description="Approved summaries and outcome tags derived from Encounters. Raw testimony stays internal."
+            description="Updates Profile + Feeds Field. Approved summaries and outcome tags derived from Encounters. Raw testimony stays internal."
             title="Fruit"
           >
             <FruitManager
@@ -6732,7 +6725,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "library" ? (
           <SectionIntro
-            description="Internal resources, notes, and ministry materials connected to this missionary household."
+            description="Feeds Field. Internal resources, notes, and ministry materials connected to this missionary household."
             title="Library"
           >
             <LibraryManager
@@ -6745,7 +6738,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "in-season" ? (
           <SectionIntro
-            description="Timely focus, follow-up priorities, and current ministry activity for this missionary household."
+            description="Feeds Field. Timely focus, follow-up priorities, and current ministry activity for this missionary household."
             title="In Season"
           >
             <InSeasonManager
@@ -6757,7 +6750,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "support" ? (
           <SectionIntro
-            description="Configure public support routing, donor-facing copy, centralized giving routing, and major gift options."
+            description="Updates Profile. Configure public support routing, donor-facing copy, centralized giving routing, and major gift options."
             title="Support"
           >
             <div className="space-y-6">
@@ -6960,7 +6953,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "prayer" ? (
           <SectionIntro
-            description="Control the public prayer section and the Join The Prayer Team flow."
+            description="Updates Profile + Feeds Field. Control the public prayer section and the Join The Prayer Team flow."
             title="Prayer"
           >
             <div className="space-y-6">
