@@ -7,9 +7,11 @@ const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 export function AccessLogoutButton({
   children = "Log Out",
+  className,
   redirectTo,
 }: {
   children?: string;
+  className?: string;
   redirectTo?: string;
 }) {
   const router = useRouter();
@@ -31,7 +33,7 @@ export function AccessLogoutButton({
 
   return (
     <button
-      className="inline-flex min-h-10 items-center justify-center border border-stone-700 bg-transparent px-4 text-[11px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
+      className={className ?? "inline-flex min-h-10 items-center justify-center border border-stone-700 bg-transparent px-4 text-[11px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"}
       disabled={isLoggingOut}
       onClick={logOut}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}

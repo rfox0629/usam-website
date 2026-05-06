@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { PrimaryNav } from "../../../components/PrimaryNav";
 import { AccessLogoutButton } from "../../../components/forms/AccessLogoutButton";
+import { DosWalkthroughRequestModal } from "./DosWalkthroughRequestModal";
 import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
@@ -87,30 +87,6 @@ function SectionHeading({
       </h2>
       {children ? <div className="mt-6 max-w-3xl text-base leading-8 text-stone-300 md:text-lg">{children}</div> : null}
     </div>
-  );
-}
-
-function CtaLink({
-  children,
-  href,
-  variant = "primary",
-}: {
-  children: ReactNode;
-  href: string;
-  variant?: "primary" | "secondary";
-}) {
-  return (
-    <Link
-      className={`inline-flex min-h-12 items-center justify-center px-6 text-center text-xs uppercase tracking-[0.24em] transition-colors ${
-        variant === "primary"
-          ? "border border-amber-400 bg-amber-400 text-stone-950 hover:border-amber-300 hover:bg-amber-300"
-          : "border border-stone-700 bg-transparent text-stone-100 hover:border-stone-300 hover:bg-white/[0.04]"
-      }`}
-      href={href}
-      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-    >
-      {children}
-    </Link>
   );
 }
 
@@ -299,7 +275,16 @@ function PhoneNav({ active }: { active: "Home" | "People" }) {
   );
 }
 
-export default async function SystemPreviewPage() {
+type SearchParams = {
+  previewForm?: string;
+};
+
+export default async function SystemPreviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
   const cookieStore = await cookies();
   const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
 
@@ -328,11 +313,13 @@ export default async function SystemPreviewPage() {
               DOS helps missionaries, leaders, and disciple makers track people, tables, follow up, prayer, and multiplication so no one reached is left without someone walking with them.
             </p>
             <div className="mt-9 flex flex-col gap-4 sm:flex-row">
-              <CtaLink href="/system?waitlist=1">Join the Waiting List</CtaLink>
-              <CtaLink href="/system?waitlist=1" variant="secondary">Request a Walkthrough</CtaLink>
-            </div>
-            <div className="mt-5">
-              <AccessLogoutButton>Exit System</AccessLogoutButton>
+              <DosWalkthroughRequestModal initialOpen={params.previewForm === "dos_walkthrough_request"} />
+              <AccessLogoutButton
+                className="inline-flex min-h-12 items-center justify-center border border-stone-700 bg-transparent px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-100 transition-colors hover:border-stone-300 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                redirectTo="/system"
+              >
+                Exit System
+              </AccessLogoutButton>
             </div>
           </div>
 
@@ -453,10 +440,6 @@ export default async function SystemPreviewPage() {
           <p className="mx-auto mt-7 max-w-2xl text-lg leading-8 text-stone-300">
             DOS is not replacing ministry. It is helping ministry endure. What you start, we help carry forward.
           </p>
-          <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row">
-            <CtaLink href="/system?waitlist=1">Join the Waiting List</CtaLink>
-            <CtaLink href="/support" variant="secondary">Partner With Us</CtaLink>
-          </div>
         </div>
       </section>
     </main>

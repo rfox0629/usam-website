@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export type FormSubmissionType =
+  | "dos_walkthrough_request"
   | "financial_freedom"
   | "field_report_access"
   | "join_mission_interest"

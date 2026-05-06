@@ -52,6 +52,7 @@ const supportFormTypes = [
   { label: "Missionary Profile Review", value: "missionary_profile_review" },
   { label: "Join the Mission Interest", value: "join_mission_interest" },
   { label: "System Waitlist", value: "system_waitlist" },
+  { label: "DOS Walkthrough Request", value: "dos_walkthrough_request" },
   { label: "Missionary Application", value: "missionary_application" },
   { label: "General", value: "general" },
 ] as const;
@@ -131,6 +132,8 @@ function formTypeLabel(value: string) {
       return "Field Reports Access";
     case "system_waitlist":
       return "System Waitlist";
+    case "dos_walkthrough_request":
+      return "DOS Walkthrough Request";
     case "missionary_application":
       return "Missionary Application";
     default:

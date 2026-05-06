@@ -169,6 +169,15 @@ const publicFormsBase = [
     status: "Live",
     submissionsHref: "/admin/support-team?type=system_waitlist",
   },
+  {
+    appearsOn: "/system/preview",
+    formName: "DOS Walkthrough Request",
+    formType: "dos_walkthrough_request",
+    previewHref: "/system/preview?previewForm=dos_walkthrough_request",
+    routesTo: "Support Team",
+    status: "Live",
+    submissionsHref: "/admin/support-team?type=dos_walkthrough_request",
+  },
 ] satisfies Array<Omit<PublicFormRow, "lastSubmission" | "submissions">>;
 
 const accessGates: AccessGateRow[] = [
@@ -243,6 +252,12 @@ const routingRules: RoutingRuleRow[] = [
     destination: "Support Team",
     id: "system_waitlist",
     source: "system_waitlist",
+  },
+  {
+    description: "DOS walkthrough requests from the protected preview page route to Support Team for scheduling follow-up.",
+    destination: "Support Team",
+    id: "dos_walkthrough_request",
+    source: "dos_walkthrough_request",
   },
   {
     description: "Access-code attempts validate against the centralized System Access Codes table and are not routed to team inboxes.",

@@ -18,6 +18,7 @@ type PublicFormPayload = {
 };
 
 const allowedFormTypes = [
+  "dos_walkthrough_request",
   "financial_freedom",
   "field_report_access",
   "join_mission_interest",
