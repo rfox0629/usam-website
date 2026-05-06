@@ -112,7 +112,6 @@ function DashboardPanel() {
 }
 
 type SearchParams = {
-  access?: string;
   waitlist?: string;
 };
 
@@ -125,7 +124,6 @@ export default async function SystemPage({
   const cookieStore = await cookies();
   const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
   const shouldOpenWaitlist = params.waitlist === "1";
-  const shouldOpenAccessCode = params.access === "1" || (!hasAccess && !shouldOpenWaitlist);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#050505] text-stone-100">
@@ -161,7 +159,7 @@ export default async function SystemPage({
 
             <WaitingListCTA
               hasAccess={hasAccess}
-              initialAccessOpen={shouldOpenAccessCode}
+              initialAccessOpen={false}
               initialWaitlistOpen={shouldOpenWaitlist}
             />
             {hasAccess ? (

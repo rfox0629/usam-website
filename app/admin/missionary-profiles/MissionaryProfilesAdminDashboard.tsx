@@ -45,6 +45,11 @@ const lightDividerClass = "border-[#e2ded5]";
 
 export type AdminSupportMode = SupportRoutingMode;
 
+// Permission model placeholder: this editor is currently master-admin-first, so
+// all loaded profile fields remain editable for authorized admins. Future roles
+// can layer workflow permissions around this surface without adding field-level
+// locks yet: master_admin, admin, reviewer, missionary_user, prayer_team,
+// support_team.
 export type AdminEncounterStatus = "new" | "reviewed" | "published" | "hidden" | "archived";
 export type AdminEncounterSource = "manual" | "public_form" | "dos";
 export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
@@ -304,7 +309,7 @@ const editorTabs: Array<{ label: string; value: EditorTab }> = [
 
 const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
   { label: "Fundraising Progress", value: "progress" },
-  { label: "Giving Links", value: "giving" },
+  { label: "Giving Routing", value: "giving" },
   { label: "Button Labels", value: "buttons" },
   { label: "Major Gift Settings", value: "gifts" },
   { label: "Advanced Settings", value: "advanced" },
@@ -3137,6 +3142,20 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       : [{ label: "No other missionary households available.", value: "" }];
   const targetHouseholdSelectDisabled = targetHouseholdLoadState !== "success" || targetHouseholds.length === 0;
   const showLeadershipPlaceholder = supportMode === "state_leader" || supportMode === "regional_leader";
+  const selectedTargetHousehold = targetHouseholds.find((household) => household.id === selectedProfile.support_target_household_id);
+  const givingRoutingDestination = supportMode === "household"
+    ? selectedProfile.display_name
+    : supportMode === "household_nomination"
+      ? selectedTargetHousehold?.display_name ?? "Selected missionary household"
+      : supportMode === "general_fund"
+        ? "USA Missionaries General Fund"
+        : supportMode === "state_leader"
+          ? "State Leadership Fund"
+          : supportMode === "regional_leader"
+            ? "Regional Leadership Fund"
+            : supportMode === "national_leadership"
+              ? "National Leadership and Expansion"
+              : "No public giving destination while support is hidden";
   const prayerBehavior = selectedProfile.enable_prayer_team === false ? "link" : "modal";
   const prayerButtonLabel = selectedProfile.prayer_cta_label || "Join The Prayer Team";
   const prayerHeadline = selectedProfile.prayer_section_headline || "Prayer Requests";
@@ -3605,7 +3624,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "support" ? (
           <SectionIntro
-            description="Configure public support routing, donor-facing copy, giving links, and major gift options."
+            description="Configure public support routing, donor-facing copy, centralized giving routing, and major gift options."
             title="Support"
           >
             <div className="space-y-6">
@@ -3651,21 +3670,44 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               {supportSubsection === "giving" ? (
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Giving Links
+                    Giving Routing
+                  </p>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+                    Giving URLs are centrally controlled by USA Missionaries. Profile admins can review routing here but cannot paste external links.
                   </p>
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <Field
-                      helperText="If blank, defaults to Church Center giving link with monthly selected."
-                      label="Monthly Giving URL"
-                      onChange={(value) => updateSupportField("monthly_giving_url", value)}
-                      value={support.monthly_giving_url}
-                    />
-                    <Field
-                      helperText="If blank, defaults to Church Center giving link with one-time selected."
-                      label="One-Time Giving URL"
-                      onChange={(value) => updateSupportField("one_time_giving_url", value)}
-                      value={support.one_time_giving_url}
-                    />
+                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Source
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-[#111111]">
+                        Master Giving System (USA Missionaries)
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Status
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-green-700">
+                        Active
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4 md:col-span-2">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Routing Description
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-[#111111]">
+                        This profile&apos;s support is connected to the centralized giving system managed by USA Missionaries.
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4 md:col-span-2">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Destination
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-[#111111]">
+                        {givingRoutingDestination}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : null}

@@ -326,6 +326,10 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       );
     });
 
+    // Intake workflow placeholder: missionaries will eventually submit profile
+    // details through public forms. Those raw submissions should appear here for
+    // master_admin/admin/reviewer review, then a human updates and publishes the
+    // profile. missionary_user submissions should not directly edit public fields.
     const encountersResult = await supabase
       .from("missionary_encounters")
       .select("id, missionary_profile_id, missionary_household_id, submitter_name, submitter_email, submitter_phone, encounter_date, original_testimony, public_summary, permission_to_share, status, source, created_at, updated_at")

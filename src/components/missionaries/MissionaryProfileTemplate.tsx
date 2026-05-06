@@ -205,9 +205,12 @@ function SupportProgressSummary({ missionary }: { missionary: Missionary }) {
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Fundraising Progress
           </p>
-          <div className="mt-2 flex flex-col gap-1 text-stone-200 sm:flex-row sm:items-center sm:gap-5">
-            <p className="text-base leading-7 md:text-lg">
-              {formatMoney(monthlyCommitted)} / {formatMoney(monthlyGoal)} monthly committed
+          <p className="mt-2 text-2xl font-bold leading-tight text-stone-100 md:text-3xl" style={{ fontFamily: font.oswald }}>
+            {formatMoney(monthlyCommitted)} / {formatMoney(monthlyGoal)}
+          </p>
+          <div className="mt-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm leading-6 text-stone-400">
+              Monthly committed
             </p>
             <p className="text-sm font-semibold text-stone-100">
               {progressPercentage}% raised
