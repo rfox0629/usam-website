@@ -26,13 +26,24 @@ export function generateStaticParams() {
   return getMissionaryStaticParams();
 }
 
-export default async function MissionaryProfilePage({ params }: { params: Promise<{ slug: string }> }) {
+type SearchParams = {
+  previewForm?: string;
+};
+
+export default async function MissionaryProfilePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<SearchParams>;
+}) {
   const { slug } = await params;
+  const query = await searchParams;
   const missionary = await getMissionaryProfileBySlug(slug);
 
   if (!missionary) {
     notFound();
   }
 
-  return <MissionaryProfileTemplate missionary={missionary} />;
+  return <MissionaryProfileTemplate missionary={missionary} previewForm={query.previewForm} />;
 }

@@ -20,15 +20,17 @@ const font = { rajdhani: "'Rajdhani', sans-serif" };
 type Status = "error" | "idle" | "success";
 
 export function MissionaryProfileReviewModal({
+  initialOpen = false,
   missionaryId,
   missionaryName,
   profileSlug,
 }: {
+  initialOpen?: boolean;
   missionaryId: string;
   missionaryName: string;
   profileSlug: string;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -45,6 +47,12 @@ export function MissionaryProfileReviewModal({
     setStatus("idle");
     setErrorMessage("");
   }
+
+  useEffect(() => {
+    if (initialOpen) {
+      openModal();
+    }
+  }, [initialOpen]);
 
   useEffect(() => {
     if (!isOpen) return;

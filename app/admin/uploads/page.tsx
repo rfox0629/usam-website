@@ -44,8 +44,8 @@ const uploadRows: AdminResourceControlRow[] = [
     url: "financial-freedom-uploads",
   },
   {
-    actionHref: "/admin/forms",
-    actionLabel: "View Forms",
+    actionHref: "/admin/public-experience?tab=forms",
+    actionLabel: "View Public Experience",
     detail: "Future document uploads connected to public forms and support workflows.",
     id: "form-documents",
     metadata: [
@@ -59,8 +59,8 @@ const uploadRows: AdminResourceControlRow[] = [
     url: "form-documents",
   },
   {
-    actionHref: "/admin/pages",
-    actionLabel: "View Pages",
+    actionHref: "/admin/public-experience?tab=pages",
+    actionLabel: "View Public Experience",
     detail: "Public site media and future content assets for page-level management.",
     id: "site-media",
     metadata: [

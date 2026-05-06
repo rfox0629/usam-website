@@ -82,6 +82,7 @@ function PrayerCoverageBoard() {
 
 type SearchParams = {
   join?: string;
+  previewForm?: string;
 };
 
 export default async function PrayerPage({
@@ -90,7 +91,7 @@ export default async function PrayerPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const shouldOpenApplication = params.join === "1";
+  const shouldOpenApplication = params.join === "1" || params.previewForm === "prayer_team_application";
 
   return (
     <main className="min-h-screen bg-[#050505] text-stone-100">

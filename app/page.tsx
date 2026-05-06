@@ -584,11 +584,15 @@ function DOSPanel() {
 }
 
 export default function Home() {
+  const [shouldPreviewJoinMission, setShouldPreviewJoinMission] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   useEffect(() => {
     const fn = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
+  }, []);
+  useEffect(() => {
+    setShouldPreviewJoinMission(new URLSearchParams(window.location.search).get("previewForm") === "join_mission_interest");
   }, []);
 
   const scrollToIdentity = () => {
@@ -736,7 +740,7 @@ export default function Home() {
           <Reveal><div className="w-12 h-px bg-stone-700 mx-auto"/></Reveal>
           <Reveal delay={100}><h2 className="mt-12 text-5xl md:text-7xl font-bold text-stone-100 tracking-tight" style={{fontFamily:font.oswald}}>YOU WERE SENT</h2></Reveal>
           <Reveal delay={250}><div className="mt-8 space-y-1 text-stone-400 text-lg"><p>The question is not if.</p><p className="text-stone-200">It is when.</p></div></Reveal>
-          <Reveal delay={400}><div className="mt-12"><JoinMissionInterestModal>Join the Mission</JoinMissionInterestModal></div></Reveal>
+          <Reveal delay={400}><div className="mt-12"><JoinMissionInterestModal initialOpen={shouldPreviewJoinMission}>Join the Mission</JoinMissionInterestModal></div></Reveal>
         </div>
       </section>
     </main>

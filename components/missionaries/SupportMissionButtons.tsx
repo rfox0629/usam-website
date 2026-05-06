@@ -11,6 +11,7 @@ const font = { rajdhani: "'Rajdhani', sans-serif" };
 type SharedSupportProps = {
   enableMajorGiftInquiry?: boolean;
   extraAction?: ReactNode;
+  initialMajorGiftOpen?: boolean;
   majorGiftButtonLabel?: string;
   majorGiftPublicDescription?: string | null;
   missionaryId: string;
@@ -150,6 +151,7 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
   const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
   const {
     enableMajorGiftInquiry = true,
+    initialMajorGiftOpen = false,
     majorGiftButtonLabel = "Contact About Major Gift",
     majorGiftPublicDescription,
     missionaryId,
@@ -189,6 +191,7 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
             description={majorGiftPublicDescription}
             householdId={missionaryId}
             householdName={missionaryName}
+            initialOpen={initialMajorGiftOpen}
             profileSlug={missionarySlug}
           />
         ) : null}

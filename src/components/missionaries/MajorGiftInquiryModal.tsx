@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import {
@@ -51,6 +52,7 @@ type MajorGiftInquiryModalProps = {
   description?: string | null;
   householdId: string;
   householdName: string;
+  initialOpen?: boolean;
   profileSlug: string;
 };
 
@@ -67,9 +69,10 @@ export function MajorGiftInquiryModal({
   description,
   householdId,
   householdName,
+  initialOpen = false,
   profileSlug,
 }: MajorGiftInquiryModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [status, setStatus] = useState<"error" | "idle" | "submitting" | "success">("idle");
   const [error, setError] = useState("");
   const [donationTypes, setDonationTypes] = useState<string[]>([]);
@@ -92,6 +95,12 @@ export function MajorGiftInquiryModal({
     setStatus("idle");
     setError("");
   }
+
+  useEffect(() => {
+    if (initialOpen) {
+      setIsOpen(true);
+    }
+  }, [initialOpen]);
 
   async function submitInquiry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

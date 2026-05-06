@@ -64,6 +64,7 @@ function ExternalActionLink({
 }
 
 type SearchParams = {
+  previewForm?: string;
   team?: string;
 };
 
@@ -75,7 +76,8 @@ export default async function SupportPage({
   const params = await searchParams;
   const cookieStore = await cookies();
   const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
-  const shouldOpenTeamAccess = params.team === "1" && !hasAccess;
+  const shouldOpenSupportGiving = params.previewForm === "support_giving";
+  const shouldOpenTeamAccess = (params.team === "1" || params.previewForm === "team_access_code") && !hasAccess;
   const resourceAreas = [
     "Equipping and training leaders",
     "Supporting active missionaries",
@@ -211,7 +213,7 @@ export default async function SupportPage({
                 </p>
                 <div className="mt-8">
                   {option.title === "Standard Giving" ? (
-                    <GeneralSupportGivingButton>
+                    <GeneralSupportGivingButton initialOpen={shouldOpenSupportGiving}>
                       {option.cta}
                     </GeneralSupportGivingButton>
                   ) : (

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function LegacyInquiriesAdminPage() {
-  redirect("/admin/forms");
+  redirect("/admin/public-experience?tab=forms");
 }

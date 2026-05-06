@@ -18,8 +18,8 @@ const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 type Status = "idle" | "success" | "error";
 
-export function FieldReportsAccessCTA() {
-  const [isOpen, setIsOpen] = useState(false);
+export function FieldReportsAccessCTA({ initialOpen = false }: { initialOpen?: boolean }) {
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -36,6 +36,12 @@ export function FieldReportsAccessCTA() {
     setStatus("idle");
     setErrorMessage("");
   }
+
+  useEffect(() => {
+    if (initialOpen) {
+      openModal();
+    }
+  }, [initialOpen]);
 
   useEffect(() => {
     if (!isOpen) return;

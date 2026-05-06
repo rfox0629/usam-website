@@ -109,7 +109,18 @@ const fieldReports = [
   },
 ] as const;
 
-export default function MissionPage() {
+type SearchParams = {
+  previewForm?: string;
+};
+
+export default async function MissionPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const shouldOpenFieldReports = params.previewForm === "field_report_access";
+
   return (
     <main className="min-h-screen bg-[#050505] text-stone-100">
       <PrimaryNav active="briefing" />
@@ -187,7 +198,7 @@ export default function MissionPage() {
                 </p>
               </div>
 
-              <FieldReportsAccessCTA />
+              <FieldReportsAccessCTA initialOpen={shouldOpenFieldReports} />
             </div>
           </div>
         </div>

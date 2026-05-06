@@ -299,9 +299,11 @@ function StorySection({
 
 function FruitSection({
   fruitItems,
+  initialReviewOpen = false,
   missionary,
 }: {
   fruitItems: readonly MissionaryFruitItem[];
+  initialReviewOpen?: boolean;
   missionary: Missionary;
 }) {
   const topFruitItems = getTopFruitItems(fruitItems);
@@ -358,6 +360,7 @@ function FruitSection({
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <FruitFromTheFieldModal items={fruitItems} />
                 <MissionaryProfileReviewModal
+                  initialOpen={initialReviewOpen}
                   missionaryId={missionary.id}
                   missionaryName={missionary.name}
                   profileSlug={missionary.slug}
@@ -461,7 +464,13 @@ function hasPublicPrayerContent(missionary: Missionary, prayerRequests: readonly
     || prayerRequests.length > 0;
 }
 
-export function MissionaryProfileTemplate({ missionary }: { missionary: Missionary }) {
+export function MissionaryProfileTemplate({
+  missionary,
+  previewForm,
+}: {
+  missionary: Missionary;
+  previewForm?: string;
+}) {
   const features = missionary.features ?? {
     showFruit: true,
     showHousehold: true,
@@ -481,7 +490,8 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
   const showPhotos = features.showPhotos;
   const showTeam = features.showTeam && Boolean(missionary.householdMembers?.length);
   const showStory = features.showStory && Boolean(storyParagraphs?.length);
-  const showFruit = features.showFruit && fruitItems.length > 0;
+  const shouldPreviewProfileReview = previewForm === "missionary_profile_review";
+  const showFruit = features.showFruit && (fruitItems.length > 0 || shouldPreviewProfileReview);
   const supportDefaults = getSupportDefaults(missionary);
   const showSupport = features.showSupport && supportDefaults.mode !== "hidden";
   const prayerTeamEnabled = missionary.prayerSettings?.enablePrayerTeam !== false;
@@ -500,6 +510,7 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
   const supportModalProps = {
     enableMajorGiftInquiry: supportDefaults.enableMajorGiftInquiry,
     extraAction: joinPrayerTeamAction,
+    initialMajorGiftOpen: previewForm === "major_gift",
     majorGiftButtonLabel: supportDefaults.majorGiftButtonLabel,
     majorGiftPublicDescription: supportDefaults.majorGiftPublicDescription,
     missionaryId: missionary.id,
@@ -539,7 +550,7 @@ export function MissionaryProfileTemplate({ missionary }: { missionary: Missiona
       ) : null}
 
       {showFruit ? (
-        <FruitSection fruitItems={fruitItems} missionary={missionary} />
+        <FruitSection fruitItems={fruitItems} initialReviewOpen={shouldPreviewProfileReview} missionary={missionary} />
       ) : null}
 
       {showPrayer ? (

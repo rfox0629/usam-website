@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SupportMissionModal } from "@/src/components/missionaries/SupportMissionModal";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
-export function GeneralSupportGivingButton({ children }: { children: React.ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
+export function GeneralSupportGivingButton({
+  children,
+  initialOpen = false,
+}: {
+  children: React.ReactNode;
+  initialOpen?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(initialOpen);
+
+  useEffect(() => {
+    if (initialOpen) {
+      setIsOpen(true);
+    }
+  }, [initialOpen]);
 
   return (
     <>

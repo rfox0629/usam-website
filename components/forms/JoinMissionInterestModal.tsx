@@ -28,7 +28,13 @@ const interestOptions = [
   "Not sure yet",
 ] as const;
 
-export function JoinMissionInterestModal({ children = "Join the Mission" }: { children?: ReactNode }) {
+export function JoinMissionInterestModal({
+  children = "Join the Mission",
+  initialOpen = false,
+}: {
+  children?: ReactNode;
+  initialOpen?: boolean;
+}) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,6 +45,12 @@ export function JoinMissionInterestModal({ children = "Join the Mission" }: { ch
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (initialOpen) {
+      openModal();
+    }
+  }, [initialOpen]);
 
   useEffect(() => {
     if (!isOpen) {
