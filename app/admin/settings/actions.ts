@@ -33,20 +33,20 @@ export async function updateSystemAccessCodes(formData: FormData) {
   }
 
   const rows = accessCodeTypes.map((type) => ({
+    active: isChecked(formData, `${type}_active`),
     code: getString(formData, `${type}_code`),
-    code_type: type,
-    is_active: isChecked(formData, `${type}_active`),
+    type,
   }));
   const missingCode = rows.find((row) => !row.code);
 
   if (missingCode) {
-    redirectToSettings(`error=${missingCode.code_type}-missing`);
+    redirectToSettings(`error=${missingCode.type}-missing`);
   }
 
   const supabase = createSupabaseAdminClient();
   const { error } = await supabase
     .from("system_access_codes")
-    .upsert(rows, { onConflict: "code_type" });
+    .upsert(rows, { onConflict: "type" });
 
   if (error) {
     redirectToSettings(`error=${encodeURIComponent(error.message)}`);

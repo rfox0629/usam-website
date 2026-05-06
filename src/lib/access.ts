@@ -20,9 +20,9 @@ type AccessPayload = {
 type AccessCodeType = "preview" | "system" | "team";
 
 type SystemAccessCodeRow = {
+  active: boolean;
   code: string;
-  code_type: AccessCodeType;
-  is_active: boolean;
+  type: AccessCodeType;
 };
 
 export type AccessCookieOptions = {
@@ -62,13 +62,6 @@ function safeCompare(first: string, second: string) {
   return firstBuffer.length === secondBuffer.length && timingSafeEqual(firstBuffer, secondBuffer);
 }
 
-function readCodes(value: string | undefined) {
-  return (value ?? "")
-    .split(",")
-    .map((code) => code.trim())
-    .filter(Boolean);
-}
-
 function codeMatches(input: string, code: string) {
   const inputBuffer = Buffer.from(input);
   const codeBuffer = Buffer.from(code);
@@ -78,30 +71,6 @@ function codeMatches(input: string, code: string) {
 
 function accessCodeTypesForSource(source: "system" | "team"): AccessCodeType[] {
   return source === "team" ? ["team"] : ["system", "preview"];
-}
-
-function getEnvAccessCodes(source: "system" | "team") {
-  const sharedCodes = [
-    ...readCodes(process.env.USAM_ACCESS_CODE),
-    ...readCodes(process.env.USAM_ACCESS_CODES),
-  ];
-
-  if (source === "team") {
-    return [
-      ...sharedCodes,
-      ...readCodes(process.env.USAM_TEAM_ACCESS_CODE),
-      ...readCodes(process.env.USAM_TEAM_ACCESS_CODES),
-      ...readCodes(process.env.USAM_SYSTEM_PREVIEW_CODE),
-    ];
-  }
-
-  return [
-    ...sharedCodes,
-    ...readCodes(process.env.SYSTEM_ACCESS_CODE),
-    ...readCodes(process.env.SYSTEM_ACCESS_CODES),
-    ...readCodes(process.env.USAM_SYSTEM_ACCESS_CODE),
-    ...readCodes(process.env.USAM_SYSTEM_PREVIEW_CODE),
-  ];
 }
 
 function isMissingSystemAccessCodesTable(error: { code?: string; message?: string } | null | undefined) {
@@ -117,26 +86,26 @@ function isMissingSystemAccessCodesTable(error: { code?: string; message?: strin
 
 async function getStoredAccessCodes(source: "system" | "team") {
   if (!isSupabaseAdminConfigured()) {
-    return null;
+    return [];
   }
 
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("system_access_codes")
-    .select("code, code_type, is_active")
-    .in("code_type", accessCodeTypesForSource(source))
-    .eq("is_active", true);
+    .select("code, type, active")
+    .in("type", accessCodeTypesForSource(source))
+    .eq("active", true);
 
   if (error) {
     if (!isMissingSystemAccessCodesTable(error)) {
       console.error("System access code lookup failed:", error.message);
     }
 
-    return null;
+    return [];
   }
 
   return ((data ?? []) as SystemAccessCodeRow[])
-    .filter((row) => row.is_active && row.code.trim())
+    .filter((row) => row.active && row.code.trim())
     .map((row) => row.code.trim());
 }
 
@@ -148,11 +117,7 @@ export async function isValidAccessCode(input: string, source: "system" | "team"
   }
 
   const storedCodes = await getStoredAccessCodes(source);
-  const codes = storedCodes && storedCodes.length > 0
-    ? storedCodes
-    : getEnvAccessCodes(source);
-
-  return codes.some((code) => codeMatches(trimmedInput, code));
+  return storedCodes.some((code) => codeMatches(trimmedInput, code));
 }
 
 export function accessCookieOptions(): AccessCookieOptions {

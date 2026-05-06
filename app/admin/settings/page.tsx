@@ -22,33 +22,29 @@ type SearchParams = {
 type AccessCodeType = "preview" | "system" | "team";
 
 type SystemAccessCodeRow = {
+  active: boolean;
   code: string;
-  code_type: AccessCodeType;
-  is_active: boolean;
+  type: AccessCodeType;
   updated_at: string;
 };
 
 const accessCodeFields: Array<{
   description: string;
-  envFallback?: string;
   label: string;
   name: AccessCodeType;
 }> = [
   {
     description: "Used by the System page access modal.",
-    envFallback: "SYSTEM_ACCESS_CODE",
     label: "System Access Code",
     name: "system",
   },
   {
     description: "Used by the Support page View the Team access modal.",
-    envFallback: "USAM_TEAM_ACCESS_CODE",
     label: "Team Access Code",
     name: "team",
   },
   {
     description: "Used for the protected DOS preview experience.",
-    envFallback: "USAM_SYSTEM_PREVIEW_CODE",
     label: "DOS Preview Access Code",
     name: "preview",
   },
@@ -63,25 +59,6 @@ function isMissingAccessCodesTable(error: { code?: string; message?: string } | 
     || message.includes("system_access_codes")
     || message.includes("schema cache")
     || message.includes("does not exist");
-}
-
-function envFallbackCode(type: AccessCodeType) {
-  if (type === "system") {
-    return process.env.SYSTEM_ACCESS_CODE
-      || process.env.USAM_SYSTEM_ACCESS_CODE
-      || process.env.USAM_SYSTEM_PREVIEW_CODE
-      || "";
-  }
-
-  if (type === "team") {
-    return process.env.USAM_TEAM_ACCESS_CODE
-      || process.env.USAM_TEAM_ACCESS_CODES?.split(",")[0]?.trim()
-      || "";
-  }
-
-  return process.env.USAM_SYSTEM_PREVIEW_CODE
-    || process.env.SYSTEM_ACCESS_CODE
-    || "";
 }
 
 function formatDate(value?: string) {
@@ -139,8 +116,8 @@ async function loadAccessCodes() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("system_access_codes")
-    .select("code, code_type, is_active, updated_at")
-    .order("code_type", { ascending: true });
+    .select("code, type, active, updated_at")
+    .order("type", { ascending: true });
 
   if (error) {
     return {
@@ -165,7 +142,7 @@ export default async function AdminSettingsPage({
   const params = await searchParams;
   const { error, rows } = await loadAccessCodes();
   const message = statusMessage(params);
-  const rowByType = new Map(rows.map((row) => [row.code_type, row]));
+  const rowByType = new Map(rows.map((row) => [row.type, row]));
 
   return (
     <AdminShell
@@ -212,8 +189,6 @@ export default async function AdminSettingsPage({
           <form action={updateSystemAccessCodes} className="mt-6 space-y-4">
             {accessCodeFields.map((field) => {
               const row = rowByType.get(field.name);
-              const fallback = envFallbackCode(field.name);
-              const defaultValue = row?.code ?? fallback;
 
               return (
                 <div
@@ -233,14 +208,13 @@ export default async function AdminSettingsPage({
                     </p>
                     <p className="mt-2 text-xs leading-5 text-stone-500">
                       Last updated: {formatDate(row?.updated_at)}
-                      {!row && fallback ? ` · currently falling back to ${field.envFallback}` : ""}
                     </p>
                   </div>
 
                   <input
                     autoComplete="off"
                     className="min-h-12 w-full border border-stone-700 bg-[#111111] px-4 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
-                    defaultValue={defaultValue}
+                    defaultValue={row?.code ?? ""}
                     id={`${field.name}_code`}
                     name={`${field.name}_code`}
                     placeholder="Enter access code"
@@ -251,7 +225,7 @@ export default async function AdminSettingsPage({
                   <label className="flex min-h-12 items-center gap-3 text-xs uppercase tracking-[0.16em] text-stone-300" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
                     <input
                       className="h-4 w-4 accent-[#D4A63D]"
-                      defaultChecked={row?.is_active ?? true}
+                      defaultChecked={row?.active ?? true}
                       name={`${field.name}_active`}
                       type="checkbox"
                     />
