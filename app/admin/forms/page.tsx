@@ -16,20 +16,6 @@ export const dynamic = "force-dynamic";
 
 const forms = [
   {
-    formName: "System Access Code",
-    formType: "system_access_code",
-    routesTo: "System/Auth",
-    status: "Live",
-    url: "/system",
-  },
-  {
-    formName: "Team Access Code",
-    formType: "team_access_code",
-    routesTo: "System/Auth",
-    status: "Live",
-    url: "/support",
-  },
-  {
     formName: "DOS Preview",
     formType: "protected_page",
     routesTo: "System/Auth",
@@ -188,14 +174,14 @@ export default async function FormsPagesAdminPage() {
     });
   }
   const rows: FormControlRow[] = forms.map((form) => {
-    if (form.formType === "system_access_code" || form.formType === "team_access_code" || form.formType === "protected_page") {
+    if (form.formType === "protected_page") {
       return {
         ...form,
-        access: form.formType === "protected_page" ? "Protected" : "Public",
+        access: "Protected",
         lastSubmissionLabel: "N/A",
         routesTo: form.routesTo,
         status: form.status,
-        totalSubmissions: form.formType === "protected_page" ? "Protected" : "N/A",
+        totalSubmissions: "Protected",
       };
     }
 

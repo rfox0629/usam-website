@@ -9,7 +9,7 @@ import {
 export async function POST(request: Request) {
   const { password } = await request.json();
 
-  if (typeof password !== "string" || !isValidAccessCode(password, "system")) {
+  if (typeof password !== "string" || !(await isValidAccessCode(password, "system"))) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 

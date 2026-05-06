@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Please complete the required fields." }, { status: 400 });
   }
 
-  if (!isValidAccessCode(accessCode, source)) {
+  if (!(await isValidAccessCode(accessCode, source))) {
     return NextResponse.json({ error: "Invalid access code" }, { status: 401 });
   }
 
