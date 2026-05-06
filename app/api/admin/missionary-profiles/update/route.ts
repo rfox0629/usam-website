@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { getAdminAuthorization } from "@/src/lib/admin-auth";
+import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
 import {
   normalizeLocationVisibility,
   normalizeMinistryRegion,
@@ -294,18 +294,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  if (authorization.status === "unauthorized") {
-    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-  }
-
   if (authorization.status === "configuration_error") {
     return NextResponse.json({ error: authorization.message }, { status: 500 });
   }
 
-  // Master-admin-first workflow for now: authorized admins can edit the full
-  // missionary profile record. Future role layers can distinguish master_admin,
-  // admin, reviewer, missionary_user, prayer_team, and support_team, but intake
-  // submissions should still land in admin review before anything publishes.
+  if (authorization.status === "unauthorized" || !canEditAdminContent(authorization)) {
+    return NextResponse.json({ error: "Editor access required." }, { status: 403 });
+  }
+
+  // Master-admin-first workflow for now: admin and editor roles can edit the
+  // full missionary profile record. Future role layers can distinguish
+  // master_admin, admin, reviewer, missionary_user, prayer_team, and
+  // support_team, but intake submissions should still land in admin review
+  // before anything publishes.
   let payload: UpdatePayload;
 
   try {

@@ -12,9 +12,12 @@ export const metadata: Metadata = {
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 const errors: Record<string, string> = {
+  "admin-check": "We could not verify admin permissions for this account.",
   config: "Supabase Auth is not configured for this environment.",
+  inactive: "This admin user is inactive. Contact a master admin to restore access.",
   invalid: "Unable to sign in with those credentials.",
   missing: "Enter an email and password to continue.",
+  "not-admin": "This email is not approved for admin access.",
 };
 
 export default async function LoginPage({

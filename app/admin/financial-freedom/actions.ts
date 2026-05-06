@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getAdminAuthorization } from "@/src/lib/admin-auth";
+import { getAdminAuthorization, hasAdminRole } from "@/src/lib/admin-auth";
 import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/lib/supabase/server";
 
 const statusValues = ["new", "reviewed", "follow_up", "closed"] as const;
@@ -29,7 +29,7 @@ export async function updateFinancialFreedomInquiryStatus(formData: FormData) {
     redirect("/login?next=/admin/financial-freedom");
   }
 
-  if (authorization.status !== "authorized") {
+  if (authorization.status !== "authorized" || !hasAdminRole(authorization, ["admin"])) {
     redirect("/");
   }
 
@@ -66,7 +66,7 @@ export async function updateMajorGiftInquiryStatus(formData: FormData) {
     redirect("/login?next=/admin/financial-freedom");
   }
 
-  if (authorization.status !== "authorized") {
+  if (authorization.status !== "authorized" || !hasAdminRole(authorization, ["admin"])) {
     redirect("/");
   }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminAuthorization } from "@/src/lib/admin-auth";
+import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
@@ -52,12 +52,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
-  if (authorization.status === "unauthorized") {
-    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-  }
-
   if (authorization.status === "configuration_error") {
     return NextResponse.json({ error: authorization.message }, { status: 500 });
+  }
+
+  if (authorization.status === "unauthorized" || !canEditAdminContent(authorization)) {
+    return NextResponse.json({ error: "Editor access required." }, { status: 403 });
   }
 
   let payload: RefineStoryPayload;

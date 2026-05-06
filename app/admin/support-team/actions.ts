@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getAdminAuthorization, hasAdminRole } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 const statuses = ["new", "reviewed", "needs_follow_up", "contacted", "converted", "archived"] as const;
@@ -42,6 +43,12 @@ function getPriority(value: string) {
 }
 
 async function getAdminClient() {
+  const authorization = await getAdminAuthorization();
+
+  if (!hasAdminRole(authorization, ["admin"])) {
+    throw new Error("Admin access is required.");
+  }
+
   if (!isSupabaseAdminConfigured()) {
     throw new Error("Supabase admin environment variables are not configured.");
   }
