@@ -396,7 +396,7 @@ function GlobalUrgencySection() {
         <div className="flex items-start gap-3">
           <IntelligenceIcon icon={icon} />
           <div className="min-w-0 pt-1">
-            <p className="text-[10px] font-semibold uppercase leading-tight tracking-[0.16em] text-stone-300" style={{ fontFamily: font.rajdhani }}>
+            <p className="max-w-[15rem] text-[13px] font-semibold uppercase leading-[1.05] tracking-[0.12em] text-stone-200 md:text-sm" style={{ fontFamily: font.rajdhani }}>
               {label}
             </p>
             <p className="mt-3 whitespace-nowrap text-[29px] font-bold leading-none text-stone-100 md:text-[34px]" style={{ fontFamily: font.oswald }}>
@@ -504,11 +504,13 @@ function GlobalUrgencySection() {
               icon={item.icon}
               label={item.label}
               note={item.note}
-              source={item.source}
               value={item.stat}
             />
           ))}
         </IntelligenceBlock>
+        <p className="mt-4 text-center text-[10px] font-medium uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+          SOURCES: BARNA GROUP + GALLUP
+        </p>
 
         <IntelligenceBlock
           className="mt-8 md:mt-10"
