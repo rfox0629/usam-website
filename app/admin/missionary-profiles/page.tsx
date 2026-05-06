@@ -71,7 +71,7 @@ const outcomeTagOptions = [
   "Prayer Answered",
   "Other",
 ] as const satisfies readonly AdminOutcomeTag[];
-const tableTypes = ["kitchen_table", "coffee", "group"] as const satisfies readonly AdminTableType[];
+const tableTypes = ["kitchen_table", "coffee", "phone", "zoom", "group", "other"] as const satisfies readonly AdminTableType[];
 
 type EncounterRow = {
   created_at: string;
@@ -97,6 +97,7 @@ type EncounterRow = {
 
 type MissionaryTableRow = {
   created_at: string;
+  field_person_ids?: string[] | null;
   household_id: string;
   id: string;
   notes: string | null;
@@ -221,6 +222,12 @@ function getTableParticipantNames(value: string[] | null | undefined) {
     : [];
 }
 
+function getTableFieldPersonIds(value: string[] | null | undefined) {
+  return Array.isArray(value)
+    ? value.filter((id): id is string => typeof id === "string" && Boolean(id.trim())).map((id) => id.trim())
+    : [];
+}
+
 function getPermissionToShare(payload: Record<string, unknown>) {
   return payloadBoolean(payload, "permission_to_share")
     || payloadString(payload, "permission_to_share").toLowerCase() === "true"
@@ -335,7 +342,7 @@ function isMissingEncounterPipelineColumns(error: { message?: string } | null | 
 function isMissingTablePipelineColumns(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["participant_names"].some((columnName) => message.includes(columnName));
+  return ["participant_names", "field_person_ids"].some((columnName) => message.includes(columnName));
 }
 
 function isMissingFruitItemsTable(error: { message?: string } | null | undefined) {
@@ -476,14 +483,14 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
 
     const tablesResult = await supabase
       .from("missionary_tables")
-      .select("id, household_id, table_date, table_type, participant_names, notes, source, created_at, updated_at")
+      .select("id, household_id, table_date, table_type, field_person_ids, participant_names, notes, source, created_at, updated_at")
       .in("household_id", ids)
       .order("table_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
     const fallbackTablesResult = tablesResult.error && isMissingTablePipelineColumns(tablesResult.error)
       ? await supabase
         .from("missionary_tables")
-        .select("id, household_id, table_date, table_type, notes, source, created_at, updated_at")
+        .select("id, household_id, table_date, table_type, participant_names, notes, source, created_at, updated_at")
         .in("household_id", ids)
         .order("table_date", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
@@ -502,6 +509,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
 
       currentTables.push({
         created_at: table.created_at,
+        field_person_ids: getTableFieldPersonIds(table.field_person_ids),
         household_id: table.household_id,
         id: table.id,
         notes: table.notes,

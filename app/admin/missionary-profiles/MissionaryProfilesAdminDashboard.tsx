@@ -62,7 +62,7 @@ export type AdminOutcomeTag =
   | "Other"
   | "Prayer Answered"
   | "Salvation";
-export type AdminTableType = "coffee" | "group" | "kitchen_table";
+export type AdminTableType = "coffee" | "group" | "kitchen_table" | "other" | "phone" | "zoom";
 export type AdminFieldPersonStatus = "active" | "archived" | "discipleship" | "follow_up" | "new" | "paused";
 export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
 export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
@@ -136,6 +136,7 @@ export type AdminSupportSettings = {
 // them now; future Field (FD) can create them quickly during daily work.
 export type AdminMissionaryTable = {
   created_at: string;
+  field_person_ids: string[];
   household_id: string;
   id: string;
   notes: string | null;
@@ -262,6 +263,7 @@ type StoryRefinementState = {
 };
 
 type TableDraft = {
+  fieldPersonIds: string[];
   notes: string;
   participantNamesText: string;
   tableDate: string;
@@ -310,7 +312,7 @@ type EditorTab =
   | "overview"
   | "people"
   | "tables"
-  | "encounters"
+  | "connections"
   | "fruit"
   | "library"
   | "in-season"
@@ -395,7 +397,10 @@ const outcomeTagOptions: AdminOutcomeTag[] = [
 const tableTypeOptions: Array<{ label: string; value: AdminTableType }> = [
   { label: "Kitchen Table", value: "kitchen_table" },
   { label: "Coffee", value: "coffee" },
+  { label: "Phone", value: "phone" },
+  { label: "Zoom", value: "zoom" },
   { label: "Group", value: "group" },
+  { label: "Other", value: "other" },
 ];
 
 const fieldPersonStatusOptions: Array<{ label: string; value: AdminFieldPersonStatus }> = [
@@ -439,7 +444,7 @@ const editorTabGroups: Array<{
       { destinations: ["CC Only"], label: "Overview", value: "overview" },
       { destinations: ["Feeds Field"], label: "People", value: "people" },
       { destinations: ["Feeds Field"], label: "Tables", value: "tables" },
-      { destinations: ["Feeds Field"], label: "Encounters", value: "encounters" },
+      { destinations: ["Feeds Field"], label: "Connections", value: "connections" },
       { destinations: ["Updates Profile", "Feeds Field"], label: "Fruit", value: "fruit" },
       { destinations: ["Feeds Field"], label: "Library", value: "library" },
       { destinations: ["Feeds Field"], label: "In Season", value: "in-season" },
@@ -1793,6 +1798,22 @@ function participantNamesText(names: readonly string[]) {
   return names.join(", ");
 }
 
+function tableLinkedPeople(table: AdminMissionaryTable, people: readonly AdminFieldPerson[]) {
+  const peopleById = new Map(people.map((person) => [person.id, person.name]));
+  const linkedNames = table.field_person_ids
+    .map((personId) => peopleById.get(personId))
+    .filter((name): name is string => Boolean(name?.trim()));
+  const quickNames = table.participant_names.filter((name) => !linkedNames.some((linkedName) => linkedName.toLowerCase() === name.toLowerCase()));
+
+  return [...linkedNames, ...quickNames];
+}
+
+function notesPreview(value: string | null | undefined) {
+  const text = value?.trim();
+
+  return text ? truncateText(text, 72) : "No notes";
+}
+
 function tableDateValue(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -2136,11 +2157,13 @@ function tableTimeGroup(table: AdminMissionaryTable): "earlier" | "this-week" | 
   return tableDate >= startOfWeek ? "this-week" : "earlier";
 }
 
-function tablePeopleLabel(table: AdminMissionaryTable, encounters: readonly AdminEncounterSubmission[]) {
-  if (table.participant_names.length > 0) {
-    return table.participant_names.length <= 3
-      ? table.participant_names.join(", ")
-      : `${table.participant_names.slice(0, 3).join(", ")} +${table.participant_names.length - 3}`;
+function tablePeopleLabel(table: AdminMissionaryTable, encounters: readonly AdminEncounterSubmission[], people: readonly AdminFieldPerson[]) {
+  const tablePeople = tableLinkedPeople(table, people);
+
+  if (tablePeople.length > 0) {
+    return tablePeople.length <= 3
+      ? tablePeople.join(", ")
+      : `${tablePeople.slice(0, 3).join(", ")} +${tablePeople.length - 3}`;
   }
 
   const encounterNames = encounters
@@ -2161,14 +2184,18 @@ function tablePeopleLabel(table: AdminMissionaryTable, encounters: readonly Admi
 
 function TablesManager({
   encounters,
+  fieldPeople,
   items,
   onAddEncounter,
   onCreate,
+  onUpdate,
 }: {
   encounters: readonly AdminEncounterSubmission[];
+  fieldPeople: readonly AdminFieldPerson[];
   items: readonly AdminMissionaryTable[];
   onAddEncounter: (table: AdminMissionaryTable, draft: QuickEncounterDraft) => void;
   onCreate: (draft: TableDraft) => AdminMissionaryTable | null;
+  onUpdate: (tableId: string, draft: TableDraft) => AdminMissionaryTable | null;
 }) {
   const sortedTables = useMemo(
     () => [...items].sort((first, second) => (
@@ -2181,6 +2208,7 @@ function TablesManager({
     { items: sortedTables.filter((table) => tableTimeGroup(table) === "this-week"), label: "This Week" },
     { items: sortedTables.filter((table) => tableTimeGroup(table) === "earlier").slice(0, 6), label: "Earlier" },
   ];
+  const [editingTable, setEditingTable] = useState<AdminMissionaryTable | null>(null);
   const [isAddTableOpen, setIsAddTableOpen] = useState(false);
   const [quickEncounterTable, setQuickEncounterTable] = useState<AdminMissionaryTable | null>(null);
   const [selectedTableId, setSelectedTableId] = useState(sortedTables[0]?.id ?? "");
@@ -2194,8 +2222,8 @@ function TablesManager({
     setSelectedTableId(sortedTables[0]?.id ?? "");
   }, [selectedTableId, sortedTables]);
 
-  function saveTable(draft: TableDraft, addEncounter: boolean) {
-    const table = onCreate(draft);
+  function saveTable(draft: TableDraft, addEncounter: boolean, tableId?: string) {
+    const table = tableId ? onUpdate(tableId, draft) : onCreate(draft);
 
     if (!table) {
       return;
@@ -2203,6 +2231,7 @@ function TablesManager({
 
     setSelectedTableId(table.id);
     setIsAddTableOpen(false);
+    setEditingTable(null);
 
     if (addEncounter) {
       setQuickEncounterTable(table);
@@ -2216,10 +2245,10 @@ function TablesManager({
           <p className="text-sm leading-6 text-[#7b746a]">
             Log a table quickly, then add raw encounters from that meeting. People are optional for now and stay internal.
           </p>
-          <DataFlowLabels items={["Meeting -> Encounter -> Fruit", "Internal operations", "Under 30 seconds"]} />
+          <DataFlowLabels items={["People -> Table -> Encounter", "Nested review later", "Under 30 seconds"]} />
         </div>
         <button className={lightPrimaryButtonClass} onClick={() => setIsAddTableOpen(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-          Add Table
+          + Add Table
         </button>
       </div>
 
@@ -2230,10 +2259,10 @@ function TablesManager({
       ) : null}
 
       {sortedTables.length > 0 ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-4">
             {groupedTables.map((group) => (
-              <div className="rounded-xl border border-[#e2ded5] bg-white" key={group.label}>
+              <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white" key={group.label}>
                 <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     {group.label}
@@ -2244,37 +2273,55 @@ function TablesManager({
                     No tables logged.
                   </p>
                 ) : null}
-                <div className="divide-y divide-[#e2ded5]">
-                  {group.items.map((table) => {
-                    const encounterCount = encounters.filter((encounter) => encounter.table_id === table.id).length;
-                    const selected = selectedTable?.id === table.id;
+                <div className="overflow-x-auto">
+                  <table className="min-w-[860px] w-full border-collapse text-left">
+                    <thead>
+                      <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
+                        {["Date", "Type", "People", "Notes", "Actions"].map((heading) => (
+                          <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0" key={heading} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                            {heading}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.items.map((table) => {
+                        const selected = selectedTable?.id === table.id;
 
-                    return (
-                      <button
-                        className={`grid w-full gap-2 px-4 py-3 text-left transition-colors sm:grid-cols-[150px_minmax(0,1fr)_120px] sm:items-center ${
-                          selected ? "bg-[#fff8e8]" : "bg-white hover:bg-[#fbfaf7]"
-                        }`}
-                        key={table.id}
-                        onClick={() => setSelectedTableId(table.id)}
-                        type="button"
-                      >
-                        <span>
-                          <span className="block text-sm font-semibold text-[#111111]">
-                            {tableTypeLabel(table.table_type)}
-                          </span>
-                          <span className="mt-1 block text-[10px] uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                            {encounterCount} {encounterCount === 1 ? "Encounter" : "Encounters"}
-                          </span>
-                        </span>
-                        <span className="truncate text-sm text-[#4b443b]">
-                          {tablePeopleLabel(table, encounters)}
-                        </span>
-                        <span className="text-sm text-[#6f6658] sm:text-right">
-                          {formatProfileUpdatedDate(table.table_date)}
-                        </span>
-                      </button>
-                    );
-                  })}
+                        return (
+                          <tr className={`border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7] ${selected ? "bg-[#fff8e8]" : ""}`} key={table.id}>
+                            <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
+                              {formatProfileUpdatedDate(table.table_date)}
+                            </td>
+                            <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+                              <span className="block text-sm font-semibold text-[#111111]">
+                                {tableTypeLabel(table.table_type)}
+                              </span>
+                              <span className="mt-1 block text-[10px] uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                                {encounters.filter((encounter) => encounter.table_id === table.id).length} Encounters
+                              </span>
+                            </td>
+                            <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
+                              {tablePeopleLabel(table, encounters, fieldPeople)}
+                            </td>
+                            <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm leading-5 text-[#4b443b]">
+                              {notesPreview(table.notes)}
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div className="flex flex-wrap gap-2">
+                                <button className={lightSecondaryButtonClass} onClick={() => setSelectedTableId(table.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                                  View
+                                </button>
+                                <button className={lightSecondaryButtonClass} onClick={() => setEditingTable(table)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                                  Edit
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             ))}
@@ -2282,6 +2329,7 @@ function TablesManager({
 
           <TableDetailPanel
             encounters={encounters.filter((encounter) => encounter.table_id === selectedTable?.id)}
+            fieldPeople={fieldPeople}
             onAddEncounter={(table) => setQuickEncounterTable(table)}
             table={selectedTable}
           />
@@ -2290,8 +2338,18 @@ function TablesManager({
 
       {isAddTableOpen ? (
         <AddTableModal
+          fieldPeople={fieldPeople}
           onClose={() => setIsAddTableOpen(false)}
           onSave={saveTable}
+        />
+      ) : null}
+
+      {editingTable ? (
+        <AddTableModal
+          fieldPeople={fieldPeople}
+          onClose={() => setEditingTable(null)}
+          onSave={(draft, addEncounter) => saveTable(draft, addEncounter, editingTable.id)}
+          table={editingTable}
         />
       ) : null}
 
@@ -2311,10 +2369,12 @@ function TablesManager({
 
 function TableDetailPanel({
   encounters,
+  fieldPeople,
   onAddEncounter,
   table,
 }: {
   encounters: readonly AdminEncounterSubmission[];
+  fieldPeople: readonly AdminFieldPerson[];
   onAddEncounter: (table: AdminMissionaryTable) => void;
   table: AdminMissionaryTable | null;
 }) {
@@ -2326,8 +2386,12 @@ function TableDetailPanel({
     );
   }
 
+  const peopleLabel = tableLinkedPeople(table, fieldPeople).length > 0
+    ? participantNamesText(tableLinkedPeople(table, fieldPeople))
+    : "Not added";
+
   return (
-    <aside className="rounded-xl border border-[#e2ded5] bg-white p-4">
+    <aside className="space-y-4 rounded-xl border border-[#e2ded5] bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -2342,10 +2406,11 @@ function TableDetailPanel({
         </button>
       </div>
 
-      <div className="mt-5 space-y-4 text-sm leading-6 text-[#4b443b]">
-        <DetailText label="Date" value={formatProfileUpdatedDate(table.table_date)} />
-        <DetailText label="People" value={table.participant_names.length > 0 ? participantNamesText(table.participant_names) : "Not added"} />
-        <DetailText label="Encounters" value={String(encounters.length)} />
+      <div className="grid gap-4 text-sm leading-6 text-[#4b443b]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <DetailText label="Date" value={formatProfileUpdatedDate(table.table_date)} />
+          <DetailText label="People" value={peopleLabel} />
+        </div>
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Notes
@@ -2355,23 +2420,91 @@ function TableDetailPanel({
           </p>
         </div>
       </div>
+
+      <div className="border-t border-[#e2ded5] pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Encounters
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+              Raw responses tied to this Table.
+            </p>
+          </div>
+          <button className={lightSecondaryButtonClass} onClick={() => onAddEncounter(table)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            + Add Encounter
+          </button>
+        </div>
+        <div className="mt-3 space-y-2">
+          {encounters.length === 0 ? (
+            <p className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm text-[#7b746a]">
+              No encounters logged yet.
+            </p>
+          ) : null}
+          {encounters.map((encounter) => (
+            <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={encounter.id}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-[#111111]">
+                    {encounter.submitter_name?.trim() || "Unnamed"}
+                  </p>
+                  <p className="mt-1 text-xs text-[#7b746a]">
+                    {encounter.submitter_email?.trim() || "No email"}
+                  </p>
+                </div>
+                <EncounterStatusBadge status={encounter.status} />
+              </div>
+              <p className="mt-2 text-sm leading-5 text-[#4b443b]">
+                {truncateText(encounter.original_testimony || "No response text.", 96)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-3 border-t border-[#e2ded5] pt-4">
+        <WorkspacePlanningState
+          description="Review will capture missionary interpretation after the Table and Encounter are logged."
+          labels={["Coming next", "Internal only"]}
+          title="Review"
+        />
+        <WorkspacePlanningState
+          description="Discipleship Assessment will capture teaching used, questions covered, readiness, and follow-up needs for this meeting."
+          labels={["Nested under Table", "Not stored on People"]}
+          title="Discipleship Assessment"
+        />
+      </div>
     </aside>
   );
 }
 
 function AddTableModal({
+  fieldPeople,
   onClose,
   onSave,
+  table,
 }: {
+  fieldPeople: readonly AdminFieldPerson[];
   onClose: () => void;
   onSave: (draft: TableDraft, addEncounter: boolean) => void;
+  table?: AdminMissionaryTable;
 }) {
   const [draft, setDraft] = useState<TableDraft>({
-    notes: "",
-    participantNamesText: "",
-    tableDate: todayDateValue(),
-    tableType: "kitchen_table",
+    fieldPersonIds: table?.field_person_ids ?? [],
+    notes: table?.notes ?? "",
+    participantNamesText: table ? participantNamesText(table.participant_names) : "",
+    tableDate: table?.table_date ?? todayDateValue(),
+    tableType: table?.table_type ?? "kitchen_table",
   });
+
+  function toggleFieldPerson(personId: string) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      fieldPersonIds: currentDraft.fieldPersonIds.includes(personId)
+        ? currentDraft.fieldPersonIds.filter((id) => id !== personId)
+        : [...currentDraft.fieldPersonIds, personId],
+    }));
+  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
@@ -2379,7 +2512,7 @@ function AddTableModal({
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Add Table
+              {table ? "Edit Table" : "Add Table"}
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
               Quick Table Log
@@ -2406,9 +2539,44 @@ function AddTableModal({
         </div>
 
         <div className="mt-5 space-y-4">
+          <div>
+            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              People
+            </p>
+            {fieldPeople.length > 0 ? (
+              <div className="mt-2 flex max-h-36 flex-wrap gap-2 overflow-y-auto rounded-xl border border-[#d7d2c8] bg-white p-3">
+                {fieldPeople.map((person) => {
+                  const selected = draft.fieldPersonIds.includes(person.id);
+
+                  return (
+                    <button
+                      className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
+                        selected
+                          ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                          : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
+                      }`}
+                      key={person.id}
+                      onClick={() => toggleFieldPerson(person.id)}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      {person.name}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-2 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm leading-6 text-[#7b746a]">
+                Add people in Your Field first, or use quick names below.
+              </p>
+            )}
+            <span className={lightHelperClass}>
+              Optional. Links this meeting to Your Field without publishing anything.
+            </span>
+          </div>
           <Field
-            helperText="Optional for now. Separate names with commas."
-            label="People"
+            helperText="Optional quick names if someone is not in Your Field yet. Separate names with commas."
+            label="Quick Names"
             onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, participantNamesText: value }))}
             value={draft.participantNamesText}
           />
@@ -2470,29 +2638,6 @@ function QuickEncounterModal({
           </button>
         </div>
 
-        <div className="mt-5">
-          <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Length
-          </p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {(["short", "long"] as const).map((length) => (
-              <button
-                className={`rounded-md border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition-colors ${
-                  draft.length === length
-                    ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                    : "border-[#d7d2c8] bg-white text-[#111111] hover:border-[#c8952d]"
-                }`}
-                key={length}
-                onClick={() => setDraft((currentDraft) => ({ ...currentDraft, length }))}
-                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                type="button"
-              >
-                {length}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Field
             label="Name"
@@ -2508,11 +2653,16 @@ function QuickEncounterModal({
 
         <div className="mt-5">
           <TextArea
-            label="Text"
+            helperText="Saved as RAW and tied to this Table."
+            label="Response Text"
             onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, text: value }))}
-            rows={draft.length === "long" ? 8 : 4}
+            rows={5}
             value={draft.text}
           />
+        </div>
+
+        <div className="mt-4">
+          <EncounterStatusBadge status="raw" />
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
@@ -3964,6 +4114,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     const timestamp = new Date().toISOString();
     const table: AdminMissionaryTable = {
       created_at: timestamp,
+      field_person_ids: draft.fieldPersonIds,
       household_id: selectedProfile.id,
       id: newClientId(),
       notes: draft.notes,
@@ -3988,6 +4139,47 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
 
     return table;
+  }
+
+  function updateMissionaryTable(tableId: string, draft: TableDraft) {
+    if (!selectedProfile) {
+      return null;
+    }
+
+    let updatedTable: AdminMissionaryTable | null = null;
+    const timestamp = new Date().toISOString();
+    const tables = (selectedProfile.tables ?? []).map((table) => {
+      if (table.id !== tableId) {
+        return table;
+      }
+
+      updatedTable = {
+        ...table,
+        field_person_ids: draft.fieldPersonIds,
+        notes: draft.notes,
+        participant_names: parseParticipantNames(draft.participantNamesText),
+        table_date: draft.tableDate || todayDateValue(),
+        table_type: draft.tableType,
+        updated_at: timestamp,
+      };
+
+      return updatedTable;
+    });
+
+    if (!updatedTable) {
+      return null;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      tables,
+    });
+    setStatus({
+      text: "Table updated. Click Save Updates to persist this workspace.",
+      tone: "success",
+    });
+
+    return updatedTable;
   }
 
   function updateAnnualGoal(value: number) {
@@ -4780,9 +4972,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           >
             <TablesManager
               encounters={selectedProfile.encounterSubmissions ?? []}
+              fieldPeople={selectedProfile.fieldPeople ?? []}
               items={selectedProfile.tables ?? []}
               onAddEncounter={addEncounterFromTable}
               onCreate={createMissionaryTable}
+              onUpdate={updateMissionaryTable}
             />
           </SectionIntro>
           ) : null}
@@ -5098,19 +5292,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </SectionIntro>
           ) : null}
 
-          {activeTab === "encounters" ? (
+          {activeTab === "connections" ? (
           <SectionIntro
-            description="Raw submitted reviews, testimonies, and profile forms exactly as people submitted them."
-            title="Encounters"
+            description="Ongoing interactions outside formal Tables: calls, texts, Zoom, prayer, and discipleship."
+            title="Connections"
           >
-            <EncounterSubmissionManager
-              editingEncounterId={focusedEncounterId}
-              items={selectedProfile.encounterSubmissions ?? []}
-              onAdd={addEncounter}
-              onEditingEncounterIdChange={setFocusedEncounterId}
-              onQuickStatus={quickUpdateEncounterStatus}
-              onUpdate={updateEncounterSubmission}
-              tables={selectedProfile.tables ?? []}
+            <WorkspacePlanningState
+              description="Connections will track fast ongoing discipleship activity outside formal Tables. Keep this light: person, date, duration, interaction type, notes, movement step, and follow-up."
+              labels={["Calls", "Texts", "Zoom", "Prayer", "Discipleship"]}
+              title="Operations Model"
             />
           </SectionIntro>
           ) : null}

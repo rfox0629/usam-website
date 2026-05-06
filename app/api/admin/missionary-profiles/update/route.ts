@@ -37,6 +37,7 @@ type UpdatePayload = {
   // Tables are CC meeting records. They connect daily ministry meetings to raw
   // Encounters now and future Field activity later.
   tables?: Array<{
+    field_person_ids?: unknown;
     id?: unknown;
     notes?: unknown;
     participant_names?: unknown;
@@ -132,7 +133,7 @@ const outcomeTagOptions = [
   "Other",
 ] as const;
 const tableSources = ["command_center", "field"] as const;
-const tableTypes = ["kitchen_table", "coffee", "group"] as const;
+const tableTypes = ["kitchen_table", "coffee", "phone", "zoom", "group", "other"] as const;
 const teamMemberSources = ["website_admin", "dos", "public_form"] as const;
 const teamMemberStatuses = ["active", "hidden", "archived"] as const;
 
@@ -364,7 +365,7 @@ function hasMissingEncounterPipelineColumnsError(error: { message?: string } | n
 function hasMissingTablePipelineColumnsError(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["participant_names"].some((columnName) => message.includes(columnName));
+  return ["participant_names", "field_person_ids"].some((columnName) => message.includes(columnName));
 }
 
 function hasLegacyEncounterStatusConstraintError(error: { message?: string } | null | undefined) {
@@ -638,6 +639,7 @@ export async function POST(request: Request) {
         return {
           id,
           record: {
+            field_person_ids: asStringArray(table.field_person_ids),
             household_id: householdId,
             notes: asNullableString(table.notes),
             participant_names: asStringArray(table.participant_names),

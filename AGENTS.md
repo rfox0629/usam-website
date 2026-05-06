@@ -137,15 +137,19 @@ Build and maintain these Command Center modules:
 
 1. Your Field (People)
 2. Tables
-3. Encounters
-4. Review
-5. Discipleship Assessment
-6. Connection Logs
-7. Fruit
-8. Movement Step
-9. Library
-10. In Season
-11. Profiles (publishing layer)
+3. Connections
+4. Fruit
+5. Library
+6. In Season
+7. Profiles (publishing layer)
+
+Tables contain the nested workflow:
+- Table details
+- Encounters
+- Review
+- Discipleship Assessment
+
+Do NOT make Encounters a top-level Command Center tab. Encounters are nested under Tables.
 
 Each module must:
 - be clearly separated
@@ -173,7 +177,9 @@ Profiles must display only approved and curated content.
 
 ### Command Center (CC)
 Operational data:
-- Encounters: raw submissions such as testimonies, forms, reviews, and story intake
+- Tables: meeting events that contain details, Encounters, Review, and Discipleship Assessment
+- Connections: ongoing interactions outside formal Tables such as calls, texts, Zoom, prayer, and discipleship
+- Encounters: raw submissions nested under Tables
 - Review: missionary interpretation of a meeting
 - Discipleship Assessment: structured spiritual insights tied to a meeting
 - Fruit: approved outcomes derived from Encounters + Review + Assessment
@@ -258,6 +264,13 @@ These will later be based on time spent, frequency, and recency. Do NOT automate
 
 Tables are meeting events.
 
+Tables own the first working workflow:
+
+People
+-> Table
+-> Encounter
+-> later Review + Fruit
+
 Fields:
 - date, default today
 - type: Kitchen Table, Coffee, Phone, Zoom, Group, Other
@@ -270,6 +283,7 @@ UX:
 - fast entry under 30 seconds
 - default values
 - buttons: Save Table, Save + Add Encounter
+- detail view contains nested Encounters, Review placeholder, and Discipleship Assessment placeholder
 
 Movement Step is selectable from Tables.
 
