@@ -34,7 +34,9 @@ function base64UrlDecode(value: string) {
 
 function getTokenSecret() {
   return process.env.USAM_ACCESS_TOKEN_SECRET
+    || process.env.SYSTEM_ACCESS_TOKEN_SECRET
     || process.env.USAM_SYSTEM_ACCESS_SECRET
+    || process.env.SYSTEM_ACCESS_CODE
     || process.env.USAM_SYSTEM_PREVIEW_CODE
     || null;
 }
@@ -77,6 +79,8 @@ export function isValidAccessCode(input: string, source: "system" | "team") {
   ];
   const systemCodes = [
     ...sharedCodes,
+    ...readCodes(process.env.SYSTEM_ACCESS_CODE),
+    ...readCodes(process.env.SYSTEM_ACCESS_CODES),
     ...readCodes(process.env.USAM_SYSTEM_ACCESS_CODE),
     ...readCodes(process.env.USAM_SYSTEM_PREVIEW_CODE),
   ];

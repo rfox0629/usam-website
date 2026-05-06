@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   if (!isValidAccessCode(accessCode, source)) {
-    return NextResponse.json({ error: "This access code was not recognized." }, { status: 401 });
+    return NextResponse.json({ error: "Invalid access code" }, { status: 401 });
   }
 
   const token = createAccessToken({
