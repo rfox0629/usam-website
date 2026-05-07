@@ -366,13 +366,20 @@ export default async function DosCollectiveWorkspacePage({
                 <p>Affiliated: {joinNames(affiliateNames, "No active affiliates")}</p>
                 <p>Networks: {joinNames(networkNames, "No active networks")}</p>
               </div>
-              <div className="mt-6">
+              <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   className="inline-flex min-h-12 items-center justify-center border border-amber-500/50 bg-[#101010] px-5 text-center text-xs font-bold uppercase tracking-[0.2em] text-amber-300 transition-colors hover:border-amber-300 hover:text-amber-100"
                   href={`/dos/${data.collective.slug}/people`}
                   style={{ fontFamily: font.rajdhani }}
                 >
                   Open People
+                </Link>
+                <Link
+                  className="inline-flex min-h-12 items-center justify-center border border-stone-700 bg-[#080808] px-5 text-center text-xs font-bold uppercase tracking-[0.2em] text-stone-200 transition-colors hover:border-amber-500/50 hover:text-amber-300"
+                  href={`/dos/${data.collective.slug}/meetings`}
+                  style={{ fontFamily: font.rajdhani }}
+                >
+                  Log Meeting
                 </Link>
               </div>
             </div>

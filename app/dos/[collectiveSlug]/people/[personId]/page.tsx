@@ -37,6 +37,17 @@ function formatDate(value: string) {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
+function formatMeetingAt(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 function formatRelativeDate(value: string) {
   const meetingDate = new Date(`${value}T00:00:00Z`);
   const now = new Date();
@@ -140,7 +151,13 @@ function SectionIntro({
   );
 }
 
-function MeetingList({ meetings }: { meetings: DosPersonMeeting[] }) {
+function MeetingList({
+  collectiveSlug,
+  meetings,
+}: {
+  collectiveSlug: string;
+  meetings: DosPersonMeeting[];
+}) {
   if (!meetings.length) {
     return (
       <div className="border border-dashed border-stone-800 bg-[#080808] p-5 text-sm leading-7 text-stone-500">
@@ -152,7 +169,11 @@ function MeetingList({ meetings }: { meetings: DosPersonMeeting[] }) {
   return (
     <div className="space-y-4">
       {meetings.map((meeting) => (
-        <article className="border border-stone-800 bg-[#080808] p-5" key={meeting.id}>
+        <Link
+          className="block border border-stone-800 bg-[#080808] p-5 transition-colors hover:border-amber-500/45"
+          href={`/dos/${collectiveSlug}/meetings/${meeting.id}`}
+          key={meeting.id}
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p
@@ -165,7 +186,30 @@ function MeetingList({ meetings }: { meetings: DosPersonMeeting[] }) {
                 {meeting.title}
               </h3>
             </div>
-            <p className="text-sm text-stone-400">{formatDate(meeting.meetingDate)}</p>
+            <p className="text-sm text-stone-400">{formatMeetingAt(meeting.meetingAt)}</p>
+          </div>
+
+          {meeting.summaryPrivate ? (
+            <p className="mt-4 text-sm leading-6 text-stone-300">{meeting.summaryPrivate}</p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {meeting.followUpNeeded ? (
+              <span
+                className="border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
+                style={{ fontFamily: font.rajdhani }}
+              >
+                Follow up needed
+              </span>
+            ) : null}
+            {meeting.prayerRequested ? (
+              <span
+                className="border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
+                style={{ fontFamily: font.rajdhani }}
+              >
+                Prayer requested
+              </span>
+            ) : null}
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -196,7 +240,7 @@ function MeetingList({ meetings }: { meetings: DosPersonMeeting[] }) {
               </p>
             </div>
           </div>
-        </article>
+        </Link>
       ))}
     </div>
   );
@@ -244,19 +288,26 @@ function StatusTile({
   );
 }
 
-function NextActions() {
+function NextActions({
+  collectiveSlug,
+  person,
+}: {
+  collectiveSlug: string;
+  person: DosFieldPerson;
+}) {
+  const logMeetingHref = person.kind === "person"
+    ? `/dos/${collectiveSlug}/meetings?personId=${person.id}`
+    : `/dos/${collectiveSlug}/meetings`;
+
   return (
     <div className="grid gap-3 sm:grid-cols-[minmax(0,16rem)] lg:flex lg:justify-end">
-      {/* TODO: Wire this to the lightweight DOS meeting logger when that workflow is built. */}
-      <button
-        aria-disabled="true"
-        className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 opacity-90"
-        disabled
+      <Link
+        className="inline-flex min-h-12 items-center justify-center border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300"
+        href={logMeetingHref}
         style={{ fontFamily: font.rajdhani }}
-        type="button"
       >
         Log Meeting
-      </button>
+      </Link>
     </div>
   );
 }
@@ -356,7 +407,7 @@ export default async function DosPersonDetailPage({
               </div>
             </div>
 
-            <NextActions />
+            <NextActions collectiveSlug={data.collective.slug} person={person} />
           </div>
 
           <div className="mt-8 border border-stone-800 bg-[#070707]/90 p-4 sm:p-5">
@@ -365,7 +416,7 @@ export default async function DosPersonDetailPage({
               <StatusTile label="Relationship Stage" value={person.relationshipStage ?? "Not set yet"} />
               <StatusTile label="Last Meeting" value={lastMeetingSummary} />
               <StatusTile label="Current Focus" value={currentFocus} />
-              <StatusTile label="Prayer Requested" value="No request logged" />
+              <StatusTile label="Prayer Requested" value={person.lastMeeting?.prayerRequested ? "Yes" : "No request logged"} />
             </div>
           </div>
         </div>
@@ -407,7 +458,7 @@ export default async function DosPersonDetailPage({
           <div>
             <SectionIntro eyebrow="Meetings" title="Recent meetings" />
           </div>
-          <MeetingList meetings={result.data.recentMeetings} />
+          <MeetingList collectiveSlug={data.collective.slug} meetings={result.data.recentMeetings} />
         </div>
       </section>
 

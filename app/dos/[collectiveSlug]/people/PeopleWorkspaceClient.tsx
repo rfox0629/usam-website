@@ -46,6 +46,10 @@ function movementSummary(person: DosFieldPerson) {
 
 function nextActionText(person: DosFieldPerson) {
   if (person.lastMeeting) {
+    if (person.lastMeeting.followUpNeeded) {
+      return "Follow up needed";
+    }
+
     return `Last meeting: ${person.lastMeeting.title} on ${formatDate(person.lastMeeting.meetingDate)}`;
   }
 
@@ -119,6 +123,10 @@ function PersonCard({
         {movementCopy ? <p className="text-stone-400">{movementCopy}</p> : null}
 
         <p className="text-stone-500">{nextActionText(person)}</p>
+
+        {person.lastMeeting?.prayerRequested ? (
+          <p className="text-stone-500">Prayer context captured</p>
+        ) : null}
 
         {person.disciplingCount > 0 ? (
           <p className="pt-1 text-amber-300">
@@ -358,14 +366,23 @@ export function PeopleWorkspaceClient({
           />
         </label>
 
-        <button
-          className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300"
-          onClick={() => setIsAddOpen(true)}
-          style={{ fontFamily: font.rajdhani }}
-          type="button"
-        >
-          Add Person
-        </button>
+        <div className="grid gap-2 sm:grid-cols-2 lg:flex">
+          <Link
+            className="inline-flex min-h-12 items-center justify-center border border-stone-700 bg-[#080808] px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-200 transition-colors hover:border-amber-500/50 hover:text-amber-300"
+            href={`/dos/${collectiveSlug}/meetings`}
+            style={{ fontFamily: font.rajdhani }}
+          >
+            Log Meeting
+          </Link>
+          <button
+            className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300"
+            onClick={() => setIsAddOpen(true)}
+            style={{ fontFamily: font.rajdhani }}
+            type="button"
+          >
+            Add Person
+          </button>
+        </div>
       </div>
 
       <div className="-mx-4 mt-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">

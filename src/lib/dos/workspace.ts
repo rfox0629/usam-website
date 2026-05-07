@@ -31,7 +31,9 @@ export type DosRelationship = {
 };
 
 export type DosMeeting = {
+  followUpNeeded: boolean;
   id: string;
+  meetingAt: string;
   meetingDate: string;
   ministers: Array<{
     id: string;
@@ -43,6 +45,10 @@ export type DosMeeting = {
     name: string;
     role: string;
   }>;
+  prayerRequested: boolean;
+  relationshipMovement: string | null;
+  spiritualOpennessMovement: string | null;
+  summaryPrivate: string | null;
   title: string;
   type: string;
 };
@@ -161,8 +167,15 @@ type RelationshipRow = {
 };
 
 type MeetingRow = {
+  follow_up_needed: boolean;
   id: string;
+  meeting_at: string;
   meeting_date: string;
+  notes_private: string | null;
+  prayer_requested: boolean;
+  relationship_movement: string | null;
+  spiritual_openness_movement: string | null;
+  summary_private: string | null;
   title: string;
   type: string;
 };
@@ -331,10 +344,10 @@ export async function loadDosWorkspace(collectiveSlug: string): Promise<Workspac
       .or(`collective_id.is.null,collective_id.eq.${collective.id}`),
     supabase
       .from("meetings")
-      .select("id, title, type, meeting_date")
+      .select("id, title, type, meeting_date, meeting_at, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement")
       .eq("owner_organization_id", collective.owner_organization_id)
       .eq("primary_collective_id", collective.id)
-      .order("meeting_date", { ascending: false }),
+      .order("meeting_at", { ascending: false }),
     supabase
       .from("discipleship_relationships")
       .select("id, discipler_profile_id, disciple_person_id, disciple_profile_id, style, strength, status, started_at")
@@ -452,7 +465,9 @@ export async function loadDosWorkspace(collectiveSlug: string): Promise<Workspac
     };
   });
   const mappedMeetings = meetings.map((meeting) => ({
+    followUpNeeded: meeting.follow_up_needed,
     id: meeting.id,
+    meetingAt: meeting.meeting_at,
     meetingDate: meeting.meeting_date,
     ministers: meetingMinisters
       .filter((minister) => minister.meeting_id === meeting.id)
@@ -468,6 +483,10 @@ export async function loadDosWorkspace(collectiveSlug: string): Promise<Workspac
         name: people.get(person.person_id)?.name ?? "Unknown person",
         role: person.role,
       })),
+    prayerRequested: meeting.prayer_requested,
+    relationshipMovement: meeting.relationship_movement,
+    spiritualOpennessMovement: meeting.spiritual_openness_movement,
+    summaryPrivate: meeting.summary_private ?? meeting.notes_private,
     title: meeting.title,
     type: meeting.type,
   }));
@@ -493,7 +512,7 @@ export async function loadDosWorkspace(collectiveSlug: string): Promise<Workspac
       fieldActivity: {
         kitchenTablesThisMonth: meetingsThisMonth.filter((meeting) => meeting.type === "kitchen_table").length,
         meetingsThisMonth: meetingsThisMonth.length,
-        prayerEncounters: 0,
+        prayerEncounters: meetingsThisMonth.filter((meeting) => meeting.prayerRequested).length,
         uniquePeopleMetThisMonth: peopleMetThisMonth.size,
       },
       meetings: mappedMeetings,

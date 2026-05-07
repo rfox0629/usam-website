@@ -30,7 +30,9 @@ export type DosFieldPerson = {
 };
 
 export type DosPersonMeeting = {
+  followUpNeeded: boolean;
   id: string;
+  meetingAt: string;
   meetingDate: string;
   ministers: Array<{
     id: string;
@@ -42,6 +44,10 @@ export type DosPersonMeeting = {
     name: string;
     role: string;
   }>;
+  prayerRequested: boolean;
+  relationshipMovement: string | null;
+  spiritualOpennessMovement: string | null;
+  summaryPrivate: string | null;
   title: string;
   type: string;
 };
@@ -162,8 +168,15 @@ type CollectiveMembershipRow = {
 };
 
 type MeetingRow = {
+  follow_up_needed: boolean;
   id: string;
+  meeting_at: string;
   meeting_date: string;
+  notes_private: string | null;
+  prayer_requested: boolean;
+  relationship_movement: string | null;
+  spiritual_openness_movement: string | null;
+  summary_private: string | null;
   title: string;
   type: string;
 };
@@ -576,10 +589,10 @@ async function loadContext(collectiveSlug: string): Promise<LoadResult<LoadConte
       .eq("status", "active"),
     supabase
       .from("meetings")
-      .select("id, title, type, meeting_date")
+      .select("id, title, type, meeting_date, meeting_at, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement")
       .eq("owner_organization_id", collective.owner_organization_id)
       .eq("primary_collective_id", collective.id)
-      .order("meeting_date", { ascending: false }),
+      .order("meeting_at", { ascending: false }),
   ]);
 
   if (
@@ -631,7 +644,9 @@ async function loadContext(collectiveSlug: string): Promise<LoadResult<LoadConte
   const meetingMinisters = (meetingMinistersResult.data ?? []) as MeetingMinisterRow[];
   const meetingPeople = (meetingPeopleResult.data ?? []) as MeetingPersonRow[];
   const mappedMeetings = meetings.map((meeting) => ({
+    followUpNeeded: meeting.follow_up_needed,
     id: meeting.id,
+    meetingAt: meeting.meeting_at,
     meetingDate: meeting.meeting_date,
     ministers: meetingMinisters
       .filter((minister) => minister.meeting_id === meeting.id)
@@ -647,6 +662,10 @@ async function loadContext(collectiveSlug: string): Promise<LoadResult<LoadConte
         name: fieldPeople.get(person.person_id)?.name ?? "Unknown person",
         role: person.role,
       })),
+    prayerRequested: meeting.prayer_requested,
+    relationshipMovement: meeting.relationship_movement,
+    spiritualOpennessMovement: meeting.spiritual_openness_movement,
+    summaryPrivate: meeting.summary_private ?? meeting.notes_private,
     title: meeting.title,
     type: meeting.type,
   }));
