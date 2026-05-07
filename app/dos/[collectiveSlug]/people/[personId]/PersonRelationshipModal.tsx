@@ -19,10 +19,14 @@ const relationshipStyles = [
 ] as const;
 
 export function PersonRelationshipModal({
+  buttonClassName,
+  buttonLabel = "Add Another Discipler",
   collectiveSlug,
   person,
   relationshipOptions,
 }: {
+  buttonClassName?: string;
+  buttonLabel?: string;
   collectiveSlug: string;
   person: DosFieldPerson;
   relationshipOptions: DosRelationshipOption[];
@@ -85,12 +89,12 @@ export function PersonRelationshipModal({
   return (
     <>
       <button
-        className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300"
+        className={buttonClassName ?? "min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300"}
         onClick={() => setIsOpen(true)}
         style={{ fontFamily: font.rajdhani }}
         type="button"
       >
-        Add Another Discipler
+        {buttonLabel}
       </button>
 
       {isOpen ? (

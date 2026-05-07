@@ -423,16 +423,20 @@ function buildMultiplicationRoots(
 ) {
   const activeRelationships = relationships.filter((relationship) => relationship.status === "active");
   const byDiscipler = new Map<string, DosRelationshipView[]>();
-  const discipleKeys = new Set<string>();
+  const byDisciple = new Map<string, DosRelationshipView[]>();
 
   activeRelationships.forEach((relationship) => {
-    const existing = byDiscipler.get(relationship.disciplerId) ?? [];
-    existing.push(relationship);
-    byDiscipler.set(relationship.disciplerId, existing);
-    discipleKeys.add(personKeyFromRelationship(relationship));
+    const disciplerRelationships = byDiscipler.get(relationship.disciplerId) ?? [];
+    disciplerRelationships.push(relationship);
+    byDiscipler.set(relationship.disciplerId, disciplerRelationships);
+
+    const discipleKey = personKeyFromRelationship(relationship);
+    const discipleRelationships = byDisciple.get(discipleKey) ?? [];
+    discipleRelationships.push(relationship);
+    byDisciple.set(discipleKey, discipleRelationships);
   });
 
-  function buildNode(kind: DosPersonKind, id: string, name: string, seen: Set<string>): MultiplicationNode {
+  function buildDescendantNode(kind: DosPersonKind, id: string, name: string, seen: Set<string>): MultiplicationNode {
     const key = personKey(kind, id);
 
     if (seen.has(key)) {
@@ -450,7 +454,7 @@ function buildMultiplicationRoots(
     return {
       children: kind === "profile"
         ? (byDiscipler.get(id) ?? []).map((relationship) =>
-          buildNode(relationship.discipleKind, relationship.discipleId, relationship.discipleName, nextSeen),
+          buildDescendantNode(relationship.discipleKind, relationship.discipleId, relationship.discipleName, nextSeen),
         )
         : [],
       id,
@@ -459,30 +463,55 @@ function buildMultiplicationRoots(
     };
   }
 
-  const rootRelationships = uniqueStrings(activeRelationships.map((relationship) => relationship.disciplerId))
-    .filter((profileId) => !discipleKeys.has(personKey("profile", profileId)));
-  const rootIds = rootRelationships.length
-    ? rootRelationships
-    : uniqueStrings(activeRelationships.map((relationship) => relationship.disciplerId));
-  const roots = rootIds.map((profileId) => {
-    const profile = people.get(personKey("profile", profileId));
-
-    return buildNode("profile", profileId, profile?.name ?? "Unknown discipler", new Set());
-  });
-
   if (!focusKey) {
-    return roots;
+    return uniqueStrings(activeRelationships.map((relationship) => relationship.disciplerId)).map((profileId) => {
+      const profile = people.get(personKey("profile", profileId));
+
+      return buildDescendantNode("profile", profileId, profile?.name ?? "Unknown discipler", new Set());
+    });
   }
 
-  function contains(node: MultiplicationNode): boolean {
-    if (personKey(node.kind, node.id) === focusKey) {
-      return true;
+  const focusPerson = people.get(focusKey);
+
+  if (!focusPerson) {
+    return [];
+  }
+
+  const focusNode = buildDescendantNode(focusPerson.kind, focusPerson.id, focusPerson.name, new Set());
+  const hasContext = focusNode.children.length > 0 || (byDisciple.get(focusKey) ?? []).length > 0;
+
+  if (!hasContext) {
+    return [];
+  }
+
+  function wrapWithAncestors(node: MultiplicationNode, key: string, seen: Set<string>): MultiplicationNode[] {
+    if (seen.has(key)) {
+      return [node];
     }
 
-    return node.children.some(contains);
+    const parents = byDisciple.get(key) ?? [];
+
+    if (!parents.length) {
+      return [node];
+    }
+
+    const nextSeen = new Set(seen);
+    nextSeen.add(key);
+
+    return parents.flatMap((relationship) => {
+      const parent = people.get(personKey("profile", relationship.disciplerId));
+      const parentNode = {
+        children: [node],
+        id: relationship.disciplerId,
+        kind: "profile" as const,
+        name: parent?.name ?? relationship.disciplerName,
+      };
+
+      return wrapWithAncestors(parentNode, personKey("profile", relationship.disciplerId), nextSeen);
+    });
   }
 
-  return roots.filter(contains);
+  return wrapWithAncestors(focusNode, focusKey, new Set());
 }
 
 async function loadContext(collectiveSlug: string): Promise<LoadResult<LoadContext>> {

@@ -12,7 +12,7 @@ import {
   type MultiplicationNode,
 } from "@/src/lib/dos/people";
 import { PersonRelationshipModal } from "./PersonRelationshipModal";
-import { RelationshipInsightsPanel } from "./RelationshipInsightsPanel";
+import { RelationshipInsightsPanel, RelationshipNotesPanel } from "./RelationshipInsightsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +39,28 @@ function formatDate(value: string) {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
+function formatRelativeDate(value: string) {
+  const meetingDate = new Date(`${value}T00:00:00Z`);
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const meetingUtc = Date.UTC(meetingDate.getUTCFullYear(), meetingDate.getUTCMonth(), meetingDate.getUTCDate());
+  const daysAgo = Math.round((todayUtc - meetingUtc) / (24 * 60 * 60 * 1000));
+
+  if (daysAgo < 0) {
+    return formatDate(value);
+  }
+
+  if (daysAgo === 0) {
+    return "Today";
+  }
+
+  if (daysAgo === 1) {
+    return "Yesterday";
+  }
+
+  return `${daysAgo} days ago`;
+}
+
 function formatCommitmentLabel(value: number | null) {
   const labels = new Map([
     [-3, "Resistant"],
@@ -51,6 +73,38 @@ function formatCommitmentLabel(value: number | null) {
   ]);
 
   return value === null ? "Not set yet" : labels.get(value) ?? "Not set yet";
+}
+
+function formatLastMeetingSummary(meeting: DosPersonMeeting | null) {
+  if (!meeting) {
+    return "No meeting logged yet";
+  }
+
+  return `${formatLabel(meeting.type)} • ${formatRelativeDate(meeting.meetingDate)}`;
+}
+
+function currentFocusFor(person: DosFieldPerson) {
+  if (person.commitmentLevel !== null) {
+    return formatCommitmentLabel(person.commitmentLevel);
+  }
+
+  if (person.relationshipStage === "Exploring") {
+    return "Exploring faith";
+  }
+
+  if (person.relationshipStage === "Walking With") {
+    return "Faithful follow up";
+  }
+
+  if (person.relationshipStage === "Discipling") {
+    return "Discipleship rhythm";
+  }
+
+  if (person.relationshipStage === "Multiplying") {
+    return "Multiplication care";
+  }
+
+  return "Prayer and follow up";
 }
 
 function Eyebrow({ children }: { children: ReactNode }) {
@@ -99,7 +153,7 @@ function RelationshipList({
 }) {
   if (!relationships.length) {
     return (
-      <div className="border border-dashed border-stone-800 bg-[#080808] p-5 text-sm leading-7 text-stone-500">
+      <div className="border border-dashed border-stone-800 bg-[#080808] p-4 text-sm leading-7 text-stone-500">
         {emptyText}
       </div>
     );
@@ -108,10 +162,10 @@ function RelationshipList({
   return (
     <div className="divide-y divide-stone-900 border border-stone-800">
       {relationships.map((relationship) => (
-        <div className="bg-[#080808] p-5" key={relationship.id}>
+        <div className="bg-[#080808] p-4" key={relationship.id}>
           <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
             <div>
-              <p className="text-lg font-semibold text-stone-100">
+              <p className="text-base font-semibold text-stone-100">
                 {showDisciple ? relationship.discipleName : relationship.disciplerName}
               </p>
               <p className="mt-2 text-sm text-stone-500">
@@ -119,13 +173,13 @@ function RelationshipList({
               </p>
             </div>
             <div className="flex flex-wrap gap-2 sm:justify-end">
-              <span className="border border-amber-500/35 px-3 py-1 text-xs uppercase tracking-[0.14em] text-amber-300">
+              <span className="border border-amber-500/35 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-amber-300">
                 {formatLabel(relationship.style)}
               </span>
-              <span className="border border-stone-700 px-3 py-1 text-xs uppercase tracking-[0.14em] text-stone-300">
+              <span className="border border-stone-700 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-stone-300">
                 {formatLabel(relationship.strength)}
               </span>
-              <span className="border border-stone-700 px-3 py-1 text-xs uppercase tracking-[0.14em] text-stone-500">
+              <span className="border border-stone-700 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-stone-500">
                 {formatLabel(relationship.status)}
               </span>
             </div>
@@ -208,7 +262,7 @@ function MultiplicationPreview({
   if (!roots.length) {
     return (
       <div className="border border-dashed border-stone-800 bg-[#080808] p-5 text-sm leading-7 text-stone-500">
-        Multiplication will appear here as discipleship relationships begin to reproduce from {person.firstName}.
+        Multiplication begins when someone you are discipling starts discipling others.
       </div>
     );
   }
@@ -218,6 +272,58 @@ function MultiplicationPreview({
       {roots.map((root) => (
         <TreeNode key={`${root.kind}-${root.id}`} node={root} />
       ))}
+    </div>
+  );
+}
+
+function StatusTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="border border-stone-800 bg-[#080808] p-4">
+      <p
+        className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-500"
+        style={{ fontFamily: font.rajdhani }}
+      >
+        {label}
+      </p>
+      <p className="mt-2 text-sm leading-6 text-stone-200">{value}</p>
+    </div>
+  );
+}
+
+function NextActions({
+  collectiveSlug,
+  person,
+  relationshipOptions,
+}: {
+  collectiveSlug: string;
+  person: DosFieldPerson;
+  relationshipOptions: Array<{ id: string; name: string }>;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:justify-end">
+      {/* TODO: Wire this to the lightweight DOS meeting logger when that workflow is built. */}
+      <button
+        aria-disabled="true"
+        className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 opacity-90"
+        disabled
+        style={{ fontFamily: font.rajdhani }}
+        type="button"
+      >
+        Log Meeting
+      </button>
+      <PersonRelationshipModal
+        buttonClassName="min-h-12 border border-stone-700 bg-[#080808] px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-200 transition-colors hover:border-amber-500/50 hover:text-amber-300"
+        buttonLabel="Manage Relationships"
+        collectiveSlug={collectiveSlug}
+        person={person}
+        relationshipOptions={relationshipOptions}
+      />
     </div>
   );
 }
@@ -282,6 +388,8 @@ export default async function DosPersonDetailPage({
 
   const data = result.data;
   const { person } = data;
+  const currentFocus = currentFocusFor(person);
+  const lastMeetingSummary = formatLastMeetingSummary(person.lastMeeting);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#050505] text-stone-100">
@@ -290,7 +398,7 @@ export default async function DosPersonDetailPage({
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:72px_72px]" />
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(180deg,rgba(5,5,5,0)_0%,#050505_88%)]" />
 
-      <section className="relative px-4 pb-10 pt-14 sm:px-6 md:pb-14 md:pt-20">
+      <section className="relative px-4 pb-10 pt-14 sm:px-6 md:pb-12 md:pt-20">
         <div className="mx-auto max-w-7xl">
           <Link
             className="inline-flex text-xs font-bold uppercase tracking-[0.18em] text-stone-500 transition-colors hover:text-amber-300"
@@ -312,32 +420,41 @@ export default async function DosPersonDetailPage({
               <div className="mt-6 space-y-2 text-sm leading-7 text-stone-300 sm:text-base">
                 <p>{person.relationshipSummary}</p>
                 <p>Relationship stage: {person.relationshipStage ?? "Not set yet"}</p>
-                <p>Commitment level: {formatCommitmentLabel(person.commitmentLevel)}</p>
               </div>
             </div>
 
-            <PersonRelationshipModal
+            <NextActions
               collectiveSlug={data.collective.slug}
               person={person}
               relationshipOptions={data.relationshipOptions}
             />
           </div>
+
+          <div className="mt-8 border border-stone-800 bg-[#070707]/90 p-4 sm:p-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <StatusTile label="Walking With" value={person.relationshipSummary} />
+              <StatusTile label="Relationship Stage" value={person.relationshipStage ?? "Not set yet"} />
+              <StatusTile label="Last Meeting" value={lastMeetingSummary} />
+              <StatusTile label="Current Focus" value={currentFocus} />
+              <StatusTile label="Prayer Requested" value="No request logged" />
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="relative border-t border-stone-900 px-4 py-10 sm:px-6 md:py-14">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.85fr_1.15fr]">
+      <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
+        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <div>
             <SectionIntro eyebrow="Relationship Insights" title="Spiritual movement">
-              <p>Lightweight markers for care, follow up, and multiplication without turning people into a score.</p>
+              <p>Lightweight markers for care and follow up without turning people into a score.</p>
             </SectionIntro>
           </div>
           <RelationshipInsightsPanel collectiveSlug={data.collective.slug} person={person} />
         </div>
       </section>
 
-      <section className="relative border-t border-stone-900 px-4 py-10 sm:px-6 md:py-14">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-2">
+      <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
+        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2">
           <div>
             <SectionIntro eyebrow="Discipleship Support" title="Who is helping disciple this person?" />
             <div className="mt-6">
@@ -361,8 +478,19 @@ export default async function DosPersonDetailPage({
         </div>
       </section>
 
-      <section className="relative border-t border-stone-900 px-4 py-10 sm:px-6 md:py-14">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+      <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
+        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <SectionIntro eyebrow="Multiplication" title="Multiplication path">
+              <p>This view follows only {person.firstName}&apos;s discipleship context.</p>
+            </SectionIntro>
+          </div>
+          <MultiplicationPreview person={person} roots={result.data.multiplicationRoots} />
+        </div>
+      </section>
+
+      <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
+        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <div>
             <SectionIntro eyebrow="Meetings" title="Recent meetings" />
           </div>
@@ -370,14 +498,12 @@ export default async function DosPersonDetailPage({
         </div>
       </section>
 
-      <section className="relative border-t border-stone-900 px-4 py-10 sm:px-6 md:py-14">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
+        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
-            <SectionIntro eyebrow="Multiplication" title="Multiplication preview">
-              <p>Multiplication becomes visible when someone being discipled begins discipling someone else.</p>
-            </SectionIntro>
+            <SectionIntro eyebrow="Notes" title="Private relationship notes" />
           </div>
-          <MultiplicationPreview person={person} roots={result.data.multiplicationRoots} />
+          <RelationshipNotesPanel collectiveSlug={data.collective.slug} person={person} />
         </div>
       </section>
 
