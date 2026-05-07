@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { ImproveDosFeedbackModal } from "@/app/system/preview/ImproveDosFeedbackModal";
-import { loadDosPeopleWorkspace } from "@/src/lib/dos/people";
+import { loadDosPeopleWorkspace, type DosPeopleWorkspaceData } from "@/src/lib/dos/people";
 import { PeopleWorkspaceClient } from "./PeopleWorkspaceClient";
 
 export const dynamic = "force-dynamic";
@@ -36,46 +36,81 @@ function MetricCard({
   value: number | string;
 }) {
   return (
-    <article className="border border-stone-800 bg-[#080808] p-5">
-      <p
-        className="text-[11px] font-bold uppercase tracking-[0.2em] text-stone-500"
-        style={{ fontFamily: font.rajdhani }}
-      >
-        {label}
-      </p>
-      <p className="mt-5 text-4xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-        {value}
-      </p>
+    <article className="min-w-[9rem] border border-stone-800 bg-[#080808] px-4 py-3">
+      <div className="flex items-baseline gap-2">
+        <p className="text-2xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+          {value}
+        </p>
+        <p
+          className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500"
+          style={{ fontFamily: font.rajdhani }}
+        >
+          {label}
+        </p>
+      </div>
     </article>
   );
 }
 
-function WorkspaceTabs() {
-  const tabs = ["DOS", "Public", "Team", "Settings"];
-
+function AppIdentifier({ label }: { label: string }) {
   return (
-    <div className="border-y border-stone-900 bg-black/25">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid grid-cols-4 gap-px bg-stone-900">
-          {tabs.map((tab) => (
-            <div
-              aria-current={tab === "DOS" ? "page" : undefined}
-              className={`min-h-14 bg-[#070707] px-2 py-4 text-center sm:px-4 ${
-                tab === "DOS" ? "text-amber-300" : "text-stone-500"
-              }`}
-              key={tab}
-            >
-              <p
-                className="text-xs font-bold uppercase tracking-[0.18em] sm:text-sm sm:tracking-[0.22em]"
-                style={{ fontFamily: font.rajdhani }}
-              >
-                {tab}
-              </p>
-            </div>
-          ))}
-        </div>
+    <div
+      className="inline-flex border border-stone-800 bg-[#080808] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300"
+      style={{ fontFamily: font.rajdhani }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function MetricsRow({ data }: { data: DosPeopleWorkspaceData }) {
+  return (
+    <div className="-mx-4 mt-5 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <div className="flex min-w-max gap-2 sm:min-w-0 sm:flex-wrap">
+        <MetricCard label="People" value={data.stats.peopleCount} />
+        <MetricCard label="Relationships" value={data.stats.activeRelationships} />
+        <MetricCard label="Multiplying" value={data.stats.peopleDiscipling} />
       </div>
     </div>
+  );
+}
+
+function PageHeading({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <h1
+      className="mt-3 text-3xl font-bold uppercase leading-none text-stone-100 sm:text-5xl"
+      style={{ fontFamily: font.oswald }}
+    >
+      {children}
+    </h1>
+  );
+}
+
+function HeaderText({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <div className="mt-3 space-y-1 text-sm leading-6 text-stone-300 sm:text-base">
+      {children}
+    </div>
+  );
+}
+
+function BackLink({ href }: { href: string }) {
+  return (
+    <Link
+      className="inline-flex text-xs font-bold uppercase tracking-[0.18em] text-stone-500 transition-colors hover:text-amber-300"
+      href={href}
+      style={{ fontFamily: font.rajdhani }}
+    >
+      Back to DOS
+    </Link>
   );
 }
 
@@ -121,43 +156,28 @@ export default async function DosPeoplePage({
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:72px_72px]" />
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(180deg,rgba(5,5,5,0)_0%,#050505_88%)]" />
 
-      <section className="relative px-4 pb-10 pt-14 sm:px-6 md:pb-14 md:pt-20">
+      <section className="relative px-4 pb-5 pt-7 sm:px-6 md:pb-7 md:pt-12">
         <div className="mx-auto max-w-7xl">
-          <Link
-            className="inline-flex text-xs font-bold uppercase tracking-[0.18em] text-stone-500 transition-colors hover:text-amber-300"
-            href={`/dos/${data.collective.slug}`}
-            style={{ fontFamily: font.rajdhani }}
-          >
-            Back to DOS
-          </Link>
+          <div className="flex items-center justify-between gap-4">
+            <AppIdentifier label={`${data.collective.name} DOS`} />
+            <BackLink href={`/dos/${data.collective.slug}`} />
+          </div>
 
-          <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_0.75fr] lg:items-end">
+          <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
-              <Eyebrow>People Workspace</Eyebrow>
-              <h1
-                className="mt-5 text-5xl font-bold uppercase leading-none text-stone-100 sm:text-7xl"
-                style={{ fontFamily: font.oswald }}
-              >
-                Your Field
-              </h1>
-              <div className="mt-6 space-y-2 text-sm leading-7 text-stone-300 sm:text-base">
+              <Eyebrow>DOS Field</Eyebrow>
+              <PageHeading>Your Field</PageHeading>
+              <HeaderText>
                 <p>{data.collective.name}</p>
                 <p>{data.organization.name}</p>
-              </div>
-            </div>
-
-            <div className="grid gap-px border border-stone-800 bg-stone-800 sm:grid-cols-3 lg:grid-cols-1">
-              <MetricCard label="People visible" value={data.stats.peopleCount} />
-              <MetricCard label="Active relationships" value={data.stats.activeRelationships} />
-              <MetricCard label="People discipling" value={data.stats.peopleDiscipling} />
+              </HeaderText>
             </div>
           </div>
+          <MetricsRow data={data} />
         </div>
       </section>
 
-      <WorkspaceTabs />
-
-      <section className="relative px-4 py-10 sm:px-6 md:py-14">
+      <section className="relative px-4 pb-10 pt-2 sm:px-6 md:pb-14 md:pt-4">
         <div className="mx-auto max-w-7xl">
           <PeopleWorkspaceClient collectiveSlug={data.collective.slug} data={data} />
         </div>

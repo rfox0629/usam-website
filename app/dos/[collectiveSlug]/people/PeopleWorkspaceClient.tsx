@@ -40,6 +40,26 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function movementSummary(person: DosFieldPerson) {
+  return [person.relationshipStage, person.relationshipDepth].filter(Boolean).join(" • ");
+}
+
+function nextActionText(person: DosFieldPerson) {
+  if (person.lastMeeting) {
+    return `Last meeting: ${person.lastMeeting.title} on ${formatDate(person.lastMeeting.meetingDate)}`;
+  }
+
+  if (person.disciplingCount > 0) {
+    return "Ready for next conversation";
+  }
+
+  if (person.walkingWith.some((relationship) => relationship.status === "active")) {
+    return "Follow up this week";
+  }
+
+  return "No meetings yet";
+}
+
 function matchesFilter(person: DosFieldPerson, filter: FilterKey) {
   if (filter === "walking") {
     return person.walkingWith.some((relationship) => relationship.status === "active");
@@ -67,20 +87,19 @@ function PersonCard({
   collectiveSlug: string;
   person: DosFieldPerson;
 }) {
+  const relationshipCopy = person.relationshipSummary === "Ready for discipleship relationships"
+    ? "Ready to walk with someone"
+    : person.relationshipSummary;
+  const movementCopy = movementSummary(person);
+
   return (
     <Link
-      className="group block border border-stone-800 bg-[#080808] p-5 transition-colors hover:border-amber-500/45"
+      className="group block border border-stone-800 bg-[#080808] p-4 transition-colors hover:border-amber-500/45 sm:p-5"
       href={`/dos/${collectiveSlug}/people/${person.id}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p
-            className="text-[11px] font-bold uppercase tracking-[0.2em] text-stone-500"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            {person.kind === "profile" ? "Collective member" : "Field person"}
-          </p>
-          <h2 className="mt-3 text-2xl font-bold uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
+          <h2 className="text-2xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
             {person.name}
           </h2>
         </div>
@@ -94,24 +113,18 @@ function PersonCard({
         ) : null}
       </div>
 
-      <div className="mt-5 space-y-3 text-sm leading-6">
-        <p className="text-stone-300">{person.relationshipSummary}</p>
+      <div className="mt-4 space-y-2 text-sm leading-6">
+        <p className="text-base leading-6 text-stone-100">{relationshipCopy}</p>
 
-        {person.relationshipStage ? (
-          <p className="text-stone-300">
-            <span className="text-stone-500">Relationship stage:</span> {person.relationshipStage}
-          </p>
-        ) : null}
+        {movementCopy ? <p className="text-stone-400">{movementCopy}</p> : null}
+
+        <p className="text-stone-500">{nextActionText(person)}</p>
 
         {person.disciplingCount > 0 ? (
-          <p className="text-amber-300">
-            Discipling {pluralize(person.disciplingCount, "person", "people")}
+          <p className="pt-1 text-amber-300">
+            Walking with {pluralize(person.disciplingCount, "person", "people")}
           </p>
         ) : null}
-
-        <p className="text-stone-500">
-          {person.lastMeeting ? `Last meeting: ${person.lastMeeting.title} on ${formatDate(person.lastMeeting.meetingDate)}` : "No meetings attached yet"}
-        </p>
       </div>
     </Link>
   );
@@ -328,7 +341,7 @@ export function PeopleWorkspaceClient({
 
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+      <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
         <label className="block">
           <span
             className="text-[11px] font-bold uppercase tracking-[0.2em] text-stone-500"
@@ -355,29 +368,31 @@ export function PeopleWorkspaceClient({
         </button>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {filters.map((filter) => {
-          const isActive = activeFilter === filter.key;
+      <div className="-mx-4 mt-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="flex min-w-max gap-2">
+          {filters.map((filter) => {
+            const isActive = activeFilter === filter.key;
 
-          return (
-            <button
-              className={`min-h-10 shrink-0 border px-4 text-xs font-bold uppercase tracking-[0.16em] transition-colors ${
-                isActive
-                  ? "border-amber-500/60 bg-amber-400 text-stone-950"
-                  : "border-stone-800 bg-[#080808] text-stone-400 hover:border-amber-500/45 hover:text-stone-100"
-              }`}
-              key={filter.key}
-              onClick={() => setActiveFilter(filter.key)}
-              style={{ fontFamily: font.rajdhani }}
-              type="button"
-            >
-              {filter.label}
-            </button>
-          );
-        })}
+            return (
+              <button
+                className={`min-h-9 shrink-0 border px-3 text-[11px] font-bold uppercase tracking-[0.14em] transition-colors ${
+                  isActive
+                    ? "border-amber-500/60 bg-amber-400 text-stone-950"
+                    : "border-stone-800 bg-[#080808] text-stone-400 hover:border-amber-500/45 hover:text-stone-100"
+                }`}
+                key={filter.key}
+                onClick={() => setActiveFilter(filter.key)}
+                style={{ fontFamily: font.rajdhani }}
+                type="button"
+              >
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-5">
         {filteredPeople.length ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredPeople.map((person) => (

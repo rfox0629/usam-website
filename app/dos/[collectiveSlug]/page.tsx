@@ -95,39 +95,37 @@ function MetricCard({
   );
 }
 
-function WorkspaceTabs() {
-  const tabs = [
-    { label: "DOS", state: "Active" },
-    { label: "Public", state: "Placeholder" },
-    { label: "Team", state: "Placeholder" },
-    { label: "Settings", state: "Placeholder" },
-  ] as const;
-
+function CompactMetricCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | string;
+}) {
   return (
-    <div className="border-y border-stone-900 bg-black/25">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid grid-cols-2 gap-px bg-stone-900 md:grid-cols-4">
-          {tabs.map((tab) => {
-            const isActive = tab.label === "DOS";
-
-            return (
-              <div
-                aria-current={isActive ? "page" : undefined}
-                className={`min-h-20 bg-[#070707] px-4 py-4 ${isActive ? "text-amber-300" : "text-stone-500"}`}
-                key={tab.label}
-              >
-                <p
-                  className="text-sm font-bold uppercase tracking-[0.22em]"
-                  style={{ fontFamily: font.rajdhani }}
-                >
-                  {tab.label}
-                </p>
-                <p className="mt-2 text-xs text-stone-500">{tab.state}</p>
-              </div>
-            );
-          })}
-        </div>
+    <article className="min-w-[9rem] border border-stone-800 bg-[#080808] px-4 py-3">
+      <div className="flex items-baseline gap-2">
+        <p className="text-2xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+          {value}
+        </p>
+        <p
+          className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500"
+          style={{ fontFamily: font.rajdhani }}
+        >
+          {label}
+        </p>
       </div>
+    </article>
+  );
+}
+
+function AppIdentifier({ label }: { label: string }) {
+  return (
+    <div
+      className="inline-flex border border-stone-800 bg-[#080808] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300"
+      style={{ fontFamily: font.rajdhani }}
+    >
+      {label}
     </div>
   );
 }
@@ -352,7 +350,9 @@ export default async function DosCollectiveWorkspacePage({
 
       <section className="relative px-4 pb-12 pt-16 sm:px-6 md:pb-16 md:pt-20">
         <div className="mx-auto max-w-7xl">
-          <div className="grid gap-10 lg:grid-cols-[1fr_0.75fr] lg:items-end">
+          <AppIdentifier label={`${data.collective.name} DOS`} />
+
+          <div className="mt-5 grid gap-10 lg:grid-cols-[1fr_0.75fr] lg:items-end">
             <div>
               <Eyebrow>Collective Workspace</Eyebrow>
               <h1
@@ -395,16 +395,16 @@ export default async function DosCollectiveWorkspacePage({
             </div>
           </div>
 
-          <div className="mt-10 grid gap-px border border-stone-800 bg-stone-800 md:grid-cols-4">
-            <MetricCard label="People discipling" value={data.stats.peopleDiscipling} />
-            <MetricCard label="People walking with us" value={data.stats.peopleWalkingWithUs} />
-            <MetricCard label="Meetings this month" value={data.stats.meetingsThisMonth} />
-            <MetricCard label="Multiplication chains" value={data.stats.multiplicationChains} />
+          <div className="-mx-4 mt-8 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <div className="flex min-w-max gap-2 sm:min-w-0 sm:flex-wrap">
+              <CompactMetricCard label="Discipling" value={data.stats.peopleDiscipling} />
+              <CompactMetricCard label="Walking With" value={data.stats.peopleWalkingWithUs} />
+              <CompactMetricCard label="Meetings" value={data.stats.meetingsThisMonth} />
+              <CompactMetricCard label="Chains" value={data.stats.multiplicationChains} />
+            </div>
           </div>
         </div>
       </section>
-
-      <WorkspaceTabs />
 
       <div className="sticky bottom-0 z-40 border-y border-stone-800 bg-[#050505]/95 px-4 py-3 backdrop-blur md:hidden">
         <ImproveDosFeedbackModal
