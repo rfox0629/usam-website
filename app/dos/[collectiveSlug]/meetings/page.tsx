@@ -76,7 +76,6 @@ export default async function DosMeetingsPage({
   }
 
   const { data } = result;
-  const defaultMeetingAt = new Date().toISOString().slice(0, 16);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#050505] text-stone-100">
@@ -119,7 +118,6 @@ export default async function DosMeetingsPage({
           <MeetingsWorkspaceClient
             collectiveSlug={data.collective.slug}
             data={data}
-            defaultMeetingAt={defaultMeetingAt}
             initialPersonId={personId}
           />
         </div>

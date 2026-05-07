@@ -6,6 +6,8 @@ type CreateMeetingPayload = {
   meetingAt?: unknown;
   meetingDate?: unknown;
   ministerProfileIds?: unknown;
+  outcomeMarkers?: unknown;
+  outcomeNotesPrivate?: unknown;
   peopleIds?: unknown;
   prayerRequested?: unknown;
   relationshipMovement?: unknown;
@@ -46,6 +48,8 @@ export async function POST(
     meetingAt: asString(body.meetingAt),
     meetingDate: asString(body.meetingDate),
     ministerProfileIds: asStringArray(body.ministerProfileIds),
+    outcomeMarkers: asStringArray(body.outcomeMarkers),
+    outcomeNotesPrivate: asString(body.outcomeNotesPrivate),
     peopleIds: asStringArray(body.peopleIds),
     prayerRequested: asBoolean(body.prayerRequested),
     relationshipMovement: asString(body.relationshipMovement),

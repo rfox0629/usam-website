@@ -40,6 +40,8 @@ export type DosMeeting = {
     name: string;
     role: string;
   }>;
+  outcomeMarkers: string[];
+  outcomeNotesPrivate: string | null;
   people: Array<{
     id: string;
     name: string;
@@ -172,6 +174,8 @@ type MeetingRow = {
   meeting_at: string;
   meeting_date: string;
   notes_private: string | null;
+  outcome_markers: string[] | null;
+  outcome_notes_private: string | null;
   prayer_requested: boolean;
   relationship_movement: string | null;
   spiritual_openness_movement: string | null;
@@ -344,7 +348,7 @@ export async function loadDosWorkspace(collectiveSlug: string): Promise<Workspac
       .or(`collective_id.is.null,collective_id.eq.${collective.id}`),
     supabase
       .from("meetings")
-      .select("id, title, type, meeting_date, meeting_at, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement")
+      .select("id, title, type, meeting_date, meeting_at, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement, outcome_markers, outcome_notes_private")
       .eq("owner_organization_id", collective.owner_organization_id)
       .eq("primary_collective_id", collective.id)
       .order("meeting_at", { ascending: false }),
@@ -476,6 +480,8 @@ export async function loadDosWorkspace(collectiveSlug: string): Promise<Workspac
         name: profiles.get(minister.profile_id)?.name ?? "Unknown minister",
         role: minister.role,
       })),
+    outcomeMarkers: meeting.outcome_markers ?? [],
+    outcomeNotesPrivate: meeting.outcome_notes_private,
     people: meetingPeople
       .filter((person) => person.meeting_id === meeting.id)
       .map((person) => ({

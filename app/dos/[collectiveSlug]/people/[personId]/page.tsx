@@ -10,6 +10,7 @@ import {
   type DosPersonMeeting,
   type MultiplicationNode,
 } from "@/src/lib/dos/people";
+import { dosMeetingOutcomeLabel } from "@/src/lib/dos/meeting-options";
 import { RelationshipInsightsPanel, RelationshipNotesPanel } from "./RelationshipInsightsPanel";
 
 export const dynamic = "force-dynamic";
@@ -194,7 +195,16 @@ function MeetingList({
           ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
-            {meeting.followUpNeeded ? (
+            {meeting.outcomeMarkers.slice(0, 4).map((marker) => (
+              <span
+                className="border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
+                key={marker}
+                style={{ fontFamily: font.rajdhani }}
+              >
+                {dosMeetingOutcomeLabel(marker)}
+              </span>
+            ))}
+            {meeting.followUpNeeded && !meeting.outcomeMarkers.includes("follow_up_needed") ? (
               <span
                 className="border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
                 style={{ fontFamily: font.rajdhani }}
@@ -202,7 +212,7 @@ function MeetingList({
                 Follow up needed
               </span>
             ) : null}
-            {meeting.prayerRequested ? (
+            {meeting.prayerRequested && !meeting.outcomeMarkers.includes("prayer_requested") ? (
               <span
                 className="border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
                 style={{ fontFamily: font.rajdhani }}

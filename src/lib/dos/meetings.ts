@@ -3,9 +3,11 @@ import "server-only";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import {
   dosMeetingMovementOptions,
+  dosMeetingOutcomeOptions,
   dosMeetingTypeLabel,
   dosMeetingTypes,
   type DosMeetingFeedItem,
+  type DosMeetingOutcome,
   type DosMeetingOption,
   type DosMeetingsWorkspaceData,
   type DosMeetingType,
@@ -59,6 +61,8 @@ type MeetingRow = {
   meeting_at: string;
   meeting_date: string;
   notes_private: string | null;
+  outcome_markers: string[] | null;
+  outcome_notes_private: string | null;
   prayer_requested: boolean;
   relationship_movement: string | null;
   spiritual_openness_movement: string | null;
@@ -95,6 +99,8 @@ type CreateDosMeetingInput = {
   meetingAt?: string | null;
   meetingDate?: string | null;
   ministerProfileIds?: string[];
+  outcomeMarkers?: string[];
+  outcomeNotesPrivate?: string | null;
   peopleIds?: string[];
   prayerRequested?: boolean;
   relationshipMovement?: string | null;
@@ -105,6 +111,7 @@ type CreateDosMeetingInput = {
 
 const dosMeetingTypeSet = new Set<string>(dosMeetingTypes);
 const dosMeetingMovementSet = new Set<string>(dosMeetingMovementOptions);
+const dosMeetingOutcomeSet = new Set<string>(dosMeetingOutcomeOptions);
 
 function fullName(firstName: string, lastName: string | null | undefined) {
   return [firstName, lastName].filter(Boolean).join(" ").trim() || firstName;
@@ -128,6 +135,11 @@ function normalizeMovement(value: string | null | undefined) {
   const movement = normalizeNullableString(value, 80);
 
   return movement && dosMeetingMovementSet.has(movement) ? movement : null;
+}
+
+function normalizeOutcomeMarkers(values: string[] | null | undefined): DosMeetingOutcome[] {
+  return uniqueStrings(values ?? [])
+    .filter((value): value is DosMeetingOutcome => dosMeetingOutcomeSet.has(value));
 }
 
 function normalizeMeetingAt(value: string | null | undefined) {
@@ -190,6 +202,8 @@ function mapMeeting(
           role: minister.role,
         };
       }),
+    outcomeMarkers: meeting.outcome_markers ?? [],
+    outcomeNotesPrivate: meeting.outcome_notes_private,
     people: meetingPeople
       .filter((person) => person.meeting_id === meeting.id)
       .map((person) => {
@@ -267,7 +281,7 @@ async function loadContext(collectiveSlug: string): Promise<LoadResult<LoadConte
       .eq("status", "active"),
     supabase
       .from("meetings")
-      .select("id, title, type, meeting_date, meeting_at, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement")
+      .select("id, title, type, meeting_date, meeting_at, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement, outcome_markers, outcome_notes_private")
       .eq("owner_organization_id", collective.owner_organization_id)
       .eq("primary_collective_id", collective.id)
       .order("meeting_at", { ascending: false }),
@@ -429,6 +443,8 @@ export async function createDosMeeting(collectiveSlug: string, input: CreateDosM
   const meetingAt = normalizeMeetingAt(input.meetingAt);
   const meetingDate = normalizeMeetingDate(input.meetingDate, meetingAt);
   const summaryPrivate = normalizeNullableString(input.summaryPrivate, 600);
+  const outcomeMarkers = normalizeOutcomeMarkers(input.outcomeMarkers);
+  const outcomeNotesPrivate = normalizeNullableString(input.outcomeNotesPrivate, 500);
   const relationshipMovement = normalizeMovement(input.relationshipMovement);
   const spiritualOpennessMovement = normalizeMovement(input.spiritualOpennessMovement);
   const peopleIds = uniqueStrings(input.peopleIds ?? []).filter((personId) =>
@@ -453,11 +469,13 @@ export async function createDosMeeting(collectiveSlug: string, input: CreateDosM
     .from("meetings")
     .insert({
       created_by_profile_id: contextResult.data.defaultMinisterId,
-      follow_up_needed: Boolean(input.followUpNeeded),
+      follow_up_needed: Boolean(input.followUpNeeded) || outcomeMarkers.includes("follow_up_needed"),
       meeting_at: meetingAt.toISOString(),
       meeting_date: meetingDate,
       owner_organization_id: contextResult.data.organization.id,
-      prayer_requested: Boolean(input.prayerRequested),
+      outcome_markers: outcomeMarkers,
+      outcome_notes_private: outcomeNotesPrivate,
+      prayer_requested: Boolean(input.prayerRequested) || outcomeMarkers.includes("prayer_requested"),
       primary_collective_id: contextResult.data.collective.id,
       relationship_movement: relationshipMovement,
       spiritual_openness_movement: spiritualOpennessMovement,

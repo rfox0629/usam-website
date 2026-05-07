@@ -10,6 +10,7 @@ import {
   type DosRelationship,
   type MultiplicationNode,
 } from "@/src/lib/dos/workspace";
+import { dosMeetingOutcomeLabel } from "@/src/lib/dos/meeting-options";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +102,10 @@ function meetingParticipantSummary(meeting: DosMeeting) {
 
 function meetingMovementSummary(meeting: DosMeeting) {
   const movement = meeting.relationshipMovement ?? meeting.spiritualOpennessMovement;
+
+  if (meeting.outcomeMarkers.length) {
+    return meeting.outcomeMarkers.slice(0, 2).map(dosMeetingOutcomeLabel).join(" • ");
+  }
 
   return movement ? `Movement marker: ${formatLabel(movement)}` : meeting.summaryPrivate;
 }
@@ -336,6 +341,15 @@ function MeetingList({ meetings }: { meetings: DosMeeting[] }) {
           ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
+            {meeting.outcomeMarkers.slice(0, 3).map((marker) => (
+              <span
+                className="border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
+                key={marker}
+                style={{ fontFamily: font.rajdhani }}
+              >
+                {dosMeetingOutcomeLabel(marker)}
+              </span>
+            ))}
             <span
               className="border border-stone-700 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-stone-400"
               style={{ fontFamily: font.rajdhani }}
@@ -348,7 +362,7 @@ function MeetingList({ meetings }: { meetings: DosMeeting[] }) {
             >
               {meeting.ministers.length} {meeting.ministers.length === 1 ? "minister" : "ministers"} attached
             </span>
-            {meeting.followUpNeeded ? (
+            {meeting.followUpNeeded && !meeting.outcomeMarkers.includes("follow_up_needed") ? (
               <span
                 className="border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
                 style={{ fontFamily: font.rajdhani }}

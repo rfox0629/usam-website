@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
   dosMeetingMovementLabel,
-  dosMeetingMovementOptions,
+  dosMeetingOutcomeLabel,
+  dosMeetingOutcomeOptions,
   dosMeetingTypeLabel,
   dosMeetingTypes,
   type DosMeetingFeedItem,
@@ -15,6 +16,14 @@ import {
 } from "@/src/lib/dos/meeting-options";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const relationshipStageOptions = [
+  "New",
+  "Exploring",
+  "Walking With",
+  "Discipling",
+  "Multiplying",
+  "Inactive",
+] as const;
 
 function formatMeetingDate(value: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -27,10 +36,45 @@ function formatMeetingDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatLocalDateTimeInput(date: Date) {
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function splitSearchName(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 function participantNames(meeting: DosMeetingFeedItem) {
   const names = [...meeting.ministers, ...meeting.people].map((person) => person.name);
 
   return names.length ? names.join(" + ") : "No people attached";
+}
+
+function deriveRelationshipMovement(outcomeMarkers: string[]) {
+  if (outcomeMarkers.includes("began_discipling_someone")) {
+    return "beginning_multiplication";
+  }
+
+  if (outcomeMarkers.includes("interested_discipleship")) {
+    return "beginning_discipleship";
+  }
+
+  if (outcomeMarkers.includes("breakthrough_moment")) {
+    return "more_open";
+  }
+
+  if (outcomeMarkers.includes("gospel_conversation") || outcomeMarkers.includes("wants_to_meet_again")) {
+    return "more_engaged";
+  }
+
+  return "";
 }
 
 function MeetingCard({
@@ -67,8 +111,15 @@ function MeetingCard({
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {meeting.followUpNeeded ? <Indicator>Follow up needed</Indicator> : null}
-        {meeting.prayerRequested ? <Indicator>Prayer requested</Indicator> : null}
+        {meeting.outcomeMarkers.slice(0, 4).map((marker) => (
+          <Indicator key={marker}>{dosMeetingOutcomeLabel(marker)}</Indicator>
+        ))}
+        {meeting.followUpNeeded && !meeting.outcomeMarkers.includes("follow_up_needed") ? (
+          <Indicator>Follow up needed</Indicator>
+        ) : null}
+        {meeting.prayerRequested && !meeting.outcomeMarkers.includes("prayer_requested") ? (
+          <Indicator>Prayer requested</Indicator>
+        ) : null}
         {meeting.relationshipMovement ? <Indicator>{dosMeetingMovementLabel(meeting.relationshipMovement)}</Indicator> : null}
       </div>
     </Link>
@@ -86,47 +137,154 @@ function Indicator({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CheckboxRow({
-  checked,
-  disabled = false,
-  label,
-  note,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  label: string;
-  note?: string;
-  onChange: (checked: boolean) => void;
-}) {
+function FormLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="flex items-start gap-3 border border-stone-800 bg-[#050505] p-3">
-      <input
-        checked={checked}
-        className="mt-1 h-4 w-4 accent-amber-400"
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-        type="checkbox"
-      />
-      <span>
-        <span className="block text-sm font-semibold text-stone-100">{label}</span>
-        {note ? <span className="mt-1 block text-xs leading-5 text-stone-500">{note}</span> : null}
-      </span>
-    </label>
+    <span
+      className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500"
+      style={{ fontFamily: font.rajdhani }}
+    >
+      {children}
+    </span>
   );
 }
 
-function toggleSelected(values: string[], value: string, checked: boolean) {
-  if (checked) {
-    return Array.from(new Set([...values, value]));
+function ParticipantChip({
+  children,
+  onRemove,
+}: {
+  children: React.ReactNode;
+  onRemove?: () => void;
+}) {
+  return (
+    <span className="inline-flex min-h-10 items-center gap-2 border border-stone-700 bg-[#050505] px-3 text-sm text-stone-100">
+      {children}
+      {onRemove ? (
+        <button
+          aria-label="Remove person"
+          className="text-lg leading-none text-stone-500 transition-colors hover:text-amber-300"
+          onClick={onRemove}
+          type="button"
+        >
+          &times;
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
+function AddPersonInline({
+  collectiveSlug,
+  defaultFirstName,
+  defaultLastName,
+  onCreated,
+}: {
+  collectiveSlug: string;
+  defaultFirstName: string;
+  defaultLastName: string;
+  onCreated: (person: DosMeetingOption) => void;
+}) {
+  const [errorMessage, setErrorMessage] = useState("");
+  const [firstName, setFirstName] = useState(defaultFirstName);
+  const [isAdding, setIsAdding] = useState(false);
+  const [lastName, setLastName] = useState(defaultLastName);
+  const [relationshipStage, setRelationshipStage] = useState("Walking With");
+
+  async function handleAddPerson() {
+    setErrorMessage("");
+    setIsAdding(true);
+
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedRelationshipStage = relationshipStage.trim();
+
+    try {
+      const response = await fetch(`/api/dos/${collectiveSlug}/people`, {
+        body: JSON.stringify({
+          firstName: trimmedFirstName,
+          lastName: trimmedLastName,
+          relationshipStage: trimmedRelationshipStage,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(typeof result.error === "string" ? result.error : "Unable to add this person.");
+      }
+
+      onCreated({
+        id: String(result.personId),
+        kind: "person",
+        name: [trimmedFirstName, trimmedLastName].filter(Boolean).join(" "),
+        relationshipStage: trimmedRelationshipStage,
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to add this person.");
+    } finally {
+      setIsAdding(false);
+    }
   }
 
-  return values.filter((candidate) => candidate !== value);
+  return (
+    <div className="mt-3 border border-stone-800 bg-[#050505] p-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <FormLabel>First Name</FormLabel>
+          <input
+            className="mt-2 min-h-11 w-full border border-stone-700 bg-[#030303] px-3 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+            name="first_name"
+            onChange={(event) => setFirstName(event.target.value)}
+            required
+            type="text"
+            value={firstName}
+          />
+        </label>
+        <label className="block">
+          <FormLabel>Last Name</FormLabel>
+          <input
+            className="mt-2 min-h-11 w-full border border-stone-700 bg-[#030303] px-3 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+            name="last_name"
+            onChange={(event) => setLastName(event.target.value)}
+            required
+            type="text"
+            value={lastName}
+          />
+        </label>
+      </div>
+      <label className="mt-3 block">
+        <FormLabel>Relationship Stage</FormLabel>
+        <select
+          className="mt-2 min-h-11 w-full border border-stone-700 bg-[#030303] px-3 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+          name="relationship_stage"
+          onChange={(event) => setRelationshipStage(event.target.value)}
+          value={relationshipStage}
+        >
+          {relationshipStageOptions.map((stage) => (
+            <option key={stage} value={stage}>
+              {stage}
+            </option>
+          ))}
+        </select>
+      </label>
+      {errorMessage ? <p className="mt-3 text-sm leading-6 text-red-200">{errorMessage}</p> : null}
+      <button
+        className="mt-4 min-h-11 w-full border border-amber-500/50 bg-[#101010] px-4 text-xs font-bold uppercase tracking-[0.18em] text-amber-300 transition-colors hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={isAdding}
+        onClick={handleAddPerson}
+        style={{ fontFamily: font.rajdhani }}
+        type="button"
+      >
+        {isAdding ? "Adding..." : "Add and Attach"}
+      </button>
+    </div>
+  );
 }
 
 function MeetingLoggerSheet({
   collectiveSlug,
-  defaultMeetingAt,
   defaultMinisterId,
   fieldPeople,
   initialPersonId,
@@ -134,7 +292,6 @@ function MeetingLoggerSheet({
   onClose,
 }: {
   collectiveSlug: string;
-  defaultMeetingAt: string;
   defaultMinisterId: string;
   fieldPeople: DosMeetingOption[];
   initialPersonId?: string;
@@ -142,14 +299,68 @@ function MeetingLoggerSheet({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const defaultMinister = ministers.find((minister) => minister.id === defaultMinisterId);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedMinisterIds, setSelectedMinisterIds] = useState<string[]>(
-    defaultMinisterId ? [defaultMinisterId] : [],
+  const [meetingAtValue, setMeetingAtValue] = useState("");
+  const [peopleOptions, setPeopleOptions] = useState(fieldPeople);
+  const [searchValue, setSearchValue] = useState("");
+  const [showAddPerson, setShowAddPerson] = useState(false);
+  const [selectedOutcomes, setSelectedOutcomes] = useState<string[]>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<DosMeetingOption[]>(
+    initialPersonId
+      ? fieldPeople.filter((person) => person.id === initialPersonId)
+      : [],
   );
-  const [selectedPeopleIds, setSelectedPeopleIds] = useState<string[]>(
-    initialPersonId && fieldPeople.some((person) => person.id === initialPersonId) ? [initialPersonId] : [],
+  const searchName = splitSearchName(searchValue);
+  const selectableMinisters = useMemo(
+    () => ministers.filter((minister) => minister.id !== defaultMinisterId),
+    [defaultMinisterId, ministers],
   );
+  const searchResults = useMemo(() => {
+    const query = searchValue.trim().toLowerCase();
+
+    if (query.length < 2) {
+      return [];
+    }
+
+    const selectedKeys = new Set(selectedParticipants.map((person) => `${person.kind}:${person.id}`));
+
+    return [...peopleOptions, ...selectableMinisters]
+      .filter((person) => !selectedKeys.has(`${person.kind}:${person.id}`))
+      .filter((person) => person.name.toLowerCase().includes(query))
+      .slice(0, 6);
+  }, [peopleOptions, searchValue, selectableMinisters, selectedParticipants]);
+
+  useEffect(() => {
+    setMeetingAtValue(formatLocalDateTimeInput(new Date()));
+  }, []);
+
+  function addParticipant(person: DosMeetingOption) {
+    setSelectedParticipants((current) => {
+      if (current.some((candidate) => candidate.id === person.id && candidate.kind === person.kind)) {
+        return current;
+      }
+
+      return [...current, person];
+    });
+    setSearchValue("");
+    setShowAddPerson(false);
+  }
+
+  function removeParticipant(person: DosMeetingOption) {
+    setSelectedParticipants((current) =>
+      current.filter((candidate) => candidate.id !== person.id || candidate.kind !== person.kind),
+    );
+  }
+
+  function toggleOutcome(marker: string) {
+    setSelectedOutcomes((current) =>
+      current.includes(marker)
+        ? current.filter((candidate) => candidate !== marker)
+        : [...current, marker],
+    );
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -158,20 +369,26 @@ function MeetingLoggerSheet({
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const meetingAtInput = String(formData.get("meeting_at") ?? "");
+    const meetingAtInput = meetingAtValue;
     const meetingDate = meetingAtInput.slice(0, 10);
     const parsedMeetingAt = meetingAtInput ? new Date(meetingAtInput) : new Date();
 
     try {
       const response = await fetch(`/api/dos/${collectiveSlug}/meetings`, {
         body: JSON.stringify({
-          followUpNeeded: formData.get("follow_up_needed") === "on",
+          followUpNeeded: selectedOutcomes.includes("follow_up_needed"),
           meetingAt: parsedMeetingAt.toISOString(),
           meetingDate,
-          ministerProfileIds: selectedMinisterIds,
-          peopleIds: selectedPeopleIds,
-          prayerRequested: formData.get("prayer_requested") === "on",
-          relationshipMovement: String(formData.get("relationship_movement") ?? ""),
+          ministerProfileIds: selectedParticipants
+            .filter((person) => person.kind === "profile")
+            .map((person) => person.id),
+          outcomeMarkers: selectedOutcomes,
+          outcomeNotesPrivate: String(formData.get("outcome_notes_private") ?? ""),
+          peopleIds: selectedParticipants
+            .filter((person) => person.kind === "person")
+            .map((person) => person.id),
+          prayerRequested: selectedOutcomes.includes("prayer_requested"),
+          relationshipMovement: deriveRelationshipMovement(selectedOutcomes),
           summaryPrivate: String(formData.get("summary_private") ?? ""),
           type: String(formData.get("type") ?? "kitchen_table"),
         }),
@@ -186,7 +403,6 @@ function MeetingLoggerSheet({
         throw new Error(typeof result.error === "string" ? result.error : "Unable to log this meeting.");
       }
 
-      form.reset();
       onClose();
       router.refresh();
     } catch (error) {
@@ -226,7 +442,7 @@ function MeetingLoggerSheet({
                 Log Meeting
               </h2>
               <p className="mt-3 text-sm leading-6 text-stone-400">
-                Capture the ministry moment quickly. Details can deepen later.
+                Capture ministry movement quickly. Ryan is attached as lead for this field workspace.
               </p>
             </div>
             <button
@@ -260,77 +476,144 @@ function MeetingLoggerSheet({
                 <FormLabel>Date / Time</FormLabel>
                 <input
                   className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
-                  defaultValue={defaultMeetingAt}
                   name="meeting_at"
+                  onChange={(event) => setMeetingAtValue(event.target.value)}
                   required
                   type="datetime-local"
+                  value={meetingAtValue}
                 />
               </label>
             </div>
 
             <section>
               <FormLabel>People involved</FormLabel>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {ministers.map((minister) => (
-                  <CheckboxRow
-                    checked={selectedMinisterIds.includes(minister.id)}
-                    key={minister.id}
-                    label={minister.name}
-                    note={minister.id === defaultMinisterId ? "Current field user" : "Collective member"}
-                    onChange={(checked) => setSelectedMinisterIds((current) => toggleSelected(current, minister.id, checked))}
-                  />
-                ))}
-                {fieldPeople.map((person) => (
-                  <CheckboxRow
-                    checked={selectedPeopleIds.includes(person.id)}
-                    key={person.id}
-                    label={person.name}
-                    note={person.relationshipStage ?? "Person in your field"}
-                    onChange={(checked) => setSelectedPeopleIds((current) => toggleSelected(current, person.id, checked))}
-                  />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <ParticipantChip>
+                  {defaultMinister?.name ?? "Current field user"} <span className="text-amber-300">(Lead)</span>
+                </ParticipantChip>
+                {selectedParticipants.map((person) => (
+                  <ParticipantChip key={`${person.kind}-${person.id}`} onRemove={() => removeParticipant(person)}>
+                    {person.name}
+                  </ParticipantChip>
                 ))}
               </div>
-              <p className="mt-2 text-xs leading-5 text-stone-500">
-                TODO: Add a new person inline from this sheet after the base logging workflow is stable.
-              </p>
+
+              <label className="mt-3 block">
+                <span className="sr-only">Search people involved</span>
+                <input
+                  className="min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
+                  onChange={(event) => {
+                    setSearchValue(event.target.value);
+                    setShowAddPerson(false);
+                  }}
+                  placeholder="Search people involved..."
+                  type="search"
+                  value={searchValue}
+                />
+              </label>
+
+              {searchValue.trim().length >= 2 ? (
+                <div className="mt-3 border border-stone-800 bg-[#050505]">
+                  {searchResults.length ? (
+                    <div className="divide-y divide-stone-900">
+                      {searchResults.map((person) => (
+                        <button
+                          className="flex min-h-12 w-full items-center justify-between gap-4 px-4 text-left text-sm text-stone-200 transition-colors hover:bg-stone-900/70"
+                          key={`${person.kind}-${person.id}`}
+                          onClick={() => addParticipant(person)}
+                          type="button"
+                        >
+                          <span>{person.name}</span>
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-[0.14em] text-stone-500"
+                            style={{ fontFamily: font.rajdhani }}
+                          >
+                            {person.kind === "profile" ? "Collective" : person.relationshipStage ?? "Field"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4">
+                      <button
+                        className="min-h-11 w-full border border-amber-500/45 bg-[#101010] px-4 text-xs font-bold uppercase tracking-[0.18em] text-amber-300 transition-colors hover:border-amber-300 hover:text-amber-100"
+                        onClick={() => setShowAddPerson(true)}
+                        style={{ fontFamily: font.rajdhani }}
+                        type="button"
+                      >
+                        + Add New Person
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {showAddPerson ? (
+                <AddPersonInline
+                  collectiveSlug={collectiveSlug}
+                  defaultFirstName={searchName.firstName}
+                  defaultLastName={searchName.lastName}
+                  onCreated={(person) => {
+                    setPeopleOptions((current) => [...current, person]);
+                    addParticipant(person);
+                  }}
+                />
+              ) : null}
             </section>
 
             <label className="block">
               <FormLabel>Short Summary</FormLabel>
               <textarea
-                className="mt-2 min-h-24 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-base leading-7 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
+                className="mt-2 min-h-20 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-base leading-7 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
                 maxLength={600}
                 name="summary_private"
                 placeholder="Jordan opened up about fear and isolation."
-                rows={3}
+                rows={2}
               />
             </label>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex items-center gap-3 border border-stone-800 bg-[#050505] p-4">
-                <input className="h-4 w-4 accent-amber-400" name="prayer_requested" type="checkbox" />
-                <span className="text-sm font-semibold text-stone-200">Prayer requested?</span>
-              </label>
-              <label className="flex items-center gap-3 border border-stone-800 bg-[#050505] p-4">
-                <input className="h-4 w-4 accent-amber-400" name="follow_up_needed" type="checkbox" />
-                <span className="text-sm font-semibold text-stone-200">Follow up needed?</span>
-              </label>
-            </div>
+            <section>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <FormLabel>What happened?</FormLabel>
+                  <p className="mt-2 text-xs leading-5 text-stone-500">
+                    Meeting is what happened. Fruit is what changed.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {dosMeetingOutcomeOptions.map((marker) => {
+                  const isSelected = selectedOutcomes.includes(marker);
+
+                  return (
+                    <button
+                      aria-pressed={isSelected}
+                      className={`min-h-11 border px-3 text-left text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
+                        isSelected
+                          ? "border-amber-400 bg-amber-400 text-stone-950"
+                          : "border-stone-700 bg-[#050505] text-stone-300 hover:border-amber-500/50 hover:text-amber-300"
+                      }`}
+                      key={marker}
+                      onClick={() => toggleOutcome(marker)}
+                      style={{ fontFamily: font.rajdhani }}
+                      type="button"
+                    >
+                      {dosMeetingOutcomeLabel(marker)}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
             <label className="block">
-              <FormLabel>Movement</FormLabel>
-              <select
-                className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
-                defaultValue=""
-                name="relationship_movement"
-              >
-                <option value="">No movement marker</option>
-                {dosMeetingMovementOptions.map((movement) => (
-                  <option key={movement} value={movement}>
-                    {dosMeetingMovementLabel(movement)}
-                  </option>
-                ))}
-              </select>
+              <FormLabel>Outcome Notes</FormLabel>
+              <textarea
+                className="mt-2 min-h-16 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
+                maxLength={500}
+                name="outcome_notes_private"
+                placeholder="Small note about what changed."
+                rows={2}
+              />
             </label>
 
             {errorMessage ? (
@@ -341,7 +624,7 @@ function MeetingLoggerSheet({
 
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
               <p className="text-xs leading-5 text-stone-500">
-                Meeting summaries and prayer context stay private to the owning organization.
+                Meeting summaries, outcomes, and prayer context stay private to the owning organization.
               </p>
               <button
                 className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
@@ -359,26 +642,13 @@ function MeetingLoggerSheet({
   );
 }
 
-function FormLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500"
-      style={{ fontFamily: font.rajdhani }}
-    >
-      {children}
-    </span>
-  );
-}
-
 export function MeetingsWorkspaceClient({
   collectiveSlug,
   data,
-  defaultMeetingAt,
   initialPersonId,
 }: {
   collectiveSlug: string;
   data: DosMeetingsWorkspaceData;
-  defaultMeetingAt: string;
   initialPersonId?: string;
 }) {
   const [isLoggerOpen, setIsLoggerOpen] = useState(Boolean(initialPersonId));
@@ -425,7 +695,6 @@ export function MeetingsWorkspaceClient({
       {isLoggerOpen ? (
         <MeetingLoggerSheet
           collectiveSlug={collectiveSlug}
-          defaultMeetingAt={defaultMeetingAt}
           defaultMinisterId={data.defaultMinisterId}
           fieldPeople={data.fieldPeople}
           initialPersonId={initialPersonId}

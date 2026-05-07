@@ -7,6 +7,7 @@ import { ImproveDosFeedbackModal } from "@/app/system/preview/ImproveDosFeedback
 import { loadDosMeetingDetail } from "@/src/lib/dos/meetings";
 import {
   dosMeetingMovementLabel,
+  dosMeetingOutcomeLabel,
   dosMeetingTypeLabel,
   type DosMeetingParticipant,
 } from "@/src/lib/dos/meeting-options";
@@ -87,6 +88,26 @@ function DetailTile({
         {label}
       </p>
       <p className="mt-2 text-sm leading-6 text-stone-200">{value}</p>
+    </div>
+  );
+}
+
+function OutcomeList({ markers }: { markers: string[] }) {
+  if (!markers.length) {
+    return <p className="text-sm leading-7 text-stone-500">No outcome markers added yet.</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {markers.map((marker) => (
+        <span
+          className="border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
+          key={marker}
+          style={{ fontFamily: font.rajdhani }}
+        >
+          {dosMeetingOutcomeLabel(marker)}
+        </span>
+      ))}
     </div>
   );
 }
@@ -176,6 +197,23 @@ export default async function DosMeetingDetailPage({
           </div>
           <div className="border border-stone-800 bg-[#080808] p-5 text-sm leading-7 text-stone-300">
             {meeting.summaryPrivate ?? "No summary added yet."}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
+        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <Eyebrow>Fruit / Outcome</Eyebrow>
+            <h2 className="mt-4 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+              What changed
+            </h2>
+          </div>
+          <div className="border border-stone-800 bg-[#080808] p-5">
+            <OutcomeList markers={meeting.outcomeMarkers} />
+            {meeting.outcomeNotesPrivate ? (
+              <p className="mt-4 text-sm leading-7 text-stone-300">{meeting.outcomeNotesPrivate}</p>
+            ) : null}
           </div>
         </div>
       </section>
