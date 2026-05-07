@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { PrimaryNav } from "../../../components/PrimaryNav";
 import { AccessLogoutButton } from "../../../components/forms/AccessLogoutButton";
 import { DosWalkthroughRequestModal } from "./DosWalkthroughRequestModal";
+import { ImproveDosFeedbackModal } from "./ImproveDosFeedbackModal";
 import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
@@ -314,6 +315,7 @@ export default async function SystemPreviewPage({
             </p>
             <div className="mt-9 flex flex-col gap-4 sm:flex-row">
               <DosWalkthroughRequestModal initialOpen={params.previewForm === "dos_walkthrough_request"} />
+              <ImproveDosFeedbackModal />
               <AccessLogoutButton
                 className="inline-flex min-h-12 items-center justify-center border border-stone-700 bg-transparent px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-100 transition-colors hover:border-stone-300 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
                 redirectTo="/system"

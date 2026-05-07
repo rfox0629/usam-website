@@ -10,6 +10,7 @@ const adminNavGroups = [
       { activeKey: "public-experience", href: "/admin/public-experience", label: "Public Experience" },
       { activeKey: "prayer", href: "/admin/prayer-team", label: "Prayer Team" },
       { activeKey: "support-team", href: "/admin/support-team", label: "Support Team" },
+      { activeKey: "product-feedback", href: "/admin/product-feedback", label: "Product Feedback" },
     ],
     title: "Main",
   },
