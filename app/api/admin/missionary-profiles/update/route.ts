@@ -149,6 +149,8 @@ type UpdatePayload = {
   };
   householdId?: unknown;
   originalSlug?: unknown;
+  workspace_id?: unknown;
+  workspaceId?: unknown;
   support?: {
     annual_goal?: unknown;
     enable_major_gift_inquiry?: unknown;
@@ -478,13 +480,13 @@ function hasMissingWorkflowTableError(error: { code?: string; message?: string }
 function hasMissingEncounterPipelineColumnsError(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["table_id", "outcome_tags", "internal_notes", "do_not_publish", "submission_type"].some((columnName) => message.includes(columnName));
+  return ["table_id", "outcome_tags", "internal_notes", "do_not_publish", "submission_type", "workspace_id"].some((columnName) => message.includes(columnName));
 }
 
 function hasMissingTablePipelineColumnsError(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["participant_names", "field_person_ids"].some((columnName) => message.includes(columnName));
+  return ["participant_names", "field_person_ids", "workspace_id"].some((columnName) => message.includes(columnName));
 }
 
 function hasLegacyEncounterStatusConstraintError(error: { message?: string } | null | undefined) {
@@ -514,7 +516,7 @@ function hasMissingFruitEncounterColumnError(error: { message?: string } | null 
 function hasMissingFruitWorkflowColumnsError(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["cc_status", "table_id", "field_person_id", "internal_notes", "outcome_tags"].some((columnName) => message.includes(columnName));
+  return ["cc_status", "table_id", "field_person_id", "internal_notes", "outcome_tags", "workspace_id"].some((columnName) => message.includes(columnName));
 }
 
 function hasMissingSupportLinkColumnsError(error: { message?: string } | null | undefined) {
@@ -565,14 +567,15 @@ export async function POST(request: Request) {
   }
 
   const householdId = asString(payload.householdId);
+  const workspaceId = asString(payload.workspaceId) || asString(payload.workspace_id) || householdId;
   const household = payload.household ?? {};
   const support = payload.support ?? {};
   const displayName = asString(household.display_name);
   const slug = asString(household.slug);
   const originalSlug = asString(payload.originalSlug);
 
-  if (!householdId || !displayName || !slug) {
-    return NextResponse.json({ error: "Household ID, display name, and slug are required." }, { status: 400 });
+  if (!isExistingUuid(householdId) || !isExistingUuid(workspaceId) || !displayName || !slug) {
+    return NextResponse.json({ error: "Missionary workspace ID, display name, and slug are required." }, { status: 400 });
   }
 
   // Public forms capture submissions in Supabase.
@@ -772,6 +775,7 @@ export async function POST(request: Request) {
             table_date: tableDate,
             table_type: asTableType(table.table_type),
             updated_at: timestamp,
+            workspace_id: workspaceId,
           },
         };
       });
@@ -863,6 +867,7 @@ export async function POST(request: Request) {
             submitter_phone: asNullableString(submission.submitter_phone),
             table_id: mappedTableId,
             updated_at: timestamp,
+            workspace_id: workspaceId,
           },
         };
       })
@@ -949,7 +954,7 @@ export async function POST(request: Request) {
             updated_at: timestamp,
             visibility: "private",
           })
-          .eq("household_id", householdId)
+          .eq("workspace_id", workspaceId)
           .eq("source", "website_admin")
           .eq("source_app", "command_center")
           .in("source_external_id", hiddenFruitEncounterIds);
@@ -989,6 +994,7 @@ export async function POST(request: Request) {
           title,
           updated_at: timestamp,
           visibility: "public",
+          workspace_id: workspaceId,
         };
         const { data: existingFruitItem, error: existingFruitError } = await supabase
           .from("missionary_fruit_items")
@@ -1058,6 +1064,7 @@ export async function POST(request: Request) {
           table_id: tableId,
           teaching_used: asTeachingUsed(review.teaching_used),
           updated_at: timestamp,
+          workspace_id: workspaceId,
         };
       })
       .filter((review): review is NonNullable<typeof review> => Boolean(review));
@@ -1113,6 +1120,7 @@ export async function POST(request: Request) {
             testimony_date: asNullableDateString(fruit.testimony_date) ?? timestamp.slice(0, 10),
             title: outcomeTags[0] ?? "Field Fruit",
             updated_at: timestamp,
+            workspace_id: workspaceId,
           },
         };
       })
@@ -1229,6 +1237,7 @@ export async function POST(request: Request) {
         movement_step: asMovementStep(connection.movement_step),
         notes: asNullableString(connection.notes),
         updated_at: timestamp,
+        workspace_id: workspaceId,
       },
     }));
     const existingConnectionLogs = sanitizedConnectionLogs
@@ -1287,6 +1296,7 @@ export async function POST(request: Request) {
             household_id: householdId,
             title,
             updated_at: timestamp,
+            workspace_id: workspaceId,
           },
         };
       })
@@ -1339,6 +1349,7 @@ export async function POST(request: Request) {
         household_id: householdId,
         prayer_emphasis: asNullableString(payload.inSeasonFocus.prayer_emphasis),
         updated_at: timestamp,
+        workspace_id: workspaceId,
       }, { onConflict: "household_id" });
 
     if (inSeasonError) {

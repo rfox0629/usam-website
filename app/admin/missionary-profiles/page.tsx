@@ -120,12 +120,13 @@ type EncounterRow = {
   submitter_phone: string | null;
   table_id?: string | null;
   updated_at: string | null;
+  workspace_id?: string | null;
 };
 
 type MissionaryTableRow = {
   created_at: string;
   field_person_ids?: string[] | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   notes: string | null;
   participant_names?: string[] | null;
@@ -133,6 +134,7 @@ type MissionaryTableRow = {
   table_date: string | null;
   table_type: string | null;
   updated_at: string | null;
+  workspace_id?: string | null;
 };
 
 type FieldPersonRow = {
@@ -141,7 +143,7 @@ type FieldPersonRow = {
   created_by: string | null;
   email: string | null;
   engagement_level: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   last_activity_at: string | null;
   name: string;
@@ -151,6 +153,7 @@ type FieldPersonRow = {
   source: string | null;
   status: string | null;
   updated_at: string | null;
+  workspace_id?: string | null;
 };
 
 type TableReviewRow = {
@@ -159,7 +162,7 @@ type TableReviewRow = {
   created_at: string;
   follow_up_areas: string[] | null;
   follow_up_needed: string | null;
-  household_id: string;
+  household_id?: string | null;
   how_meeting_went: string | null;
   id: string;
   key_observations: string | null;
@@ -169,6 +172,7 @@ type TableReviewRow = {
   table_id: string;
   teaching_used: string | null;
   updated_at: string | null;
+  workspace_id?: string | null;
 };
 
 type CommandFruitRow = {
@@ -177,13 +181,14 @@ type CommandFruitRow = {
   created_at: string;
   encounter_id?: string | null;
   field_person_id?: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   internal_notes?: string | null;
   outcome_tags?: string[] | null;
   table_id?: string | null;
   testimony_date: string | null;
   updated_at: string | null;
+  workspace_id?: string | null;
 };
 
 type ConnectionLogRow = {
@@ -192,12 +197,13 @@ type ConnectionLogRow = {
   duration_minutes: number | null;
   field_person_id: string | null;
   follow_up_needed: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   interaction_type: string | null;
   movement_step: string | null;
   notes: string | null;
   updated_at: string | null;
+  workspace_id?: string | null;
 };
 
 type LibraryItemRow = {
@@ -205,20 +211,22 @@ type LibraryItemRow = {
   content_notes: string | null;
   created_at: string;
   description: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   title: string;
   updated_at: string | null;
+  workspace_id?: string | null;
 };
 
 type InSeasonFocusRow = {
   active_people_note: string | null;
   active_tables_note: string | null;
   current_focus: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   prayer_emphasis: string | null;
   updated_at: string | null;
+  workspace_id?: string | null;
 };
 
 type PublicFruitItemRow = {
@@ -237,6 +245,14 @@ function payloadString(payload: Record<string, unknown>, key: string) {
 
 function payloadBoolean(payload: Record<string, unknown>, key: string) {
   return payload[key] === true;
+}
+
+function getOperationalWorkspaceId(row: { household_id?: string | null; workspace_id?: string | null }) {
+  return row.workspace_id ?? row.household_id ?? null;
+}
+
+function getEncounterWorkspaceId(row: { missionary_household_id?: string | null; missionary_profile_id?: string | null; workspace_id?: string | null }) {
+  return row.workspace_id ?? row.missionary_household_id ?? row.missionary_profile_id ?? null;
 }
 
 function getEncounterStatus(row: { status: string | null }, payload: Record<string, unknown>): AdminEncounterStatus {
@@ -466,16 +482,22 @@ function isMissingWorkflowTable(error: { code?: string; message?: string } | nul
   return missingRelation && message.includes(tableName);
 }
 
+function isMissingWorkspaceScopeColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("workspace_id");
+}
+
 function isMissingEncounterPipelineColumns(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["table_id", "outcome_tags", "internal_notes", "do_not_publish", "submission_type"].some((columnName) => message.includes(columnName));
+  return ["table_id", "outcome_tags", "internal_notes", "do_not_publish", "submission_type", "workspace_id"].some((columnName) => message.includes(columnName));
 }
 
 function isMissingTablePipelineColumns(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["participant_names", "field_person_ids"].some((columnName) => message.includes(columnName));
+  return ["participant_names", "field_person_ids", "workspace_id"].some((columnName) => message.includes(columnName));
 }
 
 function isMissingFruitItemsTable(error: { message?: string } | null | undefined) {
@@ -487,7 +509,7 @@ function isMissingFruitItemsTable(error: { message?: string } | null | undefined
 function isMissingFruitWorkflowColumns(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["cc_status", "table_id", "field_person_id", "internal_notes", "outcome_tags"].some((columnName) => message.includes(columnName));
+  return ["cc_status", "table_id", "field_person_id", "internal_notes", "outcome_tags", "workspace_id"].some((columnName) => message.includes(columnName));
 }
 
 function isMissingTeamMembersTable(error: { code?: string; message?: string } | null | undefined) {
@@ -627,8 +649,8 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
 
     const tablesResult = await supabase
       .from("missionary_tables")
-      .select("id, household_id, table_date, table_type, field_person_ids, participant_names, notes, source, created_at, updated_at")
-      .in("household_id", ids)
+      .select("id, workspace_id, household_id, table_date, table_type, field_person_ids, participant_names, notes, source, created_at, updated_at")
+      .in("workspace_id", ids)
       .order("table_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
     const fallbackTablesResult = tablesResult.error && isMissingTablePipelineColumns(tablesResult.error)
@@ -645,16 +667,18 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     }
 
     ((fallbackTablesResult.data ?? []) as MissionaryTableRow[]).forEach((table) => {
-      if (!table.household_id || !ids.includes(table.household_id)) {
+      const workspaceId = getOperationalWorkspaceId(table);
+
+      if (!workspaceId || !ids.includes(workspaceId)) {
         return;
       }
 
-      const currentTables = tablesByHouseholdId.get(table.household_id) ?? [];
+      const currentTables = tablesByHouseholdId.get(workspaceId) ?? [];
 
       currentTables.push({
         created_at: table.created_at,
         field_person_ids: getTableFieldPersonIds(table.field_person_ids),
-        household_id: table.household_id,
+        household_id: table.household_id ?? workspaceId,
         id: table.id,
         notes: table.notes,
         participant_names: getTableParticipantNames(table.participant_names),
@@ -662,28 +686,40 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         table_date: table.table_date ?? table.created_at.slice(0, 10),
         table_type: getTableType(table.table_type),
         updated_at: table.updated_at,
+        workspace_id: workspaceId,
       });
-      tablesByHouseholdId.set(table.household_id, currentTables);
+      tablesByHouseholdId.set(workspaceId, currentTables);
     });
 
     const fieldPeopleResult = await supabase
       .from("missionary_field_people")
-      .select("id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, created_at, updated_at")
-      .in("household_id", ids)
+      .select("id, workspace_id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, created_at, updated_at")
+      .in("workspace_id", ids)
       .order("last_activity_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false })
       .order("name", { ascending: true });
+    const fallbackFieldPeopleResult = fieldPeopleResult.error && isMissingWorkspaceScopeColumn(fieldPeopleResult.error)
+      ? await supabase
+        .from("missionary_field_people")
+        .select("id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, created_at, updated_at")
+        .in("household_id", ids)
+        .order("last_activity_at", { ascending: false, nullsFirst: false })
+        .order("updated_at", { ascending: false })
+        .order("name", { ascending: true })
+      : fieldPeopleResult;
 
-    if (fieldPeopleResult.error && !isMissingFieldPeopleTable(fieldPeopleResult.error)) {
-      return { error: fieldPeopleResult.error.message, profiles: [] };
+    if (fallbackFieldPeopleResult.error && !isMissingFieldPeopleTable(fallbackFieldPeopleResult.error)) {
+      return { error: fallbackFieldPeopleResult.error.message, profiles: [] };
     }
 
-    ((fieldPeopleResult.data ?? []) as FieldPersonRow[]).forEach((person) => {
-      if (!person.household_id || !ids.includes(person.household_id)) {
+    ((fallbackFieldPeopleResult.data ?? []) as FieldPersonRow[]).forEach((person) => {
+      const workspaceId = getOperationalWorkspaceId(person);
+
+      if (!workspaceId || !ids.includes(workspaceId)) {
         return;
       }
 
-      const currentPeople = fieldPeopleByHouseholdId.get(person.household_id) ?? [];
+      const currentPeople = fieldPeopleByHouseholdId.get(workspaceId) ?? [];
 
       currentPeople.push({
         church: person.church,
@@ -691,7 +727,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         created_by: person.created_by,
         email: person.email,
         engagement_level: person.engagement_level,
-        household_id: person.household_id,
+        household_id: person.household_id ?? workspaceId,
         id: person.id,
         last_activity_at: person.last_activity_at,
         name: person.name,
@@ -701,8 +737,9 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         source: getFieldPersonSource(person.source),
         status: getFieldPersonStatus(person.status),
         updated_at: person.updated_at,
+        workspace_id: workspaceId,
       });
-      fieldPeopleByHouseholdId.set(person.household_id, currentPeople);
+      fieldPeopleByHouseholdId.set(workspaceId, currentPeople);
     });
 
     // Intake workflow placeholder: missionaries will eventually submit profile
@@ -711,8 +748,8 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     // profile. missionary_user submissions should not directly edit public fields.
     const encountersResult = await supabase
       .from("missionary_encounters")
-      .select("id, missionary_profile_id, missionary_household_id, table_id, submitter_name, submitter_email, submitter_phone, encounter_date, original_testimony, public_summary, internal_notes, do_not_publish, submission_type, outcome_tags, permission_to_share, status, source, created_at, updated_at")
-      .in("missionary_household_id", ids)
+      .select("id, workspace_id, missionary_profile_id, missionary_household_id, table_id, submitter_name, submitter_email, submitter_phone, encounter_date, original_testimony, public_summary, internal_notes, do_not_publish, submission_type, outcome_tags, permission_to_share, status, source, created_at, updated_at")
+      .in("workspace_id", ids)
       .order("encounter_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
     const fallbackEncountersResult = encountersResult.error && isMissingEncounterPipelineColumns(encountersResult.error)
@@ -729,13 +766,13 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     }
 
     ((fallbackEncountersResult.data ?? []) as EncounterRow[]).forEach((row) => {
-      const matchingHouseholdId = row.missionary_household_id ?? row.missionary_profile_id;
+      const workspaceId = getEncounterWorkspaceId(row);
 
-      if (!matchingHouseholdId || !ids.includes(matchingHouseholdId)) {
+      if (!workspaceId || !ids.includes(workspaceId)) {
         return;
       }
 
-      const currentItems = encounterSubmissionsByHouseholdId.get(matchingHouseholdId) ?? [];
+      const currentItems = encounterSubmissionsByHouseholdId.get(workspaceId) ?? [];
 
       currentItems.push({
         created_at: row.created_at,
@@ -757,22 +794,36 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         submitter_phone: row.submitter_phone,
         table_id: row.table_id ?? null,
         updated_at: row.updated_at,
+        workspace_id: workspaceId,
       });
-      encounterSubmissionsByHouseholdId.set(matchingHouseholdId, currentItems);
+      encounterSubmissionsByHouseholdId.set(workspaceId, currentItems);
     });
 
     const tableReviewsResult = await supabase
       .from("missionary_table_reviews")
-      .select("id, household_id, table_id, how_meeting_went, key_observations, breakthroughs_or_concerns, follow_up_needed, movement_step, teaching_used, questions_covered, assessment_notes, readiness, follow_up_areas, created_at, updated_at")
-      .in("household_id", ids)
+      .select("id, workspace_id, household_id, table_id, how_meeting_went, key_observations, breakthroughs_or_concerns, follow_up_needed, movement_step, teaching_used, questions_covered, assessment_notes, readiness, follow_up_areas, created_at, updated_at")
+      .in("workspace_id", ids)
       .order("updated_at", { ascending: false });
+    const fallbackTableReviewsResult = tableReviewsResult.error && isMissingWorkspaceScopeColumn(tableReviewsResult.error)
+      ? await supabase
+        .from("missionary_table_reviews")
+        .select("id, household_id, table_id, how_meeting_went, key_observations, breakthroughs_or_concerns, follow_up_needed, movement_step, teaching_used, questions_covered, assessment_notes, readiness, follow_up_areas, created_at, updated_at")
+        .in("household_id", ids)
+        .order("updated_at", { ascending: false })
+      : tableReviewsResult;
 
-    if (tableReviewsResult.error && !isMissingWorkflowTable(tableReviewsResult.error, "missionary_table_reviews")) {
-      return { error: tableReviewsResult.error.message, profiles: [] };
+    if (fallbackTableReviewsResult.error && !isMissingWorkflowTable(fallbackTableReviewsResult.error, "missionary_table_reviews")) {
+      return { error: fallbackTableReviewsResult.error.message, profiles: [] };
     }
 
-    ((tableReviewsResult.data ?? []) as TableReviewRow[]).forEach((review) => {
-      const currentReviews = tableReviewsByHouseholdId.get(review.household_id) ?? [];
+    ((fallbackTableReviewsResult.data ?? []) as TableReviewRow[]).forEach((review) => {
+      const workspaceId = getOperationalWorkspaceId(review);
+
+      if (!workspaceId || !ids.includes(workspaceId)) {
+        return;
+      }
+
+      const currentReviews = tableReviewsByHouseholdId.get(workspaceId) ?? [];
 
       currentReviews.push({
         assessment_notes: review.assessment_notes,
@@ -780,7 +831,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         created_at: review.created_at,
         follow_up_areas: getAssessmentFollowUpAreas(review.follow_up_areas),
         follow_up_needed: review.follow_up_needed,
-        household_id: review.household_id,
+        household_id: review.household_id ?? workspaceId,
         how_meeting_went: review.how_meeting_went,
         id: review.id,
         key_observations: review.key_observations,
@@ -790,30 +841,46 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         table_id: review.table_id,
         teaching_used: getTeachingUsed(review.teaching_used),
         updated_at: review.updated_at,
+        workspace_id: workspaceId,
       });
-      tableReviewsByHouseholdId.set(review.household_id, currentReviews);
+      tableReviewsByHouseholdId.set(workspaceId, currentReviews);
     });
 
     const fruitItemsResult = await supabase
       .from("missionary_fruit_items")
-      .select("id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, testimony_date, created_at, updated_at")
-      .in("household_id", ids)
+      .select("id, workspace_id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, testimony_date, created_at, updated_at")
+      .in("workspace_id", ids)
       .eq("source_app", "command_center")
       .order("testimony_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
+    const fallbackFruitItemsResult = fruitItemsResult.error && isMissingFruitWorkflowColumns(fruitItemsResult.error)
+      ? await supabase
+        .from("missionary_fruit_items")
+        .select("id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, testimony_date, created_at, updated_at")
+        .in("household_id", ids)
+        .eq("source_app", "command_center")
+        .order("testimony_date", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+      : fruitItemsResult;
 
-    if (fruitItemsResult.error && !isMissingFruitItemsTable(fruitItemsResult.error) && !isMissingFruitWorkflowColumns(fruitItemsResult.error)) {
-      return { error: fruitItemsResult.error.message, profiles: [] };
+    if (fallbackFruitItemsResult.error && !isMissingFruitItemsTable(fallbackFruitItemsResult.error) && !isMissingFruitWorkflowColumns(fallbackFruitItemsResult.error)) {
+      return { error: fallbackFruitItemsResult.error.message, profiles: [] };
     }
 
-    ((fruitItemsResult.data ?? []) as CommandFruitRow[]).forEach((fruit) => {
-      const currentFruit = fruitItemsByHouseholdId.get(fruit.household_id) ?? [];
+    ((fallbackFruitItemsResult.data ?? []) as CommandFruitRow[]).forEach((fruit) => {
+      const workspaceId = getOperationalWorkspaceId(fruit);
+
+      if (!workspaceId || !ids.includes(workspaceId)) {
+        return;
+      }
+
+      const currentFruit = fruitItemsByHouseholdId.get(workspaceId) ?? [];
 
       currentFruit.push({
         created_at: fruit.created_at,
         encounter_id: fruit.encounter_id ?? null,
         field_person_id: fruit.field_person_id ?? null,
-        household_id: fruit.household_id,
+        household_id: fruit.household_id ?? workspaceId,
         id: fruit.id,
         internal_notes: fruit.internal_notes ?? "",
         outcome_tags: getOutcomeTags(fruit.outcome_tags),
@@ -822,23 +889,38 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         table_id: fruit.table_id ?? null,
         testimony_date: fruit.testimony_date,
         updated_at: fruit.updated_at,
+        workspace_id: workspaceId,
       });
-      fruitItemsByHouseholdId.set(fruit.household_id, currentFruit);
+      fruitItemsByHouseholdId.set(workspaceId, currentFruit);
     });
 
     const connectionLogsResult = await supabase
       .from("missionary_connection_logs")
-      .select("id, household_id, field_person_id, connection_date, duration_minutes, interaction_type, notes, movement_step, follow_up_needed, created_at, updated_at")
-      .in("household_id", ids)
+      .select("id, workspace_id, household_id, field_person_id, connection_date, duration_minutes, interaction_type, notes, movement_step, follow_up_needed, created_at, updated_at")
+      .in("workspace_id", ids)
       .order("connection_date", { ascending: false })
       .order("created_at", { ascending: false });
+    const fallbackConnectionLogsResult = connectionLogsResult.error && isMissingWorkspaceScopeColumn(connectionLogsResult.error)
+      ? await supabase
+        .from("missionary_connection_logs")
+        .select("id, household_id, field_person_id, connection_date, duration_minutes, interaction_type, notes, movement_step, follow_up_needed, created_at, updated_at")
+        .in("household_id", ids)
+        .order("connection_date", { ascending: false })
+        .order("created_at", { ascending: false })
+      : connectionLogsResult;
 
-    if (connectionLogsResult.error && !isMissingWorkflowTable(connectionLogsResult.error, "missionary_connection_logs")) {
-      return { error: connectionLogsResult.error.message, profiles: [] };
+    if (fallbackConnectionLogsResult.error && !isMissingWorkflowTable(fallbackConnectionLogsResult.error, "missionary_connection_logs")) {
+      return { error: fallbackConnectionLogsResult.error.message, profiles: [] };
     }
 
-    ((connectionLogsResult.data ?? []) as ConnectionLogRow[]).forEach((connection) => {
-      const currentConnections = connectionLogsByHouseholdId.get(connection.household_id) ?? [];
+    ((fallbackConnectionLogsResult.data ?? []) as ConnectionLogRow[]).forEach((connection) => {
+      const workspaceId = getOperationalWorkspaceId(connection);
+
+      if (!workspaceId || !ids.includes(workspaceId)) {
+        return;
+      }
+
+      const currentConnections = connectionLogsByHouseholdId.get(workspaceId) ?? [];
 
       currentConnections.push({
         connection_date: connection.connection_date,
@@ -846,44 +928,78 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         duration_minutes: connection.duration_minutes,
         field_person_id: connection.field_person_id,
         follow_up_needed: connection.follow_up_needed,
-        household_id: connection.household_id,
+        household_id: connection.household_id ?? workspaceId,
         id: connection.id,
         interaction_type: getConnectionType(connection.interaction_type),
         movement_step: getMovementStep(connection.movement_step),
         notes: connection.notes,
         updated_at: connection.updated_at,
+        workspace_id: workspaceId,
       });
-      connectionLogsByHouseholdId.set(connection.household_id, currentConnections);
+      connectionLogsByHouseholdId.set(workspaceId, currentConnections);
     });
 
     const libraryItemsResult = await supabase
       .from("missionary_library_items")
-      .select("id, household_id, title, category, description, content_notes, created_at, updated_at")
-      .in("household_id", ids)
+      .select("id, workspace_id, household_id, title, category, description, content_notes, created_at, updated_at")
+      .in("workspace_id", ids)
       .order("title", { ascending: true });
+    const fallbackLibraryItemsResult = libraryItemsResult.error && isMissingWorkspaceScopeColumn(libraryItemsResult.error)
+      ? await supabase
+        .from("missionary_library_items")
+        .select("id, household_id, title, category, description, content_notes, created_at, updated_at")
+        .in("household_id", ids)
+        .order("title", { ascending: true })
+      : libraryItemsResult;
 
-    if (libraryItemsResult.error && !isMissingWorkflowTable(libraryItemsResult.error, "missionary_library_items")) {
-      return { error: libraryItemsResult.error.message, profiles: [] };
+    if (fallbackLibraryItemsResult.error && !isMissingWorkflowTable(fallbackLibraryItemsResult.error, "missionary_library_items")) {
+      return { error: fallbackLibraryItemsResult.error.message, profiles: [] };
     }
 
-    ((libraryItemsResult.data ?? []) as LibraryItemRow[]).forEach((item) => {
-      const currentItems = libraryItemsByHouseholdId.get(item.household_id) ?? [];
+    ((fallbackLibraryItemsResult.data ?? []) as LibraryItemRow[]).forEach((item) => {
+      const workspaceId = getOperationalWorkspaceId(item);
 
-      currentItems.push(item);
-      libraryItemsByHouseholdId.set(item.household_id, currentItems);
+      if (!workspaceId || !ids.includes(workspaceId)) {
+        return;
+      }
+
+      const currentItems = libraryItemsByHouseholdId.get(workspaceId) ?? [];
+
+      currentItems.push({
+        ...item,
+        household_id: item.household_id ?? workspaceId,
+        workspace_id: workspaceId,
+      });
+      libraryItemsByHouseholdId.set(workspaceId, currentItems);
     });
 
     const inSeasonResult = await supabase
       .from("missionary_in_season_focus")
-      .select("id, household_id, current_focus, prayer_emphasis, active_people_note, active_tables_note, updated_at")
-      .in("household_id", ids);
+      .select("id, workspace_id, household_id, current_focus, prayer_emphasis, active_people_note, active_tables_note, updated_at")
+      .in("workspace_id", ids);
+    const fallbackInSeasonResult = inSeasonResult.error && isMissingWorkspaceScopeColumn(inSeasonResult.error)
+      ? await supabase
+        .from("missionary_in_season_focus")
+        .select("id, household_id, current_focus, prayer_emphasis, active_people_note, active_tables_note, updated_at")
+        .in("household_id", ids)
+      : inSeasonResult;
 
-    if (inSeasonResult.error && !isMissingWorkflowTable(inSeasonResult.error, "missionary_in_season_focus")) {
-      return { error: inSeasonResult.error.message, profiles: [] };
+    if (fallbackInSeasonResult.error && !isMissingWorkflowTable(fallbackInSeasonResult.error, "missionary_in_season_focus")) {
+      return { error: fallbackInSeasonResult.error.message, profiles: [] };
     }
 
-    ((inSeasonResult.data ?? []) as InSeasonFocusRow[]).forEach((focus) => {
-      inSeasonByHouseholdId.set(focus.household_id, focus);
+    ((fallbackInSeasonResult.data ?? []) as InSeasonFocusRow[]).forEach((focus) => {
+      const workspaceId = getOperationalWorkspaceId(focus);
+
+      if (!workspaceId || !ids.includes(workspaceId)) {
+        return;
+      }
+
+      inSeasonByHouseholdId.set(workspaceId, {
+        ...focus,
+        household_id: focus.household_id ?? workspaceId,
+        workspace_id: workspaceId,
+      });
     });
 
     const publicFruitItemsResult = await supabase

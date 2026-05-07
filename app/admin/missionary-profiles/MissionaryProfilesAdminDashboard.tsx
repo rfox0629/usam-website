@@ -152,7 +152,7 @@ export type AdminSupportSettings = {
 export type AdminMissionaryTable = {
   created_at: string;
   field_person_ids: string[];
-  household_id: string;
+  household_id?: string | null;
   id: string;
   notes: string | null;
   participant_names: string[];
@@ -160,6 +160,7 @@ export type AdminMissionaryTable = {
   table_date: string;
   table_type: AdminTableType;
   updated_at: string | null;
+  workspace_id: string;
 };
 
 // Your Field (People) is the internal relationship map shared by Command
@@ -170,7 +171,7 @@ export type AdminFieldPerson = {
   created_by: string | null;
   email: string | null;
   engagement_level: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   last_activity_at: string | null;
   name: string;
@@ -180,6 +181,7 @@ export type AdminFieldPerson = {
   source: "command_center" | "field";
   status: AdminFieldPersonStatus;
   updated_at: string | null;
+  workspace_id: string;
 };
 
 // Encounters are the raw intake layer for testimonies, forms, reviews, and
@@ -205,6 +207,7 @@ export type AdminEncounterSubmission = {
   submitter_phone: string | null;
   table_id: string | null;
   updated_at: string | null;
+  workspace_id: string | null;
 };
 
 export type AdminTableReview = {
@@ -213,7 +216,7 @@ export type AdminTableReview = {
   created_at: string;
   follow_up_areas: AdminAssessmentFollowUpArea[];
   follow_up_needed: string | null;
-  household_id: string;
+  household_id?: string | null;
   how_meeting_went: string | null;
   id: string;
   key_observations: string | null;
@@ -223,13 +226,14 @@ export type AdminTableReview = {
   table_id: string;
   teaching_used: AdminTeachingUsed | null;
   updated_at: string | null;
+  workspace_id: string;
 };
 
 export type AdminFruitItem = {
   created_at: string;
   encounter_id: string | null;
   field_person_id: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   internal_notes: string | null;
   outcome_tags: AdminOutcomeTag[];
@@ -238,6 +242,7 @@ export type AdminFruitItem = {
   table_id: string | null;
   testimony_date: string | null;
   updated_at: string | null;
+  workspace_id: string;
 };
 
 export type AdminConnectionLog = {
@@ -246,12 +251,13 @@ export type AdminConnectionLog = {
   duration_minutes: number | null;
   field_person_id: string | null;
   follow_up_needed: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   interaction_type: AdminConnectionType;
   movement_step: AdminMovementStep | null;
   notes: string | null;
   updated_at: string | null;
+  workspace_id: string;
 };
 
 export type AdminLibraryItem = {
@@ -259,20 +265,22 @@ export type AdminLibraryItem = {
   content_notes: string | null;
   created_at: string;
   description: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   title: string;
   updated_at: string | null;
+  workspace_id: string;
 };
 
 export type AdminInSeasonFocus = {
   active_people_note: string | null;
   active_tables_note: string | null;
   current_focus: string | null;
-  household_id: string;
+  household_id?: string | null;
   id: string;
   prayer_emphasis: string | null;
   updated_at: string | null;
+  workspace_id: string;
 };
 
 // Team is a public-facing roster surface only. Do not use it to store
@@ -629,16 +637,6 @@ const assessmentFollowUpAreaOptions: AdminAssessmentFollowUpArea[] = [
   "Obedience",
 ];
 
-const connectionTypeOptions: Array<{ label: string; value: AdminConnectionType }> = [
-  { label: "Phone call", value: "Phone call" },
-  { label: "Zoom", value: "Zoom" },
-  { label: "Text", value: "Text" },
-  { label: "Coffee", value: "Coffee" },
-  { label: "Prayer", value: "Prayer" },
-  { label: "Discipleship", value: "Discipleship" },
-  { label: "Other", value: "Other" },
-];
-
 const meetingTypeOptions: Array<{ label: string; value: AdminMeetingType }> = [
   { label: "Kitchen Table", value: "kitchen_table" },
   { label: "Coffee", value: "coffee" },
@@ -686,6 +684,34 @@ const fieldPersonStatusOptions: Array<{ label: string; value: AdminFieldPersonSt
   { label: "Discipleship", value: "discipleship" },
   { label: "Paused", value: "paused" },
   { label: "Archived", value: "archived" },
+];
+
+const relationshipTypeOptions: Array<{ label: string; value: string }> = [
+  { label: "Select relationship", value: "" },
+  { label: "Family", value: "Family" },
+  { label: "Friend", value: "Friend" },
+  { label: "Neighbor", value: "Neighbor" },
+  { label: "Coworker", value: "Coworker" },
+  { label: "Church Connection", value: "Church Connection" },
+  { label: "Ministry Leader", value: "Ministry Leader" },
+  { label: "New Contact", value: "New Contact" },
+  { label: "Disciple", value: "Disciple" },
+  { label: "Disciple Maker", value: "Disciple Maker" },
+  { label: "Mentor", value: "Mentor" },
+  { label: "Other", value: "Other" },
+];
+
+const engagementLevelOptions: Array<{ label: string; value: string }> = [
+  { label: "Select engagement", value: "" },
+  { label: "Unknown", value: "Unknown" },
+  { label: "Resistant", value: "Resistant" },
+  { label: "Closed", value: "Closed" },
+  { label: "Hesitant", value: "Hesitant" },
+  { label: "Open", value: "Open" },
+  { label: "Engaged", value: "Engaged" },
+  { label: "Ready to Follow", value: "Ready to Follow" },
+  { label: "Actively Following", value: "Actively Following" },
+  { label: "Multiplying", value: "Multiplying" },
 ];
 
 const encounterStatusOptions: Array<{ label: string; value: AdminEncounterStatus }> = [
@@ -865,7 +891,7 @@ function newTeamMember(householdId: string, publicNumber = ""): AdminTeamMember 
   };
 }
 
-function newEncounter(householdId: string, table?: Pick<AdminMissionaryTable, "id" | "table_date">): AdminEncounterSubmission {
+function newEncounter(workspaceId: string, table?: Pick<AdminMissionaryTable, "id" | "table_date">): AdminEncounterSubmission {
   const timestamp = new Date().toISOString();
 
   return {
@@ -874,8 +900,8 @@ function newEncounter(householdId: string, table?: Pick<AdminMissionaryTable, "i
     encounter_date: table?.table_date ?? todayDateValue(),
     id: newClientId(),
     internal_notes: "",
-    missionary_household_id: householdId,
-    missionary_profile_id: householdId,
+    missionary_household_id: workspaceId,
+    missionary_profile_id: workspaceId,
     original_testimony: "",
     outcome_tags: [],
     permission_to_share: false,
@@ -888,10 +914,11 @@ function newEncounter(householdId: string, table?: Pick<AdminMissionaryTable, "i
     submitter_phone: "",
     table_id: table?.id ?? null,
     updated_at: timestamp,
+    workspace_id: workspaceId,
   };
 }
 
-function newTableReview(householdId: string, tableId: string): AdminTableReview {
+function newTableReview(workspaceId: string, tableId: string): AdminTableReview {
   const timestamp = new Date().toISOString();
 
   return {
@@ -900,7 +927,7 @@ function newTableReview(householdId: string, tableId: string): AdminTableReview 
     created_at: timestamp,
     follow_up_areas: [],
     follow_up_needed: "",
-    household_id: householdId,
+    household_id: workspaceId,
     how_meeting_went: "",
     id: newClientId(),
     key_observations: "",
@@ -910,10 +937,11 @@ function newTableReview(householdId: string, tableId: string): AdminTableReview 
     table_id: tableId,
     teaching_used: null,
     updated_at: timestamp,
+    workspace_id: workspaceId,
   };
 }
 
-function newConnectionLog(householdId: string, draft: ConnectionDraft): AdminConnectionLog {
+function newConnectionLog(workspaceId: string, draft: ConnectionDraft): AdminConnectionLog {
   const timestamp = new Date().toISOString();
 
   return {
@@ -922,16 +950,17 @@ function newConnectionLog(householdId: string, draft: ConnectionDraft): AdminCon
     duration_minutes: Number.isFinite(Number(draft.durationMinutes)) ? Number(draft.durationMinutes) : null,
     field_person_id: draft.fieldPersonId || null,
     follow_up_needed: draft.followUpNeeded,
-    household_id: householdId,
+    household_id: workspaceId,
     id: newClientId(),
     interaction_type: draft.interactionType,
     movement_step: draft.movementStep || null,
     notes: draft.notes,
     updated_at: timestamp,
+    workspace_id: workspaceId,
   };
 }
 
-function newLibraryItem(householdId: string, draft: LibraryItemDraft): AdminLibraryItem {
+function newLibraryItem(workspaceId: string, draft: LibraryItemDraft): AdminLibraryItem {
   const timestamp = new Date().toISOString();
 
   return {
@@ -939,33 +968,35 @@ function newLibraryItem(householdId: string, draft: LibraryItemDraft): AdminLibr
     content_notes: draft.contentNotes,
     created_at: timestamp,
     description: draft.description,
-    household_id: householdId,
+    household_id: workspaceId,
     id: newClientId(),
     title: draft.title,
     updated_at: timestamp,
+    workspace_id: workspaceId,
   };
 }
 
-function emptyInSeasonFocus(householdId: string): AdminInSeasonFocus {
+function emptyInSeasonFocus(workspaceId: string): AdminInSeasonFocus {
   return {
     active_people_note: "",
     active_tables_note: "",
     current_focus: "",
-    household_id: householdId,
+    household_id: workspaceId,
     id: newClientId(),
     prayer_emphasis: "",
     updated_at: new Date().toISOString(),
+    workspace_id: workspaceId,
   };
 }
 
-function newFruitItem(householdId: string, draft: FruitDraft, table?: AdminMissionaryTable | null): AdminFruitItem {
+function newFruitItem(workspaceId: string, draft: FruitDraft, table?: AdminMissionaryTable | null): AdminFruitItem {
   const timestamp = new Date().toISOString();
 
   return {
     created_at: timestamp,
     encounter_id: draft.encounterId || null,
     field_person_id: draft.fieldPersonId || null,
-    household_id: householdId,
+    household_id: workspaceId,
     id: newClientId(),
     internal_notes: draft.internalNotes,
     outcome_tags: draft.outcomeTags,
@@ -974,6 +1005,7 @@ function newFruitItem(householdId: string, draft: FruitDraft, table?: AdminMissi
     table_id: draft.tableId || null,
     testimony_date: draft.testimonyDate || table?.table_date || todayDateValue(),
     updated_at: timestamp,
+    workspace_id: workspaceId,
   };
 }
 
@@ -2333,12 +2365,6 @@ function tableLinkedPeople(table: AdminMissionaryTable, people: readonly AdminFi
   return [...linkedNames, ...quickNames];
 }
 
-function notesPreview(value: string | null | undefined) {
-  const text = parseMeetingNotes(value).notes.trim();
-
-  return text ? truncateText(text, 72) : "No notes";
-}
-
 function tableDateValue(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -2365,6 +2391,19 @@ function fieldPersonStatusLabel(value: AdminFieldPersonStatus | string | null | 
     default:
       return "New";
   }
+}
+
+function optionsWithCurrentValue(options: Array<{ label: string; value: string }>, value: string | null | undefined) {
+  const nextValue = value?.trim();
+
+  if (!nextValue || options.some((option) => option.value === nextValue)) {
+    return options;
+  }
+
+  return [
+    ...options,
+    { label: nextValue, value: nextValue },
+  ];
 }
 
 function FieldPersonStatusBadge({ status }: { status: AdminFieldPersonStatus }) {
@@ -2498,7 +2537,7 @@ function PeopleManager({
   onSave,
 }: {
   items: readonly AdminFieldPerson[];
-  onImport: (rows: PeopleCsvImportRow[]) => Promise<PeopleCsvImportResult | null>;
+  onImport: (rows: PeopleCsvImportRow[]) => Promise<PeopleCsvImportResult>;
   onSave: (draft: FieldPersonDraft, personId?: string) => Promise<PersonSaveResult>;
 }) {
   const sortedPeople = useMemo(
@@ -2523,7 +2562,7 @@ function PeopleManager({
             Your Field
           </h3>
           <p className="text-sm leading-6 text-[#7b746a]">
-            Internal people connected to this missionary household. Add only the basics now, then enrich the record after real interactions.
+            Internal people connected to this missionary workspace. Add only the basics now, then enrich the record after real interactions.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -2681,9 +2720,10 @@ function PeopleCsvImportModal({
 }: {
   existingPeople: readonly AdminFieldPerson[];
   onClose: () => void;
-  onImport: (rows: PeopleCsvImportRow[]) => Promise<PeopleCsvImportResult | null>;
+  onImport: (rows: PeopleCsvImportRow[]) => Promise<PeopleCsvImportResult>;
 }) {
   const [fileName, setFileName] = useState("");
+  const [importError, setImportError] = useState("");
   const [importResult, setImportResult] = useState<PeopleCsvImportResult | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -2703,6 +2743,7 @@ function PeopleCsvImportModal({
     const file = event.target.files?.[0];
 
     setFileName(file?.name ?? "");
+    setImportError("");
     setImportResult(null);
     setIsConfirmed(false);
     setParseError("");
@@ -2737,14 +2778,22 @@ function PeopleCsvImportModal({
       return;
     }
 
+    setImportError("");
+    setImportResult(null);
     setIsImporting(true);
-    const result = await onImport(importableRows);
 
-    setIsImporting(false);
+    try {
+      const result = await onImport(importableRows);
 
-    if (result) {
       setImportResult(result);
       setIsConfirmed(false);
+    } catch (error) {
+      const nextError = error instanceof Error ? error.message : "Unable to import CSV.";
+
+      console.error("People CSV import failed:", error);
+      setImportError(nextError);
+    } finally {
+      setIsImporting(false);
     }
   }
 
@@ -2790,6 +2839,12 @@ function PeopleCsvImportModal({
             {parseError ? (
               <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-800">
                 {parseError}
+              </p>
+            ) : null}
+
+            {importError ? (
+              <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-800">
+                {importError}
               </p>
             ) : null}
 
@@ -3010,14 +3065,16 @@ function PersonEditorModal({
               onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, church: value }))}
               value={draft.church}
             />
-            <Field
+            <SelectField
               label="Relationship Type"
               onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, relationshipType: value }))}
+              options={optionsWithCurrentValue(relationshipTypeOptions, draft.relationshipType)}
               value={draft.relationshipType}
             />
-            <Field
+            <SelectField
               label="Engagement Level"
               onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, engagementLevel: value }))}
+              options={optionsWithCurrentValue(engagementLevelOptions, draft.engagementLevel)}
               value={draft.engagementLevel}
             />
           </div>
@@ -3047,51 +3104,6 @@ function PersonEditorModal({
       </div>
     </div>
   );
-}
-
-function tableTimeGroup(table: AdminMissionaryTable): "earlier" | "this-week" | "today" {
-  const tableDate = tableDateValue(table.table_date);
-
-  if (!tableDate) {
-    return "earlier";
-  }
-
-  const today = tableDateValue(todayDateValue()) ?? new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const startOfWeek = new Date(startOfToday);
-
-  startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
-
-  if (tableDate.getTime() === startOfToday.getTime()) {
-    return "today";
-  }
-
-  return tableDate >= startOfWeek ? "this-week" : "earlier";
-}
-
-function tablePeopleLabel(table: AdminMissionaryTable, encounters: readonly AdminEncounterSubmission[], people: readonly AdminFieldPerson[]) {
-  const tablePeople = tableLinkedPeople(table, people);
-
-  if (tablePeople.length > 0) {
-    return tablePeople.length <= 3
-      ? tablePeople.join(", ")
-      : `${tablePeople.slice(0, 3).join(", ")} +${tablePeople.length - 3}`;
-  }
-
-  const encounterNames = encounters
-    .filter((encounter) => encounter.table_id === table.id && encounter.submitter_name?.trim())
-    .map((encounter) => encounter.submitter_name?.trim())
-    .filter((name): name is string => Boolean(name));
-
-  if (encounterNames.length > 0) {
-    return encounterNames.length <= 2
-      ? encounterNames.join(", ")
-      : `${encounterNames.length} people`;
-  }
-
-  const encounterCount = encounters.filter((encounter) => encounter.table_id === table.id).length;
-
-  return encounterCount > 0 ? `${encounterCount} people` : "People optional";
 }
 
 function meetingPeopleLabel(meeting: MeetingListItem, fieldPeople: readonly AdminFieldPerson[]) {
@@ -3729,191 +3741,6 @@ function MeetingEditorModal({
   );
 }
 
-function TablesManager({
-  encounters,
-  fieldPeople,
-  fruitItems,
-  items,
-  onAddEncounter,
-  onCreateFruit,
-  onCreate,
-  onUpdateFruit,
-  onUpdatePersonProfile,
-  onUpdateReview,
-  onUpdate,
-  tableReviews,
-}: {
-  encounters: readonly AdminEncounterSubmission[];
-  fieldPeople: readonly AdminFieldPerson[];
-  fruitItems: readonly AdminFruitItem[];
-  items: readonly AdminMissionaryTable[];
-  onAddEncounter: (table: AdminMissionaryTable, draft: QuickEncounterDraft) => void;
-  onCreateFruit: (draft: FruitDraft, table?: AdminMissionaryTable | null) => void;
-  onCreate: (draft: TableDraft) => AdminMissionaryTable | null;
-  onUpdateFruit: (fruitId: string, patch: Partial<AdminFruitItem>) => void;
-  onUpdatePersonProfile: (person: AdminFieldPerson, patch: Partial<Pick<AdminFieldPerson, "church" | "engagement_level" | "relationship_type">>) => void;
-  onUpdateReview: (tableId: string, patch: Partial<AdminTableReview>) => void;
-  onUpdate: (tableId: string, draft: TableDraft) => AdminMissionaryTable | null;
-  tableReviews: readonly AdminTableReview[];
-}) {
-  const sortedTables = useMemo(
-    () => [...items].sort((first, second) => (
-      (tableDateValue(second.table_date)?.getTime() ?? 0) - (tableDateValue(first.table_date)?.getTime() ?? 0)
-    )),
-    [items],
-  );
-  const groupedTables = [
-    { items: sortedTables.filter((table) => tableTimeGroup(table) === "today"), label: "Today" },
-    { items: sortedTables.filter((table) => tableTimeGroup(table) === "this-week"), label: "This Week" },
-    { items: sortedTables.filter((table) => tableTimeGroup(table) === "earlier").slice(0, 6), label: "Earlier" },
-  ];
-  const [editingTable, setEditingTable] = useState<AdminMissionaryTable | null>(null);
-  const [isAddTableOpen, setIsAddTableOpen] = useState(false);
-  const [quickEncounterTable, setQuickEncounterTable] = useState<AdminMissionaryTable | null>(null);
-  const [selectedTableId, setSelectedTableId] = useState(sortedTables[0]?.id ?? "");
-  const selectedTable = sortedTables.find((table) => table.id === selectedTableId) ?? sortedTables[0] ?? null;
-
-  useEffect(() => {
-    if (selectedTableId && sortedTables.some((table) => table.id === selectedTableId)) {
-      return;
-    }
-
-    setSelectedTableId(sortedTables[0]?.id ?? "");
-  }, [selectedTableId, sortedTables]);
-
-  function saveTable(draft: TableDraft, addEncounter: boolean, tableId?: string) {
-    const table = tableId ? onUpdate(tableId, draft) : onCreate(draft);
-
-    if (!table) {
-      return;
-    }
-
-    setSelectedTableId(table.id);
-    setIsAddTableOpen(false);
-    setEditingTable(null);
-
-    if (addEncounter) {
-      setQuickEncounterTable(table);
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="max-w-2xl">
-          <p className="text-sm leading-6 text-[#7b746a]">
-            Log Table -&gt; Add Response -&gt; Review -&gt; Assess -&gt; Create Fruit. Keep each meeting simple and move through one step at a time.
-          </p>
-        </div>
-        <button className={lightPrimaryButtonClass} onClick={() => setIsAddTableOpen(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-          + Add Table
-        </button>
-      </div>
-
-      {sortedTables.length === 0 ? (
-        <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-          No tables have been added yet.
-        </p>
-      ) : null}
-
-      {sortedTables.length > 0 ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1.08fr)_minmax(380px,0.92fr)]">
-          <div className="space-y-3">
-            {groupedTables.filter((group) => group.items.length > 0).map((group) => (
-              <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white" key={group.label}>
-                <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {group.label}
-                  </p>
-                </div>
-                <div className="divide-y divide-[#e2ded5]">
-                  {group.items.map((table) => {
-                    const selected = selectedTable?.id === table.id;
-                    const encounterCount = encounters.filter((encounter) => encounter.table_id === table.id).length;
-
-                    return (
-                      <div className={`grid gap-3 px-4 py-3 transition-colors hover:bg-[#fbfaf7] sm:grid-cols-[minmax(0,1fr)_auto] ${selected ? "bg-[#fff8e8]" : ""}`} key={table.id}>
-                        <button className="min-w-0 text-left" onClick={() => setSelectedTableId(table.id)} type="button">
-                          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <span className="text-sm font-semibold text-[#111111]">
-                              {tableTypeLabel(table.table_type)}
-                            </span>
-                            <span className="text-xs text-[#7b746a]">
-                              {formatProfileUpdatedDate(table.table_date)}
-                            </span>
-                            <span className="text-[10px] uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                              {encounterCount} {encounterCount === 1 ? "Response" : "Responses"}
-                            </span>
-                          </span>
-                          <span className="mt-1 block text-sm leading-5 text-[#4b443b]">
-                            {tablePeopleLabel(table, encounters, fieldPeople)}
-                          </span>
-                          <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
-                            {notesPreview(table.notes)}
-                          </span>
-                        </button>
-                        <div className="flex flex-wrap gap-2 sm:justify-end">
-                          <button className={lightSecondaryButtonClass} onClick={() => setSelectedTableId(table.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                            View
-                          </button>
-                          <button className={lightSecondaryButtonClass} onClick={() => setEditingTable(table)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                            Edit
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <TableDetailPanel
-            encounters={encounters.filter((encounter) => encounter.table_id === selectedTable?.id)}
-            fieldPeople={fieldPeople}
-            fruitItems={fruitItems.filter((fruit) => fruit.table_id === selectedTable?.id)}
-            onAddEncounter={(table) => setQuickEncounterTable(table)}
-            onCreateFruit={onCreateFruit}
-            onUpdateFruit={onUpdateFruit}
-            onUpdatePersonProfile={onUpdatePersonProfile}
-            onUpdateReview={onUpdateReview}
-            review={tableReviews.find((item) => item.table_id === selectedTable?.id) ?? null}
-            table={selectedTable}
-          />
-        </div>
-      ) : null}
-
-      {isAddTableOpen ? (
-        <AddTableModal
-          fieldPeople={fieldPeople}
-          onClose={() => setIsAddTableOpen(false)}
-          onSave={saveTable}
-        />
-      ) : null}
-
-      {editingTable ? (
-        <AddTableModal
-          fieldPeople={fieldPeople}
-          onClose={() => setEditingTable(null)}
-          onSave={(draft, addEncounter) => saveTable(draft, addEncounter, editingTable.id)}
-          table={editingTable}
-        />
-      ) : null}
-
-      {quickEncounterTable ? (
-        <QuickEncounterModal
-          onClose={() => setQuickEncounterTable(null)}
-          onSave={(draft) => {
-            onAddEncounter(quickEncounterTable, draft);
-            setQuickEncounterTable(null);
-          }}
-          table={quickEncounterTable}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 type TableWorkflowSection = "assessment" | "fruit" | "responses" | "review" | "summary";
 
 const tableWorkflowSections: Array<{ label: string; value: TableWorkflowSection }> = [
@@ -3970,7 +3797,7 @@ function TableDetailPanel({
   const tablePeople = tableLinkedPeople(activeTable, fieldPeople);
   const peopleLabel = tablePeople.length > 0 ? participantNamesText(tablePeople) : "Not added";
   const linkedPeople = fieldPeople.filter((person) => activeTable.field_person_ids.includes(person.id));
-  const activeReview = review ?? newTableReview(activeTable.household_id, activeTable.id);
+  const activeReview = review ?? newTableReview(activeTable.workspace_id, activeTable.id);
   const reviewStarted = Boolean(
     activeReview.how_meeting_went?.trim()
       || activeReview.key_observations?.trim()
@@ -4434,16 +4261,18 @@ function ProfileUpdatePromptCard({
       {showPromptFields ? (
         <div className="mt-3 grid gap-3">
           {missingRelationship ? (
-            <Field
+            <SelectField
               label="Relationship Type"
               onChange={setRelationshipType}
+              options={optionsWithCurrentValue(relationshipTypeOptions, relationshipType)}
               value={relationshipType}
             />
           ) : null}
           {missingEngagement ? (
-            <Field
+            <SelectField
               label="Engagement Level"
               onChange={setEngagementLevel}
+              options={optionsWithCurrentValue(engagementLevelOptions, engagementLevel)}
               value={engagementLevel}
             />
           ) : null}
@@ -4639,130 +4468,6 @@ function FruitEditorModal({
           </button>
           <button className={lightPrimaryButtonClass} disabled={!draft.summary.trim()} onClick={() => onSave(draft)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
             Save Fruit
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AddTableModal({
-  fieldPeople,
-  onClose,
-  onSave,
-  table,
-}: {
-  fieldPeople: readonly AdminFieldPerson[];
-  onClose: () => void;
-  onSave: (draft: TableDraft, addEncounter: boolean) => void;
-  table?: AdminMissionaryTable;
-}) {
-  const [draft, setDraft] = useState<TableDraft>({
-    fieldPersonIds: table?.field_person_ids ?? [],
-    notes: table?.notes ?? "",
-    participantNamesText: table ? participantNamesText(table.participant_names) : "",
-    tableDate: table?.table_date ?? todayDateValue(),
-    tableType: table?.table_type ?? "kitchen_table",
-  });
-
-  function toggleFieldPerson(personId: string) {
-    setDraft((currentDraft) => ({
-      ...currentDraft,
-      fieldPersonIds: currentDraft.fieldPersonIds.includes(personId)
-        ? currentDraft.fieldPersonIds.filter((id) => id !== personId)
-        : [...currentDraft.fieldPersonIds, personId],
-    }));
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
-      <div className="mx-auto max-w-2xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
-        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              {table ? "Edit Table" : "Add Table"}
-            </p>
-            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-              Quick Table Log
-            </h3>
-          </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
-            ×
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <SelectField
-            label="Type"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, tableType: value as AdminTableType }))}
-            options={tableTypeOptions}
-            value={draft.tableType}
-          />
-          <Field
-            label="Date"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, tableDate: value }))}
-            type="date"
-            value={draft.tableDate}
-          />
-        </div>
-
-        <div className="mt-5 space-y-4">
-          <div>
-            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              People
-            </p>
-            {fieldPeople.length > 0 ? (
-              <div className="mt-2 flex max-h-36 flex-wrap gap-2 overflow-y-auto rounded-xl border border-[#d7d2c8] bg-white p-3">
-                {fieldPeople.map((person) => {
-                  const selected = draft.fieldPersonIds.includes(person.id);
-
-                  return (
-                    <button
-                      className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
-                        selected
-                          ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                          : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
-                      }`}
-                      key={person.id}
-                      onClick={() => toggleFieldPerson(person.id)}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      {person.name}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="mt-2 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm leading-6 text-[#7b746a]">
-                Add people in Your Field first, or use quick names below.
-              </p>
-            )}
-            <span className={lightHelperClass}>
-              Optional. Links this meeting to Your Field without publishing anything.
-            </span>
-          </div>
-          <Field
-            helperText="Optional quick names if someone is not in Your Field yet. Separate names with commas."
-            label="Quick Names"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, participantNamesText: value }))}
-            value={draft.participantNamesText}
-          />
-          <TextArea
-            helperText="Optional internal notes."
-            label="Notes"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, notes: value }))}
-            rows={4}
-            value={draft.notes}
-          />
-        </div>
-
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
-          <button className={lightSecondaryButtonClass} onClick={() => onSave(draft, false)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-            Save Table
-          </button>
-          <button className={lightPrimaryButtonClass} onClick={() => onSave(draft, true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-            Save + Add Encounter
           </button>
         </div>
       </div>
@@ -5326,204 +5031,6 @@ function FruitManager({
   );
 }
 
-function ConnectionsManager({
-  fieldPeople,
-  items,
-  onAdd,
-  onUpdate,
-}: {
-  fieldPeople: readonly AdminFieldPerson[];
-  items: readonly AdminConnectionLog[];
-  onAdd: (draft: ConnectionDraft) => void;
-  onUpdate: (connectionId: string, draft: ConnectionDraft) => void;
-}) {
-  const [editingConnection, setEditingConnection] = useState<AdminConnectionLog | null>(null);
-  const [isAddingConnection, setIsAddingConnection] = useState(false);
-  const sortedItems = [...items].sort((first, second) => (
-    (tableDateValue(second.connection_date)?.getTime() ?? 0) - (tableDateValue(first.connection_date)?.getTime() ?? 0)
-  ));
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="max-w-2xl">
-          <p className="text-sm leading-6 text-[#7b746a]">
-            Track ongoing discipleship outside formal Tables: calls, texts, Zoom, prayer, coffee, and follow-up.
-          </p>
-          <DataFlowLabels items={["Feeds People insights", "Feeds Field later", "Fast log"]} />
-        </div>
-        <button className={lightPrimaryButtonClass} onClick={() => setIsAddingConnection(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-          + Log Connection
-        </button>
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-        <div className="overflow-x-auto">
-          <table className="min-w-[860px] w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-                {["Date", "Person", "Duration", "Type", "Movement Step", "Actions"].map((heading) => (
-                  <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0" key={heading} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedItems.length > 0 ? sortedItems.map((connection) => (
-                <tr className="border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7]" key={connection.id}>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">{formatProfileUpdatedDate(connection.connection_date)}</td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm font-semibold text-[#111111]">{personNameById(fieldPeople, connection.field_person_id)}</td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">{formatDurationMinutes(connection.duration_minutes)}</td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">{connection.interaction_type}</td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">{connection.movement_step ?? "Not set"}</td>
-                  <td className="px-4 py-3">
-                    <button className={lightSecondaryButtonClass} onClick={() => setEditingConnection(connection)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                      View / Edit
-                    </button>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td className="px-4 py-6 text-sm text-[#7b746a]" colSpan={6}>
-                    No connections logged yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {isAddingConnection ? (
-        <ConnectionEditorModal
-          fieldPeople={fieldPeople}
-          onClose={() => setIsAddingConnection(false)}
-          onSave={(draft) => {
-            onAdd(draft);
-            setIsAddingConnection(false);
-          }}
-        />
-      ) : null}
-
-      {editingConnection ? (
-        <ConnectionEditorModal
-          connection={editingConnection}
-          fieldPeople={fieldPeople}
-          onClose={() => setEditingConnection(null)}
-          onSave={(draft) => {
-            onUpdate(editingConnection.id, draft);
-            setEditingConnection(null);
-          }}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function ConnectionEditorModal({
-  connection,
-  fieldPeople,
-  onClose,
-  onSave,
-}: {
-  connection?: AdminConnectionLog | null;
-  fieldPeople: readonly AdminFieldPerson[];
-  onClose: () => void;
-  onSave: (draft: ConnectionDraft) => void;
-}) {
-  const [draft, setDraft] = useState<ConnectionDraft>({
-    connectionDate: connection?.connection_date ?? todayDateValue(),
-    durationMinutes: connection?.duration_minutes ? String(connection.duration_minutes) : "",
-    fieldPersonId: connection?.field_person_id ?? "",
-    followUpNeeded: connection?.follow_up_needed ?? "",
-    interactionType: connection?.interaction_type ?? "Phone call",
-    movementStep: connection?.movement_step ?? "",
-    notes: connection?.notes ?? "",
-  });
-  const personOptions = [
-    { label: "Select person", value: "" },
-    ...fieldPeople.map((person) => ({ label: person.name, value: person.id })),
-  ];
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
-      <div className="mx-auto max-w-2xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
-        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              {connection ? "Edit Connection" : "Log Connection"}
-            </p>
-            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-              Ongoing Discipleship
-            </h3>
-          </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
-            ×
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <SelectField
-            label="Person"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, fieldPersonId: value }))}
-            options={personOptions}
-            value={draft.fieldPersonId}
-          />
-          <Field
-            label="Date"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, connectionDate: value }))}
-            type="date"
-            value={draft.connectionDate}
-          />
-          <Field
-            label="Duration"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, durationMinutes: value }))}
-            type="number"
-            value={draft.durationMinutes}
-          />
-          <SelectField
-            label="Interaction Type"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, interactionType: value as AdminConnectionType }))}
-            options={connectionTypeOptions}
-            value={draft.interactionType}
-          />
-        </div>
-
-        <div className="mt-5 space-y-4">
-          <TextArea
-            label="Notes"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, notes: value }))}
-            rows={4}
-            value={draft.notes}
-          />
-          <SelectField
-            label="Movement Step"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, movementStep: value as AdminMovementStep | "" }))}
-            options={movementStepSelectOptions}
-            value={draft.movementStep}
-          />
-          <TextArea
-            label="Follow up needed"
-            onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, followUpNeeded: value }))}
-            rows={3}
-            value={draft.followUpNeeded}
-          />
-        </div>
-
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
-          <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-            Cancel
-          </button>
-          <button className={lightPrimaryButtonClass} onClick={() => onSave(draft)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-            Save Connection
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function LibraryManager({
   items,
   onAdd,
@@ -5661,7 +5168,7 @@ function InSeasonManager({
   return (
     <div className="max-w-[900px] space-y-5">
       <p className="text-sm leading-6 text-[#7b746a]">
-        Simple current focus notes for what this missionary household is carrying right now.
+        Simple current focus notes for what this missionary workspace is carrying right now.
       </p>
       <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
         <div className="grid gap-4 md:grid-cols-2">
@@ -6431,6 +5938,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       phone: draft.phone,
       relationship_type: draft.relationshipType,
       status: draft.status,
+      workspace_id: selectedProfile.id,
+      workspaceId: selectedProfile.id,
     };
 
     console.info(`[People] Calling ${method} /api/admin/missionary-profiles/people`);
@@ -6493,30 +6002,47 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   async function importPeopleCsv(rows: PeopleCsvImportRow[]) {
     if (!selectedProfile) {
-      return null;
+      throw new Error("Select a missionary workspace before importing people.");
     }
 
-    const response = await fetch("/api/admin/missionary-profiles/people/import", {
-      body: JSON.stringify({
-        householdId: selectedProfile.id,
-        rows,
-      }),
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
+    let response: Response;
+
+    try {
+      response = await fetch("/api/admin/missionary-profiles/people/import", {
+        body: JSON.stringify({
+          householdId: selectedProfile.id,
+          rows,
+          workspaceId: selectedProfile.id,
+        }),
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unable to import CSV.";
+
+      console.error("People CSV import request failed:", error);
+      setStatus({
+        text: errorMessage,
+        tone: "error",
+      });
+      throw new Error(errorMessage);
+    }
+
     const result = await response.json().catch(() => ({})) as Partial<PeopleCsvImportResult> & {
       error?: string;
     };
 
     if (!response.ok || typeof result.importedCount !== "number" || !Array.isArray(result.people)) {
+      const errorMessage = typeof result.error === "string" ? result.error : "Unable to import CSV.";
+
       setStatus({
-        text: typeof result.error === "string" ? result.error : "Unable to import CSV.",
+        text: errorMessage,
         tone: "error",
       });
-      return null;
+      throw new Error(errorMessage);
     }
 
     const importResult = result as PeopleCsvImportResult;
@@ -6728,6 +6254,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       table_date: draft.tableDate || todayDateValue(),
       table_type: draft.tableType,
       updated_at: timestamp,
+      workspace_id: selectedProfile.id,
     };
 
     updateSelected({
@@ -7077,6 +6604,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         phone: optimisticPerson.phone,
         relationship_type: optimisticPerson.relationship_type,
         status: optimisticPerson.status,
+        workspaceId: selectedProfile.id,
       }),
       credentials: "same-origin",
       headers: {
@@ -7424,65 +6952,80 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       monthly_goal: calculateMonthlyGoal(supportPayload.annual_goal),
     };
 
-    const response = await fetch("/api/admin/missionary-profiles/update", {
-      body: JSON.stringify({
-        connectionLogs: selectedProfile.connectionLogs ?? [],
-        fruitItems: selectedProfile.fruitItems ?? [],
-        household: {
-          display_name: selectedProfile.display_name,
-          fruit_from_field: selectedProfile.fruit_from_field,
-          hero_image_url: selectedProfile.hero_image_url,
-          enable_prayer_team: selectedProfile.enable_prayer_team,
-          location: primaryState,
-          custom_serving_label: selectedProfile.custom_serving_label,
-          location_visibility: locationVisibility,
-          original_story: selectedProfile.original_story,
-          primary_state: primaryState,
-          profile_image_url: selectedProfile.profile_image_url,
-          prayer_cta_label: selectedProfile.prayer_cta_label,
-          prayer_destination: selectedProfile.prayer_destination,
-          prayer_section_description: selectedProfile.prayer_section_description,
-          prayer_section_headline: selectedProfile.prayer_section_headline,
-          public_story: selectedProfile.public_story ?? selectedProfile.story,
-          public_visible: isProfilePublic(selectedProfile),
-          secondary_states: selectedProfile.secondary_states ?? [],
-          serving_scope: getProfileServingScope(selectedProfile),
-          region: getProfileRegion(selectedProfile) || null,
-          role_type: getProfileRoleType(selectedProfile),
-          show_fruit: selectedProfile.show_fruit,
-          show_household: selectedProfile.show_household,
-          show_photos: selectedProfile.show_photos,
-          show_team: selectedProfile.show_team,
-          show_prayer: selectedProfile.show_prayer,
-          show_story: selectedProfile.show_story,
-          show_support: selectedProfile.show_support,
-          short_mission: selectedProfile.short_mission,
-          slug: selectedProfile.slug,
-          sort_order: selectedProfile.sort_order,
-          story: selectedProfile.story,
-          support_button_label: selectedProfile.support_button_label,
-          support_explanation: selectedProfile.support_explanation,
-          support_mode: selectedProfile.support_mode,
-          support_public_label: selectedProfile.support_public_label,
-          support_target_fund: selectedProfile.support_target_fund,
-          support_target_household_id: selectedProfile.support_target_household_id,
+    let response: Response;
+
+    try {
+      response = await fetch("/api/admin/missionary-profiles/update", {
+        body: JSON.stringify({
+          connectionLogs: selectedProfile.connectionLogs ?? [],
+          fruitItems: selectedProfile.fruitItems ?? [],
+          household: {
+            display_name: selectedProfile.display_name,
+            fruit_from_field: selectedProfile.fruit_from_field,
+            hero_image_url: selectedProfile.hero_image_url,
+            enable_prayer_team: selectedProfile.enable_prayer_team,
+            location: primaryState,
+            custom_serving_label: selectedProfile.custom_serving_label,
+            location_visibility: locationVisibility,
+            original_story: selectedProfile.original_story,
+            primary_state: primaryState,
+            profile_image_url: selectedProfile.profile_image_url,
+            prayer_cta_label: selectedProfile.prayer_cta_label,
+            prayer_destination: selectedProfile.prayer_destination,
+            prayer_section_description: selectedProfile.prayer_section_description,
+            prayer_section_headline: selectedProfile.prayer_section_headline,
+            public_story: selectedProfile.public_story ?? selectedProfile.story,
+            public_visible: isProfilePublic(selectedProfile),
+            secondary_states: selectedProfile.secondary_states ?? [],
+            serving_scope: getProfileServingScope(selectedProfile),
+            region: getProfileRegion(selectedProfile) || null,
+            role_type: getProfileRoleType(selectedProfile),
+            show_fruit: selectedProfile.show_fruit,
+            show_household: selectedProfile.show_household,
+            show_photos: selectedProfile.show_photos,
+            show_team: selectedProfile.show_team,
+            show_prayer: selectedProfile.show_prayer,
+            show_story: selectedProfile.show_story,
+            show_support: selectedProfile.show_support,
+            short_mission: selectedProfile.short_mission,
+            slug: selectedProfile.slug,
+            sort_order: selectedProfile.sort_order,
+            story: selectedProfile.story,
+            support_button_label: selectedProfile.support_button_label,
+            support_explanation: selectedProfile.support_explanation,
+            support_mode: selectedProfile.support_mode,
+            support_public_label: selectedProfile.support_public_label,
+            support_target_fund: selectedProfile.support_target_fund,
+            support_target_household_id: selectedProfile.support_target_household_id,
+          },
+          householdId: selectedProfile.id,
+          encounterSubmissions: selectedProfile.encounterSubmissions ?? [],
+          inSeasonFocus: selectedProfile.inSeasonFocus ?? emptyInSeasonFocus(selectedProfile.id),
+          libraryItems: selectedProfile.libraryItems ?? [],
+          originalSlug: initialProfiles.find((profile) => profile.id === selectedProfile.id)?.slug,
+          support: supportWithCalculatedMonthlyGoal,
+          tableReviews: selectedProfile.tableReviews ?? [],
+          tables: selectedProfile.tables ?? [],
+          teamMembers: selectedProfile.teamMembers ?? [],
+          workspaceId: selectedProfile.id,
+        }),
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
         },
-        householdId: selectedProfile.id,
-        encounterSubmissions: selectedProfile.encounterSubmissions ?? [],
-        inSeasonFocus: selectedProfile.inSeasonFocus ?? emptyInSeasonFocus(selectedProfile.id),
-        libraryItems: selectedProfile.libraryItems ?? [],
-        originalSlug: initialProfiles.find((profile) => profile.id === selectedProfile.id)?.slug,
-        support: supportWithCalculatedMonthlyGoal,
-        tableReviews: selectedProfile.tableReviews ?? [],
-        tables: selectedProfile.tables ?? [],
-        teamMembers: selectedProfile.teamMembers ?? [],
-      }),
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
+        method: "POST",
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unable to save missionary workspace.";
+
+      console.error("Missionary workspace save request failed:", error);
+      setStatus({
+        text: errorMessage,
+        tone: "error",
+      });
+      setSaving(false);
+      return;
+    }
 
     const result = await response.json().catch(() => ({}));
 

@@ -3,7 +3,7 @@ import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 const fieldPersonStatuses = ["new", "active", "follow_up", "discipleship", "paused", "archived"] as const;
-const personSelect = "id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, created_at, updated_at";
+const personSelect = "id, workspace_id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, created_at, updated_at";
 
 type FieldPersonPayload = {
   church?: unknown;
@@ -17,6 +17,8 @@ type FieldPersonPayload = {
   phone?: unknown;
   relationship_type?: unknown;
   status?: unknown;
+  workspace_id?: unknown;
+  workspaceId?: unknown;
 };
 
 function asString(value: unknown) {
@@ -45,6 +47,10 @@ function fieldPeopleErrorMessage(error: { code?: string; message?: string }) {
 
   if (error.code === "PGRST205" || (lowerMessage.includes("missionary_field_people") && lowerMessage.includes("schema cache"))) {
     return "People table is missing. Apply the missionary_field_people migration.";
+  }
+
+  if (lowerMessage.includes("workspace_id") && lowerMessage.includes("schema cache")) {
+    return "People workspace scope is missing. Apply the Command Center workspace_id migration.";
   }
 
   return message;
@@ -101,11 +107,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
-  const householdId = asString(payload.householdId) || asString(payload.household_id);
+  const workspaceId = asString(payload.workspaceId) || asString(payload.workspace_id) || asString(payload.householdId) || asString(payload.household_id);
   const name = asString(payload.name);
   const phone = asString(payload.phone);
 
-  if (!isUuid(householdId) || !name || !phone) {
+  if (!isUuid(workspaceId) || !name || !phone) {
     return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
   }
 
@@ -117,13 +123,14 @@ export async function POST(request: Request) {
       created_by: authResult.authorization.userId,
       email: asNullableString(payload.email),
       engagement_level: asNullableString(payload.engagement_level),
-      household_id: householdId,
+      household_id: workspaceId,
       name,
       notes: asNullableString(payload.notes),
       phone,
       relationship_type: asNullableString(payload.relationship_type),
       source: "command_center",
       status: asFieldPersonStatus(payload.status),
+      workspace_id: workspaceId,
     })
     .select(personSelect)
     .single();
@@ -152,11 +159,11 @@ export async function PATCH(request: Request) {
   }
 
   const id = asString(payload.id);
-  const householdId = asString(payload.householdId) || asString(payload.household_id);
+  const workspaceId = asString(payload.workspaceId) || asString(payload.workspace_id) || asString(payload.householdId) || asString(payload.household_id);
   const name = asString(payload.name);
   const phone = asString(payload.phone);
 
-  if (!isUuid(id) || !isUuid(householdId) || !name || !phone) {
+  if (!isUuid(id) || !isUuid(workspaceId) || !name || !phone) {
     return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
   }
 
@@ -174,7 +181,7 @@ export async function PATCH(request: Request) {
       status: asFieldPersonStatus(payload.status),
     })
     .eq("id", id)
-    .eq("household_id", householdId)
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
     .select(personSelect)
     .single();
 
