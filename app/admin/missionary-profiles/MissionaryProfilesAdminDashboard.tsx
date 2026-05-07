@@ -376,6 +376,11 @@ type FieldPersonDraft = {
   status: AdminFieldPersonStatus;
 };
 
+type PersonSaveResult = {
+  error?: string;
+  ok: boolean;
+};
+
 type PeopleCsvImportRow = {
   church: string;
   email: string;
@@ -2276,6 +2281,19 @@ function peopleImportPhoneKey(value: string | null | undefined) {
   return value?.replace(/\D/g, "") ?? "";
 }
 
+function emptyFieldPersonDraft(person?: AdminFieldPerson): FieldPersonDraft {
+  return {
+    church: person?.church ?? "",
+    email: person?.email ?? "",
+    engagementLevel: person?.engagement_level ?? "",
+    name: person?.name ?? "",
+    notes: person?.notes ?? "",
+    phone: person?.phone ?? "",
+    relationshipType: person?.relationship_type ?? "",
+    status: person?.status ?? "new",
+  };
+}
+
 function PeopleManager({
   items,
   onImport,
@@ -2283,7 +2301,7 @@ function PeopleManager({
 }: {
   items: readonly AdminFieldPerson[];
   onImport: (rows: PeopleCsvImportRow[]) => Promise<PeopleCsvImportResult | null>;
-  onSave: (draft: FieldPersonDraft, personId?: string) => Promise<boolean>;
+  onSave: (draft: FieldPersonDraft, personId?: string) => Promise<PersonSaveResult>;
 }) {
   const sortedPeople = useMemo(
     () => [...items].sort((first, second) => (
@@ -2296,6 +2314,7 @@ function PeopleManager({
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const editingPerson = sortedPeople.find((person) => person.id === editingPersonId) ?? null;
 
   return (
@@ -2328,6 +2347,16 @@ function PeopleManager({
           </button>
         </div>
       </div>
+
+      {saveMessage ? (
+        <p className={`rounded-xl border p-3 text-sm leading-6 ${
+          saveMessage.tone === "success"
+            ? "border-green-200 bg-green-50 text-green-900"
+            : "border-red-200 bg-red-50 text-red-800"
+        }`}>
+          {saveMessage.text}
+        </p>
+      ) : null}
 
       <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
         <div className="overflow-x-auto">
@@ -2400,10 +2429,14 @@ function PeopleManager({
           mode="add"
           onClose={() => setIsAddPersonOpen(false)}
           onSave={async (draft) => {
+            setSaveMessage(null);
             const saved = await onSave(draft);
 
-            if (saved) {
+            if (saved.ok) {
               setIsAddPersonOpen(false);
+              setSaveMessage({ text: "Person added to Your Field", tone: "success" });
+            } else if (saved.error) {
+              setSaveMessage({ text: saved.error, tone: "error" });
             }
 
             return saved;
@@ -2424,10 +2457,14 @@ function PeopleManager({
           mode="edit"
           onClose={() => setEditingPersonId(null)}
           onSave={async (draft) => {
+            setSaveMessage(null);
             const saved = await onSave(draft, editingPerson.id);
 
-            if (saved) {
+            if (saved.ok) {
               setEditingPersonId(null);
+              setSaveMessage({ text: "Person updated.", tone: "success" });
+            } else if (saved.error) {
+              setSaveMessage({ text: saved.error, tone: "error" });
             }
 
             return saved;
@@ -2678,19 +2715,11 @@ function PersonEditorModal({
 }: {
   mode: "add" | "edit";
   onClose: () => void;
-  onSave: (draft: FieldPersonDraft) => Promise<boolean>;
+  onSave: (draft: FieldPersonDraft) => Promise<PersonSaveResult>;
   person?: AdminFieldPerson;
 }) {
-  const [draft, setDraft] = useState<FieldPersonDraft>({
-    church: person?.church ?? "",
-    email: person?.email ?? "",
-    engagementLevel: person?.engagement_level ?? "",
-    name: person?.name ?? "",
-    notes: person?.notes ?? "",
-    phone: person?.phone ?? "",
-    relationshipType: person?.relationship_type ?? "",
-    status: person?.status ?? "new",
-  });
+  const [draft, setDraft] = useState<FieldPersonDraft>(() => emptyFieldPersonDraft(person));
+  const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const canSave = Boolean(draft.name.trim() && draft.phone.trim());
 
@@ -2700,9 +2729,29 @@ function PersonEditorModal({
     }
 
     setIsSaving(true);
-    const saved = await onSave(draft);
+    setErrorMessage("");
 
-    if (!saved) {
+    try {
+      const saved = await onSave(draft);
+
+      if (saved.ok) {
+        if (mode === "add") {
+          setDraft(emptyFieldPersonDraft());
+        }
+
+        return;
+      }
+
+      const nextError = saved.error || "Unable to save person.";
+
+      console.error("Save Person failed:", nextError);
+      setErrorMessage(nextError);
+      setIsSaving(false);
+    } catch (error) {
+      const nextError = error instanceof Error ? error.message : "Unable to save person.";
+
+      console.error("Save Person failed:", error);
+      setErrorMessage(nextError);
       setIsSaving(false);
     }
   }
@@ -2783,12 +2832,18 @@ function PersonEditorModal({
           />
         </div>
 
+        {errorMessage ? (
+          <p className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-800">
+            {errorMessage}
+          </p>
+        ) : null}
+
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
             Cancel
           </button>
           <button className={lightPrimaryButtonClass} disabled={!canSave || isSaving} onClick={savePerson} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-            {isSaving ? "Saving" : "Save Person"}
+            {isSaving ? "Saving..." : "Save Person"}
           </button>
         </div>
       </div>
@@ -2914,9 +2969,8 @@ function TablesManager({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-2xl">
           <p className="text-sm leading-6 text-[#7b746a]">
-            Log a table quickly, then add raw encounters from that meeting. People are optional for now and stay internal.
+            Log Table -&gt; Add Response -&gt; Review -&gt; Assess -&gt; Create Fruit. Keep each meeting simple and move through one step at a time.
           </p>
-          <DataFlowLabels items={["People -> Table -> Encounter", "Nested review later", "Under 30 seconds"]} />
         </div>
         <button className={lightPrimaryButtonClass} onClick={() => setIsAddTableOpen(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
           + Add Table
@@ -2930,69 +2984,52 @@ function TablesManager({
       ) : null}
 
       {sortedTables.length > 0 ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-4">
-            {groupedTables.map((group) => (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1.08fr)_minmax(380px,0.92fr)]">
+          <div className="space-y-3">
+            {groupedTables.filter((group) => group.items.length > 0).map((group) => (
               <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white" key={group.label}>
                 <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     {group.label}
                   </p>
                 </div>
-                {group.items.length === 0 ? (
-                  <p className="px-4 py-4 text-sm text-[#7b746a]">
-                    No tables logged.
-                  </p>
-                ) : null}
-                <div className="overflow-x-auto">
-                  <table className="min-w-[860px] w-full border-collapse text-left">
-                    <thead>
-                      <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-                        {["Date", "Type", "People", "Notes", "Actions"].map((heading) => (
-                          <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0" key={heading} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                            {heading}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.items.map((table) => {
-                        const selected = selectedTable?.id === table.id;
+                <div className="divide-y divide-[#e2ded5]">
+                  {group.items.map((table) => {
+                    const selected = selectedTable?.id === table.id;
+                    const encounterCount = encounters.filter((encounter) => encounter.table_id === table.id).length;
 
-                        return (
-                          <tr className={`border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7] ${selected ? "bg-[#fff8e8]" : ""}`} key={table.id}>
-                            <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
+                    return (
+                      <div className={`grid gap-3 px-4 py-3 transition-colors hover:bg-[#fbfaf7] sm:grid-cols-[minmax(0,1fr)_auto] ${selected ? "bg-[#fff8e8]" : ""}`} key={table.id}>
+                        <button className="min-w-0 text-left" onClick={() => setSelectedTableId(table.id)} type="button">
+                          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span className="text-sm font-semibold text-[#111111]">
+                              {tableTypeLabel(table.table_type)}
+                            </span>
+                            <span className="text-xs text-[#7b746a]">
                               {formatProfileUpdatedDate(table.table_date)}
-                            </td>
-                            <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                              <span className="block text-sm font-semibold text-[#111111]">
-                                {tableTypeLabel(table.table_type)}
-                              </span>
-                              <span className="mt-1 block text-[10px] uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                                {encounters.filter((encounter) => encounter.table_id === table.id).length} Encounters
-                              </span>
-                            </td>
-                            <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                              {tablePeopleLabel(table, encounters, fieldPeople)}
-                            </td>
-                            <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm leading-5 text-[#4b443b]">
-                              {notesPreview(table.notes)}
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <div className="flex flex-wrap gap-2">
-                                <button className={lightSecondaryButtonClass} onClick={() => setSelectedTableId(table.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                                  View
-                                </button>
-                                <button className={lightSecondaryButtonClass} onClick={() => setEditingTable(table)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                                  Edit
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                            </span>
+                            <span className="text-[10px] uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                              {encounterCount} {encounterCount === 1 ? "Response" : "Responses"}
+                            </span>
+                          </span>
+                          <span className="mt-1 block text-sm leading-5 text-[#4b443b]">
+                            {tablePeopleLabel(table, encounters, fieldPeople)}
+                          </span>
+                          <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
+                            {notesPreview(table.notes)}
+                          </span>
+                        </button>
+                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                          <button className={lightSecondaryButtonClass} onClick={() => setSelectedTableId(table.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                            View
+                          </button>
+                          <button className={lightSecondaryButtonClass} onClick={() => setEditingTable(table)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -3044,6 +3081,16 @@ function TablesManager({
   );
 }
 
+type TableWorkflowSection = "assessment" | "fruit" | "responses" | "review" | "summary";
+
+const tableWorkflowSections: Array<{ label: string; value: TableWorkflowSection }> = [
+  { label: "Summary", value: "summary" },
+  { label: "Responses", value: "responses" },
+  { label: "Review", value: "review" },
+  { label: "Assessment", value: "assessment" },
+  { label: "Fruit", value: "fruit" },
+];
+
 function TableDetailPanel({
   encounters,
   fieldPeople,
@@ -3067,8 +3114,15 @@ function TableDetailPanel({
   review: AdminTableReview | null;
   table: AdminMissionaryTable | null;
 }) {
+  const [activeSection, setActiveSection] = useState<TableWorkflowSection>("summary");
   const [editingFruit, setEditingFruit] = useState<AdminFruitItem | null>(null);
   const [isFruitModalOpen, setIsFruitModalOpen] = useState(false);
+
+  useEffect(() => {
+    setActiveSection("summary");
+    setEditingFruit(null);
+    setIsFruitModalOpen(false);
+  }, [table?.id]);
 
   if (!table) {
     return (
@@ -3079,11 +3133,32 @@ function TableDetailPanel({
   }
 
   const activeTable = table;
-  const peopleLabel = tableLinkedPeople(activeTable, fieldPeople).length > 0
-    ? participantNamesText(tableLinkedPeople(activeTable, fieldPeople))
-    : "Not added";
+  const tablePeople = tableLinkedPeople(activeTable, fieldPeople);
+  const peopleLabel = tablePeople.length > 0 ? participantNamesText(tablePeople) : "Not added";
   const linkedPeople = fieldPeople.filter((person) => activeTable.field_person_ids.includes(person.id));
   const activeReview = review ?? newTableReview(activeTable.household_id, activeTable.id);
+  const reviewStarted = Boolean(
+    activeReview.how_meeting_went?.trim()
+      || activeReview.key_observations?.trim()
+      || activeReview.follow_up_needed?.trim()
+      || activeReview.movement_step,
+  );
+  const fruitStatusText = fruitItems.length === 0
+    ? "Not created"
+    : fruitItems.some((fruit) => fruit.status === "approved")
+      ? "Approved"
+      : fruitItems.some((fruit) => fruit.status === "draft")
+        ? "Draft"
+        : "Private";
+  const summaryItems = [
+    { label: "Table", value: tableTypeLabel(activeTable.table_type) },
+    { label: "Date", value: formatProfileUpdatedDate(activeTable.table_date) },
+    { label: "People", value: peopleLabel },
+    { label: "Notes", value: activeTable.notes?.trim() || "No notes added." },
+    { label: "Responses", value: String(encounters.length) },
+    { label: "Review", value: reviewStarted ? "Started" : "Not started" },
+    { label: "Fruit", value: fruitStatusText },
+  ];
 
   function updateReview(patch: Partial<AdminTableReview>) {
     onUpdateReview(activeTable.id, patch);
@@ -3103,242 +3178,350 @@ function TableDetailPanel({
     });
   }
 
+  function toggleFruitOutcomeTag(fruit: AdminFruitItem, tag: AdminOutcomeTag) {
+    const currentTags = new Set(fruit.outcome_tags);
+
+    if (currentTags.has(tag)) {
+      currentTags.delete(tag);
+    } else {
+      currentTags.add(tag);
+    }
+
+    onUpdateFruit(fruit.id, {
+      outcome_tags: outcomeTagOptions.filter((option) => currentTags.has(option)),
+    });
+  }
+
+  function openFruitCreator() {
+    setActiveSection("fruit");
+    setIsFruitModalOpen(true);
+  }
+
   return (
-    <aside className="space-y-4 rounded-xl border border-[#e2ded5] bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Table Detail
-          </p>
-          <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-            {tableTypeLabel(table.table_type)}
-          </h3>
-        </div>
+    <aside className="self-start rounded-xl border border-[#e2ded5] bg-white p-4">
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Selected Table
+        </p>
+        <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+          {tableTypeLabel(table.table_type)}
+        </h3>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {summaryItems.map((item) => (
+          <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={item.label}>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {item.label}
+            </p>
+            <p className="mt-1 text-sm leading-5 text-[#111111]">
+              {item.label === "Notes" ? truncateText(item.value, 96) : item.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-[#e2ded5] pt-4">
         <button className={lightSecondaryButtonClass} onClick={() => onAddEncounter(table)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
           Add Encounter
         </button>
+        <button className={lightSecondaryButtonClass} onClick={() => setActiveSection("review")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          Complete Review
+        </button>
+        <button className={lightPrimaryButtonClass} onClick={openFruitCreator} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          Create Fruit Summary
+        </button>
       </div>
 
-      <div className="grid gap-4 text-sm leading-6 text-[#4b443b]">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <DetailText label="Date" value={formatProfileUpdatedDate(table.table_date)} />
-          <DetailText label="People" value={peopleLabel} />
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Notes
-          </p>
-          <p className="mt-2 text-sm leading-6 text-[#111111]">
-            {table.notes?.trim() || "No notes added."}
-          </p>
-        </div>
-      </div>
+      <div className="mt-4 border-t border-[#e2ded5] pt-4">
+        <div aria-label="Table workflow" className="flex flex-wrap gap-2" role="tablist">
+          {tableWorkflowSections.map((section) => {
+            const selected = activeSection === section.value;
 
-      <div className="border-t border-[#e2ded5] pt-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Encounters
-            </p>
-            <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-              Raw responses tied to this Table.
-            </p>
-          </div>
-          <button className={lightSecondaryButtonClass} onClick={() => onAddEncounter(table)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-            + Add Encounter
-          </button>
+            return (
+              <button
+                aria-selected={selected}
+                className={`rounded-md border px-3 py-2 text-[10px] uppercase tracking-[0.16em] transition-colors ${
+                  selected
+                    ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                    : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
+                }`}
+                key={section.value}
+                onClick={() => setActiveSection(section.value)}
+                role="tab"
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                type="button"
+              >
+                {section.label}
+              </button>
+            );
+          })}
         </div>
-        <div className="mt-3 space-y-2">
-          {encounters.length === 0 ? (
-            <p className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm text-[#7b746a]">
-              No encounters logged yet.
-            </p>
-          ) : null}
-          {encounters.map((encounter) => (
-            <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={encounter.id}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-[#111111]">
-                    {encounter.submitter_name?.trim() || "Unnamed"}
-                  </p>
-                  <p className="mt-1 text-xs text-[#7b746a]">
-                    {encounter.submitter_email?.trim() || "No email"}
-                  </p>
-                </div>
-                <EncounterStatusBadge status={encounter.status} />
-              </div>
-              <p className="mt-2 text-sm leading-5 text-[#4b443b]">
-                {truncateText(encounter.original_testimony || "No response text.", 96)}
+
+        <div className="mt-4">
+          {activeSection === "summary" ? (
+            <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-4 text-sm leading-6 text-[#4b443b]">
+              <p className="font-semibold text-[#111111]">
+                Table workflow
+              </p>
+              <p className="mt-1">
+                Log Table -&gt; Add Response -&gt; Review -&gt; Assess -&gt; Create Fruit.
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+                Use the tabs above to open one step at a time.
               </p>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-4 border-t border-[#e2ded5] pt-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Missionary Review
-          </p>
-          <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-            Internal interpretation of this meeting. This stays in Command Center unless it becomes approved Fruit.
-          </p>
-        </div>
-        <TextArea
-          label="How did the meeting go?"
-          onChange={(value) => updateReview({ how_meeting_went: value })}
-          rows={3}
-          value={activeReview.how_meeting_went}
-        />
-        <TextArea
-          label="Key observations"
-          onChange={(value) => updateReview({ key_observations: value })}
-          rows={3}
-          value={activeReview.key_observations}
-        />
-        <TextArea
-          label="Breakthroughs or concerns"
-          onChange={(value) => updateReview({ breakthroughs_or_concerns: value })}
-          rows={3}
-          value={activeReview.breakthroughs_or_concerns}
-        />
-        <TextArea
-          label="Follow up needed"
-          onChange={(value) => updateReview({ follow_up_needed: value })}
-          rows={3}
-          value={activeReview.follow_up_needed}
-        />
-        <SelectField
-          label="Movement Step"
-          onChange={(value) => updateReview({ movement_step: value ? value as AdminMovementStep : null })}
-          options={movementStepSelectOptions}
-          value={activeReview.movement_step ?? ""}
-        />
-      </div>
-
-      <div className="space-y-4 border-t border-[#e2ded5] pt-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Discipleship Assessment
-          </p>
-          <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-            Structured spiritual insight for this meeting only. Assessment data is not stored on People.
-          </p>
-        </div>
-        <SelectField
-          label="Teaching Used"
-          onChange={(value) => updateReview({ teaching_used: value ? value as AdminTeachingUsed : null })}
-          options={teachingUsedOptions}
-          value={activeReview.teaching_used ?? ""}
-        />
-        <TextArea
-          label="Questions Covered"
-          onChange={(value) => updateReview({ questions_covered: value })}
-          rows={3}
-          value={activeReview.questions_covered}
-        />
-        <TextArea
-          label="Responses / Notes"
-          onChange={(value) => updateReview({ assessment_notes: value })}
-          rows={3}
-          value={activeReview.assessment_notes}
-        />
-        <SelectField
-          label="Readiness"
-          onChange={(value) => updateReview({ readiness: value ? value as AdminReadiness : null })}
-          options={readinessOptions}
-          value={activeReview.readiness ?? ""}
-        />
-        <div>
-          <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Areas Needing Follow Up
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {assessmentFollowUpAreaOptions.map((area) => {
-              const selected = activeReview.follow_up_areas.includes(area);
-
-              return (
-                <button
-                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
-                    selected
-                      ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                      : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
-                  }`}
-                  key={area}
-                  onClick={() => toggleAssessmentArea(area)}
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  type="button"
-                >
-                  {area}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {linkedPeople.length > 0 ? (
-        <div className="space-y-4 border-t border-[#e2ded5] pt-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              What did you learn about this person?
-            </p>
-            <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-              Update missing Person profile fields only. These changes save to Your Field, not this Table or Encounter.
-            </p>
-          </div>
-          {linkedPeople.map((person) => (
-            <ProfileUpdatePromptCard
-              key={person.id}
-              onSave={onUpdatePersonProfile}
-              person={person}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      <div className="space-y-4 border-t border-[#e2ded5] pt-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Fruit
-            </p>
-            <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-              Create public-safe summaries from Encounter, Review, and Assessment. Raw text and internal notes stay internal.
-            </p>
-          </div>
-          <button className={lightPrimaryButtonClass} onClick={() => setIsFruitModalOpen(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-            Create Fruit Summary
-          </button>
-        </div>
-        <div className="space-y-2">
-          {fruitItems.length === 0 ? (
-            <p className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm text-[#7b746a]">
-              No Fruit summary has been created for this Table yet.
-            </p>
           ) : null}
-          {fruitItems.map((fruit) => (
-            <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={fruit.id}>
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm leading-5 text-[#111111]">
-                  {truncateText(fruit.summary || "Summary needed.", 100)}
+
+          {activeSection === "responses" ? (
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-[#111111]">
+                    Responses
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                    Encounters are raw participant responses from this Table.
+                  </p>
+                </div>
+                <button className={lightSecondaryButtonClass} onClick={() => onAddEncounter(table)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                  + Add Encounter
+                </button>
+              </div>
+              {encounters.length === 0 ? (
+                <p className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm text-[#7b746a]">
+                  No responses logged yet.
                 </p>
-                <FruitStatusBadge status={fruit.status} />
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {fruit.outcome_tags.length > 0 ? fruit.outcome_tags.map((tag) => (
-                  <span className="rounded-full border border-[#e2ded5] bg-white px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {tag}
-                  </span>
-                )) : (
-                  <span className="text-xs text-[#7b746a]">No outcome tags.</span>
-                )}
-              </div>
-              <button className={`${lightSecondaryButtonClass} mt-3`} onClick={() => setEditingFruit(fruit)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                Edit Fruit
-              </button>
+              ) : null}
+              {encounters.map((encounter) => (
+                <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={encounter.id}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-[#111111]">
+                        {encounter.submitter_name?.trim() || "Unnamed"}
+                      </p>
+                      <p className="mt-1 text-xs text-[#7b746a]">
+                        {encounter.submitter_email?.trim() || submissionTypeLabel(encounter.submission_type)}
+                      </p>
+                    </div>
+                    <EncounterStatusBadge status={encounter.status} />
+                  </div>
+                  <p className="mt-2 text-sm leading-5 text-[#4b443b]">
+                    {truncateText(encounter.original_testimony || "No response text.", 120)}
+                  </p>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : null}
+
+          {activeSection === "review" ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-[#111111]">
+                  Review
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                  Internal notes about this meeting. These stay in Command Center.
+                </p>
+              </div>
+              <TextArea
+                label="How did the meeting go?"
+                onChange={(value) => updateReview({ how_meeting_went: value })}
+                rows={3}
+                value={activeReview.how_meeting_went}
+              />
+              <TextArea
+                label="Key observations"
+                onChange={(value) => updateReview({ key_observations: value })}
+                rows={3}
+                value={activeReview.key_observations}
+              />
+              <SelectField
+                label="Movement Step"
+                onChange={(value) => updateReview({ movement_step: value ? value as AdminMovementStep : null })}
+                options={movementStepSelectOptions}
+                value={activeReview.movement_step ?? ""}
+              />
+              <TextArea
+                label="Follow up needed"
+                onChange={(value) => updateReview({ follow_up_needed: value })}
+                rows={3}
+                value={activeReview.follow_up_needed}
+              />
+              {linkedPeople.length > 0 ? (
+                <div className="space-y-3 border-t border-[#e2ded5] pt-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      What did you learn about this person?
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                      Update missing Person fields only. These save to Your Field, not this Table.
+                    </p>
+                  </div>
+                  {linkedPeople.map((person) => (
+                    <ProfileUpdatePromptCard
+                      key={person.id}
+                      onSave={onUpdatePersonProfile}
+                      person={person}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {activeSection === "assessment" ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-[#111111]">
+                  Assessment
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                  Structured spiritual insight for this meeting only. Assessment data is not stored on People.
+                </p>
+              </div>
+              <SelectField
+                label="Teaching Used"
+                onChange={(value) => updateReview({ teaching_used: value ? value as AdminTeachingUsed : null })}
+                options={teachingUsedOptions}
+                value={activeReview.teaching_used ?? ""}
+              />
+              <TextArea
+                label="Questions Covered"
+                onChange={(value) => updateReview({ questions_covered: value })}
+                rows={3}
+                value={activeReview.questions_covered}
+              />
+              <TextArea
+                label="Responses / Notes"
+                onChange={(value) => updateReview({ assessment_notes: value })}
+                rows={3}
+                value={activeReview.assessment_notes}
+              />
+              <SelectField
+                label="Readiness"
+                onChange={(value) => updateReview({ readiness: value ? value as AdminReadiness : null })}
+                options={readinessOptions}
+                value={activeReview.readiness ?? ""}
+              />
+              <div>
+                <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Areas Needing Follow Up
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {assessmentFollowUpAreaOptions.map((area) => {
+                    const selected = activeReview.follow_up_areas.includes(area);
+
+                    return (
+                      <button
+                        className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
+                          selected
+                            ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                            : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
+                        }`}
+                        key={area}
+                        onClick={() => toggleAssessmentArea(area)}
+                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                        type="button"
+                      >
+                        {area}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {activeSection === "fruit" ? (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-[#111111]">
+                    Fruit
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                    Fruit is the approved public-safe outcome. Raw notes stay internal.
+                  </p>
+                </div>
+                <button className={lightPrimaryButtonClass} onClick={() => setIsFruitModalOpen(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                  Create Fruit Summary
+                </button>
+              </div>
+              <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Fruit Summary Status
+                </p>
+                <p className="mt-1 text-sm leading-5 text-[#111111]">
+                  {fruitStatusText}
+                </p>
+              </div>
+              {fruitItems.length === 0 ? (
+                <p className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm text-[#7b746a]">
+                  No Fruit summary has been created for this Table yet.
+                </p>
+              ) : null}
+              {fruitItems.map((fruit) => (
+                <div className="space-y-3 rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={fruit.id}>
+                  <div className="flex items-start justify-between gap-2">
+                    <FruitStatusBadge status={fruit.status} />
+                    <button className={lightSecondaryButtonClass} onClick={() => setEditingFruit(fruit)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                      Edit Fruit
+                    </button>
+                  </div>
+                  <label className="block">
+                    <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Public Summary
+                    </span>
+                    <textarea
+                      className={`${lightInputClass} leading-6`}
+                      defaultValue={fruit.summary}
+                      onBlur={(event) => {
+                        const nextSummary = event.currentTarget.value;
+
+                        if (nextSummary !== fruit.summary) {
+                          onUpdateFruit(fruit.id, { summary: nextSummary });
+                        }
+                      }}
+                      rows={3}
+                    />
+                  </label>
+                  <div>
+                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Outcome Tags
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {outcomeTagOptions.map((tag) => {
+                        const selected = fruit.outcome_tags.includes(tag);
+
+                        return (
+                          <button
+                            className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
+                              selected
+                                ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                                : "border-[#e2ded5] bg-white text-[#6f6658] hover:border-[#c8952d]"
+                            }`}
+                            key={tag}
+                            onClick={() => toggleFruitOutcomeTag(fruit, tag)}
+                            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                            type="button"
+                          >
+                            {tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <SelectField
+                    label="Fruit Status"
+                    onChange={(value) => onUpdateFruit(fruit.id, { status: value as AdminFruitStatus })}
+                    options={fruitStatusOptions}
+                    value={fruit.status}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -5392,41 +5575,68 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     setProfiles((currentProfiles) => currentProfiles.map((profile) => (profile.id === nextProfile.id ? nextProfile : profile)));
   }
 
-  async function saveFieldPerson(draft: FieldPersonDraft, personId?: string) {
+  async function saveFieldPerson(draft: FieldPersonDraft, personId?: string): Promise<PersonSaveResult> {
     if (!selectedProfile) {
-      return false;
+      return { error: "Select a missionary workspace before saving a person.", ok: false };
     }
 
-    const response = await fetch("/api/admin/missionary-profiles/people", {
-      body: JSON.stringify({
-        church: draft.church,
-        email: draft.email,
-        engagement_level: draft.engagementLevel,
-        householdId: selectedProfile.id,
-        id: personId,
-        name: draft.name,
-        notes: draft.notes,
-        phone: draft.phone,
-        relationship_type: draft.relationshipType,
-        status: draft.status,
-      }),
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: personId ? "PATCH" : "POST",
-    });
+    const method = personId ? "PATCH" : "POST";
+    const payload = {
+      church: draft.church,
+      email: draft.email,
+      engagement_level: draft.engagementLevel,
+      household_id: selectedProfile.id,
+      householdId: selectedProfile.id,
+      id: personId,
+      name: draft.name,
+      notes: draft.notes,
+      phone: draft.phone,
+      relationship_type: draft.relationshipType,
+      status: draft.status,
+    };
+
+    console.info(`[People] Calling ${method} /api/admin/missionary-profiles/people`);
+
+    let response: Response;
+
+    try {
+      response = await fetch("/api/admin/missionary-profiles/people", {
+        body: JSON.stringify(payload),
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unable to save person.";
+
+      console.error("Save Person request failed:", error);
+      setStatus({
+        text: errorMessage,
+        tone: "error",
+      });
+      return { error: errorMessage, ok: false };
+    }
+
     const result = await response.json().catch(() => ({})) as {
       error?: string;
       person?: AdminFieldPerson;
     };
+    const responseError = typeof result.error === "string"
+      ? result.error
+      : response.statusText || "Unable to save person.";
+    const errorMessage = responseError.includes("missionary_field_people") && responseError.toLowerCase().includes("schema cache")
+      ? "People table is missing. Apply the missionary_field_people migration."
+      : responseError;
 
     if (!response.ok || !result.person) {
+      console.error("Save Person failed:", errorMessage);
       setStatus({
-        text: typeof result.error === "string" ? result.error : "Unable to save person.",
+        text: errorMessage,
         tone: "error",
       });
-      return false;
+      return { error: errorMessage, ok: false };
     }
 
     updateSelected({
@@ -5436,11 +5646,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         : [result.person, ...(selectedProfile.fieldPeople ?? [])],
     });
     setStatus({
-      text: personId ? "Person updated." : "Person added to Your Field.",
+      text: personId ? "Person updated." : "Person added to Your Field",
       tone: "success",
     });
 
-    return true;
+    return { ok: true };
   }
 
   async function importPeopleCsv(rows: PeopleCsvImportRow[]) {

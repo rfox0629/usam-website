@@ -9,6 +9,7 @@ type FieldPersonPayload = {
   church?: unknown;
   email?: unknown;
   engagement_level?: unknown;
+  household_id?: unknown;
   householdId?: unknown;
   id?: unknown;
   name?: unknown;
@@ -36,6 +37,17 @@ function asFieldPersonStatus(value: unknown) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function fieldPeopleErrorMessage(error: { code?: string; message?: string }) {
+  const message = error.message ?? "Unable to save person.";
+  const lowerMessage = message.toLowerCase();
+
+  if (error.code === "PGRST205" || (lowerMessage.includes("missionary_field_people") && lowerMessage.includes("schema cache"))) {
+    return "People table is missing. Apply the missionary_field_people migration.";
+  }
+
+  return message;
 }
 
 async function authorizePeopleWrite() {
@@ -89,7 +101,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
-  const householdId = asString(payload.householdId);
+  const householdId = asString(payload.householdId) || asString(payload.household_id);
   const name = asString(payload.name);
   const phone = asString(payload.phone);
 
@@ -117,7 +129,10 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const errorMessage = fieldPeopleErrorMessage(error);
+
+    console.error("[People API] Failed to insert missionary_field_people:", error);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 
   return NextResponse.json({ person: data });
@@ -137,7 +152,7 @@ export async function PATCH(request: Request) {
   }
 
   const id = asString(payload.id);
-  const householdId = asString(payload.householdId);
+  const householdId = asString(payload.householdId) || asString(payload.household_id);
   const name = asString(payload.name);
   const phone = asString(payload.phone);
 
@@ -164,7 +179,10 @@ export async function PATCH(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const errorMessage = fieldPeopleErrorMessage(error);
+
+    console.error("[People API] Failed to update missionary_field_people:", error);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 
   return NextResponse.json({ person: data });
