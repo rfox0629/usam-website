@@ -8,10 +8,8 @@ import {
   loadDosPersonDetail,
   type DosFieldPerson,
   type DosPersonMeeting,
-  type DosRelationshipView,
   type MultiplicationNode,
 } from "@/src/lib/dos/people";
-import { PersonRelationshipModal } from "./PersonRelationshipModal";
 import { RelationshipInsightsPanel, RelationshipNotesPanel } from "./RelationshipInsightsPanel";
 
 export const dynamic = "force-dynamic";
@@ -142,54 +140,6 @@ function SectionIntro({
   );
 }
 
-function RelationshipList({
-  emptyText,
-  relationships,
-  showDisciple = false,
-}: {
-  emptyText: string;
-  relationships: DosRelationshipView[];
-  showDisciple?: boolean;
-}) {
-  if (!relationships.length) {
-    return (
-      <div className="border border-dashed border-stone-800 bg-[#080808] p-4 text-sm leading-7 text-stone-500">
-        {emptyText}
-      </div>
-    );
-  }
-
-  return (
-    <div className="divide-y divide-stone-900 border border-stone-800">
-      {relationships.map((relationship) => (
-        <div className="bg-[#080808] p-4" key={relationship.id}>
-          <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-            <div>
-              <p className="text-base font-semibold text-stone-100">
-                {showDisciple ? relationship.discipleName : relationship.disciplerName}
-              </p>
-              <p className="mt-2 text-sm text-stone-500">
-                Started {formatDate(relationship.startedAt)}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              <span className="border border-amber-500/35 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-amber-300">
-                {formatLabel(relationship.style)}
-              </span>
-              <span className="border border-stone-700 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-stone-300">
-                {formatLabel(relationship.strength)}
-              </span>
-              <span className="border border-stone-700 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-stone-500">
-                {formatLabel(relationship.status)}
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function MeetingList({ meetings }: { meetings: DosPersonMeeting[] }) {
   if (!meetings.length) {
     return (
@@ -253,10 +203,8 @@ function MeetingList({ meetings }: { meetings: DosPersonMeeting[] }) {
 }
 
 function MultiplicationPreview({
-  person,
   roots,
 }: {
-  person: DosFieldPerson;
   roots: MultiplicationNode[];
 }) {
   if (!roots.length) {
@@ -296,17 +244,9 @@ function StatusTile({
   );
 }
 
-function NextActions({
-  collectiveSlug,
-  person,
-  relationshipOptions,
-}: {
-  collectiveSlug: string;
-  person: DosFieldPerson;
-  relationshipOptions: Array<{ id: string; name: string }>;
-}) {
+function NextActions() {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:justify-end">
+    <div className="grid gap-3 sm:grid-cols-[minmax(0,16rem)] lg:flex lg:justify-end">
       {/* TODO: Wire this to the lightweight DOS meeting logger when that workflow is built. */}
       <button
         aria-disabled="true"
@@ -317,13 +257,6 @@ function NextActions({
       >
         Log Meeting
       </button>
-      <PersonRelationshipModal
-        buttonClassName="min-h-12 border border-stone-700 bg-[#080808] px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-200 transition-colors hover:border-amber-500/50 hover:text-amber-300"
-        buttonLabel="Manage Relationships"
-        collectiveSlug={collectiveSlug}
-        person={person}
-        relationshipOptions={relationshipOptions}
-      />
     </div>
   );
 }
@@ -423,11 +356,7 @@ export default async function DosPersonDetailPage({
               </div>
             </div>
 
-            <NextActions
-              collectiveSlug={data.collective.slug}
-              person={person}
-              relationshipOptions={data.relationshipOptions}
-            />
+            <NextActions />
           </div>
 
           <div className="mt-8 border border-stone-800 bg-[#070707]/90 p-4 sm:p-5">
@@ -453,30 +382,14 @@ export default async function DosPersonDetailPage({
         </div>
       </section>
 
-      <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
-        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2">
-          <div>
-            <SectionIntro eyebrow="Discipleship Support" title="Who is helping disciple this person?" />
-            <div className="mt-6">
-              <RelationshipList
-                emptyText="No one is attached as helping disciple this person yet."
-                relationships={person.walkingWith}
-              />
-            </div>
-          </div>
-
-          <div>
-            <SectionIntro eyebrow="Discipling" title="Who are they discipling?" />
-            <div className="mt-6">
-              <RelationshipList
-                emptyText="No active discipleship relationships start from them yet."
-                relationships={person.discipling}
-                showDisciple
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+      {/*
+        TODO: Future Command Center / Leadership layer:
+        - show all disciplers connected to a person
+        - show organizational support networks
+        - identify people with multiple disciplers
+        - identify people with no support
+        - resolve duplicate people across users or ministries
+      */}
 
       <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
@@ -485,7 +398,7 @@ export default async function DosPersonDetailPage({
               <p>This view follows only {person.firstName}&apos;s discipleship context.</p>
             </SectionIntro>
           </div>
-          <MultiplicationPreview person={person} roots={result.data.multiplicationRoots} />
+          <MultiplicationPreview roots={result.data.multiplicationRoots} />
         </div>
       </section>
 
