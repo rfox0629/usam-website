@@ -6,6 +6,7 @@ import type { FormEvent } from "react";
 import type { DosFieldPerson, DosRelationshipDepth } from "@/src/lib/dos/people";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const relationshipInsightsFormClassName = "space-y-4";
 
 const commitmentOptions = [
   { label: "Resistant", value: -3 },
@@ -87,7 +88,7 @@ export function RelationshipInsightsPanel({
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <form className={relationshipInsightsFormClassName} onSubmit={handleSubmit}>
       {!canEdit ? (
         <div className="border border-stone-800 bg-[#080808] p-4 text-sm leading-6 text-stone-500">
           Relationship insights are available for field people added to your field.
