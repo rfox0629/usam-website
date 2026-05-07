@@ -4,6 +4,7 @@ import { createDosPerson } from "@/src/lib/dos/people";
 type CreatePersonPayload = {
   email?: unknown;
   engagementLevel?: unknown;
+  relationshipStage?: unknown;
   firstName?: unknown;
   lastName?: unknown;
   notesPrivate?: unknown;
@@ -29,7 +30,7 @@ export async function POST(
   const { collectiveSlug } = await context.params;
   const result = await createDosPerson(collectiveSlug, {
     email: asString(body.email),
-    engagementLevel: asString(body.engagementLevel),
+    relationshipStage: asString(body.relationshipStage ?? body.engagementLevel),
     firstName: asString(body.firstName),
     lastName: asString(body.lastName),
     notesPrivate: asString(body.notesPrivate),
@@ -44,5 +45,9 @@ export async function POST(
     return NextResponse.json({ error: result.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, personId: result.data.personId });
+  return NextResponse.json({
+    ok: true,
+    personId: result.data.personId,
+    relationshipId: result.data.relationshipId,
+  });
 }

@@ -58,7 +58,7 @@ export function PersonRelationshipModal({
           discipleKind: person.kind,
           disciplerProfileId: String(formData.get("discipler_profile_id") ?? ""),
           status: String(formData.get("status") ?? "active"),
-          strength: String(formData.get("strength") ?? "primary"),
+          strength: String(formData.get("strength") ?? "supporting"),
           style: String(formData.get("style") ?? "mentor"),
         }),
         headers: {
@@ -90,7 +90,7 @@ export function PersonRelationshipModal({
         style={{ fontFamily: font.rajdhani }}
         type="button"
       >
-        Add Relationship
+        Add Another Discipler
       </button>
 
       {isOpen ? (
@@ -120,7 +120,7 @@ export function PersonRelationshipModal({
                     id="relationship-title"
                     style={{ fontFamily: font.oswald }}
                   >
-                    Who is walking with {person.firstName}?
+                    Add another discipler for {person.firstName}
                   </h2>
                 </div>
                 <button
@@ -135,7 +135,7 @@ export function PersonRelationshipModal({
 
               {availableOptions.length ? (
                 <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
-                  <Select label="Who is walking with this person?" name="discipler_profile_id" required>
+                  <Select label="Who else is helping disciple this person?" name="discipler_profile_id" required>
                     <option value="">Select a person</option>
                     {availableOptions.map((option) => (
                       <option key={option.id} value={option.id}>
@@ -152,7 +152,7 @@ export function PersonRelationshipModal({
                         </option>
                       ))}
                     </Select>
-                    <Select defaultValue="primary" label="Strength" name="strength">
+                    <Select defaultValue="supporting" label="Strength" name="strength">
                       <option value="primary">Primary</option>
                       <option value="supporting">Supporting</option>
                     </Select>
@@ -171,7 +171,7 @@ export function PersonRelationshipModal({
 
                   <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                     <p className="text-xs leading-5 text-stone-500">
-                      This creates an ongoing discipleship relationship, separate from meetings.
+                      This is secondary relationship management for additional discipleship support.
                     </p>
                     <button
                       className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"

@@ -12,6 +12,7 @@ import {
   type MultiplicationNode,
 } from "@/src/lib/dos/people";
 import { PersonRelationshipModal } from "./PersonRelationshipModal";
+import { RelationshipInsightsPanel } from "./RelationshipInsightsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,20 @@ function formatDate(value: string) {
     timeZone: "UTC",
     year: "numeric",
   }).format(new Date(`${value}T00:00:00Z`));
+}
+
+function formatCommitmentLabel(value: number | null) {
+  const labels = new Map([
+    [-3, "Resistant"],
+    [-2, "Closed Off"],
+    [-1, "Curious"],
+    [0, "Exploring"],
+    [1, "Open and Growing"],
+    [2, "Committed"],
+    [3, "Multiplying"],
+  ]);
+
+  return value === null ? "Not set yet" : labels.get(value) ?? "Not set yet";
 }
 
 function Eyebrow({ children }: { children: ReactNode }) {
@@ -296,7 +311,8 @@ export default async function DosPersonDetailPage({
               </h1>
               <div className="mt-6 space-y-2 text-sm leading-7 text-stone-300 sm:text-base">
                 <p>{person.relationshipSummary}</p>
-                <p>Engagement: {person.engagementLevel ?? "Not set yet"}</p>
+                <p>Relationship stage: {person.relationshipStage ?? "Not set yet"}</p>
+                <p>Commitment level: {formatCommitmentLabel(person.commitmentLevel)}</p>
               </div>
             </div>
 
@@ -310,19 +326,30 @@ export default async function DosPersonDetailPage({
       </section>
 
       <section className="relative border-t border-stone-900 px-4 py-10 sm:px-6 md:py-14">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.85fr_1.15fr]">
+          <div>
+            <SectionIntro eyebrow="Relationship Insights" title="Spiritual movement">
+              <p>Lightweight markers for care, follow up, and multiplication without turning people into a score.</p>
+            </SectionIntro>
+          </div>
+          <RelationshipInsightsPanel collectiveSlug={data.collective.slug} person={person} />
+        </div>
+      </section>
+
+      <section className="relative border-t border-stone-900 px-4 py-10 sm:px-6 md:py-14">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-2">
           <div>
-            <SectionIntro eyebrow="Walking With Them" title="People walking with them" />
+            <SectionIntro eyebrow="Discipleship Support" title="Who is helping disciple this person?" />
             <div className="mt-6">
               <RelationshipList
-                emptyText="No one is walking with them yet."
+                emptyText="No one is attached as helping disciple this person yet."
                 relationships={person.walkingWith}
               />
             </div>
           </div>
 
           <div>
-            <SectionIntro eyebrow="Discipling" title="People they are discipling" />
+            <SectionIntro eyebrow="Discipling" title="Who are they discipling?" />
             <div className="mt-6">
               <RelationshipList
                 emptyText="No active discipleship relationships start from them yet."
@@ -335,6 +362,15 @@ export default async function DosPersonDetailPage({
       </section>
 
       <section className="relative border-t border-stone-900 px-4 py-10 sm:px-6 md:py-14">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+          <div>
+            <SectionIntro eyebrow="Meetings" title="Recent meetings" />
+          </div>
+          <MeetingList meetings={result.data.recentMeetings} />
+        </div>
+      </section>
+
+      <section className="relative border-t border-stone-900 px-4 py-10 sm:px-6 md:py-14">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
             <SectionIntro eyebrow="Multiplication" title="Multiplication preview">
@@ -342,25 +378,6 @@ export default async function DosPersonDetailPage({
             </SectionIntro>
           </div>
           <MultiplicationPreview person={person} roots={result.data.multiplicationRoots} />
-        </div>
-      </section>
-
-      <section className="relative border-t border-stone-900 px-4 py-10 sm:px-6 md:py-14">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-          <div>
-            <SectionIntro eyebrow="Meetings" title="Recent meetings" />
-            <div className="mt-6">
-              <MeetingList meetings={result.data.recentMeetings} />
-            </div>
-          </div>
-
-          <div>
-            <SectionIntro eyebrow="Notes" title="Private notes" />
-            <div className="mt-6 border border-stone-800 bg-[#080808] p-5 text-sm leading-7 text-stone-400">
-              Private notes are saved for the owning organization and hidden from this workspace preview until
-              permissioned workspace access is in place.
-            </div>
-          </div>
         </div>
       </section>
 

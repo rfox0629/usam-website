@@ -5,13 +5,15 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 export type DosPersonKind = "person" | "profile";
 
 export type DosRelationshipStatus = "active" | "ended" | "paused";
+export type DosRelationshipDepth = "New" | "Growing" | "Strong";
 
 export type DosFieldPerson = {
+  commitmentLevel: number | null;
   createdAt: string;
   discipling: DosRelationshipView[];
   disciplingCount: number;
   email: string | null;
-  engagementLevel: string | null;
+  relationshipStage: string | null;
   firstName: string;
   id: string;
   inactive: boolean;
@@ -22,6 +24,7 @@ export type DosFieldPerson = {
   newToField: boolean;
   notesPrivate: string | null;
   phone: string | null;
+  relationshipDepth: DosRelationshipDepth | null;
   relationshipSummary: string;
   walkingWith: DosRelationshipView[];
 };
@@ -127,15 +130,17 @@ type ProfileRow = {
 };
 
 type PersonRow = {
+  commitment_level: number | null;
   created_at: string;
   email: string | null;
   engagement_level: string | null;
   first_name: string;
   id: string;
   last_name: string;
-  notes_private?: string | null;
+  notes_private: string | null;
   owner_organization_id: string;
   phone: string | null;
+  relationship_depth: string | null;
   updated_at: string;
 };
 
@@ -187,7 +192,7 @@ type LoadContext = {
 
 type CreatePersonInput = {
   email?: string | null;
-  engagementLevel?: string | null;
+  relationshipStage?: string | null;
   firstName: string;
   lastName?: string | null;
   notesPrivate?: string | null;
@@ -203,6 +208,12 @@ type CreateRelationshipInput = {
   style?: string;
 };
 
+type UpdatePersonInsightsInput = {
+  commitmentLevel?: number | null;
+  notesPrivate?: string | null;
+  relationshipDepth?: string | null;
+};
+
 const relationshipStyles = new Set([
   "mentor",
   "pastor",
@@ -216,6 +227,16 @@ const relationshipStyles = new Set([
 
 const relationshipStrengths = new Set(["primary", "supporting"]);
 const relationshipStatuses = new Set(["active", "paused", "ended"]);
+const relationshipStageOptions = [
+  "New",
+  "Exploring",
+  "Walking With",
+  "Discipling",
+  "Multiplying",
+  "Inactive",
+] as const;
+const relationshipStages = new Set<string>(relationshipStageOptions);
+const relationshipDepthOptions = ["New", "Growing", "Strong"] as const;
 
 function fullName(firstName: string, lastName: string | null | undefined) {
   return [firstName, lastName].filter(Boolean).join(" ").trim() || firstName;
@@ -251,6 +272,42 @@ function normalizeNullableString(value: string | null | undefined, maxLength = 5
   return trimmed ? trimmed : null;
 }
 
+function normalizeRelationshipStage(value: string | null | undefined) {
+  const trimmed = normalizeNullableString(value, 80);
+
+  if (!trimmed) {
+    return "Walking With";
+  }
+
+  const stage = relationshipStageOptions.find((option) => option.toLowerCase() === trimmed.toLowerCase());
+
+  return stage ?? null;
+}
+
+function normalizeRelationshipDepth(value: string | null | undefined): DosRelationshipDepth | null {
+  const trimmed = normalizeNullableString(value, 80);
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const depth = relationshipDepthOptions.find((option) => option.toLowerCase() === trimmed.toLowerCase());
+
+  return depth ?? null;
+}
+
+function normalizeCommitmentLevel(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (!Number.isInteger(value) || value < -3 || value > 3) {
+    return undefined;
+  }
+
+  return value;
+}
+
 function personKey(kind: DosPersonKind, id: string) {
   return `${kind}:${id}`;
 }
@@ -261,11 +318,12 @@ function personKeyFromRelationship(relationship: DosRelationshipView) {
 
 function profilePersonFromRow(row: ProfileRow): DosFieldPerson {
   return {
+    commitmentLevel: null,
     createdAt: row.created_at,
     discipling: [],
     disciplingCount: 0,
     email: row.email,
-    engagementLevel: null,
+    relationshipStage: null,
     firstName: row.first_name,
     id: row.id,
     inactive: false,
@@ -276,18 +334,20 @@ function profilePersonFromRow(row: ProfileRow): DosFieldPerson {
     newToField: false,
     notesPrivate: null,
     phone: row.phone,
+    relationshipDepth: null,
     relationshipSummary: "No active discipleship relationship yet",
     walkingWith: [],
   };
 }
 
-function fieldPersonFromRow(row: PersonRow): DosFieldPerson {
+function fieldPersonFromRow(row: PersonRow, includePrivateNotes = false): DosFieldPerson {
   return {
+    commitmentLevel: row.commitment_level,
     createdAt: row.created_at,
     discipling: [],
     disciplingCount: 0,
     email: row.email,
-    engagementLevel: row.engagement_level,
+    relationshipStage: row.engagement_level,
     firstName: row.first_name,
     id: row.id,
     inactive: false,
@@ -296,8 +356,9 @@ function fieldPersonFromRow(row: PersonRow): DosFieldPerson {
     lastName: row.last_name,
     name: fullName(row.first_name, row.last_name),
     newToField: false,
-    notesPrivate: null,
+    notesPrivate: includePrivateNotes ? row.notes_private : null,
     phone: row.phone,
+    relationshipDepth: normalizeRelationshipDepth(row.relationship_depth),
     relationshipSummary: "No one walking with them yet",
     walkingWith: [],
   };
@@ -471,7 +532,7 @@ async function loadContext(collectiveSlug: string): Promise<LoadResult<LoadConte
       .order("first_name", { ascending: true }),
     supabase
       .from("people")
-      .select("id, owner_organization_id, first_name, last_name, email, phone, engagement_level, created_at, updated_at")
+      .select("id, owner_organization_id, first_name, last_name, email, phone, engagement_level, commitment_level, relationship_depth, notes_private, created_at, updated_at")
       .eq("owner_organization_id", collective.owner_organization_id)
       .order("updated_at", { ascending: false }),
     supabase
@@ -709,11 +770,28 @@ export async function loadDosPersonDetail(
   }
 
   const workspace = buildWorkspaceData(contextResult.data);
-  const person = workspace.people.find((candidate) => candidate.id === personId);
+  const workspacePerson = workspace.people.find((candidate) => candidate.id === personId);
 
-  if (!person) {
+  if (!workspacePerson) {
     return { status: "not_found" };
   }
+
+  const person = workspacePerson.kind === "person"
+    ? {
+      ...workspacePerson,
+      ...(() => {
+        const row = contextResult.data.peopleRows.find((candidate) => candidate.id === workspacePerson.id);
+
+        return row
+          ? {
+            commitmentLevel: row.commitment_level,
+            notesPrivate: row.notes_private,
+            relationshipDepth: normalizeRelationshipDepth(row.relationship_depth),
+          }
+          : {};
+      })(),
+    }
+    : workspacePerson;
 
   const personMap = new Map(workspace.people.map((candidate) => [personKey(candidate.kind, candidate.id), candidate]));
   const relationshipViews = workspace.people.flatMap((candidate) => candidate.walkingWith);
@@ -745,12 +823,25 @@ async function loadMutationContext(collectiveSlug: string) {
   }
 
   const { collective, organization, members, profileRows } = contextResult.data;
-  const defaultCreator = members[0] ?? sortByName(
-    profileRows.map((profile) => ({
-      id: profile.id,
-      name: fullName(profile.first_name, profile.last_name),
-    })),
-  )[0];
+  const ryanFoxProfile = profileRows.find(
+    (profile) =>
+      collective.slug === "fox-family" &&
+      profile.first_name.trim().toLowerCase() === "ryan" &&
+      profile.last_name.trim().toLowerCase() === "fox",
+  );
+  const memberProfiles = members.length
+    ? members
+    : sortByName(
+      profileRows.map((profile) => ({
+        id: profile.id,
+        name: fullName(profile.first_name, profile.last_name),
+      })),
+    );
+  // TODO: Resolve this from the authenticated DOS profile once auth/profile
+  // selection exists. Fox Family defaults to Ryan Fox for the MVP workspace.
+  const defaultCreator = ryanFoxProfile
+    ? { id: ryanFoxProfile.id, name: fullName(ryanFoxProfile.first_name, ryanFoxProfile.last_name) }
+    : memberProfiles[0];
 
   if (!defaultCreator) {
     return {
@@ -764,6 +855,7 @@ async function loadMutationContext(collectiveSlug: string) {
       collective,
       createdByProfileId: defaultCreator.id,
       organization,
+      peopleRows: contextResult.data.peopleRows,
       profileRows,
     },
     status: "ready" as const,
@@ -772,10 +864,26 @@ async function loadMutationContext(collectiveSlug: string) {
 
 export async function createDosPerson(collectiveSlug: string, input: CreatePersonInput) {
   const firstName = normalizeNullableString(input.firstName, 120);
+  const lastName = normalizeNullableString(input.lastName, 120);
+  const relationshipStage = normalizeRelationshipStage(input.relationshipStage);
 
   if (!firstName) {
     return {
       message: "First name is required.",
+      status: "error" as const,
+    };
+  }
+
+  if (!lastName) {
+    return {
+      message: "Last name is required.",
+      status: "error" as const,
+    };
+  }
+
+  if (!relationshipStage || !relationshipStages.has(relationshipStage)) {
+    return {
+      message: "Choose a valid relationship stage.",
       status: "error" as const,
     };
   }
@@ -792,9 +900,10 @@ export async function createDosPerson(collectiveSlug: string, input: CreatePerso
     .insert({
       created_by_profile_id: contextResult.data.createdByProfileId,
       email: normalizeNullableString(input.email, 220),
-      engagement_level: normalizeNullableString(input.engagementLevel, 120),
+      // TODO: Rename engagement_level to relationship_stage in a future DOS schema migration.
+      engagement_level: relationshipStage,
       first_name: firstName,
-      last_name: normalizeNullableString(input.lastName, 120) ?? "",
+      last_name: lastName,
       notes_private: normalizeNullableString(input.notesPrivate, 2000),
       owner_organization_id: contextResult.data.organization.id,
       phone: normalizeNullableString(input.phone, 80),
@@ -809,9 +918,33 @@ export async function createDosPerson(collectiveSlug: string, input: CreatePerso
     };
   }
 
+  const personId = data.id as string;
+  const { data: relationshipData, error: relationshipError } = await supabase
+    .from("discipleship_relationships")
+    .insert({
+      disciple_person_id: personId,
+      discipler_profile_id: contextResult.data.createdByProfileId,
+      owner_organization_id: contextResult.data.organization.id,
+      status: "active",
+      strength: "primary",
+      style: "mentor",
+    })
+    .select("id")
+    .single();
+
+  if (relationshipError) {
+    await supabase.from("people").delete().eq("id", personId);
+
+    return {
+      message: relationshipError.message,
+      status: "error" as const,
+    };
+  }
+
   return {
     data: {
-      personId: data.id as string,
+      personId,
+      relationshipId: relationshipData.id as string,
     },
     status: "ready" as const,
   };
@@ -819,7 +952,7 @@ export async function createDosPerson(collectiveSlug: string, input: CreatePerso
 
 export async function createDosRelationship(collectiveSlug: string, input: CreateRelationshipInput) {
   const style = relationshipStyles.has(input.style ?? "") ? input.style : "mentor";
-  const strength = relationshipStrengths.has(input.strength ?? "") ? input.strength : "primary";
+  const strength = relationshipStrengths.has(input.strength ?? "") ? input.strength : "supporting";
   const status = relationshipStatuses.has(input.status ?? "") ? input.status : "active";
   const contextResult = await loadMutationContext(collectiveSlug);
 
@@ -831,7 +964,7 @@ export async function createDosRelationship(collectiveSlug: string, input: Creat
 
   if (!discipler) {
     return {
-      message: "Choose who is walking with this person.",
+      message: "Choose who else is helping disciple this person.",
       status: "error" as const,
     };
   }
@@ -889,6 +1022,72 @@ export async function createDosRelationship(collectiveSlug: string, input: Creat
   return {
     data: {
       relationshipId: data.id as string,
+    },
+    status: "ready" as const,
+  };
+}
+
+export async function updateDosPersonInsights(
+  collectiveSlug: string,
+  personId: string,
+  input: UpdatePersonInsightsInput,
+) {
+  const commitmentLevel = normalizeCommitmentLevel(input.commitmentLevel);
+  const relationshipDepth = normalizeRelationshipDepth(input.relationshipDepth);
+
+  if (commitmentLevel === undefined) {
+    return {
+      message: "Choose a valid commitment level.",
+      status: "error" as const,
+    };
+  }
+
+  if (input.relationshipDepth && !relationshipDepth) {
+    return {
+      message: "Choose a valid relationship depth.",
+      status: "error" as const,
+    };
+  }
+
+  const contextResult = await loadMutationContext(collectiveSlug);
+
+  if (contextResult.status !== "ready") {
+    return contextResult;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const existingPerson = contextResult.data.peopleRows.find((person) => person.id === personId);
+
+  if (!existingPerson) {
+    return {
+      message: "Relationship insights can be edited for field people added to your field.",
+      status: "error" as const,
+    };
+  }
+
+  // TODO: Add automatic multiplication detection, movement analytics,
+  // relationship timeline/history, and AI insight suggestions after the
+  // first relationship workflows are stable.
+  const { error } = await supabase
+    .from("people")
+    .update({
+      commitment_level: commitmentLevel,
+      notes_private: normalizeNullableString(input.notesPrivate, 2000),
+      relationship_depth: relationshipDepth,
+    })
+    .eq("id", personId)
+    .eq("owner_organization_id", contextResult.data.organization.id);
+
+  if (error) {
+    return {
+      message: error.message,
+      status: "error" as const,
+    };
+  }
+
+  return {
+    data: {
+      personId,
     },
     status: "ready" as const,
   };

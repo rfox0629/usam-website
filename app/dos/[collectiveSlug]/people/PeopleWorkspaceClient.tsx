@@ -18,6 +18,15 @@ const filters: Array<{ key: FilterKey; label: string }> = [
   { key: "inactive", label: "Inactive" },
 ];
 
+const relationshipStageOptions = [
+  "New",
+  "Exploring",
+  "Walking With",
+  "Discipling",
+  "Multiplying",
+  "Inactive",
+];
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
@@ -41,11 +50,11 @@ function matchesFilter(person: DosFieldPerson, filter: FilterKey) {
   }
 
   if (filter === "new") {
-    return person.newToField;
+    return person.relationshipStage === "New" || person.newToField;
   }
 
   if (filter === "inactive") {
-    return person.inactive;
+    return person.relationshipStage === "Inactive" || person.inactive;
   }
 
   return true;
@@ -86,13 +95,13 @@ function PersonCard({
       </div>
 
       <div className="mt-5 space-y-3 text-sm leading-6">
-        {person.engagementLevel ? (
+        <p className="text-stone-300">{person.relationshipSummary}</p>
+
+        {person.relationshipStage ? (
           <p className="text-stone-300">
-            <span className="text-stone-500">Engagement:</span> {person.engagementLevel}
+            <span className="text-stone-500">Relationship stage:</span> {person.relationshipStage}
           </p>
         ) : null}
-
-        <p className="text-stone-300">{person.relationshipSummary}</p>
 
         {person.disciplingCount > 0 ? (
           <p className="text-amber-300">
@@ -130,12 +139,9 @@ function AddPersonModal({
     try {
       const response = await fetch(`/api/dos/${collectiveSlug}/people`, {
         body: JSON.stringify({
-          email: String(formData.get("email") ?? ""),
-          engagementLevel: String(formData.get("engagement_level") ?? ""),
+          relationshipStage: String(formData.get("relationship_stage") ?? "Walking With"),
           firstName: String(formData.get("first_name") ?? ""),
           lastName: String(formData.get("last_name") ?? ""),
-          notesPrivate: String(formData.get("notes_private") ?? ""),
-          phone: String(formData.get("phone") ?? ""),
         }),
         headers: {
           "Content-Type": "application/json",
@@ -193,7 +199,7 @@ function AddPersonModal({
                 Add Person
               </h2>
               <p className="mt-3 text-sm leading-6 text-stone-400">
-                Add only what you need now. You can deepen the relationship record later.
+                Add someone to your field. You can deepen the relationship record later.
               </p>
             </div>
             <button
@@ -209,27 +215,10 @@ function AddPersonModal({
           <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="First name" name="first_name" required />
-              <Field label="Last name" name="last_name" />
-              <Field label="Phone" name="phone" type="tel" />
-              <Field label="Email" name="email" type="email" />
+              <Field label="Last name" name="last_name" required />
             </div>
 
-            <Field label="Engagement level" name="engagement_level" />
-
-            <label className="block">
-              <span
-                className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500"
-                style={{ fontFamily: font.rajdhani }}
-              >
-                Notes
-              </span>
-              <textarea
-                className="mt-2 min-h-28 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
-                name="notes_private"
-                placeholder="Private ministry notes"
-                rows={4}
-              />
-            </label>
+            <RelationshipStageSelect />
 
             {errorMessage ? (
               <div className="border border-red-500/35 bg-red-950/30 p-4 text-sm leading-6 text-red-100">
@@ -247,13 +236,40 @@ function AddPersonModal({
                 style={{ fontFamily: font.rajdhani }}
                 type="submit"
               >
-                {isSubmitting ? "Adding..." : "Add Person"}
+                {isSubmitting ? "Adding..." : "Add To My Field"}
               </button>
             </div>
           </form>
         </div>
       </div>
     </div>
+  );
+}
+
+function RelationshipStageSelect() {
+  return (
+    <label className="block">
+      <span
+        className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500"
+        style={{ fontFamily: font.rajdhani }}
+      >
+        Relationship Stage
+      </span>
+      <select
+        className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+        defaultValue="Walking With"
+        name="relationship_stage"
+      >
+        {relationshipStageOptions.map((stage) => (
+          <option key={stage} value={stage}>
+            {stage}
+          </option>
+        ))}
+      </select>
+      <p className="mt-2 text-xs leading-5 text-stone-500">
+        Track where this relationship currently is.
+      </p>
+    </label>
   );
 }
 
@@ -301,7 +317,7 @@ export function PeopleWorkspaceClient({
     () =>
       data.people.filter((person) => {
         const matchesSearch = !normalizedSearch ||
-          [person.name, person.engagementLevel, person.relationshipSummary]
+          [person.name, person.relationshipStage, person.relationshipSummary]
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(normalizedSearch));
 
