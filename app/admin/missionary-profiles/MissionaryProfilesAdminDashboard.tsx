@@ -513,6 +513,8 @@ type EditorTab =
   | "story"
   | "support"
   | "prayer";
+type LegacyEditorTab = "connections" | "tables";
+type RawEditorTab = EditorTab | LegacyEditorTab;
 type SupportSubsection = "advanced" | "buttons" | "giving" | "gifts" | "progress";
 type PrayerSubsection = "content" | "cta" | "preview" | "team" | "visibility";
 
@@ -736,6 +738,10 @@ const editorTabGroups: Array<{
     ],
   },
 ];
+
+function normalizeEditorTab(tab: RawEditorTab): EditorTab {
+  return tab === "tables" || tab === "connections" ? "meetings" : tab;
+}
 
 const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
   { label: "Fundraising Progress", value: "progress" },
@@ -3368,7 +3374,7 @@ function MeetingsManager({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-2xl text-sm leading-6 text-[#7b746a]">
-          Meetings combine scheduled plans, completed tables, quick touches, calls, texts, prayer, and discipleship follow-up in one operating view.
+          Meetings combine scheduled plans, completed meetings, quick touches, calls, texts, prayer, and discipleship follow-up in one operating view.
         </p>
         <div className="flex flex-wrap gap-2">
           <button className={lightSecondaryButtonClass} onClick={() => setIsSchedulingMeeting(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
@@ -3954,7 +3960,7 @@ function TableDetailPanel({
   if (!table) {
     return (
       <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-        Select a table to view details.
+        Select a meeting to view details.
       </div>
     );
   }
@@ -4029,7 +4035,7 @@ function TableDetailPanel({
     <aside className="self-start rounded-xl border border-[#e2ded5] bg-white p-4">
       <div>
         <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Selected Table
+          Selected Meeting
         </p>
         <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
           {meetingTypeLabel(parsedTableNotes.meta.meetingType ?? table.table_type)}
@@ -4062,7 +4068,7 @@ function TableDetailPanel({
       </div>
 
       <div className="mt-4 border-t border-[#e2ded5] pt-4">
-        <div aria-label="Table workflow" className="flex flex-wrap gap-2" role="tablist">
+        <div aria-label="Meeting workflow" className="flex flex-wrap gap-2" role="tablist">
           {tableWorkflowSections.map((section) => {
             const selected = activeSection === section.value;
 
@@ -4090,10 +4096,10 @@ function TableDetailPanel({
           {activeSection === "summary" ? (
             <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-4 text-sm leading-6 text-[#4b443b]">
               <p className="font-semibold text-[#111111]">
-                Table workflow
+                Meeting workflow
               </p>
               <p className="mt-1">
-                Log Table -&gt; Add Response -&gt; Review -&gt; Assess -&gt; Create Fruit.
+                Log Meeting -&gt; Add Response -&gt; Review -&gt; Assess -&gt; Create Fruit.
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
                 Use the tabs above to open one step at a time.
@@ -4109,7 +4115,7 @@ function TableDetailPanel({
                     Responses
                   </p>
                   <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                    Encounters are raw participant responses from this Table.
+                    Encounters are raw participant responses from this meeting.
                   </p>
                 </div>
                 <button className={lightSecondaryButtonClass} onClick={() => onAddEncounter(table)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
@@ -6212,7 +6218,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const router = useRouter();
   const [profiles, setProfiles] = useState(initialProfiles);
   const [selectedId, setSelectedId] = useState("");
-  const [activeTab, setActiveTab] = useState<EditorTab>("overview");
+  const [activeTab, setActiveTab] = useState<RawEditorTab>("overview");
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("progress");
   const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("visibility");
   const [profileQuery, setProfileQuery] = useState("");
@@ -6238,6 +6244,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [targetHouseholdLoadState, setTargetHouseholdLoadState] = useState<TargetHouseholdLoadState>("idle");
   const [targetHouseholds, setTargetHouseholds] = useState<TargetHouseholdOption[]>([]);
   const [isRefreshing, startRefreshTransition] = useTransition();
+
+  useEffect(() => {
+    setActiveTab((currentTab) => normalizeEditorTab(currentTab));
+  }, []);
 
   useEffect(() => {
     setProfiles(initialProfiles);
@@ -6624,14 +6634,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
   }
 
-  function changeEditorTab(tab: EditorTab) {
-    setActiveTab(tab);
+  function changeEditorTab(tab: RawEditorTab) {
+    const nextTab = normalizeEditorTab(tab);
+    setActiveTab(nextTab);
 
-    if (tab === "support") {
+    if (nextTab === "support") {
       setSupportSubsection("progress");
     }
 
-    if (tab === "prayer") {
+    if (nextTab === "prayer") {
       setPrayerSubsection("visibility");
     }
   }
@@ -7791,7 +7802,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "meetings" ? (
           <SectionIntro
-            description="Feeds Field. Scheduled meetings, completed tables, quick touches, calls, texts, prayer, and discipleship follow-up in one operating view."
+            description="Feeds Field. Scheduled meetings, completed meetings, quick touches, calls, texts, prayer, and discipleship follow-up in one operating view."
             title="Meetings"
           >
             <MeetingsManager
