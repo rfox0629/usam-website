@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { PrimaryNav } from "@/components/PrimaryNav";
@@ -364,6 +365,15 @@ export default async function DosCollectiveWorkspacePage({
                 <p>{data.organization.name}</p>
                 <p>Affiliated: {joinNames(affiliateNames, "No active affiliates")}</p>
                 <p>Networks: {joinNames(networkNames, "No active networks")}</p>
+              </div>
+              <div className="mt-6">
+                <Link
+                  className="inline-flex min-h-12 items-center justify-center border border-amber-500/50 bg-[#101010] px-5 text-center text-xs font-bold uppercase tracking-[0.2em] text-amber-300 transition-colors hover:border-amber-300 hover:text-amber-100"
+                  href={`/dos/${data.collective.slug}/people`}
+                  style={{ fontFamily: font.rajdhani }}
+                >
+                  Open People
+                </Link>
               </div>
             </div>
 
