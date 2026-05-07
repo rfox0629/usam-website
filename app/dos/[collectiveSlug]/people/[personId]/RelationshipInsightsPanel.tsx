@@ -235,6 +235,9 @@ export function RelationshipNotesPanel({
       const response = await fetch(`/api/dos/${collectiveSlug}/people/${person.id}/insights`, {
         body: JSON.stringify({
           commitmentLevel: person.commitmentLevel,
+          // TODO: Meeting logs should become the primary historical timeline.
+          // Timestamped interaction notes belong on meetings; this snapshot
+          // should stay concise, private, and long-term.
           notesPrivate,
           relationshipDepth: person.relationshipDepth ?? "",
         }),
@@ -246,37 +249,40 @@ export function RelationshipNotesPanel({
       const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(typeof result.error === "string" ? result.error : "Unable to save relationship notes.");
+        throw new Error(typeof result.error === "string" ? result.error : "Unable to save relationship snapshot.");
       }
 
-      setSavedMessage("Relationship notes saved.");
+      setSavedMessage("Relationship snapshot saved.");
       router.refresh();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to save relationship notes.");
+      setErrorMessage(error instanceof Error ? error.message : "Unable to save relationship snapshot.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <form className="border border-stone-800 bg-[#080808] p-4 sm:p-5" onSubmit={handleSubmit}>
+    <form className="border border-stone-900 bg-[#070707]/70 p-4" onSubmit={handleSubmit}>
       <label className="block">
         <span
-          className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-400"
+          className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-400"
           style={{ fontFamily: font.rajdhani }}
         >
-          Relationship Notes
+          Snapshot Notes
         </span>
         <textarea
-          className="mt-4 min-h-28 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400 disabled:text-stone-500"
+          className="mt-3 min-h-20 w-full border border-stone-800 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400 disabled:text-stone-500"
           disabled={!canEdit}
           onChange={(event) => setNotesPrivate(event.target.value)}
           placeholder="Notes about spiritual growth, follow up, or prayer."
-          rows={4}
+          rows={3}
           value={notesPrivate}
         />
       </label>
-      <p className="mt-3 text-xs leading-5 text-stone-500">Private to the owning organization.</p>
+      <div className="mt-2 space-y-1 text-xs leading-5 text-stone-500">
+        <p>Keep this concise and evergreen.</p>
+        <p>Private to the owning organization.</p>
+      </div>
 
       {errorMessage ? (
         <div className="mt-4 border border-red-500/35 bg-red-950/30 p-4 text-sm leading-6 text-red-100">
@@ -291,14 +297,14 @@ export function RelationshipNotesPanel({
       ) : null}
 
       {canEdit ? (
-        <div className="mt-4 flex justify-end">
+        <div className="mt-3 flex justify-end">
           <button
-            className="min-h-11 border border-amber-500/60 bg-amber-400 px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-10 border border-amber-500/60 bg-amber-400 px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
             style={{ fontFamily: font.rajdhani }}
             type="submit"
           >
-            {isSubmitting ? "Saving..." : "Save Notes"}
+            {isSubmitting ? "Saving..." : "Save Snapshot"}
           </button>
         </div>
       ) : null}

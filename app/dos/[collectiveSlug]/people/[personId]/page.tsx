@@ -501,7 +501,9 @@ export default async function DosPersonDetailPage({
       <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
-            <SectionIntro eyebrow="Notes" title="Private relationship notes" />
+            <SectionIntro eyebrow="Notes" title="Relationship Snapshot">
+              <p>Quick long term context about this person. Detailed interaction notes belong in meeting logs.</p>
+            </SectionIntro>
           </div>
           <RelationshipNotesPanel collectiveSlug={data.collective.slug} person={person} />
         </div>
