@@ -10,8 +10,16 @@ export const dosMeetingTypes = [
 ] as const;
 
 export const dosMeetingMovementOptions = [
+  "no_change",
+  "more_resistant",
+  "more_curious",
   "more_open",
   "more_engaged",
+  "ready_for_discipleship",
+  "multiplying",
+] as const;
+
+export const dosLegacyMeetingMovementOptions = [
   "beginning_discipleship",
   "beginning_multiplication",
 ] as const;
@@ -25,11 +33,28 @@ export const dosMeetingOutcomeOptions = [
   "interested_discipleship",
   "began_discipling_someone",
   "testimony_shared",
+  "repentance_surrender",
+  "committed_obey_jesus",
+  "asked_baptism",
+  "received_freedom_healing",
+] as const;
+
+export const dosDiscussionGuideOptions = [
+  "none",
+  "are_you_really_a_disciple",
+  "the_10_commands",
+  "relationship_with_jesus_check_in",
+  "prayer_freedom_conversation",
+  "testimony",
+  "custom_discussion",
 ] as const;
 
 export type DosMeetingType = typeof dosMeetingTypes[number];
-export type DosMeetingMovement = typeof dosMeetingMovementOptions[number];
+export type DosMeetingMovement =
+  | typeof dosMeetingMovementOptions[number]
+  | typeof dosLegacyMeetingMovementOptions[number];
 export type DosMeetingOutcome = typeof dosMeetingOutcomeOptions[number];
+export type DosDiscussionGuide = typeof dosDiscussionGuideOptions[number];
 
 export type DosMeetingParticipant = {
   id: string;
@@ -39,6 +64,7 @@ export type DosMeetingParticipant = {
 };
 
 export type DosMeetingFeedItem = {
+  discussionGuideKey: string | null;
   followUpNeeded: boolean;
   id: string;
   meetingAt: string;
@@ -94,19 +120,38 @@ const dosMeetingTypeLabels: Record<DosMeetingType, string> = {
 const dosMeetingMovementLabels: Record<DosMeetingMovement, string> = {
   beginning_discipleship: "Beginning Discipleship",
   beginning_multiplication: "Beginning Multiplication",
+  more_curious: "More Curious",
   more_engaged: "More Engaged",
   more_open: "More Open",
+  more_resistant: "More Resistant",
+  multiplying: "Multiplying",
+  no_change: "No Change",
+  ready_for_discipleship: "Ready for Discipleship",
 };
 
 const dosMeetingOutcomeLabels: Record<DosMeetingOutcome, string> = {
+  asked_baptism: "Asked for baptism",
   began_discipling_someone: "Began discipling someone",
   breakthrough_moment: "Breakthrough moment",
+  committed_obey_jesus: "Committed to obey Jesus",
   follow_up_needed: "Follow up needed",
   gospel_conversation: "Gospel conversation",
   interested_discipleship: "Interested in discipleship",
   prayer_requested: "Prayer requested",
+  received_freedom_healing: "Received freedom / healing",
+  repentance_surrender: "Repentance / surrender",
   testimony_shared: "Testimony shared",
   wants_to_meet_again: "Wants to meet again",
+};
+
+const dosDiscussionGuideLabels: Record<DosDiscussionGuide, string> = {
+  are_you_really_a_disciple: "Are You Really a Disciple?",
+  custom_discussion: "Custom Discussion",
+  none: "None",
+  prayer_freedom_conversation: "Prayer / Freedom Conversation",
+  relationship_with_jesus_check_in: "Relationship With Jesus Check In",
+  testimony: "Testimony",
+  the_10_commands: "The 10 Commands",
 };
 
 export function dosMeetingTypeLabel(type: string) {
@@ -130,4 +175,12 @@ export function dosMeetingOutcomeLabel(outcome: string | null) {
   }
 
   return dosMeetingOutcomeLabels[outcome as DosMeetingOutcome] ?? dosMeetingTypeLabel(outcome);
+}
+
+export function dosDiscussionGuideLabel(guide: string | null) {
+  if (!guide) {
+    return "";
+  }
+
+  return dosDiscussionGuideLabels[guide as DosDiscussionGuide] ?? dosMeetingTypeLabel(guide);
 }

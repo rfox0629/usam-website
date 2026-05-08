@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
+  dosDiscussionGuideLabel,
+  dosDiscussionGuideOptions,
   dosMeetingMovementLabel,
+  dosMeetingMovementOptions,
   dosMeetingOutcomeLabel,
   dosMeetingOutcomeOptions,
   dosMeetingTypeLabel,
@@ -57,26 +60,6 @@ function participantNames(meeting: DosMeetingFeedItem) {
   return names.length ? names.join(" + ") : "No people attached";
 }
 
-function deriveRelationshipMovement(outcomeMarkers: string[]) {
-  if (outcomeMarkers.includes("began_discipling_someone")) {
-    return "beginning_multiplication";
-  }
-
-  if (outcomeMarkers.includes("interested_discipleship")) {
-    return "beginning_discipleship";
-  }
-
-  if (outcomeMarkers.includes("breakthrough_moment")) {
-    return "more_open";
-  }
-
-  if (outcomeMarkers.includes("gospel_conversation") || outcomeMarkers.includes("wants_to_meet_again")) {
-    return "more_engaged";
-  }
-
-  return "";
-}
-
 function MeetingCard({
   collectiveSlug,
   meeting,
@@ -111,6 +94,7 @@ function MeetingCard({
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">
+        {meeting.discussionGuideKey ? <Indicator>{dosDiscussionGuideLabel(meeting.discussionGuideKey)}</Indicator> : null}
         {meeting.outcomeMarkers.slice(0, 4).map((marker) => (
           <Indicator key={marker}>{dosMeetingOutcomeLabel(marker)}</Indicator>
         ))}
@@ -377,6 +361,7 @@ function MeetingLoggerSheet({
       const response = await fetch(`/api/dos/${collectiveSlug}/meetings`, {
         body: JSON.stringify({
           followUpNeeded: selectedOutcomes.includes("follow_up_needed"),
+          discussionGuideKey: String(formData.get("discussion_guide_key") ?? "none"),
           meetingAt: parsedMeetingAt.toISOString(),
           meetingDate,
           ministerProfileIds: selectedParticipants
@@ -388,7 +373,7 @@ function MeetingLoggerSheet({
             .filter((person) => person.kind === "person")
             .map((person) => person.id),
           prayerRequested: selectedOutcomes.includes("prayer_requested"),
-          relationshipMovement: deriveRelationshipMovement(selectedOutcomes),
+          relationshipMovement: String(formData.get("relationship_movement") ?? "no_change"),
           summaryPrivate: String(formData.get("summary_private") ?? ""),
           type: String(formData.get("type") ?? "kitchen_table"),
         }),
@@ -561,13 +546,33 @@ function MeetingLoggerSheet({
               ) : null}
             </section>
 
+            {/* TODO: Replace this selector with guide templates, per-person guide answers,
+                yes/no questions, relationship with Jesus ratings, and guide completion tracking. */}
             <label className="block">
-              <FormLabel>Short Summary</FormLabel>
+              <FormLabel>What did you discuss?</FormLabel>
+              <select
+                className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+                defaultValue="none"
+                name="discussion_guide_key"
+              >
+                {dosDiscussionGuideOptions.map((guide) => (
+                  <option key={guide} value={guide}>
+                    {dosDiscussionGuideLabel(guide)}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs leading-5 text-stone-500">
+                Future guides will capture responses separately for each person involved.
+              </p>
+            </label>
+
+            <label className="block">
+              <FormLabel>What happened?</FormLabel>
               <textarea
                 className="mt-2 min-h-20 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-base leading-7 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
                 maxLength={600}
                 name="summary_private"
-                placeholder="Jordan opened up about fear and isolation."
+                placeholder="Briefly capture what happened in the conversation."
                 rows={2}
               />
             </label>
@@ -575,9 +580,9 @@ function MeetingLoggerSheet({
             <section>
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <FormLabel>What happened?</FormLabel>
+                  <FormLabel>What changed?</FormLabel>
                   <p className="mt-2 text-xs leading-5 text-stone-500">
-                    Meeting is what happened. Fruit is what changed.
+                    Fruit / Outcome captures what shifted during or after the conversation.
                   </p>
                 </div>
               </div>
@@ -605,16 +610,33 @@ function MeetingLoggerSheet({
               </div>
             </section>
 
-            <label className="block">
-              <FormLabel>Outcome Notes</FormLabel>
-              <textarea
-                className="mt-2 min-h-16 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
-                maxLength={500}
-                name="outcome_notes_private"
-                placeholder="Small note about what changed."
-                rows={2}
-              />
-            </label>
+            <section className="grid gap-4 sm:grid-cols-[1fr_0.85fr]">
+              <label className="block">
+                <FormLabel>Outcome Notes</FormLabel>
+                <textarea
+                  className="mt-2 min-h-16 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
+                  maxLength={500}
+                  name="outcome_notes_private"
+                  placeholder="Small note about what changed."
+                  rows={2}
+                />
+              </label>
+
+              <label className="block">
+                <FormLabel>Did their commitment level change?</FormLabel>
+                <select
+                  className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+                  defaultValue="no_change"
+                  name="relationship_movement"
+                >
+                  {dosMeetingMovementOptions.map((movement) => (
+                    <option key={movement} value={movement}>
+                      {dosMeetingMovementLabel(movement)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
 
             {errorMessage ? (
               <div className="border border-red-500/35 bg-red-950/30 p-4 text-sm leading-6 text-red-100">

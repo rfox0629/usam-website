@@ -2,10 +2,12 @@ import "server-only";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import {
+  dosDiscussionGuideOptions,
   dosMeetingMovementOptions,
   dosMeetingOutcomeOptions,
   dosMeetingTypeLabel,
   dosMeetingTypes,
+  type DosDiscussionGuide,
   type DosMeetingFeedItem,
   type DosMeetingOutcome,
   type DosMeetingOption,
@@ -56,6 +58,7 @@ type CollectiveMembershipRow = {
 };
 
 type MeetingRow = {
+  discussion_guide_key: string | null;
   follow_up_needed: boolean;
   id: string;
   meeting_at: string;
@@ -95,6 +98,7 @@ type LoadContext = {
 };
 
 type CreateDosMeetingInput = {
+  discussionGuideKey?: string | null;
   followUpNeeded?: boolean;
   meetingAt?: string | null;
   meetingDate?: string | null;
@@ -112,6 +116,7 @@ type CreateDosMeetingInput = {
 const dosMeetingTypeSet = new Set<string>(dosMeetingTypes);
 const dosMeetingMovementSet = new Set<string>(dosMeetingMovementOptions);
 const dosMeetingOutcomeSet = new Set<string>(dosMeetingOutcomeOptions);
+const dosDiscussionGuideSet = new Set<string>(dosDiscussionGuideOptions);
 
 function fullName(firstName: string, lastName: string | null | undefined) {
   return [firstName, lastName].filter(Boolean).join(" ").trim() || firstName;
@@ -134,7 +139,26 @@ function normalizeMeetingType(value: string | null | undefined): DosMeetingType 
 function normalizeMovement(value: string | null | undefined) {
   const movement = normalizeNullableString(value, 80);
 
+  if (!movement || movement === "no_change") {
+    return null;
+  }
+
   return movement && dosMeetingMovementSet.has(movement) ? movement : null;
+}
+
+function normalizeDiscussionGuide(value: string | null | undefined): Exclude<DosDiscussionGuide, "none"> | null {
+  const discussionGuide = normalizeNullableString(value, 80);
+
+  if (!discussionGuide || discussionGuide === "none") {
+    return null;
+  }
+
+  // TODO: Move structured guide responses into meeting_discussion_responses
+  // when templates ship. Answers must be captured per person, not shared
+  // as one meeting-level answer.
+  return dosDiscussionGuideSet.has(discussionGuide)
+    ? discussionGuide as Exclude<DosDiscussionGuide, "none">
+    : null;
 }
 
 function normalizeOutcomeMarkers(values: string[] | null | undefined): DosMeetingOutcome[] {
@@ -186,6 +210,7 @@ function mapMeeting(
   people: Map<string, PersonRow>,
 ): DosMeetingFeedItem {
   return {
+    discussionGuideKey: meeting.discussion_guide_key,
     followUpNeeded: meeting.follow_up_needed,
     id: meeting.id,
     meetingAt: meeting.meeting_at,
@@ -281,7 +306,7 @@ async function loadContext(collectiveSlug: string): Promise<LoadResult<LoadConte
       .eq("status", "active"),
     supabase
       .from("meetings")
-      .select("id, title, type, meeting_date, meeting_at, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement, outcome_markers, outcome_notes_private")
+      .select("id, title, type, meeting_date, meeting_at, discussion_guide_key, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement, outcome_markers, outcome_notes_private")
       .eq("owner_organization_id", collective.owner_organization_id)
       .eq("primary_collective_id", collective.id)
       .order("meeting_at", { ascending: false }),
@@ -443,6 +468,7 @@ export async function createDosMeeting(collectiveSlug: string, input: CreateDosM
   const meetingAt = normalizeMeetingAt(input.meetingAt);
   const meetingDate = normalizeMeetingDate(input.meetingDate, meetingAt);
   const summaryPrivate = normalizeNullableString(input.summaryPrivate, 600);
+  const discussionGuideKey = normalizeDiscussionGuide(input.discussionGuideKey);
   const outcomeMarkers = normalizeOutcomeMarkers(input.outcomeMarkers);
   const outcomeNotesPrivate = normalizeNullableString(input.outcomeNotesPrivate, 500);
   const relationshipMovement = normalizeMovement(input.relationshipMovement);
@@ -469,6 +495,7 @@ export async function createDosMeeting(collectiveSlug: string, input: CreateDosM
     .from("meetings")
     .insert({
       created_by_profile_id: contextResult.data.defaultMinisterId,
+      discussion_guide_key: discussionGuideKey,
       follow_up_needed: Boolean(input.followUpNeeded) || outcomeMarkers.includes("follow_up_needed"),
       meeting_at: meetingAt.toISOString(),
       meeting_date: meetingDate,

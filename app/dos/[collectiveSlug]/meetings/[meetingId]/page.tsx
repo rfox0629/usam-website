@@ -6,6 +6,7 @@ import { PrimaryNav } from "@/components/PrimaryNav";
 import { ImproveDosFeedbackModal } from "@/app/system/preview/ImproveDosFeedbackModal";
 import { loadDosMeetingDetail } from "@/src/lib/dos/meetings";
 import {
+  dosDiscussionGuideLabel,
   dosMeetingMovementLabel,
   dosMeetingOutcomeLabel,
   dosMeetingTypeLabel,
@@ -147,6 +148,7 @@ export default async function DosMeetingDetailPage({
 
   const { collective, meeting } = result.data;
   const movement = dosMeetingMovementLabel(meeting.relationshipMovement);
+  const discussionGuide = dosDiscussionGuideLabel(meeting.discussionGuideKey);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#050505] text-stone-100">
@@ -178,10 +180,9 @@ export default async function DosMeetingDetailPage({
             </p>
           </div>
 
-          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <DetailTile label="Prayer Requested" value={meeting.prayerRequested ? "Yes" : "No"} />
-            <DetailTile label="Follow Up Needed" value={meeting.followUpNeeded ? "Yes" : "No"} />
-            <DetailTile label="Movement" value={movement || "No movement marker"} />
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <DetailTile label="Meeting Type" value={dosMeetingTypeLabel(meeting.type)} />
+            <DetailTile label="Date / Time" value={formatMeetingDate(meeting.meetingAt)} />
             <DetailTile label="People Attached" value={String(meeting.ministers.length + meeting.people.length)} />
           </div>
         </div>
@@ -190,7 +191,21 @@ export default async function DosMeetingDetailPage({
       <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.8fr_1.2fr]">
           <div>
-            <Eyebrow>Summary</Eyebrow>
+            <Eyebrow>Discussion Guide</Eyebrow>
+            <h2 className="mt-4 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+              What was walked through
+            </h2>
+          </div>
+          <div className="border border-stone-800 bg-[#080808] p-5 text-sm leading-7 text-stone-300">
+            {discussionGuide || "No discussion guide selected for this meeting."}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
+        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <Eyebrow>Summary / What Happened</Eyebrow>
             <h2 className="mt-4 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
               What happened
             </h2>
@@ -200,6 +215,22 @@ export default async function DosMeetingDetailPage({
           </div>
         </div>
       </section>
+
+      {movement ? (
+        <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
+          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+            <div>
+              <Eyebrow>Movement</Eyebrow>
+              <h2 className="mt-4 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                Commitment shift
+              </h2>
+            </div>
+            <div className="border border-stone-800 bg-[#080808] p-5 text-sm leading-7 text-stone-300">
+              {movement}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="relative border-t border-stone-900 px-4 py-9 sm:px-6 md:py-12">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.8fr_1.2fr]">

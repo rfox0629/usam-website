@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createDosMeeting } from "@/src/lib/dos/meetings";
 
 type CreateMeetingPayload = {
+  discussionGuideKey?: unknown;
   followUpNeeded?: unknown;
   meetingAt?: unknown;
   meetingDate?: unknown;
@@ -44,6 +45,7 @@ export async function POST(
 
   const { collectiveSlug } = await context.params;
   const result = await createDosMeeting(collectiveSlug, {
+    discussionGuideKey: asString(body.discussionGuideKey),
     followUpNeeded: asBoolean(body.followUpNeeded),
     meetingAt: asString(body.meetingAt),
     meetingDate: asString(body.meetingDate),

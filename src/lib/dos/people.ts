@@ -30,6 +30,7 @@ export type DosFieldPerson = {
 };
 
 export type DosPersonMeeting = {
+  discussionGuideKey: string | null;
   followUpNeeded: boolean;
   id: string;
   meetingAt: string;
@@ -170,6 +171,7 @@ type CollectiveMembershipRow = {
 };
 
 type MeetingRow = {
+  discussion_guide_key: string | null;
   follow_up_needed: boolean;
   id: string;
   meeting_at: string;
@@ -593,7 +595,7 @@ async function loadContext(collectiveSlug: string): Promise<LoadResult<LoadConte
       .eq("status", "active"),
     supabase
       .from("meetings")
-      .select("id, title, type, meeting_date, meeting_at, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement, outcome_markers, outcome_notes_private")
+      .select("id, title, type, meeting_date, meeting_at, discussion_guide_key, summary_private, notes_private, prayer_requested, follow_up_needed, relationship_movement, spiritual_openness_movement, outcome_markers, outcome_notes_private")
       .eq("owner_organization_id", collective.owner_organization_id)
       .eq("primary_collective_id", collective.id)
       .order("meeting_at", { ascending: false }),
@@ -648,6 +650,7 @@ async function loadContext(collectiveSlug: string): Promise<LoadResult<LoadConte
   const meetingMinisters = (meetingMinistersResult.data ?? []) as MeetingMinisterRow[];
   const meetingPeople = (meetingPeopleResult.data ?? []) as MeetingPersonRow[];
   const mappedMeetings = meetings.map((meeting) => ({
+    discussionGuideKey: meeting.discussion_guide_key,
     followUpNeeded: meeting.follow_up_needed,
     id: meeting.id,
     meetingAt: meeting.meeting_at,

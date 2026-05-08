@@ -84,8 +84,8 @@ export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 
 // Profiles (PF) public read model. These fields control public profile
 // content: Profile, Features, Team roster, Media, Story, Support, and Prayer.
-// Command Center owns review and publishing; public pages display only
-// approved profile content.
+// The Missionary Workspace owns review and publishing; public pages display
+// only approved profile content.
 export type AdminHousehold = {
   id: string;
   slug: string;
@@ -147,8 +147,8 @@ export type AdminSupportSettings = {
   major_gift_public_description?: string | null;
 };
 
-// Tables are the meeting layer for ministry activity. Command Center manages
-// them now; future Field (FD) can create them quickly during daily work.
+// Tables are the meeting layer for ministry activity. The Missionary Workspace
+// manages them now; future Field (FD) can create them quickly during daily work.
 export type AdminMissionaryTable = {
   created_at: string;
   field_person_ids: string[];
@@ -163,8 +163,8 @@ export type AdminMissionaryTable = {
   workspace_id: string;
 };
 
-// Your Field (People) is the internal relationship map shared by Command
-// Center and future Field. These records are not public Profile Team members.
+// Your Field (People) is the internal relationship map shared by the Missionary
+// Workspace and future Field. These records are not public Profile Team members.
 export type AdminFieldPerson = {
   church: string | null;
   created_at: string;
@@ -185,8 +185,8 @@ export type AdminFieldPerson = {
 };
 
 // Encounters are the raw intake layer for testimonies, forms, reviews, and
-// story material. Field (FD) can create these later; Command Center reviews
-// them before any approved Fruit is derived.
+// story material. Field (FD) can create these later; the Missionary Workspace
+// reviews them before any approved Fruit is derived.
 export type AdminEncounterSubmission = {
   created_at: string;
   do_not_publish: boolean;
@@ -1865,7 +1865,7 @@ function DataFlowLabels({ items }: { items: string[] }) {
 function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
   return (
     <div className="space-y-5">
-      <DataFlowLabels items={["Operations managed in Command Center", "Profiles show approved public content", "Field app is future"]} />
+      <DataFlowLabels items={["Operations managed in Missionary Workspace", "Profiles show approved public content", "DOS app is private by default"]} />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <StatPreview label="Your Field" tone="light" value={String(profile.fieldPeople?.length ?? 0)} />
         <StatPreview label="Meetings" tone="light" value={String((profile.tables?.length ?? 0) + (profile.connectionLogs?.length ?? 0))} />
@@ -1875,7 +1875,7 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
         <StatPreview label="Prayer Requests" tone="light" value={String(profile.activePrayerRequestCount ?? 0)} />
       </div>
       <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
-        This workspace separates operational ministry activity from public profile content. Operations prepare People, Meetings, Encounters, Fruit, Library, and In Season for future Field use; Profile tabs control what can appear publicly.
+        This Missionary Workspace separates private DOS activity from public profile content. Operations summarize People, Meetings, Encounters, Fruit, Library, and In Season; Profile tabs control what can appear publicly.
       </div>
     </div>
   );
@@ -3982,7 +3982,7 @@ function TableDetailPanel({
                   Review
                 </p>
                 <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                  Internal notes about this meeting. These stay in Command Center.
+                  Internal notes about this meeting. These stay in the Missionary Workspace.
                 </p>
               </div>
               <TextArea
@@ -4378,7 +4378,7 @@ function FruitEditorModal({
               Fruit Summary
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-              Approved Fruit is the public-safe outcome layer. Raw Encounter text and internal notes stay in Command Center.
+              Approved Fruit is the public-safe outcome layer. Raw Encounter text and internal notes stay in the Missionary Workspace.
             </p>
           </div>
           <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
@@ -4422,7 +4422,7 @@ function FruitEditorModal({
             value={draft.summary}
           />
           <TextArea
-            helperText="Internal Command Center notes. Not public and not shown in future Field summaries."
+            helperText="Internal Missionary Workspace notes. Not public and not shown in future Field summaries."
             label="Internal Notes"
             onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, internalNotes: value }))}
             rows={4}
@@ -4590,7 +4590,7 @@ function EncounterSubmissionManager({
           <p className="text-sm leading-6 text-[#7b746a]">
             Encounters are raw testimony records from ministry tables. Review the original, add a clean summary and outcome tags, then approve it into Fruit.
           </p>
-          <DataFlowLabels items={["RAW -> REVIEWED -> APPROVED", "Stored in Command Center", "Approved Fruit feeds Field"]} />
+          <DataFlowLabels items={["RAW -> REVIEWED -> APPROVED", "Stored in Missionary Workspace", "Approved Fruit feeds Field"]} />
         </div>
         <button
           className={lightPrimaryButtonClass}
@@ -4818,7 +4818,7 @@ function EncounterEditorModal({
               Review Panel
             </p>
             <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-              Write only what can become approved Fruit. Internal notes stay inside Command Center.
+              Write only what can become approved Fruit. Internal notes stay inside the Missionary Workspace.
             </p>
             <TextArea
               helperText="This is the only text that can publish after approval."
@@ -4829,7 +4829,7 @@ function EncounterEditorModal({
             />
             <div className="mt-4">
               <TextArea
-                helperText="Command Center only. Not synced to public Profile or future Field summaries."
+                helperText="Missionary Workspace only. Not synced to public Profile or future Field summaries."
                 label="Internal Notes"
                 onChange={(value) => onUpdate(encounter.id, { internal_notes: value })}
                 rows={5}
@@ -4941,7 +4941,7 @@ function FruitManager({
     <div className="space-y-5">
       <div className="max-w-3xl">
         <p className="text-sm leading-7 text-[#7b746a]">
-          Fruit is the approved output layer created from Encounters, Review, and Discipleship Assessment. Raw responses and internal notes stay in Command Center.
+          Fruit is the approved output layer created from Encounters, Review, and Discipleship Assessment. Raw responses and internal notes stay in the Missionary Workspace.
         </p>
         <DataFlowLabels items={["Draft -> Approved", "Updates Profile later", "Feeds Field later"]} />
       </div>
@@ -5047,7 +5047,7 @@ function LibraryManager({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-2xl text-sm leading-6 text-[#7b746a]">
-          Light teaching framework storage for Command Center now and future Table references later.
+          Light teaching framework storage for the Missionary Workspace now and future Table references later.
         </p>
         <button className={lightPrimaryButtonClass} onClick={() => setIsAddingItem(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
           + Add Library Item
@@ -6077,6 +6077,27 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     setSelectedId("");
     setActiveTab("overview");
     resetTransientEditorState();
+  }
+
+  async function copySelectedProfileLink() {
+    if (!selectedProfile || typeof window === "undefined") {
+      return;
+    }
+
+    const profileUrl = `${window.location.origin}/missionaries/${selectedProfile.slug}`;
+
+    try {
+      await window.navigator.clipboard.writeText(profileUrl);
+      setStatus({
+        text: "Public profile link copied.",
+        tone: "success",
+      });
+    } catch {
+      setStatus({
+        text: profileUrl,
+        tone: "success",
+      });
+    }
   }
 
   function updateHouseholdField(field: keyof AdminHousehold, value: boolean | number | string | null) {
@@ -7257,7 +7278,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             </button>
             <div>
               <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Editing Household
+                Missionary Workspace
               </p>
               <h2 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
                 {selectedProfile.display_name}
@@ -7266,7 +7287,30 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Link
+              className="inline-flex min-h-11 items-center justify-center border border-[#D4A63D]/60 bg-[#D4A63D]/10 px-4 py-3 text-center text-xs uppercase tracking-[0.2em] text-[#F5B942] transition-all hover:border-[#F5B942] hover:text-[#FFE08A]"
+              href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            >
+              Open DOS App
+            </Link>
+            <Link
+              className="inline-flex min-h-11 items-center justify-center border border-stone-700 px-4 py-3 text-center text-xs uppercase tracking-[0.2em] text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+              href={`/missionaries/${selectedProfile.slug}`}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              target="_blank"
+            >
+              View Public Profile
+            </Link>
+            <button
+              className="inline-flex min-h-11 items-center justify-center border border-stone-700 px-4 py-3 text-center text-xs uppercase tracking-[0.2em] text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+              onClick={copySelectedProfileLink}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              Copy Profile Link
+            </button>
             <button
               className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 py-3 text-xs uppercase tracking-[0.22em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={saving}
@@ -7323,7 +7367,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         <div className="mt-8">
           {activeTab === "overview" ? (
           <SectionIntro
-            description="CC Only. Workspace summary for missionary operations and public profile publishing."
+            description="Missionary Workspace summary for private DOS activity and public profile publishing."
             title="Overview"
           >
             <WorkspaceOverview profile={selectedProfile} />
@@ -7516,10 +7560,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "media" ? (
           <SectionIntro
-            description="Updates Profile. Media used on the directory card and as the household overlay on the shared profile hero background. Managed in Command Center and visible on Profile after save."
+            description="Updates Profile. Media used on the directory card and as the household overlay on the shared profile hero background. Managed in the Missionary Workspace and visible on Profile after save."
             title="Media"
           >
-            <DataFlowLabels items={["Raw upload -> Reviewed -> Published", "Managed in Command Center", "Visible on Profile"]} />
+            <DataFlowLabels items={["Raw upload -> Reviewed -> Published", "Managed in Missionary Workspace", "Visible on Profile"]} />
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <ImageUploadField
@@ -7605,7 +7649,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           >
             <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
               Use the left side for the original submitted story. Use the right side for the edited public version.
-              <DataFlowLabels items={["Raw -> Reviewed -> Published", "Stored in Command Center", "Published to Profile"]} />
+              <DataFlowLabels items={["Raw -> Reviewed -> Published", "Stored in Missionary Workspace", "Published to Profile"]} />
             </div>
             <div className="mt-5 grid gap-5 lg:grid-cols-2">
               <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
