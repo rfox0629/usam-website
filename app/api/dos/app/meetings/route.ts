@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
-import { dosAppMeetingTypes, resolveDosAppWorkspaceId, type DosAppMeetingType } from "@/src/lib/dos/missionary-app";
+import { dosAppMeetingTypes, isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId, type DosAppMeetingType } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type MeetingPayload = {
@@ -78,13 +78,20 @@ export async function POST(request: Request) {
 
   const fieldPersonIds = asStringArray(payload.fieldPersonIds);
   const supabase = createSupabaseAdminClient();
-  const { data: peopleData, error: peopleError } = fieldPersonIds.length
+  const scopedPeopleResult = fieldPersonIds.length
     ? await supabase
       .from("missionary_field_people")
       .select("id, name")
       .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
       .in("id", fieldPersonIds)
     : { data: [], error: null };
+  const { data: peopleData, error: peopleError } = scopedPeopleResult.error && isMissingWorkspaceScopeColumn(scopedPeopleResult.error)
+    ? await supabase
+      .from("missionary_field_people")
+      .select("id, name")
+      .eq("household_id", workspaceId)
+      .in("id", fieldPersonIds)
+    : scopedPeopleResult;
 
   if (peopleError) {
     return NextResponse.json({ error: peopleError.message }, { status: 500 });
@@ -93,20 +100,29 @@ export async function POST(request: Request) {
   const validPeople = (peopleData ?? []) as Array<{ id: string; name: string }>;
   const validPersonIds = validPeople.map((person) => person.id);
   const participantNames = validPeople.map((person) => person.name);
-  const { data, error } = await supabase
+  const meetingInsert: Record<string, unknown> = {
+    field_person_ids: validPersonIds,
+    household_id: workspaceId,
+    notes: asString(payload.notes) || null,
+    participant_names: participantNames,
+    source: "field",
+    table_date: asDateString(payload.tableDate),
+    table_type: asMeetingType(payload.tableType),
+    workspace_id: workspaceId,
+  };
+  const insertResult = await supabase
     .from("missionary_tables")
-    .insert({
-      field_person_ids: validPersonIds,
-      household_id: workspaceId,
-      notes: asString(payload.notes) || null,
-      participant_names: participantNames,
-      source: "field",
-      table_date: asDateString(payload.tableDate),
-      table_type: asMeetingType(payload.tableType),
-      workspace_id: workspaceId,
-    })
+    .insert(meetingInsert)
     .select("id")
     .single();
+  const { workspace_id: _workspaceId, ...legacyMeetingInsert } = meetingInsert;
+  const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
+    ? await supabase
+      .from("missionary_tables")
+      .insert(legacyMeetingInsert)
+      .select("id")
+      .single()
+    : insertResult;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

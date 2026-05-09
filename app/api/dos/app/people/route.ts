@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
-import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
+import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type PersonPayload = {
@@ -60,20 +60,29 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  const personInsert: Record<string, unknown> = {
+    created_by: authResult.authorization.userId,
+    household_id: workspaceId,
+    name,
+    phone,
+    relationship_type: asString(payload.relationshipType) || null,
+    source: "field",
+    status: "new",
+    workspace_id: workspaceId,
+  };
+  const insertResult = await supabase
     .from("missionary_field_people")
-    .insert({
-      created_by: authResult.authorization.userId,
-      household_id: workspaceId,
-      name,
-      phone,
-      relationship_type: asString(payload.relationshipType) || null,
-      source: "field",
-      status: "new",
-      workspace_id: workspaceId,
-    })
+    .insert(personInsert)
     .select("id")
     .single();
+  const { workspace_id: _workspaceId, ...legacyPersonInsert } = personInsert;
+  const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
+    ? await supabase
+      .from("missionary_field_people")
+      .insert(legacyPersonInsert)
+      .select("id")
+      .single()
+    : insertResult;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

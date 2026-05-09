@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
-import { dosAppOutcomeTags, resolveDosAppWorkspaceId, type DosAppOutcomeTag } from "@/src/lib/dos/missionary-app";
+import { dosAppOutcomeTags, isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId, type DosAppOutcomeTag } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type FruitPayload = {
@@ -73,25 +73,34 @@ export async function POST(request: Request) {
 
   const fieldPersonId = asString(payload.fieldPersonId);
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  const fruitInsert: Record<string, unknown> = {
+    body: summary,
+    cc_status: "draft",
+    field_person_id: fieldPersonId || null,
+    household_id: workspaceId,
+    missionary_public_approved: false,
+    outcome_tags: asOutcomeTags(payload.outcomeTags),
+    permission_to_share: false,
+    source: "dos",
+    source_app: "dos_mvp",
+    status: "draft",
+    testimony_date: asDateString(payload.testimonyDate),
+    visibility: "private",
+    workspace_id: workspaceId,
+  };
+  const insertResult = await supabase
     .from("missionary_fruit_items")
-    .insert({
-      body: summary,
-      cc_status: "draft",
-      field_person_id: fieldPersonId || null,
-      household_id: workspaceId,
-      missionary_public_approved: false,
-      outcome_tags: asOutcomeTags(payload.outcomeTags),
-      permission_to_share: false,
-      source: "dos",
-      source_app: "dos_mvp",
-      status: "draft",
-      testimony_date: asDateString(payload.testimonyDate),
-      visibility: "private",
-      workspace_id: workspaceId,
-    })
+    .insert(fruitInsert)
     .select("id")
     .single();
+  const { workspace_id: _workspaceId, ...legacyFruitInsert } = fruitInsert;
+  const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
+    ? await supabase
+      .from("missionary_fruit_items")
+      .insert(legacyFruitInsert)
+      .select("id")
+      .single()
+    : insertResult;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

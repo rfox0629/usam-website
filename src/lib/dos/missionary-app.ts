@@ -2,6 +2,9 @@ import "server-only";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+type SupabaseQueryError = { message?: string } | null | undefined;
+
 export const dosAppMeetingTypes = ["kitchen_table", "coffee", "phone", "zoom", "group", "other"] as const;
 export const dosAppOutcomeTags = [
   "Salvation",
@@ -128,6 +131,64 @@ function workspaceScopeFilter(workspaceId: string) {
   return `workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`;
 }
 
+export function isMissingWorkspaceScopeColumn(error: SupabaseQueryError) {
+  return Boolean(error?.message?.includes("workspace_id"));
+}
+
+async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const scopedResult = await supabase
+    .from("missionary_field_people")
+    .select("id, name, phone, status, relationship_type, engagement_level, last_activity_at, updated_at")
+    .or(workspaceScopeFilter(workspaceId))
+    .order("last_activity_at", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false });
+
+  return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
+    ? supabase
+      .from("missionary_field_people")
+      .select("id, name, phone, status, relationship_type, engagement_level, last_activity_at, updated_at")
+      .eq("household_id", workspaceId)
+      .order("last_activity_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false })
+    : scopedResult;
+}
+
+async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const scopedResult = await supabase
+    .from("missionary_tables")
+    .select("id, table_type, table_date, notes, participant_names, field_person_ids, updated_at")
+    .or(workspaceScopeFilter(workspaceId))
+    .order("table_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
+    ? supabase
+      .from("missionary_tables")
+      .select("id, table_type, table_date, notes, participant_names, field_person_ids, updated_at")
+      .eq("household_id", workspaceId)
+      .order("table_date", { ascending: false })
+      .order("created_at", { ascending: false })
+    : scopedResult;
+}
+
+async function loadFruitForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const scopedResult = await supabase
+    .from("missionary_fruit_items")
+    .select("id, body, outcome_tags, cc_status, field_person_id, testimony_date, updated_at")
+    .or(workspaceScopeFilter(workspaceId))
+    .order("testimony_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
+    ? supabase
+      .from("missionary_fruit_items")
+      .select("id, body, outcome_tags, cc_status, field_person_id, testimony_date, updated_at")
+      .eq("household_id", workspaceId)
+      .order("testimony_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+    : scopedResult;
+}
+
 async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<HouseholdRow>> {
   if (!isSupabaseAdminConfigured()) {
     return {
@@ -170,24 +231,9 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
   const [peopleResult, meetingsResult, fruitResult] = await Promise.all([
-    supabase
-      .from("missionary_field_people")
-      .select("id, name, phone, status, relationship_type, engagement_level, last_activity_at, updated_at")
-      .or(workspaceScopeFilter(workspace.id))
-      .order("last_activity_at", { ascending: false, nullsFirst: false })
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("missionary_tables")
-      .select("id, table_type, table_date, notes, participant_names, field_person_ids, updated_at")
-      .or(workspaceScopeFilter(workspace.id))
-      .order("table_date", { ascending: false })
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("missionary_fruit_items")
-      .select("id, body, outcome_tags, cc_status, field_person_id, testimony_date, updated_at")
-      .or(workspaceScopeFilter(workspace.id))
-      .order("testimony_date", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false }),
+    loadPeopleForWorkspace(supabase, workspace.id),
+    loadMeetingsForWorkspace(supabase, workspace.id),
+    loadFruitForWorkspace(supabase, workspace.id),
   ]);
 
   if (peopleResult.error || meetingsResult.error || fruitResult.error) {

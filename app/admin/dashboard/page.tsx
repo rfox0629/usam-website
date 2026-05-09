@@ -188,6 +188,10 @@ function isMissingMajorGiftTable(error: { code?: string; message?: string } | nu
   );
 }
 
+function isMissingHouseholdVisibilityColumn(error: { message?: string } | null) {
+  return Boolean(error?.message?.includes("show_household"));
+}
+
 function getMajorGiftName(inquiry: DashboardMajorGiftInquiry) {
   return `${inquiry.first_name} ${inquiry.last_name}`.trim();
 }
@@ -212,7 +216,7 @@ async function getDashboardData(): Promise<DashboardData> {
   }
 
   const supabase = createSupabaseAdminClient();
-  const [householdResult, supportResult, inquiryResult, majorGiftResult] = await Promise.all([
+  const [initialHouseholdResult, supportResult, inquiryResult, majorGiftResult] = await Promise.all([
     supabase
       .from("missionary_households")
       .select("id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, show_household, updated_at")
@@ -229,6 +233,12 @@ async function getDashboardData(): Promise<DashboardData> {
       .select("id, first_name, last_name, email, phone, household_name, profile_slug, donation_types, projected_amount_range, intended_for, status, created_at, updated_at")
       .order("created_at", { ascending: false }),
   ]);
+  const householdResult = initialHouseholdResult.error && isMissingHouseholdVisibilityColumn(initialHouseholdResult.error)
+    ? await supabase
+      .from("missionary_households")
+      .select("id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, updated_at")
+      .order("updated_at", { ascending: false })
+    : initialHouseholdResult;
 
   const majorGiftError = majorGiftResult.error && !isMissingMajorGiftTable(majorGiftResult.error)
     ? majorGiftResult.error
@@ -242,7 +252,10 @@ async function getDashboardData(): Promise<DashboardData> {
     };
   }
 
-  const profiles = (householdResult.data ?? []) as DashboardProfile[];
+  const profiles = ((householdResult.data ?? []) as DashboardProfile[]).map((profile) => ({
+    ...profile,
+    show_household: profile.show_household ?? profile.public_visible ?? true,
+  }));
   const supportSettings = (supportResult.data ?? []) as DashboardSupportSettings[];
   const inquiries = (inquiryResult.data ?? []) as DashboardInquiry[];
   const majorGiftInquiries = majorGiftResult.error
