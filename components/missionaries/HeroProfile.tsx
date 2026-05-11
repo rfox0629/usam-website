@@ -2,7 +2,7 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-export const sharedMissionaryProfileHeroBackground = "/support-background.png";
+export const sharedMissionaryProfileHeroBackground = "/images/usam/default-hero-background.png";
 
 function isExternalImage(src: string) {
   return /^https?:\/\//.test(src);
@@ -19,16 +19,19 @@ type HeroProfileProps = {
 
 export function HeroProfile({
   actions,
-  backgroundImage = sharedMissionaryProfileHeroBackground,
+  backgroundImage,
   description,
   image,
   location,
   name,
 }: HeroProfileProps) {
+  // USAM default hero background is managed globally for brand consistency.
+  const heroBackgroundImage = backgroundImage ?? sharedMissionaryProfileHeroBackground;
+
   return (
     <section
       className="relative min-h-[620px] overflow-hidden bg-[#050505] bg-cover bg-center bg-no-repeat px-6 pb-0 pt-20 md:min-h-[640px] md:pt-24 lg:min-h-[650px]"
-      style={{ backgroundImage: `url(${backgroundImage})` }}
+      style={{ backgroundImage: `url(${heroBackgroundImage})` }}
     >
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,.68)_0%,rgba(0,0,0,.42)_34%,rgba(0,0,0,.12)_62%,rgba(0,0,0,0)_100%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_48%,rgba(0,0,0,.38)_78%,#050505_100%)]" />
