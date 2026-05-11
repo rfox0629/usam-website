@@ -20,6 +20,8 @@ import {
   type AdminPrayerRequest,
   type AdminProfile,
   type AdminReadiness,
+  type AdminSupportCommitment,
+  type AdminSupportCommitmentStatus,
   type AdminSupportSettings,
   type AdminTableType,
   type AdminTableReview,
@@ -576,6 +578,41 @@ function isMissingSupportLinkColumns(error: { message?: string } | null | undefi
   ].some((columnName) => message.includes(columnName));
 }
 
+function isMissingSupportCommitmentsTable(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("support_commitments")
+    || message.toLowerCase().includes("could not find the table");
+}
+
+function isMissingSupportCommitmentWorkflowColumns(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["submitted_at", "completed_at", "admin_notes"].some((columnName) => message.includes(columnName));
+}
+
+function getSupportCommitmentStatus(value: string | null | undefined): AdminSupportCommitmentStatus {
+  switch (value) {
+    case "active":
+    case "cancelled":
+    case "incomplete":
+    case "needs_follow_up":
+    case "pending_giving_setup":
+      return value;
+    case "reconciled":
+      return "active";
+    case "closed":
+      return "incomplete";
+    case "archived":
+      return "cancelled";
+    case "reviewed":
+      return "needs_follow_up";
+    case "new":
+    default:
+      return "pending_giving_setup";
+  }
+}
+
 async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProfile[] }> {
   if (!isSupabaseAdminConfigured()) {
     return {
@@ -622,6 +659,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
   const prayerRequestsByHouseholdId = new Map<string, AdminPrayerRequest[]>();
   const publicFruitItemCountByHouseholdId = new Map<string, number>();
+  const supportCommitmentsByHouseholdId = new Map<string, AdminSupportCommitment[]>();
   const tableReviewsByHouseholdId = new Map<string, AdminTableReview[]>();
   const tablesByHouseholdId = new Map<string, AdminMissionaryTable[]>();
   const teamMembersByHouseholdId = new Map<string, AdminTeamMember[]>();
@@ -646,6 +684,55 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
 
     (supportSettings ?? []).forEach((support) => {
       supportByHouseholdId.set(support.household_id, support as AdminSupportSettings);
+    });
+
+    const supportCommitmentsResult = await supabase
+      .from("support_commitments")
+      .select("id, household_id, first_name, last_name, email, phone, gift_type, selected_amount, other_amount, allocation_preference, message, redirect_giving_url, status, submitted_at, completed_at, admin_notes, created_at, updated_at")
+      .in("household_id", ids)
+      .order("submitted_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    const fallbackSupportCommitmentsResult = supportCommitmentsResult.error && isMissingSupportCommitmentWorkflowColumns(supportCommitmentsResult.error)
+      ? await supabase
+        .from("support_commitments")
+        .select("id, household_id, first_name, last_name, email, phone, gift_type, selected_amount, other_amount, allocation_preference, message, redirect_giving_url, status, created_at, updated_at")
+        .in("household_id", ids)
+        .order("created_at", { ascending: false })
+      : supportCommitmentsResult;
+
+    if (fallbackSupportCommitmentsResult.error && !isMissingSupportCommitmentsTable(fallbackSupportCommitmentsResult.error)) {
+      return { error: fallbackSupportCommitmentsResult.error.message, profiles: [] };
+    }
+
+    ((fallbackSupportCommitmentsResult.data ?? []) as Array<Partial<AdminSupportCommitment> & { status: string | null }>).forEach((commitment) => {
+      if (!commitment.household_id || !ids.includes(commitment.household_id)) {
+        return;
+      }
+
+      const currentCommitments = supportCommitmentsByHouseholdId.get(commitment.household_id) ?? [];
+
+      currentCommitments.push({
+        admin_notes: commitment.admin_notes ?? null,
+        allocation_preference: commitment.allocation_preference ?? null,
+        completed_at: commitment.completed_at ?? null,
+        created_at: commitment.created_at ?? "",
+        email: commitment.email ?? "",
+        first_name: commitment.first_name ?? "",
+        gift_type: commitment.gift_type === "one_time" ? "one_time" : "monthly",
+        household_id: commitment.household_id,
+        id: commitment.id ?? "",
+        last_name: commitment.last_name ?? "",
+        message: commitment.message ?? null,
+        other_amount: commitment.other_amount ?? null,
+        phone: commitment.phone ?? null,
+        redirect_giving_url: commitment.redirect_giving_url ?? null,
+        selected_amount: commitment.selected_amount ?? null,
+        ...commitment,
+        submitted_at: commitment.submitted_at ?? commitment.created_at ?? null,
+        status: getSupportCommitmentStatus(commitment.status),
+        updated_at: commitment.updated_at ?? null,
+      });
+      supportCommitmentsByHouseholdId.set(commitment.household_id, currentCommitments);
     });
 
     const [prayerPartnersResult, prayerRequestsResult] = await Promise.all([
@@ -1149,6 +1236,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       prayerRequests: prayerRequestsByHouseholdId.get(household.id) ?? [],
       publicFruitItemCount: publicFruitItemCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
+      supportCommitments: supportCommitmentsByHouseholdId.get(household.id) ?? [],
       schemaStatus: {
         hasPublishingFeatureColumns,
         hasStoryVersionColumns,

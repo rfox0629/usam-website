@@ -147,6 +147,34 @@ export type AdminSupportSettings = {
   major_gift_public_description?: string | null;
 };
 
+export type AdminSupportCommitmentStatus =
+  | "active"
+  | "cancelled"
+  | "incomplete"
+  | "needs_follow_up"
+  | "pending_giving_setup";
+
+export type AdminSupportCommitment = {
+  admin_notes: string | null;
+  allocation_preference: string | null;
+  completed_at: string | null;
+  created_at: string;
+  email: string;
+  first_name: string;
+  gift_type: "monthly" | "one_time";
+  household_id: string | null;
+  id: string;
+  last_name: string;
+  message: string | null;
+  other_amount: number | null;
+  phone: string | null;
+  redirect_giving_url: string | null;
+  selected_amount: string | null;
+  status: AdminSupportCommitmentStatus;
+  submitted_at: string | null;
+  updated_at: string | null;
+};
+
 // Tables are the meeting layer for ministry activity. The Missionary Workspace
 // manages them now; future Field (FD) can create them quickly during daily work.
 export type AdminMissionaryTable = {
@@ -329,6 +357,7 @@ export type AdminProfile = AdminHousehold & {
   prayerRequests?: AdminPrayerRequest[];
   publicFruitItemCount?: number;
   support?: AdminSupportSettings;
+  supportCommitments?: AdminSupportCommitment[];
   tables?: AdminMissionaryTable[];
   tableReviews?: AdminTableReview[];
   teamMembers?: AdminTeamMember[];
@@ -553,7 +582,7 @@ type EditorTab =
   | "prayer";
 type LegacyEditorTab = "connections" | "tables";
 type RawEditorTab = EditorTab | LegacyEditorTab;
-type SupportSubsection = "advanced" | "buttons" | "giving" | "gifts" | "progress";
+type SupportSubsection = "advanced" | "buttons" | "commitments" | "giving" | "gifts" | "progress";
 type PrayerSubsection = "content" | "cta" | "preview" | "requests" | "team" | "visibility";
 type PrimaryNavKey = "dashboard" | "field" | "publishing" | "resources";
 
@@ -885,6 +914,7 @@ function getSubnavIdForTab(tab: EditorTab, primaryNav: PrimaryNavKey) {
 
 const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
   { label: "Fundraising Progress", value: "progress" },
+  { label: "Interest & Commitments", value: "commitments" },
   { label: "Giving Routing", value: "giving" },
   { label: "Button Labels", value: "buttons" },
   { label: "Major Gift Settings", value: "gifts" },
@@ -5539,6 +5569,139 @@ function FundraisingProgressControls({
   );
 }
 
+const supportCommitmentActions: Array<{ label: string; status: AdminSupportCommitmentStatus }> = [
+  { label: "Mark Active", status: "active" },
+  { label: "Mark Incomplete", status: "incomplete" },
+  { label: "Needs Follow Up", status: "needs_follow_up" },
+  { label: "Cancel", status: "cancelled" },
+];
+
+function supportCommitmentStatusLabel(status: AdminSupportCommitmentStatus | string) {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "cancelled":
+      return "Cancelled";
+    case "incomplete":
+      return "Incomplete";
+    case "needs_follow_up":
+      return "Needs Follow Up";
+    case "pending_giving_setup":
+    default:
+      return "Pending Giving Setup";
+  }
+}
+
+function getSupportCommitmentAmount(commitment: AdminSupportCommitment) {
+  if (commitment.selected_amount === "Other") {
+    return toNumber(commitment.other_amount);
+  }
+
+  const amount = Number((commitment.selected_amount ?? "").replace(/[^0-9.]/g, ""));
+
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function SupportCommitmentsManager({
+  commitments,
+  isUpdating,
+  onUpdateStatus,
+}: {
+  commitments: readonly AdminSupportCommitment[];
+  isUpdating: boolean;
+  onUpdateStatus: (commitmentId: string, status: AdminSupportCommitmentStatus) => void;
+}) {
+  const sortedCommitments = [...commitments].sort((a, b) => {
+    const aTime = new Date(a.submitted_at ?? a.created_at).getTime();
+    const bTime = new Date(b.submitted_at ?? b.created_at).getTime();
+
+    return bTime - aTime;
+  });
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Support Interest & Commitments
+        </p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+          Public forms record donor intent first. Donors continue directly to the secure giving page; only Active confirmed monthly commitments are reconciled into public support progress.
+        </p>
+      </div>
+
+      {sortedCommitments.length > 0 ? (
+        <div className="overflow-x-auto rounded-xl border border-[#e2ded5] bg-white">
+          <table className="min-w-[920px] w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#e2ded5] bg-[#fbfaf7] text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <th className="px-4 py-3">Donor</th>
+                <th className="px-4 py-3">Amount</th>
+                <th className="px-4 py-3">Gift Type</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Submitted</th>
+                <th className="px-4 py-3">Allocation</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedCommitments.map((commitment) => (
+                <tr className="border-b border-[#e2ded5] last:border-b-0" key={commitment.id}>
+                  <td className="px-4 py-3 align-top">
+                    <p className="font-semibold text-[#111111]">
+                      {[commitment.first_name, commitment.last_name].filter(Boolean).join(" ")}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#7b746a]">{commitment.email}</p>
+                    {commitment.phone ? (
+                      <p className="text-xs leading-5 text-[#7b746a]">{commitment.phone}</p>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3 align-top font-semibold text-[#111111]">
+                    {formatCurrency(getSupportCommitmentAmount(commitment))}
+                  </td>
+                  <td className="px-4 py-3 align-top text-[#4b443b]">
+                    {commitment.gift_type === "monthly" ? "Monthly" : "One Time"}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <span className="inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#4b443b]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      {supportCommitmentStatusLabel(commitment.status)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 align-top text-[#4b443b]">
+                    {formatProfileUpdatedDate(commitment.submitted_at ?? commitment.created_at)}
+                  </td>
+                  <td className="px-4 py-3 align-top text-[#4b443b]">
+                    {commitment.allocation_preference || "Not specified"}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <div className="flex flex-wrap gap-2">
+                      {supportCommitmentActions.map((action) => (
+                        <button
+                          className="rounded-md border border-[#d7d2c8] bg-white px-2.5 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#4b443b] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00] disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={isUpdating || commitment.status === action.status}
+                          key={action.status}
+                          onClick={() => onUpdateStatus(commitment.id, action.status)}
+                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                          type="button"
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
+          No support interest or commitment records yet.
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function TeamMemberManager({
   allItems,
@@ -6069,6 +6232,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
   const [saving, setSaving] = useState(false);
+  const [updatingSupportCommitment, setUpdatingSupportCommitment] = useState(false);
   const [uploadStates, setUploadStates] = useState<Record<MissionaryImageSlot, UploadState>>({
     directory: { status: "idle" },
     hero: { status: "idle" },
@@ -6566,6 +6730,73 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         [field]: numericFields.includes(field) ? Number(value) : value,
       },
     });
+  }
+
+  async function updateSupportCommitmentStatus(commitmentId: string, nextStatus: AdminSupportCommitmentStatus) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    setUpdatingSupportCommitment(true);
+    setStatus(null);
+
+    try {
+      const response = await fetch("/api/admin/missionary-profiles/support-commitments", {
+        body: JSON.stringify({
+          commitmentId,
+          householdId: selectedProfile.id,
+          status: nextStatus,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        monthlyCommitted?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error || "Support commitment could not be updated.");
+      }
+
+      const nextCommitments = (selectedProfile.supportCommitments ?? []).map((commitment) => (
+        commitment.id === commitmentId
+          ? {
+            ...commitment,
+            completed_at: nextStatus === "active" ? new Date().toISOString() : null,
+            status: nextStatus,
+            updated_at: new Date().toISOString(),
+          }
+          : commitment
+      ));
+      const currentSupport = selectedProfile.support ?? emptySupport(selectedProfile.id);
+      const monthlyCommitted = typeof result.monthlyCommitted === "number"
+        ? result.monthlyCommitted
+        : currentSupport.monthly_committed;
+
+      updateSelected({
+        ...selectedProfile,
+        support: {
+          ...currentSupport,
+          monthly_committed: monthlyCommitted,
+        },
+        supportCommitments: nextCommitments,
+      });
+      setStatus({
+        text: `Support commitment marked ${supportCommitmentStatusLabel(nextStatus)}. Active monthly commitments now drive the public support progress total.`,
+        tone: "success",
+      });
+      router.refresh();
+    } catch (error) {
+      setStatus({
+        text: error instanceof Error ? error.message : "Support commitment could not be updated.",
+        tone: "error",
+      });
+    } finally {
+      setUpdatingSupportCommitment(false);
+    }
   }
 
   function createMissionaryTable(draft: TableDraft) {
@@ -8383,6 +8614,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     />
                   </div>
                 </div>
+              ) : null}
+
+              {supportSubsection === "commitments" ? (
+                <SupportCommitmentsManager
+                  commitments={selectedProfile.supportCommitments ?? []}
+                  isUpdating={updatingSupportCommitment}
+                  onUpdateStatus={updateSupportCommitmentStatus}
+                />
               ) : null}
 
               {supportSubsection === "giving" ? (

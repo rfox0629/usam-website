@@ -130,7 +130,8 @@ export async function POST(request: Request) {
       resolved_one_time_giving_url: asNullableString(payload.resolvedOneTimeGivingUrl),
       selected_amount: asNullableString(payload.selectedAmount),
       source: toSource(payload.source),
-      status: "new",
+      status: "pending_giving_setup",
+      submitted_at: new Date().toISOString(),
       support_mode: asNullableString(payload.supportMode),
     })
     .select("id")
@@ -169,6 +170,7 @@ export async function POST(request: Request) {
       profile_slug: asNullableString(payload.profileSlug),
       redirect_giving_url: asNullableString(payload.redirectGivingUrl),
       selected_amount: asNullableString(payload.selectedAmount),
+      status: "pending_giving_setup",
       support_commitment_id: commitmentId,
       support_mode: asNullableString(payload.supportMode),
     },
