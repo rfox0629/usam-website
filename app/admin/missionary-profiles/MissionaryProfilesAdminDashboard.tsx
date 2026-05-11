@@ -515,7 +515,7 @@ type PrayerRequestDraft = {
 const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
   addCamoFatigues: true,
   addFacePaint: false,
-  addHats: true,
+  addHats: false,
   addUsamPatch: true,
   blurFaces: false,
   editMode: "conservative",
@@ -1524,6 +1524,13 @@ function MissionaryCutoutGenerationModal({
 }) {
   const isGenerating = generationState.status === "generating";
 
+  function updateSetting<K extends keyof CutoutGenerationSettings>(key: K, value: CutoutGenerationSettings[K]) {
+    onSettingsChange({
+      ...settings,
+      [key]: value,
+    });
+  }
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
       <div className="mx-auto max-w-4xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
@@ -1592,25 +1599,51 @@ function MissionaryCutoutGenerationModal({
             </p>
             <div className="mt-3 rounded-xl border border-[#d7d2c8] bg-white p-4">
               <p className="text-sm font-semibold text-[#111111]">
-                Conservative USAM Hero Cutout preset
+                USAM Standard Preset
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Locked preset: dark charcoal digital camo fatigues, USAM patch, matching military-style hats where appropriate, transparent background, natural faces preserved, no face paint, and conservative likeness preservation.
+                Standard USAM preset. These defaults are always applied for consistent public profile styling.
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {[
                   "Dark charcoal digital camo fatigues",
                   "USAM patch",
-                  "Matching military-style hats where appropriate",
                   "Transparent background",
                   "Natural faces preserved",
-                  "No face paint",
                   "Conservative likeness preservation",
                 ].map((item) => (
-                  <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-xs leading-5 text-[#4b443b]" key={item}>
-                    {item}
+                  <div className="rounded-lg border border-[#d7d2c8] bg-[#f8f6f1] p-3 text-xs leading-5 text-[#4b443b]" key={item}>
+                    <span className="block font-semibold text-[#111111]">
+                      {item}
+                    </span>
+                    <span className="mt-1 inline-flex rounded-full border border-[#d7d2c8] bg-white px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Always applied
+                    </span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-xl border border-[#d7d2c8] bg-white p-4">
+              <p className="text-sm font-semibold text-[#111111]">
+                Optional Styling
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+                Optional stylistic additions. Core USAM profile styling remains standardized.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <CutoutSettingToggle
+                  checked={settings.addHats}
+                  description="Add matching military-style hats when they look natural."
+                  label="Add matching military-style hats"
+                  onChange={(checked) => updateSetting("addHats", checked)}
+                />
+                <CutoutSettingToggle
+                  checked={settings.addFacePaint}
+                  description="Add subtle field-style face paint while preserving likeness."
+                  label="Add subtle face paint"
+                  onChange={(checked) => updateSetting("addFacePaint", checked)}
+                />
               </div>
             </div>
 

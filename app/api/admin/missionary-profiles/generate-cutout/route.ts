@@ -58,7 +58,7 @@ const cutoutGenerationModelLabel = "GPT 5.5";
 const defaultCutoutSettings: CutoutSettings = {
   addCamoFatigues: true,
   addFacePaint: false,
-  addHats: true,
+  addHats: false,
   addUsamPatch: true,
   blurFaces: false,
   editMode: "conservative",
@@ -92,8 +92,8 @@ function normalizeCutoutSettings(value: unknown): CutoutSettings {
 
   return {
     addCamoFatigues: true,
-    addFacePaint: false,
-    addHats: true,
+    addFacePaint: asBoolean(settings.addFacePaint, defaultCutoutSettings.addFacePaint),
+    addHats: asBoolean(settings.addHats, defaultCutoutSettings.addHats),
     addUsamPatch: true,
     blurFaces: false,
     editMode: "conservative",
@@ -120,9 +120,9 @@ function buildCutoutPrompt(settings: CutoutSettings, hasStyleReferenceImage: boo
   ];
 
   if (hasStyleReferenceImage) {
-    instructions.push("The second image is the locked USAM Standard Style Reference. Match its dark charcoal digital camo fatigues, USAM patch treatment, military-style hats where appropriate, transparent cutout style, realistic lighting, and public hero crop.");
+    instructions.push("The second image is the locked USAM Standard Style Reference. Match its dark charcoal digital camo fatigues, USAM patch treatment, transparent cutout style, realistic lighting, and public hero crop.");
   } else {
-    instructions.push("Use the USAM standard hero cutout style: dark charcoal digital camo fatigues, subtle USAM patch, matching military-style hats where appropriate, transparent cutout, natural faces, no face paint, and conservative likeness preservation.");
+    instructions.push("Use the USAM standard hero cutout style: dark charcoal digital camo fatigues, subtle USAM patch, transparent cutout, natural faces, no face paint unless explicitly enabled, and conservative likeness preservation.");
   }
 
   if (settings.editMode === "conservative") {
