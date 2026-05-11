@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getAdminAuthorization } from "@/src/lib/admin-auth";
+import { getDosAuthorization } from "@/src/lib/dos/auth";
 import { loadDosAppData } from "@/src/lib/dos/missionary-app";
 import { DosMvpAppClient } from "./DosMvpAppClient";
 
@@ -36,10 +36,10 @@ function BlockedState({
         <p className="mt-4 text-sm leading-7 text-stone-400">{detail}</p>
         <Link
           className="mt-6 inline-flex min-h-11 w-full items-center justify-center border border-amber-500/50 px-4 text-xs font-bold uppercase tracking-[0.18em] text-amber-300"
-          href="/admin/missionary-profiles"
+          href="/"
           style={{ fontFamily: font.rajdhani }}
         >
-          Open Missionary Workspace
+          Return Home
         </Link>
       </section>
     </main>
@@ -53,7 +53,7 @@ export default async function DosAppPage({
 }) {
   const params = await searchParams;
   const nextPath = `/dos/app${params.workspace ? `?workspace=${encodeURIComponent(params.workspace)}` : ""}`;
-  const authorization = await getAdminAuthorization();
+  const authorization = await getDosAuthorization();
 
   if (authorization.status === "unauthenticated") {
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
@@ -64,7 +64,7 @@ export default async function DosAppPage({
   }
 
   if (authorization.status === "unauthorized") {
-    return <BlockedState detail="This account is not approved for internal DOS access." title="Unauthorized" />;
+    return <BlockedState detail="This account is not approved for DOS field app access." title="Unauthorized" />;
   }
 
   const result = await loadDosAppData(params.workspace);

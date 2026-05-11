@@ -41,11 +41,13 @@ export type DosAppPerson = {
 };
 
 export type DosAppMeeting = {
-  date: string;
+  date: string | null;
   fieldPersonIds: string[];
   id: string;
   notes: string | null;
   participantNames: string[];
+  source: "connection" | "table";
+  title: string;
   type: DosAppMeetingType;
   updatedAt: string | null;
 };
@@ -66,6 +68,7 @@ export type DosAppData = {
   people: DosAppPerson[];
   stats: {
     approvedFruit: number;
+    connectionsCount: number;
     fruitCount: number;
     meetingsCount: number;
     peopleCount: number;
@@ -98,12 +101,24 @@ type FieldPersonRow = {
 };
 
 type MeetingRow = {
+  created_at?: string | null;
   field_person_ids: string[] | null;
   id: string;
   notes: string | null;
   participant_names: string[] | null;
   table_date: string | null;
   table_type: string | null;
+  updated_at: string | null;
+};
+
+type ConnectionLogRow = {
+  connection_date: string | null;
+  created_at?: string | null;
+  field_person_id: string | null;
+  follow_up_needed: string | null;
+  id: string;
+  interaction_type: string | null;
+  notes: string | null;
   updated_at: string | null;
 };
 
@@ -121,6 +136,24 @@ function mapMeetingType(value: string | null): DosAppMeetingType {
   return dosAppMeetingTypes.includes(value as DosAppMeetingType) ? value as DosAppMeetingType : "other";
 }
 
+function mapConnectionType(value: string | null): DosAppMeetingType {
+  const normalized = value?.toLowerCase() ?? "";
+
+  if (normalized.includes("coffee")) {
+    return "coffee";
+  }
+
+  if (normalized.includes("phone")) {
+    return "phone";
+  }
+
+  if (normalized.includes("zoom")) {
+    return "zoom";
+  }
+
+  return "other";
+}
+
 function mapOutcomeTags(value: string[] | null | undefined): DosAppOutcomeTag[] {
   return Array.isArray(value)
     ? value.filter((tag): tag is DosAppOutcomeTag => dosAppOutcomeTags.includes(tag as DosAppOutcomeTag))
@@ -133,6 +166,33 @@ function workspaceScopeFilter(workspaceId: string) {
 
 export function isMissingWorkspaceScopeColumn(error: SupabaseQueryError) {
   return Boolean(error?.message?.includes("workspace_id"));
+}
+
+function isMissingWorkflowTable(error: SupabaseQueryError, tableName: string) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return message.includes(tableName)
+    && (message.includes("does not exist")
+      || message.includes("relation")
+      || message.includes("schema cache")
+      || message.includes("could not find"));
+}
+
+function activityDateValue(value: string | null | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  const normalizedValue = value.includes("T") ? value : `${value}T12:00:00`;
+  const timestamp = new Date(normalizedValue).getTime();
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function latestActivityDate(...values: Array<string | null | undefined>) {
+  return values
+    .filter((value): value is string => Boolean(value))
+    .sort((first, second) => activityDateValue(second) - activityDateValue(first))[0] ?? null;
 }
 
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
@@ -156,7 +216,7 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
 async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const scopedResult = await supabase
     .from("missionary_tables")
-    .select("id, table_type, table_date, notes, participant_names, field_person_ids, updated_at")
+    .select("id, table_type, table_date, notes, participant_names, field_person_ids, created_at, updated_at")
     .or(workspaceScopeFilter(workspaceId))
     .order("table_date", { ascending: false })
     .order("created_at", { ascending: false });
@@ -164,11 +224,33 @@ async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspace
   return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
     ? supabase
       .from("missionary_tables")
-      .select("id, table_type, table_date, notes, participant_names, field_person_ids, updated_at")
+      .select("id, table_type, table_date, notes, participant_names, field_person_ids, created_at, updated_at")
       .eq("household_id", workspaceId)
       .order("table_date", { ascending: false })
       .order("created_at", { ascending: false })
     : scopedResult;
+}
+
+async function loadConnectionLogsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const scopedResult = await supabase
+    .from("missionary_connection_logs")
+    .select("id, field_person_id, connection_date, interaction_type, notes, follow_up_needed, created_at, updated_at")
+    .or(workspaceScopeFilter(workspaceId))
+    .order("connection_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  const result = scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
+    ? await supabase
+      .from("missionary_connection_logs")
+      .select("id, field_person_id, connection_date, interaction_type, notes, follow_up_needed, created_at, updated_at")
+      .eq("household_id", workspaceId)
+      .order("connection_date", { ascending: false })
+      .order("created_at", { ascending: false })
+    : scopedResult;
+
+  return result.error && isMissingWorkflowTable(result.error, "missionary_connection_logs")
+    ? { data: [], error: null }
+    : result;
 }
 
 async function loadFruitForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
@@ -230,38 +312,92 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, fruitResult] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
+    loadConnectionLogsForWorkspace(supabase, workspace.id),
     loadFruitForWorkspace(supabase, workspace.id),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || fruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error) {
     return {
-      message: peopleResult.error?.message ?? meetingsResult.error?.message ?? fruitResult.error?.message ?? "Unable to load DOS app data.",
+      message: peopleResult.error?.message
+        ?? meetingsResult.error?.message
+        ?? connectionLogsResult.error?.message
+        ?? fruitResult.error?.message
+        ?? "Unable to load DOS app data.",
       status: "error",
     };
   }
 
+  const meetingRows = (meetingsResult.data ?? []) as MeetingRow[];
+  const connectionRows = (connectionLogsResult.data ?? []) as ConnectionLogRow[];
+  const latestActivityByPersonId = new Map<string, string>();
+
+  meetingRows.forEach((meeting) => {
+    const activityDate = latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at);
+
+    meeting.field_person_ids?.forEach((personId) => {
+      const currentDate = latestActivityByPersonId.get(personId);
+      const latestDate = latestActivityDate(activityDate, currentDate);
+
+      if (latestDate) {
+        latestActivityByPersonId.set(personId, latestDate);
+      }
+    });
+  });
+
+  connectionRows.forEach((connection) => {
+    if (!connection.field_person_id) {
+      return;
+    }
+
+    const activityDate = latestActivityDate(connection.connection_date, connection.updated_at, connection.created_at);
+    const currentDate = latestActivityByPersonId.get(connection.field_person_id);
+    const latestDate = latestActivityDate(activityDate, currentDate);
+
+    if (latestDate) {
+      latestActivityByPersonId.set(connection.field_person_id, latestDate);
+    }
+  });
+
   const people = ((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => ({
     engagementLevel: person.engagement_level,
     id: person.id,
-    lastActivityAt: person.last_activity_at,
+    lastActivityAt: latestActivityDate(person.last_activity_at, latestActivityByPersonId.get(person.id)),
     name: person.name,
     phone: person.phone,
     relationshipType: person.relationship_type,
     status: person.status ?? "new",
     updatedAt: person.updated_at,
-  }));
-  const meetings = ((meetingsResult.data ?? []) as MeetingRow[]).map((meeting) => ({
-    date: meeting.table_date ?? "",
-    fieldPersonIds: meeting.field_person_ids ?? [],
-    id: meeting.id,
-    notes: meeting.notes,
-    participantNames: meeting.participant_names ?? [],
-    type: mapMeetingType(meeting.table_type),
-    updatedAt: meeting.updated_at,
-  }));
+  })).sort((first, second) => activityDateValue(second.lastActivityAt ?? second.updatedAt) - activityDateValue(first.lastActivityAt ?? first.updatedAt));
+  const peopleById = new Map(people.map((person) => [person.id, person.name]));
+  const meetings = [
+    ...meetingRows.map((meeting) => ({
+      date: latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at),
+      fieldPersonIds: meeting.field_person_ids ?? [],
+      id: meeting.id,
+      notes: meeting.notes,
+      participantNames: meeting.participant_names ?? [],
+      source: "table" as const,
+      title: "Meeting",
+      type: mapMeetingType(meeting.table_type),
+      updatedAt: meeting.updated_at,
+    })),
+    ...connectionRows.map((connection) => ({
+      date: latestActivityDate(connection.connection_date, connection.updated_at, connection.created_at),
+      fieldPersonIds: connection.field_person_id ? [connection.field_person_id] : [],
+      id: `connection-${connection.id}`,
+      notes: connection.notes,
+      participantNames: connection.field_person_id && peopleById.has(connection.field_person_id)
+        ? [peopleById.get(connection.field_person_id) as string]
+        : [],
+      source: "connection" as const,
+      title: connection.interaction_type ?? "Connection",
+      type: mapConnectionType(connection.interaction_type),
+      updatedAt: connection.updated_at,
+    })),
+  ].sort((first, second) => activityDateValue(second.date ?? second.updatedAt) - activityDateValue(first.date ?? first.updatedAt));
   const fruit = ((fruitResult.data ?? []) as FruitRow[]).map((item) => ({
     fieldPersonId: item.field_person_id,
     id: item.id,
@@ -279,6 +415,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       people,
       stats: {
         approvedFruit: fruit.filter((item) => item.status === "approved").length,
+        connectionsCount: connectionRows.length,
         fruitCount: fruit.length,
         meetingsCount: meetings.length,
         peopleCount: people.length,

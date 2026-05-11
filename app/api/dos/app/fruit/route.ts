@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
+import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { dosAppOutcomeTags, isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId, type DosAppOutcomeTag } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -28,7 +28,7 @@ function asOutcomeTags(value: unknown): DosAppOutcomeTag[] {
 }
 
 async function authorizeWrite() {
-  const authorization = await getAdminAuthorization();
+  const authorization = await getDosAuthorization();
 
   if (authorization.status === "unauthenticated") {
     return { response: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
@@ -38,8 +38,8 @@ async function authorizeWrite() {
     return { response: NextResponse.json({ error: authorization.message }, { status: 500 }) };
   }
 
-  if (authorization.status === "unauthorized" || !canEditAdminContent(authorization)) {
-    return { response: NextResponse.json({ error: "Editor access required." }, { status: 403 }) };
+  if (authorization.status === "unauthorized" || !canWriteDosActivity(authorization)) {
+    return { response: NextResponse.json({ error: "DOS field app write access required." }, { status: 403 }) };
   }
 
   if (!isSupabaseAdminConfigured()) {

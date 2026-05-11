@@ -7,6 +7,8 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 export const dynamic = "force-dynamic";
 
+// /admin is the Command Center. Keep DOS mobile app layouts and route-specific
+// field workflow components out of this route; share only neutral primitives.
 function AdminBlocked({
   detail,
   showSignOut = false,
