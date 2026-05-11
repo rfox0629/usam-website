@@ -66,13 +66,6 @@ export function UpdatePasswordForm() {
     const client = supabase;
     let isMounted = true;
 
-    const { data: listener } = client.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" && session && isMounted) {
-        setErrorMessage("");
-        setStatus("ready");
-      }
-    });
-
     async function initializeRecoverySession() {
       const searchParams = new URLSearchParams(window.location.search);
       const hashParams = parseHashParams();
@@ -87,14 +80,16 @@ export function UpdatePasswordForm() {
         return;
       }
 
-      const code = searchParams.get("code");
       const accessToken = hashParams.get("access_token");
       const refreshToken = hashParams.get("refresh_token");
-      const recoveryType = searchParams.get("type") || hashParams.get("type");
+      const recoveryType = hashParams.get("type");
 
       try {
-        if (code) {
-          const { error } = await client.auth.exchangeCodeForSession(code);
+        if (accessToken && refreshToken && (!recoveryType || recoveryType === "recovery")) {
+          const { error } = await client.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
 
           if (error) {
             throw error;
@@ -108,18 +103,17 @@ export function UpdatePasswordForm() {
           return;
         }
 
-        if (accessToken && refreshToken && (!recoveryType || recoveryType === "recovery")) {
-          const { error } = await client.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+        const {
+          data: { session },
+          error: sessionError,
+        } = await client.auth.getSession();
 
-          if (error) {
-            throw error;
-          }
+        if (sessionError) {
+          throw sessionError;
+        }
 
+        if (session) {
           if (isMounted) {
-            cleanRecoveryUrl();
             setErrorMessage("");
             setStatus("ready");
           }
@@ -142,7 +136,6 @@ export function UpdatePasswordForm() {
 
     return () => {
       isMounted = false;
-      listener.subscription.unsubscribe();
     };
   }, [supabase]);
 

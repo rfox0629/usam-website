@@ -14,5 +14,9 @@ export function createSupabaseBrowserClient() {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      flowType: "implicit",
+    },
+  });
 }
