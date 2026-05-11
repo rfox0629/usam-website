@@ -120,9 +120,9 @@ function buildCutoutPrompt(settings: CutoutSettings, hasStyleReferenceImage: boo
   ];
 
   if (hasStyleReferenceImage) {
-    instructions.push("The second image is the locked USAM Standard Style Reference. Match its black/white digital camo fatigues, USAM patch treatment, military-style hats where appropriate, transparent cutout style, realistic lighting, and public hero crop.");
+    instructions.push("The second image is the locked USAM Standard Style Reference. Match its dark charcoal digital camo fatigues, USAM patch treatment, military-style hats where appropriate, transparent cutout style, realistic lighting, and public hero crop.");
   } else {
-    instructions.push("Use the USAM standard hero cutout style: black/white digital camo fatigues, subtle USAM patch, matching military-style hats where appropriate, transparent cutout, natural faces, no face paint, and conservative likeness preservation.");
+    instructions.push("Use the USAM standard hero cutout style: dark charcoal digital camo fatigues, subtle USAM patch, matching military-style hats where appropriate, transparent cutout, natural faces, no face paint, and conservative likeness preservation.");
   }
 
   if (settings.editMode === "conservative") {
@@ -132,7 +132,7 @@ function buildCutoutPrompt(settings: CutoutSettings, hasStyleReferenceImage: boo
   }
 
   if (settings.addCamoFatigues) {
-    instructions.push("Apply black/white digital camo missionary field attire similar to the approved USA Missionaries hero image style, while preserving the original faces, posture, and group arrangement.");
+    instructions.push("Apply dark charcoal digital camo missionary field attire similar to the approved USA Missionaries hero image style, while preserving the original faces, posture, and group arrangement.");
   } else {
     instructions.push("Keep clothing tasteful, simple, and close to the original photo.");
   }

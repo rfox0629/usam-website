@@ -1591,11 +1591,11 @@ function MissionaryCutoutGenerationModal({
                 Conservative USAM Hero Cutout preset
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Locked preset: black/white digital camo fatigues, USAM patch, matching military-style hats where appropriate, transparent background, natural faces preserved, no face paint, and conservative likeness preservation.
+                Locked preset: dark charcoal digital camo fatigues, USAM patch, matching military-style hats where appropriate, transparent background, natural faces preserved, no face paint, and conservative likeness preservation.
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {[
-                  "Black/white digital camo fatigues",
+                  "Dark charcoal digital camo fatigues",
                   "USAM patch",
                   "Matching military-style hats where appropriate",
                   "Transparent background",
