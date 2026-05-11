@@ -7556,6 +7556,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     try {
       response = await fetch("/api/admin/missionary-profiles/update", {
         body: JSON.stringify({
+          activeTab,
           connectionLogs: selectedProfile.connectionLogs ?? [],
           fruitItems: selectedProfile.fruitItems ?? [],
           household: {

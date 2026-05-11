@@ -147,6 +147,7 @@ type UpdatePayload = {
     support_target_fund?: unknown;
     support_target_household_id?: unknown;
   };
+  activeTab?: unknown;
   householdId?: unknown;
   originalSlug?: unknown;
   workspace_id?: unknown;
@@ -573,6 +574,7 @@ export async function POST(request: Request) {
   const displayName = asString(household.display_name);
   const slug = asString(household.slug);
   const originalSlug = asString(payload.originalSlug);
+  const activeTab = asString(payload.activeTab);
 
   if (!isExistingUuid(householdId) || !isExistingUuid(workspaceId) || !displayName || !slug) {
     return NextResponse.json({ error: "Missionary workspace ID, display name, and slug are required." }, { status: 400 });
@@ -658,6 +660,11 @@ export async function POST(request: Request) {
     story: publicStory,
     updated_at: timestamp,
   };
+  const {
+    original_story: _originalStory,
+    public_story: _publicStory,
+    ...householdUpdateWithoutStoryVersions
+  } = householdUpdate;
 
   let savedFeatureFields = true;
   let { error: householdError } = await supabase
@@ -666,9 +673,18 @@ export async function POST(request: Request) {
     .eq("id", householdId);
 
   if (householdError && hasMissingStoryVersionColumnsError(householdError)) {
-    return NextResponse.json({
-      error: "Original Story and Refined Public Story were not saved because the missionary story version columns are missing. Apply the missionary story versions migration to the connected Supabase project.",
-    }, { status: 500 });
+    if (activeTab === "story") {
+      return NextResponse.json({
+        error: "Original Story and Refined Public Story were not saved because the missionary story version columns are missing. Apply the missionary story versions migration to the connected Supabase project.",
+      }, { status: 500 });
+    }
+
+    const fallbackResult = await supabase
+      .from("missionary_households")
+      .update(householdUpdateWithoutStoryVersions)
+      .eq("id", householdId);
+
+    householdError = fallbackResult.error;
   }
 
   if (householdError && hasMissingFeatureColumnsError(householdError)) {
@@ -680,7 +696,7 @@ export async function POST(request: Request) {
 
     householdError = fallbackResult.error;
 
-    if (!householdError) {
+    if (!householdError && activeTab === "story") {
       const storyResult = await supabase
         .from("missionary_households")
         .update(householdStoryUpdate)
