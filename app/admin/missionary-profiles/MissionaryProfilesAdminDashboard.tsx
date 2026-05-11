@@ -1599,37 +1599,10 @@ function MissionaryCutoutGenerationModal({
             </p>
             <div className="mt-3 rounded-xl border border-[#d7d2c8] bg-white p-4">
               <p className="text-sm font-semibold text-[#111111]">
-                USAM Standard Preset
-              </p>
-              <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Standard USAM preset. These defaults are always applied for consistent public profile styling.
-              </p>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {[
-                  "Dark charcoal digital camo fatigues",
-                  "USAM patch",
-                  "Transparent background",
-                  "Natural faces preserved",
-                  "Conservative likeness preservation",
-                ].map((item) => (
-                  <div className="rounded-lg border border-[#d7d2c8] bg-[#f8f6f1] p-3 text-xs leading-5 text-[#4b443b]" key={item}>
-                    <span className="block font-semibold text-[#111111]">
-                      {item}
-                    </span>
-                    <span className="mt-1 inline-flex rounded-full border border-[#d7d2c8] bg-white px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Always applied
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-xl border border-[#d7d2c8] bg-white p-4">
-              <p className="text-sm font-semibold text-[#111111]">
                 Optional Styling
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Optional stylistic additions. Core USAM profile styling remains standardized.
+                Optional stylistic additions can be applied while preserving the standard USA Missionaries visual style.
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <CutoutSettingToggle
