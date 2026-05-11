@@ -606,7 +606,7 @@ export async function POST(request: Request) {
   const roleType = normalizeRoleType(asString(household.role_type));
   const locationVisibility = normalizeLocationVisibility(asString(household.location_visibility));
   const showHousehold = asPublicProfileVisibility(household.show_household, household.public_visible);
-  const publicStory = asNullableString(household.public_story) ?? asNullableString(household.story);
+  const publicStory = asNullableString(household.public_story);
   const originalStory = asNullableString(household.original_story);
 
   const householdUpdate = {

@@ -2063,7 +2063,7 @@ function hasRenderableTeam(profile: AdminProfile) {
 }
 
 function hasRenderableStory(profile: AdminProfile) {
-  return hasTextContent(profile.story) || hasTextContent(profile.public_story);
+  return hasTextContent(profile.public_story);
 }
 
 function hasRenderableFruit(profile: AdminProfile) {
@@ -7521,7 +7521,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             prayer_destination: selectedProfile.prayer_destination,
             prayer_section_description: selectedProfile.prayer_section_description,
             prayer_section_headline: selectedProfile.prayer_section_headline,
-            public_story: selectedProfile.public_story ?? selectedProfile.story,
+            public_story: selectedProfile.public_story,
             public_visible: isProfilePublic(selectedProfile),
             secondary_states: selectedProfile.secondary_states ?? [],
             serving_scope: getProfileServingScope(selectedProfile),
@@ -7537,7 +7537,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             short_mission: selectedProfile.short_mission,
             slug: selectedProfile.slug,
             sort_order: selectedProfile.sort_order,
-            story: selectedProfile.story,
+            story: selectedProfile.public_story,
             support_button_label: selectedProfile.support_button_label,
             support_explanation: selectedProfile.support_explanation,
             support_mode: selectedProfile.support_mode,
@@ -7761,8 +7761,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     enabled: getFeatureValue(selectedProfile, "show_story"),
     hasContent: hasRenderableStory(selectedProfile),
     hiddenMessage: "The Our Story section is disabled.",
-    missingMessage: "Add story content to show this section.",
-    showingMessage: "The Our Story section has content.",
+    missingMessage: "Add a refined public story to show this section.",
+    showingMessage: "The Our Story section has refined public content.",
   });
   const fruitStatus = getFeaturePublicStatus({
     enabled: getFeatureValue(selectedProfile, "show_fruit"),
@@ -8422,7 +8422,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     label="Refined Story"
                     onChange={updateRefinedStory}
                     rows={14}
-                    value={selectedProfile.public_story ?? selectedProfile.story}
+                    value={selectedProfile.public_story}
                   />
                 </div>
               </div>

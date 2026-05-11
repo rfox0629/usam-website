@@ -51,6 +51,7 @@ const householdFeatureSelect = [
   "show_support",
   "show_prayer",
   "fruit_from_field",
+  "public_story",
   "support_mode",
   "support_target_household_id",
   "support_target_fund",
@@ -83,6 +84,7 @@ type HouseholdRow = {
   hero_image_url: string | null;
   short_mission: string | null;
   story: string | null;
+  public_story?: string | null;
   public_visible: boolean | null;
   sort_order: number | null;
   show_household?: boolean | null;
@@ -567,7 +569,7 @@ function mapHouseholdToMissionary({
     heroImage: showPhotos ? toOptionalPublicImageSource(household.hero_image_url) ?? toPublicImageSource(household.profile_image_url, directoryImageFallback) : undefined,
     headerImage: showPhotos ? toPublicImageSource(household.profile_image_url, directoryImageFallback) : undefined,
     householdMembers: mapTeamMembers(teamMembers),
-    story: household.story ?? undefined,
+    story: household.public_story ?? undefined,
     fruitFromField: household.fruit_from_field ?? undefined,
     fruitItems: mappedFruitItems,
     features: {
