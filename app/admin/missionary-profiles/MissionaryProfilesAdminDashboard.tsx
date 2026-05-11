@@ -1988,6 +1988,7 @@ type FeatureVisibilityRow = {
   label: string;
   onChange: (checked: boolean) => void;
   publicStatus: FeaturePublicPageStatus;
+  statusLabel?: string;
   statusMessage: string;
 };
 
@@ -2152,7 +2153,7 @@ function FeatureVisibilityTable({ rows }: { rows: FeatureVisibilityRow[] }) {
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   title={row.statusMessage}
                 >
-                  {getFeatureStatusLabel(row.publicStatus)}
+                  {row.statusLabel ?? getFeatureStatusLabel(row.publicStatus)}
                 </span>
                 <p className="mt-2 text-xs leading-5 text-[#7b746a]">
                   {row.statusMessage}
@@ -7266,14 +7267,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     if (!originalStory) {
       setStoryRefinementState({
-        message: "Add an Original Story before refining.",
+        message: "Add an Internal Intake Story before generating a public draft.",
         status: "error",
       });
       return;
     }
 
     setStoryRefinementState({
-      message: "Refining story with AI...",
+      message: "Generating public story draft...",
       status: "refining",
     });
 
@@ -7606,24 +7607,35 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const hasStoryVersionColumns = selectedProfile.schemaStatus?.hasStoryVersionColumns !== false;
   const hasPublishingFeatureColumns = selectedProfile.schemaStatus?.hasPublishingFeatureColumns !== false;
   const storyPublishingAvailable = hasStoryVersionColumns && hasPublishingFeatureColumns;
+  const hasInternalIntakeStory = hasTextContent(selectedProfile.original_story);
   const storyStatus = !storyPublishingAvailable
     ? {
+      label: "Migration Required",
       message: "Story publishing unavailable until story schema migration is applied.",
       status: "migration" as const,
     }
     : !getFeatureValue(selectedProfile, "show_story")
       ? {
+        label: "Hidden",
         message: "The Our Story section is disabled.",
         status: "hidden" as const,
       }
       : hasRenderableStory(selectedProfile)
         ? {
-          message: "The Our Story section has refined public content.",
+          label: "Published",
+          message: "Public Story is ready and can render on the public profile.",
           status: "showing" as const,
         }
+        : hasInternalIntakeStory
+          ? {
+            label: "Public Version Needed",
+            message: "Internal Intake Story has been received. Create a Public Story before this section can render publicly.",
+            status: "waiting" as const,
+          }
         : {
-          message: "No public story published yet. Add Refined Public Story content before this section can render publicly.",
-          status: "waiting" as const,
+          label: "Missing Content",
+          message: "Add an Internal Intake Story, then create the Public Story for publishing.",
+          status: "missing" as const,
         };
   const fruitStatus = getFeaturePublicStatus({
     enabled: getFeatureValue(selectedProfile, "show_fruit"),
@@ -7897,6 +7909,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   label: "Our Story",
                   onChange: (value) => updateFeatureField("show_story", value),
                   publicStatus: storyStatus.status,
+                  statusLabel: storyStatus.label,
                   statusMessage: storyStatus.message,
                 },
                 {
@@ -8209,30 +8222,30 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "story" ? (
           <SectionIntro
-            description="Updates Profile. Use the left side for the original submitted story. Use the right side for the edited public version."
+            description="Updates Profile. Missionaries first submit an internal intake story. A refined public version is then created for the public missionary profile."
             title="Story"
           >
             <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
-              Use the left side for the original submitted story. Use the right side for the edited public version.
-              <DataFlowLabels items={["Raw -> Reviewed -> Published", "Stored in Missionary Workspace", "Published to Profile"]} />
+              Missionaries first submit an internal intake story. A refined public version is then created for the public missionary profile.
+              <DataFlowLabels items={["Internal Intake Story: private", "Public Story: profile-ready", "Only Public Story can publish"]} />
             </div>
             <div className="mt-5 grid gap-5 lg:grid-cols-2">
               <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Raw Intake
+                    Private Working Copy
                   </p>
                   <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                    Original Story
+                    Internal Intake Story
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-[#6f6658]">
-                    Raw story or form response from the missionary household.
+                    Private/internal submitted story used as the source material for the public version.
                   </p>
                 </div>
                 <div className="mt-4">
                   <TextArea
-                    helperText="Preserve the raw story exactly as submitted or pasted. Future intake form submissions will populate this field."
-                    label="Original Story"
+                    helperText="Private/internal submitted story used as the source material for the public version. This does not appear publicly."
+                    label="Internal Intake Story"
                     onChange={(value) => updateHouseholdField("original_story", value)}
                     rows={14}
                     value={selectedProfile.original_story}
@@ -8247,10 +8260,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       Public Version
                     </p>
                     <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                      Refined Public Story
+                      Public Story
                     </h3>
                     <p className="mt-2 text-sm leading-6 text-[#6f6658]">
-                      AI assisted version used on the public profile.
+                      This version appears publicly on the missionary profile.
                     </p>
                   </div>
                   <button
@@ -8260,9 +8273,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                     type="button"
                   >
-                    {storyRefinementState.status === "refining" ? "Refining" : "Refine With AI"}
+                    {storyRefinementState.status === "refining" ? "Generating" : "Generate Public Story Draft"}
                   </button>
                 </div>
+                <p className="mt-3 text-xs leading-5 text-[#7b746a]">
+                  Creates a public-facing draft from the intake story.
+                </p>
 
                 {storyRefinementState.message ? (
                   <p className={`mt-4 rounded-xl border p-3 text-sm leading-6 ${
@@ -8276,8 +8292,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
                 <div className="mt-4">
                   <TextArea
-                    helperText="Separate paragraphs with a blank line. This version appears publicly in the Our Story section after you save."
-                    label="Refined Story"
+                    helperText="This version appears publicly on the missionary profile. Separate paragraphs with a blank line."
+                    label="Public Story"
                     onChange={updateRefinedStory}
                     rows={14}
                     value={selectedProfile.public_story}
