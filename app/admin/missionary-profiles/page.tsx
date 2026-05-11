@@ -453,6 +453,12 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
   ].some((columnName) => message.includes(columnName));
 }
 
+function hasMissingStoryVersionColumnsError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["original_story", "public_story"].some((columnName) => message.includes(columnName));
+}
+
 function isMissingPrayerTeamTable(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
@@ -585,8 +591,12 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     .order("sort_order", { ascending: true });
   let households = householdResult.data as AdminHousehold[] | null;
   let error = householdResult.error;
+  let hasPublishingFeatureColumns = true;
+  let hasStoryVersionColumns = true;
 
   if (error && hasMissingFeatureColumnsError(error)) {
+    hasPublishingFeatureColumns = false;
+    hasStoryVersionColumns = !hasMissingStoryVersionColumnsError(error);
     const fallbackResult = await supabase
       .from("missionary_households")
       .select(householdBaseSelect)
@@ -1139,6 +1149,10 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       prayerRequests: prayerRequestsByHouseholdId.get(household.id) ?? [],
       publicFruitItemCount: publicFruitItemCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
+      schemaStatus: {
+        hasPublishingFeatureColumns,
+        hasStoryVersionColumns,
+      },
       tables: tablesByHouseholdId.get(household.id) ?? [],
       tableReviews: tableReviewsByHouseholdId.get(household.id) ?? [],
       teamMembers: teamMembersByHouseholdId.get(household.id) ?? [],

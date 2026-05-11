@@ -332,6 +332,10 @@ export type AdminProfile = AdminHousehold & {
   tables?: AdminMissionaryTable[];
   tableReviews?: AdminTableReview[];
   teamMembers?: AdminTeamMember[];
+  schemaStatus?: {
+    hasPublishingFeatureColumns: boolean;
+    hasStoryVersionColumns: boolean;
+  };
 };
 
 type MissionaryProfilesAdminDashboardProps = {
@@ -1975,11 +1979,12 @@ function getSupportMode(profile: AdminProfile): AdminSupportMode {
   return normalizeSupportRoutingMode(typeof profile.support_mode === "string" ? profile.support_mode : null);
 }
 
-type FeaturePublicPageStatus = "hidden" | "missing" | "showing";
+type FeaturePublicPageStatus = "hidden" | "missing" | "migration" | "showing" | "waiting";
 
 type FeatureVisibilityRow = {
   checked: boolean;
   description: string;
+  disabled?: boolean;
   label: string;
   onChange: (checked: boolean) => void;
   publicStatus: FeaturePublicPageStatus;
@@ -2053,6 +2058,10 @@ function getFeatureStatusBadgeClasses(status: FeaturePublicPageStatus) {
   switch (status) {
     case "showing":
       return "border-green-200 bg-green-50 text-green-800";
+    case "migration":
+      return "border-red-200 bg-red-50 text-red-800";
+    case "waiting":
+      return "border-blue-200 bg-blue-50 text-blue-800";
     case "missing":
       return "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]";
     case "hidden":
@@ -2065,6 +2074,10 @@ function getFeatureStatusLabel(status: FeaturePublicPageStatus) {
   switch (status) {
     case "showing":
       return "Showing";
+    case "migration":
+      return "Migration Required";
+    case "waiting":
+      return "Waiting for Content";
     case "missing":
       return "Missing Content";
     case "hidden":
@@ -2102,10 +2115,11 @@ function FeatureVisibilityTable({ rows }: { rows: FeatureVisibilityRow[] }) {
                 </p>
               </td>
               <td className="border-r border-[#e2ded5] px-4 py-2.5 align-middle">
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[#111111]">
+                <label className={`inline-flex items-center gap-2 text-xs text-[#111111] ${row.disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
                   <input
                     checked={row.checked}
                     className="sr-only"
+                    disabled={row.disabled}
                     onChange={(event) => row.onChange(event.target.checked)}
                     type="checkbox"
                   />
@@ -2126,6 +2140,11 @@ function FeatureVisibilityTable({ rows }: { rows: FeatureVisibilityRow[] }) {
                     {row.checked ? "Enabled" : "Disabled"}
                   </span>
                 </label>
+                {row.disabled ? (
+                  <p className="mt-2 text-xs leading-5 text-[#8a1f1f]">
+                    {row.statusMessage}
+                  </p>
+                ) : null}
               </td>
               <td className="px-4 py-2.5 align-middle">
                 <span
@@ -2135,9 +2154,9 @@ function FeatureVisibilityTable({ rows }: { rows: FeatureVisibilityRow[] }) {
                 >
                   {getFeatureStatusLabel(row.publicStatus)}
                 </span>
-                <span className="sr-only">
+                <p className="mt-2 text-xs leading-5 text-[#7b746a]">
                   {row.statusMessage}
-                </span>
+                </p>
               </td>
             </tr>
           ))}
@@ -7584,13 +7603,28 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     missingMessage: "Add team members to show this section.",
     showingMessage: "The Team section has active public members.",
   });
-  const storyStatus = getFeaturePublicStatus({
-    enabled: getFeatureValue(selectedProfile, "show_story"),
-    hasContent: hasRenderableStory(selectedProfile),
-    hiddenMessage: "The Our Story section is disabled.",
-    missingMessage: "Add a refined public story to show this section.",
-    showingMessage: "The Our Story section has refined public content.",
-  });
+  const hasStoryVersionColumns = selectedProfile.schemaStatus?.hasStoryVersionColumns !== false;
+  const hasPublishingFeatureColumns = selectedProfile.schemaStatus?.hasPublishingFeatureColumns !== false;
+  const storyPublishingAvailable = hasStoryVersionColumns && hasPublishingFeatureColumns;
+  const storyStatus = !storyPublishingAvailable
+    ? {
+      message: "Story publishing unavailable until story schema migration is applied.",
+      status: "migration" as const,
+    }
+    : !getFeatureValue(selectedProfile, "show_story")
+      ? {
+        message: "The Our Story section is disabled.",
+        status: "hidden" as const,
+      }
+      : hasRenderableStory(selectedProfile)
+        ? {
+          message: "The Our Story section has refined public content.",
+          status: "showing" as const,
+        }
+        : {
+          message: "No public story published yet. Add Refined Public Story content before this section can render publicly.",
+          status: "waiting" as const,
+        };
   const fruitStatus = getFeaturePublicStatus({
     enabled: getFeatureValue(selectedProfile, "show_fruit"),
     hasContent: hasRenderableFruit(selectedProfile),
@@ -7857,8 +7891,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   statusMessage: mediaStatus.message,
                 },
                 {
-                  checked: getFeatureValue(selectedProfile, "show_story"),
+                  checked: storyPublishingAvailable && getFeatureValue(selectedProfile, "show_story"),
                   description: featureDescriptions.show_story,
+                  disabled: !storyPublishingAvailable,
                   label: "Our Story",
                   onChange: (value) => updateFeatureField("show_story", value),
                   publicStatus: storyStatus.status,
