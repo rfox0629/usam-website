@@ -576,6 +576,12 @@ export async function POST(request: Request) {
   const originalSlug = asString(payload.originalSlug);
   const activeTab = asString(payload.activeTab);
   const requiresPublishingFeatureColumns = ["features", "team"].includes(activeTab);
+  const isMeetingsSave = activeTab === "meetings";
+  const isReviewsSave = activeTab === "reviews";
+  const isFruitSave = activeTab === "fruit";
+  const isTeamSave = activeTab === "team";
+  const isLibrarySave = activeTab === "library";
+  const isInSeasonSave = activeTab === "in-season";
 
   if (!isExistingUuid(householdId) || !isExistingUuid(workspaceId) || !displayName || !slug) {
     return NextResponse.json({ error: "Missionary workspace ID, display name, and slug are required." }, { status: 400 });
@@ -1547,55 +1553,55 @@ export async function POST(request: Request) {
     revalidatePath(`/missionaries/${originalSlug}`);
   }
 
-  if (!savedTeamMembers) {
+  if (!savedTeamMembers && isTeamSave) {
     return NextResponse.json({
       error: "Team members were not saved because the missionary_team_members table is missing. Apply the missionary team members migration to the connected Supabase project.",
     }, { status: 500 });
   }
 
-  if (!savedTables) {
+  if (!savedTables && isMeetingsSave) {
     return NextResponse.json({
       error: "Tables were not saved because the missionary_tables table is missing. Apply the Tables, Encounters, and Fruit pipeline migration to the connected Supabase project.",
     }, { status: 500 });
   }
 
-  if (!savedEncounterSubmissions) {
+  if (!savedEncounterSubmissions && isMeetingsSave) {
     return NextResponse.json({
       error: "Encounters were not saved because the Tables, Encounters, and Fruit pipeline columns are missing. Apply the latest missionary pipeline migration to the connected Supabase project.",
     }, { status: 500 });
   }
 
-  if (!savedTableReviews) {
+  if (!savedTableReviews && isReviewsSave) {
     return NextResponse.json({
       error: "Table reviews were not saved because the missionary_table_reviews table is missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
     }, { status: 500 });
   }
 
-  if (!syncedFruitItems) {
+  if (!syncedFruitItems && isFruitSave) {
     return NextResponse.json({
       error: "Approved Fruit was not published because the missionary_fruit_items pipeline columns are missing. Apply the latest missionary pipeline migration to the connected Supabase project.",
     }, { status: 500 });
   }
 
-  if (!savedCommandFruitItems) {
+  if (!savedCommandFruitItems && isFruitSave) {
     return NextResponse.json({
       error: "Fruit summaries were not saved because the Command Center Fruit columns are missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
     }, { status: 500 });
   }
 
-  if (!savedConnectionLogs) {
+  if (!savedConnectionLogs && isMeetingsSave) {
     return NextResponse.json({
       error: "Connection logs were not saved because the missionary_connection_logs table is missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
     }, { status: 500 });
   }
 
-  if (!savedLibraryItems) {
+  if (!savedLibraryItems && isLibrarySave) {
     return NextResponse.json({
       error: "Library items were not saved because the missionary_library_items table is missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
     }, { status: 500 });
   }
 
-  if (!savedInSeasonFocus) {
+  if (!savedInSeasonFocus && isInSeasonSave) {
     return NextResponse.json({
       error: "In Season focus was not saved because the missionary_in_season_focus table is missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
     }, { status: 500 });
