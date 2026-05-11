@@ -1586,10 +1586,10 @@ function MissionaryCutoutGenerationModal({
               AI Media
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-              Generate Missionary Cutout
+              Generate Optional Hero Image
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-              Use the uploaded directory photo for {householdName} to create a transparent hero family image. Review the preview before replacing the current hero image.
+              Use the primary profile photo for {householdName} to create an optional public hero image. Review the preview before applying it.
             </p>
             <p className="mt-3 max-w-2xl rounded-xl border border-[#d7d2c8] bg-white p-3 text-xs leading-5 text-[#6f6658]">
               AI drafts may alter likeness. Review carefully before publishing. If likeness is inaccurate, regenerate or upload a professionally edited cutout.
@@ -1617,7 +1617,7 @@ function MissionaryCutoutGenerationModal({
               />
             </div>
             <p className="mt-3 rounded-xl border border-[#e2ded5] bg-white p-3 text-xs leading-5 text-[#6f6658]">
-              This does not auto-replace your hero image. Generated files are stored as previews until you choose “Use as Hero Image.”
+              This does not auto-replace your public profile image. Generated files are stored as previews until you choose “Use as Public Hero Image.”
             </p>
             <div className="mt-4 rounded-xl border border-[#d7d2c8] bg-white p-4">
               <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -1851,7 +1851,7 @@ function MissionaryCutoutGenerationModal({
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
                 >
-                  Use as Hero Image
+                  Use as Public Hero Image
                 </button>
               </div>
             </div>
@@ -7416,7 +7416,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       setUploadStates((currentState) => ({
         ...currentState,
         directory: {
-          message: "Upload a directory image before generating a cutout.",
+          message: "Upload a primary profile photo before generating an optional hero image.",
           status: "error",
         },
       }));
@@ -7441,7 +7441,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     if (!selectedProfile?.profile_image_url?.trim()) {
       setCutoutGenerationState({
-        message: "Upload a directory image before generating a cutout.",
+        message: "Upload a primary profile photo before generating an optional hero image.",
         status: "error",
       });
       return;
@@ -7524,7 +7524,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       setUploadStates((currentState) => ({
         ...currentState,
         hero: {
-          message: "Generated cutout saved as Hero Family Image.",
+          message: "Generated image saved as Optional AI Hero Image.",
           status: "success",
         },
       }));
@@ -8298,15 +8298,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "media" ? (
           <SectionIntro
-            description="Updates Profile. Media used on the directory card and as the household overlay on the shared profile hero background. Managed in the Missionary Workspace and visible on Profile after save."
+            description="Updates Profile. Upload one primary photo for the public profile and directory. Optional AI hero images can be generated and applied later."
             title="Media"
           >
             <DataFlowLabels items={["Raw upload -> Reviewed -> Published", "Managed in Missionary Workspace", "Visible on Profile"]} />
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
               <div>
                 <ImageUploadField
-                  helperText="Normal uploaded family/couple photo used on /missionaries cards."
-                  label="Directory Card Image"
+                  helperText="Used on your public profile and directory unless you choose an AI hero image."
+                  label="Primary Profile Photo"
                   onChange={(value) => updateHouseholdField("profile_image_url", value)}
                   onUpload={uploadImage}
                   slot="directory"
@@ -8317,10 +8317,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-[#111111]">
-                        AI hero cutout
+                        Generate Optional Hero Image
                       </p>
                       <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                        Generate a transparent PNG from the directory image. You review before it replaces the hero image.
+                        Generate an AI cutout or stylized image from the primary photo. You review and apply it manually.
                       </p>
                     </div>
                     <button
@@ -8330,20 +8330,68 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
                     >
-                      Generate Missionary Cutout
+                      Generate Optional Hero Image
                     </button>
                   </div>
                 </div>
               </div>
-              <ImageUploadField
-                helperText="Generated transparent PNG/cutout image. This appears on top of the shared profile background."
-                label="Hero Family Image"
-                onChange={(value) => updateHouseholdField("hero_image_url", value)}
-                onUpload={uploadImage}
-                slot="hero"
-                uploadState={uploadStates.hero}
-                value={selectedProfile.hero_image_url}
-              />
+              <div className="space-y-4">
+                <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Image Usage Controls
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
+                      <input
+                        checked={!selectedProfile.hero_image_url?.trim()}
+                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                        name="profile_public_image_source"
+                        onChange={() => updateHouseholdField("hero_image_url", "")}
+                        type="radio"
+                      />
+                      <span>
+                        <span className="block font-semibold text-[#111111]">Use primary photo for public profile</span>
+                        <span className="block text-xs leading-5 text-[#7b746a]">Default. The public page uses the primary uploaded photo.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
+                      <input
+                        checked={Boolean(selectedProfile.hero_image_url?.trim())}
+                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                        disabled={!selectedProfile.hero_image_url?.trim()}
+                        name="profile_public_image_source"
+                        onChange={() => undefined}
+                        type="radio"
+                      />
+                      <span>
+                        <span className="block font-semibold text-[#111111]">Use AI hero image for public profile</span>
+                        <span className="block text-xs leading-5 text-[#7b746a]">Optional. Generate or upload an AI hero image first, then apply it.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
+                      <input
+                        checked
+                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                        readOnly
+                        type="checkbox"
+                      />
+                      <span>
+                        <span className="block font-semibold text-[#111111]">Use primary photo for directory</span>
+                        <span className="block text-xs leading-5 text-[#7b746a]">Directory cards always default to the primary uploaded photo.</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+                <ImageUploadField
+                  helperText="Optional generated or uploaded hero image. If this is empty, the public profile uses the primary photo."
+                  label="Optional AI Hero Image"
+                  onChange={(value) => updateHouseholdField("hero_image_url", value)}
+                  onUpload={uploadImage}
+                  slot="hero"
+                  uploadState={uploadStates.hero}
+                  value={selectedProfile.hero_image_url}
+                />
+              </div>
             </div>
             {isCutoutModalOpen && selectedProfile.profile_image_url?.trim() ? (
               <MissionaryCutoutGenerationModal

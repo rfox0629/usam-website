@@ -564,7 +564,7 @@ function mapHouseholdToMissionary({
     image: showPhotos ? toPublicImageSource(household.profile_image_url, directoryImageFallback) : directoryImageFallback,
     roleTags: mappedTags.roleTags,
     functionTags: mappedTags.functionTags,
-    heroImage: showPhotos ? toOptionalPublicImageSource(household.hero_image_url) : undefined,
+    heroImage: showPhotos ? toOptionalPublicImageSource(household.hero_image_url) ?? toPublicImageSource(household.profile_image_url, directoryImageFallback) : undefined,
     headerImage: showPhotos ? toPublicImageSource(household.profile_image_url, directoryImageFallback) : undefined,
     householdMembers: mapTeamMembers(teamMembers),
     story: household.story ?? undefined,
