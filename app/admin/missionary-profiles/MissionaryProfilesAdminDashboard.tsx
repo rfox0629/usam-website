@@ -8125,73 +8125,95 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 Profile
               </p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-                Updates Profile. Controls the public hero section, location display, and short mission statement.
+                Set up the public hero and the core details visitors see first.
               </p>
 
-              <div className="mt-6 grid gap-x-4 gap-y-6 md:grid-cols-2">
-                <ProfileField label="Display Name" onChange={(value) => updateHouseholdField("display_name", value)} value={selectedProfile.display_name} />
-                <ProfileField label="Slug" onChange={(value) => updateHouseholdField("slug", value)} value={selectedProfile.slug} />
-                <ProfileSelectField
-                helperText="Required unless location visibility is hidden."
-                label="Primary State"
-                onChange={updatePrimaryState}
-                options={stateOptions}
-                value={getProfilePrimaryState(selectedProfile)}
-              />
-                <ProfileSelectField
-                helperText="Controls the public serving line."
-                label="Serving Scope"
-                onChange={updateServingScope}
-                options={servingScopeOptions}
-                value={getProfileServingScope(selectedProfile)}
-              />
-                <ProfileSelectField
-                helperText="Used when serving scope is regional."
-                label="Region"
-                onChange={updateRegion}
-                options={regionOptions}
-                value={getProfileRegion(selectedProfile)}
-              />
-                <ProfileSelectField
-                helperText="Prepares profiles for state, regional, and national leadership views."
-                label="Role Type"
-                onChange={updateRoleType}
-                options={roleTypeOptions}
-                value={getProfileRoleType(selectedProfile)}
-              />
-                <ProfileSelectField
-                helperText="Hidden keeps the actual state off public profile and directory displays."
-                label="Location Visibility"
-                onChange={updateLocationVisibility}
-                options={locationVisibilityOptions}
-                value={getProfileLocationVisibility(selectedProfile)}
-              />
-                <div>
+              <div className="mt-6">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Main Profile Fields
+                </p>
+                <div className="mt-3 grid gap-x-4 gap-y-6 md:grid-cols-2">
                   <ProfileField
-                    helperText="Optional. Overrides the default 'Serving in [Location]' text shown on the public profile."
-                    label="Custom Serving Label"
-                    onChange={(value) => updateHouseholdField("custom_serving_label", value)}
-                    value={selectedProfile.custom_serving_label}
+                    helperText="Shown publicly."
+                    label="Display Name"
+                    onChange={(value) => updateHouseholdField("display_name", value)}
+                    value={selectedProfile.display_name}
                   />
-                  <div className="mt-3 rounded-xl border border-[#e2ded5] bg-white p-3">
+                  <ProfileField
+                    helperText="Used for public URL."
+                    label="Slug"
+                    onChange={(value) => updateHouseholdField("slug", value)}
+                    value={selectedProfile.slug}
+                  />
+                  <ProfileTextArea
+                    helperText="Shown in hero section."
+                    label="Short Mission"
+                    onChange={(value) => updateHouseholdField("short_mission", value)}
+                    rows={3}
+                    value={selectedProfile.short_mission}
+                  />
+                  <ProfileSelectField
+                    helperText="Shown publicly when location visibility allows it."
+                    label="Primary State"
+                    onChange={updatePrimaryState}
+                    options={stateOptions}
+                    value={getProfilePrimaryState(selectedProfile)}
+                  />
+                  <ProfileSelectField
+                    helperText="Controls public serving line."
+                    label="Serving Scope"
+                    onChange={updateServingScope}
+                    options={servingScopeOptions}
+                    value={getProfileServingScope(selectedProfile)}
+                  />
+                  <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
                     <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Public Preview
+                      Public Serving Line Preview
                     </p>
                     <p className="mt-1 text-sm leading-6 text-[#111111]">
                       {getServingLabelPreview(selectedProfile)}
                     </p>
+                    <p className={lightHelperClass}>
+                      Controls public serving line.
+                    </p>
                   </div>
                 </div>
               </div>
-              <div className="mt-6">
-                <ProfileTextArea
-                helperText="Shown in the public hero."
-                label="Short Mission"
-                onChange={(value) => updateHouseholdField("short_mission", value)}
-                rows={3}
-                value={selectedProfile.short_mission}
-              />
-              </div>
+
+              <details className="mt-6 rounded-xl border border-[#e2ded5] bg-white p-4">
+                <summary className="cursor-pointer text-[11px] uppercase tracking-[0.2em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Advanced Profile Settings
+                </summary>
+                <div className="mt-5 grid gap-x-4 gap-y-6 md:grid-cols-2">
+                  <ProfileSelectField
+                    helperText="Internal/admin classification unless used for regional serving views."
+                    label="Region"
+                    onChange={updateRegion}
+                    options={regionOptions}
+                    value={getProfileRegion(selectedProfile)}
+                  />
+                  <ProfileSelectField
+                    helperText="Used for leadership/profile categorization."
+                    label="Role Type"
+                    onChange={updateRoleType}
+                    options={roleTypeOptions}
+                    value={getProfileRoleType(selectedProfile)}
+                  />
+                  <ProfileSelectField
+                    helperText="Controls whether actual location is shown publicly."
+                    label="Location Visibility"
+                    onChange={updateLocationVisibility}
+                    options={locationVisibilityOptions}
+                    value={getProfileLocationVisibility(selectedProfile)}
+                  />
+                  <ProfileField
+                    helperText="Optional override for the public serving line."
+                    label="Custom Serving Label"
+                    onChange={(value) => updateHouseholdField("custom_serving_label", value)}
+                    value={selectedProfile.custom_serving_label}
+                  />
+                </div>
+              </details>
             </div>
           </div>
           ) : null}
