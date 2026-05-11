@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { signInAdmin } from "./actions";
+import { requestPasswordReset, signInAdmin } from "./actions";
 
 export const metadata: Metadata = {
   title: "Admin Login | USA Missionaries",
@@ -18,6 +18,8 @@ const errors: Record<string, string> = {
   invalid: "Unable to sign in with those credentials.",
   missing: "Enter an email and password to continue.",
   "not-admin": "This email is not approved for admin access.",
+  "reset-failed": "We could not send a password reset email. Try again in a moment.",
+  "reset-missing": "Enter the email address for your admin account.",
 };
 
 export default async function LoginPage({
@@ -30,7 +32,11 @@ export default async function LoginPage({
     ? params.next
     : "/admin/dashboard";
   const error = params.error ? errors[params.error] : undefined;
-  const success = params.reset === "success" ? "Your password has been updated. Sign in with your new password." : undefined;
+  const success = params.reset === "success"
+    ? "Your password has been updated. Sign in with your new password."
+    : params.reset === "email-sent"
+      ? "If that account exists, a password reset email is on the way."
+      : undefined;
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-24 text-stone-100">
@@ -88,6 +94,36 @@ export default async function LoginPage({
             Sign In
           </button>
         </form>
+
+        <div className="mt-8 border-t border-stone-800 pt-6">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-200" style={{ fontFamily: font.rajdhani }}>
+            Reset Password
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-stone-500">
+            We&apos;ll send a reset link to your admin email and bring you back to the USA Missionaries password update page.
+          </p>
+          <form action={requestPasswordReset} className="mt-5 space-y-4">
+            <label className="block">
+              <span className="text-[11px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Admin Email
+              </span>
+              <input
+                autoComplete="email"
+                className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+                name="reset_email"
+                required
+                type="email"
+              />
+            </label>
+            <button
+              className="inline-flex min-h-11 w-full items-center justify-center border border-stone-700 px-6 py-3 text-xs uppercase tracking-[0.22em] text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="submit"
+            >
+              Send Reset Email
+            </button>
+          </form>
+        </div>
       </section>
     </main>
   );

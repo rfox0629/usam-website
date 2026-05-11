@@ -108,7 +108,7 @@ export function UpdatePasswordForm() {
           return;
         }
 
-        if (accessToken && refreshToken && recoveryType === "recovery") {
+        if (accessToken && refreshToken && (!recoveryType || recoveryType === "recovery")) {
           const { error } = await client.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,

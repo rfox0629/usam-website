@@ -587,6 +587,21 @@ export default function Home() {
   const [shouldPreviewJoinMission, setShouldPreviewJoinMission] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   useEffect(() => {
+    const hash = window.location.hash;
+
+    if (!hash) {
+      return;
+    }
+
+    const hashParams = new URLSearchParams(hash.replace(/^#/, ""));
+    const isRecoveryLink = hashParams.get("type") === "recovery"
+      || Boolean(hashParams.get("access_token") && hashParams.get("refresh_token"));
+
+    if (isRecoveryLink) {
+      window.location.replace(`/update-password${hash}`);
+    }
+  }, []);
+  useEffect(() => {
     const fn = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);

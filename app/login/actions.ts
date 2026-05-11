@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/lib/supabase/server";
 
@@ -9,6 +10,20 @@ function getString(formData: FormData, name: string) {
 
 function safeNextPath(value: string) {
   return value.startsWith("/") && !value.startsWith("//") ? value : "/admin/dashboard";
+}
+
+async function requestOrigin() {
+  const headersList = await headers();
+  const origin = headersList.get("origin");
+
+  if (origin) {
+    return origin;
+  }
+
+  const host = headersList.get("host") ?? "localhost:3000";
+  const protocol = headersList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+
+  return `${protocol}://${host}`;
 }
 
 function isMissingIsActiveColumn(error: { message?: string } | null) {
@@ -65,6 +80,30 @@ export async function signInAdmin(formData: FormData) {
   }
 
   redirect(nextPath);
+}
+
+export async function requestPasswordReset(formData: FormData) {
+  const email = getString(formData, "reset_email").toLowerCase();
+
+  if (!email || !email.includes("@")) {
+    redirect("/login?error=reset-missing");
+  }
+
+  if (!isSupabaseServerConfigured()) {
+    redirect("/login?error=config");
+  }
+
+  const origin = await requestOrigin();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/update-password`,
+  });
+
+  if (error) {
+    redirect(`/login?error=${encodeURIComponent("reset-failed")}`);
+  }
+
+  redirect("/login?reset=email-sent");
 }
 
 export async function signOutAdmin() {
