@@ -3,7 +3,7 @@
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
   missionaryImageMimeTypes,
@@ -767,6 +767,10 @@ const editorTabGroups: Array<{
 
 function normalizeEditorTab(tab: RawEditorTab): EditorTab {
   return tab === "tables" || tab === "connections" ? "meetings" : tab;
+}
+
+function isEditorTab(value: string | null): value is EditorTab {
+  return editorTabGroups.some((group) => group.tabs.some((tab) => tab.value === value));
 }
 
 const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
@@ -5723,9 +5727,11 @@ function ProfileVisibilityBadge({ profile }: { profile: AdminProfile }) {
 
 export function MissionaryProfilesAdminDashboard({ initialProfiles }: MissionaryProfilesAdminDashboardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
   const [profiles, setProfiles] = useState(initialProfiles);
   const [selectedId, setSelectedId] = useState("");
-  const [activeTab, setActiveTab] = useState<RawEditorTab>("overview");
+  const [activeTab, setActiveTab] = useState<RawEditorTab>(isEditorTab(requestedTab) ? requestedTab : "overview");
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("progress");
   const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("visibility");
   const [profileQuery, setProfileQuery] = useState("");
@@ -5755,6 +5761,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   useEffect(() => {
     setActiveTab((currentTab) => normalizeEditorTab(currentTab));
   }, []);
+
+  useEffect(() => {
+    if (isEditorTab(requestedTab)) {
+      changeEditorTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   useEffect(() => {
     setProfiles(initialProfiles);
