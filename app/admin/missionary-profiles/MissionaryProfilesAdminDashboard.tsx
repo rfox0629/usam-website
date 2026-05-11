@@ -803,7 +803,6 @@ const primaryNavGroups: Array<{
     key: "missionary-workspace",
     label: "Missionary Workspace",
     tabs: [
-      { label: "Overview", value: "overview" },
       { label: "People", value: "people" },
       { label: "Meetings", value: "meetings" },
       { id: "reviews", label: "Reviews", value: "meetings" },
@@ -827,7 +826,7 @@ function normalizeEditorTab(tab: RawEditorTab): EditorTab {
 }
 
 function isEditorTab(value: string | null): value is EditorTab {
-  return primaryNavGroups.some((group) => group.tabs.some((tab) => tab.value === value));
+  return value === "overview" || primaryNavGroups.some((group) => group.tabs.some((tab) => tab.value === value));
 }
 
 function getPrimaryNavForTab(tab: EditorTab, currentPrimary: PrimaryNavKey = "missionary-workspace"): PrimaryNavKey {
@@ -844,6 +843,27 @@ function getPrimaryNavForTab(tab: EditorTab, currentPrimary: PrimaryNavKey = "mi
   }
 
   return "missionary-workspace";
+}
+
+function getDefaultTabForPrimaryNav(primaryNav: PrimaryNavKey): { id: string; value: EditorTab } {
+  if (primaryNav === "missionary-workspace") {
+    return {
+      id: "",
+      value: "overview",
+    };
+  }
+
+  const group = primaryNavGroups.find((item) => item.key === primaryNav);
+  const firstTab = group?.tabs[0];
+
+  return {
+    id: firstTab?.id ?? firstTab?.value ?? "overview",
+    value: firstTab?.value ?? "overview",
+  };
+}
+
+function getSubnavIdForTab(tab: EditorTab, primaryNav: PrimaryNavKey) {
+  return tab === "overview" && primaryNav === "missionary-workspace" ? "" : tab;
 }
 
 const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
@@ -5929,11 +5949,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const initialTab = isEditorTab(requestedTab) ? requestedTab : "overview";
+  const initialPrimaryNav = getPrimaryNavForTab(normalizeEditorTab(initialTab));
   const [profiles, setProfiles] = useState(initialProfiles);
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState<EditorTab>(normalizeEditorTab(initialTab));
-  const [activePrimaryNav, setActivePrimaryNav] = useState<PrimaryNavKey>(getPrimaryNavForTab(normalizeEditorTab(initialTab)));
-  const [activeSubnavId, setActiveSubnavId] = useState<string>(normalizeEditorTab(initialTab));
+  const [activePrimaryNav, setActivePrimaryNav] = useState<PrimaryNavKey>(initialPrimaryNav);
+  const [activeSubnavId, setActiveSubnavId] = useState<string>(getSubnavIdForTab(normalizeEditorTab(initialTab), initialPrimaryNav));
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("progress");
   const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("visibility");
   const [profileQuery, setProfileQuery] = useState("");
@@ -6285,7 +6306,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     setSelectedId(profileId);
     setActiveTab("overview");
     setActivePrimaryNav("missionary-workspace");
-    setActiveSubnavId("overview");
+    setActiveSubnavId("");
     resetTransientEditorState();
   }
 
@@ -6293,7 +6314,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     setSelectedId("");
     setActiveTab("overview");
     setActivePrimaryNav("missionary-workspace");
-    setActiveSubnavId("overview");
+    setActiveSubnavId("");
     resetTransientEditorState();
   }
 
@@ -6405,7 +6426,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     setActiveTab(nextTab);
     setActivePrimaryNav(nextPrimaryNav);
-    setActiveSubnavId(subnavId ?? nextTab);
+    setActiveSubnavId(subnavId ?? getSubnavIdForTab(nextTab, nextPrimaryNav));
 
     if (nextTab === "support") {
       setSupportSubsection("progress");
@@ -7672,10 +7693,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   }`}
                   key={group.key}
                   onClick={() => {
-                    const firstTab = group.tabs[0];
+                    const defaultTab = getDefaultTabForPrimaryNav(group.key);
 
                     setActivePrimaryNav(group.key);
-                    changeEditorTab(firstTab.value, group.key, firstTab.id ?? firstTab.value);
+                    changeEditorTab(defaultTab.value, group.key, defaultTab.id);
                   }}
                   role="tab"
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
