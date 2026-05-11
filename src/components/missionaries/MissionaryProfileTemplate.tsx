@@ -563,7 +563,7 @@ export function MissionaryProfileTemplate({
       ) : null}
 
       {showSupport ? (
-        <section className="border-t border-stone-900/80 px-6 py-20 md:py-28">
+        <section id="support" className="border-t border-stone-900/80 px-6 py-20 md:py-28">
           <div className="mx-auto max-w-6xl">
             <SectionHeading
               title="Support This Mission"

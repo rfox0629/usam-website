@@ -582,7 +582,7 @@ type EditorTab =
   | "prayer";
 type LegacyEditorTab = "connections" | "tables";
 type RawEditorTab = EditorTab | LegacyEditorTab;
-type SupportSubsection = "advanced" | "buttons" | "commitments" | "giving" | "gifts" | "progress";
+type SupportSubsection = "commitments" | "giving-page" | "overview" | "settings" | "share-tools";
 type PrayerSubsection = "content" | "cta" | "preview" | "requests" | "team" | "visibility";
 type PrimaryNavKey = "dashboard" | "field" | "publishing" | "resources";
 
@@ -913,12 +913,11 @@ function getSubnavIdForTab(tab: EditorTab, primaryNav: PrimaryNavKey) {
 }
 
 const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
-  { label: "Fundraising Progress", value: "progress" },
-  { label: "Interest & Commitments", value: "commitments" },
-  { label: "Giving Routing", value: "giving" },
-  { label: "Button Labels", value: "buttons" },
-  { label: "Major Gift Settings", value: "gifts" },
-  { label: "Advanced Settings", value: "advanced" },
+  { label: "Overview", value: "overview" },
+  { label: "Giving Page", value: "giving-page" },
+  { label: "Share Tools", value: "share-tools" },
+  { label: "Commitments", value: "commitments" },
+  { label: "Settings", value: "settings" },
 ];
 
 const prayerSubsectionOptions: Array<{ label: string; value: PrayerSubsection }> = [
@@ -5602,6 +5601,212 @@ function getSupportCommitmentAmount(commitment: AdminSupportCommitment) {
   return Number.isFinite(amount) ? amount : 0;
 }
 
+function countSupportCommitments(commitments: readonly AdminSupportCommitment[], status: AdminSupportCommitmentStatus) {
+  return commitments.filter((commitment) => commitment.status === status).length;
+}
+
+function activeSupporterCount(commitments: readonly AdminSupportCommitment[]) {
+  return new Set(
+    commitments
+      .filter((commitment) => commitment.status === "active")
+      .map((commitment) => commitment.email.toLowerCase().trim() || commitment.id),
+  ).size;
+}
+
+function SupportMetricCard({
+  helper,
+  label,
+  value,
+}: {
+  helper?: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </p>
+      <p className="mt-3 text-2xl font-semibold text-[#111111]">
+        {value}
+      </p>
+      {helper ? (
+        <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+          {helper}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function SupportOverview({
+  commitments,
+  monthlyGoal,
+  onAnnualGoalChange,
+  onMonthlyCommittedChange,
+  support,
+}: {
+  commitments: readonly AdminSupportCommitment[];
+  monthlyGoal: number;
+  onAnnualGoalChange: (value: number) => void;
+  onMonthlyCommittedChange: (value: number) => void;
+  support: AdminSupportSettings;
+}) {
+  const monthlyCommitted = toNumber(support.monthly_committed);
+  const progressPercentage = getSupportProgressPercentage(monthlyCommitted, monthlyGoal);
+  const visualProgressPercentage = Math.min(Math.max(progressPercentage, 0), 100);
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Support Overview
+        </p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+          A simple view of monthly support, confirmed partners, and the next people who need a relational follow-up.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-[#e2ded5] bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Monthly Support Progress
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-[#111111]">
+              {formatCurrency(monthlyCommitted)}
+              <span className="text-base font-normal text-[#7b746a]"> / {formatCurrency(monthlyGoal)}</span>
+            </p>
+          </div>
+          <p className="text-sm font-semibold text-[#111111]">
+            {progressPercentage}% funded
+          </p>
+        </div>
+        <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e9e3d8]">
+          <div
+            className={`h-full rounded-full transition-all ${getSupportProgressFillClass(progressPercentage)}`}
+            style={{ width: `${visualProgressPercentage}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <SupportMetricCard label="Annual Goal" value={formatCurrency(support.annual_goal)} />
+        <SupportMetricCard label="Monthly Goal" value={formatCurrency(monthlyGoal)} />
+        <SupportMetricCard label="Monthly Committed" value={formatCurrency(monthlyCommitted)} helper="Active confirmed monthly support only." />
+        <SupportMetricCard label="Pending Giving Setup" value={String(countSupportCommitments(commitments, "pending_giving_setup"))} helper="Submitted forms awaiting giving platform confirmation." />
+        <SupportMetricCard label="Active Supporters" value={String(activeSupporterCount(commitments))} helper="Confirmed active support partners." />
+        <SupportMetricCard label="Needs Follow Up" value={String(countSupportCommitments(commitments, "needs_follow_up"))} helper="People to reconnect with relationally." />
+      </div>
+
+      <div className="rounded-2xl border border-[#e2ded5] bg-[#f8f6f1] p-5">
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Goal Settings
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <CurrencyField
+            helperText="Annual fundraising goal for this household."
+            label="Annual Goal"
+            onChange={onAnnualGoalChange}
+            value={support.annual_goal}
+          />
+          <CurrencyField
+            helperText="Calculated from Annual Goal divided by 12."
+            label="Monthly Goal"
+            readOnly
+            value={monthlyGoal}
+          />
+          <CurrencyField
+            helperText="Confirmed active monthly support."
+            label="Monthly Committed"
+            onChange={onMonthlyCommittedChange}
+            value={support.monthly_committed}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShareTemplateCard({
+  body,
+  label,
+  onCopy,
+}: {
+  body: string;
+  label: string;
+  onCopy: (value: string, label: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {label}
+        </p>
+        <button
+          className={lightSecondaryButtonClass}
+          onClick={() => onCopy(body, label)}
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          type="button"
+        >
+          Copy
+        </button>
+      </div>
+      <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#4b443b]">
+        {body}
+      </p>
+    </div>
+  );
+}
+
+function SupportShareTools({
+  annualGoal,
+  missionStatement,
+  missionaryName,
+  onCopy,
+  profileLink,
+  supportLink,
+}: {
+  annualGoal: number;
+  missionStatement: string;
+  missionaryName: string;
+  onCopy: (value: string, label: string) => void;
+  profileLink: string;
+  supportLink: string;
+}) {
+  const textTemplate = `Hey [Name], we are raising support as USA Missionaries to reach the lost, make disciples, and multiply across America. Would you prayerfully consider partnering with us monthly? You can learn more or support here: ${supportLink}`;
+  const emailTemplate = `Subject: Would you prayerfully consider partnering with ${missionaryName}?\n\nHi [Name],\n\nWe are serving with USA Missionaries and raising monthly support so we can keep saying yes to the mission God has put in front of us.\n\n${missionStatement}\n\nWould you prayerfully consider becoming a monthly support partner? You can learn more about our mission and give securely here:\n${supportLink}\n\nThank you for praying with us and considering partnership.\n\n${missionaryName}`;
+  const socialTemplate = `${missionaryName} is raising support with USA Missionaries to reach the lost, make disciples, and multiply across America.\n\n${missionStatement}\n\nWould you prayerfully consider partnering monthly or sharing this with someone who may want to stand with the mission?\n${supportLink}`;
+  const videoPrompt = `Record a 60-90 second video:\n1. Introduce yourself: ${missionaryName}.\n2. Share the mission in one sentence: ${missionStatement}\n3. Explain the current support goal: ${formatCurrency(annualGoal)} annually.\n4. Invite viewers to pray, share, or partner monthly.\n5. Close with the support link: ${supportLink}`;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Share Tools
+        </p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+          Simple copy-and-send tools to invite prayerful support without making the ask feel complicated.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button className={lightPrimaryButtonClass} onClick={() => onCopy(profileLink, "Public Profile Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          Copy Public Profile Link
+        </button>
+        <button className={lightPrimaryButtonClass} onClick={() => onCopy(supportLink, "Support Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          Copy Support Link
+        </button>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ShareTemplateCard body={textTemplate} label="Text Message Template" onCopy={onCopy} />
+        <ShareTemplateCard body={emailTemplate} label="Email Template" onCopy={onCopy} />
+        <ShareTemplateCard body={socialTemplate} label="Facebook / Instagram Caption" onCopy={onCopy} />
+        <ShareTemplateCard body={videoPrompt} label="YouTube / Video Script Prompt" onCopy={onCopy} />
+      </div>
+    </div>
+  );
+}
+
 function SupportCommitmentsManager({
   commitments,
   isUpdating,
@@ -6226,7 +6431,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [activeTab, setActiveTab] = useState<EditorTab>(normalizeEditorTab(initialTab));
   const [activePrimaryNav, setActivePrimaryNav] = useState<PrimaryNavKey>(initialPrimaryNav);
   const [activeSubnavId, setActiveSubnavId] = useState<string>(getSubnavIdForTab(normalizeEditorTab(initialTab), initialPrimaryNav));
-  const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("progress");
+  const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("overview");
   const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("visibility");
   const [profileQuery, setProfileQuery] = useState("");
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
@@ -6556,15 +6761,23 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     const profileUrl = `${window.location.origin}/missionaries/${selectedProfile.slug}`;
 
+    copyTextToClipboard(profileUrl, "Public profile link");
+  }
+
+  async function copyTextToClipboard(value: string, label: string) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     try {
-      await window.navigator.clipboard.writeText(profileUrl);
+      await window.navigator.clipboard.writeText(value);
       setStatus({
-        text: "Public profile link copied.",
+        text: `${label} copied.`,
         tone: "success",
       });
     } catch {
       setStatus({
-        text: profileUrl,
+        text: value,
         tone: "success",
       });
     }
@@ -6660,7 +6873,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     setActiveSubnavId(subnavId ?? getSubnavIdForTab(nextTab, nextPrimaryNav));
 
     if (nextTab === "support") {
-      setSupportSubsection("progress");
+      setSupportSubsection("overview");
     }
 
     if (nextTab === "prayer") {
@@ -7777,6 +7990,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const support = selectedProfile.support ?? emptySupport(selectedProfile.id);
   const supportMode = selectedProfileSupportMode;
   const calculatedMonthlyGoal = calculateMonthlyGoal(support.annual_goal);
+  const profileOrigin = typeof window === "undefined" ? "" : window.location.origin;
+  const publicProfileLink = `${profileOrigin}/missionaries/${selectedProfile.slug}`;
+  const publicSupportLink = `${publicProfileLink}#support`;
   const selectedSupportModeOption = supportModeOptions.find((option) => option.value === supportMode) ?? supportModeOptions[0];
   const targetHouseholdOptions = targetHouseholdLoadState === "loading"
     ? [{ label: "Loading households...", value: "" }]
@@ -8573,7 +8789,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "support" ? (
           <SectionIntro
-            description="Updates Profile. Configure public support routing, donor-facing copy, centralized giving routing, and major gift options."
+            description="Raise support, shape the donor-facing page, share the mission, and follow up with supporters."
             title="Support"
           >
             <div className="space-y-6">
@@ -8596,24 +8812,85 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 ))}
               </div>
 
-              {supportSubsection === "progress" ? (
+              {supportSubsection === "overview" ? (
+                <SupportOverview
+                  commitments={selectedProfile.supportCommitments ?? []}
+                  monthlyGoal={calculatedMonthlyGoal}
+                  onAnnualGoalChange={updateAnnualGoal}
+                  onMonthlyCommittedChange={(value) => updateSupportField("monthly_committed", Math.max(0, toNumber(value)))}
+                  support={support}
+                />
+              ) : null}
+
+              {supportSubsection === "giving-page" ? (
                 <div className="space-y-5">
-                  <FundraisingProgressControls
-                    monthlyGoal={calculatedMonthlyGoal}
-                    onAnnualGoalChange={updateAnnualGoal}
-                    onMonthlyCommittedChange={(value) => updateSupportField("monthly_committed", Math.max(0, toNumber(value)))}
-                    support={support}
-                  />
-                  <div className={`border-t ${lightDividerClass} pt-5`}>
-                    <TextArea
-                      helperText="Public donor-facing explanation shown in the Support This Mission section."
-                      label="Support Explanation"
-                      onChange={(value) => updateHouseholdField("support_explanation", value)}
-                      rows={4}
-                      value={selectedProfile.support_explanation}
-                    />
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Giving Page
+                    </p>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+                      Shape the public invitation donors see when they decide whether to pray, share, or partner monthly.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className="space-y-4">
+                      <TextArea
+                        helperText="Public donor-facing explanation shown in the Support This Mission section."
+                        label="Support Explanation"
+                        onChange={(value) => updateHouseholdField("support_explanation", value)}
+                        rows={5}
+                        value={selectedProfile.support_explanation}
+                      />
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <Field label="Monthly Button Label" onChange={(value) => updateSupportField("monthly_button_label", value)} value={support.monthly_button_label ?? "Support Monthly"} />
+                        <Field label="One-Time Button Label" onChange={(value) => updateSupportField("one_time_button_label", value)} value={support.one_time_button_label ?? "Give One Time"} />
+                        <Field label="Major Gift Button Label" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
+                      </div>
+                      <TextArea
+                        helperText="Optional public description in the major gift modal."
+                        label="Major Gift Public Description"
+                        onChange={(value) => updateSupportField("major_gift_public_description", value)}
+                        rows={3}
+                        value={support.major_gift_public_description}
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-[#e2ded5] bg-white p-5">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Public Preview
+                      </p>
+                      <h3 className="mt-3 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                        Support This Mission
+                      </h3>
+                      <p className="mt-3 text-sm leading-6 text-[#4b443b]">
+                        {selectedProfile.support_explanation || "Stand with this missionary household as they reach, disciple, and serve across the mission field."}
+                      </p>
+                      <div className="mt-5 space-y-2">
+                        <button className={lightPrimaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                          {support.monthly_button_label || "Support Monthly"}
+                        </button>
+                        <button className={lightSecondaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                          {support.one_time_button_label || "Give One Time"}
+                        </button>
+                      </div>
+                      <p className="mt-4 text-xs leading-5 text-[#7b746a]">
+                        This is a content preview. Public buttons still route through the secure giving flow.
+                      </p>
+                    </div>
                   </div>
                 </div>
+              ) : null}
+
+              {supportSubsection === "share-tools" ? (
+                <SupportShareTools
+                  annualGoal={toNumber(support.annual_goal)}
+                  missionStatement={selectedProfile.short_mission || "We are serving with USA Missionaries to reach the lost, make disciples, and multiply across America."}
+                  missionaryName={selectedProfile.display_name}
+                  onCopy={copyTextToClipboard}
+                  profileLink={publicProfileLink}
+                  supportLink={publicSupportLink}
+                />
               ) : null}
 
               {supportSubsection === "commitments" ? (
@@ -8624,15 +8901,25 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 />
               ) : null}
 
-              {supportSubsection === "giving" ? (
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Giving Routing
-                  </p>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-                    Giving URLs are centrally controlled by USA Missionaries. Profile admins can review routing here but cannot paste external links.
-                  </p>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {supportSubsection === "settings" ? (
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Settings
+                    </p>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+                      Admin routing, centralized giving status, major gift behavior, and support mode settings.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#e2ded5] bg-[#f8f6f1] p-5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Giving Routing
+                    </p>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+                      Giving URLs are centrally controlled by USA Missionaries. Profile admins can review routing here but cannot paste external links.
+                    </p>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Source
@@ -8666,25 +8953,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       </p>
                     </div>
                   </div>
-                </div>
-              ) : null}
-
-              {supportSubsection === "buttons" ? (
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Button Labels
-                  </p>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <Field label="Monthly Button Label" onChange={(value) => updateSupportField("monthly_button_label", value)} value={support.monthly_button_label ?? "Support Monthly"} />
-                    <Field label="One-Time Button Label" onChange={(value) => updateSupportField("one_time_button_label", value)} value={support.one_time_button_label ?? "Give One Time"} />
-                    <Field label="Major Gift Button Label" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
                   </div>
-                </div>
-              ) : null}
 
-              {supportSubsection === "gifts" ? (
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-5">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     Major Gift Settings
                   </p>
                   <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-[#4b443b]">
@@ -8711,19 +8983,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       value={support.major_gift_public_description}
                     />
                   </div>
-                </div>
-              ) : null}
+                  </div>
 
-              {supportSubsection === "advanced" ? (
-                <div className="space-y-5">
-                  <div>
+                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-5">
                     <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       Advanced Settings
                     </p>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
                       Control support routing, target fallbacks, and admin-only behavior for this profile.
                     </p>
-                  </div>
 
                   <div className="grid gap-4 lg:grid-cols-2">
                   <SelectField
@@ -8776,6 +9044,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </div>
 
                   <SupportModeSummary mode={supportMode} />
+                  </div>
                 </div>
               ) : null}
             </div>
