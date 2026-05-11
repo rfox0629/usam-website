@@ -1596,18 +1596,18 @@ function MissionaryCutoutGenerationModal({
                 Optional Styling
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Optional stylistic additions can be requested while preserving the standard USA Missionaries visual style.
+                Optional additions must match the approved example style exactly and preserve likeness.
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <CutoutSettingToggle
                   checked={settings.addHats}
-                  description="Add matching military-style hats when they look natural."
+                  description="Dark tactical/military-style hats with the same scale, placement, and USAM patch treatment as the example."
                   label="Add matching military-style hats"
                   onChange={(checked) => updateSetting("addHats", checked)}
                 />
                 <CutoutSettingToggle
                   checked={settings.addFacePaint}
-                  description="Add subtle field-style face paint while preserving likeness."
+                  description="Subtle dark charcoal/gray field camo only. No bright colors, heavy marks, or facial distortion."
                   label="Add subtle face paint"
                   onChange={(checked) => updateSetting("addFacePaint", checked)}
                 />
@@ -7193,8 +7193,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     try {
       const requestedOptions = [
-        cutoutSettings.addHats ? "matching military-style hats" : "",
-        cutoutSettings.addFacePaint ? "subtle face paint" : "",
+        cutoutSettings.addHats ? "matching military-style hats that match the approved example photo exactly: dark tactical/military-style look, similar placement and scale, same USAM patch treatment, no colorful hats, and no unrelated logos" : "",
+        cutoutSettings.addFacePaint ? "subtle field-style face paint that matches the approved example style: dark charcoal/gray tones only, no exaggerated war paint, no bright colors, no heavy facial distortion, and likeness preserved" : "",
       ].filter(Boolean).join(", ") || "none";
       const response = await fetch("/api/product-feedback", {
         body: JSON.stringify({
@@ -7205,6 +7205,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             `Source photo: ${selectedProfile.profile_image_url}.`,
             `Optional styling requested: ${requestedOptions}.`,
             "Admin processing prompt: preserve source-photo identity, face structure, age, hair, skin, hands, body structure, pose, and composition; apply only approved USAM clothing/background treatment after human review.",
+            "Optional styling requirements: any hats or face paint must use the approved example photo as the visual standard, not a new creative interpretation.",
+            "Hat requirements: same dark tactical/military-style look as the reference, similar placement and scale, same USAM patch treatment, no colorful hats, and no unrelated logos.",
+            "Face paint requirements: subtle field-style camo only, dark charcoal/gray tones consistent with the reference style, no exaggerated war paint, no bright colors, no heavy distortion of facial features, and likeness must be preserved.",
             "Automated whole-image generation is paused; please manually review/create an approved USAM hero image and upload it in Missionary Workspace > Publishing > Profile Photos > Advanced Settings.",
             "No revisedPrompt/outputPrompt metadata was produced because this request did not run automated generation.",
           ].join("\n"),
