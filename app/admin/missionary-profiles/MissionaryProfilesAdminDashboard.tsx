@@ -1575,12 +1575,15 @@ function MissionaryCutoutGenerationModal({
             </p>
             <div className="mt-4 rounded-xl border border-[#d7d2c8] bg-white p-4">
               <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                USAM Standard Style Reference
+                Example USAM Hero Style
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                All optional hero images use this approved reference so public profiles stay visually consistent.
+                This is an example reference image showing the standard USA Missionaries hero style used for optional AI-generated public profile images.
               </p>
               <div className="mt-3 overflow-hidden rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
+                <span className="mb-3 inline-flex rounded-full border border-[#d7d2c8] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Example Reference Photo
+                </span>
                 <img
                   alt="USAM standard military family cutout style reference"
                   className="max-h-56 w-full object-contain"
