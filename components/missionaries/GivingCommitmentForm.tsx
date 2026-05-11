@@ -274,8 +274,8 @@ export function GivingCommitmentForm({
           <p className="mt-3 max-w-[720px] text-[15px] leading-[1.65] text-stone-800 md:mt-4 md:text-[17px] md:leading-[1.62]">
             Start here so we can connect your gift to the right missionary or fund. After submitting, you'll be taken to our secure giving page.
           </p>
-          <p className="mt-4 inline-block max-w-[820px] rounded-2xl border border-[#e2b84e]/45 bg-[#fff3cf] px-4 py-3 text-[14px] leading-[1.62] text-stone-800 md:px-[18px] md:py-[14px] md:text-[15px] md:leading-[1.58]">
-            A portion of every missionary support commitment helps sustain USAM leadership, operations, and national expansion.
+          <p className="mt-2 max-w-[680px] text-sm leading-6 text-stone-500">
+            Your support helps sustain both this missionary household and the broader USA Missionaries mission.
           </p>
           {!isHouseholdSupport ? (
             <p className="mt-3 rounded-2xl border border-[#D4A63D]/40 bg-[#fff7df] px-4 py-3 text-sm leading-6 text-stone-800">
@@ -386,6 +386,14 @@ export function GivingCommitmentForm({
 
             <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-6">
               <SectionTitle>Submit</SectionTitle>
+              <details className="mt-4 rounded-xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm leading-6 text-stone-600">
+                <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-[0.16em] text-stone-700" style={{ fontFamily: font.rajdhani }}>
+                  How support works
+                </summary>
+                <p className="mt-3">
+                  Your gift is routed through the centralized USA Missionaries giving system. Support helps sustain this missionary household and the broader mission of reaching the lost, making disciples, and multiplying across America.
+                </p>
+              </details>
               <button
                 type="submit"
                 disabled={status === "submitting"}
