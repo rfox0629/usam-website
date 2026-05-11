@@ -23,13 +23,14 @@ const errors: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; reset?: string }>;
 }) {
   const params = await searchParams;
   const nextPath = params.next?.startsWith("/") && !params.next.startsWith("//")
     ? params.next
     : "/admin/dashboard";
   const error = params.error ? errors[params.error] : undefined;
+  const success = params.reset === "success" ? "Your password has been updated. Sign in with your new password." : undefined;
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-24 text-stone-100">
@@ -46,6 +47,11 @@ export default async function LoginPage({
         {error ? (
           <p className="mt-5 border border-red-500/30 bg-red-950/20 p-4 text-sm text-red-200">
             {error}
+          </p>
+        ) : null}
+        {success ? (
+          <p className="mt-5 border border-[#D4A63D]/30 bg-[#D4A63D]/10 p-4 text-sm text-stone-100">
+            {success}
           </p>
         ) : null}
         <form action={signInAdmin} className="mt-7 space-y-5">
