@@ -8091,15 +8091,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         <p className="mt-2 max-w-sm text-xs leading-5 text-[#7b746a]">
                           Your uploaded photo will be used unless an approved USAM hero image is uploaded and applied.
                         </p>
-                        <button
-                          className="mt-5 inline-flex min-h-11 items-center justify-center rounded-sm border border-[#c8952d] bg-[#D4A63D] px-5 py-2.5 text-center text-[11px] uppercase tracking-[0.2em] text-[#111111] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
-                          disabled={!selectedProfile.profile_image_url?.trim()}
-                          onClick={openCutoutModal}
-                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                          type="button"
-                        >
-                          Request USAM Hero Image
-                        </button>
                       </div>
                     )}
                   </div>
@@ -8148,6 +8139,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         />
                         <span>
                           <span className="block font-semibold text-[#111111]">Use USAM Hero Image</span>
+                          {!selectedGeneratedHeroImageUrl ? (
+                            <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
+                              Available after an approved USAM hero image is added.
+                            </span>
+                          ) : null}
                         </span>
                       </label>
                     </div>
