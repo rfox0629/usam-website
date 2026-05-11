@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
 import {
   MISSIONARY_IMAGES_BUCKET,
@@ -56,7 +58,7 @@ const cutoutGenerationModelLabel = "GPT 5.5";
 const defaultCutoutSettings: CutoutSettings = {
   addCamoFatigues: true,
   addFacePaint: false,
-  addHats: false,
+  addHats: true,
   addUsamPatch: true,
   blurFaces: false,
   editMode: "conservative",
@@ -89,14 +91,14 @@ function normalizeCutoutSettings(value: unknown): CutoutSettings {
     : {};
 
   return {
-    addCamoFatigues: asBoolean(settings.addCamoFatigues, defaultCutoutSettings.addCamoFatigues),
-    addFacePaint: asBoolean(settings.addFacePaint, defaultCutoutSettings.addFacePaint),
-    addHats: asBoolean(settings.addHats, defaultCutoutSettings.addHats),
-    addUsamPatch: asBoolean(settings.addUsamPatch, defaultCutoutSettings.addUsamPatch),
-    blurFaces: asBoolean(settings.blurFaces, defaultCutoutSettings.blurFaces),
-    editMode: normalizeEditMode(settings.editMode),
-    keepFacesNatural: asBoolean(settings.keepFacesNatural, defaultCutoutSettings.keepFacesNatural),
-    removeBackground: asBoolean(settings.removeBackground, defaultCutoutSettings.removeBackground),
+    addCamoFatigues: true,
+    addFacePaint: false,
+    addHats: true,
+    addUsamPatch: true,
+    blurFaces: false,
+    editMode: "conservative",
+    keepFacesNatural: true,
+    removeBackground: true,
     styleReferenceImageDataUrl: normalizeStyleReferenceImageDataUrl(settings.styleReferenceImageDataUrl),
   };
 }
@@ -118,9 +120,9 @@ function buildCutoutPrompt(settings: CutoutSettings, hasStyleReferenceImage: boo
   ];
 
   if (hasStyleReferenceImage) {
-    instructions.push("The second image is an optional approved style reference. Use the reference image only as style direction for clothing, hats, patches, crop, and transparent cutout style.");
+    instructions.push("The second image is the locked USAM Standard Style Reference. Match its black/white digital camo fatigues, USAM patch treatment, military-style hats where appropriate, transparent cutout style, realistic lighting, and public hero crop.");
   } else {
-    instructions.push("No approved style reference image was provided. Use only the selected settings and preserve the source image as closely as possible.");
+    instructions.push("Use the USAM standard hero cutout style: black/white digital camo fatigues, subtle USAM patch, matching military-style hats where appropriate, transparent cutout, natural faces, no face paint, and conservative likeness preservation.");
   }
 
   if (settings.editMode === "conservative") {
@@ -172,6 +174,19 @@ function buildCutoutPrompt(settings: CutoutSettings, hasStyleReferenceImage: boo
   // Future AI styles can branch here, such as formal portrait, field report,
   // discreet/sensitive profile, or leadership variants.
   return instructions.join(" ");
+}
+
+async function getDefaultStyleReferenceImage(): Promise<ImageInput | null> {
+  try {
+    const buffer = await readFile(path.join(process.cwd(), "public", "fox-family-no-background.png"));
+
+    return {
+      arrayBuffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
+      contentType: "image/png",
+    };
+  } catch {
+    return null;
+  }
 }
 
 function toSourceUrl(sourceImageUrl: string, requestUrl: string) {
@@ -410,7 +425,9 @@ export async function POST(request: Request) {
 
   try {
     const sourceImage = await fetchSourceImage(sourceImageUrl, request.url);
-    const styleReferenceImage = styleReferenceImageDataUrl ? parseDataUrlImage(styleReferenceImageDataUrl) : null;
+    const styleReferenceImage = styleReferenceImageDataUrl
+      ? parseDataUrlImage(styleReferenceImageDataUrl)
+      : await getDefaultStyleReferenceImage();
     const prompt = buildCutoutPrompt(settings, Boolean(styleReferenceImage));
     const generatedImage = await createCutoutImage({
       prompt,

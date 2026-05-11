@@ -515,7 +515,7 @@ type PrayerRequestDraft = {
 const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
   addCamoFatigues: true,
   addFacePaint: false,
-  addHats: false,
+  addHats: true,
   addUsamPatch: true,
   blurFaces: false,
   editMode: "conservative",
@@ -1519,63 +1519,6 @@ function MissionaryCutoutGenerationModal({
   sourceImageUrl: string;
 }) {
   const isGenerating = generationState.status === "generating";
-  const [styleReferenceError, setStyleReferenceError] = useState("");
-
-  function updateSetting<K extends keyof CutoutGenerationSettings>(key: K, value: CutoutGenerationSettings[K]) {
-    onSettingsChange({
-      ...settings,
-      [key]: value,
-    });
-  }
-
-  function handleStyleReferenceUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    if (!missionaryImageMimeTypes.includes(file.type as typeof missionaryImageMimeTypes[number])) {
-      setStyleReferenceError("Use a JPG, PNG, or WebP style reference image.");
-      return;
-    }
-
-    if (file.size > MISSIONARY_IMAGE_MAX_BYTES) {
-      setStyleReferenceError("Style reference image must be 5MB or smaller.");
-      return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-
-      if (!result.startsWith("data:image/")) {
-        setStyleReferenceError("Unable to read the selected style reference image.");
-        return;
-      }
-
-      setStyleReferenceError("");
-      onSettingsChange({
-        ...settings,
-        styleReferenceImageDataUrl: result,
-        styleReferenceImageName: file.name,
-      });
-    };
-    reader.onerror = () => {
-      setStyleReferenceError("Unable to read the selected style reference image.");
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function clearStyleReferenceImage() {
-    setStyleReferenceError("");
-    onSettingsChange({
-      ...settings,
-      styleReferenceImageDataUrl: null,
-      styleReferenceImageName: null,
-    });
-  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
@@ -1586,10 +1529,10 @@ function MissionaryCutoutGenerationModal({
               AI Media
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-              Generate Optional Hero Image
+              Generate Optional USAM Hero Image
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-              Use the primary profile photo for {householdName} to create an optional public hero image. Review the preview before applying it.
+              Use the uploaded primary profile photo to create an optional USAM-style public hero cutout. The approved style reference keeps every profile visually consistent.
             </p>
             <p className="mt-3 max-w-2xl rounded-xl border border-[#d7d2c8] bg-white p-3 text-xs leading-5 text-[#6f6658]">
               AI drafts may alter likeness. Review carefully before publishing. If likeness is inaccurate, regenerate or upload a professionally edited cutout.
@@ -1621,54 +1564,21 @@ function MissionaryCutoutGenerationModal({
             </p>
             <div className="mt-4 rounded-xl border border-[#d7d2c8] bg-white p-4">
               <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Optional Style Reference Image
+                USAM Standard Style Reference
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Use an approved hero image to guide clothing, patch, crop, and cutout style. The source family photo still controls identity.
+                All optional hero images use this approved reference so public profiles stay visually consistent.
               </p>
-              {settings.styleReferenceImageDataUrl ? (
-                <div className="mt-3 overflow-hidden rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
-                  <img
-                    alt="Style reference preview"
-                    className="max-h-48 w-full object-contain"
-                    src={settings.styleReferenceImageDataUrl}
-                  />
-                </div>
-              ) : null}
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <label
-                  className={`${lightSecondaryButtonClass} cursor-pointer`}
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                >
-                  Upload Style Reference
-                  <input
-                    accept={missionaryImageMimeTypes.join(",")}
-                    className="sr-only"
-                    onChange={handleStyleReferenceUpload}
-                    type="file"
-                  />
-                </label>
-                {settings.styleReferenceImageDataUrl ? (
-                  <button
-                    className={lightSecondaryButtonClass}
-                    onClick={clearStyleReferenceImage}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    type="button"
-                  >
-                    Remove Reference
-                  </button>
-                ) : null}
+              <div className="mt-3 overflow-hidden rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
+                <img
+                  alt="USAM standard military family cutout style reference"
+                  className="max-h-56 w-full object-contain"
+                  src="/fox-family-no-background.png"
+                />
               </div>
-              {settings.styleReferenceImageName ? (
-                <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                  Using {settings.styleReferenceImageName}
-                </p>
-              ) : null}
-              {styleReferenceError ? (
-                <p className="mt-2 text-xs leading-5 text-red-700">
-                  {styleReferenceError}
-                </p>
-              ) : null}
+              <p className="mt-3 rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Managed by USA Missionaries Admin
+              </p>
             </div>
           </div>
 
@@ -1677,91 +1587,27 @@ function MissionaryCutoutGenerationModal({
               Generation Settings
             </p>
             <div className="mt-3 rounded-xl border border-[#d7d2c8] bg-white p-4">
-              <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Edit Mode
+              <p className="text-sm font-semibold text-[#111111]">
+                Conservative USAM Hero Cutout preset
               </p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+                Locked preset: black/white digital camo fatigues, USAM patch, matching military-style hats where appropriate, transparent background, natural faces preserved, no face paint, and conservative likeness preservation.
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {[
-                  {
-                    description: "Minimal changes. Prioritizes exact family likeness and original arrangement.",
-                    label: "Conservative edit",
-                    value: "conservative" as const,
-                  },
-                  {
-                    description: "More style, still using the original photo as the identity reference.",
-                    label: "Stylized edit",
-                    value: "stylized" as const,
-                  },
-                ].map((option) => (
-                  <label
-                    className={`cursor-pointer rounded-xl border p-3 transition-colors ${
-                      settings.editMode === option.value
-                        ? "border-[#c8952d] bg-[#fff7e3]"
-                        : "border-[#e2ded5] bg-[#f8f6f1] hover:border-[#c8952d]"
-                    }`}
-                    key={option.value}
-                  >
-                    <input
-                      checked={settings.editMode === option.value}
-                      className="sr-only"
-                      name="cutout_edit_mode"
-                      onChange={() => updateSetting("editMode", option.value)}
-                      type="radio"
-                      value={option.value}
-                    />
-                    <span className="block text-sm font-semibold text-[#111111]">
-                      {option.label}
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
-                      {option.description}
-                    </span>
-                  </label>
+                  "Black/white digital camo fatigues",
+                  "USAM patch",
+                  "Matching military-style hats where appropriate",
+                  "Transparent background",
+                  "Natural faces preserved",
+                  "No face paint",
+                  "Conservative likeness preservation",
+                ].map((item) => (
+                  <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-xs leading-5 text-[#4b443b]" key={item}>
+                    {item}
+                  </div>
                 ))}
               </div>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <CutoutSettingToggle
-                checked={settings.addCamoFatigues}
-                description="Dress subjects in black/white field uniforms."
-                label="Add camo fatigues"
-                onChange={(checked) => updateSetting("addCamoFatigues", checked)}
-              />
-              <CutoutSettingToggle
-                checked={settings.addHats}
-                description="Optional matching hats where natural."
-                label="Add hats"
-                onChange={(checked) => updateSetting("addHats", checked)}
-              />
-              <CutoutSettingToggle
-                checked={settings.addUsamPatch}
-                description="Add a small USAM patch where appropriate."
-                label="Add USAM patch"
-                onChange={(checked) => updateSetting("addUsamPatch", checked)}
-              />
-              <CutoutSettingToggle
-                checked={settings.addFacePaint}
-                description="Optional subtle field styling."
-                label="Add face paint"
-                onChange={(checked) => updateSetting("addFacePaint", checked)}
-              />
-              <CutoutSettingToggle
-                checked={settings.blurFaces}
-                description="Use for more discreet public profiles."
-                label="Blur faces"
-                onChange={(checked) => updateSetting("blurFaces", checked)}
-              />
-              <CutoutSettingToggle
-                checked={settings.removeBackground}
-                description="Create a transparent PNG cutout."
-                label="Remove background"
-                onChange={(checked) => updateSetting("removeBackground", checked)}
-              />
-              <CutoutSettingToggle
-                checked={settings.keepFacesNatural}
-                description="Preserve family likeness and natural faces."
-                label="Keep faces natural"
-                onChange={(checked) => updateSetting("keepFacesNatural", checked)}
-              />
             </div>
 
             <div className="mt-5 rounded-xl border border-[#d7d2c8] bg-white p-4">
@@ -8317,10 +8163,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-[#111111]">
-                        Generate Optional Hero Image
+                        Generate Optional USAM Hero Image
                       </p>
                       <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                        Generate an AI cutout or stylized image from the primary photo. You review and apply it manually.
+                        Generate an optional USAM-style public hero cutout from the primary photo. You review and apply it manually.
                       </p>
                     </div>
                     <button
@@ -8330,7 +8176,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
                     >
-                      Generate Optional Hero Image
+                      Generate Optional USAM Hero Image
                     </button>
                   </div>
                 </div>
