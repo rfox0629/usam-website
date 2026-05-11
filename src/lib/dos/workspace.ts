@@ -1,5 +1,8 @@
 import "server-only";
 
+// LEGACY DOS COLLECTIVE MODEL. Do not build new features here.
+// Canonical DOS uses missionary_households and missionary workspace tables
+// through src/lib/dos/missionary-app.ts.
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export type DosProfile = {
