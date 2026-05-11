@@ -1972,13 +1972,7 @@ function DataFlowLabels({ items }: { items: string[] }) {
   );
 }
 
-function WorkspaceOverview({
-  onNavigate,
-  profile,
-}: {
-  onNavigate: (tab: EditorTab, primaryNav: PrimaryNavKey, subnavId?: string) => void;
-  profile: AdminProfile;
-}) {
+function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
   const peopleCount = profile.fieldPeople?.length ?? 0;
   const meetingCount = (profile.tables?.length ?? 0) + (profile.connectionLogs?.length ?? 0);
   const reviewedTableIds = new Set((profile.tableReviews ?? []).map((review) => review.table_id));
@@ -2024,49 +2018,24 @@ function WorkspaceOverview({
         <StatPreview label="Approved Fruit" tone="light" value={String(profile.fruitItems?.filter((fruit) => fruit.status === "approved").length ?? 0)} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-        <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-          <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Recent Activity
-          </p>
-          <div className="mt-4 divide-y divide-[#e2ded5]">
-            {recentActivity.length > 0 ? recentActivity.map((activity) => (
-              <div className="py-3 first:pt-0 last:pb-0" key={`${activity.label}-${activity.date}-${activity.meta}`}>
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm font-semibold text-[#111111]">{activity.label}</p>
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {formatProfileUpdatedDate(activity.date)}
-                  </p>
-                </div>
-                <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5f574c]">{activity.meta}</p>
+      <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Recent Activity
+        </p>
+        <div className="mt-4 divide-y divide-[#e2ded5]">
+          {recentActivity.length > 0 ? recentActivity.map((activity) => (
+            <div className="py-3 first:pt-0 last:pb-0" key={`${activity.label}-${activity.date}-${activity.meta}`}>
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-semibold text-[#111111]">{activity.label}</p>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {formatProfileUpdatedDate(activity.date)}
+                </p>
               </div>
-            )) : (
-              <p className="text-sm leading-6 text-[#7b746a]">No field activity has been logged yet.</p>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-          <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Quick Actions
-          </p>
-          <div className="mt-4 grid gap-2">
-            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("people", "field", "people")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-              Add or Import People
-            </button>
-            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("meetings", "field", "meetings")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-              Log Meeting
-            </button>
-            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("meetings", "field", "reviews")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-              Review Meetings
-            </button>
-            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("fruit", "field", "fruit")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-              Create Fruit
-            </button>
-            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("profile", "publishing", "profile")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-              Manage Publishing
-            </button>
-          </div>
+              <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5f574c]">{activity.meta}</p>
+            </div>
+          )) : (
+            <p className="text-sm leading-6 text-[#7b746a]">No field activity has been logged yet.</p>
+          )}
         </div>
       </div>
     </div>
@@ -7834,10 +7803,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         <div className="mt-8">
           {activeTab === "overview" ? (
           <SectionIntro
-            description="Metrics, recent activity, pending actions, and quick actions for this workspace."
+            description="Metrics, recent activity, pending actions, and operational visibility for this workspace."
             title="Dashboard"
           >
-            <WorkspaceOverview onNavigate={changeEditorTab} profile={selectedProfile} />
+            <WorkspaceOverview profile={selectedProfile} />
           </SectionIntro>
           ) : null}
 
