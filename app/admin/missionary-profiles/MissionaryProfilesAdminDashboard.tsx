@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
   missionaryImageMimeTypes,
-  saveGeneratedMissionaryHeroImage,
   uploadMissionaryProfileImage,
   validateMissionaryImageFile,
   type MissionaryImageSlot,
@@ -1500,25 +1499,17 @@ function CutoutSettingToggle({
 function MissionaryCutoutGenerationModal({
   generationState,
   householdName,
-  isConfigured,
-  isReviewConfirmed,
   onClose,
-  onGenerate,
-  onReviewConfirmedChange,
+  onRequest,
   onSettingsChange,
-  onUse,
   settings,
   sourceImageUrl,
 }: {
   generationState: CutoutGenerationState;
   householdName: string;
-  isConfigured: boolean | null;
-  isReviewConfirmed: boolean;
   onClose: () => void;
-  onGenerate: () => void;
-  onReviewConfirmedChange: (confirmed: boolean) => void;
+  onRequest: () => void;
   onSettingsChange: (settings: CutoutGenerationSettings) => void;
-  onUse: () => void;
   settings: CutoutGenerationSettings;
   sourceImageUrl: string;
 }) {
@@ -1537,16 +1528,16 @@ function MissionaryCutoutGenerationModal({
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              AI Media
+              Admin-Assisted Media
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-              Generate Optional USAM Hero Image
+              Request USAM Hero Image
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-              Use the uploaded primary profile photo to create an optional USAM-style public hero cutout. The approved style reference keeps every profile visually consistent.
+              Send your uploaded primary profile photo to USA Missionaries Admin for a reviewed USAM-style public hero cutout.
             </p>
             <p className="mt-3 max-w-2xl rounded-xl border border-[#d7d2c8] bg-white p-3 text-xs leading-5 text-[#6f6658]">
-              AI drafts may alter likeness. Review carefully before publishing. If likeness is inaccurate, regenerate or upload a professionally edited cutout.
+              This protects likeness and brand consistency while masked image editing is being evaluated. Approved hero images can be uploaded and applied from Advanced Settings.
             </p>
           </div>
           <button
@@ -1571,14 +1562,14 @@ function MissionaryCutoutGenerationModal({
               />
             </div>
             <p className="mt-3 rounded-xl border border-[#e2ded5] bg-white p-3 text-xs leading-5 text-[#6f6658]">
-              This does not auto-replace your public profile image. Generated files are stored as previews until you choose “Use as Public Hero Image.”
+              This photo remains the public-profile default until an approved USAM hero image is uploaded and selected.
             </p>
             <div className="mt-4 rounded-xl border border-[#d7d2c8] bg-white p-4">
               <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Example USAM Hero Style
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Example reference image only. Your generated image will use your uploaded family/team photo.
+                Example reference image only. Your requested hero image will use your uploaded family/team photo.
               </p>
               <div className="mt-3 overflow-hidden rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
                 <span className="mb-3 inline-flex rounded-full border border-[#d7d2c8] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -1598,14 +1589,14 @@ function MissionaryCutoutGenerationModal({
 
           <div>
             <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Generation Settings
+              Request Details
             </p>
             <div className="mt-3 rounded-xl border border-[#d7d2c8] bg-white p-4">
               <p className="text-sm font-semibold text-[#111111]">
                 Optional Styling
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Optional stylistic additions can be applied while preserving the standard USA Missionaries visual style.
+                Optional stylistic additions can be requested while preserving the standard USA Missionaries visual style.
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <CutoutSettingToggle
@@ -1624,50 +1615,19 @@ function MissionaryCutoutGenerationModal({
             </div>
 
             <div className="mt-5 rounded-xl border border-[#d7d2c8] bg-white p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-[#111111]">
-                    Generated Preview
-                  </p>
-                  {generationState.modelLabel ? (
-                    <span className="mt-2 inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Generated with {generationState.modelLabel}
-                    </span>
-                  ) : (
-                    <span className="mt-2 inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Model: GPT 5.5
-                    </span>
-                  )}
-                  <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                    Transparent PNG previews appear here after generation.
-                  </p>
-                </div>
-                <button
-                  className={lightPrimaryButtonClass}
-                  disabled={isGenerating || isConfigured === false}
-                  onClick={onGenerate}
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  type="button"
-                >
-                  {generationState.previewUrl ? "Regenerate" : "Generate Preview"}
-                </button>
-              </div>
-
-              <div className="relative mt-4 flex min-h-72 items-center justify-center overflow-hidden rounded-xl border border-[#e2ded5] bg-[linear-gradient(45deg,#f1eee7_25%,transparent_25%),linear-gradient(-45deg,#f1eee7_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f1eee7_75%),linear-gradient(-45deg,transparent_75%,#f1eee7_75%)] bg-[length:24px_24px] bg-[position:0_0,0_12px,12px_-12px,-12px_0]">
-                {generationState.previewUrl ? (
-                  <img
-                    alt="Generated missionary cutout preview"
-                    className="max-h-80 w-full object-contain p-3"
-                    src={generationState.previewUrl}
-                  />
-                ) : (
-                  <p className="px-4 text-center text-xs uppercase tracking-[0.18em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    No preview generated yet
-                  </p>
-                )}
+              <p className="text-sm font-semibold text-[#111111]">
+                Admin Review Request
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+                USA Missionaries Admin will review the source photo, preserve likeness, and prepare an approved hero image before it can be used publicly.
+              </p>
+              <div className="relative mt-4 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
+                <p className="text-xs leading-5 text-[#6f6658]">
+                  Automated whole-image generation is paused for this MVP because it can alter faces, age, body structure, patches, and camo details. This request flow keeps the public profile on the uploaded photo until a reviewed hero image is uploaded.
+                </p>
                 {isGenerating ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/85 px-4 text-center text-xs uppercase tracking-[0.2em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {generationState.message || "Generating image..."}
+                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/85 px-4 text-center text-xs uppercase tracking-[0.2em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {generationState.message || "Sending request..."}
                   </div>
                 ) : null}
               </div>
@@ -1678,20 +1638,6 @@ function MissionaryCutoutGenerationModal({
                 }`}>
                   {generationState.message}
                 </p>
-              ) : null}
-
-              {generationState.previewUrl ? (
-                <label className="mt-4 flex items-start gap-3 rounded-xl border border-[#d7d2c8] bg-white p-3 text-sm leading-6 text-[#4b443b]">
-                  <input
-                    checked={isReviewConfirmed}
-                    className="mt-1 h-4 w-4 shrink-0 accent-[#D4A63D]"
-                    onChange={(event) => onReviewConfirmedChange(event.target.checked)}
-                    type="checkbox"
-                  />
-                  <span>
-                    I reviewed this image and confirm the people look accurate.
-                  </span>
-                </label>
               ) : null}
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -1705,12 +1651,12 @@ function MissionaryCutoutGenerationModal({
                 </button>
                 <button
                   className={lightPrimaryButtonClass}
-                  disabled={!generationState.previewUrl || isGenerating || !isReviewConfirmed}
-                  onClick={onUse}
+                  disabled={isGenerating || generationState.status === "success"}
+                  onClick={onRequest}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
                 >
-                  Use as Public Hero Image
+                  {generationState.status === "success" ? "Request Sent" : "Submit Request"}
                 </button>
               </div>
             </div>
@@ -6108,12 +6054,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     hero: { status: "idle" },
   });
   const [isCutoutModalOpen, setIsCutoutModalOpen] = useState(false);
-  const [isCutoutGenerationConfigured, setIsCutoutGenerationConfigured] = useState<boolean | null>(null);
   const [cutoutSettings, setCutoutSettings] = useState<CutoutGenerationSettings>(defaultCutoutGenerationSettings);
   const [cutoutGenerationState, setCutoutGenerationState] = useState<CutoutGenerationState>({
     status: "idle",
   });
-  const [isCutoutReviewConfirmed, setIsCutoutReviewConfirmed] = useState(false);
   const [storyRefinementState, setStoryRefinementState] = useState<StoryRefinementState>({
     status: "idle",
   });
@@ -6140,70 +6084,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       setSelectedId("");
     }
   }, [initialProfiles, selectedId]);
-
-  useEffect(() => {
-    if (!isCutoutModalOpen) {
-      return;
-    }
-
-    let ignore = false;
-
-    setIsCutoutGenerationConfigured(null);
-
-    async function checkCutoutConfiguration() {
-      try {
-        const response = await fetch("/api/admin/missionary-profiles/generate-cutout", {
-          method: "GET",
-        });
-        const result = await response.json().catch(() => ({})) as {
-          configured?: boolean;
-          error?: string;
-        };
-
-        if (ignore) {
-          return;
-        }
-
-        if (!response.ok) {
-          setIsCutoutGenerationConfigured(false);
-          setCutoutGenerationState({
-            message: result.error || "Unable to check image generation configuration.",
-            status: "error",
-          });
-          return;
-        }
-
-        setIsCutoutGenerationConfigured(result.configured === true);
-
-        if (result.configured !== true) {
-          setCutoutGenerationState({
-            message: "OpenAI GPT 5.5 image generation is not configured. Add OPENAI_API_KEY and restart the server to enable image generation.",
-            status: "error",
-          });
-        } else {
-          setCutoutGenerationState((currentState) => (
-            currentState.status === "error" && currentState.message?.includes("OPENAI_API_KEY")
-              ? { status: "idle" }
-              : currentState
-          ));
-        }
-      } catch {
-        if (!ignore) {
-          setIsCutoutGenerationConfigured(false);
-          setCutoutGenerationState({
-            message: "Unable to check image generation configuration.",
-            status: "error",
-          });
-        }
-      }
-    }
-
-    checkCutoutConfiguration();
-
-    return () => {
-      ignore = true;
-    };
-  }, [isCutoutModalOpen]);
 
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedId),
@@ -6238,7 +6118,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   useEffect(() => {
     setIsCutoutModalOpen(false);
     setCutoutSettings(defaultCutoutGenerationSettings);
-    setIsCutoutReviewConfirmed(false);
     setCutoutGenerationState({ status: "idle" });
     setStoryRefinementState({ status: "idle" });
     setFocusedEncounterId(null);
@@ -7295,41 +7174,41 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     setCutoutSettings(defaultCutoutGenerationSettings);
     setCutoutGenerationState({ status: "idle" });
-    setIsCutoutReviewConfirmed(false);
-    setIsCutoutGenerationConfigured(null);
     setIsCutoutModalOpen(true);
   }
 
-  async function generateMissionaryCutout() {
-    if (isCutoutGenerationConfigured === false) {
-      setCutoutGenerationState({
-        message: "OpenAI GPT 5.5 image generation is not configured. Add OPENAI_API_KEY and restart the server to enable image generation.",
-        status: "error",
-      });
-      return;
-    }
-
+  async function requestMissionaryHeroImage() {
     if (!selectedProfile?.profile_image_url?.trim()) {
       setCutoutGenerationState({
-        message: "Upload a primary profile photo before generating an optional hero image.",
+        message: "Upload a primary profile photo before requesting an optional hero image.",
         status: "error",
       });
       return;
     }
 
     setCutoutGenerationState({
-      message: "Generating image...",
+      message: "Sending request...",
       status: "generating",
     });
-    setIsCutoutReviewConfirmed(false);
 
     try {
-      const response = await fetch("/api/admin/missionary-profiles/generate-cutout", {
+      const requestedOptions = [
+        cutoutSettings.addHats ? "matching military-style hats" : "",
+        cutoutSettings.addFacePaint ? "subtle face paint" : "",
+      ].filter(Boolean).join(", ") || "none";
+      const response = await fetch("/api/product-feedback", {
         body: JSON.stringify({
-          householdId: selectedProfile.id,
-          settings: cutoutSettings,
-          slug: selectedProfile.slug,
-          sourceImageUrl: selectedProfile.profile_image_url,
+          category: "design_feedback",
+          messageText: [
+            `USAM hero image request for ${selectedProfile.display_name} (${selectedProfile.slug}).`,
+            `Household ID: ${selectedProfile.id}.`,
+            `Source photo: ${selectedProfile.profile_image_url}.`,
+            `Optional styling requested: ${requestedOptions}.`,
+            "Admin processing prompt: preserve source-photo identity, face structure, age, hair, skin, hands, body structure, pose, and composition; apply only approved USAM clothing/background treatment after human review.",
+            "Automated whole-image generation is paused; please manually review/create an approved USAM hero image and upload it in Missionary Workspace > Publishing > Profile Photos > Advanced Settings.",
+            "No revisedPrompt/outputPrompt metadata was produced because this request did not run automated generation.",
+          ].join("\n"),
+          pagePath: `/admin/missionary-profiles?tab=media&profile=${selectedProfile.slug}`,
         }),
         headers: {
           "Content-Type": "application/json",
@@ -7338,76 +7217,21 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       });
       const result = await response.json().catch(() => ({})) as {
         error?: string;
-        modelLabel?: string;
-        path?: string;
-        publicUrl?: string;
       };
 
-      if (!response.ok || !result.publicUrl) {
-        throw new Error(result.error || "We could not generate the image. Please try again or upload manually.");
+      if (!response.ok) {
+        throw new Error(result.error || "We could not submit the request. Please try again.");
       }
 
       setCutoutGenerationState({
-        message: `Preview generated${result.modelLabel ? ` with ${result.modelLabel}` : ""}. Review it before using it as the hero image.`,
-        modelLabel: result.modelLabel,
-        path: result.path,
-        previewUrl: result.publicUrl,
+        message: "Request sent to USA Missionaries Admin. Your uploaded photo remains live until an approved hero image is uploaded and selected.",
         status: "success",
       });
     } catch (error) {
       setCutoutGenerationState({
-        message: error instanceof Error ? error.message : "We could not generate the image. Please try again or upload manually.",
+        message: error instanceof Error ? error.message : "We could not submit the request. Please try again.",
         status: "error",
       });
-    }
-  }
-
-  async function useGeneratedHeroImage() {
-    if (!selectedProfile || !cutoutGenerationState.previewUrl) {
-      return;
-    }
-
-    if (!isCutoutReviewConfirmed) {
-      setCutoutGenerationState((currentState) => ({
-        ...currentState,
-        message: "Review and confirm the people look accurate before using this image.",
-        status: "error",
-      }));
-      return;
-    }
-
-    setCutoutGenerationState((currentState) => ({
-      ...currentState,
-      message: "Saving generated image as hero image...",
-      status: "generating",
-    }));
-
-    try {
-      await saveGeneratedMissionaryHeroImage({
-        householdId: selectedProfile.id,
-        publicUrl: cutoutGenerationState.previewUrl,
-      });
-      updateSelected({
-        ...selectedProfile,
-        hero_image_url: cutoutGenerationState.previewUrl,
-      });
-      setUploadStates((currentState) => ({
-        ...currentState,
-        hero: {
-          message: "Generated image saved as Optional AI Hero Image.",
-          status: "success",
-        },
-      }));
-      setIsCutoutModalOpen(false);
-      setCutoutGenerationState({ status: "idle" });
-      setIsCutoutReviewConfirmed(false);
-      router.refresh();
-    } catch (error) {
-      setCutoutGenerationState((currentState) => ({
-        ...currentState,
-        message: error instanceof Error ? error.message : "Generated image could not be saved.",
-        status: "error",
-      }));
     }
   }
 
@@ -8191,7 +8015,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     Optional USAM Hero Image
                   </p>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-                    Generate an optional USA Missionaries-style hero image from your uploaded family/team photo.
+                    Request an optional USA Missionaries-style hero image from your uploaded family/team photo.
                   </p>
                 </div>
 
@@ -8211,10 +8035,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                           <div className="mx-auto mt-[18px] h-4 w-4 rotate-45 bg-[#D4A63D]" />
                         </div>
                         <p className="text-base font-semibold text-[#111111]">
-                          No USAM hero image generated yet.
+                          No approved USAM hero image yet.
                         </p>
                         <p className="mt-2 max-w-sm text-xs leading-5 text-[#7b746a]">
-                          Your uploaded photo will be used unless you generate and apply an optional USAM hero image.
+                          Your uploaded photo will be used unless an approved USAM hero image is uploaded and applied.
                         </p>
                         <button
                           className="mt-5 inline-flex min-h-11 items-center justify-center rounded-sm border border-[#c8952d] bg-[#D4A63D] px-5 py-2.5 text-center text-[11px] uppercase tracking-[0.2em] text-[#111111] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
@@ -8223,7 +8047,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                           type="button"
                         >
-                          Generate USAM Hero Image
+                          Request USAM Hero Image
                         </button>
                       </div>
                     )}
@@ -8238,10 +8062,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                         type="button"
                       >
-                        Generate USAM Hero Image
+                        Request USAM Hero Image
                       </button>
                       <p className="mt-3 text-center text-xs leading-5 text-[#7b746a]">
-                        Uses the approved USA Missionaries style automatically.
+                        Admin-assisted review protects likeness and brand consistency.
                       </p>
                     </div>
 
@@ -8318,13 +8142,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               <MissionaryCutoutGenerationModal
                 generationState={cutoutGenerationState}
                 householdName={selectedProfile.display_name}
-                isConfigured={isCutoutGenerationConfigured}
-                isReviewConfirmed={isCutoutReviewConfirmed}
                 onClose={() => setIsCutoutModalOpen(false)}
-                onGenerate={generateMissionaryCutout}
-                onReviewConfirmedChange={setIsCutoutReviewConfirmed}
+                onRequest={requestMissionaryHeroImage}
                 onSettingsChange={setCutoutSettings}
-                onUse={useGeneratedHeroImage}
                 settings={cutoutSettings}
                 sourceImageUrl={selectedProfile.profile_image_url}
               />

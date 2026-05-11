@@ -53,7 +53,8 @@ type ImageInput = {
 };
 
 const cutoutGenerationModel = "gpt-5.5";
-const cutoutGenerationModelLabel = "GPT 5.5";
+const cutoutGenerationModelLabel = "OpenAI image generation";
+const adminAssistedHeroMessage = "Automated USAM hero image generation is paused until reliable masked editing is available. Use the admin-assisted request flow and upload an approved hero image manually.";
 
 const defaultCutoutSettings: CutoutSettings = {
   addCamoFatigues: true,
@@ -381,7 +382,7 @@ async function createCutoutImageWithResponses({
   };
 }
 
-export async function POST(request: Request) {
+export async function POST() {
   const authorization = await getAdminAuthorization();
 
   if (authorization.status === "unauthenticated") {
@@ -396,75 +397,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Editor access required." }, { status: 403 });
   }
 
-  if (!isSupabaseAdminConfigured()) {
-    return NextResponse.json({ error: "Supabase admin environment variables are not configured." }, { status: 500 });
-  }
-
-  let payload: GenerateCutoutPayload;
-
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
-  }
-
-  const householdId = asString(payload.householdId);
-  const slug = toMissionaryImageStorageSlug(asString(payload.slug));
-  const sourceImageUrl = asString(payload.sourceImageUrl);
-  const rawSettings = typeof payload.settings === "object" && payload.settings !== null
-    ? payload.settings as Record<string, unknown>
-    : {};
-  const settings = normalizeCutoutSettings(payload.settings);
-  const styleReferenceImageDataUrl = settings.styleReferenceImageDataUrl
-    ?? normalizeStyleReferenceImageDataUrl(payload.styleReferenceImageDataUrl)
-    ?? normalizeStyleReferenceImageDataUrl(rawSettings.styleReferenceImageDataUrl);
-
-  if (!householdId || !slug || !sourceImageUrl) {
-    return NextResponse.json({ error: "Household, slug, and source image are required." }, { status: 400 });
-  }
-
-  try {
-    const sourceImage = await fetchSourceImage(sourceImageUrl, request.url);
-    const styleReferenceImage = styleReferenceImageDataUrl
-      ? parseDataUrlImage(styleReferenceImageDataUrl)
-      : await getDefaultStyleReferenceImage();
-    const prompt = buildCutoutPrompt(settings, Boolean(styleReferenceImage));
-    const generatedImage = await createCutoutImage({
-      prompt,
-      settings,
-      sourceImage,
-      styleReferenceImage,
-    });
-    const supabase = createSupabaseAdminClient();
-    const storagePath = `households/${slug}/hero-cutout-${Date.now()}.png`;
-    const { error: uploadError } = await supabase.storage
-      .from(MISSIONARY_IMAGES_BUCKET)
-      .upload(storagePath, generatedImage.buffer, {
-        cacheControl: "3600",
-        contentType: "image/png",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw new Error(uploadError.message);
-    }
-
-    const { data } = supabase.storage
-      .from(MISSIONARY_IMAGES_BUCKET)
-      .getPublicUrl(storagePath);
-
-    return NextResponse.json({
-      model: generatedImage.model,
-      modelLabel: generatedImage.modelLabel,
-      path: storagePath,
-      publicUrl: data.publicUrl,
-      revisedPrompt: generatedImage.revisedPrompt,
-    });
-  } catch (error) {
-    return NextResponse.json({
-      error: error instanceof Error ? error.message : "We could not generate the image. Please try again or upload manually.",
-    }, { status: 500 });
-  }
+  return NextResponse.json({
+    error: adminAssistedHeroMessage,
+    mode: "admin_assisted",
+  }, { status: 409 });
 }
 
 export async function GET() {
@@ -483,8 +419,10 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    configured: Boolean(getOpenAiApiKey()),
+    configured: false,
+    message: adminAssistedHeroMessage,
     model: cutoutGenerationModel,
     modelLabel: cutoutGenerationModelLabel,
+    mode: "admin_assisted",
   });
 }
