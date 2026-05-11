@@ -772,7 +772,7 @@ const teamMemberStatusOptions: Array<{ label: string; value: AdminTeamMemberStat
 
 const featureDescriptions = {
   show_household: "Controls whether this profile appears publicly in the directory and can be viewed.",
-  show_photos: "Shows public profile media including images and future assets. Turn off for a more discreet profile.",
+  show_photos: "Shows public profile photos. Turn off for a more discreet profile.",
   show_team: "Shows public team or household members connected to this profile.",
   show_story: "Shows the public Our Story section.",
   show_fruit: "Shows testimonies, reviews, updates, and field fruit.",
@@ -800,7 +800,7 @@ const primaryNavGroups: Array<{
       { label: "Profile", value: "profile" },
       { label: "Features", value: "features" },
       { label: "Team", value: "team" },
-      { label: "Media", value: "media" },
+      { label: "Profile Photos", value: "media" },
       { label: "Story", value: "story" },
       { label: "Support", value: "support" },
       { label: "Prayer", value: "prayer" },
@@ -1315,6 +1315,7 @@ function ImageUploadField({
   label,
   onChange,
   onUpload,
+  showManualUrlFallback = true,
   slot,
   uploadState,
   value,
@@ -1323,6 +1324,7 @@ function ImageUploadField({
   label: string;
   onChange: (value: string) => void;
   onUpload: (slot: MissionaryImageSlot, file: File) => void;
+  showManualUrlFallback?: boolean;
   slot: MissionaryImageSlot;
   uploadState: UploadState;
   value: string | null | undefined;
@@ -1410,7 +1412,7 @@ function ImageUploadField({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-[#111111]">
-              Upload or replace image
+              Upload / replace image
             </p>
             <p className="mt-1 text-xs leading-5 text-[#7b746a]">
               {imageTypeLabel}. Max {MISSIONARY_IMAGE_MAX_BYTES / 1024 / 1024}MB.
@@ -1425,7 +1427,7 @@ function ImageUploadField({
             htmlFor={inputId}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
-            {isUploading ? "Uploading" : "Upload"}
+            {isUploading ? "Uploading" : imageUrl ? "Replace" : "Upload"}
           </label>
           <input
             accept="image/jpeg,image/png,image/webp"
@@ -1445,19 +1447,21 @@ function ImageUploadField({
         ) : null}
       </div>
 
-      <details className="mt-3 rounded-xl border border-[#d7d2c8] bg-white">
-        <summary className="cursor-pointer px-3.5 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Manual URL fallback
-        </summary>
-        <div className="border-t border-[#e2ded5] p-3.5">
-          <Field
-            helperText="Dev fallback. Uploaded images save the full Supabase public URL here automatically."
-            label="Image URL"
-            onChange={onChange}
-            value={value}
-          />
-        </div>
-      </details>
+      {showManualUrlFallback ? (
+        <details className="mt-3 rounded-xl border border-[#d7d2c8] bg-white">
+          <summary className="cursor-pointer px-3.5 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Manual URL fallback
+          </summary>
+          <div className="border-t border-[#e2ded5] p-3.5">
+            <Field
+              helperText="Dev fallback. Uploaded images save the full Supabase public URL here automatically."
+              label="Image URL"
+              onChange={onChange}
+              value={value}
+            />
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }
@@ -8000,7 +8004,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 {
                   checked: getFeatureValue(selectedProfile, "show_photos"),
                   description: featureDescriptions.show_photos,
-                  label: "Media",
+                  label: "Profile Photos",
                   onChange: (value) => updateFeatureField("show_photos", value),
                   publicStatus: mediaStatus.status,
                   statusMessage: mediaStatus.message,
@@ -8144,100 +8148,133 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "media" ? (
           <SectionIntro
-            description="Updates Profile. Upload one primary photo for the public profile and directory. Optional AI hero images can be generated and applied later."
-            title="Media"
+            description="Upload your family or team photo, then optionally generate a USAM-style hero image from it."
+            title="Profile Photos"
           >
-            <DataFlowLabels items={["Raw upload -> Reviewed -> Published", "Managed in Missionary Workspace", "Visible on Profile"]} />
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
-              <div>
+            <div className="space-y-4">
+              <section className="rounded-2xl border border-[#e2ded5] bg-white p-4 md:p-5">
                 <ImageUploadField
-                  helperText="Used on your public profile and directory unless you choose an AI hero image."
+                  helperText="Upload one family or team photo for your public profile and missionary directory. This photo is used by default across your public profile."
                   label="Primary Profile Photo"
                   onChange={(value) => updateHouseholdField("profile_image_url", value)}
                   onUpload={uploadImage}
+                  showManualUrlFallback={false}
                   slot="directory"
                   uploadState={uploadStates.directory}
                   value={selectedProfile.profile_image_url}
                 />
-                <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-[#111111]">
-                        Generate Optional USAM Hero Image
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                        Generate an optional USAM-style public hero cutout from the primary photo. You review and apply it manually.
-                      </p>
+              </section>
+
+              <section className="rounded-2xl border border-[#e2ded5] bg-white p-4 md:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="max-w-2xl">
+                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Optional USAM Hero Image
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-[#4b443b]">
+                      Optionally generate a USAM-style hero image from your uploaded photo.
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+                      Generated previews never auto-publish. Choose "Use USAM Hero Image" only after you review and apply one.
+                    </p>
+                  </div>
+                  <button
+                    className={lightPrimaryButtonClass}
+                    disabled={!selectedProfile.profile_image_url?.trim()}
+                    onClick={openCutoutModal}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    Generate Optional USAM Hero Image
+                  </button>
+                </div>
+
+                <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                  <div className="overflow-hidden rounded-xl border border-[#d7d2c8] bg-[#f8f6f1]">
+                    {selectedProfile.hero_image_url?.trim() ? (
+                      <div className="flex h-56 items-center justify-center p-3 md:h-64">
+                        <img
+                          alt="Current USAM hero image preview"
+                          className="max-h-full w-full object-contain"
+                          src={selectedProfile.hero_image_url}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-56 items-center justify-center px-4 text-center text-xs uppercase tracking-[0.18em] text-[#7b746a] md:h-64" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        No USAM hero image yet
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Public Profile Hero Image
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-white p-3 text-sm leading-6 text-[#4b443b]">
+                        <input
+                          checked={!selectedProfile.hero_image_url?.trim()}
+                          className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                          name="profile_public_image_source"
+                          onChange={() => updateHouseholdField("hero_image_url", "")}
+                          type="radio"
+                        />
+                        <span>
+                          <span className="block font-semibold text-[#111111]">Use Uploaded Photo</span>
+                          <span className="block text-xs leading-5 text-[#7b746a]">Default when no USAM hero image is selected.</span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-white p-3 text-sm leading-6 text-[#4b443b]">
+                        <input
+                          checked={Boolean(selectedProfile.hero_image_url?.trim())}
+                          className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                          disabled={!selectedProfile.hero_image_url?.trim()}
+                          name="profile_public_image_source"
+                          onChange={() => undefined}
+                          type="radio"
+                        />
+                        <span>
+                          <span className="block font-semibold text-[#111111]">Use USAM Hero Image</span>
+                          <span className="block text-xs leading-5 text-[#7b746a]">Available after you generate and apply a hero image.</span>
+                        </span>
+                      </label>
                     </div>
-                    <button
-                      className={lightPrimaryButtonClass}
-                      disabled={!selectedProfile.profile_image_url?.trim()}
-                      onClick={openCutoutModal}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      Generate Optional USAM Hero Image
-                    </button>
                   </div>
                 </div>
-              </div>
-              <div className="space-y-4">
-                <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Image Usage Controls
-                  </p>
-                  <div className="mt-4 space-y-3">
-                    <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
-                      <input
-                        checked={!selectedProfile.hero_image_url?.trim()}
-                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                        name="profile_public_image_source"
-                        onChange={() => updateHouseholdField("hero_image_url", "")}
-                        type="radio"
-                      />
-                      <span>
-                        <span className="block font-semibold text-[#111111]">Use primary photo for public profile</span>
-                        <span className="block text-xs leading-5 text-[#7b746a]">Default. The public page uses the primary uploaded photo.</span>
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
-                      <input
-                        checked={Boolean(selectedProfile.hero_image_url?.trim())}
-                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                        disabled={!selectedProfile.hero_image_url?.trim()}
-                        name="profile_public_image_source"
-                        onChange={() => undefined}
-                        type="radio"
-                      />
-                      <span>
-                        <span className="block font-semibold text-[#111111]">Use AI hero image for public profile</span>
-                        <span className="block text-xs leading-5 text-[#7b746a]">Optional. Generate or upload an AI hero image first, then apply it.</span>
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
-                      <input
-                        checked
-                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                        readOnly
-                        type="checkbox"
-                      />
-                      <span>
-                        <span className="block font-semibold text-[#111111]">Use primary photo for directory</span>
-                        <span className="block text-xs leading-5 text-[#7b746a]">Directory cards always default to the primary uploaded photo.</span>
-                      </span>
-                    </label>
+              </section>
+
+              <details className="rounded-2xl border border-[#e2ded5] bg-white">
+                <summary className="cursor-pointer px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Advanced Settings
+                </summary>
+                <div className="border-t border-[#e2ded5] p-4">
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <Field
+                      helperText="Manual fallback for the uploaded primary photo URL. Normal uploads fill this automatically."
+                      label="Primary Photo URL"
+                      onChange={(value) => updateHouseholdField("profile_image_url", value)}
+                      value={selectedProfile.profile_image_url}
+                    />
+                    <Field
+                      helperText="Manual fallback for the optional USAM hero image URL. Generated images fill this automatically."
+                      label="USAM Hero Image URL"
+                      onChange={(value) => updateHouseholdField("hero_image_url", value)}
+                      value={selectedProfile.hero_image_url}
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <ImageUploadField
+                      helperText="Internal fallback for manually uploading an already-prepared USAM hero image."
+                      label="Manual USAM Hero Upload"
+                      onChange={(value) => updateHouseholdField("hero_image_url", value)}
+                      onUpload={uploadImage}
+                      slot="hero"
+                      uploadState={uploadStates.hero}
+                      value={selectedProfile.hero_image_url}
+                    />
                   </div>
                 </div>
-                <ImageUploadField
-                  helperText="Optional generated or uploaded hero image. If this is empty, the public profile uses the primary photo."
-                  label="Optional AI Hero Image"
-                  onChange={(value) => updateHouseholdField("hero_image_url", value)}
-                  onUpload={uploadImage}
-                  slot="hero"
-                  uploadState={uploadStates.hero}
-                  value={selectedProfile.hero_image_url}
-                />
-              </div>
+              </details>
             </div>
             {isCutoutModalOpen && selectedProfile.profile_image_url?.trim() ? (
               <MissionaryCutoutGenerationModal
