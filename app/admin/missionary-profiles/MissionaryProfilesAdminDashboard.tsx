@@ -550,7 +550,7 @@ type LegacyEditorTab = "connections" | "tables";
 type RawEditorTab = EditorTab | LegacyEditorTab;
 type SupportSubsection = "advanced" | "buttons" | "giving" | "gifts" | "progress";
 type PrayerSubsection = "content" | "cta" | "preview" | "requests" | "team" | "visibility";
-type PrimaryNavKey = "missionary-workspace" | "public-profile" | "resources";
+type PrimaryNavKey = "dashboard" | "field" | "publishing" | "resources";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
   annual_goal: 0,
@@ -781,13 +781,31 @@ const featureDescriptions = {
 const primaryNavGroups: Array<{
   helper: string;
   key: PrimaryNavKey;
-  label: "Missionary Workspace" | "Public Profile" | "Resources";
+  label: "Dashboard" | "Field" | "Publishing" | "Resources";
   tabs: Array<{ id?: string; label: string; value: EditorTab }>;
 }> = [
   {
-    helper: "Controls approved public-facing content.",
-    key: "public-profile",
-    label: "Public Profile",
+    helper: "Metrics, recent activity, pending actions, and quick actions.",
+    key: "dashboard",
+    label: "Dashboard",
+    tabs: [],
+  },
+  {
+    helper: "Operational activity and discipleship workflows.",
+    key: "field",
+    label: "Field",
+    tabs: [
+      { label: "People", value: "people" },
+      { label: "Meetings", value: "meetings" },
+      { id: "reviews", label: "Reviews", value: "meetings" },
+      { label: "Fruit", value: "fruit" },
+      { label: "Prayer", value: "prayer" },
+    ],
+  },
+  {
+    helper: "Approved public-facing content management.",
+    key: "publishing",
+    label: "Publishing",
     tabs: [
       { label: "Profile", value: "profile" },
       { label: "Features", value: "features" },
@@ -795,18 +813,6 @@ const primaryNavGroups: Array<{
       { label: "Media", value: "media" },
       { label: "Story", value: "story" },
       { label: "Support", value: "support" },
-      { label: "Prayer", value: "prayer" },
-    ],
-  },
-  {
-    helper: "Desktop dashboard for management and review of the same data used in the DOS Field App.",
-    key: "missionary-workspace",
-    label: "Missionary Workspace",
-    tabs: [
-      { label: "People", value: "people" },
-      { label: "Meetings", value: "meetings" },
-      { id: "reviews", label: "Reviews", value: "meetings" },
-      { label: "Fruit", value: "fruit" },
       { label: "Prayer", value: "prayer" },
     ],
   },
@@ -821,6 +827,8 @@ const primaryNavGroups: Array<{
   },
 ];
 
+const publishingEnabledByDefault = true;
+
 function normalizeEditorTab(tab: RawEditorTab): EditorTab {
   return tab === "tables" || tab === "connections" ? "meetings" : tab;
 }
@@ -829,24 +837,28 @@ function isEditorTab(value: string | null): value is EditorTab {
   return value === "overview" || primaryNavGroups.some((group) => group.tabs.some((tab) => tab.value === value));
 }
 
-function getPrimaryNavForTab(tab: EditorTab, currentPrimary: PrimaryNavKey = "missionary-workspace"): PrimaryNavKey {
+function getPrimaryNavForTab(tab: EditorTab, currentPrimary: PrimaryNavKey = "dashboard"): PrimaryNavKey {
+  if (tab === "overview") {
+    return "dashboard";
+  }
+
   if (tab === "library" || tab === "in-season") {
     return "resources";
   }
 
   if (["profile", "features", "team", "media", "story", "support"].includes(tab)) {
-    return "public-profile";
+    return "publishing";
   }
 
-  if (tab === "prayer" && currentPrimary === "public-profile") {
-    return "public-profile";
+  if (tab === "prayer" && currentPrimary === "publishing") {
+    return "publishing";
   }
 
-  return "missionary-workspace";
+  return "field";
 }
 
 function getDefaultTabForPrimaryNav(primaryNav: PrimaryNavKey): { id: string; value: EditorTab } {
-  if (primaryNav === "missionary-workspace") {
+  if (primaryNav === "dashboard") {
     return {
       id: "",
       value: "overview",
@@ -863,7 +875,7 @@ function getDefaultTabForPrimaryNav(primaryNav: PrimaryNavKey): { id: string; va
 }
 
 function getSubnavIdForTab(tab: EditorTab, primaryNav: PrimaryNavKey) {
-  return tab === "overview" && primaryNav === "missionary-workspace" ? "" : tab;
+  return tab === "overview" && primaryNav === "dashboard" ? "" : tab;
 }
 
 const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
@@ -1960,43 +1972,102 @@ function DataFlowLabels({ items }: { items: string[] }) {
   );
 }
 
-function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
+function WorkspaceOverview({
+  onNavigate,
+  profile,
+}: {
+  onNavigate: (tab: EditorTab, primaryNav: PrimaryNavKey, subnavId?: string) => void;
+  profile: AdminProfile;
+}) {
+  const peopleCount = profile.fieldPeople?.length ?? 0;
+  const meetingCount = (profile.tables?.length ?? 0) + (profile.connectionLogs?.length ?? 0);
+  const reviewedTableIds = new Set((profile.tableReviews ?? []).map((review) => review.table_id));
+  const reviewsPending = (profile.tables ?? []).filter((table) => !reviewedTableIds.has(table.id)).length;
+  const prayerRequests = profile.prayerRequests ?? [];
+  const openPrayerRequests = prayerRequests.filter((request) => request.status === "open").length || profile.activePrayerRequestCount || 0;
+  const fruitLogged = profile.fruitItems?.length ?? 0;
+  const followUpsNeeded = [
+    ...(profile.tableReviews ?? []).filter((review) => Boolean(review.follow_up_needed?.trim())),
+    ...(profile.connectionLogs ?? []).filter((connection) => Boolean(connection.follow_up_needed?.trim())),
+  ].length;
+  const publishingStatus = isProfilePublic(profile) ? "Live" : "Hidden";
+  const recentActivity = [
+    ...(profile.tables ?? []).slice(0, 3).map((table) => ({
+      date: table.table_date,
+      label: tableTypeLabel(table.table_type),
+      meta: table.participant_names.length ? table.participant_names.join(", ") : "Meeting logged",
+    })),
+    ...(profile.connectionLogs ?? []).slice(0, 3).map((connection) => ({
+      date: connection.connection_date,
+      label: connection.interaction_type,
+      meta: connection.follow_up_needed || "Connection logged",
+    })),
+    ...(profile.fruitItems ?? []).slice(0, 2).map((fruit) => ({
+      date: fruit.testimony_date ?? fruit.created_at,
+      label: "Fruit logged",
+      meta: fruit.summary || "Summary needed",
+    })),
+  ]
+    .sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime())
+    .slice(0, 5);
+
   return (
     <div className="space-y-5">
-      <DataFlowLabels items={["Shared workspace data", "Dashboard for management", "DOS for daily action", "Public profile shows approved content"]} />
-      <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-        <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          One workspace. Two interfaces.
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-4">
-            <p className="text-sm font-semibold text-[#111111]">
-              Missionary Workspace
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[#4b443b]">
-              Desktop dashboard for setup, CSV import, reviews, fruit approval, profile publishing, prayer, support, and deeper metrics.
-            </p>
-          </div>
-          <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-4">
-            <p className="text-sm font-semibold text-[#111111]">
-              DOS Field App
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[#4b443b]">
-              Mobile-first app for daily field activity: add people, log meetings, follow up, pray, and view fruit on the go.
-            </p>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatPreview label="People in Field" tone="light" value={String(peopleCount)} />
+        <StatPreview label="Meetings" tone="light" value={String(meetingCount)} />
+        <StatPreview label="Reviews Pending" tone="light" value={String(reviewsPending)} />
+        <StatPreview label="Prayer Requests" tone="light" value={String(openPrayerRequests)} />
+        <StatPreview label="Fruit Logged" tone="light" value={String(fruitLogged)} />
+        <StatPreview label="Follow Ups Needed" tone="light" value={String(followUpsNeeded)} />
+        <StatPreview label="Publishing Status" tone="light" value={publishingStatus} />
+        <StatPreview label="Approved Fruit" tone="light" value={String(profile.fruitItems?.filter((fruit) => fruit.status === "approved").length ?? 0)} />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+        <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Recent Activity
+          </p>
+          <div className="mt-4 divide-y divide-[#e2ded5]">
+            {recentActivity.length > 0 ? recentActivity.map((activity) => (
+              <div className="py-3 first:pt-0 last:pb-0" key={`${activity.label}-${activity.date}-${activity.meta}`}>
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-semibold text-[#111111]">{activity.label}</p>
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {formatProfileUpdatedDate(activity.date)}
+                  </p>
+                </div>
+                <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5f574c]">{activity.meta}</p>
+              </div>
+            )) : (
+              <p className="text-sm leading-6 text-[#7b746a]">No field activity has been logged yet.</p>
+            )}
           </div>
         </div>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <StatPreview label="Your Field" tone="light" value={String(profile.fieldPeople?.length ?? 0)} />
-        <StatPreview label="Meetings" tone="light" value={String((profile.tables?.length ?? 0) + (profile.connectionLogs?.length ?? 0))} />
-        <StatPreview label="Encounters" tone="light" value={String(profile.encounterSubmissions?.length ?? 0)} />
-        <StatPreview label="Approved Fruit" tone="light" value={String(profile.fruitItems?.filter((fruit) => fruit.status === "approved").length ?? 0)} />
-        <StatPreview label="Public Team" tone="light" value={String(profile.teamMembers?.filter((member) => member.status === "active" && member.is_public !== false).length ?? 0)} />
-        <StatPreview label="Prayer Requests" tone="light" value={String(profile.activePrayerRequestCount ?? 0)} />
-      </div>
-      <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
-        Missionary Workspace is the expanded dashboard for this missionary household. DOS Field App is the mobile daily-use app connected to the same People, Meetings, Fruit, Prayer, and Profile data.
+
+        <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Quick Actions
+          </p>
+          <div className="mt-4 grid gap-2">
+            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("people", "field", "people")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Add or Import People
+            </button>
+            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("meetings", "field", "meetings")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Log Meeting
+            </button>
+            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("meetings", "field", "reviews")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Review Meetings
+            </button>
+            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("fruit", "field", "fruit")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Create Fruit
+            </button>
+            <button className={lightSecondaryButtonClass} onClick={() => onNavigate("profile", "publishing", "profile")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Manage Publishing
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -6305,7 +6376,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   function openProfile(profileId: string) {
     setSelectedId(profileId);
     setActiveTab("overview");
-    setActivePrimaryNav("missionary-workspace");
+    setActivePrimaryNav("dashboard");
     setActiveSubnavId("");
     resetTransientEditorState();
   }
@@ -6313,7 +6384,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   function closeProfile() {
     setSelectedId("");
     setActiveTab("overview");
-    setActivePrimaryNav("missionary-workspace");
+    setActivePrimaryNav("dashboard");
     setActiveSubnavId("");
     resetTransientEditorState();
   }
@@ -7311,7 +7382,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         tone: "error",
       });
       setActiveTab("profile");
-      setActivePrimaryNav("public-profile");
+      setActivePrimaryNav("publishing");
       setActiveSubnavId("profile");
       return;
     }
@@ -7614,7 +7685,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     missingMessage: "Configure prayer settings to show this section.",
     showingMessage: "The Prayer section has a CTA, prayer settings, or active requests.",
   });
-  const activePrimaryGroup = primaryNavGroups.find((group) => group.key === activePrimaryNav) ?? primaryNavGroups[1];
+  const publishingEnabled = publishingEnabledByDefault;
+  const visiblePrimaryNavGroups = primaryNavGroups.filter((group) => publishingEnabled || group.key !== "publishing");
+  const activePrimaryGroup = visiblePrimaryNavGroups.find((group) => group.key === activePrimaryNav) ?? visiblePrimaryNavGroups[0] ?? primaryNavGroups[0];
   return (
     <div className="space-y-6">
       <section className="bg-stone-950/35 p-5 md:p-7">
@@ -7679,8 +7752,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         ) : null}
 
         <div className="mt-6 border-b border-stone-800/80 pb-5">
-          <div className="grid gap-3 md:grid-cols-3" role="tablist" aria-label="Missionary Workspace primary sections">
-            {primaryNavGroups.map((group) => {
+          <div className="grid gap-3 md:grid-cols-4" role="tablist" aria-label="Workspace primary sections">
+            {visiblePrimaryNavGroups.map((group) => {
               const selected = activePrimaryNav === group.key;
 
               return (
@@ -7713,6 +7786,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             })}
           </div>
 
+          {activePrimaryGroup.tabs.length > 0 ? (
           <div className="mt-4 overflow-x-auto">
             <div className="flex min-w-max gap-2" role="tablist" aria-label={`${activePrimaryGroup.label} submenu`}>
               {activePrimaryGroup.tabs.map((tab) => {
@@ -7739,6 +7813,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               })}
             </div>
           </div>
+          ) : null}
         </div>
 
         <div className="sticky top-4 z-20 mt-5 flex flex-col gap-3 border border-[#D4A63D]/25 bg-black/80 p-3 shadow-[0_14px_40px_rgba(0,0,0,0.28)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
@@ -7759,10 +7834,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         <div className="mt-8">
           {activeTab === "overview" ? (
           <SectionIntro
-            description="Missionary Workspace is the expanded dashboard for this missionary household. DOS Field App is the mobile daily-use app connected to the same People, Meetings, Fruit, Prayer, and Profile data."
-            title="Overview"
+            description="Metrics, recent activity, pending actions, and quick actions for this workspace."
+            title="Dashboard"
           >
-            <WorkspaceOverview profile={selectedProfile} />
+            <WorkspaceOverview onNavigate={changeEditorTab} profile={selectedProfile} />
           </SectionIntro>
           ) : null}
 
