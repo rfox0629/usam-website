@@ -25,6 +25,7 @@ import {
   normalizePrimaryState,
   normalizeRoleType,
   normalizeServingScope,
+  roleTypeLabel,
   roleTypeOptions,
   servingScopeOptions,
   usStates,
@@ -982,20 +983,65 @@ function todayDateValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function newTeamMember(householdId: string, publicNumber = ""): AdminTeamMember {
+function memberNameKey(value: string | null | undefined) {
+  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function householdNameCandidates(profile: AdminProfile) {
+  const displayName = profile.display_name.trim();
+  const parts = displayName.split(/\s*&\s*/).map((part) => part.trim()).filter(Boolean);
+
+  if (parts.length < 2) {
+    return displayName ? [displayName] : [];
+  }
+
+  const lastName = parts[parts.length - 1].split(/\s+/).at(-1) ?? "";
+
+  return parts.map((part, index) => {
+    if (index === parts.length - 1 || !lastName) {
+      return part;
+    }
+
+    return /\s/.test(part) ? part : `${part} ${lastName}`;
+  });
+}
+
+function nextHouseholdTeamMemberName(profile: AdminProfile) {
+  const existingNames = new Set((profile.teamMembers ?? []).map((member) => memberNameKey(member.display_name)));
+
+  return householdNameCandidates(profile).find((name) => !existingNames.has(memberNameKey(name))) ?? "New Team Member";
+}
+
+function teamMemberRoleTitle(profile: AdminProfile) {
+  const roleType = getProfileRoleType(profile);
+
+  return roleType === "missionary_household"
+    ? "Missionary"
+    : roleTypeLabel(roleType);
+}
+
+function nextTeamSortOrder(items: readonly AdminTeamMember[]) {
+  return items.reduce((highest, member) => Math.max(highest, toNumber(member.sort_order)), 0) + 1;
+}
+
+function newTeamMember(
+  householdId: string,
+  publicNumber = "",
+  defaults: Partial<Pick<AdminTeamMember, "display_name" | "dos_user_id" | "role_title" | "short_description" | "sort_order">> = {},
+): AdminTeamMember {
   const timestamp = new Date().toISOString();
 
   return {
     created_at: timestamp,
-    display_name: "",
-    dos_user_id: "",
+    display_name: defaults.display_name ?? "",
+    dos_user_id: defaults.dos_user_id ?? "",
     household_id: householdId,
     id: newClientId(),
     is_public: true,
     public_number: publicNumber,
-    role_title: "",
-    short_description: "",
-    sort_order: 0,
+    role_title: defaults.role_title ?? "",
+    short_description: defaults.short_description ?? "",
+    sort_order: defaults.sort_order ?? 0,
     source: "website_admin",
     status: "active",
     updated_at: timestamp,
@@ -6296,6 +6342,31 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   );
 
   useEffect(() => {
+    if (!selectedProfile || activeTab !== "team" || !getFeatureValue(selectedProfile, "show_team")) {
+      return;
+    }
+
+    const currentMembers = selectedProfile.teamMembers ?? [];
+
+    if (currentMembers.length > 0) {
+      return;
+    }
+
+    const ownerName = nextHouseholdTeamMemberName(selectedProfile);
+
+    updateSelected({
+      ...selectedProfile,
+      teamMembers: [
+        newTeamMember(selectedProfile.id, nextPublicRosterNumber(profiles), {
+          display_name: ownerName,
+          role_title: teamMemberRoleTitle(selectedProfile),
+          sort_order: nextTeamSortOrder(currentMembers),
+        }),
+      ],
+    });
+  }, [activeTab, profiles, selectedProfile]);
+
+  useEffect(() => {
     setIsCutoutModalOpen(false);
     setCutoutSettings(defaultCutoutGenerationSettings);
     setIsCutoutReviewConfirmed(false);
@@ -7256,13 +7327,19 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       return;
     }
 
+    const currentMembers = selectedProfile.teamMembers ?? [];
     const suggestedPublicNumber = nextPublicRosterNumber(profiles);
+    const suggestedName = nextHouseholdTeamMemberName(selectedProfile);
 
     updateSelected({
       ...selectedProfile,
       teamMembers: [
-        ...(selectedProfile.teamMembers ?? []),
-        newTeamMember(selectedProfile.id, suggestedPublicNumber),
+        ...currentMembers,
+        newTeamMember(selectedProfile.id, suggestedPublicNumber, {
+          display_name: suggestedName,
+          role_title: teamMemberRoleTitle(selectedProfile),
+          sort_order: nextTeamSortOrder(currentMembers),
+        }),
       ],
     });
   }
