@@ -8174,50 +8174,20 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 />
               </section>
 
-              <section className="rounded-2xl border border-[#e2ded5] bg-white p-4 md:p-5">
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)] lg:items-stretch">
-                  <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
-                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Optional USAM Hero Image
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-[#4b443b]">
-                      Your uploaded photo is used by default. Hero images are optional.
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                      Generated previews never auto-publish. Choose "Use USAM Hero Image" only after you review and apply one.
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-[#c8952d] bg-[#D4A63D] p-4 text-[#111111] shadow-[0_18px_50px_rgba(212,166,61,0.18)]">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-start gap-3">
-                        <span className="mt-1 h-3 w-3 rotate-45 bg-[#111111]" aria-hidden="true" />
-                        <div>
-                          <h3 className="text-2xl font-bold uppercase leading-tight" style={{ fontFamily: font.oswald }}>
-                            Generate USAM Hero Image
-                          </h3>
-                          <p className="mt-2 text-sm leading-6 text-[#1f1a12]">
-                            Create an optional USA Missionaries-style public hero image from your uploaded family/team photo.
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        className="inline-flex min-h-12 shrink-0 items-center justify-center border border-[#111111] bg-[#111111] px-5 py-3 text-center text-[11px] uppercase tracking-[0.22em] text-white transition-colors hover:bg-[#2a2419] disabled:cursor-not-allowed disabled:border-[#7c692e] disabled:bg-[#7c692e] disabled:text-[#d8c994]"
-                        disabled={!selectedProfile.profile_image_url?.trim()}
-                        onClick={openCutoutModal}
-                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                        type="button"
-                      >
-                        Generate USAM Hero Image
-                      </button>
-                    </div>
-                  </div>
+              <section className="rounded-2xl border border-[#e2ded5] bg-white p-5 md:p-6">
+                <div>
+                  <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Optional USAM Hero Image
+                  </p>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
+                    Generate an optional USA Missionaries-style hero image from your uploaded family/team photo.
+                  </p>
                 </div>
 
-                <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
-                  <div className="overflow-hidden rounded-xl border border-[#d7d2c8] bg-[#f8f6f1]">
+                <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                  <div className="overflow-hidden rounded-[18px] bg-[#f8f6f1]">
                     {selectedProfile.hero_image_url?.trim() ? (
-                      <div className="flex h-56 items-center justify-center p-3 md:h-64">
+                      <div className="flex min-h-[280px] items-center justify-center p-4 md:min-h-[360px]">
                         <img
                           alt="Current USAM hero image preview"
                           className="max-h-full w-full object-contain"
@@ -8225,32 +8195,42 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         />
                       </div>
                     ) : (
-                      <div className="flex h-56 flex-col items-center justify-center px-5 text-center md:h-64">
-                        <p className="text-sm font-semibold text-[#111111]">
-                          No USAM hero image generated yet.
+                      <div className="flex min-h-[280px] flex-col items-center justify-center px-6 text-center md:min-h-[360px]">
+                        <div className="mb-5 h-14 w-14 rounded-full border border-[#d7d2c8] bg-white shadow-sm">
+                          <div className="mx-auto mt-[18px] h-4 w-4 rotate-45 bg-[#D4A63D]" />
+                        </div>
+                        <p className="text-base font-semibold text-[#111111]">
+                          No hero image generated yet.
                         </p>
                         <p className="mt-2 max-w-sm text-xs leading-5 text-[#7b746a]">
-                          Generate one from your uploaded family/team photo when you are ready.
+                          Your uploaded photo will be used unless you generate and apply an optional USAM hero image.
                         </p>
-                        <button
-                          className="mt-4 inline-flex min-h-11 items-center justify-center border border-[#c8952d] bg-[#D4A63D] px-5 py-2.5 text-center text-[11px] uppercase tracking-[0.2em] text-[#111111] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
-                          disabled={!selectedProfile.profile_image_url?.trim()}
-                          onClick={openCutoutModal}
-                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                          type="button"
-                        >
-                          Generate USAM Hero Image
-                        </button>
                       </div>
                     )}
                   </div>
 
-                  <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
+                  <div className="space-y-6">
+                    <div>
+                      <button
+                        className="inline-flex min-h-14 w-full items-center justify-center rounded-sm border border-[#c8952d] bg-[#D4A63D] px-6 py-4 text-center text-xs uppercase tracking-[0.24em] text-[#111111] shadow-[0_14px_34px_rgba(212,166,61,0.18)] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
+                        disabled={!selectedProfile.profile_image_url?.trim()}
+                        onClick={openCutoutModal}
+                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                        type="button"
+                      >
+                        Generate USAM Hero Image
+                      </button>
+                      <p className="mt-3 text-center text-xs leading-5 text-[#7b746a]">
+                        Uses the approved USA Missionaries style automatically.
+                      </p>
+                    </div>
+
+                    <div>
                     <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Public Profile Hero Image
+                      Public Profile Hero
                     </p>
-                    <div className="mt-4 space-y-3">
-                      <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-white p-3 text-sm leading-6 text-[#4b443b]">
+                    <div className="mt-3 space-y-2">
+                      <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
                         <input
                           checked={!selectedProfile.hero_image_url?.trim()}
                           className="mt-1 h-4 w-4 accent-[#D4A63D]"
@@ -8260,10 +8240,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         />
                         <span>
                           <span className="block font-semibold text-[#111111]">Use Uploaded Photo</span>
-                          <span className="block text-xs leading-5 text-[#7b746a]">Default when no USAM hero image is selected.</span>
                         </span>
                       </label>
-                      <label className="flex items-start gap-3 rounded-lg border border-[#e2ded5] bg-white p-3 text-sm leading-6 text-[#4b443b]">
+                      <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
                         <input
                           checked={Boolean(selectedProfile.hero_image_url?.trim())}
                           className="mt-1 h-4 w-4 accent-[#D4A63D]"
@@ -8274,10 +8253,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         />
                         <span>
                           <span className="block font-semibold text-[#111111]">Use USAM Hero Image</span>
-                          <span className="block text-xs leading-5 text-[#7b746a]">Available after you generate and apply a hero image.</span>
                         </span>
                       </label>
                     </div>
+                  </div>
                   </div>
                 </div>
               </section>
