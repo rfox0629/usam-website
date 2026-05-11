@@ -792,18 +792,6 @@ const primaryNavGroups: Array<{
     tabs: [],
   },
   {
-    helper: "Operational activity and discipleship workflows.",
-    key: "field",
-    label: "Field",
-    tabs: [
-      { label: "People", value: "people" },
-      { label: "Meetings", value: "meetings" },
-      { label: "Reviews", value: "reviews" },
-      { label: "Fruit", value: "fruit" },
-      { label: "Prayer", value: "prayer" },
-    ],
-  },
-  {
     helper: "Approved public-facing content management.",
     key: "publishing",
     label: "Publishing",
@@ -814,6 +802,18 @@ const primaryNavGroups: Array<{
       { label: "Media", value: "media" },
       { label: "Story", value: "story" },
       { label: "Support", value: "support" },
+      { label: "Prayer", value: "prayer" },
+    ],
+  },
+  {
+    helper: "Operational activity and discipleship workflows.",
+    key: "field",
+    label: "Field",
+    tabs: [
+      { label: "People", value: "people" },
+      { label: "Meetings", value: "meetings" },
+      { label: "Reviews", value: "reviews" },
+      { label: "Fruit", value: "fruit" },
       { label: "Prayer", value: "prayer" },
     ],
   },
