@@ -575,6 +575,7 @@ export async function POST(request: Request) {
   const slug = asString(household.slug);
   const originalSlug = asString(payload.originalSlug);
   const activeTab = asString(payload.activeTab);
+  const requiresPublishingFeatureColumns = ["features", "team"].includes(activeTab);
 
   if (!isExistingUuid(householdId) || !isExistingUuid(workspaceId) || !displayName || !slug) {
     return NextResponse.json({ error: "Missionary workspace ID, display name, and slug are required." }, { status: 400 });
@@ -688,6 +689,12 @@ export async function POST(request: Request) {
   }
 
   if (householdError && hasMissingFeatureColumnsError(householdError)) {
+    if (requiresPublishingFeatureColumns) {
+      return NextResponse.json({
+        error: "Publishing features were not saved because the profile feature columns are missing in the connected Supabase project. Apply the Missionary Workspace publishing/team migrations, then save again.",
+      }, { status: 500 });
+    }
+
     savedFeatureFields = false;
     const fallbackResult = await supabase
       .from("missionary_households")
