@@ -1,13 +1,12 @@
 "use client";
 
-import { createSupabaseBrowserClient } from "@/src/lib/supabase/client";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
   MISSIONARY_IMAGES_BUCKET,
   missionaryImageMimeTypes,
-  toMissionaryImageStorageSlug,
   type MissionaryImageSlot,
 } from "./profile-image-constants";
+import { createSupabaseBrowserClient } from "@/src/lib/supabase/client";
 
 export {
   MISSIONARY_IMAGE_MAX_BYTES,
@@ -40,28 +39,6 @@ export function validateMissionaryImageFile(file: File) {
   return null;
 }
 
-function getImageExtension(file: File) {
-  if (file.type === "image/png") {
-    return "png";
-  }
-
-  if (file.type === "image/webp") {
-    return "webp";
-  }
-
-  return "jpg";
-}
-
-export function getMissionaryImagePath(slug: string, slot: MissionaryImageSlot, file: File) {
-  const storageSlug = toMissionaryImageStorageSlug(slug);
-
-  if (!storageSlug) {
-    throw new Error("A profile slug is required before uploading images.");
-  }
-
-  return `households/${storageSlug}/${slot}-${Date.now()}.${getImageExtension(file)}`;
-}
-
 export async function uploadMissionaryProfileImage({
   file,
   householdId,
@@ -74,40 +51,31 @@ export async function uploadMissionaryProfileImage({
     throw new Error(validationError);
   }
 
-  const supabase = createSupabaseBrowserClient();
-  const path = getMissionaryImagePath(slug, slot, file);
-  const { error: uploadError } = await supabase.storage
-    .from(MISSIONARY_IMAGES_BUCKET)
-    .upload(path, file, {
-      cacheControl: "3600",
-      contentType: file.type,
-      upsert: false,
-    });
+  const formData = new FormData();
+  formData.set("file", file);
+  formData.set("householdId", householdId);
+  formData.set("slot", slot);
+  formData.set("slug", slug);
 
-  if (uploadError) {
-    throw new Error(uploadError.message);
-  }
+  const response = await fetch("/api/admin/missionary-profiles/images", {
+    body: formData,
+    method: "POST",
+  });
+  const result = await response.json().catch(() => ({})) as {
+    error?: string;
+    imageColumn?: "profile_image_url" | "hero_image_url";
+    path?: string;
+    publicUrl?: string;
+  };
 
-  const { data } = supabase.storage
-    .from(MISSIONARY_IMAGES_BUCKET)
-    .getPublicUrl(path);
-  const imageColumn = slot === "directory" ? "profile_image_url" : "hero_image_url";
-  const { error: updateError } = await supabase
-    .from("missionary_households")
-    .update({
-      [imageColumn]: data.publicUrl,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", householdId);
-
-  if (updateError) {
-    throw new Error(updateError.message);
+  if (!response.ok || !result.publicUrl || !result.imageColumn || !result.path) {
+    throw new Error(result.error || "Unable to upload profile photo.");
   }
 
   return {
-    imageColumn,
-    path,
-    publicUrl: data.publicUrl,
+    imageColumn: result.imageColumn,
+    path: result.path,
+    publicUrl: result.publicUrl,
   };
 }
 
