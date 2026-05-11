@@ -62,7 +62,7 @@ export type AdminOutcomeTag =
   | "Other"
   | "Prayer Answered"
   | "Salvation";
-export type AdminTableType = "coffee" | "group" | "kitchen_table" | "other" | "phone" | "zoom";
+export type AdminTableType = "coffee" | "discipleship" | "group" | "kitchen_table" | "other" | "phone" | "prayer" | "text" | "zoom";
 export type AdminFieldPersonStatus = "active" | "archived" | "discipleship" | "follow_up" | "new" | "paused";
 export type AdminMovementStep =
   | "Begin discipleship"
@@ -283,6 +283,21 @@ export type AdminInSeasonFocus = {
   workspace_id: string;
 };
 
+export type AdminPrayerRequest = {
+  category: string | null;
+  created_at: string;
+  field_person_id: string | null;
+  household_id?: string | null;
+  id: string;
+  request: string;
+  status: "answered" | "archived" | "covered" | "open";
+  title: string;
+  updated_at: string | null;
+  urgency: "important" | "normal" | "urgent";
+  visibility: "private" | "public" | "team";
+  workspace_id: string;
+};
+
 // Team is a public-facing roster surface only. Do not use it to store
 // disciples, follow-up contacts, or ministry relationships; those belong in
 // future People/Tables relationship models.
@@ -311,6 +326,7 @@ export type AdminProfile = AdminHousehold & {
   inSeasonFocus?: AdminInSeasonFocus;
   libraryItems?: AdminLibraryItem[];
   prayerPartnerCount?: number;
+  prayerRequests?: AdminPrayerRequest[];
   publicFruitItemCount?: number;
   support?: AdminSupportSettings;
   tables?: AdminMissionaryTable[];
@@ -486,6 +502,15 @@ type FruitDraft = {
   testimonyDate: string;
 };
 
+type PrayerRequestDraft = {
+  category: string;
+  fieldPersonId: string;
+  request: string;
+  title: string;
+  urgency: AdminPrayerRequest["urgency"];
+  visibility: AdminPrayerRequest["visibility"];
+};
+
 const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
   addCamoFatigues: true,
   addFacePaint: false,
@@ -524,7 +549,8 @@ type EditorTab =
 type LegacyEditorTab = "connections" | "tables";
 type RawEditorTab = EditorTab | LegacyEditorTab;
 type SupportSubsection = "advanced" | "buttons" | "giving" | "gifts" | "progress";
-type PrayerSubsection = "content" | "cta" | "preview" | "team" | "visibility";
+type PrayerSubsection = "content" | "cta" | "preview" | "requests" | "team" | "visibility";
+type PrimaryNavKey = "missionary-workspace" | "public-profile" | "resources";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
   annual_goal: 0,
@@ -649,6 +675,19 @@ const meetingTypeOptions: Array<{ label: string; value: AdminMeetingType }> = [
   { label: "Other", value: "other" },
 ];
 
+const prayerUrgencyOptions: Array<{ label: string; value: AdminPrayerRequest["urgency"] }> = [
+  { label: "Normal", value: "normal" },
+  { label: "Important", value: "important" },
+  { label: "Urgent", value: "urgent" },
+];
+
+const prayerRequestStatusOptions: Array<{ label: string; value: AdminPrayerRequest["status"] }> = [
+  { label: "Open", value: "open" },
+  { label: "Covered", value: "covered" },
+  { label: "Answered", value: "answered" },
+  { label: "Archived", value: "archived" },
+];
+
 const meetingDepthOptions: Array<{ label: string; value: AdminMeetingDepth }> = [
   { label: "Quick Touch", value: "quick_touch" },
   { label: "Intentional Meeting", value: "intentional_meeting" },
@@ -673,7 +712,10 @@ const tableTypeOptions: Array<{ label: string; value: AdminTableType }> = [
   { label: "Coffee", value: "coffee" },
   { label: "Phone", value: "phone" },
   { label: "Zoom", value: "zoom" },
+  { label: "Text", value: "text" },
+  { label: "Prayer", value: "prayer" },
   { label: "Group", value: "group" },
+  { label: "Discipleship", value: "discipleship" },
   { label: "Other", value: "other" },
 ];
 
@@ -736,23 +778,16 @@ const featureDescriptions = {
   show_prayer: "Shows the prayer invitation and prayer team call to action.",
 } as const;
 
-const editorTabGroups: Array<{
-  label: "Operations" | "Profile";
-  tabs: Array<{ label: string; value: EditorTab }>;
+const primaryNavGroups: Array<{
+  helper: string;
+  key: PrimaryNavKey;
+  label: "Missionary Workspace" | "Public Profile" | "Resources";
+  tabs: Array<{ id?: string; label: string; value: EditorTab }>;
 }> = [
   {
-    label: "Operations",
-    tabs: [
-      { label: "Overview", value: "overview" },
-      { label: "People", value: "people" },
-      { label: "Meetings", value: "meetings" },
-      { label: "Fruit", value: "fruit" },
-      { label: "Library", value: "library" },
-      { label: "In Season", value: "in-season" },
-    ],
-  },
-  {
-    label: "Profile",
+    helper: "Controls approved public-facing content.",
+    key: "public-profile",
+    label: "Public Profile",
     tabs: [
       { label: "Profile", value: "profile" },
       { label: "Features", value: "features" },
@@ -763,6 +798,28 @@ const editorTabGroups: Array<{
       { label: "Prayer", value: "prayer" },
     ],
   },
+  {
+    helper: "Desktop dashboard for management and review of the same data used in the DOS Field App.",
+    key: "missionary-workspace",
+    label: "Missionary Workspace",
+    tabs: [
+      { label: "Overview", value: "overview" },
+      { label: "People", value: "people" },
+      { label: "Meetings", value: "meetings" },
+      { id: "reviews", label: "Reviews", value: "meetings" },
+      { label: "Fruit", value: "fruit" },
+      { label: "Prayer", value: "prayer" },
+    ],
+  },
+  {
+    helper: "Teaching, planning, and seasonal focus tools.",
+    key: "resources",
+    label: "Resources",
+    tabs: [
+      { label: "Library", value: "library" },
+      { label: "In Season", value: "in-season" },
+    ],
+  },
 ];
 
 function normalizeEditorTab(tab: RawEditorTab): EditorTab {
@@ -770,7 +827,23 @@ function normalizeEditorTab(tab: RawEditorTab): EditorTab {
 }
 
 function isEditorTab(value: string | null): value is EditorTab {
-  return editorTabGroups.some((group) => group.tabs.some((tab) => tab.value === value));
+  return primaryNavGroups.some((group) => group.tabs.some((tab) => tab.value === value));
+}
+
+function getPrimaryNavForTab(tab: EditorTab, currentPrimary: PrimaryNavKey = "missionary-workspace"): PrimaryNavKey {
+  if (tab === "library" || tab === "in-season") {
+    return "resources";
+  }
+
+  if (["profile", "features", "team", "media", "story", "support"].includes(tab)) {
+    return "public-profile";
+  }
+
+  if (tab === "prayer" && currentPrimary === "public-profile") {
+    return "public-profile";
+  }
+
+  return "missionary-workspace";
 }
 
 const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection }> = [
@@ -783,6 +856,7 @@ const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection 
 
 const prayerSubsectionOptions: Array<{ label: string; value: PrayerSubsection }> = [
   { label: "Visibility", value: "visibility" },
+  { label: "Requests", value: "requests" },
   { label: "Call To Action", value: "cta" },
   { label: "Public Content", value: "content" },
   { label: "Prayer Team", value: "team" },
@@ -1869,7 +1943,30 @@ function DataFlowLabels({ items }: { items: string[] }) {
 function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
   return (
     <div className="space-y-5">
-      <DataFlowLabels items={["Operations managed in Missionary Workspace", "Profiles show approved public content", "DOS app is private by default"]} />
+      <DataFlowLabels items={["Shared workspace data", "Dashboard for management", "DOS for daily action", "Public profile shows approved content"]} />
+      <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          One workspace. Two interfaces.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-4">
+            <p className="text-sm font-semibold text-[#111111]">
+              Missionary Workspace
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#4b443b]">
+              Desktop dashboard for setup, CSV import, reviews, fruit approval, profile publishing, prayer, support, and deeper metrics.
+            </p>
+          </div>
+          <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-4">
+            <p className="text-sm font-semibold text-[#111111]">
+              DOS Field App
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#4b443b]">
+              Mobile-first app for daily field activity: add people, log meetings, follow up, pray, and view fruit on the go.
+            </p>
+          </div>
+        </div>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <StatPreview label="Your Field" tone="light" value={String(profile.fieldPeople?.length ?? 0)} />
         <StatPreview label="Meetings" tone="light" value={String((profile.tables?.length ?? 0) + (profile.connectionLogs?.length ?? 0))} />
@@ -1879,7 +1976,7 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
         <StatPreview label="Prayer Requests" tone="light" value={String(profile.activePrayerRequestCount ?? 0)} />
       </div>
       <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
-        This Missionary Workspace separates private DOS activity from public profile content. Operations summarize People, Meetings, Encounters, Fruit, Library, and In Season; Profile tabs control what can appear publicly.
+        Missionary Workspace is the expanded dashboard for this missionary household. DOS Field App is the mobile daily-use app connected to the same People, Meetings, Fruit, Prayer, and Profile data.
       </div>
     </div>
   );
@@ -2301,9 +2398,7 @@ function composeMeetingNotes(notes: string, meta: MeetingMeta) {
 }
 
 function tableTypeFromMeetingType(value: AdminMeetingType): AdminTableType {
-  return value === "kitchen_table" || value === "coffee" || value === "phone" || value === "zoom" || value === "group" || value === "other"
-    ? value
-    : "other";
+  return value;
 }
 
 function connectionTypeFromMeetingType(value: AdminMeetingType): AdminConnectionType {
@@ -5675,6 +5770,110 @@ function TeamMemberEditor({
   );
 }
 
+function PrayerRequestsWorkspace({
+  fieldPeople,
+  onCreate,
+  onUpdateStatus,
+  prayerRequests,
+}: {
+  fieldPeople: readonly AdminFieldPerson[];
+  onCreate: (draft: PrayerRequestDraft) => void;
+  onUpdateStatus: (prayerRequestId: string, status: AdminPrayerRequest["status"]) => void;
+  prayerRequests: readonly AdminPrayerRequest[];
+}) {
+  const [draft, setDraft] = useState<PrayerRequestDraft>({
+    category: "",
+    fieldPersonId: "",
+    request: "",
+    title: "",
+    urgency: "normal",
+    visibility: "private",
+  });
+  const canSave = draft.title.trim() && draft.request.trim();
+
+  function updateDraft(patch: Partial<PrayerRequestDraft>) {
+    setDraft((currentDraft) => ({ ...currentDraft, ...patch }));
+  }
+
+  function saveDraft() {
+    if (!canSave) {
+      return;
+    }
+
+    onCreate(draft);
+    setDraft({
+      category: "",
+      fieldPersonId: "",
+      request: "",
+      title: "",
+      urgency: "normal",
+      visibility: "private",
+    });
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Private Prayer
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Field label="Title" onChange={(value) => updateDraft({ title: value })} value={draft.title} />
+          <SelectField
+            label="Person"
+            onChange={(value) => updateDraft({ fieldPersonId: value })}
+            options={[
+              { label: "Missionary / household request", value: "" },
+              ...fieldPeople.map((person) => ({ label: person.name, value: person.id })),
+            ]}
+            value={draft.fieldPersonId}
+          />
+          <Field label="Category" onChange={(value) => updateDraft({ category: value })} value={draft.category} />
+          <SelectField label="Urgency" onChange={(value) => updateDraft({ urgency: value as AdminPrayerRequest["urgency"] })} options={prayerUrgencyOptions} value={draft.urgency} />
+        </div>
+        <TextArea
+          helperText="Private by default. Public publishing can be added later after explicit review."
+          label="Request"
+          onChange={(value) => updateDraft({ request: value })}
+          rows={4}
+          value={draft.request}
+        />
+        <button className={`${lightPrimaryButtonClass} mt-4`} disabled={!canSave} onClick={saveDraft} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          Save Prayer Request
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-[#e2ded5] bg-white">
+        {prayerRequests.length === 0 ? (
+          <p className="p-4 text-sm leading-6 text-[#7b746a]">No workspace prayer requests yet.</p>
+        ) : (
+          prayerRequests.map((request) => (
+            <div className="border-b border-[#e2ded5] p-4 last:border-b-0" key={request.id}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-base font-semibold text-[#111111]">{request.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-[#4b443b]">{request.request}</p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <span>{request.field_person_id ? personNameById(fieldPeople, request.field_person_id) : "Household"}</span>
+                    <span>{request.urgency}</span>
+                    <span>{request.visibility}</span>
+                  </div>
+                </div>
+                <SelectField
+                  label="Status"
+                  onChange={(value) => onUpdateStatus(request.id, value as AdminPrayerRequest["status"])}
+                  options={prayerRequestStatusOptions}
+                  value={request.status}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatPreview({ label, tone = "dark", value }: { label: string; tone?: "dark" | "light"; value: string }) {
   const isLight = tone === "light";
 
@@ -5729,9 +5928,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
+  const initialTab = isEditorTab(requestedTab) ? requestedTab : "overview";
   const [profiles, setProfiles] = useState(initialProfiles);
   const [selectedId, setSelectedId] = useState("");
-  const [activeTab, setActiveTab] = useState<RawEditorTab>(isEditorTab(requestedTab) ? requestedTab : "overview");
+  const [activeTab, setActiveTab] = useState<EditorTab>(normalizeEditorTab(initialTab));
+  const [activePrimaryNav, setActivePrimaryNav] = useState<PrimaryNavKey>(getPrimaryNavForTab(normalizeEditorTab(initialTab)));
+  const [activeSubnavId, setActiveSubnavId] = useState<string>(normalizeEditorTab(initialTab));
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("progress");
   const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("visibility");
   const [profileQuery, setProfileQuery] = useState("");
@@ -6082,12 +6284,16 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   function openProfile(profileId: string) {
     setSelectedId(profileId);
     setActiveTab("overview");
+    setActivePrimaryNav("missionary-workspace");
+    setActiveSubnavId("overview");
     resetTransientEditorState();
   }
 
   function closeProfile() {
     setSelectedId("");
     setActiveTab("overview");
+    setActivePrimaryNav("missionary-workspace");
+    setActiveSubnavId("overview");
     resetTransientEditorState();
   }
 
@@ -6193,9 +6399,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
   }
 
-  function changeEditorTab(tab: RawEditorTab) {
+  function changeEditorTab(tab: RawEditorTab, primaryNav?: PrimaryNavKey, subnavId?: string) {
     const nextTab = normalizeEditorTab(tab);
+    const nextPrimaryNav = primaryNav ?? getPrimaryNavForTab(nextTab, activePrimaryNav);
+
     setActiveTab(nextTab);
+    setActivePrimaryNav(nextPrimaryNav);
+    setActiveSubnavId(subnavId ?? nextTab);
 
     if (nextTab === "support") {
       setSupportSubsection("progress");
@@ -6299,7 +6509,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
 
     setStatus({
-      text: "Meeting added. Click Save Updates to persist this workspace.",
+      text: "Meeting added. Click Save Changes to persist this workspace.",
       tone: "success",
     });
 
@@ -6340,7 +6550,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       tables,
     });
     setStatus({
-      text: "Meeting updated. Click Save Updates to persist this workspace.",
+      text: "Meeting updated. Click Save Changes to persist this workspace.",
       tone: "success",
     });
 
@@ -6424,7 +6634,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
 
     setStatus({
-      text: "Encounter added as RAW. Click Save Updates to persist this workspace.",
+      text: "Encounter added as RAW. Click Save Changes to persist this workspace.",
       tone: "success",
     });
   }
@@ -6473,7 +6683,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       ],
     });
     setStatus({
-      text: "Fruit summary added. Click Save Updates to persist this workspace.",
+      text: "Fruit summary added. Click Save Changes to persist this workspace.",
       tone: "success",
     });
   }
@@ -6496,7 +6706,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       )),
     });
     setStatus({
-      text: "Fruit updated. Click Save Updates to persist this workspace.",
+      text: "Fruit updated. Click Save Changes to persist this workspace.",
       tone: "success",
     });
   }
@@ -6514,7 +6724,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       ],
     });
     setStatus({
-      text: "Meeting logged. Click Save Updates to persist this workspace.",
+      text: "Meeting logged. Click Save Changes to persist this workspace.",
       tone: "success",
     });
   }
@@ -6543,7 +6753,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       )),
     });
     setStatus({
-      text: "Meeting updated. Click Save Updates to persist this workspace.",
+      text: "Meeting updated. Click Save Changes to persist this workspace.",
       tone: "success",
     });
   }
@@ -6561,7 +6771,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       ],
     });
     setStatus({
-      text: "Library item added. Click Save Updates to persist this workspace.",
+      text: "Library item added. Click Save Changes to persist this workspace.",
       tone: "success",
     });
   }
@@ -6587,7 +6797,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       )),
     });
     setStatus({
-      text: "Library item updated. Click Save Updates to persist this workspace.",
+      text: "Library item updated. Click Save Changes to persist this workspace.",
       tone: "success",
     });
   }
@@ -6606,6 +6816,112 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         ...patch,
         updated_at: new Date().toISOString(),
       },
+    });
+  }
+
+  async function savePrayerRequest(draft: PrayerRequestDraft) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    const response = await fetch("/api/admin/missionary-profiles/prayer-requests", {
+      body: JSON.stringify({
+        category: draft.category,
+        fieldPersonId: draft.fieldPersonId,
+        householdId: selectedProfile.id,
+        request: draft.request,
+        title: draft.title,
+        urgency: draft.urgency,
+        visibility: draft.visibility,
+        workspaceId: selectedProfile.id,
+      }),
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    const result = await response.json().catch(() => ({})) as {
+      error?: string;
+      prayerRequest?: AdminPrayerRequest;
+    };
+
+    if (!response.ok || !result.prayerRequest) {
+      setStatus({
+        text: typeof result.error === "string" ? result.error : "Unable to save prayer request.",
+        tone: "error",
+      });
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      activePrayerRequestCount: (selectedProfile.activePrayerRequestCount ?? 0) + 1,
+      prayerRequests: [result.prayerRequest, ...(selectedProfile.prayerRequests ?? [])],
+    });
+    setStatus({
+      text: "Prayer request saved privately in this workspace.",
+      tone: "success",
+    });
+  }
+
+  async function updatePrayerRequestStatus(prayerRequestId: string, nextStatus: AdminPrayerRequest["status"]) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    const previousRequests = selectedProfile.prayerRequests ?? [];
+    const nextRequests = previousRequests.map((request) => (
+      request.id === prayerRequestId
+        ? { ...request, status: nextStatus, updated_at: new Date().toISOString() }
+        : request
+    ));
+
+    updateSelected({
+      ...selectedProfile,
+      activePrayerRequestCount: nextRequests.filter((request) => request.status === "open").length,
+      prayerRequests: nextRequests,
+    });
+
+    const response = await fetch("/api/admin/missionary-profiles/prayer-requests", {
+      body: JSON.stringify({
+        householdId: selectedProfile.id,
+        id: prayerRequestId,
+        status: nextStatus,
+        workspaceId: selectedProfile.id,
+      }),
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "PATCH",
+    });
+    const result = await response.json().catch(() => ({})) as {
+      error?: string;
+      prayerRequest?: AdminPrayerRequest;
+    };
+
+    if (!response.ok || !result.prayerRequest) {
+      updateSelected({
+        ...selectedProfile,
+        activePrayerRequestCount: previousRequests.filter((request) => request.status === "open").length,
+        prayerRequests: previousRequests,
+      });
+      setStatus({
+        text: typeof result.error === "string" ? result.error : "Unable to update prayer request.",
+        tone: "error",
+      });
+      return;
+    }
+
+    updateSelected({
+      ...selectedProfile,
+      activePrayerRequestCount: (selectedProfile.prayerRequests ?? []).filter((request) => (
+        request.id === prayerRequestId ? result.prayerRequest?.status === "open" : request.status === "open"
+      )).length,
+      prayerRequests: (selectedProfile.prayerRequests ?? []).map((request) => (
+        request.id === result.prayerRequest?.id ? result.prayerRequest : request
+      )),
     });
   }
 
@@ -6942,7 +7258,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
       updateRefinedStory(result.refinedStory);
       setStoryRefinementState({
-        message: "Refined story generated. Review it, then click Save Updates.",
+        message: "Refined story generated. Review it, then click Save Changes.",
         status: "success",
       });
     } catch (error) {
@@ -6974,6 +7290,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         tone: "error",
       });
       setActiveTab("profile");
+      setActivePrimaryNav("public-profile");
+      setActiveSubnavId("profile");
       return;
     }
 
@@ -7275,6 +7593,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     missingMessage: "Configure prayer settings to show this section.",
     showingMessage: "The Prayer section has a CTA, prayer settings, or active requests.",
   });
+  const activePrimaryGroup = primaryNavGroups.find((group) => group.key === activePrimaryNav) ?? primaryNavGroups[1];
   return (
     <div className="space-y-6">
       <section className="bg-stone-950/35 p-5 md:p-7">
@@ -7299,11 +7618,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-3">
             <Link
+              aria-label="Open mobile Field App for this workspace"
               className="inline-flex min-h-11 items-center justify-center border border-[#D4A63D]/60 bg-[#D4A63D]/10 px-4 py-3 text-center text-xs uppercase tracking-[0.2em] text-[#F5B942] transition-all hover:border-[#F5B942] hover:text-[#FFE08A]"
               href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              title="Open mobile Field App for this workspace"
             >
               Open DOS App
             </Link>
@@ -7323,15 +7644,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             >
               Copy Profile Link
             </button>
-            <button
-              className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 py-3 text-xs uppercase tracking-[0.22em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={saving}
-              onClick={saveSelectedProfile}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-              type="button"
-            >
-              {saving ? "Saving" : "Save Updates"}
-            </button>
           </div>
         </div>
 
@@ -7345,41 +7657,88 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </p>
         ) : null}
 
-        <div className="mt-6 space-y-4 border-b border-stone-800/80 pb-4">
-          {editorTabGroups.map((group) => (
-            <div key={group.label}>
-              <p className="px-1 text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                {group.label}
-              </p>
-              <div className="mt-2 overflow-x-auto">
-                <div className="flex min-w-max gap-2" role="tablist" aria-label={`${group.label} tabs`}>
-                  {group.tabs.map((tab) => (
-                    <button
-                      aria-selected={activeTab === tab.value}
-                      className={`rounded-md border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
-                        activeTab === tab.value
-                          ? "border-[#D4A63D] bg-[#D4A63D] text-black"
-                          : "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-[#D4A63D] hover:text-[#F5B942]"
-                      }`}
-                      key={tab.value}
-                      onClick={() => changeEditorTab(tab.value)}
-                      role="tab"
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        <div className="mt-6 border-b border-stone-800/80 pb-5">
+          <div className="grid gap-3 md:grid-cols-3" role="tablist" aria-label="Missionary Workspace primary sections">
+            {primaryNavGroups.map((group) => {
+              const selected = activePrimaryNav === group.key;
+
+              return (
+                <button
+                  aria-selected={selected}
+                  className={`min-h-20 rounded-md border px-4 py-3 text-left transition-colors ${
+                    selected
+                      ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                      : "border-stone-700 bg-stone-900/70 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                  }`}
+                  key={group.key}
+                  onClick={() => {
+                    const firstTab = group.tabs[0];
+
+                    setActivePrimaryNav(group.key);
+                    changeEditorTab(firstTab.value, group.key, firstTab.id ?? firstTab.value);
+                  }}
+                  role="tab"
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  <span className="block text-[11px] uppercase tracking-[0.2em]">
+                    {group.label}
+                  </span>
+                  <span className={`mt-2 block text-xs normal-case leading-5 tracking-normal ${selected ? "text-black/70" : "text-stone-400"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
+                    {group.helper}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <div className="flex min-w-max gap-2" role="tablist" aria-label={`${activePrimaryGroup.label} submenu`}>
+              {activePrimaryGroup.tabs.map((tab) => {
+                const tabId = tab.id ?? tab.value;
+                const selected = activeTab === tab.value && activeSubnavId === tabId && activePrimaryNav === activePrimaryGroup.key;
+
+                return (
+                  <button
+                    aria-selected={selected}
+                    className={`rounded-md border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                      selected
+                        ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                        : "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                    }`}
+                    key={`${activePrimaryGroup.key}-${tabId}`}
+                    onClick={() => changeEditorTab(tab.value, activePrimaryGroup.key, tabId)}
+                    role="tab"
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
-          ))}
+          </div>
+        </div>
+
+        <div className="sticky top-4 z-20 mt-5 flex flex-col gap-3 border border-[#D4A63D]/25 bg-black/80 p-3 shadow-[0_14px_40px_rgba(0,0,0,0.28)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs leading-5 text-stone-400">
+            Save profile, workspace, and publishing edits when you are ready.
+          </p>
+          <button
+            className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 py-3 text-xs uppercase tracking-[0.22em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={saving}
+            onClick={saveSelectedProfile}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            {saving ? "Saving" : "Save Changes"}
+          </button>
         </div>
 
         <div className="mt-8">
           {activeTab === "overview" ? (
           <SectionIntro
-            description="Missionary Workspace summary for private DOS activity and public profile publishing."
+            description="Missionary Workspace is the expanded dashboard for this missionary household. DOS Field App is the mobile daily-use app connected to the same People, Meetings, Fruit, Prayer, and Profile data."
             title="Overview"
           >
             <WorkspaceOverview profile={selectedProfile} />
@@ -8002,6 +8361,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   </button>
                 ))}
               </div>
+
+              {prayerSubsection === "requests" ? (
+                <PrayerRequestsWorkspace
+                  fieldPeople={selectedProfile.fieldPeople ?? []}
+                  onCreate={savePrayerRequest}
+                  onUpdateStatus={updatePrayerRequestStatus}
+                  prayerRequests={selectedProfile.prayerRequests ?? []}
+                />
+              ) : null}
 
               {prayerSubsection === "visibility" ? (
                 <div>

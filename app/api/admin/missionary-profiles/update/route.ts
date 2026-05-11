@@ -184,7 +184,7 @@ const outcomeTagOptions = [
   "Other",
 ] as const;
 const tableSources = ["command_center", "field"] as const;
-const tableTypes = ["kitchen_table", "coffee", "phone", "zoom", "group", "other"] as const;
+const tableTypes = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "discipleship", "other"] as const;
 const movementSteps = ["Continue meeting", "Begin discipleship", "Send follow up", "Invite to group", "Connect to church", "Connect to ministry", "Hand off", "Pray and wait", "Other"] as const;
 const teachingUsedOptions = ["Kitchen Table Gospel", "Are You Really a Disciple", "Commands of Jesus", "Other"] as const;
 const readinessOptions = ["Not ready", "Curious", "Open", "Ready to follow", "Actively following"] as const;

@@ -17,6 +17,7 @@ import {
   type AdminMissionaryTable,
   type AdminMovementStep,
   type AdminOutcomeTag,
+  type AdminPrayerRequest,
   type AdminProfile,
   type AdminReadiness,
   type AdminSupportSettings,
@@ -88,6 +89,9 @@ const readinessOptions = ["Not ready", "Curious", "Open", "Ready to follow", "Ac
 const assessmentFollowUpAreas = ["Repentance", "Baptism", "Scripture", "Prayer", "Community", "Obedience"] as const satisfies readonly AdminAssessmentFollowUpArea[];
 const connectionTypes = ["Phone call", "Zoom", "Text", "Coffee", "Prayer", "Discipleship", "Other"] as const satisfies readonly AdminConnectionType[];
 const fruitStatuses = ["draft", "approved", "private"] as const satisfies readonly AdminFruitStatus[];
+const prayerRequestStatuses = ["open", "covered", "answered", "archived"] as const;
+const prayerRequestUrgencies = ["normal", "important", "urgent"] as const;
+const prayerRequestVisibilities = ["private", "team", "public"] as const;
 const outcomeTagOptions = [
   "Salvation",
   "Baptism",
@@ -98,7 +102,7 @@ const outcomeTagOptions = [
   "Prayer Answered",
   "Other",
 ] as const satisfies readonly AdminOutcomeTag[];
-const tableTypes = ["kitchen_table", "coffee", "phone", "zoom", "group", "other"] as const satisfies readonly AdminTableType[];
+const tableTypes = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "discipleship", "other"] as const satisfies readonly AdminTableType[];
 
 type EncounterRow = {
   created_at: string;
@@ -227,6 +231,21 @@ type InSeasonFocusRow = {
   prayer_emphasis: string | null;
   updated_at: string | null;
   workspace_id?: string | null;
+};
+
+type PrayerRequestRow = {
+  category: string | null;
+  created_at: string;
+  field_person_id?: string | null;
+  household_id: string | null;
+  id: string;
+  related_household_id?: string | null;
+  request?: string | null;
+  status: string | null;
+  title: string;
+  updated_at: string | null;
+  urgency?: string | null;
+  visibility?: string | null;
 };
 
 type PublicFruitItemRow = {
@@ -363,6 +382,18 @@ function getConnectionType(value: string | null): AdminConnectionType {
 
 function getFruitStatus(value: string | null | undefined): AdminFruitStatus {
   return fruitStatuses.includes(value as AdminFruitStatus) ? value as AdminFruitStatus : "draft";
+}
+
+function getPrayerRequestStatus(value: string | null | undefined): AdminPrayerRequest["status"] {
+  return prayerRequestStatuses.includes(value as AdminPrayerRequest["status"]) ? value as AdminPrayerRequest["status"] : "open";
+}
+
+function getPrayerRequestUrgency(value: string | null | undefined): AdminPrayerRequest["urgency"] {
+  return prayerRequestUrgencies.includes(value as AdminPrayerRequest["urgency"]) ? value as AdminPrayerRequest["urgency"] : "normal";
+}
+
+function getPrayerRequestVisibility(value: string | null | undefined): AdminPrayerRequest["visibility"] {
+  return prayerRequestVisibilities.includes(value as AdminPrayerRequest["visibility"]) ? value as AdminPrayerRequest["visibility"] : "private";
 }
 
 function getPermissionToShare(payload: Record<string, unknown>) {
@@ -579,6 +610,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const inSeasonByHouseholdId = new Map<string, AdminInSeasonFocus>();
   const libraryItemsByHouseholdId = new Map<string, AdminLibraryItem[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
+  const prayerRequestsByHouseholdId = new Map<string, AdminPrayerRequest[]>();
   const publicFruitItemCountByHouseholdId = new Map<string, number>();
   const tableReviewsByHouseholdId = new Map<string, AdminTableReview[]>();
   const tablesByHouseholdId = new Map<string, AdminMissionaryTable[]>();
@@ -645,6 +677,53 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         request.household_id,
         (activePrayerRequestCountByHouseholdId.get(request.household_id) ?? 0) + 1,
       );
+    });
+
+    const workspacePrayerRequestsResult = await supabase
+      .from("prayer_requests")
+      .select("id, household_id, related_household_id, field_person_id, title, request, category, urgency, status, visibility, created_at, updated_at")
+      .or(ids.map((id) => `household_id.eq.${id},related_household_id.eq.${id}`).join(","))
+      .order("created_at", { ascending: false });
+    const fallbackWorkspacePrayerRequestsResult = workspacePrayerRequestsResult.error?.message?.includes("field_person_id")
+      ? await supabase
+        .from("prayer_requests")
+        .select("id, household_id, related_household_id, title, request, category, urgency, status, visibility, created_at, updated_at")
+        .or(ids.map((id) => `household_id.eq.${id},related_household_id.eq.${id}`).join(","))
+        .order("created_at", { ascending: false })
+      : workspacePrayerRequestsResult;
+
+    if (fallbackWorkspacePrayerRequestsResult.error && !isMissingPrayerTeamTable(fallbackWorkspacePrayerRequestsResult.error)) {
+      return { error: fallbackWorkspacePrayerRequestsResult.error.message, profiles: [] };
+    }
+
+    ((fallbackWorkspacePrayerRequestsResult.data ?? []) as PrayerRequestRow[]).forEach((request) => {
+      const workspaceId = request.household_id && ids.includes(request.household_id)
+        ? request.household_id
+        : request.related_household_id && ids.includes(request.related_household_id)
+          ? request.related_household_id
+          : null;
+
+      if (!workspaceId) {
+        return;
+      }
+
+      const currentRequests = prayerRequestsByHouseholdId.get(workspaceId) ?? [];
+
+      currentRequests.push({
+        category: request.category,
+        created_at: request.created_at,
+        field_person_id: request.field_person_id ?? null,
+        household_id: request.household_id ?? workspaceId,
+        id: request.id,
+        request: request.request ?? "",
+        status: getPrayerRequestStatus(request.status),
+        title: request.title,
+        updated_at: request.updated_at,
+        urgency: getPrayerRequestUrgency(request.urgency),
+        visibility: getPrayerRequestVisibility(request.visibility),
+        workspace_id: workspaceId,
+      });
+      prayerRequestsByHouseholdId.set(workspaceId, currentRequests);
     });
 
     const tablesResult = await supabase
@@ -1057,6 +1136,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       inSeasonFocus: inSeasonByHouseholdId.get(household.id),
       libraryItems: libraryItemsByHouseholdId.get(household.id) ?? [],
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
+      prayerRequests: prayerRequestsByHouseholdId.get(household.id) ?? [],
       publicFruitItemCount: publicFruitItemCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
       tables: tablesByHouseholdId.get(household.id) ?? [],

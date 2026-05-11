@@ -21,7 +21,10 @@ const meetingTypeOptions = [
   { label: "Coffee", value: "coffee" },
   { label: "Phone", value: "phone" },
   { label: "Zoom", value: "zoom" },
+  { label: "Text", value: "text" },
+  { label: "Prayer", value: "prayer" },
   { label: "Group", value: "group" },
+  { label: "Discipleship", value: "discipleship" },
   { label: "Other", value: "other" },
 ];
 

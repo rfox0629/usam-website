@@ -5,7 +5,7 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 type SupabaseQueryError = { message?: string } | null | undefined;
 
-export const dosAppMeetingTypes = ["kitchen_table", "coffee", "phone", "zoom", "group", "other"] as const;
+export const dosAppMeetingTypes = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "discipleship", "other"] as const;
 export const dosAppOutcomeTags = [
   "Salvation",
   "Baptism",
@@ -149,6 +149,18 @@ function mapConnectionType(value: string | null): DosAppMeetingType {
 
   if (normalized.includes("zoom")) {
     return "zoom";
+  }
+
+  if (normalized.includes("text")) {
+    return "text";
+  }
+
+  if (normalized.includes("prayer")) {
+    return "prayer";
+  }
+
+  if (normalized.includes("disciple")) {
+    return "discipleship";
   }
 
   return "other";
