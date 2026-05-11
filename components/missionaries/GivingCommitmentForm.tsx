@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent, ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getGivingUrl } from "@/src/lib/giving";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
@@ -175,8 +175,8 @@ export function GivingCommitmentForm({
   const [allocationPreference, setAllocationPreference] = useState(allocationLabel);
   const [status, setStatus] = useState<"error" | "idle" | "submitting" | "success">("idle");
   const [errorMessage, setErrorMessage] = useState("");
-  const redirectStarted = useRef(false);
-  const redirectUrl = useRef(getGivingUrl(resolvedMonthlyGivingUrl, "monthly"));
+  const [givingWindowBlocked, setGivingWindowBlocked] = useState(false);
+  const [openedGivingUrl, setOpenedGivingUrl] = useState("");
 
   const isHouseholdSupport = supportMode === "household";
   const showOtherAmount = (giftType === "monthly" && monthlyAmount === "Other") || (giftType === "onetime" && oneTimeAmount === "Other");
@@ -192,19 +192,6 @@ export function GivingCommitmentForm({
     setAllocationPreference(allocationLabel);
   }, [allocationLabel]);
 
-  useEffect(() => {
-    if (status !== "success" || redirectStarted.current) {
-      return;
-    }
-
-    redirectStarted.current = true;
-    const timer = window.setTimeout(() => {
-      window.location.assign(redirectUrl.current);
-    }, 150);
-
-    return () => window.clearTimeout(timer);
-  }, [status]);
-
   async function submitCommitment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -213,9 +200,10 @@ export function GivingCommitmentForm({
     const selectedAmount = activeAmount === "Other" ? "Other" : activeAmount;
     const nextRedirectUrl = giftType === "monthly" ? resolvedMonthlyUrl : resolvedOneTimeUrl;
 
-    redirectUrl.current = nextRedirectUrl;
     setStatus("submitting");
     setErrorMessage("");
+    setGivingWindowBlocked(false);
+    setOpenedGivingUrl("");
 
     try {
       const response = await fetch("/api/support-commitments", {
@@ -250,6 +238,16 @@ export function GivingCommitmentForm({
         throw new Error(typeof result.error === "string" ? result.error : "Unable to save this commitment.");
       }
 
+      const givingWindow = window.open(nextRedirectUrl, "_blank");
+
+      if (givingWindow) {
+        givingWindow.opener = null;
+        givingWindow.focus();
+      } else {
+        setGivingWindowBlocked(true);
+      }
+
+      setOpenedGivingUrl(nextRedirectUrl);
       setStatus("success");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to submit this commitment.");
@@ -287,7 +285,22 @@ export function GivingCommitmentForm({
         {status === "success" ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-7 text-emerald-950 shadow-sm">
             <p className="font-semibold">Thank you. Your giving setup intent was received.</p>
-            <p className="mt-1 text-emerald-800">Opening the secure giving page now so you can complete your gift.</p>
+            <p className="mt-1 text-emerald-800">
+              {givingWindowBlocked
+                ? "Your browser blocked the new tab. Use the secure giving link below to complete your gift."
+                : "Opening secure giving in a new tab so you can complete your gift."}
+            </p>
+            {openedGivingUrl ? (
+              <a
+                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg border border-emerald-300 bg-white px-4 text-xs font-bold uppercase tracking-[0.16em] text-emerald-950 transition-colors hover:border-emerald-500"
+                href={openedGivingUrl}
+                rel="noopener noreferrer"
+                style={{ fontFamily: font.rajdhani }}
+                target="_blank"
+              >
+                Open Secure Giving
+              </a>
+            ) : null}
           </div>
         ) : null}
 
