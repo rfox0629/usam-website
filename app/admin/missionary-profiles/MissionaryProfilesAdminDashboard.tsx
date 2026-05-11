@@ -1578,7 +1578,7 @@ function MissionaryCutoutGenerationModal({
                 Example USAM Hero Style
               </p>
               <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                This is an example reference image showing the standard USA Missionaries hero style used for optional AI-generated public profile images.
+                Example reference image only. Your generated image will use your uploaded family/team photo.
               </p>
               <div className="mt-3 overflow-hidden rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
                 <span className="mb-3 inline-flex rounded-full border border-[#d7d2c8] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -2046,6 +2046,16 @@ function hasTextContent(value: string | null | undefined) {
 
 function hasRenderableMedia(profile: AdminProfile) {
   return hasTextContent(profile.hero_image_url) || hasTextContent(profile.profile_image_url);
+}
+
+function getGeneratedHeroImageUrl(value: string | null | undefined) {
+  const imageUrl = value?.trim();
+
+  if (!imageUrl || imageUrl.endsWith("/fox-family-no-background.png")) {
+    return "";
+  }
+
+  return imageUrl;
 }
 
 function hasRenderableTeam(profile: AdminProfile) {
@@ -6235,6 +6245,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   }, [selectedId]);
 
   const selectedProfileSupportMode = selectedProfile ? getSupportMode(selectedProfile) : "household";
+  const selectedGeneratedHeroImageUrl = selectedProfile ? getGeneratedHeroImageUrl(selectedProfile.hero_image_url) : "";
   const filteredProfiles = useMemo(() => {
     const normalizedQuery = profileQuery.trim().toLowerCase();
 
@@ -8186,12 +8197,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
                 <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
                   <div className="overflow-hidden rounded-[18px] bg-[#f8f6f1]">
-                    {selectedProfile.hero_image_url?.trim() ? (
+                    {selectedGeneratedHeroImageUrl ? (
                       <div className="flex min-h-[280px] items-center justify-center p-4 md:min-h-[360px]">
                         <img
                           alt="Current USAM hero image preview"
                           className="max-h-full w-full object-contain"
-                          src={selectedProfile.hero_image_url}
+                          src={selectedGeneratedHeroImageUrl}
                         />
                       </div>
                     ) : (
@@ -8200,11 +8211,20 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                           <div className="mx-auto mt-[18px] h-4 w-4 rotate-45 bg-[#D4A63D]" />
                         </div>
                         <p className="text-base font-semibold text-[#111111]">
-                          No hero image generated yet.
+                          No USAM hero image generated yet.
                         </p>
                         <p className="mt-2 max-w-sm text-xs leading-5 text-[#7b746a]">
                           Your uploaded photo will be used unless you generate and apply an optional USAM hero image.
                         </p>
+                        <button
+                          className="mt-5 inline-flex min-h-11 items-center justify-center rounded-sm border border-[#c8952d] bg-[#D4A63D] px-5 py-2.5 text-center text-[11px] uppercase tracking-[0.2em] text-[#111111] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
+                          disabled={!selectedProfile.profile_image_url?.trim()}
+                          onClick={openCutoutModal}
+                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                          type="button"
+                        >
+                          Generate USAM Hero Image
+                        </button>
                       </div>
                     )}
                   </div>
@@ -8232,7 +8252,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     <div className="mt-3 space-y-2">
                       <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
                         <input
-                          checked={!selectedProfile.hero_image_url?.trim()}
+                          checked={!selectedGeneratedHeroImageUrl}
                           className="mt-1 h-4 w-4 accent-[#D4A63D]"
                           name="profile_public_image_source"
                           onChange={() => updateHouseholdField("hero_image_url", "")}
@@ -8244,9 +8264,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       </label>
                       <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
                         <input
-                          checked={Boolean(selectedProfile.hero_image_url?.trim())}
+                          checked={Boolean(selectedGeneratedHeroImageUrl)}
                           className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                          disabled={!selectedProfile.hero_image_url?.trim()}
+                          disabled={!selectedGeneratedHeroImageUrl}
                           name="profile_public_image_source"
                           onChange={() => undefined}
                           type="radio"
