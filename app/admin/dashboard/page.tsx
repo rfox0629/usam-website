@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 type InquiryStatus = "new" | "reviewed" | "follow_up" | "closed";
-type MajorGiftStatus = "new" | "reviewed" | "contacted" | "closed" | "archived";
+type MajorGiftStatus = "new" | "needs_follow_up" | "contacted" | "closed" | "archived";
 
 type DashboardInquiry = {
   created_at: string;
@@ -205,7 +205,9 @@ function statusLabel(status: InquiryStatus) {
 }
 
 function majorGiftStatusLabel(status: MajorGiftStatus) {
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  return status === "needs_follow_up"
+    ? "Needs Follow Up"
+    : status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 function isMissingMajorGiftTable(error: { code?: string; message?: string } | null) {

@@ -6,7 +6,7 @@ import { getAdminAuthorization, hasAdminRole } from "@/src/lib/admin-auth";
 import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/lib/supabase/server";
 
 const statusValues = ["new", "reviewed", "follow_up", "closed"] as const;
-const majorGiftStatusValues = ["new", "reviewed", "contacted", "closed", "archived"] as const;
+const majorGiftStatusValues = ["new", "needs_follow_up", "contacted", "closed", "archived"] as const;
 
 function getString(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();

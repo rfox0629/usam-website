@@ -14,6 +14,8 @@ import {
   type AdminHousehold,
   type AdminInSeasonFocus,
   type AdminLibraryItem,
+  type AdminMajorGiftInquiry,
+  type AdminMajorGiftInquiryStatus,
   type AdminMissionaryTable,
   type AdminMovementStep,
   type AdminOutcomeTag,
@@ -591,6 +593,13 @@ function isMissingSupportCommitmentWorkflowColumns(error: { message?: string } |
   return ["submitted_at", "completed_at", "admin_notes"].some((columnName) => message.includes(columnName));
 }
 
+function isMissingMajorGiftInquiriesTable(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("major_gift_inquiries")
+    || message.toLowerCase().includes("could not find the table");
+}
+
 function getSupportCommitmentStatus(value: string | null | undefined): AdminSupportCommitmentStatus {
   switch (value) {
     case "active":
@@ -610,6 +619,21 @@ function getSupportCommitmentStatus(value: string | null | undefined): AdminSupp
     case "new":
     default:
       return "pending_giving_setup";
+  }
+}
+
+function getMajorGiftInquiryStatus(value: string | null | undefined): AdminMajorGiftInquiryStatus {
+  switch (value) {
+    case "archived":
+    case "closed":
+    case "contacted":
+    case "needs_follow_up":
+    case "new":
+      return value;
+    case "reviewed":
+      return "needs_follow_up";
+    default:
+      return "new";
   }
 }
 
@@ -656,6 +680,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const fruitItemsByHouseholdId = new Map<string, AdminFruitItem[]>();
   const inSeasonByHouseholdId = new Map<string, AdminInSeasonFocus>();
   const libraryItemsByHouseholdId = new Map<string, AdminLibraryItem[]>();
+  const majorGiftInquiriesByHouseholdId = new Map<string, AdminMajorGiftInquiry[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
   const prayerRequestsByHouseholdId = new Map<string, AdminPrayerRequest[]>();
   const publicFruitItemCountByHouseholdId = new Map<string, number>();
@@ -733,6 +758,44 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         updated_at: commitment.updated_at ?? null,
       });
       supportCommitmentsByHouseholdId.set(commitment.household_id, currentCommitments);
+    });
+
+    const majorGiftInquiriesResult = await supabase
+      .from("major_gift_inquiries")
+      .select("id, household_id, household_name, profile_slug, first_name, last_name, email, phone, donation_types, projected_amount_range, intended_for, message, best_time_to_contact, status, created_at, updated_at")
+      .in("household_id", ids)
+      .order("created_at", { ascending: false });
+
+    if (majorGiftInquiriesResult.error && !isMissingMajorGiftInquiriesTable(majorGiftInquiriesResult.error)) {
+      return { error: majorGiftInquiriesResult.error.message, profiles: [] };
+    }
+
+    ((majorGiftInquiriesResult.data ?? []) as Array<Partial<AdminMajorGiftInquiry> & { status: string | null }>).forEach((inquiry) => {
+      if (!inquiry.household_id || !ids.includes(inquiry.household_id)) {
+        return;
+      }
+
+      const currentInquiries = majorGiftInquiriesByHouseholdId.get(inquiry.household_id) ?? [];
+
+      currentInquiries.push({
+        best_time_to_contact: inquiry.best_time_to_contact ?? null,
+        created_at: inquiry.created_at ?? "",
+        donation_types: inquiry.donation_types ?? null,
+        email: inquiry.email ?? "",
+        first_name: inquiry.first_name ?? "",
+        household_id: inquiry.household_id,
+        household_name: inquiry.household_name ?? null,
+        id: inquiry.id ?? "",
+        intended_for: inquiry.intended_for ?? null,
+        last_name: inquiry.last_name ?? "",
+        message: inquiry.message ?? null,
+        phone: inquiry.phone ?? null,
+        profile_slug: inquiry.profile_slug ?? null,
+        projected_amount_range: inquiry.projected_amount_range ?? null,
+        status: getMajorGiftInquiryStatus(inquiry.status),
+        updated_at: inquiry.updated_at ?? null,
+      });
+      majorGiftInquiriesByHouseholdId.set(inquiry.household_id, currentInquiries);
     });
 
     const [prayerPartnersResult, prayerRequestsResult] = await Promise.all([
@@ -1232,6 +1295,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       fruitItems: fruitItemsByHouseholdId.get(household.id) ?? [],
       inSeasonFocus: inSeasonByHouseholdId.get(household.id),
       libraryItems: libraryItemsByHouseholdId.get(household.id) ?? [],
+      majorGiftInquiries: majorGiftInquiriesByHouseholdId.get(household.id) ?? [],
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
       prayerRequests: prayerRequestsByHouseholdId.get(household.id) ?? [],
       publicFruitItemCount: publicFruitItemCountByHouseholdId.get(household.id) ?? 0,

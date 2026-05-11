@@ -25,7 +25,7 @@ const statusOptions = [
 
 const majorGiftStatusOptions = [
   { label: "New", value: "new" },
-  { label: "Reviewed", value: "reviewed" },
+  { label: "Needs Follow Up", value: "needs_follow_up" },
   { label: "Contacted", value: "contacted" },
   { label: "Closed", value: "closed" },
   { label: "Archived", value: "archived" },
@@ -220,11 +220,11 @@ function StatusBadge({ status }: { status: InquiryStatus }) {
 function MajorGiftStatusBadge({ status }: { status: MajorGiftStatus }) {
   const className = status === "new"
     ? "border-[#C9A24A]/25 bg-[#C9A24A]/10 text-[#D8B65D]"
+    : status === "needs_follow_up"
+      ? "border-amber-400/20 bg-amber-950/30 text-amber-200/90"
     : status === "contacted"
       ? "border-blue-400/20 bg-blue-950/30 text-blue-300/90"
-      : status === "reviewed"
-        ? "border-green-500/20 bg-green-950/35 text-green-300/90"
-        : "border-stone-700/60 bg-stone-900/60 text-stone-400";
+      : "border-stone-700/60 bg-stone-900/60 text-stone-400";
 
   return (
     <span

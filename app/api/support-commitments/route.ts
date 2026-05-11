@@ -76,6 +76,16 @@ function isMissingSupportCommitmentsTable(error: { message?: string } | null | u
   return Boolean(error?.message?.includes("support_commitments"));
 }
 
+function isSupportCommitmentsSchemaError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("submitted_at")
+    || message.includes("completed_at")
+    || message.includes("admin_notes")
+    || message.includes("support_commitments_status_check")
+    || message.includes("pending_giving_setup");
+}
+
 export async function POST(request: Request) {
   let payload: SupportCommitmentPayload;
 
@@ -100,9 +110,8 @@ export async function POST(request: Request) {
 
   if (!isSupabaseAdminConfigured()) {
     return NextResponse.json({
-      saved: false,
-      warning: "Support commitment database is not configured yet.",
-    });
+      error: "Support commitment database is not configured yet. Please contact USA Missionaries before continuing to the giving page.",
+    }, { status: 503 });
   }
 
   const supabase = createSupabaseAdminClient();
@@ -140,16 +149,21 @@ export async function POST(request: Request) {
   if (insertResult.error) {
     if (isMissingSupportCommitmentsTable(insertResult.error)) {
       return NextResponse.json({
-        saved: false,
-        warning: "Support commitment table is not ready yet.",
-      });
+        error: "Support commitment table is not ready yet. Please contact USA Missionaries before continuing to the giving page.",
+      }, { status: 503 });
+    }
+
+    if (isSupportCommitmentsSchemaError(insertResult.error)) {
+      return NextResponse.json({
+        error: "Support commitment workflow migration is not applied yet. Please contact USA Missionaries before continuing to the giving page.",
+      }, { status: 503 });
     }
 
     return NextResponse.json({ error: "Unable to save this support commitment." }, { status: 500 });
   }
 
   const commitmentId = (insertResult.data as { id?: string } | null)?.id ?? null;
-  await createFormSubmission({
+  const formSubmissionResult = await createFormSubmission({
     assignedTeam: "support_team",
     email,
     firstName,
@@ -180,8 +194,15 @@ export async function POST(request: Request) {
       : "/support",
   });
 
+  if (formSubmissionResult.error) {
+    console.error("Support commitment form_submissions mirror failed:", formSubmissionResult.error);
+  }
+
   return NextResponse.json({
     commitmentId,
+    diagnostics: formSubmissionResult.error
+      ? { formSubmissionWarning: formSubmissionResult.error }
+      : undefined,
     saved: true,
   });
 }

@@ -175,6 +175,32 @@ export type AdminSupportCommitment = {
   updated_at: string | null;
 };
 
+export type AdminMajorGiftInquiryStatus =
+  | "archived"
+  | "closed"
+  | "contacted"
+  | "needs_follow_up"
+  | "new";
+
+export type AdminMajorGiftInquiry = {
+  best_time_to_contact: string | null;
+  created_at: string;
+  donation_types: string[] | null;
+  email: string;
+  first_name: string;
+  household_id: string | null;
+  household_name: string | null;
+  id: string;
+  intended_for: string | null;
+  last_name: string;
+  message: string | null;
+  phone: string | null;
+  profile_slug: string | null;
+  projected_amount_range: string | null;
+  status: AdminMajorGiftInquiryStatus;
+  updated_at: string | null;
+};
+
 // Tables are the meeting layer for ministry activity. The Missionary Workspace
 // manages them now; future Field (FD) can create them quickly during daily work.
 export type AdminMissionaryTable = {
@@ -353,6 +379,7 @@ export type AdminProfile = AdminHousehold & {
   fruitItems?: AdminFruitItem[];
   inSeasonFocus?: AdminInSeasonFocus;
   libraryItems?: AdminLibraryItem[];
+  majorGiftInquiries?: AdminMajorGiftInquiry[];
   prayerPartnerCount?: number;
   prayerRequests?: AdminPrayerRequest[];
   publicFruitItemCount?: number;
@@ -5591,6 +5618,31 @@ function supportCommitmentStatusLabel(status: AdminSupportCommitmentStatus | str
   }
 }
 
+const majorGiftInquiryActions: Array<{ label: string; status: AdminMajorGiftInquiryStatus }> = [
+  { label: "Needs Follow Up", status: "needs_follow_up" },
+  { label: "Mark Contacted", status: "contacted" },
+  { label: "Close", status: "closed" },
+  { label: "Archive", status: "archived" },
+];
+
+function majorGiftInquiryStatusLabel(status: AdminMajorGiftInquiryStatus | string) {
+  switch (status) {
+    case "archived":
+      return "Archived";
+    case "closed":
+      return "Closed";
+    case "contacted":
+      return "Contacted";
+    case "needs_follow_up":
+      return "Needs Follow Up";
+    case "reviewed":
+      return "Needs Follow Up";
+    case "new":
+    default:
+      return "New";
+  }
+}
+
 function getSupportCommitmentAmount(commitment: AdminSupportCommitment) {
   if (commitment.selected_amount === "Other") {
     return toNumber(commitment.other_amount);
@@ -5809,11 +5861,17 @@ function SupportShareTools({
 
 function SupportCommitmentsManager({
   commitments,
+  majorGiftInquiries,
   isUpdating,
+  isUpdatingMajorGift,
+  onUpdateMajorGiftStatus,
   onUpdateStatus,
 }: {
   commitments: readonly AdminSupportCommitment[];
+  majorGiftInquiries: readonly AdminMajorGiftInquiry[];
   isUpdating: boolean;
+  isUpdatingMajorGift: boolean;
+  onUpdateMajorGiftStatus: (inquiryId: string, status: AdminMajorGiftInquiryStatus) => void;
   onUpdateStatus: (commitmentId: string, status: AdminSupportCommitmentStatus) => void;
 }) {
   const sortedCommitments = [...commitments].sort((a, b) => {
@@ -5822,9 +5880,16 @@ function SupportCommitmentsManager({
 
     return bTime - aTime;
   });
+  const sortedMajorGiftInquiries = [...majorGiftInquiries].sort((a, b) => {
+    const aTime = new Date(a.created_at).getTime();
+    const bTime = new Date(b.created_at).getTime();
+
+    return bTime - aTime;
+  });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
+      <div className="space-y-4">
       <div>
         <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Support Interest & Commitments
@@ -5903,6 +5968,88 @@ function SupportCommitmentsManager({
           No support interest or commitment records yet.
         </div>
       )}
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Major Gift Follow-Up
+          </p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
+            Major gift inquiries start a conversation and never update public support progress automatically.
+          </p>
+        </div>
+
+        {sortedMajorGiftInquiries.length > 0 ? (
+          <div className="overflow-x-auto rounded-xl border border-[#e2ded5] bg-white">
+            <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#e2ded5] bg-[#fbfaf7] text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  <th className="px-4 py-3">Donor</th>
+                  <th className="px-4 py-3">Gift Type</th>
+                  <th className="px-4 py-3">Projected Amount</th>
+                  <th className="px-4 py-3">Intended For</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Submitted</th>
+                  <th className="px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedMajorGiftInquiries.map((inquiry) => (
+                  <tr className="border-b border-[#e2ded5] last:border-b-0" key={inquiry.id}>
+                    <td className="px-4 py-3 align-top">
+                      <p className="font-semibold text-[#111111]">
+                        {[inquiry.first_name, inquiry.last_name].filter(Boolean).join(" ")}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#7b746a]">{inquiry.email}</p>
+                      {inquiry.phone ? (
+                        <p className="text-xs leading-5 text-[#7b746a]">{inquiry.phone}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[#4b443b]">
+                      {inquiry.donation_types?.length ? inquiry.donation_types.join(", ") : "Not specified"}
+                    </td>
+                    <td className="px-4 py-3 align-top font-semibold text-[#111111]">
+                      {inquiry.projected_amount_range || "Not specified"}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[#4b443b]">
+                      {inquiry.intended_for || "Not specified"}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className="inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#4b443b]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        {majorGiftInquiryStatusLabel(inquiry.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 align-top text-[#4b443b]">
+                      {formatProfileUpdatedDate(inquiry.created_at)}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-wrap gap-2">
+                        {majorGiftInquiryActions.map((action) => (
+                          <button
+                            className="rounded-md border border-[#d7d2c8] bg-white px-2.5 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#4b443b] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00] disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={isUpdatingMajorGift || inquiry.status === action.status}
+                            key={action.status}
+                            onClick={() => onUpdateMajorGiftStatus(inquiry.id, action.status)}
+                            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                            type="button"
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
+            No major gift inquiries yet.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -6437,6 +6584,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
   const [saving, setSaving] = useState(false);
+  const [updatingMajorGiftInquiry, setUpdatingMajorGiftInquiry] = useState(false);
   const [updatingSupportCommitment, setUpdatingSupportCommitment] = useState(false);
   const [uploadStates, setUploadStates] = useState<Record<MissionaryImageSlot, UploadState>>({
     directory: { status: "idle" },
@@ -7009,6 +7157,61 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       });
     } finally {
       setUpdatingSupportCommitment(false);
+    }
+  }
+
+  async function updateMajorGiftInquiryStatus(inquiryId: string, nextStatus: AdminMajorGiftInquiryStatus) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    setUpdatingMajorGiftInquiry(true);
+    setStatus(null);
+
+    try {
+      const response = await fetch("/api/admin/missionary-profiles/major-gift-inquiries", {
+        body: JSON.stringify({
+          householdId: selectedProfile.id,
+          inquiryId,
+          status: nextStatus,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error || "Major gift inquiry could not be updated.");
+      }
+
+      const nextInquiries = (selectedProfile.majorGiftInquiries ?? []).map((inquiry) => (
+        inquiry.id === inquiryId
+          ? {
+            ...inquiry,
+            status: nextStatus,
+            updated_at: new Date().toISOString(),
+          }
+          : inquiry
+      ));
+
+      updateSelected({
+        ...selectedProfile,
+        majorGiftInquiries: nextInquiries,
+      });
+      setStatus({
+        text: `Major gift inquiry marked ${majorGiftInquiryStatusLabel(nextStatus)}.`,
+        tone: "success",
+      });
+      router.refresh();
+    } catch (error) {
+      setStatus({
+        text: error instanceof Error ? error.message : "Major gift inquiry could not be updated.",
+        tone: "error",
+      });
+    } finally {
+      setUpdatingMajorGiftInquiry(false);
     }
   }
 
@@ -8896,7 +9099,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               {supportSubsection === "commitments" ? (
                 <SupportCommitmentsManager
                   commitments={selectedProfile.supportCommitments ?? []}
+                  majorGiftInquiries={selectedProfile.majorGiftInquiries ?? []}
+                  isUpdatingMajorGift={updatingMajorGiftInquiry}
                   isUpdating={updatingSupportCommitment}
+                  onUpdateMajorGiftStatus={updateMajorGiftInquiryStatus}
                   onUpdateStatus={updateSupportCommitmentStatus}
                 />
               ) : null}

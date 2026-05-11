@@ -189,7 +189,7 @@ export async function POST(request: Request) {
   }
 
   const majorGiftInquiryId = (insertResult.data as { id?: string } | null)?.id ?? null;
-  await createFormSubmission({
+  const formSubmissionResult = await createFormSubmission({
     assignedTeam: "support_team",
     email,
     firstName,
@@ -209,6 +209,10 @@ export async function POST(request: Request) {
     priority: projectedAmountRange === "$100,000+" ? "urgent" : "high",
     sourcePage: household?.slug ? `/missionaries/${household.slug}` : "/support",
   });
+
+  if (formSubmissionResult.error) {
+    console.error("Major gift form_submissions mirror failed:", formSubmissionResult.error);
+  }
 
   let emailStatus = "skipped";
 
@@ -235,6 +239,9 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
+    diagnostics: formSubmissionResult.error
+      ? { formSubmissionWarning: formSubmissionResult.error }
+      : undefined,
     emailStatus,
     inquiryId: majorGiftInquiryId,
   });
