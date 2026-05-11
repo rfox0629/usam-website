@@ -536,6 +536,7 @@ type EditorTab =
   | "overview"
   | "people"
   | "meetings"
+  | "reviews"
   | "fruit"
   | "library"
   | "in-season"
@@ -797,7 +798,7 @@ const primaryNavGroups: Array<{
     tabs: [
       { label: "People", value: "people" },
       { label: "Meetings", value: "meetings" },
-      { id: "reviews", label: "Reviews", value: "meetings" },
+      { label: "Reviews", value: "reviews" },
       { label: "Fruit", value: "fruit" },
       { label: "Prayer", value: "prayer" },
     ],
@@ -3439,6 +3440,192 @@ function MeetingStatusBadge({ status }: { status: AdminMeetingStatus }) {
     <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
       {meetingStatusLabel(status)}
     </span>
+  );
+}
+
+function reviewHasContent(review: AdminTableReview | null | undefined) {
+  return Boolean(
+    review?.how_meeting_went?.trim()
+      || review?.key_observations?.trim()
+      || review?.breakthroughs_or_concerns?.trim()
+      || review?.assessment_notes?.trim()
+      || review?.follow_up_needed?.trim()
+      || review?.movement_step
+      || review?.readiness
+      || review?.teaching_used
+      || review?.questions_covered?.trim()
+      || review?.follow_up_areas.length,
+  );
+}
+
+function ReviewsManager({
+  fieldPeople,
+  fruitItems,
+  onCreateFruit,
+  tableReviews,
+  tables,
+}: {
+  fieldPeople: readonly AdminFieldPerson[];
+  fruitItems: readonly AdminFruitItem[];
+  onCreateFruit: (draft: FruitDraft, table?: AdminMissionaryTable | null) => void;
+  tableReviews: readonly AdminTableReview[];
+  tables: readonly AdminMissionaryTable[];
+}) {
+  const reviewRows = useMemo(
+    () => tables.map((table) => {
+      const review = tableReviews.find((item) => item.table_id === table.id) ?? null;
+      const fruitCount = fruitItems.filter((fruit) => fruit.table_id === table.id).length;
+
+      return {
+        fruitCount,
+        isReviewed: reviewHasContent(review),
+        review,
+        table,
+      };
+    }).sort((first, second) => {
+      if (first.isReviewed !== second.isReviewed) {
+        return first.isReviewed ? 1 : -1;
+      }
+
+      return (tableDateValue(second.table.table_date)?.getTime() ?? 0) - (tableDateValue(first.table.table_date)?.getTime() ?? 0);
+    }),
+    [fruitItems, tableReviews, tables],
+  );
+  const pendingRows = reviewRows.filter((row) => !row.isReviewed);
+  const reviewedRows = reviewRows.filter((row) => row.isReviewed);
+  const [selectedTableId, setSelectedTableId] = useState(reviewRows[0]?.table.id ?? "");
+  const selectedRow = reviewRows.find((row) => row.table.id === selectedTableId) ?? reviewRows[0] ?? null;
+
+  useEffect(() => {
+    if (selectedTableId && reviewRows.some((row) => row.table.id === selectedTableId)) {
+      return;
+    }
+
+    setSelectedTableId(reviewRows[0]?.table.id ?? "");
+  }, [reviewRows, selectedTableId]);
+
+  function createFruitDraftFromReview(row: typeof reviewRows[number]) {
+    const review = row.review;
+    const summary = review?.key_observations?.trim()
+      || review?.how_meeting_went?.trim()
+      || review?.breakthroughs_or_concerns?.trim()
+      || `Fruit follow-up from ${tableLabel(row.table)}`;
+
+    onCreateFruit({
+      encounterId: "",
+      fieldPersonId: row.table.field_person_ids[0] ?? "",
+      internalNotes: review?.assessment_notes ?? "",
+      outcomeTags: [],
+      status: "draft",
+      summary,
+      tableId: row.table.id,
+      testimonyDate: row.table.table_date,
+    }, row.table);
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="max-w-2xl text-sm leading-6 text-[#7b746a]">
+        Reviews are the post-meeting assessment layer. Use them to discern what changed, identify next steps, and decide whether approved Fruit should be created.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatPreview label="Reviews Pending" tone="light" value={String(pendingRows.length)} />
+        <StatPreview label="Reviewed Meetings" tone="light" value={String(reviewedRows.length)} />
+        <StatPreview label="Fruit From Reviews" tone="light" value={String(fruitItems.filter((fruit) => Boolean(fruit.table_id)).length)} />
+      </div>
+
+      {pendingRows.length === 0 ? (
+        <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
+          No reviews pending yet.
+        </p>
+      ) : null}
+
+      {reviewRows.length > 0 ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(360px,1fr)]">
+          <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+            <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Meeting Reviews
+              </p>
+            </div>
+            <div className="divide-y divide-[#e2ded5]">
+              {reviewRows.map((row) => {
+                const selected = selectedRow?.table.id === row.table.id;
+                const people = tableLinkedPeople(row.table, fieldPeople);
+
+                return (
+                  <button
+                    className={`block w-full px-4 py-3 text-left transition-colors hover:bg-[#fbfaf7] ${selected ? "bg-[#fff8e8]" : "bg-white"}`}
+                    key={row.table.id}
+                    onClick={() => setSelectedTableId(row.table.id)}
+                    type="button"
+                  >
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm font-semibold text-[#111111]">
+                        {tableLabel(row.table)}
+                      </p>
+                      <span className={`w-fit rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${row.isReviewed ? "border-[#D4A63D]/40 bg-[#fff8e8] text-[#8a5a00]" : "border-stone-200 bg-stone-50 text-[#6f6658]"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        {row.isReviewed ? "Reviewed" : "Pending"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                      {people.length > 0 ? participantNamesText(people) : "No people linked"}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {selectedRow ? (
+            <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Selected Review
+                  </p>
+                  <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                    {tableLabel(selectedRow.table)}
+                  </h3>
+                </div>
+                <button
+                  className={lightPrimaryButtonClass}
+                  disabled={selectedRow.fruitCount > 0}
+                  onClick={() => createFruitDraftFromReview(selectedRow)}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  {selectedRow.fruitCount > 0 ? "Fruit Created" : "Create Fruit Draft"}
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {[
+                  { label: "How It Went", value: selectedRow.review?.how_meeting_went || "Not reviewed yet." },
+                  { label: "Key Observations", value: selectedRow.review?.key_observations || "No observations added." },
+                  { label: "Teaching Used", value: selectedRow.review?.teaching_used || "Not selected." },
+                  { label: "Questions Covered", value: selectedRow.review?.questions_covered || "No questions logged." },
+                  { label: "Readiness", value: selectedRow.review?.readiness || "Not selected." },
+                  { label: "Movement Step", value: selectedRow.review?.movement_step || "Not selected." },
+                  { label: "Follow Up Needed", value: selectedRow.review?.follow_up_needed || "No follow-up noted." },
+                  { label: "Fruit Status", value: selectedRow.fruitCount > 0 ? `${selectedRow.fruitCount} fruit item${selectedRow.fruitCount === 1 ? "" : "s"}` : "Not created" },
+                ].map((item) => (
+                  <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={item.label}>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      {item.label}
+                    </p>
+                    <p className="mt-1 text-sm leading-5 text-[#111111]">
+                      {truncateText(item.value, 140)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -7842,6 +8029,21 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               onUpdatePersonProfile={updatePersonFromReview}
               onUpdateReview={updateTableReview}
               onUpdateTable={updateMissionaryTable}
+              tableReviews={selectedProfile.tableReviews ?? []}
+              tables={selectedProfile.tables ?? []}
+            />
+          </SectionIntro>
+          ) : null}
+
+          {activeTab === "reviews" ? (
+          <SectionIntro
+            description="Review completed meetings, assess what changed, and determine whether fruit should be created."
+            title="Reviews"
+          >
+            <ReviewsManager
+              fieldPeople={selectedProfile.fieldPeople ?? []}
+              fruitItems={selectedProfile.fruitItems ?? []}
+              onCreateFruit={createFruitSummary}
               tableReviews={selectedProfile.tableReviews ?? []}
               tables={selectedProfile.tables ?? []}
             />
