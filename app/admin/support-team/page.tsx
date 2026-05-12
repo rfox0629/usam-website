@@ -29,6 +29,10 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
+const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
+const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
+const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#F5B942]";
 const prayerFormTypes = new Set(["prayer_team_application", "prayer_request"]);
 
 const statuses = [
@@ -305,7 +309,7 @@ function priorityClassName(priority: SubmissionPriority) {
 function Badge({ children, className }: { children: ReactNode; className: string }) {
   return (
     <span
-      className={`inline-flex min-h-6 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.14em] ${className}`}
+      className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 text-[9px] uppercase tracking-[0.13em] ${className}`}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}
@@ -313,10 +317,14 @@ function Badge({ children, className }: { children: ReactNode; className: string
   );
 }
 
-function InlineStatBar({
-  stats,
+function MetricCard({
+  label,
+  tone,
+  value,
 }: {
-  stats: Array<{ label: string; tone?: "amber" | "green" | "red"; value: number }>;
+  label: string;
+  tone?: "amber" | "green" | "red";
+  value: number | string;
 }) {
   const toneClassName = {
     amber: "text-[#E4C465]",
@@ -325,24 +333,73 @@ function InlineStatBar({
   } as const;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-      {stats.map((stat, index) => (
-        <div className="flex items-baseline gap-2" key={stat.label}>
-          {index > 0 ? <span className="hidden h-4 w-px bg-stone-800 sm:inline-block" /> : null}
-          <span
-            className="text-[10px] uppercase tracking-[0.18em] text-stone-500"
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          >
-            {stat.label}
-          </span>
-          <span
-            className={`text-xl font-bold leading-none ${stat.tone ? toneClassName[stat.tone] : "text-stone-100"}`}
-            style={{ fontFamily: font.oswald }}
-          >
-            {stat.value}
-          </span>
-        </div>
-      ))}
+    <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+      <p
+        className="text-[10px] uppercase tracking-[0.15em] text-stone-400"
+        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+      >
+        {label}
+      </p>
+      <p
+        className={`mt-3 text-3xl font-bold leading-none ${tone ? toneClassName[tone] : "text-stone-100"}`}
+        style={{ fontFamily: font.oswald }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function Message({ children, tone = "info" }: { children: ReactNode; tone?: "error" | "info" | "success" }) {
+  const className = {
+    error: "border-l-red-400 bg-red-950/10 text-red-100",
+    info: "border-l-stone-500 bg-stone-950/60 text-stone-300",
+    success: "border-l-green-400 bg-green-950/15 text-green-200",
+  }[tone];
+
+  return <div className={`rounded-xl border border-stone-800/75 border-l-2 px-4 py-3 text-sm leading-6 ${className}`}>{children}</div>;
+}
+
+function SystemNotice({
+  detail,
+  title,
+  tone = "error",
+}: {
+  detail?: string;
+  title: string;
+  tone?: "error" | "info" | "success";
+}) {
+  return (
+    <Message tone={tone}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <p>{title}</p>
+        {detail ? (
+          <details className="shrink-0 text-xs text-stone-400">
+            <summary className="cursor-pointer uppercase tracking-[0.14em] text-[#E4C465]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              View Details
+            </summary>
+            <p className="mt-2 max-w-2xl text-left leading-6 text-stone-400">{detail}</p>
+          </details>
+        ) : null}
+      </div>
+    </Message>
+  );
+}
+
+function EmptyState({
+  action,
+  description,
+  title,
+}: {
+  action?: ReactNode;
+  description?: string;
+  title: string;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-6">
+      <p className="text-sm font-semibold text-stone-100">{title}</p>
+      {description ? <p className="mt-2 text-sm leading-6 text-stone-500">{description}</p> : null}
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }
@@ -548,61 +605,77 @@ function FilterBar({
   params: SearchParams;
 }) {
   return (
-    <form className="grid gap-3 border border-stone-800 bg-[#080808]/85 p-4 lg:grid-cols-[1.35fr_0.9fr_0.75fr_0.75fr_0.85fr_auto]" action="/admin/support-team" method="get">
-      <label className="block">
-        <span className="sr-only">Search submissions</span>
-        <input
-          className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
-          defaultValue={params.q ?? ""}
-          name="q"
-          placeholder="Search name, email, or organization"
-        />
-      </label>
-      <label className="block">
-        <span className="sr-only">Form type</span>
-        <select className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]" defaultValue={params.type ?? ""} name="type">
-          {supportFormTypes.map((type) => <option key={type.value || "all"} value={type.value}>{type.label}</option>)}
-        </select>
-      </label>
-      <label className="block">
-        <span className="sr-only">Status</span>
-        <select className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]" defaultValue={params.status ?? ""} name="status">
-          <option value="">All Statuses</option>
-          {statuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-        </select>
-      </label>
-      <label className="block">
-        <span className="sr-only">Priority</span>
-        <select className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]" defaultValue={params.priority ?? ""} name="priority">
-          <option value="">All Priorities</option>
-          {priorities.map((priority) => <option key={priority.value} value={priority.value}>{priority.label}</option>)}
-        </select>
-      </label>
-      <label className="block">
-        <span className="sr-only">Assigned to</span>
-        <select className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]" defaultValue={params.assigned_to ?? ""} name="assigned_to">
-          <option value="">All Assignees</option>
-          <option value="__unassigned">Unassigned</option>
-          {assignedToOptions.map((assignedTo) => <option key={assignedTo} value={assignedTo}>{assignedTo}</option>)}
-        </select>
-      </label>
-      <div className="flex gap-2">
-        <button
-          className="inline-flex min-h-10 flex-1 items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942] lg:flex-none"
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          type="submit"
-        >
-          Filter
-        </button>
-        <Link
-          className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-          href="/admin/support-team"
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-        >
-          Reset
-        </Link>
+    <form className="rounded-xl border border-stone-800/75 bg-[#080808]/85 p-3" action="/admin/support-team" method="get">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+        <label className="min-w-0 flex-1">
+          <span className="sr-only">Search submissions</span>
+          <input
+            className={toolbarInputClassName}
+            defaultValue={params.q ?? ""}
+            name="q"
+            placeholder="Search submissions"
+          />
+        </label>
+        <details className="group rounded-lg border border-stone-800 bg-[#050505] lg:w-[190px]">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between px-3 text-[11px] uppercase tracking-[0.14em] text-stone-300 group-open:border-b group-open:border-stone-800" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Filters
+            <span className="text-[#D4A63D]">+</span>
+          </summary>
+          <div className="grid gap-2 p-3">
+            <label>
+              <span className="sr-only">Form type</span>
+              <select className={toolbarInputClassName} defaultValue={params.type ?? ""} name="type">
+                {supportFormTypes.map((type) => <option key={type.value || "all"} value={type.value}>{type.label}</option>)}
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Status</span>
+              <select className={toolbarInputClassName} defaultValue={params.status ?? ""} name="status">
+                <option value="">All Statuses</option>
+                {statuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Priority</span>
+              <select className={toolbarInputClassName} defaultValue={params.priority ?? ""} name="priority">
+                <option value="">All Priorities</option>
+                {priorities.map((priority) => <option key={priority.value} value={priority.value}>{priority.label}</option>)}
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Assigned to</span>
+              <select className={toolbarInputClassName} defaultValue={params.assigned_to ?? ""} name="assigned_to">
+                <option value="">All Assignees</option>
+                <option value="__unassigned">Unassigned</option>
+                {assignedToOptions.map((assignedTo) => <option key={assignedTo} value={assignedTo}>{assignedTo}</option>)}
+              </select>
+            </label>
+          </div>
+        </details>
+        <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
+          <button className={primaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+            Apply
+          </button>
+          <Link className={secondaryButtonClassName} href="/admin/support-team" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Reset
+          </Link>
+          <Link className={secondaryButtonClassName} href="/admin/public-experience?tab=forms" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Forms
+          </Link>
+        </div>
       </div>
     </form>
+  );
+}
+
+function MetaItem({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[9px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </p>
+      <div className="mt-1 truncate text-sm text-stone-300">{value || "-"}</div>
+    </div>
   );
 }
 
@@ -614,70 +687,58 @@ function InboxList({
   submissions: readonly FormSubmission[];
 }) {
   return (
-    <section className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
+    <section className="overflow-hidden rounded-xl border border-stone-800/75 bg-[#080808]/85">
       <div className="flex items-center justify-between gap-4 border-b border-stone-800/70 px-4 py-3">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Submission Inbox
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Submissions
           </p>
           <p className="mt-1 text-xs text-stone-500">{submissions.length} visible</p>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <div className="min-w-[980px]">
-          <div className="grid grid-cols-[minmax(190px,1.05fr)_150px_minmax(220px,1fr)_160px_110px_110px_120px] gap-3 border-b border-stone-800/70 px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            <span>Name</span>
-            <span>Form Type</span>
-            <span>Email</span>
-            <span>Source Page</span>
-            <span>Status</span>
-            <span>Priority</span>
-            <span>Date</span>
-          </div>
-          <div className="divide-y divide-stone-900">
-            {submissions.length > 0 ? submissions.map((submission) => {
-              const isActive = params.submission === submission.id;
+      <div className="divide-y divide-stone-900">
+        {submissions.length > 0 ? submissions.map((submission) => {
+          const isActive = params.submission === submission.id;
 
-              return (
-                <Link
-                  className={`grid grid-cols-[minmax(190px,1.05fr)_150px_minmax(220px,1fr)_160px_110px_110px_120px] items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-stone-950/80 ${
-                    isActive ? "bg-[#C9A24A]/5" : ""
-                  }`}
-                  href={buildHref(params, { submission: submission.id })}
-                  key={submission.id}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-stone-100">{fullName(submission)}</p>
-                    {getOrganization(submission) ? <p className="truncate text-xs text-stone-500">{getOrganization(submission)}</p> : null}
-                  </div>
-                  <p className="truncate text-xs text-stone-300 md:text-sm">{formTypeLabel(submission.form_type)}</p>
-                  <p className="truncate text-xs text-stone-400 md:text-sm">{submission.email || "No email"}</p>
-                  <p className="truncate text-xs text-stone-500 md:text-sm">{submission.source_page || "Unknown"}</p>
-                  <Badge className={statusClassName(submission.status)}>{labelFromValue(submission.status)}</Badge>
-                  <Badge className={priorityClassName(submission.priority)}>{labelFromValue(submission.priority)}</Badge>
-                  <p className="text-xs text-stone-500 md:text-sm">{formatDate(submission.created_at)}</p>
+          return (
+            <Link
+              className={`group grid gap-4 px-4 py-4 text-sm transition-colors hover:bg-stone-950/80 lg:grid-cols-[minmax(180px,1.1fr)_160px_minmax(160px,1fr)_150px_auto] lg:items-center ${
+                isActive ? "bg-[#C9A24A]/5" : ""
+              }`}
+              href={buildHref(params, { submission: submission.id })}
+              key={submission.id}
+            >
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-stone-100">{fullName(submission)}</p>
+                {getOrganization(submission) ? <p className="mt-1 truncate text-xs text-stone-500">{getOrganization(submission)}</p> : null}
+              </div>
+              <MetaItem label="Type" value={formTypeLabel(submission.form_type)} />
+              <MetaItem label="Email" value={submission.email || "No email"} />
+              <MetaItem label="Source" value={submission.source_page || "Unknown"} />
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <Badge className={statusClassName(submission.status)}>{labelFromValue(submission.status)}</Badge>
+                <Badge className={priorityClassName(submission.priority)}>{labelFromValue(submission.priority)}</Badge>
+                <span className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.13em] text-stone-100 transition-colors group-hover:border-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Manage
+                </span>
+              </div>
+            </Link>
+          );
+        }) : (
+          <div className="p-4">
+            <EmptyState
+              action={!params.q && !params.type && !params.status && !params.priority && !params.assigned_to ? (
+                <Link className={primaryButtonClassName} href="/admin/public-experience?tab=forms" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  View Forms
                 </Link>
-              );
-            }) : (
-              <div className="px-4 py-10">
-            <p className="text-sm leading-6 text-stone-400">
-              {params.q || params.type || params.status || params.priority || params.assigned_to
+              ) : null}
+              description={params.q || params.type || params.status || params.priority || params.assigned_to
                 ? "No support submissions match these filters."
-                : "No submissions yet. Once forms are submitted, they will appear here for review."}
-            </p>
-            {!params.q && !params.type && !params.status && !params.priority && !params.assigned_to ? (
-              <Link
-                className="mt-5 inline-flex min-h-10 items-center justify-center border border-[#D4A63D] bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942]"
-                href="/admin/public-experience?tab=forms"
-                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-              >
-                View Forms
-              </Link>
-            ) : null}
+                : "Public forms and donor inquiries will appear here."}
+              title={params.q || params.type || params.status || params.priority || params.assigned_to ? "No matches" : "No submissions yet"}
+            />
           </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </section>
   );
@@ -699,7 +760,7 @@ function FormSelect({
       <span className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
-      <select className="mt-2 min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]" defaultValue={defaultValue} name={name}>
+      <select className={inputClassName} defaultValue={defaultValue} name={name}>
         {children}
       </select>
     </label>
@@ -713,6 +774,40 @@ function DetailItem({ label, value }: { label: string; value: ReactNode }) {
         {label}
       </p>
       <div className="mt-1 text-sm leading-6 text-stone-300">{value || "-"}</div>
+    </div>
+  );
+}
+
+function DetailFrame({
+  badges,
+  children,
+  closeHref,
+  eyebrow,
+  title,
+}: {
+  badges?: ReactNode;
+  children: ReactNode;
+  closeHref: string;
+  eyebrow: string;
+  title: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm">
+      <aside className="ml-auto h-full w-full max-w-2xl overflow-y-auto border-l border-stone-800 bg-[#070707] p-5 shadow-[0_0_80px_rgba(0,0,0,0.55)] md:p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-stone-800/70 pb-4">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {eyebrow}
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{title}</h2>
+            {badges ? <div className="mt-3 flex flex-wrap gap-2">{badges}</div> : null}
+          </div>
+          <Link className={secondaryButtonClassName} href={closeHref} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Close
+          </Link>
+        </div>
+        {children}
+      </aside>
     </div>
   );
 }
@@ -751,7 +846,7 @@ function PayloadFields({ payload }: { payload: Record<string, unknown> | null })
   return (
     <div className="grid gap-2">
       {entries.map(([key, value]) => (
-        <div className="border border-stone-900 bg-[#050505] p-3" key={key}>
+        <div className="rounded-lg border border-stone-900 bg-[#050505] p-3" key={key}>
           <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {formatPayloadKey(key)}
           </p>
@@ -785,7 +880,7 @@ function ActionForm({
     <form action={action}>
       <input name="submission_id" type="hidden" value={submissionId} />
       <button
-        className={`inline-flex min-h-10 w-full items-center justify-center border px-4 text-[11px] uppercase tracking-[0.16em] transition-colors ${className}`}
+        className={`inline-flex min-h-10 w-full items-center justify-center rounded-lg border px-4 text-[11px] uppercase tracking-[0.14em] transition-colors ${className}`}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         type="submit"
       >
@@ -810,34 +905,30 @@ function SpecialAction({ submission }: { submission: FormSubmission }) {
   }
 }
 
-function SubmissionDetail({ submission }: { submission: FormSubmission | null }) {
+function SubmissionDetail({
+  closeHref,
+  submission,
+}: {
+  closeHref: string;
+  submission: FormSubmission | null;
+}) {
   if (!submission) {
-    return (
-      <aside className="border border-stone-800/75 bg-[#080808]/85 p-6 lg:sticky lg:top-8 lg:max-h-[calc(100vh-4rem)]">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Submission Detail
-        </p>
-        <p className="mt-4 text-sm leading-7 text-stone-400">
-          Select a submission to review details, notes, and next steps.
-        </p>
-      </aside>
-    );
+    return null;
   }
 
   return (
-    <aside className="border border-stone-800/75 bg-[#080808]/85 p-5 lg:sticky lg:top-8 lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto">
-      <div className="border-b border-stone-800/70 pb-4">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Submission Detail
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{fullName(submission)}</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+    <DetailFrame
+      badges={(
+        <>
           <Badge className={statusClassName(submission.status)}>{labelFromValue(submission.status)}</Badge>
           <Badge className={priorityClassName(submission.priority)}>{labelFromValue(submission.priority)}</Badge>
           <Badge className="border-blue-400/25 bg-blue-950/30 text-blue-300">Support Team</Badge>
-        </div>
-      </div>
-
+        </>
+      )}
+      closeHref={closeHref}
+      eyebrow="Submission Detail"
+      title={fullName(submission)}
+    >
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <DetailItem label="Email" value={submission.email ? <a className="hover:text-[#F5B942]" href={`mailto:${submission.email}`}>{submission.email}</a> : "-"} />
         <DetailItem label="Phone" value={submission.phone || "-"} />
@@ -851,7 +942,7 @@ function SubmissionDetail({ submission }: { submission: FormSubmission | null })
         <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Message
         </p>
-        <div className="mt-2 min-h-20 border border-stone-900 bg-[#050505] p-3 text-sm leading-6 text-stone-300">
+        <div className="mt-2 min-h-20 rounded-lg border border-stone-900 bg-[#050505] p-3 text-sm leading-6 text-stone-300">
           {submission.message || "No message submitted."}
         </div>
       </div>
@@ -880,7 +971,7 @@ function SubmissionDetail({ submission }: { submission: FormSubmission | null })
             Assigned To
           </span>
           <input
-            className="mt-2 min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
+            className={inputClassName}
             defaultValue={submission.assigned_to ?? ""}
             name="assigned_to"
             placeholder="Team member name or email"
@@ -891,14 +982,14 @@ function SubmissionDetail({ submission }: { submission: FormSubmission | null })
             Internal Notes
           </span>
           <textarea
-            className="mt-2 min-h-28 w-full border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
+            className="mt-2 min-h-28 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
             defaultValue={submission.internal_notes ?? ""}
             name="internal_notes"
             placeholder="Add next steps, context, or follow-up notes for the support team."
           />
         </label>
         <button
-          className="mt-4 inline-flex min-h-10 w-full items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942]"
+          className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#F5B942]"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="submit"
         >
@@ -912,54 +1003,78 @@ function SubmissionDetail({ submission }: { submission: FormSubmission | null })
         <SpecialAction submission={submission} />
         <ActionForm action={archiveSupportSubmission} submissionId={submission.id} variant="danger">Archive</ActionForm>
       </div>
-
-      <p className="mt-5 border-t border-stone-800/70 pt-4 text-xs leading-6 text-stone-500">
-        Future notifications, CRM follow-up automation, and assignment alerts can connect here without changing the inbox workflow.
-      </p>
-    </aside>
+    </DetailFrame>
   );
 }
 
-function PrimarySupportTeamNav({ view }: { view: string }) {
-  const items = [
-    {
-      description: "Public form submissions, major gift inquiries, and public experience requests.",
-      href: "/admin/support-team",
-      label: "Submission Inbox",
-      value: "inbox",
-    },
-    {
-      description: "Reconcile donor intent against Planning Center Giving confirmation.",
-      href: "/admin/support-team?view=reconciliation",
-      label: "Giving Reconciliation",
-      value: "reconciliation",
-    },
-  ];
+function OperationalModule({
+  action,
+  active,
+  href,
+  label,
+  value,
+}: {
+  action: string;
+  active: boolean;
+  href: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Link
+      className={`group rounded-xl border p-4 transition-colors ${
+        active
+          ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+          : "border-stone-800/75 bg-[#080808]/90 text-stone-100 hover:border-[#D4A63D]/70 hover:bg-stone-950"
+      }`}
+      href={href}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.15em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            {label}
+          </p>
+          <p className={`mt-3 text-2xl font-bold leading-none ${active ? "text-black" : "text-stone-100"}`} style={{ fontFamily: font.oswald }}>
+            {value}
+          </p>
+        </div>
+        <span className={`inline-flex min-h-9 items-center rounded-lg border px-3 text-[10px] uppercase tracking-[0.13em] transition-colors ${
+          active
+            ? "border-black/20 text-black"
+            : "border-stone-700 text-stone-300 group-hover:border-[#D4A63D] group-hover:text-[#F5B942]"
+        }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {action}
+        </span>
+      </div>
+    </Link>
+  );
+}
 
+function PrimarySupportTeamNav({
+  givingNeedsReviewCount,
+  newCount,
+  view,
+}: {
+  givingNeedsReviewCount: number;
+  newCount: number;
+  view: string;
+}) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      {items.map((item) => {
-        const active = view === item.value;
-
-        return (
-          <Link
-            className={`border p-4 transition-colors ${
-              active
-                ? "border-[#D4A63D] bg-[#D4A63D] text-black"
-                : "border-stone-800 bg-[#080808]/85 text-stone-100 hover:border-[#D4A63D]/70"
-            }`}
-            href={item.href}
-            key={item.value}
-          >
-            <p className="text-[11px] uppercase tracking-[0.2em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              {item.label}
-            </p>
-            <p className={`mt-2 text-sm leading-6 ${active ? "text-black/75" : "text-stone-500"}`}>
-              {item.description}
-            </p>
-          </Link>
-        );
-      })}
+      <OperationalModule
+        action="Open Inbox"
+        active={view === "inbox"}
+        href="/admin/support-team"
+        label="Submissions"
+        value={`${newCount} New`}
+      />
+      <OperationalModule
+        action="Reconcile"
+        active={view === "reconciliation"}
+        href="/admin/support-team?view=reconciliation"
+        label="Giving"
+        value={`${givingNeedsReviewCount} Needs Review`}
+      />
     </div>
   );
 }
@@ -973,32 +1088,40 @@ function donorName(record: Pick<SupportCommitmentRecord, "first_name" | "last_na
 }
 
 function CommitmentRow({ commitment }: { commitment: SupportCommitmentRecord }) {
+  const statusTone = commitment.status === "active"
+    ? "border-green-500/25 bg-green-950/30 text-green-300"
+    : commitment.status === "needs_follow_up" || commitment.status === "pending_giving_setup"
+      ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
+      : "border-stone-700 bg-stone-900/70 text-stone-300";
+
   return (
-    <div className="grid gap-3 border-b border-stone-900 px-4 py-4 text-sm text-stone-300 last:border-b-0 md:grid-cols-[1.15fr_0.9fr_0.7fr_0.75fr_0.9fr_0.8fr] md:items-center">
+    <div className="grid gap-3 border-b border-stone-900 px-4 py-4 text-sm text-stone-300 last:border-b-0 lg:grid-cols-[minmax(180px,1.1fr)_minmax(160px,1fr)_120px_120px_auto] lg:items-center">
       <div className="min-w-0">
         <p className="font-semibold text-stone-100">{donorName(commitment)}</p>
         <p className="truncate text-xs text-stone-500">{commitment.email || commitment.phone || "No contact"}</p>
       </div>
-      <p>{commitment.household_name || commitment.profile_slug || "General support"}</p>
-      <p>{getCommitmentAmount(commitment)}</p>
-      <p>{labelFromValue(commitment.gift_type || "unknown")}</p>
-      <p>{commitment.allocation_preference || commitment.support_mode || "-"}</p>
-      <p className="text-xs text-stone-500">{commitment.submitted_at ? formatDate(commitment.submitted_at) : "-"}</p>
+      <MetaItem label="Destination" value={commitment.household_name || commitment.profile_slug || "General support"} />
+      <MetaItem label="Amount" value={getCommitmentAmount(commitment)} />
+      <MetaItem label="Type" value={labelFromValue(commitment.gift_type || "unknown")} />
+      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        <Badge className={statusTone}>{labelFromValue(commitment.status || "pending")}</Badge>
+        <span className="text-xs text-stone-500">{commitment.submitted_at ? formatDate(commitment.submitted_at) : "-"}</span>
+      </div>
     </div>
   );
 }
 
 function PcoGiftRow({ gift }: { gift: PcoGivingRecord }) {
   return (
-    <div className="grid gap-3 border-b border-stone-900 px-4 py-4 text-sm text-stone-300 last:border-b-0 md:grid-cols-[1.1fr_0.8fr_0.75fr_1fr_0.85fr] md:items-center">
+    <div className="grid gap-3 border-b border-stone-900 px-4 py-4 text-sm text-stone-300 last:border-b-0 lg:grid-cols-[minmax(180px,1.1fr)_120px_120px_minmax(160px,1fr)_auto] lg:items-center">
       <div className="min-w-0">
         <p className="font-semibold text-stone-100">{donorName(gift)}</p>
         <p className="truncate text-xs text-stone-500">{gift.donor_email || gift.donor_phone || "No contact"}</p>
       </div>
-      <p>{formatCurrency(gift.gross_amount)}</p>
-      <p>{labelFromValue(gift.gift_type || "unknown")}</p>
-      <p>{gift.designation_name || gift.fund_name || "No designation"}</p>
-      <p className="text-xs text-stone-500">{gift.donation_date ? formatDate(gift.donation_date) : "-"}</p>
+      <MetaItem label="Amount" value={formatCurrency(gift.gross_amount)} />
+      <MetaItem label="Type" value={labelFromValue(gift.gift_type || "unknown")} />
+      <MetaItem label="Fund" value={gift.designation_name || gift.fund_name || "No designation"} />
+      <p className="text-xs text-stone-500 lg:text-right">{gift.donation_date ? formatDate(gift.donation_date) : "-"}</p>
     </div>
   );
 }
@@ -1016,7 +1139,7 @@ function MatchRow({
   const gift = pcoRecordsById.get(match.pco_giving_record_id);
 
   return (
-    <div className="grid gap-3 border-b border-stone-900 px-4 py-4 text-sm text-stone-300 last:border-b-0 md:grid-cols-[1fr_1fr_0.6fr_0.8fr] md:items-center">
+    <div className="grid gap-3 border-b border-stone-900 px-4 py-4 text-sm text-stone-300 last:border-b-0 lg:grid-cols-[minmax(170px,1fr)_minmax(170px,1fr)_110px_auto] lg:items-center">
       <div>
         <p className="font-semibold text-stone-100">{commitment ? donorName(commitment) : "Missing commitment"}</p>
         <p className="text-xs text-stone-500">{commitment?.email || commitment?.phone || "-"}</p>
@@ -1026,7 +1149,7 @@ function MatchRow({
         <p className="text-xs text-stone-500">{gift?.donor_email || gift?.donor_phone || "-"}</p>
       </div>
       <Badge className="border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]">{Number(match.confidence ?? 0)}%</Badge>
-      <p>{labelFromValue(match.match_status || "suggested")}</p>
+      <p className="text-sm text-stone-300 lg:text-right">{labelFromValue(match.match_status || "suggested")}</p>
     </div>
   );
 }
@@ -1043,13 +1166,13 @@ function ReconciliationSection({
   const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children);
 
   return (
-    <section className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
+    <section className="overflow-hidden rounded-xl border border-stone-800/75 bg-[#080808]/85">
       <div className="border-b border-stone-800/70 px-4 py-3">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {title}
         </p>
       </div>
-      {hasChildren ? children : <p className="px-4 py-8 text-sm leading-6 text-stone-500">{empty}</p>}
+      {hasChildren ? children : <div className="p-4"><EmptyState title={empty} /></div>}
     </section>
   );
 }
@@ -1082,48 +1205,48 @@ function GivingReconciliationView({
   return (
     <div className="space-y-5">
       {error ? (
-        <p className="border border-red-500/30 bg-red-950/20 p-4 text-sm leading-6 text-red-100">
-          Giving reconciliation data is not ready: {error}
-        </p>
+        <SystemNotice detail={error} title="Giving reconciliation database not connected. Apply the giving reconciliation migration." />
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="border border-stone-800/75 bg-[#080808]/85 p-5">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Planning Center Giving
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <section className="rounded-xl border border-stone-800/75 bg-[#080808]/85 p-5">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Giving Reconciliation
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-stone-100">Reconciliation workspace</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-400">
-            Public support forms record donor intent first. Planning Center Giving confirms financial truth. NCC uses this area to review pending setup, suggested matches, active supporters, and unmatched gifts without asking missionaries to reconcile donations.
-          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <MetricCard label="Pending" tone="amber" value={pending.length} />
+            <MetricCard label="Matches" value={matches.filter((match) => match.match_status === "suggested").length} />
+            <MetricCard label="Active" tone="green" value={active.length} />
+          </div>
         </section>
-        <section className="border border-stone-800/75 bg-[#080808]/85 p-5">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Sync Readiness
+        <section className="rounded-xl border border-stone-800/75 bg-[#080808]/85 p-5">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Planning Center
           </p>
-          <Badge className={config.configured ? "mt-3 border-green-500/25 bg-green-950/30 text-green-300" : "mt-3 border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"}>
-            {config.configured ? "Credentials configured" : "Credentials needed"}
-          </Badge>
-          <p className="mt-4 text-sm leading-6 text-stone-400">
-            {config.configured
-              ? "Daily polling can be wired to the Planning Center Giving API."
-              : `Missing env vars: ${config.missing.join(", ") || "none"}.`}
-          </p>
-          <ul className="mt-4 space-y-2 text-xs leading-5 text-stone-500">
-            {notes.map((note) => <li key={note}>{note}</li>)}
-          </ul>
+          <div className="mt-3">
+            <Badge className={config.configured ? "border-green-500/25 bg-green-950/30 text-green-300" : "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"}>
+              {config.configured ? "Ready" : "Credentials Needed"}
+            </Badge>
+          </div>
+          {!config.configured ? <p className="mt-3 text-xs leading-5 text-stone-500">Missing: {config.missing.join(", ") || "none"}</p> : null}
+          <details className="mt-4 text-xs text-stone-500">
+            <summary className="cursor-pointer uppercase tracking-[0.14em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Sync Notes
+            </summary>
+            <ul className="mt-3 space-y-2 leading-5">
+              {notes.map((note) => <li key={note}>{note}</li>)}
+            </ul>
+          </details>
         </section>
       </div>
 
-      <InlineStatBar
-        stats={[
-          { label: "Pending Giving Setup", tone: "amber", value: pending.length },
-          { label: "Suggested Matches", value: matches.filter((match) => match.match_status === "suggested").length },
-          { label: "Active Supporters", tone: "green", value: active.length },
-          { label: "Needs Review", tone: "red", value: needsReview.length },
-          { label: "Unmatched PCO Gifts", value: unmatchedPcoGifts.length },
-        ]}
-      />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <MetricCard label="Pending Setup" tone="amber" value={pending.length} />
+        <MetricCard label="Suggested Matches" value={matches.filter((match) => match.match_status === "suggested").length} />
+        <MetricCard label="Active Supporters" tone="green" value={active.length} />
+        <MetricCard label="Needs Review" tone="red" value={needsReview.length} />
+        <MetricCard label="Unmatched PCO" value={unmatchedPcoGifts.length} />
+      </div>
 
       <ReconciliationSection empty="No pending giving setup records." title="Pending Giving Setup">
         {pending.map((commitment) => <CommitmentRow commitment={commitment} key={commitment.id} />)}
@@ -1186,28 +1309,25 @@ export default async function SupportTeamAdminPage({
   return (
     <AdminShell
       active="support-team"
-      description="Review giving interest, major gifts, financial freedom requests, contact forms, field report access, and system waitlist submissions."
       title="Support Team"
     >
       <div className="space-y-5">
-        <PrimarySupportTeamNav view={activeView} />
+        <PrimarySupportTeamNav
+          givingNeedsReviewCount={supportCommitmentFollowUpCount + majorGiftFollowUpCount}
+          newCount={newCount}
+          view={activeView}
+        />
 
         {error ? (
-          <p className="border border-red-500/30 bg-red-950/20 p-4 text-sm leading-6 text-red-100">
-            Support Team data is not ready: {error}. Apply the form_submissions migration to the usam-website Supabase project.
-          </p>
+          <SystemNotice detail={error} title="Support Team database not connected. Apply the form_submissions migration." />
         ) : null}
 
         {params.saved ? (
-          <p className="border border-green-500/25 bg-green-950/20 p-3 text-sm text-green-200">
-            Support submission updated.
-          </p>
+          <SystemNotice title="Support submission updated." tone="success" />
         ) : null}
 
         {params.error ? (
-          <p className="border border-red-500/30 bg-red-950/20 p-3 text-sm text-red-100">
-            Unable to update submission: {params.error}
-          </p>
+          <SystemNotice detail={params.error} title="Unable to update submission." />
         ) : null}
 
         {activeView === "reconciliation" ? (
@@ -1219,21 +1339,17 @@ export default async function SupportTeamAdminPage({
           />
         ) : (
           <>
-            <InlineStatBar
-              stats={[
-                { label: "New", value: newCount },
-                { label: "Needs Follow Up", tone: "amber", value: followUpCount },
-                { label: "Major Gifts", value: majorGiftCount },
-                { label: "High Priority", tone: "red", value: highPriorityCount },
-              ]}
-            />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricCard label="New" value={newCount} />
+              <MetricCard label="Follow Up" tone="amber" value={followUpCount} />
+              <MetricCard label="Major Gifts" value={majorGiftCount} />
+              <MetricCard label="High Priority" tone="red" value={highPriorityCount} />
+            </div>
 
             <FilterBar assignedToOptions={assignedToOptions} params={params} />
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-              <InboxList params={params} submissions={filteredSubmissions} />
-              <SubmissionDetail submission={selectedSubmission} />
-            </div>
+            <InboxList params={params} submissions={filteredSubmissions} />
+            <SubmissionDetail closeHref={buildHref(params, { submission: undefined })} submission={selectedSubmission} />
           </>
         )}
       </div>
