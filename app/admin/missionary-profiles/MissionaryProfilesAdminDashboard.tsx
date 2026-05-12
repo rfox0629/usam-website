@@ -8320,69 +8320,71 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const activePrimaryGroup = visiblePrimaryNavGroups.find((group) => group.key === activePrimaryNav) ?? visiblePrimaryNavGroups[0] ?? primaryNavGroups[0];
   return (
     <div className="space-y-6">
-      <section className="bg-stone-950/35 p-5 md:p-7">
-        <div className="flex flex-col gap-4 border-b border-stone-800/80 pb-5 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center">
+      <section className="bg-stone-950/35 p-5 pb-24 md:p-7 md:pb-24">
+        <div className="border-b border-stone-800/80 pb-7">
+          <div className="mb-5">
             <button
-              className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.22em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+              className="inline-flex items-center text-[11px] uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-[#F5B942]"
               onClick={closeProfile}
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               type="button"
             >
-              Back
+              ← All Missionary Workspaces
             </button>
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Missionary Workspace
-              </p>
-              <h2 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
-                {selectedProfile.display_name}
-              </h2>
-              <p className="mt-2 text-sm text-stone-300">/{selectedProfile.slug}</p>
-            </div>
           </div>
 
-          <div className="grid gap-3 lg:min-w-[560px] lg:grid-cols-3">
-            <Link
-              aria-label="Open mobile Field App for this workspace"
-              className="rounded-xl border border-[#D4A63D] bg-[#D4A63D] p-4 text-black shadow-[0_14px_34px_rgba(212,166,61,0.16)] transition-all hover:bg-[#F5B942]"
-              href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
-              title="Open mobile Field App for this workspace"
-            >
-              <div className="flex items-start gap-3">
-                <Smartphone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open DOS App</p>
-                  <p className="mt-1 text-xs leading-5 text-black/70">Manage field activity</p>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(520px,0.95fr)] lg:items-center">
+            <div>
+              <h2 className="text-4xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
+                {selectedProfile.display_name}
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-400">
+                Manage publishing, field activity, support tools, and operational resources for this missionary household.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Link
+                aria-label="Open mobile Field App for this workspace"
+                className="rounded-xl border border-[#D4A63D] bg-[#D4A63D] p-4 text-black shadow-[0_14px_34px_rgba(212,166,61,0.16)] transition-all hover:bg-[#F5B942]"
+                href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
+                title="Open mobile Field App for this workspace"
+              >
+                <div className="flex items-start gap-3">
+                  <Smartphone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open DOS App</p>
+                    <p className="mt-1 text-xs leading-5 text-black/70">Manage field activity</p>
+                  </div>
                 </div>
-              </div>
-            </Link>
-            <Link
-              className="rounded-xl border border-[#D4A63D]/55 bg-[#111111] p-4 text-stone-100 transition-all hover:border-[#F5B942] hover:text-[#F5B942]"
-              href={`/missionaries/${selectedProfile.slug}`}
-              target="_blank"
-            >
-              <div className="flex items-start gap-3">
-                <ExternalLink className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>View Public Profile</p>
-                  <p className="mt-1 text-xs leading-5 text-stone-400">See the donor facing page</p>
+              </Link>
+              <Link
+                className="rounded-xl border border-[#D4A63D]/55 bg-[#111111] p-4 text-stone-100 transition-all hover:border-[#F5B942] hover:text-[#F5B942]"
+                href={`/missionaries/${selectedProfile.slug}`}
+                target="_blank"
+              >
+                <div className="flex items-start gap-3">
+                  <ExternalLink className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>View Public Profile</p>
+                    <p className="mt-1 text-xs leading-5 text-stone-400">See the donor facing page</p>
+                  </div>
                 </div>
-              </div>
-            </Link>
-            <button
-              className="rounded-xl border border-stone-700 bg-stone-950/70 p-4 text-left text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
-              onClick={copySelectedProfileLink}
-              type="button"
-            >
-              <div className="flex items-start gap-3">
-                <Copy className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Copy Profile Link</p>
-                  <p className="mt-1 text-xs leading-5 text-stone-400">Share this missionary page</p>
+              </Link>
+              <button
+                className="rounded-xl border border-stone-700 bg-stone-950/70 p-4 text-left text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+                onClick={copySelectedProfileLink}
+                type="button"
+              >
+                <div className="flex items-start gap-3">
+                  <Copy className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Copy Profile Link</p>
+                    <p className="mt-1 text-xs leading-5 text-stone-400">Share this missionary page</p>
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -8463,37 +8465,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </div>
           ) : null}
         </div>
-
-        {hasUnsavedChanges ? (
-          <div className="sticky top-3 z-20 mt-5 flex flex-col gap-2 rounded-xl border border-[#D4A63D]/35 bg-[#0f0f0f]/90 px-3 py-2.5 shadow-[0_10px_26px_rgba(0,0,0,0.22)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs leading-5 text-stone-300">
-              You have unsaved changes.
-            </p>
-            <div className="flex gap-2">
-              <button
-                className="inline-flex min-h-9 items-center justify-center rounded-md border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                onClick={() => {
-                  if (selectedLastSavedProfile) {
-                    updateSelected(selectedLastSavedProfile);
-                  }
-                }}
-                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                type="button"
-              >
-                Discard Changes
-              </button>
-              <button
-                className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={saving}
-                onClick={saveSelectedProfile}
-                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                type="button"
-              >
-                {saving ? "Saving" : "Save Changes"}
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         <div className="mt-10">
           {activeTab === "overview" ? (
@@ -9490,6 +9461,36 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           ) : null}
         </div>
       </section>
+      {hasUnsavedChanges ? (
+        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-[720px] flex-col gap-3 rounded-2xl border border-[#D4A63D]/40 bg-[#0f0f0f]/95 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.38)] backdrop-blur md:flex-row md:items-center md:justify-between">
+          <p className="text-sm leading-5 text-stone-200">
+            You have unsaved changes.
+          </p>
+          <div className="flex gap-2">
+            <button
+              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md border border-stone-700 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942] md:flex-none"
+              onClick={() => {
+                if (selectedLastSavedProfile) {
+                  updateSelected(selectedLastSavedProfile);
+                }
+              }}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              Discard
+            </button>
+            <button
+              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md bg-[#D4A63D] px-5 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
+              disabled={saving}
+              onClick={saveSelectedProfile}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              {saving ? "Saving" : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
