@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { AdminPlaceholderPage } from "../_components/AdminPlaceholderPage";
+import { AdminShell } from "../_components/AdminShell";
 import type { AdminResourceControlRow } from "../_components/AdminResourceControlTable";
+import { UploadsControl } from "./UploadsControl";
 
 export const metadata: Metadata = {
   title: "Uploads & Documents | USA Missionaries",
@@ -77,13 +78,8 @@ const uploadRows: AdminResourceControlRow[] = [
 
 export default function UploadsAdminPage() {
   return (
-    <AdminPlaceholderPage
-      active="uploads"
-      description="Track storage areas, uploaded media, and future document workflows without turning uploads into a separate inbox."
-      primaryActionHref="/admin/missionary-profiles"
-      primaryActionLabel="Upload Profile Media"
-      rows={uploadRows}
-      title="Uploads & Documents"
-    />
+    <AdminShell active="uploads" title="Uploads & Documents">
+      <UploadsControl rows={uploadRows} />
+    </AdminShell>
   );
 }
