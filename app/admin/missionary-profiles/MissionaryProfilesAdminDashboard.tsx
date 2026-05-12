@@ -5648,6 +5648,18 @@ function getSupportCommitmentAmount(commitment: AdminSupportCommitment) {
   return Number.isFinite(amount) ? amount : 0;
 }
 
+function supportCommitmentGiftTypeLabel(giftType: AdminSupportCommitment["gift_type"]) {
+  return giftType === "monthly" ? "Monthly" : "One Time";
+}
+
+function donorDisplayName(firstName: string, lastName: string) {
+  return [firstName, lastName].filter(Boolean).join(" ") || "Unnamed donor";
+}
+
+function majorGiftTypesLabel(types: string[] | null) {
+  return types?.length ? types.join(", ") : "Not specified";
+}
+
 function countSupportCommitments(commitments: readonly AdminSupportCommitment[], status: AdminSupportCommitmentStatus) {
   return commitments.filter((commitment) => commitment.status === status).length;
 }
@@ -6006,6 +6018,143 @@ function SupportShareTools({
   );
 }
 
+function StatusPill({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#4b443b]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      {children}
+    </span>
+  );
+}
+
+function DetailField({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[#e2ded5] bg-[#fbfaf7] p-3">
+      <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </p>
+      <div className="mt-1 break-words text-sm leading-6 text-[#111111]">
+        {value || "Not specified"}
+      </div>
+    </div>
+  );
+}
+
+function DetailModalShell({
+  children,
+  eyebrow,
+  onClose,
+  title,
+}: {
+  children: ReactNode;
+  eyebrow: string;
+  onClose: () => void;
+  title: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 px-3 py-4 backdrop-blur-sm transition-opacity sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="max-h-[90vh] w-full max-w-[720px] overflow-y-auto rounded-2xl border border-[#dcd6ca] bg-white p-4 text-[#111111] shadow-[0_24px_90px_rgba(0,0,0,0.35)] transition-transform sm:p-5">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-3">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {eyebrow}
+            </p>
+            <h3 className="mt-1 text-xl font-semibold leading-tight text-[#111111]">
+              {title}
+            </h3>
+          </div>
+          <button
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-[#fbfaf7] text-sm font-semibold text-[#4b443b] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+            onClick={onClose}
+            type="button"
+            aria-label="Close details"
+          >
+            ×
+          </button>
+        </div>
+        <div className="mt-4">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SupportCommitmentDetailModal({
+  commitment,
+  onClose,
+}: {
+  commitment: AdminSupportCommitment;
+  onClose: () => void;
+}) {
+  const donorName = donorDisplayName(commitment.first_name, commitment.last_name);
+  const submittedDate = formatProfileUpdatedDate(commitment.submitted_at ?? commitment.created_at);
+  const completedDate = commitment.completed_at ? formatProfileUpdatedDate(commitment.completed_at) : "Not completed";
+
+  return (
+    <DetailModalShell eyebrow="Support Commitment" onClose={onClose} title={donorName}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <DetailField label="Email" value={commitment.email} />
+        <DetailField label="Phone" value={commitment.phone} />
+        <DetailField label="Amount" value={formatCurrency(getSupportCommitmentAmount(commitment))} />
+        <DetailField label="Type" value={supportCommitmentGiftTypeLabel(commitment.gift_type)} />
+        <DetailField label="Status" value={<StatusPill>{supportCommitmentStatusLabel(commitment.status)}</StatusPill>} />
+        <DetailField label="Submitted" value={submittedDate} />
+        <DetailField label="Allocation" value={commitment.allocation_preference} />
+        <DetailField label="Completed" value={completedDate} />
+      </div>
+
+      <div className="mt-3 grid gap-3">
+        <DetailField label="Support Notes" value={commitment.message} />
+        <DetailField label="Admin Notes" value={commitment.admin_notes} />
+        <DetailField
+          label="Giving Destination"
+          value={commitment.redirect_giving_url ? (
+            <a className="text-[#8a5a00] underline-offset-4 hover:underline" href={commitment.redirect_giving_url} rel="noopener noreferrer" target="_blank">
+              {commitment.redirect_giving_url}
+            </a>
+          ) : "Not recorded"}
+        />
+      </div>
+    </DetailModalShell>
+  );
+}
+
+function MajorGiftInquiryDetailModal({
+  inquiry,
+  onClose,
+}: {
+  inquiry: AdminMajorGiftInquiry;
+  onClose: () => void;
+}) {
+  const donorName = donorDisplayName(inquiry.first_name, inquiry.last_name);
+
+  return (
+    <DetailModalShell eyebrow="Major Gift Inquiry" onClose={onClose} title={donorName}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <DetailField label="Email" value={inquiry.email} />
+        <DetailField label="Phone" value={inquiry.phone} />
+        <DetailField label="Gift Type" value={majorGiftTypesLabel(inquiry.donation_types)} />
+        <DetailField label="Estimated Range" value={inquiry.projected_amount_range} />
+        <DetailField label="Status" value={<StatusPill>{majorGiftInquiryStatusLabel(inquiry.status)}</StatusPill>} />
+        <DetailField label="Submitted" value={formatProfileUpdatedDate(inquiry.created_at)} />
+        <DetailField label="Intended For" value={inquiry.intended_for} />
+        <DetailField label="Best Time" value={inquiry.best_time_to_contact} />
+      </div>
+
+      <div className="mt-3 grid gap-3">
+        <DetailField label="Message" value={inquiry.message} />
+        <DetailField label="Household" value={inquiry.household_name || inquiry.profile_slug} />
+      </div>
+    </DetailModalShell>
+  );
+}
+
 function SupportCommitmentsManager({
   commitments,
   majorGiftInquiries,
@@ -6013,6 +6162,8 @@ function SupportCommitmentsManager({
   commitments: readonly AdminSupportCommitment[];
   majorGiftInquiries: readonly AdminMajorGiftInquiry[];
 }) {
+  const [selectedCommitment, setSelectedCommitment] = useState<AdminSupportCommitment | null>(null);
+  const [selectedMajorGiftInquiry, setSelectedMajorGiftInquiry] = useState<AdminMajorGiftInquiry | null>(null);
   const sortedCommitments = [...commitments].sort((a, b) => {
     const aTime = new Date(a.submitted_at ?? a.created_at).getTime();
     const bTime = new Date(b.submitted_at ?? b.created_at).getTime();
@@ -6027,63 +6178,58 @@ function SupportCommitmentsManager({
   });
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-4">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Support Interest & Commitments
-        </p>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-          Public forms record donor intent first. Donors continue to the secure giving page; confirmed giving status is reconciled through admin or giving system workflows.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Support Interest & Commitments
+          </p>
+        </div>
 
       {sortedCommitments.length > 0 ? (
-        <div className="overflow-x-auto rounded-xl border border-[#e2ded5] bg-white">
-          <table className="min-w-[820px] w-full border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-[#e2ded5] bg-[#fbfaf7] text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                <th className="px-4 py-3">Donor</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Gift Type</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Submitted</th>
-                <th className="px-4 py-3">Allocation</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="rounded-xl border border-[#e2ded5] bg-white">
+          <div className="hidden grid-cols-[minmax(0,1.4fr)_110px_92px_minmax(124px,0.8fr)_74px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <span>Donor</span>
+            <span>Amount</span>
+            <span>Type</span>
+            <span>Status</span>
+            <span className="text-right">Actions</span>
+          </div>
+          <div className="divide-y divide-[#e2ded5]">
               {sortedCommitments.map((commitment) => (
-                <tr className="border-b border-[#e2ded5] last:border-b-0" key={commitment.id}>
-                  <td className="px-4 py-3 align-top">
-                    <p className="font-semibold text-[#111111]">
-                      {[commitment.first_name, commitment.last_name].filter(Boolean).join(" ")}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-[#7b746a]">{commitment.email}</p>
-                    {commitment.phone ? (
-                      <p className="text-xs leading-5 text-[#7b746a]">{commitment.phone}</p>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 align-top font-semibold text-[#111111]">
-                    {formatCurrency(getSupportCommitmentAmount(commitment))}
-                  </td>
-                  <td className="px-4 py-3 align-top text-[#4b443b]">
-                    {commitment.gift_type === "monthly" ? "Monthly" : "One Time"}
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <span className="inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#4b443b]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      {supportCommitmentStatusLabel(commitment.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 align-top text-[#4b443b]">
-                    {formatProfileUpdatedDate(commitment.submitted_at ?? commitment.created_at)}
-                  </td>
-                  <td className="px-4 py-3 align-top text-[#4b443b]">
-                    {commitment.allocation_preference || "Not specified"}
-                  </td>
-                </tr>
+                <div className="grid gap-3 px-3 py-3 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.4fr)_110px_92px_minmax(124px,0.8fr)_74px] md:items-center" key={commitment.id}>
+                  <button
+                    className="min-w-0 text-left font-semibold text-[#111111] underline-offset-4 hover:text-[#8a5a00] hover:underline"
+                    onClick={() => setSelectedCommitment(commitment)}
+                    type="button"
+                  >
+                    {donorDisplayName(commitment.first_name, commitment.last_name)}
+                  </button>
+                  <div className="flex items-center justify-between gap-3 md:block">
+                    <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Amount</span>
+                    <span className="font-semibold text-[#111111]">{formatCurrency(getSupportCommitmentAmount(commitment))}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 md:block">
+                    <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Type</span>
+                    <span className="text-sm text-[#4b443b]">{supportCommitmentGiftTypeLabel(commitment.gift_type)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 md:block">
+                    <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Status</span>
+                    <StatusPill>{supportCommitmentStatusLabel(commitment.status)}</StatusPill>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                      onClick={() => setSelectedCommitment(commitment)}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      View
+                    </button>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+          </div>
         </div>
       ) : (
         <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
@@ -6092,62 +6238,57 @@ function SupportCommitmentsManager({
       )}
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Major Gift Follow-Up
           </p>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-            Major gift inquiries start a conversation and never update public support progress automatically.
-          </p>
         </div>
 
         {sortedMajorGiftInquiries.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border border-[#e2ded5] bg-white">
-            <table className="min-w-[860px] w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-[#e2ded5] bg-[#fbfaf7] text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  <th className="px-4 py-3">Donor</th>
-                  <th className="px-4 py-3">Gift Type</th>
-                  <th className="px-4 py-3">Projected Amount</th>
-                  <th className="px-4 py-3">Intended For</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Submitted</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="rounded-xl border border-[#e2ded5] bg-white">
+            <div className="hidden grid-cols-[minmax(0,1.35fr)_minmax(0,1.2fr)_130px_minmax(120px,0.8fr)_74px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <span>Donor</span>
+              <span>Gift Type</span>
+              <span>Estimated Range</span>
+              <span>Status</span>
+              <span className="text-right">Actions</span>
+            </div>
+            <div className="divide-y divide-[#e2ded5]">
                 {sortedMajorGiftInquiries.map((inquiry) => (
-                  <tr className="border-b border-[#e2ded5] last:border-b-0" key={inquiry.id}>
-                    <td className="px-4 py-3 align-top">
-                      <p className="font-semibold text-[#111111]">
-                        {[inquiry.first_name, inquiry.last_name].filter(Boolean).join(" ")}
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-[#7b746a]">{inquiry.email}</p>
-                      {inquiry.phone ? (
-                        <p className="text-xs leading-5 text-[#7b746a]">{inquiry.phone}</p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 align-top text-[#4b443b]">
-                      {inquiry.donation_types?.length ? inquiry.donation_types.join(", ") : "Not specified"}
-                    </td>
-                    <td className="px-4 py-3 align-top font-semibold text-[#111111]">
-                      {inquiry.projected_amount_range || "Not specified"}
-                    </td>
-                    <td className="px-4 py-3 align-top text-[#4b443b]">
-                      {inquiry.intended_for || "Not specified"}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <span className="inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#4b443b]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        {majorGiftInquiryStatusLabel(inquiry.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 align-top text-[#4b443b]">
-                      {formatProfileUpdatedDate(inquiry.created_at)}
-                    </td>
-                  </tr>
+                  <div className="grid gap-3 px-3 py-3 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.2fr)_130px_minmax(120px,0.8fr)_74px] md:items-center" key={inquiry.id}>
+                    <button
+                      className="min-w-0 text-left font-semibold text-[#111111] underline-offset-4 hover:text-[#8a5a00] hover:underline"
+                      onClick={() => setSelectedMajorGiftInquiry(inquiry)}
+                      type="button"
+                    >
+                      {donorDisplayName(inquiry.first_name, inquiry.last_name)}
+                    </button>
+                    <div className="flex items-center justify-between gap-3 md:block">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Gift Type</span>
+                      <span className="text-sm text-[#4b443b]">{majorGiftTypesLabel(inquiry.donation_types)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 md:block">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Range</span>
+                      <span className="font-semibold text-[#111111]">{inquiry.projected_amount_range || "Not specified"}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 md:block">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Status</span>
+                      <StatusPill>{majorGiftInquiryStatusLabel(inquiry.status)}</StatusPill>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        onClick={() => setSelectedMajorGiftInquiry(inquiry)}
+                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                        type="button"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+            </div>
           </div>
         ) : (
           <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
@@ -6155,6 +6296,20 @@ function SupportCommitmentsManager({
           </div>
         )}
       </div>
+
+      {selectedCommitment ? (
+        <SupportCommitmentDetailModal
+          commitment={selectedCommitment}
+          onClose={() => setSelectedCommitment(null)}
+        />
+      ) : null}
+
+      {selectedMajorGiftInquiry ? (
+        <MajorGiftInquiryDetailModal
+          inquiry={selectedMajorGiftInquiry}
+          onClose={() => setSelectedMajorGiftInquiry(null)}
+        />
+      ) : null}
     </div>
   );
 }
