@@ -438,14 +438,6 @@ async function getDashboardData(): Promise<DashboardData> {
   };
 }
 
-function EmptyPanel({ children }: { children: ReactNode }) {
-  return (
-    <div className="border border-stone-800/80 bg-[#080808] p-4 text-sm leading-6 text-stone-300">
-      {children}
-    </div>
-  );
-}
-
 function SectionHeader({
   action,
   eyebrow,
@@ -456,12 +448,12 @@ function SectionHeader({
   title: string;
 }) {
   return (
-    <div className="mb-3 flex items-end justify-between gap-4">
+    <div className="mb-3 flex items-center justify-between gap-4">
       <div>
         <p className="text-[10px] uppercase tracking-[0.16em] text-[#D8B65D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {eyebrow}
         </p>
-        <h2 className="mt-1 text-lg font-semibold text-stone-50">
+        <h2 className="mt-1 text-base font-semibold text-stone-50">
           {title}
         </h2>
       </div>
@@ -471,29 +463,33 @@ function SectionHeader({
 }
 
 function MetricCard({
+  detail,
   href,
   label,
   value,
 }: {
+  detail?: string;
   href: string;
   label: string;
   value: string;
 }) {
   return (
     <Link
-      className="group flex min-h-20 flex-col justify-between border border-stone-800/80 bg-[#080808] p-3 transition-colors hover:border-[#C9A24A]/60 hover:bg-[#C9A24A]/[0.04]"
+      className="group flex min-h-28 flex-col justify-between rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4 transition-colors hover:border-[#C9A24A]/60 hover:bg-[#C9A24A]/[0.045]"
       href={href}
     >
-      <p className="text-[10px] uppercase tracking-[0.14em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <p className="text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </p>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <p className="text-2xl font-semibold leading-none text-stone-50">
+      <div className="mt-3">
+        <p className="text-3xl font-semibold leading-none text-stone-50">
           {value}
         </p>
-        <span className="text-lg leading-none text-[#C9A24A] transition-transform group-hover:translate-x-0.5" aria-hidden>
-          &rarr;
-        </span>
+        {detail ? (
+          <p className="mt-2 truncate text-xs text-stone-500">
+            {detail}
+          </p>
+        ) : null}
       </div>
     </Link>
   );
@@ -510,7 +506,7 @@ function ActionButton({
 }) {
   return (
     <Link
-      className={`inline-flex min-h-9 items-center justify-center border px-3 text-xs uppercase tracking-[0.14em] transition-colors ${
+      className={`inline-flex min-h-9 items-center justify-center rounded-lg border px-3 text-[10px] uppercase tracking-[0.14em] transition-colors ${
         primary
           ? "border-[#C9A24A] bg-[#C9A24A] text-stone-950 hover:bg-[#D8B65D]"
           : "border-stone-700 text-stone-100 hover:border-[#C9A24A] hover:text-[#E4C465]"
@@ -523,7 +519,27 @@ function ActionButton({
   );
 }
 
-function WorkCard({
+function QuickActionsBar() {
+  const actions = [
+    { href: "/admin/missionary-profiles", label: "Open Workspaces" },
+    { href: "/admin/missionary-profiles?tab=fruit", label: "Review Fruit" },
+    { href: "/admin/prayer-team", label: "Prayer Requests" },
+    { href: "/admin/support-team", label: "Support" },
+    { href: "/admin/uploads", label: "Uploads" },
+  ] as const;
+
+  return (
+    <section className="flex flex-wrap gap-2">
+      {actions.map((action, index) => (
+        <ActionButton href={action.href} key={action.href} primary={index === 0}>
+          {action.label}
+        </ActionButton>
+      ))}
+    </section>
+  );
+}
+
+function TaskModule({
   action,
   count,
   description,
@@ -537,7 +553,7 @@ function WorkCard({
   title: string;
 }) {
   return (
-    <article className="flex min-h-36 flex-col justify-between border border-[#C9A24A]/35 bg-[#C9A24A]/[0.055] p-4">
+    <article className="flex min-h-32 flex-col justify-between rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
       <div>
         <div className="flex items-start justify-between gap-4">
           <h3 className="text-base font-semibold text-stone-50">
@@ -549,12 +565,12 @@ function WorkCard({
             </span>
           ) : null}
         </div>
-        <p className="mt-2 text-sm leading-6 text-stone-200">
+        <p className="mt-2 text-sm leading-6 text-stone-400">
           {description}
         </p>
       </div>
       <div className="mt-4">
-        <ActionButton href={href} primary>
+        <ActionButton href={href}>
           {action}
         </ActionButton>
       </div>
@@ -562,7 +578,7 @@ function WorkCard({
   );
 }
 
-function FocusCard({
+function OperationalModule({
   actionHref,
   actionLabel,
   details,
@@ -576,7 +592,7 @@ function FocusCard({
   title: string;
 }) {
   return (
-    <article className="flex min-h-56 flex-col justify-between border border-stone-800/80 bg-[#080808] p-4">
+    <article className="flex min-h-48 flex-col justify-between rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
       <div>
         <p className="text-[10px] uppercase tracking-[0.16em] text-[#D8B65D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {eyebrow}
@@ -584,9 +600,9 @@ function FocusCard({
         <h3 className="mt-2 text-base font-semibold text-stone-50">
           {title}
         </h3>
-        <dl className="mt-4 grid gap-2">
+        <dl className="mt-4 grid gap-2.5">
           {details.map((detail) => (
-            <div key={detail.label} className="flex items-center justify-between gap-4 border-t border-stone-900 pt-2">
+            <div key={detail.label} className="flex items-center justify-between gap-4">
               <dt className="text-xs uppercase tracking-[0.12em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 {detail.label}
               </dt>
@@ -598,7 +614,7 @@ function FocusCard({
         </dl>
       </div>
       <Link
-        className="mt-5 inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-xs uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#C9A24A] hover:text-[#E4C465]"
+        className="mt-5 inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#C9A24A] hover:text-[#E4C465]"
         href={actionHref}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
       >
@@ -617,7 +633,7 @@ function StatusBadge({
 }) {
   return (
     <span
-      className={`inline-flex h-5 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.12em] ${
+      className={`inline-flex h-5 items-center justify-center rounded-full border px-2 text-[9px] uppercase tracking-[0.12em] ${
         isNew
           ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
           : "border-stone-700/70 bg-stone-900/60 text-stone-300"
@@ -629,31 +645,44 @@ function StatusBadge({
   );
 }
 
+function ActivityBadge({ children }: { children: ReactNode }) {
+  return (
+    <span
+      className="inline-flex h-5 items-center rounded-full border border-[#C9A24A]/30 bg-[#C9A24A]/10 px-2 text-[9px] uppercase tracking-[0.12em] text-[#E4C465]"
+      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+    >
+      {children}
+    </span>
+  );
+}
+
 function RecentActivityFeed({ items }: { items: ActivityItem[] }) {
   return (
-    <section>
-      <SectionHeader eyebrow="Now" title="Recent Activity Feed" />
+    <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+      <SectionHeader eyebrow="Live" title="Activity Feed" />
       {items.length > 0 ? (
-        <div className="divide-y divide-stone-800/70 border border-stone-800/80 bg-[#080808]">
+        <div className="divide-y divide-stone-800/70 overflow-hidden rounded-lg border border-stone-800/70 bg-[#050505]">
           {items.map((item) => (
             <Link
               key={`${item.label}-${item.title}-${item.timestamp}`}
-              className="grid gap-2 p-4 transition-colors hover:bg-stone-950/70 sm:grid-cols-[110px_minmax(0,1fr)_80px] sm:items-center"
+              className="grid gap-3 p-3 transition-colors hover:bg-stone-950/80 sm:grid-cols-[128px_minmax(0,1fr)_72px] sm:items-center"
               href={item.href}
             >
-              <span className="text-[10px] uppercase tracking-[0.14em] text-[#D8B65D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <ActivityBadge>
                 {item.label}
-              </span>
+              </ActivityBadge>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-stone-50">{item.title}</span>
-                <span className="block text-sm text-stone-300">{item.detail}</span>
+                <span className="block truncate text-sm text-stone-400">{item.detail}</span>
               </span>
-              <span className="text-sm text-stone-300 sm:text-right">{formatDate(item.timestamp)}</span>
+              <span className="text-xs text-stone-500 sm:text-right">{formatDate(item.timestamp)}</span>
             </Link>
           ))}
         </div>
       ) : (
-        <EmptyPanel>No recent activity needs action yet.</EmptyPanel>
+        <div className="rounded-lg border border-stone-800/70 bg-[#050505] p-5 text-sm text-stone-400">
+          No recent activity.
+        </div>
       )}
     </section>
   );
@@ -661,25 +690,25 @@ function RecentActivityFeed({ items }: { items: ActivityItem[] }) {
 
 function LatestInquiries({ inquiries }: { inquiries: DashboardInquiryItem[] }) {
   return (
-    <section>
+    <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
       <SectionHeader
         action={<ActionButton href="/admin/support-team">Open Queue</ActionButton>}
-        eyebrow="Review"
-        title="Latest Inquiries"
+        eyebrow="Pending"
+        title="Inquiries"
       />
       {inquiries.length > 0 ? (
-        <div className="divide-y divide-stone-800/70 border border-stone-800/80 bg-[#080808]">
+        <div className="divide-y divide-stone-800/70 overflow-hidden rounded-lg border border-stone-800/70 bg-[#050505]">
           {inquiries.map((inquiry) => (
             <Link
               key={inquiry.id}
-              className="grid gap-3 p-4 transition-colors hover:bg-stone-950/70 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+              className="grid gap-3 p-3 transition-colors hover:bg-stone-950/80 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
               href={inquiry.href}
             >
               <span className="min-w-0">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="truncate text-sm font-semibold text-stone-50">{inquiry.name}</span>
                   <StatusBadge isNew={inquiry.isNew}>{inquiry.statusLabel}</StatusBadge>
-                  <span className="inline-flex h-5 items-center justify-center border border-stone-700/70 bg-stone-950 px-2 text-[9px] uppercase tracking-[0.12em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  <span className="inline-flex h-5 items-center justify-center rounded-full border border-stone-700/70 bg-stone-950 px-2 text-[9px] uppercase tracking-[0.12em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     {inquiry.typeLabel}
                   </span>
                 </span>
@@ -691,7 +720,9 @@ function LatestInquiries({ inquiries }: { inquiries: DashboardInquiryItem[] }) {
           ))}
         </div>
       ) : (
-        <EmptyPanel>No inquiries are waiting in the queue.</EmptyPanel>
+        <div className="rounded-lg border border-stone-800/70 bg-[#050505] p-5 text-sm text-stone-400">
+          No inquiries waiting.
+        </div>
       )}
     </section>
   );
@@ -699,18 +730,18 @@ function LatestInquiries({ inquiries }: { inquiries: DashboardInquiryItem[] }) {
 
 function IncompleteProfileAlerts({ profiles }: { profiles: DashboardProfile[] }) {
   return (
-    <section>
+    <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
       <SectionHeader
         action={<ActionButton href="/admin/missionary-profiles">Fix Profiles</ActionButton>}
         eyebrow="Alerts"
         title="Incomplete Profiles"
       />
       {profiles.length > 0 ? (
-        <div className="divide-y divide-stone-800/70 border border-stone-800/80 bg-[#080808]">
+        <div className="divide-y divide-stone-800/70 overflow-hidden rounded-lg border border-stone-800/70 bg-[#050505]">
           {profiles.slice(0, 5).map((profile) => (
             <Link
               key={profile.id}
-              className="grid gap-2 p-4 transition-colors hover:bg-stone-950/70 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+              className="grid gap-2 p-3 transition-colors hover:bg-stone-950/80 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
               href="/admin/missionary-profiles"
             >
               <span>
@@ -724,37 +755,11 @@ function IncompleteProfileAlerts({ profiles }: { profiles: DashboardProfile[] })
           ))}
         </div>
       ) : (
-        <EmptyPanel>All active profiles have the essentials filled in.</EmptyPanel>
+        <div className="rounded-lg border border-stone-800/70 bg-[#050505] p-5 text-sm text-stone-400">
+          Profiles are current.
+        </div>
       )}
     </section>
-  );
-}
-
-function QuickActionsPanel() {
-  const actions = [
-    { href: "/admin/missionary-profiles", label: "Open Workspaces" },
-    { href: "/admin/missionary-profiles?tab=fruit", label: "Review Fruit" },
-    { href: "/admin/prayer-team", label: "Prayer Requests" },
-    { href: "/admin/support-team", label: "Support Overview" },
-    { href: "/admin/settings", label: "Users & Permissions" },
-  ] as const;
-
-  return (
-    <aside className="border border-stone-800/80 bg-[#080808] p-4 lg:sticky lg:top-24">
-      <SectionHeader eyebrow="Next" title="Quick Actions" />
-      <div className="grid gap-2">
-        {actions.map((action) => (
-          <Link
-            key={action.href}
-            className="flex min-h-10 items-center justify-between border border-stone-800 px-3 text-sm font-medium text-stone-100 transition-colors hover:border-[#C9A24A]/70 hover:text-[#E4C465]"
-            href={action.href}
-          >
-            {action.label}
-            <span className="text-[#C9A24A]" aria-hidden>&rarr;</span>
-          </Link>
-        ))}
-      </div>
-    </aside>
   );
 }
 
@@ -768,20 +773,16 @@ export default async function AdminDashboardPage() {
   const data = await getDashboardData();
   const hasDataError = Boolean(data.error);
   const metrics = [
-    { href: "/admin/missionary-profiles", label: "Missionary Workspaces", value: hasDataError ? "-" : formatMetric(data.activeMissionaries) },
-    { href: "/admin/missionary-profiles?tab=people", label: "People in Your Field", value: hasDataError ? "-" : formatMetric(data.people) },
-    { href: "/admin/missionary-profiles?tab=meetings", label: "Meetings Logged", value: hasDataError ? "-" : formatMetric(data.meetings) },
-    { href: "/admin/missionary-profiles?tab=fruit", label: "Fruit Pending Review", value: hasDataError ? "-" : formatMetric(data.draftFruit) },
-    { href: "/admin/missionary-profiles?tab=fruit", label: "Approved Fruit", value: hasDataError ? "-" : formatMetric(data.approvedFruit) },
-    { href: "/admin/support-team", label: "Support This Month", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
-    { href: "/admin/prayer-team", label: "Prayer Requests", value: hasDataError ? "-" : formatMetric(data.activePrayerRequests) },
-    { href: "/admin/missionary-profiles?tab=features", label: "Profiles Missing Info", value: hasDataError ? "-" : formatMetric(data.incompleteProfiles.length) },
+    { detail: `${hasDataError ? "-" : formatMetric(data.publishedProfiles)} published`, href: "/admin/missionary-profiles", label: "Workspaces", value: hasDataError ? "-" : formatMetric(data.activeMissionaries) },
+    { detail: "Field contacts", href: "/admin/missionary-profiles?tab=people", label: "People", value: hasDataError ? "-" : formatMetric(data.people) },
+    { detail: "This month", href: "/admin/support-team", label: "Support", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
+    { detail: `${hasDataError ? "-" : formatMetric(data.prayerPartners)} partners`, href: "/admin/prayer-team", label: "Prayer", value: hasDataError ? "-" : formatMetric(data.activePrayerRequests) },
+    { detail: "Needs action", href: "/admin/missionary-profiles?tab=fruit", label: "Pending Review", value: hasDataError ? "-" : formatMetric(data.pendingReviews) },
   ] as const;
 
   return (
     <AdminShell
       active="dashboard"
-      description="USAM master dashboard for workspaces, fruit review, support, prayer, and publishing."
       title="National Command Center"
     >
       <div className="space-y-6">
@@ -791,16 +792,18 @@ export default async function AdminDashboardPage() {
           </p>
         ) : null}
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {metrics.map((metric) => (
             <MetricCard key={metric.label} {...metric} />
           ))}
         </section>
 
+        <QuickActionsBar />
+
         <section>
-          <SectionHeader eyebrow="NCC MVP" title="National Rollup" />
+          <SectionHeader eyebrow="Operations" title="National Modules" />
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <FocusCard
+            <OperationalModule
               actionHref="/admin/missionary-profiles"
               actionLabel="Open Workspaces"
               details={[
@@ -809,20 +812,9 @@ export default async function AdminDashboardPage() {
                 { label: "Active Users", value: hasDataError ? "-" : formatMetric(data.activeUsers) },
               ]}
               eyebrow="Workspaces"
-              title="Missionary Workspace Health"
+              title="Workspace Health"
             />
-            <FocusCard
-              actionHref="/admin/missionary-profiles?tab=fruit"
-              actionLabel="Review Fruit"
-              details={[
-                { label: "Pending", value: hasDataError ? "-" : formatMetric(data.draftFruit) },
-                { label: "Approved", value: hasDataError ? "-" : formatMetric(data.approvedFruit) },
-                { label: "Private", value: hasDataError ? "-" : formatMetric(data.privateFruit) },
-              ]}
-              eyebrow="Fruit"
-              title="Review & Approval"
-            />
-            <FocusCard
+            <OperationalModule
               actionHref="/admin/prayer-team"
               actionLabel="Open Prayer"
               details={[
@@ -833,7 +825,7 @@ export default async function AdminDashboardPage() {
               eyebrow="Prayer"
               title="Prayer Coverage"
             />
-            <FocusCard
+            <OperationalModule
               actionHref="/admin/support-team"
               actionLabel="Open Support"
               details={[
@@ -844,50 +836,60 @@ export default async function AdminDashboardPage() {
               eyebrow="Support"
               title="Support Overview"
             />
+            <OperationalModule
+              actionHref="/admin/missionary-profiles?tab=features"
+              actionLabel="Open Publishing"
+              details={[
+                { label: "Pending Fruit", value: hasDataError ? "-" : formatMetric(data.draftFruit) },
+                { label: "Profile Alerts", value: hasDataError ? "-" : formatMetric(data.incompleteProfiles.length) },
+                { label: "Approved Fruit", value: hasDataError ? "-" : formatMetric(data.approvedFruit) },
+              ]}
+              eyebrow="Publishing"
+              title="Public Readiness"
+            />
           </div>
         </section>
 
         <section id="todays-work" className="scroll-mt-24">
-          <SectionHeader eyebrow="Oversight" title="NCC MVP Work Queues" />
+          <SectionHeader eyebrow="Queues" title="Pending Items" />
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <WorkCard
-              action="Review Now"
+            <TaskModule
+              action="Review Fruit"
               count={data.draftFruit}
-              description="Approve public-safe outcomes only after raw Encounter, Review, and Assessment are ready."
+              description="Pending public review."
               href="/admin/missionary-profiles?tab=fruit"
-              title="Fruit Pending Review"
+              title="Pending Review"
             />
-            <WorkCard
-              action="View People"
-              count={data.people}
-              description="See national People visibility while relationship details remain inside Missionary Workspaces."
-              href="/admin/missionary-profiles?tab=people"
-              title="People in Your Field"
-            />
-            <WorkCard
+            <TaskModule
               action="View Meetings"
               count={data.meetings}
-              description="Track Tables and quick touches without exposing private field activity publicly."
+              description="Field activity visibility."
               href="/admin/missionary-profiles?tab=meetings"
               title="Meetings Visibility"
             />
-            <WorkCard
+            <TaskModule
+              action="Open Support"
+              count={data.newInquiries + data.newMajorGiftInquiries}
+              description="Support follow-up."
+              href="/admin/support-team"
+              title="Inquiries"
+            />
+            <TaskModule
               action="Fix Publishing"
               count={data.incompleteProfiles.length}
-              description="Complete public Profile essentials and keep publishing controls curated."
+              description="Missing profile essentials."
               href="/admin/missionary-profiles?tab=features"
-              title="Publishing Controls"
+              title="Profile Alerts"
             />
           </div>
         </section>
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)]">
-          <div id="recent-activity" className="space-y-5">
-            <RecentActivityFeed items={data.recentActivity} />
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+          <RecentActivityFeed items={data.recentActivity} />
+          <div className="space-y-5">
             <LatestInquiries inquiries={data.latestInquiries} />
             <IncompleteProfileAlerts profiles={data.incompleteProfiles} />
           </div>
-          <QuickActionsPanel />
         </div>
       </div>
     </AdminShell>
