@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintFlyerClient } from "@/src/components/missionaries/PrintFlyerClient";
 import { SupportFlyer } from "@/src/components/missionaries/SupportFlyer";
+import { getPublicMissionaryProfileUrl } from "@/src/lib/missionaries/public-origin";
 import { getMissionaryProfileBySlug } from "@/src/lib/missionaries/queries";
 
 export const revalidate = 60;
@@ -16,12 +17,6 @@ type SearchParams = {
 
 function getVersion(value?: string): FlyerVersion {
   return value === "print" ? "print" : "color";
-}
-
-function getOrigin() {
-  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-
-  return (configuredUrl || "https://usamissionaries.org").replace(/\/$/, "");
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -55,8 +50,7 @@ export default async function MissionarySupportFlyerPage({
     notFound();
   }
 
-  const origin = getOrigin();
-  const profileUrl = `${origin}/missionaries/${missionary.slug}`;
+  const profileUrl = getPublicMissionaryProfileUrl(missionary.slug);
   const supportUrl = `${profileUrl}#support`;
   const version = getVersion(query.version);
 

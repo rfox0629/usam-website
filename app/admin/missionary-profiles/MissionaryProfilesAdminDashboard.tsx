@@ -17,6 +17,7 @@ import {
   supportRoutingModeDetails,
   type SupportRoutingMode,
 } from "@/src/lib/missionaries/support-routing";
+import { getPublicMissionaryProfileUrl } from "@/src/lib/missionaries/public-origin";
 import {
   locationVisibilityOptions,
   ministryRegionOptions,
@@ -7025,9 +7026,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       return;
     }
 
-    const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://usamissionaries.org";
-    const profileOrigin = configuredSiteUrl.includes("localhost") ? "https://usamissionaries.org" : configuredSiteUrl;
-    const profileUrl = `${profileOrigin}/missionaries/${selectedProfile.slug}`;
+    const profileUrl = getPublicMissionaryProfileUrl(selectedProfile.slug);
 
     copyTextToClipboard(profileUrl, "Public profile link");
   }
@@ -8194,9 +8193,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const support = selectedProfile.support ?? emptySupport(selectedProfile.id);
   const supportMode = selectedProfileSupportMode;
   const calculatedMonthlyGoal = calculateMonthlyGoal(support.annual_goal);
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://usamissionaries.org";
-  const profileOrigin = configuredSiteUrl.includes("localhost") ? "https://usamissionaries.org" : configuredSiteUrl;
-  const publicProfileLink = `${profileOrigin}/missionaries/${selectedProfile.slug}`;
+  const publicProfileLink = getPublicMissionaryProfileUrl(selectedProfile.slug);
   const publicSupportLink = `${publicProfileLink}#support`;
   const publicFlyerLink = `${publicProfileLink}/flyer`;
   const selectedSupportModeOption = supportModeOptions.find((option) => option.value === supportMode) ?? supportModeOptions[0];
