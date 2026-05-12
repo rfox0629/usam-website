@@ -71,18 +71,19 @@ function AdminBrandLockup({ compact = false }: { compact?: boolean }) {
   return (
     <Link
       href="/admin/dashboard"
-      className={`flex min-w-0 items-center gap-3 ${compact ? "" : "min-h-12 border-b border-stone-800/70 pb-5"}`}
+      className={`flex min-w-0 items-start gap-3 ${compact ? "" : "min-h-12 border-b border-stone-800/70 pb-5"}`}
     >
-      <span className="h-2 w-2 shrink-0 rotate-45 bg-[#C9A24A]" />
+      <span className="mt-1.5 h-2 w-2 shrink-0 rotate-45 bg-[#C9A24A]" />
       <span className="min-w-0">
         <span
-          className={`${compact ? "text-base" : "text-[17px]"} block truncate font-semibold uppercase leading-none tracking-[0.02em] text-stone-100`}
+          className={`${compact ? "text-base" : "text-[17px]"} block font-semibold uppercase leading-[1.05] tracking-[0.02em] text-stone-100`}
           style={{ fontFamily: adminFont.oswald }}
         >
-          National Command Center
+          <span className="block">National Command</span>
+          <span className="block">Center</span>
         </span>
         <span
-          className="mt-1 block truncate text-[9px] uppercase tracking-[0.18em] text-[#C9A24A]"
+          className="mt-1 block whitespace-nowrap text-[9px] uppercase tracking-[0.18em] text-[#C9A24A]"
           style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
         >
           USA Missionaries

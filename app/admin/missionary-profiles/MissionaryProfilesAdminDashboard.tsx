@@ -6682,11 +6682,11 @@ function StatPreview({ label, tone = "dark", value }: { label: string; tone?: "d
   const isLight = tone === "light";
 
   return (
-    <div className={`rounded-xl border p-4 ${isLight ? "border-[#e2ded5] bg-white" : "border-[#222222] bg-[#111111]"}`}>
-      <p className={`text-[10px] uppercase tracking-[0.22em] ${isLight ? "text-[#6f6658]" : "text-stone-300"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+    <div className={`flex min-h-[94px] flex-col justify-between rounded-xl border p-4 ${isLight ? "border-[#e2ded5] bg-white" : "border-[#242424] bg-[#101010]"}`}>
+      <p className={`text-[10px] uppercase tracking-[0.18em] ${isLight ? "text-[#6f6658]" : "text-stone-400"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </p>
-      <p className={`mt-2 text-2xl font-bold uppercase ${isLight ? "text-[#111111]" : "text-stone-100"}`} style={{ fontFamily: font.oswald }}>
+      <p className={`mt-3 text-3xl font-bold uppercase leading-none ${isLight ? "text-[#111111]" : "text-stone-100"}`} style={{ fontFamily: font.oswald }}>
         {value}
       </p>
     </div>
@@ -8181,18 +8181,18 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   if (!selectedProfile) {
     return (
-      <div className="space-y-5">
-        <div className="grid gap-3 md:grid-cols-3">
+      <div className="min-w-0 space-y-5">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-3">
           <StatPreview label="Total Workspaces" value={String(profiles.length)} />
           <StatPreview label="Live Profiles" value={String(liveProfiles)} />
           <StatPreview label="Hidden Profiles" value={String(hiddenProfiles)} />
         </div>
 
-        <div className="grid gap-3 rounded-lg border border-[#222222] bg-[#0a0a0a] p-4 md:grid-cols-[minmax(240px,1fr)_220px_auto]">
+        <div className="grid min-w-0 gap-3 rounded-xl border border-[#222222] bg-[#0a0a0a] p-3 sm:p-4 lg:grid-cols-[minmax(280px,1fr)_220px_132px]">
           <label className="block">
             <span className="sr-only">Search missionary workspaces</span>
             <input
-              className="min-h-12 w-full rounded-md border border-[#333333] bg-[#111111] px-3.5 py-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
+              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
               onChange={(event) => setProfileQuery(event.target.value)}
               placeholder="Search workspaces, slugs, states, or mission"
               value={profileQuery}
@@ -8201,7 +8201,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           <label className="block">
             <span className="sr-only">Filter by visibility</span>
             <select
-              className="min-h-12 w-full rounded-md border border-[#333333] bg-[#111111] px-3.5 py-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
               onChange={(event) => setProfileVisibilityFilter(event.target.value)}
               value={profileVisibilityFilter}
             >
@@ -8211,7 +8211,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             </select>
           </label>
           <button
-            className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-5 text-xs uppercase tracking-[0.22em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-stone-700 bg-stone-950/70 px-5 text-xs uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
             disabled={isRefreshing}
             onClick={refreshProfiles}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -8222,42 +8222,46 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         </div>
 
         {profiles.length === 0 ? (
-          <div className="rounded-lg border border-[#222222] bg-[#0a0a0a] p-8 text-stone-300">
+          <div className="rounded-xl border border-[#222222] bg-[#0a0a0a] p-8 text-stone-300">
             No missionary households found yet.
           </div>
+        ) : filteredProfiles.length === 0 ? (
+          <div className="rounded-xl border border-[#222222] bg-[#0a0a0a] p-8 text-sm text-stone-400">
+            No missionary workspaces match these filters.
+          </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-[#222222] bg-[#0f0f0f]">
-            <div className="overflow-x-auto">
-              <table className="min-w-[820px] w-full border-collapse text-left">
+          <>
+            <div className="hidden overflow-hidden rounded-xl border border-[#222222] bg-[#0f0f0f] lg:block">
+              <table className="w-full table-fixed border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-[#222222] text-[10px] uppercase tracking-[0.18em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    <th className="w-[34%] border-r border-[#222222] px-4 py-3 font-bold">Missionary Workspace</th>
-                    <th className="border-r border-[#222222] px-4 py-3 font-bold">Visible</th>
-                    <th className="border-r border-[#222222] px-4 py-3 font-bold">Location</th>
-                    <th className="border-r border-[#222222] px-4 py-3 font-bold">Last Updated</th>
-                    <th className="px-4 py-3 font-bold">Actions</th>
+                  <tr className="border-b border-[#222222] text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <th className="w-[38%] px-4 py-3 font-bold">Missionary Workspace</th>
+                    <th className="w-[13%] px-4 py-3 font-bold">Visible</th>
+                    <th className="w-[20%] px-4 py-3 font-bold">Location</th>
+                    <th className="w-[18%] px-4 py-3 font-bold">Last Updated</th>
+                    <th className="w-[92px] px-4 py-3 text-right font-bold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProfiles.length > 0 ? filteredProfiles.map((profile) => (
+                  {filteredProfiles.map((profile) => (
                     <tr className="border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515]" key={profile.id}>
-                      <td className="border-r border-[#222222] px-4 py-4">
-                        <p className="font-medium text-stone-100">{profile.display_name}</p>
+                      <td className="px-4 py-4">
+                        <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
                       </td>
-                      <td className="border-r border-[#222222] px-4 py-4">
+                      <td className="px-4 py-4">
                         <ProfileVisibilityBadge profile={profile} />
                       </td>
-                      <td className="border-r border-[#222222] px-4 py-4 text-sm text-stone-300">
+                      <td className="px-4 py-4 text-sm text-stone-300">
                         {getProfileLocationVisibility(profile) === "hidden"
                           ? "Undisclosed"
                           : getProfilePrimaryState(profile) || "Not set"}
                       </td>
-                      <td className="border-r border-[#222222] px-4 py-4 text-sm text-stone-300">
+                      <td className="px-4 py-4 text-sm text-stone-300">
                         {formatProfileUpdatedDate(profile.updated_at)}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 text-right">
                         <button
-                          className="inline-flex min-h-8 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                          className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
                           onClick={() => openProfile(profile.id)}
                           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                           type="button"
@@ -8266,17 +8270,44 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         </button>
                       </td>
                     </tr>
-                  )) : (
-                    <tr>
-                      <td className="px-4 py-8 text-sm text-stone-400" colSpan={5}>
-                        No missionary workspaces match these filters.
-                      </td>
-                    </tr>
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
-          </div>
+            <div className="grid min-w-0 gap-3 lg:hidden">
+              {filteredProfiles.map((profile) => (
+                <article className="min-w-0 rounded-xl border border-[#222222] bg-[#0f0f0f] p-4" key={profile.id}>
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
+                      <p className="mt-1 text-sm text-stone-400">
+                        {getProfileLocationVisibility(profile) === "hidden"
+                          ? "Undisclosed"
+                          : getProfilePrimaryState(profile) || "Not set"}
+                      </p>
+                    </div>
+                    <ProfileVisibilityBadge profile={profile} />
+                  </div>
+                  <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-[#222222] pt-3">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Last Updated
+                      </p>
+                      <p className="mt-1 text-sm text-stone-300">{formatProfileUpdatedDate(profile.updated_at)}</p>
+                    </div>
+                    <button
+                      className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      onClick={() => openProfile(profile.id)}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
         )}
       </div>
     );
