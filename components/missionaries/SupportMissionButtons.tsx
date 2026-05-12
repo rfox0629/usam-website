@@ -39,15 +39,15 @@ function secondaryButtonClassName() {
 }
 
 function compactPrimaryButtonClassName() {
-  return "inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-4 py-3 text-center text-[11px] uppercase leading-5 tracking-[0.22em] text-black transition-all duration-300 hover:bg-[#F5B942]";
+  return "inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-3 py-2.5 text-center text-[10px] uppercase leading-5 tracking-[0.18em] text-black transition-all duration-300 hover:bg-[#F5B942]";
 }
 
 function compactSecondaryButtonClassName() {
-  return "inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#D4A63D]/35 bg-black/25 px-4 py-3 text-center text-[11px] uppercase leading-5 tracking-[0.22em] text-[#F5B942] transition-all duration-300 hover:border-[#D4A63D] hover:bg-[#D4A63D]/10";
+  return "inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#D4A63D]/35 bg-black/25 px-3 py-2.5 text-center text-[10px] uppercase leading-5 tracking-[0.18em] text-[#F5B942] transition-all duration-300 hover:border-[#D4A63D] hover:bg-[#D4A63D]/10";
 }
 
 function compactTertiaryButtonClassName() {
-  return "inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-white/[0.14] bg-white/[0.03] px-4 py-2 text-center text-[10px] uppercase leading-5 tracking-[0.2em] text-stone-300 transition-all duration-300 hover:border-[#D4A63D]/50 hover:text-[#F5B942]";
+  return "inline-flex min-h-9 w-full items-center justify-center rounded-lg border border-white/[0.14] bg-white/[0.03] px-3 py-2 text-center text-[9px] uppercase leading-5 tracking-[0.17em] text-stone-300 transition-all duration-300 hover:border-[#D4A63D]/50 hover:text-[#F5B942]";
 }
 
 function useSupportModal() {
@@ -183,7 +183,7 @@ export function ProfileSupportSectionActions(props: SharedSupportProps & { layou
 
   return (
     <>
-      <div className={isCompact ? "mt-5 grid gap-2" : "mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap"}>
+      <div className={isCompact ? "mt-4 grid gap-2" : "mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap"}>
         <button
           className={isCompact ? compactPrimaryButtonClassName() : primaryButtonClassName()}
           onClick={() => openModal("monthly")}

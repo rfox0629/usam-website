@@ -184,40 +184,40 @@ function HeroSupportCard({
   return (
     <aside
       id="support"
-      className="w-full rounded-[1.5rem] border border-[#D4A63D]/28 bg-black/70 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.38)] backdrop-blur-xl md:p-6"
+      className="w-full rounded-[1.25rem] border border-[#D4A63D]/26 bg-black/72 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl md:p-5"
     >
       <div className="flex items-center justify-between gap-4">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Support
         </p>
         {hasGoal ? (
-          <span className="rounded-full border border-[#D4A63D]/35 bg-[#D4A63D]/10 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <span className="rounded-full border border-[#D4A63D]/35 bg-[#D4A63D]/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {progressPercentage}% funded
           </span>
         ) : null}
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-3">
+          <p className="text-[9px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Raised
           </p>
-          <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+          <p className="mt-2 text-2xl font-bold leading-none text-stone-100 md:text-[1.7rem]" style={{ fontFamily: font.oswald }}>
             {formatMoney(monthlyCommitted)}
           </p>
         </div>
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-3">
+          <p className="text-[9px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Monthly Goal
           </p>
-          <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+          <p className="mt-2 text-2xl font-bold leading-none text-stone-100 md:text-[1.7rem]" style={{ fontFamily: font.oswald }}>
             {hasGoal ? formatMoney(monthlyGoal) : "Open"}
           </p>
         </div>
       </div>
 
       {hasGoal ? (
-        <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-white/[0.1]">
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.1]">
           <div
             className={`h-full rounded-full transition-all ${getProgressFillClass(progressPercentage)}`}
             style={{ width: `${visualProgressPercentage}%` }}
@@ -225,8 +225,8 @@ function HeroSupportCard({
         </div>
       ) : null}
 
-      <p className="mt-5 text-sm leading-6 text-stone-300">
-        Partner with this household through secure giving.
+      <p className="mt-4 text-sm leading-6 text-stone-300">
+        Secure giving for this household.
       </p>
 
       {actions}
@@ -248,23 +248,23 @@ function MissionProfileCard({
   title: string;
 }) {
   return (
-    <article className="group flex min-h-[260px] flex-col rounded-[1.5rem] border border-stone-800/80 bg-[#080808] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.22)] transition-all duration-300 hover:border-[#D4A63D]/45 hover:bg-[#0d0d0d] md:p-6">
+    <article className="group flex min-h-[210px] flex-col rounded-[1.25rem] border border-stone-800/80 bg-[#080808] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.2)] transition-all duration-300 hover:border-[#D4A63D]/45 hover:bg-[#0d0d0d] md:p-5">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4A63D]/25 bg-[#D4A63D]/10 text-[#F5B942]">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#D4A63D]/25 bg-[#D4A63D]/10 text-[#F5B942]">
           {icon}
         </div>
-        <span className="rounded-full border border-white/[0.1] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <span className="rounded-full border border-white/[0.1] px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {label}
         </span>
       </div>
-      <h2 className="mt-5 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+      <h2 className="mt-4 text-2xl font-bold uppercase leading-none text-stone-100 md:text-3xl" style={{ fontFamily: font.oswald }}>
         {title}
       </h2>
-      <div className="mt-4 flex-1 text-sm leading-7 text-stone-300">
+      <div className="mt-3 flex-1 text-sm leading-6 text-stone-300">
         {children}
       </div>
       {action ? (
-        <div className="mt-5">
+        <div className="mt-4">
           {action}
         </div>
       ) : null}
@@ -286,7 +286,7 @@ function StoryProfileCard({
       label="Story"
       title="Our Story"
     >
-      <p className="max-h-[7.6rem] overflow-hidden">
+      <p className="max-h-[6.2rem] overflow-hidden">
         {storyPreview}
       </p>
     </MissionProfileCard>
@@ -309,21 +309,21 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
       <div className="grid gap-2">
         {visibleMembers.map((member) => (
           <div
-            className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3"
+            className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-2.5"
             key={`${member.publicNumber ?? "member"}-${member.displayName}`}
           >
             <div className="flex items-start justify-between gap-3">
-              <h3 className="text-lg font-bold leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
+              <h3 className="text-base font-bold leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
                 {member.displayName}
               </h3>
               {member.publicNumber ? (
-                <span className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span className="text-[9px] uppercase tracking-[0.14em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   {member.publicNumber}
                 </span>
               ) : null}
             </div>
             {member.roleTitle ? (
-              <p className="mt-1 text-sm text-stone-400">
+              <p className="mt-1 text-xs text-stone-400">
                 {member.roleTitle}
               </p>
             ) : null}
@@ -375,7 +375,7 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
       label={previewRequest ? "Current" : "Prayer"}
       title={missionary.prayerSettings?.headline || "Prayer"}
     >
-      <p className="max-h-[7.6rem] overflow-hidden">
+      <p className="max-h-[6.2rem] overflow-hidden">
         {previewText}
       </p>
     </MissionProfileCard>
@@ -396,9 +396,9 @@ function FruitSection({
   const topFruitItems = getTopFruitItems(fruitItems);
 
   return (
-    <section className="border-t border-stone-900/80 px-6 py-10 md:py-12">
+    <section className="border-t border-stone-900/80 px-6 py-8 md:py-10">
       <div className="mx-auto max-w-6xl">
-        <div className="rounded-[1.5rem] border border-stone-800/80 bg-[#080808] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-6">
+        <div className="rounded-[1.25rem] border border-stone-800/80 bg-[#080808] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.2)] md:p-5">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -420,9 +420,9 @@ function FruitSection({
           </div>
 
           {topFruitItems.length > 0 ? (
-            <div className="mt-6 grid gap-3 lg:grid-cols-3">
+            <div className="mt-5 grid gap-3 lg:grid-cols-3">
               {topFruitItems.map((item) => (
-                <article key={item.id} className="rounded-2xl border border-stone-800/70 bg-[#050505] p-4">
+                <article key={item.id} className="rounded-xl border border-stone-800/70 bg-[#050505] p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       {formatPrayerDate(item.testimonyDate ?? item.createdAt)}
@@ -453,7 +453,7 @@ function FruitSection({
               ))}
             </div>
           ) : (
-            <div className="mt-6 rounded-2xl border border-stone-800/70 bg-[#050505] p-4 text-sm text-stone-400">
+            <div className="mt-5 rounded-xl border border-stone-800/70 bg-[#050505] p-4 text-sm text-stone-400">
               Approved field updates will appear here.
             </div>
           )}
@@ -487,14 +487,14 @@ function MissionProfileSection({
   }
 
   return (
-    <section className="border-t border-stone-900/80 px-6 py-10 md:py-12">
+    <section className="border-t border-stone-900/80 px-6 py-8 md:py-10">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex items-end justify-between gap-4">
+        <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Mission Profile
             </p>
-            <h2 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
+            <h2 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-[2.5rem]" style={{ fontFamily: font.oswald }}>
               Connect With The Mission
             </h2>
           </div>
@@ -514,6 +514,19 @@ function MissionProfileSection({
         </div>
       </div>
     </section>
+  );
+}
+
+function ProfileFooter({ missionary }: { missionary: Missionary }) {
+  return (
+    <footer className="border-t border-stone-900/80 px-6 py-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 text-sm text-stone-500 sm:flex-row sm:items-center sm:justify-between">
+        <p className="uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          USA Missionaries
+        </p>
+        <p>{missionary.name}</p>
+      </div>
+    </footer>
   );
 }
 
@@ -623,6 +636,8 @@ export function MissionaryProfileTemplate({
       {showFruit ? (
         <FruitSection fruitItems={fruitItems} initialReviewOpen={shouldPreviewProfileReview} missionary={missionary} />
       ) : null}
+
+      <ProfileFooter missionary={missionary} />
     </main>
   );
 }
