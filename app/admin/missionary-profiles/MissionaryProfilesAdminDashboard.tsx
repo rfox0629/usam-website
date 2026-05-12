@@ -1738,12 +1738,14 @@ function MissionaryCutoutGenerationModal({
 
 function TextArea({
   helperText,
+  hideLabel = false,
   label,
   onChange,
   rows = 4,
   value,
 }: {
   helperText?: string;
+  hideLabel?: boolean;
   label: string;
   onChange: (value: string) => void;
   rows?: number;
@@ -1751,7 +1753,7 @@ function TextArea({
 }) {
   return (
     <label className="block">
-      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <span className={hideLabel ? "sr-only" : lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
       <textarea
@@ -7981,7 +7983,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     if (!originalStory) {
       setStoryRefinementState({
-        message: "Add an Internal Intake Story before generating a public draft.",
+        message: "Add an Internal Story before generating a public draft.",
         status: "error",
       });
       return;
@@ -8347,13 +8349,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         }
         : hasInternalIntakeStory
           ? {
-            label: "Public Version Needed",
-            message: "Internal Intake Story has been received. Create a Public Story before this section can render publicly.",
+            label: "Public Story Needed",
+            message: "Internal Story has been received. Create a Public Story before this section can render publicly.",
             status: "waiting" as const,
           }
         : {
           label: "Missing Content",
-          message: "Add an Internal Intake Story, then create the Public Story for publishing.",
+          message: "Add an Internal Story, then create the Public Story for publishing.",
           status: "missing" as const,
         };
   const fruitStatus = getFeaturePublicStatus({
@@ -8915,30 +8917,31 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "story" ? (
           <SectionIntro
-            description="Updates Profile. Missionaries first submit an internal intake story. A refined public version is then created for the public missionary profile."
+            description="Profile story"
             title="Story"
           >
-            <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
-              Missionaries first submit an internal intake story. A refined public version is then created for the public missionary profile.
-              <DataFlowLabels items={["Internal Intake Story: private", "Public Story: profile-ready", "Only Public Story can publish"]} />
+            <div className="flex flex-wrap gap-2 rounded-xl border border-[#e2ded5] bg-white px-4 py-3">
+              {["Internal story is private", "Public story can publish"].map((item) => (
+                <span
+                  className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]"
+                  key={item}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                >
+                  {item}
+                </span>
+              ))}
             </div>
-            <div className="mt-5 grid gap-5 lg:grid-cols-2">
-              <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-[#e2ded5] bg-white p-4 md:p-5">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Private Working Copy
-                  </p>
-                  <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                    Internal Intake Story
+                  <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                    Internal Story
                   </h3>
-                  <p className="mt-2 text-sm leading-6 text-[#6f6658]">
-                    Private/internal submitted story used as the source material for the public version.
-                  </p>
                 </div>
-                <div className="mt-4">
+                <div className="mt-3">
                   <TextArea
-                    helperText="Private/internal submitted story used as the source material for the public version. This does not appear publicly."
-                    label="Internal Intake Story"
+                    hideLabel
+                    label="Internal Story"
                     onChange={(value) => updateHouseholdField("original_story", value)}
                     rows={14}
                     value={selectedProfile.original_story}
@@ -8946,35 +8949,26 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="rounded-xl border border-[#e2ded5] bg-white p-4 md:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Public Version
-                    </p>
-                    <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                    <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
                       Public Story
                     </h3>
-                    <p className="mt-2 text-sm leading-6 text-[#6f6658]">
-                      This version appears publicly on the missionary profile.
-                    </p>
                   </div>
                   <button
-                    className={lightPrimaryButtonClass}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:bg-[#d7d2c8] disabled:text-[#8a8174]"
                     disabled={storyRefinementState.status === "refining"}
                     onClick={refineStoryWithAI}
                     style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                     type="button"
                   >
-                    {storyRefinementState.status === "refining" ? "Generating" : "Generate Public Story Draft"}
+                    {storyRefinementState.status === "refining" ? "Generating" : "Generate Draft"}
                   </button>
                 </div>
-                <p className="mt-3 text-xs leading-5 text-[#7b746a]">
-                  Creates a public-facing draft from the intake story.
-                </p>
 
                 {storyRefinementState.message ? (
-                  <p className={`mt-4 rounded-xl border p-3 text-sm leading-6 ${
+                  <p className={`mt-3 rounded-xl border p-3 text-sm leading-6 ${
                     storyRefinementState.status === "error"
                       ? "border-red-200 bg-red-50 text-red-700"
                       : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658]"
@@ -8983,9 +8977,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   </p>
                 ) : null}
 
-                <div className="mt-4">
+                <div className="mt-3">
                   <TextArea
-                    helperText="This version appears publicly on the missionary profile. Separate paragraphs with a blank line."
+                    hideLabel
                     label="Public Story"
                     onChange={updateRefinedStory}
                     rows={14}

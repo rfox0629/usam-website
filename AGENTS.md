@@ -544,6 +544,10 @@ Operational density standards:
 - Upload interfaces should feel lightweight, modern, and calm.
 - Avoid explaining standard UI behavior.
 - Keep operational screens visually fast.
+- Avoid repeating the same information in banners, cards, labels, and footnotes.
+- If a title already communicates intent, do not restate it underneath.
+- Operational editing screens should prioritize clarity through hierarchy, not paragraphs.
+- Default to minimal instructional copy.
 
 Mobile-first requirements:
 - Every admin/workspace surface must remain usable on mobile.
