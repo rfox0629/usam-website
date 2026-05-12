@@ -856,13 +856,13 @@ const primaryNavGroups: Array<{
   tabs: Array<{ id?: string; label: string; value: EditorTab }>;
 }> = [
   {
-    helper: "Metrics, recent activity, pending actions, and quick actions.",
+    helper: "Activity",
     key: "dashboard",
     label: "Dashboard",
     tabs: [],
   },
   {
-    helper: "Approved public-facing content management.",
+    helper: "Public page",
     key: "publishing",
     label: "Publishing",
     tabs: [
@@ -876,7 +876,7 @@ const primaryNavGroups: Array<{
     ],
   },
   {
-    helper: "Operational activity and discipleship workflows.",
+    helper: "Discipleship",
     key: "field",
     label: "Field",
     tabs: [
@@ -888,7 +888,7 @@ const primaryNavGroups: Array<{
     ],
   },
   {
-    helper: "Teaching, planning, and seasonal focus tools.",
+    helper: "Library",
     key: "resources",
     label: "Resources",
     tabs: [
@@ -8494,21 +8494,18 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </p>
         ) : null}
 
-        <div className="mt-8 border-b border-stone-800/80 pb-6">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Current section: {activePrimaryGroup.label}
-          </p>
-          <div className="mt-4 grid gap-4 md:grid-cols-4" role="tablist" aria-label="Workspace primary sections">
+        <div className="mt-8 border-b border-stone-800/80 pb-5">
+          <div className="grid gap-3 md:grid-cols-4" role="tablist" aria-label="Workspace primary sections">
             {visiblePrimaryNavGroups.map((group) => {
               const selected = activePrimaryNav === group.key;
 
               return (
                 <button
                   aria-selected={selected}
-                  className={`min-h-24 rounded-xl border px-5 py-4 text-left transition-colors ${
+                  className={`h-full min-h-20 rounded-xl border px-4 py-3 text-left transition-colors ${
                     selected
-                      ? "border-[#D4A63D] bg-[#D4A63D] text-black shadow-[0_16px_38px_rgba(212,166,61,0.16)]"
-                      : "border-stone-700 bg-stone-900/70 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                      : "border-stone-800 bg-[#0b0b0b] text-stone-200 hover:border-stone-600 hover:bg-stone-900 hover:text-stone-100"
                   }`}
                   key={group.key}
                   onClick={() => {
@@ -8521,10 +8518,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
                 >
-                  <span className="block text-[11px] uppercase tracking-[0.2em]">
+                  <span className="block text-[11px] uppercase tracking-[0.17em]">
                     {group.label}
                   </span>
-                  <span className={`mt-2 block text-xs normal-case leading-5 tracking-normal ${selected ? "text-black/70" : "text-stone-400"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
+                  <span className={`mt-1.5 block text-xs normal-case leading-5 tracking-normal ${selected ? "text-black/70" : "text-stone-500"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
                     {group.helper}
                   </span>
                 </button>
