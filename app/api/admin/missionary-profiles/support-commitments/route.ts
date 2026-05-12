@@ -48,6 +48,14 @@ function commitmentAmount(commitment: { other_amount: number | string | null; se
   return Number.isFinite(amount) ? amount : 0;
 }
 
+function missionaryNetSupportAmount(amount: number) {
+  return Math.round(amount * 0.9 * 100) / 100;
+}
+
+function generalFundReserveAmount(amount: number) {
+  return Math.round(amount * 0.1 * 100) / 100;
+}
+
 async function recalculateActiveMonthlyCommitted(householdId: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
@@ -61,7 +69,18 @@ async function recalculateActiveMonthlyCommitted(householdId: string) {
     throw new Error(error.message);
   }
 
-  const monthlyCommitted = (data ?? []).reduce((total, commitment) => total + commitmentAmount(commitment), 0);
+  const activeMonthlySupport = (data ?? []).reduce(
+    (totals, commitment) => {
+      const grossAmount = commitmentAmount(commitment);
+
+      return {
+        generalFundReserve: totals.generalFundReserve + generalFundReserveAmount(grossAmount),
+        missionaryNetSupport: totals.missionaryNetSupport + missionaryNetSupportAmount(grossAmount),
+      };
+    },
+    { generalFundReserve: 0, missionaryNetSupport: 0 },
+  );
+  const monthlyCommitted = activeMonthlySupport.missionaryNetSupport;
   const { error: updateError } = await supabase
     .from("missionary_support_settings")
     .update({

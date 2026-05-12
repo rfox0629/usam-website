@@ -5527,12 +5527,10 @@ function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
 function FundraisingProgressControls({
   monthlyGoal,
   onAnnualGoalChange,
-  onMonthlyCommittedChange,
   support,
 }: {
   monthlyGoal: number;
   onAnnualGoalChange: (value: number) => void;
-  onMonthlyCommittedChange: (value: number) => void;
   support: AdminSupportSettings;
 }) {
   const monthlyCommitted = toNumber(support.monthly_committed);
@@ -5558,9 +5556,9 @@ function FundraisingProgressControls({
           value={monthlyGoal}
         />
         <CurrencyField
-          helperText="Current monthly support already committed."
+          helperText="Confirmed through admin reconciliation or giving system sync."
           label="Monthly Committed"
-          onChange={onMonthlyCommittedChange}
+          readOnly
           value={support.monthly_committed}
         />
       </div>
@@ -5595,13 +5593,6 @@ function FundraisingProgressControls({
   );
 }
 
-const supportCommitmentActions: Array<{ label: string; status: AdminSupportCommitmentStatus }> = [
-  { label: "Mark Active", status: "active" },
-  { label: "Mark Incomplete", status: "incomplete" },
-  { label: "Needs Follow Up", status: "needs_follow_up" },
-  { label: "Cancel", status: "cancelled" },
-];
-
 function supportCommitmentStatusLabel(status: AdminSupportCommitmentStatus | string) {
   switch (status) {
     case "active":
@@ -5617,13 +5608,6 @@ function supportCommitmentStatusLabel(status: AdminSupportCommitmentStatus | str
       return "Pending Giving Setup";
   }
 }
-
-const majorGiftInquiryActions: Array<{ label: string; status: AdminMajorGiftInquiryStatus }> = [
-  { label: "Needs Follow Up", status: "needs_follow_up" },
-  { label: "Mark Contacted", status: "contacted" },
-  { label: "Close", status: "closed" },
-  { label: "Archive", status: "archived" },
-];
 
 function majorGiftInquiryStatusLabel(status: AdminMajorGiftInquiryStatus | string) {
   switch (status) {
@@ -5695,13 +5679,11 @@ function SupportOverview({
   commitments,
   monthlyGoal,
   onAnnualGoalChange,
-  onMonthlyCommittedChange,
   support,
 }: {
   commitments: readonly AdminSupportCommitment[];
   monthlyGoal: number;
   onAnnualGoalChange: (value: number) => void;
-  onMonthlyCommittedChange: (value: number) => void;
   support: AdminSupportSettings;
 }) {
   const monthlyCommitted = toNumber(support.monthly_committed);
@@ -5769,9 +5751,9 @@ function SupportOverview({
             value={monthlyGoal}
           />
           <CurrencyField
-            helperText="Confirmed active monthly support."
+            helperText="Confirmed through admin reconciliation or giving system sync."
             label="Monthly Committed"
-            onChange={onMonthlyCommittedChange}
+            readOnly
             value={support.monthly_committed}
           />
         </div>
@@ -5862,17 +5844,9 @@ function SupportShareTools({
 function SupportCommitmentsManager({
   commitments,
   majorGiftInquiries,
-  isUpdating,
-  isUpdatingMajorGift,
-  onUpdateMajorGiftStatus,
-  onUpdateStatus,
 }: {
   commitments: readonly AdminSupportCommitment[];
   majorGiftInquiries: readonly AdminMajorGiftInquiry[];
-  isUpdating: boolean;
-  isUpdatingMajorGift: boolean;
-  onUpdateMajorGiftStatus: (inquiryId: string, status: AdminMajorGiftInquiryStatus) => void;
-  onUpdateStatus: (commitmentId: string, status: AdminSupportCommitmentStatus) => void;
 }) {
   const sortedCommitments = [...commitments].sort((a, b) => {
     const aTime = new Date(a.submitted_at ?? a.created_at).getTime();
@@ -5895,13 +5869,13 @@ function SupportCommitmentsManager({
           Support Interest & Commitments
         </p>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-          Public forms record donor intent first. Donors continue directly to the secure giving page; only Active confirmed monthly commitments are reconciled into public support progress.
+          Public forms record donor intent first. Donors continue to the secure giving page; confirmed giving status is reconciled through admin or giving system workflows.
         </p>
       </div>
 
       {sortedCommitments.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-[#e2ded5] bg-white">
-          <table className="min-w-[920px] w-full border-collapse text-left text-sm">
+          <table className="min-w-[820px] w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-[#e2ded5] bg-[#fbfaf7] text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 <th className="px-4 py-3">Donor</th>
@@ -5910,7 +5884,6 @@ function SupportCommitmentsManager({
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Submitted</th>
                 <th className="px-4 py-3">Allocation</th>
-                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -5942,22 +5915,6 @@ function SupportCommitmentsManager({
                   <td className="px-4 py-3 align-top text-[#4b443b]">
                     {commitment.allocation_preference || "Not specified"}
                   </td>
-                  <td className="px-4 py-3 align-top">
-                    <div className="flex flex-wrap gap-2">
-                      {supportCommitmentActions.map((action) => (
-                        <button
-                          className="rounded-md border border-[#d7d2c8] bg-white px-2.5 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#4b443b] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00] disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={isUpdating || commitment.status === action.status}
-                          key={action.status}
-                          onClick={() => onUpdateStatus(commitment.id, action.status)}
-                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                          type="button"
-                        >
-                          {action.label}
-                        </button>
-                      ))}
-                    </div>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -5982,7 +5939,7 @@ function SupportCommitmentsManager({
 
         {sortedMajorGiftInquiries.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-[#e2ded5] bg-white">
-            <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+            <table className="min-w-[860px] w-full border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e2ded5] bg-[#fbfaf7] text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   <th className="px-4 py-3">Donor</th>
@@ -5991,7 +5948,6 @@ function SupportCommitmentsManager({
                   <th className="px-4 py-3">Intended For</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -6022,22 +5978,6 @@ function SupportCommitmentsManager({
                     </td>
                     <td className="px-4 py-3 align-top text-[#4b443b]">
                       {formatProfileUpdatedDate(inquiry.created_at)}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex flex-wrap gap-2">
-                        {majorGiftInquiryActions.map((action) => (
-                          <button
-                            className="rounded-md border border-[#d7d2c8] bg-white px-2.5 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#4b443b] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00] disabled:cursor-not-allowed disabled:opacity-50"
-                            disabled={isUpdatingMajorGift || inquiry.status === action.status}
-                            key={action.status}
-                            onClick={() => onUpdateMajorGiftStatus(inquiry.id, action.status)}
-                            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                            type="button"
-                          >
-                            {action.label}
-                          </button>
-                        ))}
-                      </div>
                     </td>
                   </tr>
                 ))}
@@ -6584,8 +6524,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
   const [saving, setSaving] = useState(false);
-  const [updatingMajorGiftInquiry, setUpdatingMajorGiftInquiry] = useState(false);
-  const [updatingSupportCommitment, setUpdatingSupportCommitment] = useState(false);
   const [uploadStates, setUploadStates] = useState<Record<MissionaryImageSlot, UploadState>>({
     directory: { status: "idle" },
     hero: { status: "idle" },
@@ -7091,128 +7029,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         [field]: numericFields.includes(field) ? Number(value) : value,
       },
     });
-  }
-
-  async function updateSupportCommitmentStatus(commitmentId: string, nextStatus: AdminSupportCommitmentStatus) {
-    if (!selectedProfile) {
-      return;
-    }
-
-    setUpdatingSupportCommitment(true);
-    setStatus(null);
-
-    try {
-      const response = await fetch("/api/admin/missionary-profiles/support-commitments", {
-        body: JSON.stringify({
-          commitmentId,
-          householdId: selectedProfile.id,
-          status: nextStatus,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "PATCH",
-      });
-      const result = await response.json().catch(() => ({})) as {
-        error?: string;
-        monthlyCommitted?: number;
-      };
-
-      if (!response.ok) {
-        throw new Error(result.error || "Support commitment could not be updated.");
-      }
-
-      const nextCommitments = (selectedProfile.supportCommitments ?? []).map((commitment) => (
-        commitment.id === commitmentId
-          ? {
-            ...commitment,
-            completed_at: nextStatus === "active" ? new Date().toISOString() : null,
-            status: nextStatus,
-            updated_at: new Date().toISOString(),
-          }
-          : commitment
-      ));
-      const currentSupport = selectedProfile.support ?? emptySupport(selectedProfile.id);
-      const monthlyCommitted = typeof result.monthlyCommitted === "number"
-        ? result.monthlyCommitted
-        : currentSupport.monthly_committed;
-
-      updateSelected({
-        ...selectedProfile,
-        support: {
-          ...currentSupport,
-          monthly_committed: monthlyCommitted,
-        },
-        supportCommitments: nextCommitments,
-      });
-      setStatus({
-        text: `Support commitment marked ${supportCommitmentStatusLabel(nextStatus)}. Active monthly commitments now drive the public support progress total.`,
-        tone: "success",
-      });
-      router.refresh();
-    } catch (error) {
-      setStatus({
-        text: error instanceof Error ? error.message : "Support commitment could not be updated.",
-        tone: "error",
-      });
-    } finally {
-      setUpdatingSupportCommitment(false);
-    }
-  }
-
-  async function updateMajorGiftInquiryStatus(inquiryId: string, nextStatus: AdminMajorGiftInquiryStatus) {
-    if (!selectedProfile) {
-      return;
-    }
-
-    setUpdatingMajorGiftInquiry(true);
-    setStatus(null);
-
-    try {
-      const response = await fetch("/api/admin/missionary-profiles/major-gift-inquiries", {
-        body: JSON.stringify({
-          householdId: selectedProfile.id,
-          inquiryId,
-          status: nextStatus,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "PATCH",
-      });
-      const result = await response.json().catch(() => ({})) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(result.error || "Major gift inquiry could not be updated.");
-      }
-
-      const nextInquiries = (selectedProfile.majorGiftInquiries ?? []).map((inquiry) => (
-        inquiry.id === inquiryId
-          ? {
-            ...inquiry,
-            status: nextStatus,
-            updated_at: new Date().toISOString(),
-          }
-          : inquiry
-      ));
-
-      updateSelected({
-        ...selectedProfile,
-        majorGiftInquiries: nextInquiries,
-      });
-      setStatus({
-        text: `Major gift inquiry marked ${majorGiftInquiryStatusLabel(nextStatus)}.`,
-        tone: "success",
-      });
-      router.refresh();
-    } catch (error) {
-      setStatus({
-        text: error instanceof Error ? error.message : "Major gift inquiry could not be updated.",
-        tone: "error",
-      });
-    } finally {
-      setUpdatingMajorGiftInquiry(false);
-    }
   }
 
   function createMissionaryTable(draft: TableDraft) {
@@ -9020,7 +8836,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   commitments={selectedProfile.supportCommitments ?? []}
                   monthlyGoal={calculatedMonthlyGoal}
                   onAnnualGoalChange={updateAnnualGoal}
-                  onMonthlyCommittedChange={(value) => updateSupportField("monthly_committed", Math.max(0, toNumber(value)))}
                   support={support}
                 />
               ) : null}
@@ -9100,10 +8915,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 <SupportCommitmentsManager
                   commitments={selectedProfile.supportCommitments ?? []}
                   majorGiftInquiries={selectedProfile.majorGiftInquiries ?? []}
-                  isUpdatingMajorGift={updatingMajorGiftInquiry}
-                  isUpdating={updatingSupportCommitment}
-                  onUpdateMajorGiftStatus={updateMajorGiftInquiryStatus}
-                  onUpdateStatus={updateSupportCommitmentStatus}
                 />
               ) : null}
 
