@@ -12,6 +12,7 @@ import {
   validateMissionaryImageFile,
   type MissionaryImageSlot,
 } from "@/src/lib/missionaries/profile-image-upload";
+import { getDosGuideResourceByTitle } from "@/src/lib/dos/guide-resources";
 import {
   normalizeSupportRoutingMode,
   type SupportRoutingMode,
@@ -5327,24 +5328,41 @@ function LibraryManager({
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {items.length > 0 ? items.map((item) => (
-          <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={item.id}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-[#111111]">{item.title}</p>
-                <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  {item.category || "Uncategorized"}
-                </p>
+        {items.length > 0 ? items.map((item) => {
+          const guideResource = getDosGuideResourceByTitle(item.title);
+
+          return (
+            <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={item.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-[#111111]">{item.title}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {item.category || "Uncategorized"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {guideResource ? (
+                    <a
+                      className="inline-flex min-h-9 items-center justify-center rounded-md border border-[#e2ded5] bg-[#fbfaf7] px-3 text-[10px] uppercase tracking-[0.16em] text-[#8a5a00] transition-colors hover:border-[#c8952d] hover:text-[#111111]"
+                      href={guideResource.href}
+                      rel="noopener noreferrer"
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      target="_blank"
+                    >
+                      Open Guide
+                    </a>
+                  ) : null}
+                  <button className={lightSecondaryButtonClass} onClick={() => setEditingItem(item)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                    Edit
+                  </button>
+                </div>
               </div>
-              <button className={lightSecondaryButtonClass} onClick={() => setEditingItem(item)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                Edit
-              </button>
+              <p className="mt-3 text-sm leading-6 text-[#4b443b]">
+                {item.description || "No description added."}
+              </p>
             </div>
-            <p className="mt-3 text-sm leading-6 text-[#4b443b]">
-              {item.description || "No description added."}
-            </p>
-          </div>
-        )) : (
+          );
+        }) : (
           <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
             No library items yet.
           </p>

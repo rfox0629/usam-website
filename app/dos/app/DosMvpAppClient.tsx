@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppPerson } from "@/src/lib/dos/missionary-app";
+import { dosGuideResources } from "@/src/lib/dos/guide-resources";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
@@ -866,6 +867,30 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             {activeTab === "more" ? (
               <div>
               <SectionHeading title="More" />
+              <div className="mb-5">
+                <SectionHeading title="Library" />
+                <div className="grid gap-3">
+                  {dosGuideResources.map((guide) => (
+                    <article className="rounded-2xl border border-[#E2DED6] bg-white p-4" key={guide.href}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-[#1E1D1A]">{guide.title}</p>
+                          <p className="mt-1 text-xs leading-5 text-[#77716A]">{guide.description}</p>
+                        </div>
+                        <a
+                          className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E8] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12] transition-colors hover:border-[#D4A63D] hover:bg-[#F4E3C8]"
+                          href={guide.href}
+                          rel="noopener noreferrer"
+                          style={{ fontFamily: font.rajdhani }}
+                          target="_blank"
+                        >
+                          Open Guide
+                        </a>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
               <div className="grid gap-3">
                 {futureTools.map((tool) => (
                   <div className="flex min-h-14 items-center justify-between rounded-2xl border border-[#E2DED6] bg-white px-4" key={tool}>
