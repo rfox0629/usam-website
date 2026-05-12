@@ -8417,8 +8417,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const visiblePrimaryNavGroups = primaryNavGroups.filter((group) => publishingEnabled || group.key !== "publishing");
   const activePrimaryGroup = visiblePrimaryNavGroups.find((group) => group.key === activePrimaryNav) ?? visiblePrimaryNavGroups[0] ?? primaryNavGroups[0];
   return (
-    <div className="space-y-6">
-      <section className="bg-stone-950/35 p-5 pb-24 md:p-7 md:pb-24">
+    <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
+      <section className="min-w-0 max-w-full overflow-x-hidden bg-stone-950/35 p-4 pb-24 sm:p-5 md:p-7 md:pb-24">
         <div className="border-b border-stone-800/80 pb-7">
           <div className="mb-5">
             <button
@@ -8431,38 +8431,38 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             </button>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(520px,0.95fr)] lg:items-center">
-            <div>
-              <h2 className="text-4xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
+          <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] xl:items-center">
+            <div className="min-w-0">
+              <h2 className="max-w-full break-words text-4xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
                 {selectedProfile.display_name}
               </h2>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <Link
                 aria-label="Open mobile Field App for this workspace"
-                className="flex min-h-20 rounded-xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_10px_24px_rgba(212,166,61,0.12)] transition-colors hover:bg-[#e7b742]"
+                className="flex min-h-20 min-w-0 rounded-xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_10px_24px_rgba(212,166,61,0.12)] transition-colors hover:bg-[#e7b742]"
                 href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
                 rel="noopener noreferrer"
                 target="_blank"
                 title="Open mobile Field App for this workspace"
               >
-                <div className="flex items-start gap-2.5">
+                <div className="flex min-w-0 items-start gap-2.5">
                   <Smartphone className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open DOS</p>
                     <p className="mt-1 text-xs leading-5 text-black/70">Field app</p>
                   </div>
                 </div>
               </Link>
               <Link
-                className="flex min-h-20 rounded-xl border border-[#D4A63D]/45 bg-[#101010] p-3.5 text-stone-100 transition-colors hover:border-[#D4A63D]/70 hover:text-[#F5B942]"
+                className="flex min-h-20 min-w-0 rounded-xl border border-[#D4A63D]/45 bg-[#101010] p-3.5 text-stone-100 transition-colors hover:border-[#D4A63D]/70 hover:text-[#F5B942]"
                 href={`/missionaries/${selectedProfile.slug}`}
                 target="_blank"
               >
-                <div className="flex items-start gap-2.5">
+                <div className="flex min-w-0 items-start gap-2.5">
                   <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A63D]" aria-hidden="true" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public Profile</p>
                     <p className="mt-1 text-xs leading-5 text-stone-400">Donor page</p>
                   </div>
@@ -8470,13 +8470,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               </Link>
               <button
                 aria-label={profileLinkCopyState === "failed" ? "Copy profile link failed. Try again." : "Copy public profile link"}
-                className="flex min-h-20 rounded-xl border border-stone-700 bg-stone-950/70 p-3.5 text-left text-stone-100 transition-colors hover:border-stone-500 hover:text-[#F5B942]"
+                className="flex min-h-20 min-w-0 rounded-xl border border-stone-700 bg-stone-950/70 p-3.5 text-left text-stone-100 transition-colors hover:border-stone-500 hover:text-[#F5B942]"
                 onClick={copySelectedProfileLink}
                 type="button"
               >
-                <div className="flex items-start gap-2.5">
+                <div className="flex min-w-0 items-start gap-2.5">
                   <Copy className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A63D]" aria-hidden="true" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{profileLinkCopyTitle}</p>
                     <p className="mt-1 text-xs leading-5 text-stone-400">{profileLinkCopySubtitle}</p>
                   </div>
@@ -8497,7 +8497,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         ) : null}
 
         <div className="mt-8 border-b border-stone-800/80 pb-5">
-          <div className="grid gap-3 md:grid-cols-4" role="tablist" aria-label="Workspace primary sections">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4" role="tablist" aria-label="Workspace primary sections">
             {visiblePrimaryNavGroups.map((group) => {
               const selected = activePrimaryNav === group.key;
               const Icon = group.icon;
@@ -8505,7 +8505,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               return (
                 <button
                   aria-selected={selected}
-                  className={`h-full min-h-20 rounded-xl border px-4 py-3 text-left transition-colors ${
+                  className={`h-full min-h-20 min-w-0 rounded-xl border px-4 py-3 text-left transition-colors ${
                     selected
                       ? "border-[#D4A63D] bg-[#D4A63D] text-black"
                       : "border-stone-800 bg-[#0b0b0b] text-stone-200 hover:border-stone-600 hover:bg-stone-900 hover:text-stone-100"
@@ -8521,9 +8521,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
                 >
-                  <span className="flex items-start gap-2.5">
+                  <span className="flex min-w-0 items-start gap-2.5">
                     <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${selected ? "text-black" : "text-[#D4A63D]"}`} aria-hidden="true" />
-                    <span>
+                    <span className="min-w-0">
                       <span className="block text-sm uppercase tracking-[0.12em]">
                         {group.label}
                       </span>
@@ -8538,8 +8538,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </div>
 
           {activePrimaryGroup.tabs.length > 0 ? (
-          <div className="mt-6 overflow-x-auto border-t border-stone-800/70 pt-4">
-            <div className="flex min-w-max gap-2" role="tablist" aria-label={`${activePrimaryGroup.label} submenu`}>
+          <div className="mt-6 max-w-full overflow-hidden border-t border-stone-800/70 pt-4">
+            <div className="flex min-w-0 flex-wrap items-center justify-center gap-2" role="tablist" aria-label={`${activePrimaryGroup.label} submenu`}>
               {activePrimaryGroup.tabs.map((tab) => {
                 const tabId = tab.id ?? tab.value;
                 const selected = activeTab === tab.value && activeSubnavId === tabId && activePrimaryNav === activePrimaryGroup.key;
@@ -8547,7 +8547,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 return (
                   <button
                     aria-selected={selected}
-                    className={`rounded-lg border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                    className={`min-w-0 rounded-lg border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
                       selected
                         ? "border-[#D4A63D] bg-[#D4A63D] text-black"
                         : "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-[#D4A63D] hover:text-[#F5B942]"

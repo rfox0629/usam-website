@@ -65,7 +65,7 @@ export function AdminShell({
   title: string;
 }) {
   return (
-    <main className="min-h-screen bg-[#050505] text-stone-100">
+    <main className="min-h-screen overflow-x-hidden bg-[#050505] text-stone-100">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-stone-800/80 bg-[#070707] px-4 py-5 md:flex md:flex-col">
         <Link href="/admin/dashboard" className="flex min-h-11 items-center gap-3 border-b border-stone-800/70 pb-5">
           <span className="h-2 w-2 rotate-45 bg-[#C9A24A]" />
@@ -103,7 +103,7 @@ export function AdminShell({
         </Link>
       </aside>
 
-      <div className="md:pl-64">
+      <div className="min-w-0 md:pl-64">
         <header className="sticky top-0 z-30 border-b border-stone-800/80 bg-[#070707]/95 px-4 py-3 backdrop-blur md:hidden">
           <div className="flex items-center justify-between gap-4">
             <Link href="/admin/dashboard" className="flex items-center gap-3">
@@ -146,8 +146,8 @@ export function AdminShell({
           </nav>
         </header>
 
-        <section className="px-4 py-6 md:px-8 md:py-8 xl:px-10">
-          <div className="mx-auto max-w-7xl">
+        <section className="min-w-0 max-w-full overflow-x-hidden px-4 py-6 md:px-8 md:py-8 xl:px-10">
+          <div className="mx-auto max-w-7xl min-w-0">
             <div className="mb-6 flex flex-col gap-4 border-b border-stone-800/70 pb-5 md:flex-row md:items-end md:justify-between">
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-stone-100 md:text-4xl">
