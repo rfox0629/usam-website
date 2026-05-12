@@ -60,6 +60,10 @@ export type MissionarySupportRouting = {
   oneTimeButtonLabel?: string | null;
   majorGiftButtonLabel?: string | null;
   enableMajorGiftInquiry?: boolean | null;
+  flyerHeadline?: string | null;
+  flyerNote?: string | null;
+  flyerPrayerAsk?: string | null;
+  flyerSupportAppeal?: string | null;
   majorGiftNotifyEmail?: string | null;
   majorGiftPublicDescription?: string | null;
 };

@@ -145,6 +145,10 @@ export type AdminSupportSettings = {
   enable_major_gift_inquiry?: boolean | null;
   major_gift_notify_email?: string | null;
   major_gift_public_description?: string | null;
+  flyer_headline?: string | null;
+  flyer_note?: string | null;
+  flyer_prayer_ask?: string | null;
+  flyer_support_appeal?: string | null;
 };
 
 export type AdminSupportCommitmentStatus =
@@ -629,6 +633,10 @@ const emptySupport = (householdId: string): AdminSupportSettings => ({
   enable_major_gift_inquiry: true,
   major_gift_notify_email: "ryan@usamissionaries.org",
   major_gift_public_description: "",
+  flyer_headline: "",
+  flyer_note: "",
+  flyer_prayer_ask: "",
+  flyer_support_appeal: "",
   show_support: true,
 });
 
@@ -5795,17 +5803,23 @@ function ShareTemplateCard({
 
 function SupportShareTools({
   annualGoal,
+  flyerLink,
   missionStatement,
   missionaryName,
   onCopy,
+  onSupportFieldChange,
   profileLink,
+  support,
   supportLink,
 }: {
   annualGoal: number;
+  flyerLink: string;
   missionStatement: string;
   missionaryName: string;
   onCopy: (value: string, label: string) => void;
+  onSupportFieldChange: (field: keyof AdminSupportSettings, value: boolean | number | string) => void;
   profileLink: string;
+  support: AdminSupportSettings;
   supportLink: string;
 }) {
   const textTemplate = `Hey [Name], we are raising support as USA Missionaries to reach the lost, make disciples, and multiply across America. Would you prayerfully consider partnering with us monthly? You can learn more or support here: ${supportLink}`;
@@ -5831,6 +5845,66 @@ function SupportShareTools({
           Copy Support Link
         </button>
       </div>
+      <section className="rounded-2xl border border-[#e2ded5] bg-white p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Support Flyer
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold text-[#111111]">
+              One-page support flyer
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#7b746a]">
+              Auto-generates a print-friendly flyer, full-color flyer, and shareable link from this profile and support data.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[360px]">
+            <a className={lightPrimaryButtonClass} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+              Preview Full Color
+            </a>
+            <a className={lightSecondaryButtonClass} href={`${flyerLink}?version=print&print=1`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+              Print-Friendly PDF
+            </a>
+            <button className={lightSecondaryButtonClass} onClick={() => onCopy(flyerLink, "Flyer Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Copy Flyer Link
+            </button>
+            <button className={lightSecondaryButtonClass} onClick={() => onCopy(supportLink, "Support Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Copy Support Link
+            </button>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <Field
+            helperText="Optional headline for the flyer."
+            label="Flyer Headline"
+            onChange={(value) => onSupportFieldChange("flyer_headline", value)}
+            value={support.flyer_headline ?? ""}
+          />
+          <Field
+            helperText="Short prayer/support ask shown near the giving CTA."
+            label="Prayer / Support Ask"
+            onChange={(value) => onSupportFieldChange("flyer_prayer_ask", value)}
+            value={support.flyer_prayer_ask ?? ""}
+          />
+          <TextArea
+            helperText="Brief support appeal for churches, meetings, and print handouts."
+            label="Short Support Appeal"
+            onChange={(value) => onSupportFieldChange("flyer_support_appeal", value)}
+            rows={4}
+            value={support.flyer_support_appeal ?? ""}
+          />
+          <TextArea
+            helperText="Optional note for the bottom of the flyer."
+            label="Optional Note"
+            onChange={(value) => onSupportFieldChange("flyer_note", value)}
+            rows={4}
+            value={support.flyer_note ?? ""}
+          />
+        </div>
+        <p className="mt-4 text-xs leading-5 text-[#7b746a]">
+          Use Save Changes after editing flyer copy. Download PDF opens a print-ready flyer where the browser can save as PDF.
+        </p>
+      </section>
       <div className="grid gap-4 lg:grid-cols-2">
         <ShareTemplateCard body={textTemplate} label="Text Message Template" onCopy={onCopy} />
         <ShareTemplateCard body={emailTemplate} label="Email Template" onCopy={onCopy} />
@@ -8012,6 +8086,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const profileOrigin = typeof window === "undefined" ? "" : window.location.origin;
   const publicProfileLink = `${profileOrigin}/missionaries/${selectedProfile.slug}`;
   const publicSupportLink = `${publicProfileLink}#support`;
+  const publicFlyerLink = `${publicProfileLink}/flyer`;
   const selectedSupportModeOption = supportModeOptions.find((option) => option.value === supportMode) ?? supportModeOptions[0];
   const targetHouseholdOptions = targetHouseholdLoadState === "loading"
     ? [{ label: "Loading households...", value: "" }]
@@ -8903,10 +8978,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               {supportSubsection === "share-tools" ? (
                 <SupportShareTools
                   annualGoal={toNumber(support.annual_goal)}
+                  flyerLink={publicFlyerLink}
                   missionStatement={selectedProfile.short_mission || "We are serving with USA Missionaries to reach the lost, make disciples, and multiply across America."}
                   missionaryName={selectedProfile.display_name}
                   onCopy={copyTextToClipboard}
+                  onSupportFieldChange={updateSupportField}
                   profileLink={publicProfileLink}
+                  support={support}
                   supportLink={publicSupportLink}
                 />
               ) : null}

@@ -73,7 +73,7 @@ const householdFeatureSelect = [
 ].join(", ");
 const householdProfileSelect = `${householdBaseSelect}, ${householdFeatureSelect}`;
 const supportSettingsBaseSelect = "show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis";
-const supportSettingsFullSelect = `${supportSettingsBaseSelect}, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description`;
+const supportSettingsFullSelect = `${supportSettingsBaseSelect}, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description, flyer_headline, flyer_support_appeal, flyer_prayer_ask, flyer_note`;
 
 type HouseholdRow = {
   id: string;
@@ -156,6 +156,10 @@ type SupportSettingsRow = {
   one_time_button_label?: string | null;
   major_gift_button_label?: string | null;
   enable_major_gift_inquiry?: boolean | null;
+  flyer_headline?: string | null;
+  flyer_note?: string | null;
+  flyer_prayer_ask?: string | null;
+  flyer_support_appeal?: string | null;
   major_gift_notify_email?: string | null;
   major_gift_public_description?: string | null;
 };
@@ -392,6 +396,10 @@ function hasMissingSupportSettingsColumnsError(error: { message?: string } | nul
     "enable_major_gift_inquiry",
     "major_gift_notify_email",
     "major_gift_public_description",
+    "flyer_headline",
+    "flyer_support_appeal",
+    "flyer_prayer_ask",
+    "flyer_note",
   ].some((columnName) => message.includes(columnName));
 }
 
@@ -585,6 +593,10 @@ function mapHouseholdToMissionary({
       buttonLabel: household.support_button_label ?? null,
       enableMajorGiftInquiry: isEnabledByDefault(support?.enable_major_gift_inquiry),
       explanation: household.support_explanation ?? null,
+      flyerHeadline: support?.flyer_headline ?? null,
+      flyerNote: support?.flyer_note ?? null,
+      flyerPrayerAsk: support?.flyer_prayer_ask ?? null,
+      flyerSupportAppeal: support?.flyer_support_appeal ?? null,
       majorGiftButtonLabel: support?.major_gift_button_label ?? null,
       majorGiftNotifyEmail: support?.major_gift_notify_email ?? null,
       majorGiftPublicDescription: support?.major_gift_public_description ?? null,

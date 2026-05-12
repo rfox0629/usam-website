@@ -160,6 +160,10 @@ type UpdatePayload = {
     major_gift_button_label?: unknown;
     major_gift_notify_email?: unknown;
     major_gift_public_description?: unknown;
+    flyer_headline?: unknown;
+    flyer_note?: unknown;
+    flyer_prayer_ask?: unknown;
+    flyer_support_appeal?: unknown;
     monthly_button_label?: unknown;
     monthly_committed?: unknown;
     monthly_giving_url?: unknown;
@@ -532,6 +536,10 @@ function hasMissingSupportLinkColumnsError(error: { message?: string } | null | 
     "enable_major_gift_inquiry",
     "major_gift_notify_email",
     "major_gift_public_description",
+    "flyer_headline",
+    "flyer_support_appeal",
+    "flyer_prayer_ask",
+    "flyer_note",
   ].some((columnName) => message.includes(columnName));
 }
 
@@ -734,6 +742,10 @@ export async function POST(request: Request) {
   const supportUpdate = {
     annual_goal: asNumber(support.annual_goal),
     enable_major_gift_inquiry: support.enable_major_gift_inquiry !== false,
+    flyer_headline: asNullableString(support.flyer_headline),
+    flyer_note: asNullableString(support.flyer_note),
+    flyer_prayer_ask: asNullableString(support.flyer_prayer_ask),
+    flyer_support_appeal: asNullableString(support.flyer_support_appeal),
     general_fund_percentage: asNumber(support.general_fund_percentage),
     goal_basis: asNullableString(support.goal_basis),
     household_id: householdId,
