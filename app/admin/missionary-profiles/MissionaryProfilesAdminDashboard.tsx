@@ -44,6 +44,11 @@ const lightHelperClass = "mt-2 block text-[12px] leading-5 text-[#7b746a]";
 const lightPrimaryButtonClass = "inline-flex items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60";
 const lightSecondaryButtonClass = "inline-flex items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
 const lightTertiaryButtonClass = "inline-flex items-center justify-center gap-1.5 rounded-md border border-[#e2ded5] bg-transparent px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
+const workspaceTabBaseClass = "inline-flex h-10 w-[156px] max-w-full shrink-0 items-center justify-center overflow-hidden whitespace-nowrap rounded-lg border px-3 text-center text-[10px] uppercase tracking-[0.16em] transition-colors";
+const workspaceDarkTabActiveClass = "border-[#D4A63D] bg-[#D4A63D] text-black";
+const workspaceDarkTabInactiveClass = "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-[#D4A63D] hover:text-[#F5B942]";
+const workspaceLightTabActiveClass = "border-[#D4A63D] bg-[#D4A63D] text-black";
+const workspaceLightTabInactiveClass = "border-[#d7d2c8] bg-white text-[#4b443b] hover:border-[#c8952d] hover:text-[#8a5a00]";
 const lightDividerClass = "border-[#e2ded5]";
 
 export type AdminSupportMode = SupportRoutingMode;
@@ -4181,14 +4186,14 @@ function TableDetailPanel({
       </div>
 
       <div className="mt-4 border-t border-[#e2ded5] pt-4">
-        <div aria-label="Meeting workflow" className="flex flex-wrap gap-2" role="tablist">
+        <div aria-label="Meeting workflow" className="flex flex-wrap justify-center gap-2" role="tablist">
           {tableWorkflowSections.map((section) => {
             const selected = activeSection === section.value;
 
             return (
               <button
                 aria-selected={selected}
-                className={`rounded-md border px-3 py-2 text-[10px] uppercase tracking-[0.16em] transition-colors ${
+                className={`${workspaceTabBaseClass} ${
                   selected
                     ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
                     : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
@@ -8591,10 +8596,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 return (
                   <button
                     aria-selected={selected}
-                    className={`min-w-0 rounded-lg border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                    className={`${workspaceTabBaseClass} ${
                       selected
-                        ? "border-[#D4A63D] bg-[#D4A63D] text-black"
-                        : "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                        ? workspaceDarkTabActiveClass
+                        : workspaceDarkTabInactiveClass
                     }`}
                     key={`${activePrimaryGroup.key}-${tabId}`}
                     onClick={() => changeEditorTab(tab.value, activePrimaryGroup.key, tabId)}
@@ -9118,14 +9123,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             title="Support"
           >
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-2 border-b border-[#e2ded5] pb-3">
+              <div className="flex flex-wrap justify-center gap-2 border-b border-[#e2ded5] pb-3">
                 {supportSubsectionOptions.map((option) => (
                   <button
                     aria-pressed={supportSubsection === option.value}
-                    className={`rounded-md border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                    className={`${workspaceTabBaseClass} ${
                       supportSubsection === option.value
-                        ? "border-[#D4A63D] bg-[#D4A63D] text-black"
-                        : "border-[#d7d2c8] bg-white text-[#4b443b] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        ? workspaceLightTabActiveClass
+                        : workspaceLightTabInactiveClass
                     }`}
                     key={option.value}
                     onClick={() => setSupportSubsection(option.value)}
@@ -9304,14 +9309,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             title="Prayer"
           >
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-2 border-b border-[#e2ded5] pb-3">
+              <div className="flex flex-wrap justify-center gap-2 border-b border-[#e2ded5] pb-3">
                 {prayerSubsectionOptions.map((option) => (
                   <button
                     aria-pressed={prayerSubsection === option.value}
-                    className={`rounded-md border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                    className={`${workspaceTabBaseClass} ${
                       prayerSubsection === option.value
-                        ? "border-[#D4A63D] bg-[#D4A63D] text-black"
-                        : "border-[#d7d2c8] bg-white text-[#4b443b] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        ? workspaceLightTabActiveClass
+                        : workspaceLightTabInactiveClass
                     }`}
                     key={option.value}
                     onClick={() => setPrayerSubsection(option.value)}
