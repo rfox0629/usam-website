@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { PrintFlyerClient } from "@/src/components/missionaries/PrintFlyerClient";
 import { SupportFlyer } from "@/src/components/missionaries/SupportFlyer";
@@ -19,12 +18,10 @@ function getVersion(value?: string): FlyerVersion {
   return value === "print" ? "print" : "color";
 }
 
-async function getOrigin() {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "usamissionaries.org";
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
+function getOrigin() {
+  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
 
-  return `${protocol}://${host}`;
+  return (configuredUrl || "https://usamissionaries.org").replace(/\/$/, "");
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -58,7 +55,7 @@ export default async function MissionarySupportFlyerPage({
     notFound();
   }
 
-  const origin = await getOrigin();
+  const origin = getOrigin();
   const profileUrl = `${origin}/missionaries/${missionary.slug}`;
   const supportUrl = `${profileUrl}#support`;
   const version = getVersion(query.version);
