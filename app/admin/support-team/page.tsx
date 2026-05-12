@@ -95,6 +95,13 @@ type FormSubmission = Omit<RawFormSubmission, "priority" | "status"> & {
   status: SubmissionStatus;
 };
 
+type SupportTeamData = {
+  error?: string;
+  majorGiftFollowUpCount: number;
+  submissions: FormSubmission[];
+  supportCommitmentFollowUpCount: number;
+};
+
 function formatDate(value: string) {
   const date = new Date(value);
 
@@ -268,6 +275,17 @@ function normalize(value?: string | null) {
   return value?.trim().toLowerCase() ?? "";
 }
 
+function isMissingOptionalTable(error: { code?: string; message?: string } | null | undefined, tableName: string) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return error?.code === "42P01"
+    || error?.code === "PGRST205"
+    || message.includes(tableName)
+    || message.includes("schema cache")
+    || message.includes("does not exist")
+    || message.includes("could not find the table");
+}
+
 function payloadSearchText(payload: Record<string, unknown> | null) {
   if (!payload) {
     return "";
@@ -319,33 +337,58 @@ function filterSubmissions(submissions: readonly FormSubmission[], params: Searc
   });
 }
 
-async function loadSupportSubmissions() {
+async function loadSupportSubmissions(): Promise<SupportTeamData> {
   if (!isSupabaseAdminConfigured()) {
     return {
       error: "Supabase admin environment variables are not configured.",
-      submissions: [] as FormSubmission[],
+      majorGiftFollowUpCount: 0,
+      submissions: [],
+      supportCommitmentFollowUpCount: 0,
     };
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("form_submissions")
-    .select("id, form_type, source_page, first_name, last_name, email, phone, message, payload, status, priority, assigned_team, assigned_to, internal_notes, created_at, updated_at")
-    .eq("assigned_team", "support_team")
-    .order("created_at", { ascending: false });
+  const [submissionResult, supportCommitmentResult, majorGiftResult] = await Promise.all([
+    supabase
+      .from("form_submissions")
+      .select("id, form_type, source_page, first_name, last_name, email, phone, message, payload, status, priority, assigned_team, assigned_to, internal_notes, created_at, updated_at")
+      .eq("assigned_team", "support_team")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("support_commitments")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending_giving_setup"),
+    supabase
+      .from("major_gift_inquiries")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["new", "needs_follow_up"]),
+  ]);
 
-  if (error) {
+  if (submissionResult.error) {
     return {
-      error: error.message,
-      submissions: [] as FormSubmission[],
+      error: submissionResult.error.message,
+      majorGiftFollowUpCount: 0,
+      submissions: [],
+      supportCommitmentFollowUpCount: 0,
     };
   }
 
+  const optionalError = [
+    supportCommitmentResult.error && !isMissingOptionalTable(supportCommitmentResult.error, "support_commitments")
+      ? supportCommitmentResult.error
+      : null,
+    majorGiftResult.error && !isMissingOptionalTable(majorGiftResult.error, "major_gift_inquiries")
+      ? majorGiftResult.error
+      : null,
+  ].find(Boolean);
+
   return {
-    error: undefined,
-    submissions: ((data ?? []) as RawFormSubmission[])
+    error: optionalError?.message,
+    majorGiftFollowUpCount: majorGiftResult.error ? 0 : majorGiftResult.count ?? 0,
+    submissions: ((submissionResult.data ?? []) as RawFormSubmission[])
       .filter((submission) => !prayerFormTypes.has(submission.form_type))
       .map(normalizeSubmission),
+    supportCommitmentFollowUpCount: supportCommitmentResult.error ? 0 : supportCommitmentResult.count ?? 0,
   };
 }
 
@@ -432,41 +475,43 @@ function InboxList({
           <p className="mt-1 text-xs text-stone-500">{submissions.length} visible</p>
         </div>
       </div>
-      <div className="hidden border-b border-stone-800/70 px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-500 md:grid md:grid-cols-[minmax(160px,1.05fr)_140px_minmax(180px,1fr)_140px_90px_90px_100px] md:gap-3" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        <span>Name</span>
-        <span>Form Type</span>
-        <span>Email</span>
-        <span>Source Page</span>
-        <span>Status</span>
-        <span>Priority</span>
-        <span>Date</span>
-      </div>
-      <div className="divide-y divide-stone-900">
-        {submissions.length > 0 ? submissions.map((submission) => {
-          const isActive = params.submission === submission.id;
+      <div className="overflow-x-auto">
+        <div className="min-w-[980px]">
+          <div className="grid grid-cols-[minmax(190px,1.05fr)_150px_minmax(220px,1fr)_160px_110px_110px_120px] gap-3 border-b border-stone-800/70 px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <span>Name</span>
+            <span>Form Type</span>
+            <span>Email</span>
+            <span>Source Page</span>
+            <span>Status</span>
+            <span>Priority</span>
+            <span>Date</span>
+          </div>
+          <div className="divide-y divide-stone-900">
+            {submissions.length > 0 ? submissions.map((submission) => {
+              const isActive = params.submission === submission.id;
 
-          return (
-            <Link
-              className={`grid gap-2 px-4 py-3 text-sm transition-colors hover:bg-stone-950/80 md:grid-cols-[minmax(160px,1.05fr)_140px_minmax(180px,1fr)_140px_90px_90px_100px] md:items-center md:gap-3 ${
-                isActive ? "bg-[#C9A24A]/5" : ""
-              }`}
-              href={buildHref(params, { submission: submission.id })}
-              key={submission.id}
-            >
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-stone-100">{fullName(submission)}</p>
-                {getOrganization(submission) ? <p className="truncate text-xs text-stone-500">{getOrganization(submission)}</p> : null}
-              </div>
-              <p className="text-xs text-stone-300 md:text-sm">{formTypeLabel(submission.form_type)}</p>
-              <p className="truncate text-xs text-stone-400 md:text-sm">{submission.email || "No email"}</p>
-              <p className="truncate text-xs text-stone-500 md:text-sm">{submission.source_page || "Unknown"}</p>
-              <Badge className={statusClassName(submission.status)}>{labelFromValue(submission.status)}</Badge>
-              <Badge className={priorityClassName(submission.priority)}>{labelFromValue(submission.priority)}</Badge>
-              <p className="text-xs text-stone-500 md:text-sm">{formatDate(submission.created_at)}</p>
-            </Link>
-          );
-        }) : (
-          <div className="px-4 py-10">
+              return (
+                <Link
+                  className={`grid grid-cols-[minmax(190px,1.05fr)_150px_minmax(220px,1fr)_160px_110px_110px_120px] items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-stone-950/80 ${
+                    isActive ? "bg-[#C9A24A]/5" : ""
+                  }`}
+                  href={buildHref(params, { submission: submission.id })}
+                  key={submission.id}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-stone-100">{fullName(submission)}</p>
+                    {getOrganization(submission) ? <p className="truncate text-xs text-stone-500">{getOrganization(submission)}</p> : null}
+                  </div>
+                  <p className="truncate text-xs text-stone-300 md:text-sm">{formTypeLabel(submission.form_type)}</p>
+                  <p className="truncate text-xs text-stone-400 md:text-sm">{submission.email || "No email"}</p>
+                  <p className="truncate text-xs text-stone-500 md:text-sm">{submission.source_page || "Unknown"}</p>
+                  <Badge className={statusClassName(submission.status)}>{labelFromValue(submission.status)}</Badge>
+                  <Badge className={priorityClassName(submission.priority)}>{labelFromValue(submission.priority)}</Badge>
+                  <p className="text-xs text-stone-500 md:text-sm">{formatDate(submission.created_at)}</p>
+                </Link>
+              );
+            }) : (
+              <div className="px-4 py-10">
             <p className="text-sm leading-6 text-stone-400">
               {params.q || params.type || params.status || params.priority || params.assigned_to
                 ? "No support submissions match these filters."
@@ -482,7 +527,9 @@ function InboxList({
               </Link>
             ) : null}
           </div>
-        )}
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -731,14 +778,21 @@ export default async function SupportTeamAdminPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const { error, submissions } = await loadSupportSubmissions();
+  const {
+    error,
+    majorGiftFollowUpCount,
+    submissions,
+    supportCommitmentFollowUpCount,
+  } = await loadSupportSubmissions();
   const filteredSubmissions = filterSubmissions(submissions, params);
   const selectedSubmission = params.submission
     ? submissions.find((submission) => submission.id === params.submission) ?? null
     : null;
   const assignedToOptions = Array.from(new Set(submissions.map((submission) => submission.assigned_to).filter((value): value is string => Boolean(value)))).sort((first, second) => first.localeCompare(second));
   const newCount = submissions.filter((submission) => submission.status === "new").length;
-  const followUpCount = submissions.filter((submission) => submission.status === "needs_follow_up").length;
+  const followUpCount = submissions.filter((submission) => submission.status === "needs_follow_up").length
+    + supportCommitmentFollowUpCount
+    + majorGiftFollowUpCount;
   const majorGiftCount = submissions.filter((submission) => submission.form_type === "major_gift" && submission.status !== "archived").length;
   const highPriorityCount = submissions.filter((submission) => submission.priority === "high").length;
 
