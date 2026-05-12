@@ -460,18 +460,107 @@ All /admin routes must be protected using Supabase auth + admin_users table.
 
 ---
 
-# UI Principles
+# Missionary Workspace and Command Center UI Rules
 
-- Keep pages simple and uncluttered
-- Avoid dashboard-style layouts on public pages
-- Use cards and sections instead of dense data
-- One primary CTA per section
-- Mobile-first always
+These rules are canonical for all future Missionary Workspace and Command Center development.
 
-Do NOT:
-- add unnecessary features
-- create large hero dashboards
-- overwhelm users with data
+Product philosophy:
+- Build operational software, not a brochure and not an enterprise CRM.
+- The interface should feel minimal, premium, fast, calm, and purposeful.
+- Use inspiration from Linear, Vercel, Apple, Stripe, and Notion: clear hierarchy, restrained surfaces, compact controls, excellent spacing, and no clutter.
+- Missionary Workspace is the expanded operational workspace. DOS/Field is the mobile daily-use app. Do not blur the product roles in UI copy.
+- Every screen should answer: what matters now, what changed, what needs action, and where do I go next?
+
+UI/UX standards:
+- Default to fewer visible controls and fewer words.
+- Prioritize scan speed over explanation.
+- Use clear section hierarchy: primary nav -> secondary nav -> content.
+- Keep the current section/state visually obvious.
+- Prefer compact rows, badges, pills, tabs, segmented controls, and drawers over large explanatory cards.
+- Do not stack multiple explanation cards to teach the architecture. The product should feel self-evident.
+- Avoid dashboard clutter, spreadsheet dumps, and enterprise CRM density that makes the page feel heavy.
+
+Copywriting rules:
+- Use short labels and direct nouns: `Support`, `Commitments`, `Settings`, `Public Links`, `Status`.
+- Remove obvious helper copy. Buttons and fields that are self-explanatory do not need paragraphs.
+- Keep helper text only when it prevents a real mistake or explains a non-obvious consequence.
+- Avoid implementation language in normal UI: no schema, routing internals, fallback behavior, migration talk, or system plumbing unless the screen is explicitly admin diagnostics.
+- Do not repeat the same idea in a heading, paragraph, and card.
+- Prefer calm operational copy over motivational or marketing copy inside admin/workspace tools.
+
+Spacing and layout standards:
+- Use compact vertical rhythm in admin/workspace surfaces.
+- Keep content width constrained for readability.
+- Reduce nested cards. One container surface is usually enough.
+- Use whitespace to separate groups, not repeated bordered boxes.
+- Keep page headers short. Remove redundant labels, slugs, and internal URLs unless they are directly actionable.
+- Form sections should be tight and scannable: label, control, optional short helper.
+- Avoid oversized hero-style typography inside admin cards and tool surfaces.
+
+Table and list responsiveness:
+- No horizontal scrolling in Missionary Workspace or Command Center operational views.
+- Do not ship tables with `min-width` that force sideways scrolling.
+- Default table/list views should show only essential columns.
+- Move secondary details into a modal, drawer, expandable row, or detail panel.
+- Mobile behavior should become stacked cards or compact responsive rows.
+- Keep status values as compact pills.
+- Donor/support tables should show scan fields first, such as `Donor`, `Amount`, `Type`, `Status`, `Actions`.
+- Person/activity tables should prioritize name, status, last activity, next action, and a compact view/edit action.
+
+Button hierarchy:
+- Primary actions: solid gold, dark text, clear label, used sparingly.
+- Secondary actions: dark or white surface with border, lower visual weight.
+- Tertiary/copy actions: small, icon-first where possible, subtle outline or text treatment.
+- Navigation tabs are not action buttons. Keep tab styling visually distinct from save, preview, copy, and launch actions.
+- Disabled actions should be muted and should not compete visually.
+- One primary CTA per section whenever possible.
+
+Settings philosophy:
+- Settings screens are operational controls, not documentation.
+- Show current state as compact metadata or pills.
+- Keep only controls that can be changed on that screen.
+- Remove large explanation cards from settings.
+- Avoid describing backend behavior unless it changes the user's decision.
+- Advanced settings should be collapsed or visually quiet unless needed for the current workflow.
+
+Operational density standards:
+- Missionary Workspace and Command Center should feel efficient and ready for repeated daily use.
+- Prefer compact cards, rows, and pills over large panels.
+- Reduce row height and padding when the user is scanning records.
+- Use hover states, detail drawers, and view buttons for secondary information.
+- Keep dashboards executive and awareness-focused: metrics, pending items, recent activity, status, and exceptions.
+- Do not turn dashboards into launchpads full of redundant buttons.
+
+Mobile-first requirements:
+- Every admin/workspace surface must remain usable on mobile.
+- No control should require horizontal dragging to read or act.
+- Tap targets must remain comfortable, but layouts should stay compact.
+- Multi-column desktop layouts should collapse into stacked mobile cards cleanly.
+- Modals/drawers must fit within the viewport and scroll internally when needed.
+
+Anti-bloat rules:
+- Do not add features because there is empty space.
+- Do not add tutorial copy to compensate for unclear IA; simplify the IA instead.
+- Do not create duplicate UI paths for the same workflow.
+- Do not create separate data models for separate interfaces.
+- Do not expose raw/private data publicly.
+- Do not use public profile pages as admin dashboards.
+- Do not add new design systems, fonts, decorative effects, or visual themes unless explicitly requested.
+
+Preferred UX patterns:
+- Compact status header: `Public Visible` `Support Enabled` `$8,333/mo`.
+- Operational row with detail modal: default row shows key fields; `View` opens email, phone, notes, dates, and metadata.
+- Section cards for major areas; small tabs for subsections.
+- Sticky or contextual save bar only when edits are dirty.
+- Copy utilities as small `Copy` icon buttons, not large CTAs.
+- Settings row: `Giving System: Active` `Destination: Ryan & Brooke Fox` instead of multiple explanatory cards.
+- Empty states should be short: one sentence and one action when action is useful.
+
+Public page UI principles:
+- Keep public pages simple, clear, and invitational.
+- Avoid dashboard-style layouts on public pages.
+- Public Profiles must display only approved and curated content.
+- Do not expose internal state, raw submissions, admin notes, or reviewed-but-unapproved content.
 
 ---
 
