@@ -1881,10 +1881,10 @@ function SectionIntro({
 
 function DataFlowLabels({ items }: { items: string[] }) {
   return (
-    <div className="my-4 flex flex-wrap gap-2">
+    <div className="my-3 flex flex-wrap gap-1.5">
       {items.map((item) => (
         <span
-          className="rounded-full border border-[#e2ded5] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]"
+          className="rounded-full border border-[#e2ded5] bg-white px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]"
           key={item}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
@@ -2652,8 +2652,8 @@ function PeopleManager({
           <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
             Your Field
           </h3>
-          <p className="text-sm leading-6 text-[#7b746a]">
-            Internal people connected to this missionary workspace. Add only the basics now, then enrich the record after real interactions.
+          <p className="text-sm leading-5 text-[#7b746a]">
+            People connected to this workspace
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -2687,68 +2687,53 @@ function PeopleManager({
       ) : null}
 
       <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-        <div className="overflow-x-auto">
-          <table className="min-w-[1120px] w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-                {["Name", "Phone", "Email", "Church", "Relationship", "Engagement", "Last Activity", "Actions"].map((heading) => (
-                  <th
-                    className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0"
-                    key={heading}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedPeople.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-6 text-sm leading-6 text-[#7b746a]" colSpan={8}>
-                    No people added yet. Start building Your Field by adding a name and phone number.
-                  </td>
-                </tr>
-              ) : null}
-              {sortedPeople.map((person) => (
-                <tr className="border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7]" key={person.id}>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                    <span className="block text-sm font-semibold text-[#111111]">
-                      {person.name}
-                    </span>
-                  </td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                    {person.phone}
-                  </td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                    {person.email?.trim() || "Not set"}
-                  </td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                    {person.church?.trim() || "Not set"}
-                  </td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                    {person.relationship_type?.trim() || "Not set"}
-                  </td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                    {person.engagement_level?.trim() || "Not set"}
-                  </td>
-                  <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                    {personLastActivityLabel(person)}
-                  </td>
-                  <td className="px-4 py-3 align-middle">
-                    <div className="flex flex-wrap gap-2">
-                      <button className={lightSecondaryButtonClass} onClick={() => setEditingPersonId(person.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                        View
-                      </button>
-                      <button className={lightSecondaryButtonClass} onClick={() => setEditingPersonId(person.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                        Edit
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+        <div className="hidden grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1fr)_minmax(0,0.9fr)_92px_92px_110px_62px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <span>Name</span>
+          <span>Phone</span>
+          <span>Email</span>
+          <span>Church</span>
+          <span>Relationship</span>
+          <span>Engagement</span>
+          <span>Last Activity</span>
+          <span className="text-right">Actions</span>
+        </div>
+        {sortedPeople.length === 0 ? (
+          <p className="px-3 py-4 text-sm leading-6 text-[#7b746a]">
+            No people yet
+          </p>
+        ) : null}
+        <div className="divide-y divide-[#e2ded5]">
+          {sortedPeople.map((person) => (
+            <div className="grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1fr)_minmax(0,0.9fr)_92px_92px_110px_62px] lg:items-center" key={person.id}>
+              <div className="min-w-0">
+                <span className="block truncate text-base font-semibold text-[#111111]">
+                  {person.name}
+                </span>
+              </div>
+              {[
+                ["Phone", person.phone],
+                ["Email", person.email?.trim() || "Not set"],
+                ["Church", person.church?.trim() || "Not set"],
+                ["Relationship", person.relationship_type?.trim() || "Not set"],
+                ["Engagement", person.engagement_level?.trim() || "Not set"],
+                ["Last Activity", personLastActivityLabel(person)],
+              ].map(([label, value]) => (
+                <div className="flex items-center justify-between gap-3 lg:block" key={label}>
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {label}
+                  </span>
+                  <span className={`${label === "Relationship" || label === "Engagement" ? "text-xs" : "text-sm"} text-[#4b443b]`}>
+                    {value}
+                  </span>
+                </div>
               ))}
-            </tbody>
-          </table>
+              <div className="flex justify-end">
+                <button className={lightSecondaryButtonClass} onClick={() => setEditingPersonId(person.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                  Edit
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -3456,8 +3441,8 @@ function ReviewsManager({
 
   return (
     <div className="space-y-4">
-      <p className="max-w-2xl text-sm leading-6 text-[#7b746a]">
-        Reviews are the post-meeting assessment layer. Use them to discern what changed, identify next steps, and decide whether approved Fruit should be created.
+      <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        Post-meeting review
       </p>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -3468,14 +3453,14 @@ function ReviewsManager({
 
       {pendingRows.length === 0 ? (
         <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-          No reviews pending yet.
+          No reviews
         </p>
       ) : null}
 
       {reviewRows.length > 0 ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(360px,1fr)]">
           <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-            <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3">
+            <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Meeting Reviews
               </p>
@@ -3487,7 +3472,7 @@ function ReviewsManager({
 
                 return (
                   <button
-                    className={`block w-full px-4 py-3 text-left transition-colors hover:bg-[#fbfaf7] ${selected ? "bg-[#fff8e8]" : "bg-white"}`}
+                    className={`block w-full px-3 py-2.5 text-left transition-colors hover:bg-[#fbfaf7] ${selected ? "bg-[#fff8e8]" : "bg-white"}`}
                     key={row.table.id}
                     onClick={() => setSelectedTableId(row.table.id)}
                     type="button"
@@ -3510,7 +3495,7 @@ function ReviewsManager({
           </div>
 
           {selectedRow ? (
-            <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+            <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -3531,7 +3516,7 @@ function ReviewsManager({
                 </button>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {[
                   { label: "How It Went", value: selectedRow.review?.how_meeting_went || "Not reviewed yet." },
                   { label: "Key Observations", value: selectedRow.review?.key_observations || "No observations added." },
@@ -3542,7 +3527,7 @@ function ReviewsManager({
                   { label: "Follow Up Needed", value: selectedRow.review?.follow_up_needed || "No follow-up noted." },
                   { label: "Fruit Status", value: selectedRow.fruitCount > 0 ? `${selectedRow.fruitCount} fruit item${selectedRow.fruitCount === 1 ? "" : "s"}` : "Not created" },
                 ].map((item) => (
-                  <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={item.label}>
+                  <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-2.5" key={item.label}>
                     <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       {item.label}
                     </p>
@@ -3662,8 +3647,8 @@ function MeetingsManager({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-2xl text-sm leading-6 text-[#7b746a]">
-          Meetings combine scheduled plans, completed meetings, quick touches, calls, texts, prayer, and discipleship follow-up in one operating view.
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Meetings & follow-up
         </p>
         <div className="flex flex-wrap gap-2">
           <button className={lightSecondaryButtonClass} onClick={() => setIsSchedulingMeeting(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
@@ -3677,63 +3662,66 @@ function MeetingsManager({
 
       {meetings.length === 0 ? (
         <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-          No meetings logged yet. Schedule a meeting or log a completed interaction to begin.
+          No meetings yet
         </p>
       ) : null}
 
       {meetings.length > 0 ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
           <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-            <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-                    {["Date / Time", "Type", "Depth", "People", "Status", "Next Step", "Actions"].map((heading) => (
-                      <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0" key={heading} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {meetings.map((meeting) => {
-                    const selected = selectedMeeting?.id === meeting.id;
+            <div className="hidden grid-cols-[118px_minmax(0,0.8fr)_88px_minmax(0,1fr)_112px_minmax(0,1fr)_104px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <span>Date / Time</span>
+              <span>Type</span>
+              <span>Depth</span>
+              <span>People</span>
+              <span>Status</span>
+              <span>Next Step</span>
+              <span className="text-right">Actions</span>
+            </div>
+            <div className="divide-y divide-[#e2ded5]">
+              {meetings.map((meeting) => {
+                const selected = selectedMeeting?.id === meeting.id;
 
-                    return (
-                      <tr className={`border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7] ${selected ? "bg-[#fff8e8]" : ""}`} key={meeting.id}>
-                        <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                          {meetingDateTimeLabel(meeting)}
-                        </td>
-                        <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm font-semibold text-[#111111]">
-                          {meetingTypeLabel(meeting.meetingType)}
-                        </td>
-                        <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                          {meetingDepthLabel(meeting.depth)}
-                        </td>
-                        <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                          {meetingPeopleLabel(meeting, fieldPeople)}
-                        </td>
-                        <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-                          <MeetingStatusBadge status={meeting.status} />
-                        </td>
-                        <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-                          {meeting.nextStep}
-                        </td>
-                        <td className="px-4 py-3 align-middle">
-                          <div className="flex flex-wrap gap-2">
-                            <button className={lightSecondaryButtonClass} onClick={() => setSelectedMeetingId(meeting.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                              View
-                            </button>
-                            <button className={lightSecondaryButtonClass} onClick={() => setEditingMeeting(meeting)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                              Edit
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                return (
+                  <div className={`grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[118px_minmax(0,0.8fr)_88px_minmax(0,1fr)_112px_minmax(0,1fr)_104px] lg:items-center ${selected ? "bg-[#fff8e8]" : ""}`} key={meeting.id}>
+                    {[
+                      ["Date / Time", meetingDateTimeLabel(meeting), "text-sm text-[#4b443b]"],
+                      ["Type", meetingTypeLabel(meeting.meetingType), "text-sm font-semibold text-[#111111]"],
+                      ["Depth", meetingDepthLabel(meeting.depth), "text-sm text-[#4b443b]"],
+                      ["People", meetingPeopleLabel(meeting, fieldPeople), "text-sm text-[#4b443b]"],
+                    ].map(([label, value, className]) => (
+                      <div className="flex items-center justify-between gap-3 lg:block" key={label}>
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          {label}
+                        </span>
+                        <span className={className}>
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between gap-3 lg:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Status
+                      </span>
+                      <MeetingStatusBadge status={meeting.status} />
+                    </div>
+                    <div className="flex items-center justify-between gap-3 lg:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Next Step
+                      </span>
+                      <span className="text-sm text-[#4b443b]">{meeting.nextStep}</span>
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button className={lightSecondaryButtonClass} onClick={() => setSelectedMeetingId(meeting.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                        View
+                      </button>
+                      <button className={lightSecondaryButtonClass} onClick={() => setEditingMeeting(meeting)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -5215,27 +5203,27 @@ function FruitManager({
   }));
 
   return (
-    <div className="space-y-5">
-      <div className="max-w-3xl">
-        <p className="text-sm leading-7 text-[#7b746a]">
-          Fruit is the approved output layer created from Encounters, Review, and Discipleship Assessment. Raw responses and internal notes stay in the Missionary Workspace.
+    <div className="space-y-4">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Approved outcomes
         </p>
-        <DataFlowLabels items={["Draft -> Approved", "Updates Profile later", "Feeds Field later"]} />
+        <DataFlowLabels items={["Draft", "Profile", "Field"]} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <StatPreview label="Approved Fruit" tone="light" value={String(approvedFruit.length)} />
-        <StatPreview label="Draft Fruit" tone="light" value={String(fruitItems.filter((fruit) => fruit.status === "draft").length)} />
+        <StatPreview label="Approved" tone="light" value={String(approvedFruit.length)} />
+        <StatPreview label="Draft" tone="light" value={String(fruitItems.filter((fruit) => fruit.status === "draft").length)} />
         <StatPreview label="Outcome Tags" tone="light" value={String(approvedFruit.reduce((total, fruit) => total + fruit.outcome_tags.length, 0))} />
       </div>
 
-      <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+      <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5">
         <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Outcome Counts
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
           {outcomeCounts.map((outcome) => (
-            <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" key={outcome.tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={outcome.tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {outcome.tag}: {outcome.count}
             </span>
           ))}
@@ -5243,20 +5231,20 @@ function FruitManager({
       </div>
 
       {fruitItems.length === 0 ? (
-        <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
-          No Fruit has been approved yet. Review a Table and create a Fruit Summary to begin tracking outcomes.
+        <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
+          No approved fruit
         </div>
       ) : null}
 
       <div className="grid gap-3 lg:grid-cols-2">
         {visibleFruit.map((fruit) => (
-          <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={fruit.id}>
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5" key={fruit.id}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm leading-6 text-[#111111]">
                   {fruit.summary || "Summary needed."}
                 </p>
-                <div className="mt-3 grid gap-2 text-xs leading-5 text-[#7b746a]">
+                <div className="mt-2 grid gap-1 text-xs leading-5 text-[#7b746a]">
                   <span>Person: {personNameById(fieldPeople, fruit.field_person_id)}</span>
                   <span>Table: {tableNameById(tables, fruit.table_id)}</span>
                   <span>Date: {fruit.testimony_date ? formatProfileUpdatedDate(fruit.testimony_date) : formatProfileUpdatedDate(fruit.created_at)}</span>
@@ -5264,9 +5252,9 @@ function FruitManager({
               </div>
               <FruitStatusBadge status={fruit.status} />
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
               {fruit.outcome_tags.length > 0 ? fruit.outcome_tags.map((tag) => (
-                <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   {tag}
                 </span>
               )) : (
@@ -8508,7 +8496,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "people" ? (
           <SectionIntro
-            description="Feeds Field. Internal people connected to this missionary household. These records power Meetings, prayer follow-up, Fruit, and future Field activity. Not public by default."
+            description="Internal contacts"
             title="People"
           >
             <PeopleManager
@@ -8521,7 +8509,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "meetings" ? (
           <SectionIntro
-            description="Feeds Field. Scheduled meetings, completed meetings, quick touches, calls, texts, prayer, and discipleship follow-up in one operating view."
+            description="Meetings & follow-up"
             title="Meetings"
           >
             <MeetingsManager
@@ -8546,7 +8534,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "reviews" ? (
           <SectionIntro
-            description="Review completed meetings, assess what changed, and determine whether fruit should be created."
+            description="Post-meeting review"
             title="Reviews"
           >
             <ReviewsManager
@@ -8961,7 +8949,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "fruit" ? (
           <SectionIntro
-            description="Updates Profile + Feeds Field. Approved summaries and outcome tags derived from Encounters. Raw testimony stays internal."
+            description="Approved outcomes"
             title="Fruit"
           >
             <FruitManager
@@ -9186,6 +9174,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "prayer" ? (
           <SectionIntro
+            description="Prayer settings"
             title="Prayer"
           >
             <div className="space-y-4">

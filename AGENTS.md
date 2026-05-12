@@ -557,6 +557,13 @@ Operational density standards:
 - Reduce enterprise software feel.
 - Prioritize calm, premium, lightweight UX.
 - Optimize screens for scanning within seconds.
+- Operational sections should communicate in seconds.
+- Avoid describing obvious workflows.
+- Avoid duplicate explanations across headers and cards.
+- Empty states should be extremely concise.
+- Prefer compact operational terminology.
+- Keep missionary workflows visually calm and lightweight.
+- Remove enterprise-style instructional language.
 
 Mobile-first requirements:
 - Every admin/workspace surface must remain usable on mobile.
