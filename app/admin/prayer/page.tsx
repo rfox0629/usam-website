@@ -33,14 +33,19 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
+const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
+const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
+const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#F5B942]";
+const tabButtonClassName = "inline-flex h-10 w-[132px] shrink-0 items-center justify-center rounded-lg border px-3 text-center text-[10px] uppercase tracking-[0.15em] transition-colors";
 
 const tabs = [
-  { key: "requests", label: "Prayer Requests" },
-  { key: "partners", label: "Prayer Partners" },
+  { key: "requests", label: "Requests" },
+  { key: "partners", label: "Partners" },
   { key: "applications", label: "Applications" },
-  { key: "coverage", label: "Coverage Board" },
-  { key: "regions", label: "States / Regions" },
-  { key: "email", label: "Email Preview" },
+  { key: "coverage", label: "Coverage" },
+  { key: "regions", label: "Regions" },
+  { key: "email", label: "Email" },
 ] as const;
 
 const prayerCategories = [
@@ -346,23 +351,6 @@ function isNeedsCoverage(request: PrayerRequestRow) {
   return isOpenRequest(request) && (request.assigned_partner_ids?.length ?? 0) === 0;
 }
 
-function isThisWeek(value: string | null | undefined) {
-  if (!value) {
-    return false;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return false;
-  }
-
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-
-  return date >= weekAgo;
-}
-
 function Badge({
   children,
   tone = "muted",
@@ -379,7 +367,7 @@ function Badge({
   }[tone];
 
   return (
-    <span className={`inline-flex min-h-6 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.14em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+    <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 text-[9px] uppercase tracking-[0.13em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
       {children}
     </span>
   );
@@ -404,10 +392,14 @@ function UrgencyBadge({ urgency }: { urgency: RequestUrgency }) {
   return <Badge tone={tone}>{titleLabel(urgency)}</Badge>;
 }
 
-function InlineStatBar({
-  stats,
+function MetricCard({
+  label,
+  tone,
+  value,
 }: {
-  stats: Array<{ label: string; tone?: "amber" | "green" | "red"; value: number | string }>;
+  label: string;
+  tone?: "amber" | "green" | "red";
+  value: number | string;
 }) {
   const toneClassName = {
     amber: "text-[#E4C465]",
@@ -416,47 +408,68 @@ function InlineStatBar({
   } as const;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-      {stats.map((stat, index) => (
-        <div className="flex items-baseline gap-2" key={stat.label}>
-          {index > 0 ? <span className="hidden h-4 w-px bg-stone-800 sm:inline-block" /> : null}
-          <span
-            className="text-[10px] uppercase tracking-[0.18em] text-stone-500"
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          >
-            {stat.label}
-          </span>
-          <span
-            className={`text-xl font-bold leading-none ${stat.tone ? toneClassName[stat.tone] : "text-stone-100"}`}
-            style={{ fontFamily: font.oswald }}
-          >
-            {stat.value}
-          </span>
-        </div>
-      ))}
+    <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+      <p
+        className="text-[10px] uppercase tracking-[0.15em] text-stone-400"
+        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+      >
+        {label}
+      </p>
+      <p
+        className={`mt-3 text-3xl font-bold leading-none ${tone ? toneClassName[tone] : "text-stone-100"}`}
+        style={{ fontFamily: font.oswald }}
+      >
+        {value}
+      </p>
     </div>
   );
 }
 
 function Message({ children, tone = "info" }: { children: ReactNode; tone?: "error" | "info" | "success" }) {
   const className = {
-    error: "border-red-500/30 bg-red-950/20 text-red-100",
-    info: "border-stone-800 bg-stone-950/60 text-stone-300",
-    success: "border-green-500/25 bg-green-950/20 text-green-200",
+    error: "border-l-red-400 bg-red-950/10 text-red-100",
+    info: "border-l-stone-500 bg-stone-950/60 text-stone-300",
+    success: "border-l-green-400 bg-green-950/15 text-green-200",
   }[tone];
 
-  return <p className={`border p-4 text-sm leading-6 ${className}`}>{children}</p>;
+  return <div className={`rounded-xl border border-stone-800/75 border-l-2 px-4 py-3 text-sm leading-6 ${className}`}>{children}</div>;
+}
+
+function SystemNotice({
+  detail,
+  title,
+  tone = "error",
+}: {
+  detail?: string;
+  title: string;
+  tone?: "error" | "info" | "success";
+}) {
+  return (
+    <Message tone={tone}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <p>{title}</p>
+        {detail ? (
+          <details className="shrink-0 text-xs text-stone-400">
+            <summary className="cursor-pointer uppercase tracking-[0.14em] text-[#E4C465]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              View Details
+            </summary>
+            <p className="mt-2 max-w-2xl text-left leading-6 text-stone-400">{detail}</p>
+          </details>
+        ) : null}
+      </div>
+    </Message>
+  );
 }
 
 function TabNav({ activeTab }: { activeTab: PrayerAdminTab }) {
   return (
-    <nav className="flex gap-2 overflow-x-auto border-b border-stone-800/80 pb-3" aria-label="Prayer Team admin tabs">
+    <nav className="flex max-w-full flex-wrap gap-2 border-b border-stone-800/80 pb-4" aria-label="Prayer Team admin tabs">
       {tabs.map((tab) => (
         <Link
-          className={`shrink-0 border px-3 py-2 text-xs uppercase tracking-[0.14em] transition-colors ${
+          className={`${tabButtonClassName} ${
             activeTab === tab.key
-              ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
-              : "border-stone-800 text-stone-300 hover:border-stone-700 hover:text-stone-100"
+              ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+              : "border-stone-800 bg-[#090909] text-stone-300 hover:border-stone-600 hover:bg-stone-900/80 hover:text-stone-100"
           }`}
           href={`/admin/prayer-team?tab=${tab.key}`}
           key={tab.key}
@@ -466,6 +479,69 @@ function TabNav({ activeTab }: { activeTab: PrayerAdminTab }) {
         </Link>
       ))}
     </nav>
+  );
+}
+
+function MetaItem({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[9px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </p>
+      <div className="mt-1 truncate text-sm text-stone-300">{value || "-"}</div>
+    </div>
+  );
+}
+
+function EmptyState({
+  action,
+  description,
+  title,
+}: {
+  action?: ReactNode;
+  description?: string;
+  title: string;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-6">
+      <p className="text-sm font-semibold text-stone-100">{title}</p>
+      {description ? <p className="mt-2 text-sm leading-6 text-stone-500">{description}</p> : null}
+      {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  );
+}
+
+function DetailFrame({
+  badges,
+  children,
+  closeHref,
+  eyebrow,
+  title,
+}: {
+  badges?: ReactNode;
+  children: ReactNode;
+  closeHref: string;
+  eyebrow: string;
+  title: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm">
+      <aside className="ml-auto h-full w-full max-w-2xl overflow-y-auto border-l border-stone-800 bg-[#070707] p-5 shadow-[0_0_80px_rgba(0,0,0,0.55)] md:p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-stone-800/70 pb-4">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {eyebrow}
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{title}</h2>
+            {badges ? <div className="mt-3 flex flex-wrap gap-2">{badges}</div> : null}
+          </div>
+          <Link className={secondaryButtonClassName} href={closeHref} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Close
+          </Link>
+        </div>
+        {children}
+      </aside>
+    </div>
   );
 }
 
@@ -504,7 +580,7 @@ function ActionForm({
   return (
     <form action={action}>
       <input name={fieldName} type="hidden" value={id} />
-      <button className={`inline-flex min-h-10 w-full items-center justify-center border px-4 text-[11px] uppercase tracking-[0.16em] transition-colors ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+      <button className={`inline-flex min-h-10 w-full items-center justify-center rounded-lg border px-4 text-[11px] uppercase tracking-[0.14em] transition-colors ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
         {children}
       </button>
     </form>
@@ -521,7 +597,7 @@ function PayloadFields({ payload }: { payload: Record<string, unknown> | null })
   return (
     <div className="grid gap-2">
       {entries.map(([key, value]) => (
-        <div className="border border-stone-900 bg-[#050505] p-3" key={key}>
+        <div className="rounded-lg border border-stone-900 bg-[#050505] p-3" key={key}>
           <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {titleLabel(key).replace(/\bSms\b/g, "SMS").replace(/\bUsa\b/g, "USA")}
           </p>
@@ -548,7 +624,7 @@ function SelectField({
       <span className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
-      <select className="mt-2 min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]" defaultValue={defaultValue ?? ""} name={name}>
+      <select className={inputClassName} defaultValue={defaultValue ?? ""} name={name}>
         {children}
       </select>
     </label>
@@ -571,7 +647,7 @@ function TextField({
       <span className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
-      <input className="mt-2 min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]" defaultValue={defaultValue ?? ""} name={name} required={required} />
+      <input className={inputClassName} defaultValue={defaultValue ?? ""} name={name} required={required} />
     </label>
   );
 }
@@ -592,7 +668,7 @@ function TextAreaField({
       <span className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
-      <textarea className="mt-2 min-h-28 w-full border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]" defaultValue={defaultValue ?? ""} name={name} required={required} />
+      <textarea className="mt-2 min-h-28 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]" defaultValue={defaultValue ?? ""} name={name} required={required} />
     </label>
   );
 }
@@ -648,37 +724,29 @@ async function loadPrayerAdminData(): Promise<PrayerAdminData> {
 }
 
 function SummaryCards({
-  applications,
   households,
   partners,
   requests,
 }: {
-  applications: readonly PrayerSubmissionRow[];
   households: readonly HouseholdRow[];
   partners: readonly PrayerPartnerRow[];
   requests: readonly PrayerRequestRow[];
 }) {
   const activePartners = partners.filter((partner) => partner.status === "active").length;
-  const pendingApplications = applications.filter((submission) => submission.form_type === "prayer_team_application" && !["converted", "archived"].includes(submission.status)).length;
   const openRequests = requests.filter(isOpenRequest).length;
-  const needsCoverage = requests.filter(isNeedsCoverage).length;
-  const coveredThisWeek = requests.filter((request) => isThisWeek(request.last_prayed_at)).length;
+  const coverageGaps = requests.filter(isNeedsCoverage).length;
   const coverageKeys = new Set([
     ...partners.filter((partner) => partner.status === "active").map((partner) => partner.state || partner.region).filter(Boolean),
     ...households.map((household) => household.primary_state || household.region).filter(Boolean),
   ]);
 
   return (
-    <InlineStatBar
-      stats={[
-        { label: "Active Partners", tone: "green", value: activePartners },
-        { label: "Pending Applications", tone: "amber", value: pendingApplications },
-        { label: "Open Requests", value: openRequests },
-        { label: "Needs Coverage", tone: "amber", value: needsCoverage },
-        { label: "Covered (Last 7 Days)", tone: "green", value: coveredThisWeek },
-        { label: "States / Regions", value: coverageKeys.size },
-      ]}
-    />
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricCard label="Active Partners" tone="green" value={activePartners} />
+      <MetricCard label="Open Requests" value={openRequests} />
+      <MetricCard label="Coverage Gaps" tone={coverageGaps > 0 ? "amber" : "green"} value={coverageGaps} />
+      <MetricCard label="Regions Active" value={coverageKeys.size} />
+    </div>
   );
 }
 
@@ -690,8 +758,8 @@ function RequestCreateForm({
   partners: readonly PrayerPartnerRow[];
 }) {
   return (
-    <details className="border border-stone-800/75 bg-[#080808]/85 p-4">
-      <summary className="cursor-pointer text-[11px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+    <details className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4" id="create-prayer-request">
+      <summary className="cursor-pointer text-[11px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         Create Prayer Request
       </summary>
       <form action={createPrayerRequest} className="mt-5 grid gap-4">
@@ -723,7 +791,7 @@ function RequestCreateForm({
         </div>
         <TextAreaField label="Prayer Request" name="request" required />
         <TextAreaField label="Prayer Notes" name="prayer_notes" />
-        <button className="inline-flex min-h-10 w-full items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942] md:w-auto" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+        <button className={`${primaryButtonClassName} w-full md:w-auto`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
           Create Request
         </button>
       </form>
@@ -774,69 +842,88 @@ function RequestsTab({
 
   return (
     <div className="space-y-5">
-      <form className="grid gap-3 border border-stone-800 bg-[#080808]/85 p-4 lg:grid-cols-[1.4fr_0.7fr_0.7fr_0.8fr_auto]" action="/admin/prayer-team" method="get">
+      <form className="grid min-w-0 gap-3 rounded-xl border border-stone-800/75 bg-[#080808]/90 p-3 lg:grid-cols-[minmax(260px,1fr)_auto_auto] lg:items-start" action="/admin/prayer-team" method="get">
         <input name="tab" type="hidden" value="requests" />
-        <input className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]" defaultValue={params.q ?? ""} name="q" placeholder="Search requests, category, household, state" />
-        <select className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={params.status ?? ""} name="status">
-          <option value="">All Statuses</option>
-          {requestStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-        </select>
-        <select className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={params.urgency ?? ""} name="urgency">
-          <option value="">All Urgency</option>
-          {urgencies.map((urgency) => <option key={urgency.value} value={urgency.value}>{urgency.label}</option>)}
-        </select>
-        <select className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={params.category ?? ""} name="category">
-          <option value="">All Categories</option>
-          {prayerCategories.map((category) => <option key={category} value={category}>{category}</option>)}
-        </select>
-        <button className="inline-flex min-h-10 items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
-          Filter
-        </button>
+        <input className={toolbarInputClassName} defaultValue={params.q ?? ""} name="q" placeholder="Search requests" />
+        <details className="rounded-lg border border-stone-800 bg-[#050505] px-3 py-2">
+          <summary className="cursor-pointer text-[10px] uppercase tracking-[0.14em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Filters
+          </summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <select className={toolbarInputClassName} defaultValue={params.status ?? ""} name="status">
+              <option value="">All Statuses</option>
+              {requestStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+            </select>
+            <select className={toolbarInputClassName} defaultValue={params.urgency ?? ""} name="urgency">
+              <option value="">All Urgency</option>
+              {urgencies.map((urgency) => <option key={urgency.value} value={urgency.value}>{urgency.label}</option>)}
+            </select>
+            <select className={toolbarInputClassName} defaultValue={params.category ?? ""} name="category">
+              <option value="">All Categories</option>
+              {prayerCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+          </div>
+        </details>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <button className={primaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+            Apply
+          </button>
+          <a className={secondaryButtonClassName} href="#create-prayer-request" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Create Request
+          </a>
+        </div>
       </form>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
-        <section className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
-          <div className="hidden grid-cols-[1.3fr_0.7fr_1fr_0.55fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-stone-800/70 px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-stone-500 lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            {["Request", "Category", "Related To", "Urgency", "Status", "Assigned Partners", "Last Prayed", "Actions"].map((heading) => <span key={heading}>{heading}</span>)}
-          </div>
-          <div className="divide-y divide-stone-900">
-            {filteredRequests.length > 0 ? filteredRequests.map((request) => {
-              const assignedNames = (request.assigned_partner_ids ?? [])
-                .map((id) => partnerById.get(id))
-                .filter((partner): partner is PrayerPartnerRow => Boolean(partner))
-                .map(partnerName);
-
-              return (
-                <Link
-                  className={`grid gap-3 px-4 py-3 text-sm transition-colors hover:bg-stone-950/80 lg:grid-cols-[1.3fr_0.7fr_1fr_0.55fr_0.55fr_0.8fr_0.7fr_0.45fr] lg:items-center ${
-                    selectedRequest?.id === request.id ? "bg-[#C9A24A]/5" : ""
-                  }`}
-                  href={`/admin/prayer-team?tab=requests&request=${request.id}`}
-                  key={request.id}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-stone-100">{request.title}</p>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-stone-500">{requestText(request)}</p>
-                  </div>
-                  <p className="text-xs text-stone-300 md:text-sm">{request.category || "General"}</p>
-                  <p className="truncate text-xs text-stone-400 md:text-sm">{requestRelatedTo(request, householdById)}</p>
-                  <UrgencyBadge urgency={request.urgency} />
-                  <StatusBadge status={request.status} />
-                  <p className="text-xs text-stone-400 md:text-sm">{assignedNames.length > 0 ? assignedNames.join(", ") : "Unassigned"}</p>
-                  <p className="text-xs text-stone-500 md:text-sm">{formatDate(request.last_prayed_at)}</p>
-                  <span className="text-[10px] uppercase tracking-[0.16em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open</span>
-                </Link>
-              );
-            }) : (
-              <p className="p-6 text-sm leading-6 text-stone-400">Prayer requests will appear here when prayer forms, DOS, or prayer leaders create them.</p>
-            )}
-          </div>
-        </section>
-
-        <RequestDetailDrawer households={households} partners={partners} request={selectedRequest} />
-      </div>
-
       <RequestCreateForm households={households} partners={partners} />
+
+      <section className="grid gap-3">
+        {filteredRequests.length > 0 ? filteredRequests.map((request) => {
+          const assignedNames = (request.assigned_partner_ids ?? [])
+            .map((id) => partnerById.get(id))
+            .filter((partner): partner is PrayerPartnerRow => Boolean(partner))
+            .map(partnerName);
+
+          return (
+            <Link
+              className={`min-w-0 rounded-xl border p-4 text-sm transition-colors hover:border-stone-700 hover:bg-stone-950/80 ${
+                selectedRequest?.id === request.id
+                  ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
+                  : "border-stone-800/75 bg-[#080808]/90"
+              }`}
+              href={`/admin/prayer-team?tab=requests&request=${request.id}`}
+              key={request.id}
+            >
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.1fr)_minmax(0,1fr)_auto] lg:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-semibold text-stone-100">{request.title}</p>
+                    <UrgencyBadge urgency={request.urgency} />
+                    <StatusBadge status={request.status} />
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-stone-500">{requestText(request)}</p>
+                </div>
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  <MetaItem label="Related" value={requestRelatedTo(request, householdById)} />
+                  <MetaItem label="Category" value={request.category || "General"} />
+                </div>
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  <MetaItem label="Coverage" value={assignedNames.length > 0 ? assignedNames.join(", ") : "Unassigned"} />
+                  <MetaItem label="Last Prayed" value={formatDate(request.last_prayed_at)} />
+                </div>
+                <span className={secondaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Manage</span>
+              </div>
+            </Link>
+          );
+        }) : (
+          <EmptyState
+            action={<a className={primaryButtonClassName} href="#create-prayer-request" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Create Request</a>}
+            description="Prayer requests submitted through DOS or public forms will appear here."
+            title="No active prayer requests yet."
+          />
+        )}
+      </section>
+
+      <RequestDetailDrawer households={households} partners={partners} request={selectedRequest} />
     </div>
   );
 }
@@ -851,16 +938,7 @@ function RequestDetailDrawer({
   request: PrayerRequestRow | null;
 }) {
   if (!request) {
-    return (
-      <aside className="border border-stone-800/75 bg-[#080808]/85 p-6 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)]">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Prayer Request Detail
-        </p>
-        <p className="mt-4 text-sm leading-7 text-stone-400">
-          Select a prayer request to manage coverage, notes, and next steps.
-        </p>
-      </aside>
-    );
+    return null;
   }
 
   const householdById = new Map(households.map((household) => [household.id, household]));
@@ -869,18 +947,18 @@ function RequestDetailDrawer({
   const assignedPartners = activePartners.filter((partner) => assignedPartnerIds.has(partner.id));
 
   return (
-    <aside className="border border-stone-800/75 bg-[#080808]/85 p-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto">
-      <div className="border-b border-stone-800/70 pb-4">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Prayer Request Detail
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{request.title}</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+    <DetailFrame
+      badges={(
+        <>
           <UrgencyBadge urgency={request.urgency} />
           <StatusBadge status={request.status} />
           <Badge tone="amber">{request.category || "General"}</Badge>
-        </div>
-      </div>
+        </>
+      )}
+      closeHref="/admin/prayer-team?tab=requests"
+      eyebrow="Prayer Request"
+      title={request.title}
+    >
 
       <div className="mt-5 space-y-5">
         <DetailItem label="Full Prayer Request" value={<p className="whitespace-pre-wrap">{requestText(request)}</p>} />
@@ -924,7 +1002,7 @@ function RequestDetailDrawer({
             <TextField defaultValue={request.related_region} label="Related Region" name="related_region" />
           </div>
           <TextAreaField defaultValue={request.prayer_notes} label="Prayer Notes" name="prayer_notes" />
-          <button className="inline-flex min-h-10 w-full items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+          <button className={`${primaryButtonClassName} w-full`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
             Save Request
           </button>
         </div>
@@ -935,7 +1013,7 @@ function RequestDetailDrawer({
         <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Assign Partners
         </p>
-        <div className="mt-3 grid max-h-44 gap-2 overflow-y-auto border border-stone-900 bg-[#050505] p-3">
+        <div className="mt-3 grid max-h-44 gap-2 overflow-y-auto rounded-lg border border-stone-900 bg-[#050505] p-3">
           {activePartners.length > 0 ? activePartners.map((partner) => (
             <label className="flex items-center gap-2 text-sm text-stone-300" key={partner.id}>
               <input className="accent-[#D4A63D]" defaultChecked={assignedPartnerIds.has(partner.id)} name="partner_ids" type="checkbox" value={partner.id} />
@@ -945,8 +1023,8 @@ function RequestDetailDrawer({
             <p className="text-sm text-stone-500">No active prayer partners are available yet.</p>
           )}
         </div>
-        <textarea className="mt-3 min-h-20 w-full border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]" defaultValue={request.prayer_notes ?? ""} name="prayer_notes" placeholder="Coverage notes" />
-        <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+        <textarea className="mt-3 min-h-20 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]" defaultValue={request.prayer_notes ?? ""} name="prayer_notes" placeholder="Coverage notes" />
+        <button className={`${secondaryButtonClassName} mt-3 w-full`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
           Assign Partners
         </button>
       </form>
@@ -957,7 +1035,7 @@ function RequestDetailDrawer({
         <ActionForm action={markPrayerRequestAnswered} fieldName="request_id" id={request.id}>Mark Answered</ActionForm>
         <ActionForm action={archivePrayerRequest} fieldName="request_id" id={request.id} tone="red">Archive</ActionForm>
       </div>
-    </aside>
+    </DetailFrame>
   );
 }
 
@@ -999,55 +1077,72 @@ function PartnersTab({
   const regions = Array.from(new Set(partners.map((partner) => partner.region).filter(Boolean) as string[])).sort();
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
-      <section className="space-y-4">
-        <form className="grid gap-3 border border-stone-800 bg-[#080808]/85 p-4 lg:grid-cols-[1.3fr_0.65fr_0.65fr_0.75fr_auto]" action="/admin/prayer-team" method="get">
-          <input name="tab" type="hidden" value="partners" />
-          <input className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]" defaultValue={params.q ?? ""} name="q" placeholder="Search partner, email, city, church" />
-          <select className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={params.state ?? ""} name="state">
-            <option value="">All States</option>
-            {states.map((state) => <option key={state} value={state}>{state}</option>)}
-          </select>
-          <select className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={params.region ?? ""} name="region">
-            <option value="">All Regions</option>
-            {regions.map((region) => <option key={region} value={region}>{region}</option>)}
-          </select>
-          <select className="min-h-10 border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]" defaultValue={params.status ?? ""} name="status">
-            <option value="">All Statuses</option>
-            {partnerStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-          </select>
-          <button className="inline-flex min-h-10 items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
-            Filter
+    <div className="space-y-5">
+      <form className="grid min-w-0 gap-3 rounded-xl border border-stone-800/75 bg-[#080808]/90 p-3 lg:grid-cols-[minmax(260px,1fr)_auto_auto] lg:items-start" action="/admin/prayer-team" method="get">
+        <input name="tab" type="hidden" value="partners" />
+        <input className={toolbarInputClassName} defaultValue={params.q ?? ""} name="q" placeholder="Search partners" />
+        <details className="rounded-lg border border-stone-800 bg-[#050505] px-3 py-2">
+          <summary className="cursor-pointer text-[10px] uppercase tracking-[0.14em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Filters
+          </summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <select className={toolbarInputClassName} defaultValue={params.state ?? ""} name="state">
+              <option value="">All States</option>
+              {states.map((state) => <option key={state} value={state}>{state}</option>)}
+            </select>
+            <select className={toolbarInputClassName} defaultValue={params.region ?? ""} name="region">
+              <option value="">All Regions</option>
+              {regions.map((region) => <option key={region} value={region}>{region}</option>)}
+            </select>
+            <select className={toolbarInputClassName} defaultValue={params.status ?? ""} name="status">
+              <option value="">All Statuses</option>
+              {partnerStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+            </select>
+          </div>
+        </details>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <button className={primaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+            Apply
           </button>
-        </form>
-
-        <div className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
-          <div className="hidden grid-cols-[1fr_1.15fr_0.7fr_0.65fr_0.55fr_0.7fr_0.8fr_0.45fr] gap-3 border-b border-stone-800/70 px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-stone-500 lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            {["Name", "Email", "Phone", "City", "State", "Region", "Status", "Actions"].map((heading) => <span key={heading}>{heading}</span>)}
-          </div>
-          <div className="divide-y divide-stone-900">
-            {filteredPartners.length > 0 ? filteredPartners.map((partner) => (
-              <Link
-                className={`grid gap-3 px-4 py-3 text-sm transition-colors hover:bg-stone-950/80 lg:grid-cols-[1fr_1.15fr_0.7fr_0.65fr_0.55fr_0.7fr_0.8fr_0.45fr] lg:items-center ${
-                  selectedPartner?.id === partner.id ? "bg-[#C9A24A]/5" : ""
-                }`}
-                href={`/admin/prayer-team?tab=partners&partner=${partner.id}`}
-                key={partner.id}
-              >
-                <p className="font-semibold text-stone-100">{partnerName(partner)}</p>
-                <p className="truncate text-stone-400">{partner.email || "-"}</p>
-                <p className="text-stone-400">{partner.phone || "-"}</p>
-                <p className="text-stone-400">{partner.city || "-"}</p>
-                <p className="text-stone-400">{partner.state || "-"}</p>
-                <p className="text-stone-400">{partner.region || "-"}</p>
-                <StatusBadge status={partner.status} />
-                <span className="text-[10px] uppercase tracking-[0.16em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open</span>
-              </Link>
-            )) : (
-              <p className="p-6 text-sm leading-6 text-stone-400">Approved prayer partners will appear here after applications are converted.</p>
-            )}
-          </div>
         </div>
+      </form>
+
+      <section className="grid gap-3">
+        {filteredPartners.length > 0 ? filteredPartners.map((partner) => (
+          <Link
+            className={`min-w-0 rounded-xl border p-4 text-sm transition-colors hover:border-stone-700 hover:bg-stone-950/80 ${
+              selectedPartner?.id === partner.id
+                ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
+                : "border-stone-800/75 bg-[#080808]/90"
+            }`}
+            href={`/admin/prayer-team?tab=partners&partner=${partner.id}`}
+            key={partner.id}
+          >
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.35fr)_minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate font-semibold text-stone-100">{partnerName(partner)}</p>
+                  <StatusBadge status={partner.status} />
+                </div>
+                <p className="mt-1 truncate text-xs text-stone-500">{partner.church_affiliation || "Prayer partner"}</p>
+              </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                <MetaItem label="Email" value={partner.email || "-"} />
+                <MetaItem label="Phone" value={partner.phone || "-"} />
+              </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                <MetaItem label="City" value={partner.city || "-"} />
+                <MetaItem label="Region" value={partner.region || partner.state || "-"} />
+              </div>
+              <span className={secondaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Manage</span>
+            </div>
+          </Link>
+        )) : (
+          <EmptyState
+            description="Approved prayer partners will appear here after applications are converted."
+            title="No prayer partners yet."
+          />
+        )}
       </section>
 
       <PartnerDetailDrawer partner={selectedPartner} requests={requests} />
@@ -1063,16 +1158,7 @@ function PartnerDetailDrawer({
   requests: readonly PrayerRequestRow[];
 }) {
   if (!partner) {
-    return (
-      <aside className="border border-stone-800/75 bg-[#080808]/85 p-6 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)]">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Prayer Partner Detail
-        </p>
-        <p className="mt-4 text-sm leading-7 text-stone-400">
-          Select a partner to review contact information, availability, permissions, coverage, and assigned requests.
-        </p>
-      </aside>
-    );
+    return null;
   }
 
   const assignedRequests = requests.filter((request) => request.assigned_partner_ids?.includes(partner.id));
@@ -1080,18 +1166,18 @@ function PartnerDetailDrawer({
   const assignedCoverage = JSON.stringify(partner.assigned_coverage ?? {}, null, 2);
 
   return (
-    <aside className="border border-stone-800/75 bg-[#080808]/85 p-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto">
-      <div className="border-b border-stone-800/70 pb-4">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Prayer Partner Detail
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{partnerName(partner)}</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+    <DetailFrame
+      badges={(
+        <>
           <StatusBadge status={partner.status} />
           {partner.email_alerts ? <Badge tone="green">Email Alerts</Badge> : null}
           {partner.sms_alerts ? <Badge tone="green">SMS Alerts</Badge> : null}
-        </div>
-      </div>
+        </>
+      )}
+      closeHref="/admin/prayer-team?tab=partners"
+      eyebrow="Prayer Partner"
+      title={partnerName(partner)}
+    >
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <DetailItem label="Email" value={partner.email ? <a className="hover:text-[#F5B942]" href={`mailto:${partner.email}`}>{partner.email}</a> : "-"} />
@@ -1132,21 +1218,18 @@ function PartnerDetailDrawer({
         </div>
         <TextAreaField defaultValue={assignedCoverage} label="Assigned Coverage Areas JSON" name="assigned_coverage" />
         <TextAreaField defaultValue={partner.internal_notes} label="Internal Notes" name="internal_notes" />
-        <button className="mt-4 inline-flex min-h-10 w-full items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+        <button className={`${primaryButtonClassName} mt-4 w-full`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
           Edit Partner
         </button>
       </form>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <ActionForm action={deactivatePrayerPartner} fieldName="partner_id" id={partner.id} tone="red">Deactivate</ActionForm>
-        <Link className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]" href={`/admin/prayer-team?tab=requests&partner=${partner.id}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <Link className={secondaryButtonClassName} href={`/admin/prayer-team?tab=requests&partner=${partner.id}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           View Assigned Requests
         </Link>
       </div>
-      <p className="mt-3 text-xs leading-6 text-stone-500">
-        Assign Coverage is saved through the coverage JSON field for now. A guided picker can replace this once coverage rules mature.
-      </p>
-    </aside>
+    </DetailFrame>
   );
 }
 
@@ -1163,32 +1246,43 @@ function ApplicationsTab({
     : null;
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
-      <section className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
-        <div className="hidden grid-cols-[1fr_1fr_0.7fr_0.7fr_1fr_0.65fr_0.75fr] gap-3 border-b border-stone-800/70 px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-stone-500 lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          {["Name", "Email", "City", "State", "Church", "Status", "Submitted Date"].map((heading) => <span key={heading}>{heading}</span>)}
-        </div>
-        <div className="divide-y divide-stone-900">
-          {filteredApplications.length > 0 ? filteredApplications.map((submission) => (
-            <Link
-              className={`grid gap-3 px-4 py-3 text-sm transition-colors hover:bg-stone-950/80 lg:grid-cols-[1fr_1fr_0.7fr_0.7fr_1fr_0.65fr_0.75fr] lg:items-center ${
-                selectedApplication?.id === submission.id ? "bg-[#C9A24A]/5" : ""
-              }`}
-              href={`/admin/prayer-team?tab=applications&submission=${submission.id}`}
-              key={submission.id}
-            >
-              <p className="font-semibold text-stone-100">{submissionName(submission)}</p>
-              <p className="truncate text-stone-400">{submission.email || "-"}</p>
-              <p className="text-stone-400">{payloadValue(submission.payload, "city") || "-"}</p>
-              <p className="text-stone-400">{payloadValue(submission.payload, "state") || "-"}</p>
-              <p className="truncate text-stone-400">{payloadValue(submission.payload, "church_affiliation") || "-"}</p>
-              <StatusBadge status={normalizeSubmissionStatus(submission.status)} />
-              <p className="text-stone-500">{formatDate(submission.created_at)}</p>
-            </Link>
-          )) : (
-            <p className="p-6 text-sm leading-6 text-stone-400">Prayer team applications will appear here after the public prayer application form is connected to Supabase.</p>
-          )}
-        </div>
+    <div className="space-y-5">
+      <section className="grid gap-3">
+        {filteredApplications.length > 0 ? filteredApplications.map((submission) => (
+          <Link
+            className={`min-w-0 rounded-xl border p-4 text-sm transition-colors hover:border-stone-700 hover:bg-stone-950/80 ${
+              selectedApplication?.id === submission.id
+                ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
+                : "border-stone-800/75 bg-[#080808]/90"
+            }`}
+            href={`/admin/prayer-team?tab=applications&submission=${submission.id}`}
+            key={submission.id}
+          >
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate font-semibold text-stone-100">{submissionName(submission)}</p>
+                  <StatusBadge status={normalizeSubmissionStatus(submission.status)} />
+                </div>
+                <p className="mt-1 truncate text-xs text-stone-500">{payloadValue(submission.payload, "church_affiliation") || "Prayer team application"}</p>
+              </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                <MetaItem label="Email" value={submission.email || "-"} />
+                <MetaItem label="Phone" value={submission.phone || "-"} />
+              </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                <MetaItem label="Location" value={[payloadValue(submission.payload, "city"), payloadValue(submission.payload, "state")].filter(Boolean).join(", ") || "-"} />
+                <MetaItem label="Submitted" value={formatDate(submission.created_at)} />
+              </div>
+              <span className={secondaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Review</span>
+            </div>
+          </Link>
+        )) : (
+          <EmptyState
+            description="Prayer team applications will appear here after the public application form is connected."
+            title="No applications yet."
+          />
+        )}
       </section>
 
       <ApplicationDetailDrawer application={selectedApplication} />
@@ -1198,32 +1292,23 @@ function ApplicationsTab({
 
 function ApplicationDetailDrawer({ application }: { application: PrayerSubmissionRow | null }) {
   if (!application) {
-    return (
-      <aside className="border border-stone-800/75 bg-[#080808]/85 p-6 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)]">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Application Detail
-        </p>
-        <p className="mt-4 text-sm leading-7 text-stone-400">
-          Select an application to review the full submission, notes, and approval workflow.
-        </p>
-      </aside>
-    );
+    return null;
   }
 
   const payload = application.payload ?? {};
 
   return (
-    <aside className="border border-stone-800/75 bg-[#080808]/85 p-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto">
-      <div className="border-b border-stone-800/70 pb-4">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Prayer Application
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{submissionName(application)}</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+    <DetailFrame
+      badges={(
+        <>
           <StatusBadge status={normalizeSubmissionStatus(application.status)} />
           <Badge tone="amber">Prayer Team</Badge>
-        </div>
-      </div>
+        </>
+      )}
+      closeHref="/admin/prayer-team?tab=applications"
+      eyebrow="Prayer Application"
+      title={submissionName(application)}
+    >
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <DetailItem label="Email" value={application.email ? <a className="hover:text-[#F5B942]" href={`mailto:${application.email}`}>{application.email}</a> : "-"} />
@@ -1253,7 +1338,7 @@ function ApplicationDetailDrawer({ application }: { application: PrayerSubmissio
         </SelectField>
         <TextField defaultValue={application.assigned_to} label="Assigned To" name="assigned_to" />
         <TextAreaField defaultValue={application.internal_notes} label="Internal Notes" name="internal_notes" />
-        <button className="mt-4 inline-flex min-h-10 w-full items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+        <button className={`${primaryButtonClassName} mt-4 w-full`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
           Save Application
         </button>
       </form>
@@ -1272,7 +1357,7 @@ function ApplicationDetailDrawer({ application }: { application: PrayerSubmissio
         </p>
         <PayloadFields payload={payload} />
       </div>
-    </aside>
+    </DetailFrame>
   );
 }
 
@@ -1353,41 +1438,42 @@ function CoverageBoardTab({
   const activePartners = partners.filter((partner) => partner.status === "active");
 
   return (
-    <div className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
-      <div className="hidden grid-cols-[1fr_0.8fr_0.6fr_0.8fr_0.75fr_0.8fr] gap-4 border-b border-stone-800/70 px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-stone-500 lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        {["Coverage Area", "Coverage Status", "Open Requests", "Assigned Partners", "Last Prayed", "Needs Action"].map((heading) => <span key={heading}>{heading}</span>)}
-      </div>
-      <div className="divide-y divide-stone-900">
-        {coverageRows.map((row) => {
-          const rowRequests = requests.filter((request) => coverageMatches(row, request));
-          const openRequests = rowRequests.filter((request) => request.status === "open");
-          const assignedPartnerIds = new Set(rowRequests.flatMap((request) => request.assigned_partner_ids ?? []));
-          const assignedPartners = activePartners.filter((partner) => assignedPartnerIds.has(partner.id));
-          const lastPrayed = rowRequests
-            .map((request) => request.last_prayed_at)
-            .filter((value): value is string => Boolean(value))
-            .sort((first, second) => new Date(second).getTime() - new Date(first).getTime())[0];
-          const coverageStatus = getCoverageStatus(rowRequests);
-          const urgent = rowRequests.some((request) => request.urgency === "urgent" && request.status === "open");
+    <div className="grid gap-3">
+      {coverageRows.map((row) => {
+        const rowRequests = requests.filter((request) => coverageMatches(row, request));
+        const openRequests = rowRequests.filter((request) => request.status === "open");
+        const assignedPartnerIds = new Set(rowRequests.flatMap((request) => request.assigned_partner_ids ?? []));
+        const assignedPartners = activePartners.filter((partner) => assignedPartnerIds.has(partner.id));
+        const lastPrayed = rowRequests
+          .map((request) => request.last_prayed_at)
+          .filter((value): value is string => Boolean(value))
+          .sort((first, second) => new Date(second).getTime() - new Date(first).getTime())[0];
+        const coverageStatus = getCoverageStatus(rowRequests);
+        const urgent = rowRequests.some((request) => request.urgency === "urgent" && request.status === "open");
 
-          return (
-            <div className="grid gap-3 px-4 py-3 text-sm lg:grid-cols-[1fr_0.8fr_0.6fr_0.8fr_0.75fr_0.8fr] lg:items-center" key={row}>
-              <p className="font-semibold text-stone-100">{row}</p>
-              <CoverageBadge status={coverageStatus} />
-              <p className="text-stone-300">{openRequests.length}</p>
-              <p className="text-stone-400">{assignedPartners.length > 0 ? assignedPartners.map(partnerName).join(", ") : "Unassigned"}</p>
-              <p className="text-stone-500">{formatDate(lastPrayed)}</p>
-              <div className="flex flex-wrap gap-2">
-                {urgent ? <Badge tone="red">Urgent</Badge> : null}
-                {coverageStatus === "Needs Coverage" ? <Badge tone="amber">Needs Action</Badge> : <Badge tone="green">Stable</Badge>}
+        return (
+          <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4" key={row}>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <p className="font-semibold text-stone-100">{row}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <CoverageBadge status={coverageStatus} />
+                  {urgent ? <Badge tone="red">Urgent</Badge> : null}
+                  {coverageStatus === "Needs Coverage" ? <Badge tone="amber">Needs Action</Badge> : <Badge tone="green">Stable</Badge>}
+                </div>
               </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                <MetaItem label="Open Requests" value={openRequests.length} />
+                <MetaItem label="Last Prayed" value={formatDate(lastPrayed)} />
+              </div>
+              <MetaItem label="Assigned Partners" value={assignedPartners.length > 0 ? assignedPartners.map(partnerName).join(", ") : "Unassigned"} />
+              <Link className={secondaryButtonClassName} href={`/admin/prayer-team?tab=requests&q=${encodeURIComponent(row)}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                View Requests
+              </Link>
             </div>
-          );
-        })}
-      </div>
-      <p className="border-t border-stone-800/70 px-4 py-3 text-xs leading-6 text-stone-500">
-        Future DOS alerts can create rows here when a Kitchen Table is scheduled, a missionary submits a prayer request, a household needs coverage, or a regional leader triggers a prayer alert.
-      </p>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1419,41 +1505,46 @@ function RegionsTab({
   const rows = Array.from(labels).sort((first, second) => first.localeCompare(second));
 
   return (
-    <div className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
-      <div className="hidden grid-cols-[1fr_0.85fr_0.85fr_0.85fr_0.75fr_0.8fr_1fr] gap-4 border-b border-stone-800/70 px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-stone-500 lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        {["State / Region", "Assigned Partners", "Active Households", "Open Requests", "Last Prayed", "Coverage Status", "Actions"].map((heading) => <span key={heading}>{heading}</span>)}
-      </div>
-      <div className="divide-y divide-stone-900">
-        {rows.length > 0 ? rows.map((label) => {
-          const assignedPartners = partners.filter((partner) => partner.status === "active" && (partner.state === label || partner.region === label));
-          const activeHouseholds = households.filter((household) => household.primary_state === label || household.region === label);
-          const relatedRequests = requests.filter((request) => request.related_state === label || request.related_region === label);
-          const openRequests = relatedRequests.filter(isOpenRequest);
-          const lastPrayed = relatedRequests
-            .map((request) => request.last_prayed_at)
-            .filter((value): value is string => Boolean(value))
-            .sort((first, second) => new Date(second).getTime() - new Date(first).getTime())[0];
-          const coverageStatus = getCoverageStatus(relatedRequests);
+    <div className="grid gap-3">
+      {rows.length > 0 ? rows.map((label) => {
+        const assignedPartners = partners.filter((partner) => partner.status === "active" && (partner.state === label || partner.region === label));
+        const activeHouseholds = households.filter((household) => household.primary_state === label || household.region === label);
+        const relatedRequests = requests.filter((request) => request.related_state === label || request.related_region === label);
+        const openRequests = relatedRequests.filter(isOpenRequest);
+        const lastPrayed = relatedRequests
+          .map((request) => request.last_prayed_at)
+          .filter((value): value is string => Boolean(value))
+          .sort((first, second) => new Date(second).getTime() - new Date(first).getTime())[0];
+        const coverageStatus = getCoverageStatus(relatedRequests);
 
-          return (
-            <div className="grid gap-3 px-4 py-3 text-sm lg:grid-cols-[1fr_0.85fr_0.85fr_0.85fr_0.75fr_0.8fr_1fr] lg:items-center" key={label}>
-              <p className="font-semibold text-stone-100">{label}</p>
-              <p className="text-stone-300">{assignedPartners.length}</p>
-              <p className="text-stone-300">{activeHouseholds.length}</p>
-              <p className="text-stone-300">{openRequests.length}</p>
-              <p className="text-stone-500">{formatDate(lastPrayed)}</p>
-              <CoverageBadge status={coverageStatus} />
-              <div className="flex flex-wrap gap-2">
-                <Link className="text-[10px] uppercase tracking-[0.16em] text-[#F5B942]" href="/admin/prayer-team?tab=partners" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Assign Partner</Link>
-                <Link className="text-[10px] uppercase tracking-[0.16em] text-[#F5B942]" href={`/admin/prayer-team?tab=requests&q=${encodeURIComponent(label)}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>View Requests</Link>
-                <span className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Mark Covered</span>
+        return (
+          <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4" key={label}>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <p className="font-semibold text-stone-100">{label}</p>
+                <div className="mt-2">
+                  <CoverageBadge status={coverageStatus} />
+                </div>
+              </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+                <MetaItem label="Partners" value={assignedPartners.length} />
+                <MetaItem label="Households" value={activeHouseholds.length} />
+                <MetaItem label="Requests" value={openRequests.length} />
+              </div>
+              <MetaItem label="Last Prayed" value={formatDate(lastPrayed)} />
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <Link className={secondaryButtonClassName} href="/admin/prayer-team?tab=partners" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Partners</Link>
+                <Link className={secondaryButtonClassName} href={`/admin/prayer-team?tab=requests&q=${encodeURIComponent(label)}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Requests</Link>
               </div>
             </div>
-          );
-        }) : (
-          <p className="p-6 text-sm leading-6 text-stone-400">State and regional prayer coverage will appear as partners, households, and prayer requests are assigned.</p>
-        )}
-      </div>
+          </div>
+        );
+      }) : (
+        <EmptyState
+          description="State and regional prayer coverage will appear as partners, households, and prayer requests are assigned."
+          title="No regions yet."
+        />
+      )}
     </div>
   );
 }
@@ -1469,29 +1560,26 @@ function EmailPreviewTab({ requests }: { requests: readonly PrayerRequestRow[] }
 
   return (
     <div className="grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <div className="border border-stone-800/75 bg-[#080808]/85 p-5">
+      <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-5">
         <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Recipient Segment Preview
+          Recipient Segment
         </p>
         <div className="mt-5 grid gap-3 text-sm leading-6 text-stone-300">
           <DetailItem label="Segment" value="Approved prayer partners" />
           <DetailItem label="Merge Fields" value="{first_name}, {request_title}, {category}, {urgency}, {profile_url}" />
-          <DetailItem label="Delivery" value="Preview only. Email and SMS are not connected yet." />
+          <DetailItem label="Delivery" value="Preview only" />
         </div>
         <div className="mt-5 grid gap-3">
-          <button className="inline-flex min-h-10 items-center justify-center border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.16em] text-black" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          <button className={primaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
             Preview Alert
           </button>
-          <button className="inline-flex min-h-10 items-center justify-center border border-stone-700 px-4 text-[11px] uppercase tracking-[0.16em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          <button className={secondaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
             Copy Email Text
           </button>
         </div>
-        <p className="mt-5 text-xs leading-6 text-stone-500">
-          Future email/SMS notification integration can send this preview after approval and segmentation rules are built.
-        </p>
       </div>
 
-      <div className="border border-stone-800/75 bg-stone-100 p-6 text-stone-950">
+      <div className="rounded-xl border border-stone-800/75 bg-stone-100 p-6 text-stone-950">
         <p className="text-xs uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Subject Preview
         </p>
@@ -1507,9 +1595,7 @@ function EmailPreviewTab({ requests }: { requests: readonly PrayerRequestRow[] }
 
 function PermissionBlocked() {
   return (
-    <Message tone="error">
-      Prayer Team access is not enabled for this admin account.
-    </Message>
+    <SystemNotice title="Prayer Team access is not enabled for this admin account." />
   );
 }
 
@@ -1529,7 +1615,6 @@ export default async function PrayerTeamAdminPage({
   return (
     <AdminShell
       active="prayer"
-      description="Manage prayer partners, prayer requests, household coverage, state coverage, and future DOS prayer alerts."
       title="Prayer Team"
     >
       <div className="space-y-5">
@@ -1538,14 +1623,15 @@ export default async function PrayerTeamAdminPage({
         ) : (
           <>
             {data.error ? (
-              <Message tone="error">
-                Prayer Team data is not ready: {data.error}. Apply the Prayer Team migration to the usam-website Supabase project.
-              </Message>
+              <SystemNotice
+                detail={data.error}
+                title="Prayer Team database not connected. Apply Prayer Team migration."
+              />
             ) : null}
-            {params.saved ? <Message tone="success">Prayer Team changes saved.</Message> : null}
-            {params.error ? <Message tone="error">Prayer Team action could not be completed: {params.error}</Message> : null}
+            {params.saved ? <SystemNotice title="Prayer Team changes saved." tone="success" /> : null}
+            {params.error ? <SystemNotice detail={params.error} title="Prayer Team action could not be completed." /> : null}
 
-            <SummaryCards applications={data.applications} households={data.households} partners={data.partners} requests={data.requests} />
+            <SummaryCards households={data.households} partners={data.partners} requests={data.requests} />
             <TabNav activeTab={activeTab} />
 
             {activeTab === "requests" ? (
