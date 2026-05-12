@@ -539,6 +539,11 @@ Operational density standards:
 - Operational tables should default to minimal copy, rely on hierarchy and labels, and avoid explanatory paragraphs.
 - Remove repeated explanations users already understand from section context.
 - Table rows should feel operational, premium, lightweight, and scannable within seconds.
+- Remove instructional copy users already intuitively understand.
+- Prefer labels over paragraphs in operational screens.
+- Upload interfaces should feel lightweight, modern, and calm.
+- Avoid explaining standard UI behavior.
+- Keep operational screens visually fast.
 
 Mobile-first requirements:
 - Every admin/workspace surface must remain usable on mobile.

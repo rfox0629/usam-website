@@ -1432,13 +1432,13 @@ function ImageUploadField({
       <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
-      <p className="mt-2 text-[12px] leading-5 text-[#7b746a]">
+      <p className="mt-1.5 text-[12px] leading-5 text-[#7b746a]">
         {helperText}
       </p>
 
-      <div className="relative mt-3 overflow-hidden rounded-xl border border-[#d7d2c8] bg-white">
+      <div className="relative mt-2.5 overflow-hidden rounded-xl border border-[#d7d2c8] bg-white">
         {imageUrl ? (
-          <div className="flex h-56 items-center justify-center p-3 md:h-64">
+          <div className="flex h-48 items-center justify-center p-2.5 md:h-56">
             <img
               alt={`${label} preview`}
               className="max-h-full w-full object-contain"
@@ -1448,7 +1448,7 @@ function ImageUploadField({
             />
           </div>
         ) : (
-          <div className="flex h-56 items-center justify-center px-4 text-center text-xs uppercase tracking-[0.18em] text-[#7b746a] md:h-64" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <div className="flex h-48 items-center justify-center px-4 text-center text-xs uppercase tracking-[0.18em] text-[#7b746a] md:h-56" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             No image selected
           </div>
         )}
@@ -1465,7 +1465,7 @@ function ImageUploadField({
       </div>
 
       <div
-        className={`mt-3 rounded-lg border border-dashed p-4 transition-colors ${
+        className={`mt-2.5 rounded-lg border border-dashed p-3 transition-colors ${
           isDragActive
             ? "border-[#c8952d] bg-[#fff8ea]"
             : "border-[#d7d2c8] bg-white"
@@ -1477,7 +1477,7 @@ function ImageUploadField({
         }}
         onDrop={handleDrop}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-[#111111]">
               Upload / replace image
@@ -1487,7 +1487,7 @@ function ImageUploadField({
             </p>
           </div>
           <label
-            className={`inline-flex min-h-10 cursor-pointer items-center justify-center border px-4 py-2 text-[11px] uppercase tracking-[0.22em] transition-colors ${
+            className={`inline-flex min-h-9 cursor-pointer items-center justify-center rounded-md border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition-colors ${
               isUploading
                 ? "border-[#d7d2c8] text-[#9a9488]"
                 : "border-[#d7d2c8] bg-white text-[#111111] hover:border-[#c8952d] hover:text-[#8a5a00]"
@@ -8752,13 +8752,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "media" ? (
           <SectionIntro
-            description="Upload your family or team photo, then optionally generate a USAM-style hero image from it."
+            description="Profile images"
             title="Profile Photos"
           >
-            <div className="space-y-4">
-              <section className="rounded-2xl border border-[#e2ded5] bg-white p-4 md:p-5">
+            <div className="space-y-3.5">
+              <section className="rounded-2xl border border-[#e2ded5] bg-white p-3.5 md:p-4">
                 <ImageUploadField
-                  helperText="Upload one family or team photo for your public profile and missionary directory. This photo is used by default across your public profile."
+                  helperText="Public profile image"
                   label="Primary Profile Photo"
                   onChange={(value) => updateHouseholdField("profile_image_url", value)}
                   onUpload={uploadImage}
@@ -8769,20 +8769,20 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 />
               </section>
 
-              <section className="rounded-2xl border border-[#e2ded5] bg-white p-5 md:p-6">
+              <section className="rounded-2xl border border-[#e2ded5] bg-white p-4 md:p-5">
                 <div>
                   <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     Optional USAM Hero Image
                   </p>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-                    Request an optional USA Missionaries-style hero image from your uploaded family/team photo.
+                  <p className="mt-1.5 text-sm leading-5 text-[#4b443b]">
+                    Optional hero image
                   </p>
                 </div>
 
-                <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
                   <div className="overflow-hidden rounded-[18px] bg-[#f8f6f1]">
                     {selectedGeneratedHeroImageUrl ? (
-                      <div className="flex min-h-[280px] items-center justify-center p-4 md:min-h-[360px]">
+                      <div className="flex min-h-[240px] items-center justify-center p-3 md:min-h-[320px]">
                         <img
                           alt="Current USAM hero image preview"
                           className="max-h-full w-full object-contain"
@@ -8790,24 +8790,24 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         />
                       </div>
                     ) : (
-                      <div className="flex min-h-[280px] flex-col items-center justify-center px-6 text-center md:min-h-[360px]">
-                        <div className="mb-5 h-14 w-14 rounded-full border border-[#d7d2c8] bg-white shadow-sm">
-                          <div className="mx-auto mt-[18px] h-4 w-4 rotate-45 bg-[#D4A63D]" />
+                      <div className="flex min-h-[240px] flex-col items-center justify-center px-5 text-center md:min-h-[320px]">
+                        <div className="mb-4 h-12 w-12 rounded-full border border-[#d7d2c8] bg-white shadow-sm">
+                          <div className="mx-auto mt-4 h-3.5 w-3.5 rotate-45 bg-[#D4A63D]" />
                         </div>
                         <p className="text-base font-semibold text-[#111111]">
-                          No approved USAM hero image yet.
+                          No hero image
                         </p>
                         <p className="mt-2 max-w-sm text-xs leading-5 text-[#7b746a]">
-                          Your uploaded photo will be used unless an approved USAM hero image is uploaded and applied.
+                          Using uploaded photo
                         </p>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     <div>
                       <button
-                        className="inline-flex min-h-14 w-full items-center justify-center rounded-sm border border-[#c8952d] bg-[#D4A63D] px-6 py-4 text-center text-xs uppercase tracking-[0.24em] text-[#111111] shadow-[0_14px_34px_rgba(212,166,61,0.18)] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
+                        className="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-[#c8952d] bg-[#D4A63D] px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] text-[#111111] shadow-[0_12px_26px_rgba(212,166,61,0.14)] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
                         disabled={!selectedProfile.profile_image_url?.trim()}
                         onClick={openCutoutModal}
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -8815,48 +8815,36 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       >
                         Request USAM Hero Image
                       </button>
-                      <p className="mt-3 text-center text-xs leading-5 text-[#7b746a]">
-                        Admin-assisted review protects likeness and brand consistency.
-                      </p>
                     </div>
 
                     <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Public Profile Hero
-                    </p>
-                    <div className="mt-3 space-y-2">
-                      <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
-                        <input
-                          checked={!selectedGeneratedHeroImageUrl}
-                          className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                          name="profile_public_image_source"
-                          onChange={() => updateHouseholdField("hero_image_url", "")}
-                          type="radio"
-                        />
-                        <span>
-                          <span className="block font-semibold text-[#111111]">Use Uploaded Photo</span>
-                        </span>
-                      </label>
-                      <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]">
-                        <input
-                          checked={Boolean(selectedGeneratedHeroImageUrl)}
-                          className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                          disabled={!selectedGeneratedHeroImageUrl}
-                          name="profile_public_image_source"
-                          onChange={() => undefined}
-                          type="radio"
-                        />
-                        <span>
-                          <span className="block font-semibold text-[#111111]">Use USAM Hero Image</span>
-                          {!selectedGeneratedHeroImageUrl ? (
-                            <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
-                              Available after an approved USAM hero image is added.
-                            </span>
-                          ) : null}
-                        </span>
-                      </label>
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Public Profile Hero
+                      </p>
+                      <div className="mt-2.5 space-y-2">
+                        <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-2.5 text-sm leading-5 text-[#4b443b]">
+                          <input
+                            checked={!selectedGeneratedHeroImageUrl}
+                            className="h-4 w-4 accent-[#D4A63D]"
+                            name="profile_public_image_source"
+                            onChange={() => updateHouseholdField("hero_image_url", "")}
+                            type="radio"
+                          />
+                          <span className="font-semibold text-[#111111]">Use Uploaded Photo</span>
+                        </label>
+                        <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-2.5 text-sm leading-5 text-[#4b443b]">
+                          <input
+                            checked={Boolean(selectedGeneratedHeroImageUrl)}
+                            className="h-4 w-4 accent-[#D4A63D]"
+                            disabled={!selectedGeneratedHeroImageUrl}
+                            name="profile_public_image_source"
+                            onChange={() => undefined}
+                            type="radio"
+                          />
+                          <span className="font-semibold text-[#111111]">Use USAM Hero Image</span>
+                        </label>
+                      </div>
                     </div>
-                  </div>
                   </div>
                 </div>
               </section>
