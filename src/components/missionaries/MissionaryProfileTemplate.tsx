@@ -8,6 +8,7 @@ import { StoryReadMoreButton } from "@/components/missionaries/StoryReadMoreButt
 import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromTheFieldModal";
 import { JoinPrayerTeamModal, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
 import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
+import { SubmitPrayerRequestModal } from "@/src/components/missionaries/SubmitPrayerRequestModal";
 import type { Missionary, MissionaryFruitItem, MissionaryPrayerRequest } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
 
@@ -352,7 +353,7 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
   return (
     <MissionProfileCard
       action={(
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="grid gap-2 sm:grid-cols-2">
           {prayerTeamEnabled ? (
             <JoinPrayerTeamModal
               buttonLabel={ctaLabel}
@@ -366,6 +367,11 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
           ) : (
             <ActionLink href={destination}>{ctaLabel}</ActionLink>
           )}
+          <SubmitPrayerRequestModal
+            householdId={missionary.id}
+            householdName={missionary.name}
+            profileSlug={missionary.slug}
+          />
           {prayerRequests.length > 0 ? (
             <PrayerRequestsModalButton buttonLabel="Requests" requests={prayerRequests} />
           ) : null}
@@ -533,12 +539,7 @@ function ProfileFooter({ missionary }: { missionary: Missionary }) {
 function hasPublicPrayerContent(missionary: Missionary, prayerRequests: readonly MissionaryPrayerRequest[]) {
   const settings = missionary.prayerSettings;
 
-  return settings?.enablePrayerTeam === true
-    || Boolean(settings?.ctaLabel?.trim())
-    || Boolean(settings?.destination?.trim())
-    || Boolean(settings?.headline?.trim())
-    || Boolean(settings?.description?.trim())
-    || prayerRequests.length > 0;
+  return Boolean(settings) || prayerRequests.length > 0;
 }
 
 export function MissionaryProfileTemplate({
