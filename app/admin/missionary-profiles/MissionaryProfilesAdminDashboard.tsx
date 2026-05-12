@@ -8442,41 +8442,41 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             <div className="grid gap-3 sm:grid-cols-3">
               <Link
                 aria-label="Open mobile Field App for this workspace"
-                className="rounded-xl border border-[#D4A63D] bg-[#D4A63D] p-4 text-black shadow-[0_14px_34px_rgba(212,166,61,0.16)] transition-all hover:bg-[#F5B942]"
+                className="flex min-h-20 rounded-xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_10px_24px_rgba(212,166,61,0.12)] transition-colors hover:bg-[#e7b742]"
                 href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
                 title="Open mobile Field App for this workspace"
               >
-                <div className="flex items-start gap-3">
-                  <Smartphone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                <div className="flex items-start gap-2.5">
+                  <Smartphone className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open DOS App</p>
-                    <p className="mt-1 text-xs leading-5 text-black/70">Manage field activity</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open DOS</p>
+                    <p className="mt-1 text-xs leading-5 text-black/70">Field app</p>
                   </div>
                 </div>
               </Link>
               <Link
-                className="rounded-xl border border-[#D4A63D]/55 bg-[#111111] p-4 text-stone-100 transition-all hover:border-[#F5B942] hover:text-[#F5B942]"
+                className="flex min-h-20 rounded-xl border border-[#D4A63D]/45 bg-[#101010] p-3.5 text-stone-100 transition-colors hover:border-[#D4A63D]/70 hover:text-[#F5B942]"
                 href={`/missionaries/${selectedProfile.slug}`}
                 target="_blank"
               >
-                <div className="flex items-start gap-3">
-                  <ExternalLink className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                <div className="flex items-start gap-2.5">
+                  <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A63D]" aria-hidden="true" />
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>View Public Profile</p>
-                    <p className="mt-1 text-xs leading-5 text-stone-400">See the donor facing page</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public Profile</p>
+                    <p className="mt-1 text-xs leading-5 text-stone-400">Donor page</p>
                   </div>
                 </div>
               </Link>
               <button
-                className="rounded-xl border border-stone-700 bg-stone-950/70 p-4 text-left text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+                className="flex min-h-20 rounded-xl border border-stone-700 bg-stone-950/70 p-3.5 text-left text-stone-100 transition-colors hover:border-stone-500 hover:text-[#F5B942]"
                 onClick={copySelectedProfileLink}
                 type="button"
               >
-                <div className="flex items-start gap-3">
-                  <Copy className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                <div className="flex items-start gap-2.5">
+                  <Copy className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A63D]" aria-hidden="true" />
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Copy Profile Link</p>
-                    <p className="mt-1 text-xs leading-5 text-stone-400">Share this missionary page</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Copy Link</p>
+                    <p className="mt-1 text-xs leading-5 text-stone-400">Share page</p>
                   </div>
                 </div>
               </button>
