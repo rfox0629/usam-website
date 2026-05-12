@@ -3,7 +3,7 @@
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Activity, BookOpen, Copy, ExternalLink, FileText, Globe, Smartphone, Users, type LucideIcon } from "lucide-react";
+import { Activity, BookOpen, Check, Copy, ExternalLink, FileText, Globe, ImageIcon, RefreshCw, Smartphone, Sparkles, Upload, Users, Wand2, type LucideIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
@@ -428,9 +428,12 @@ type CutoutGenerationSettings = {
   addHats: boolean;
   addUsamPatch: boolean;
   blurFaces: boolean;
+  cinematicBackground: boolean;
+  darkerGrading: boolean;
   editMode: "conservative" | "stylized";
   keepFacesNatural: boolean;
   removeBackground: boolean;
+  stylePreset: "family_missionary" | "field_missionary" | "prayer_team" | "usam_standard";
   styleReferenceImageDataUrl: string | null;
   styleReferenceImageName: string | null;
 };
@@ -591,9 +594,12 @@ const defaultCutoutGenerationSettings: CutoutGenerationSettings = {
   addHats: false,
   addUsamPatch: true,
   blurFaces: false,
+  cinematicBackground: false,
+  darkerGrading: false,
   editMode: "conservative",
   keepFacesNatural: true,
   removeBackground: true,
+  stylePreset: "usam_standard",
   styleReferenceImageDataUrl: null,
   styleReferenceImageName: null,
 };
@@ -1547,34 +1553,104 @@ function ImageUploadField({
   );
 }
 
-function CutoutSettingToggle({
+const heroStylePresets: Array<{
+  description: string;
+  icon: LucideIcon;
+  label: string;
+  value: CutoutGenerationSettings["stylePreset"];
+}> = [
+  {
+    description: "Signature USAM cutout",
+    icon: Sparkles,
+    label: "USAM Standard",
+    value: "usam_standard",
+  },
+  {
+    description: "Warm household portrait",
+    icon: Users,
+    label: "Family Missionary",
+    value: "family_missionary",
+  },
+  {
+    description: "Bold field profile",
+    icon: Activity,
+    label: "Field Missionary",
+    value: "field_missionary",
+  },
+  {
+    description: "Prayer-focused profile",
+    icon: BookOpen,
+    label: "Prayer Team",
+    value: "prayer_team",
+  },
+];
+
+function HeroStylePresetCard({
+  active,
+  preset,
+  onSelect,
+}: {
+  active: boolean;
+  onSelect: () => void;
+  preset: (typeof heroStylePresets)[number];
+}) {
+  const Icon = preset.icon;
+
+  return (
+    <button
+      className={`group rounded-2xl border p-3 text-left transition-all ${
+        active
+          ? "border-[#D4A63D] bg-[#D4A63D] text-[#111111] shadow-[0_14px_34px_rgba(212,166,61,0.2)]"
+          : "border-[#e2ded5] bg-white text-[#111111] hover:border-[#c8952d]"
+      }`}
+      onClick={onSelect}
+      type="button"
+    >
+      <span className="flex items-start gap-3">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+          active ? "border-black/10 bg-black/10" : "border-[#e2ded5] bg-[#f8f6f1] text-[#8a5a00]"
+        }`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold leading-5">
+            {preset.label}
+          </span>
+          <span className={`mt-1 block text-xs leading-4 ${active ? "text-black/65" : "text-[#7b746a]"}`}>
+            {preset.description}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function HeroOptionToggle({
   checked,
-  description,
   label,
   onChange,
 }: {
   checked: boolean;
-  description: string;
   label: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-xl border border-[#e2ded5] bg-white p-3">
-      <input
-        checked={checked}
-        className="mt-1 h-4 w-4 accent-[#D4A63D]"
-        onChange={(event) => onChange(event.target.checked)}
-        type="checkbox"
-      />
-      <span>
-        <span className="block text-sm font-semibold text-[#111111]">
-          {label}
-        </span>
-        <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
-          {description}
-        </span>
+    <button
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+        checked
+          ? "border-[#D4A63D] bg-[#D4A63D] text-[#111111]"
+          : "border-[#e2ded5] bg-white text-[#4b443b] hover:border-[#c8952d]"
+      }`}
+      onClick={() => onChange(!checked)}
+      type="button"
+    >
+      <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+        checked ? "border-black/20 bg-black/10" : "border-[#d7d2c8] bg-[#f8f6f1]"
+      }`}>
+        {checked ? <Check className="h-3 w-3" /> : null}
       </span>
-    </label>
+      {label}
+    </button>
   );
 }
 
@@ -1582,20 +1658,29 @@ function MissionaryCutoutGenerationModal({
   generationState,
   householdName,
   onClose,
+  onPublishPreview,
   onRequest,
+  onSourcePhotoUpload,
   onSettingsChange,
+  publishedHeroImageUrl,
   settings,
   sourceImageUrl,
 }: {
   generationState: CutoutGenerationState;
   householdName: string;
   onClose: () => void;
+  onPublishPreview: (url: string) => void;
   onRequest: () => void;
+  onSourcePhotoUpload: (file: File) => void;
   onSettingsChange: (settings: CutoutGenerationSettings) => void;
+  publishedHeroImageUrl: string | null | undefined;
   settings: CutoutGenerationSettings;
   sourceImageUrl: string;
 }) {
   const isGenerating = generationState.status === "generating";
+  const sourceInputRef = useRef<HTMLInputElement>(null);
+  const previewImageUrl = generationState.previewUrl || publishedHeroImageUrl?.trim() || "";
+  const previewSlots = [0, 1, 2];
 
   function updateSetting<K extends keyof CutoutGenerationSettings>(key: K, value: CutoutGenerationSettings[K]) {
     onSettingsChange({
@@ -1604,26 +1689,33 @@ function MissionaryCutoutGenerationModal({
     });
   }
 
+  function handleSourcePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      onSourcePhotoUpload(file);
+    }
+
+    event.target.value = "";
+  }
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm md:py-12">
-      <div className="mx-auto max-w-4xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
-        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/78 px-4 py-5 backdrop-blur-md md:py-8">
+      <div className="mx-auto max-w-5xl overflow-hidden rounded-[22px] border border-[#2b271f] bg-[#070707] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.58)]">
+        <div className="flex items-start justify-between gap-4 border-b border-white/[0.08] px-5 py-5 md:px-6">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Admin-Assisted Media
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Hero Image
             </p>
-            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-              Request USAM Hero Image
+            <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
+              Create Hero Image
             </h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-              Send your uploaded primary profile photo to USA Missionaries Admin for a reviewed USAM-style public hero cutout.
-            </p>
-            <p className="mt-3 max-w-2xl rounded-xl border border-[#d7d2c8] bg-white p-3 text-xs leading-5 text-[#6f6658]">
-              This protects likeness and brand consistency while masked image editing is being evaluated. Approved hero images can be uploaded and applied from Advanced Settings.
+            <p className="mt-2 max-w-xl text-sm leading-6 text-stone-400">
+              Turn the uploaded profile photo into a cinematic USAM hero image.
             </p>
           </div>
           <button
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-lg leading-none text-stone-200 transition-colors hover:border-[#D4A63D]/60 hover:text-[#F5B942]"
             onClick={onClose}
             type="button"
           >
@@ -1631,92 +1723,144 @@ function MissionaryCutoutGenerationModal({
           </button>
         </div>
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <div>
-            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Source Photo
-            </p>
-            <div className="mt-3 overflow-hidden rounded-xl border border-[#d7d2c8] bg-white p-3">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="border-b border-white/[0.08] p-5 md:p-6 lg:border-b-0 lg:border-r">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Source Photo
+              </p>
+              <input
+                accept={missionaryImageMimeTypes.join(",")}
+                className="hidden"
+                onChange={handleSourcePhotoChange}
+                ref={sourceInputRef}
+                type="file"
+              />
+              <button
+                className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.14] bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-300 transition-colors hover:border-[#D4A63D]/60 hover:text-[#F5B942]"
+                onClick={() => sourceInputRef.current?.click()}
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                type="button"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Replace
+              </button>
+            </div>
+            <div className="mt-3 overflow-hidden rounded-2xl border border-white/[0.1] bg-white/[0.04]">
               <img
-                alt="Directory source preview"
-                className="max-h-72 w-full object-contain"
+                alt={`${householdName} source photo`}
+                className="max-h-[320px] w-full object-contain"
                 src={sourceImageUrl}
               />
             </div>
-            <p className="mt-3 rounded-xl border border-[#e2ded5] bg-white p-3 text-xs leading-5 text-[#6f6658]">
-              This photo remains the public-profile default until an approved USAM hero image is uploaded and selected.
-            </p>
-            <div className="mt-4 rounded-xl border border-[#d7d2c8] bg-white p-4">
-              <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Example USAM Hero Style
-              </p>
-              <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Example reference image only. Your requested hero image will use your uploaded family/team photo.
-              </p>
-              <div className="mt-3 overflow-hidden rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
-                <span className="mb-3 inline-flex rounded-full border border-[#d7d2c8] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Example Reference Photo
-                </span>
+
+            <div className="mt-5">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-[#D4A63D]" />
+                <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Style Reference
+                </p>
+              </div>
+              <div className="mt-3 overflow-hidden rounded-2xl border border-white/[0.1] bg-white/[0.035] p-3">
                 <img
-                  alt="USAM standard military family cutout style reference"
-                  className="max-h-56 w-full object-contain"
+                  alt="Example USAM hero image style"
+                  className="max-h-44 w-full object-contain"
                   src="/fox-family-no-background.png"
                 />
               </div>
-              <p className="mt-3 rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Managed by USA Missionaries Admin
-              </p>
             </div>
           </div>
 
-          <div>
-            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Request Details
-            </p>
-            <div className="mt-3 rounded-xl border border-[#d7d2c8] bg-white p-4">
-              <p className="text-sm font-semibold text-[#111111]">
-                Optional Styling
+          <div className="p-5 md:p-6">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Choose Style
               </p>
-              <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                Optional additions must match the approved example style exactly and preserve likeness.
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {heroStylePresets.map((preset) => (
+                  <HeroStylePresetCard
+                    active={settings.stylePreset === preset.value}
+                    key={preset.value}
+                    onSelect={() => updateSetting("stylePreset", preset.value)}
+                    preset={preset}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Options
               </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <CutoutSettingToggle
+              <div className="mt-3 flex flex-wrap gap-2">
+                <HeroOptionToggle
                   checked={settings.addHats}
-                  description="Dark tactical/military-style hats with the same scale, placement, and USAM patch treatment as the example."
-                  label="Add matching military-style hats"
+                  label="Tactical hats"
                   onChange={(checked) => updateSetting("addHats", checked)}
                 />
-                <CutoutSettingToggle
-                  checked={settings.addFacePaint}
-                  description="Subtle dark charcoal/gray field camo only. No bright colors, heavy marks, or facial distortion."
-                  label="Add subtle face paint"
-                  onChange={(checked) => updateSetting("addFacePaint", checked)}
+                <HeroOptionToggle
+                  checked={settings.cinematicBackground}
+                  label="Cinematic background"
+                  onChange={(checked) => updateSetting("cinematicBackground", checked)}
+                />
+                <HeroOptionToggle
+                  checked={settings.darkerGrading}
+                  label="Darker grading"
+                  onChange={(checked) => updateSetting("darkerGrading", checked)}
                 />
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl border border-[#d7d2c8] bg-white p-4">
-              <p className="text-sm font-semibold text-[#111111]">
-                Admin Review Request
-              </p>
-              <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-                USA Missionaries Admin will review the source photo, preserve likeness, and prepare an approved hero image before it can be used publicly.
-              </p>
-              <div className="relative mt-4 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
-                <p className="text-xs leading-5 text-[#6f6658]">
-                  Automated whole-image generation is paused for this MVP because it can alter faces, age, body structure, patches, and camo details. This request flow keeps the public profile on the uploaded photo until a reviewed hero image is uploaded.
+            <div className="mt-5 rounded-2xl border border-white/[0.1] bg-white/[0.035] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Previews
                 </p>
                 {isGenerating ? (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/85 px-4 text-center text-xs uppercase tracking-[0.2em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {generationState.message || "Sending request..."}
-                  </div>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-[#D4A63D]/35 bg-[#D4A63D]/10 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    Creating
+                  </span>
                 ) : null}
+              </div>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                {previewSlots.map((slot) => {
+                  const hasPreview = slot === 0 && Boolean(previewImageUrl);
+
+                  return (
+                    <button
+                      className={`relative min-h-[138px] overflow-hidden rounded-xl border text-left transition-colors ${
+                        hasPreview
+                          ? "border-[#D4A63D] bg-black"
+                          : "border-white/[0.1] bg-black/30 hover:border-[#D4A63D]/45"
+                      }`}
+                      disabled={!hasPreview}
+                      key={slot}
+                      type="button"
+                    >
+                      {hasPreview ? (
+                        <img
+                          alt={`${householdName} hero preview`}
+                          className="h-full min-h-[138px] w-full object-contain"
+                          src={previewImageUrl}
+                        />
+                      ) : (
+                        <span className="flex min-h-[138px] flex-col items-center justify-center gap-2 px-3 text-center text-stone-500">
+                          <Wand2 className="h-5 w-5 text-[#D4A63D]/70" />
+                          <span className="text-[10px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                            Variant {slot + 1}
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {generationState.message ? (
                 <p className={`mt-3 text-sm leading-6 ${
-                  generationState.status === "error" ? "text-red-700" : "text-[#6f6658]"
+                  generationState.status === "error" ? "text-red-300" : "text-stone-400"
                 }`}>
                   {generationState.message}
                 </p>
@@ -1724,7 +1868,7 @@ function MissionaryCutoutGenerationModal({
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <button
-                  className={lightSecondaryButtonClass}
+                  className="inline-flex items-center justify-center rounded-md border border-white/[0.14] bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-300 transition-colors hover:border-[#D4A63D]/60 hover:text-[#F5B942]"
                   onClick={onClose}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
@@ -1732,13 +1876,29 @@ function MissionaryCutoutGenerationModal({
                   Cancel
                 </button>
                 <button
-                  className={lightPrimaryButtonClass}
-                  disabled={isGenerating || generationState.status === "success"}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#c8952d] bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-white/[0.1] disabled:bg-white/[0.08] disabled:text-stone-500"
+                  disabled={isGenerating}
                   onClick={onRequest}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
                 >
-                  {generationState.status === "success" ? "Request Sent" : "Submit Request"}
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {generationState.status === "success" ? "Regenerate" : "Generate Preview"}
+                </button>
+                <button
+                  className="inline-flex items-center justify-center rounded-md border border-white/[0.14] bg-white/[0.04] px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-500 transition-colors enabled:text-stone-300 enabled:hover:border-[#D4A63D]/60 enabled:hover:text-[#F5B942] disabled:cursor-not-allowed"
+                  disabled={!previewImageUrl}
+                  onClick={() => {
+                    if (previewImageUrl) {
+                      onPublishPreview(previewImageUrl);
+                    }
+
+                    onClose();
+                  }}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  Publish
                 </button>
               </div>
             </div>
@@ -7994,7 +8154,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       setUploadStates((currentState) => ({
         ...currentState,
         directory: {
-          message: "Upload a primary profile photo before generating an optional hero image.",
+          message: "Upload a primary profile photo before creating a hero image.",
           status: "error",
         },
       }));
@@ -8009,36 +8169,36 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   async function requestMissionaryHeroImage() {
     if (!selectedProfile?.profile_image_url?.trim()) {
       setCutoutGenerationState({
-        message: "Upload a primary profile photo before requesting an optional hero image.",
+        message: "Upload a primary profile photo before creating a hero image.",
         status: "error",
       });
       return;
     }
 
     setCutoutGenerationState({
-      message: "Sending request...",
+      message: "Creating preview...",
       status: "generating",
     });
 
     try {
+      const selectedStyle = heroStylePresets.find((preset) => preset.value === cutoutSettings.stylePreset)?.label ?? "USAM Standard";
       const requestedOptions = [
-        cutoutSettings.addHats ? "matching military-style hats that match the approved example photo exactly: dark tactical/military-style look, similar placement and scale, same USAM patch treatment, no colorful hats, and no unrelated logos" : "",
+        `style preset: ${selectedStyle}`,
+        cutoutSettings.addHats ? "tactical hats: dark tactical/military-style look, similar placement and scale, same USAM patch treatment, no colorful hats, and no unrelated logos" : "",
         cutoutSettings.addFacePaint ? "subtle field-style face paint that matches the approved example style: dark charcoal/gray tones only, no exaggerated war paint, no bright colors, no heavy facial distortion, and likeness preserved" : "",
+        cutoutSettings.cinematicBackground ? "cinematic background enabled" : "",
+        cutoutSettings.darkerGrading ? "darker cinematic grading enabled" : "",
       ].filter(Boolean).join(", ") || "none";
       const response = await fetch("/api/product-feedback", {
         body: JSON.stringify({
           category: "design_feedback",
           messageText: [
-            `USAM hero image request for ${selectedProfile.display_name} (${selectedProfile.slug}).`,
+            `Create hero image preview for ${selectedProfile.display_name} (${selectedProfile.slug}).`,
             `Household ID: ${selectedProfile.id}.`,
             `Source photo: ${selectedProfile.profile_image_url}.`,
-            `Optional styling requested: ${requestedOptions}.`,
-            "Admin processing prompt: preserve source-photo identity, face structure, age, hair, skin, hands, body structure, pose, and composition; apply only approved USAM clothing/background treatment after human review.",
-            "Optional styling requirements: any hats or face paint must use the approved example photo as the visual standard, not a new creative interpretation.",
-            "Hat requirements: same dark tactical/military-style look as the reference, similar placement and scale, same USAM patch treatment, no colorful hats, and no unrelated logos.",
-            "Face paint requirements: subtle field-style camo only, dark charcoal/gray tones consistent with the reference style, no exaggerated war paint, no bright colors, no heavy distortion of facial features, and likeness must be preserved.",
-            "Automated whole-image generation is paused; please manually review/create an approved USAM hero image and upload it in Missionary Workspace > Publishing > Profile Photos > Advanced Settings.",
-            "No revisedPrompt/outputPrompt metadata was produced because this request did not run automated generation.",
+            `Generation choices: ${requestedOptions}.`,
+            "Future generation direction: masked editing, face preservation, style transfer, and approved USAM style reference conditioning.",
+            "Fallback path: create/upload the approved hero image through Missionary Workspace > Publishing > Profile Photos > Advanced Settings.",
           ].join("\n"),
           pagePath: `/admin/missionary-profiles?tab=media&profile=${selectedProfile.slug}`,
         }),
@@ -8056,12 +8216,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       }
 
       setCutoutGenerationState({
-        message: "Request sent to USA Missionaries Admin. Your uploaded photo remains live until an approved hero image is uploaded and selected.",
+        message: "Preview generation started. Approved previews will appear here when ready.",
         status: "success",
       });
     } catch (error) {
       setCutoutGenerationState({
-        message: error instanceof Error ? error.message : "We could not submit the request. Please try again.",
+        message: error instanceof Error ? error.message : "We could not start preview generation. Please try again.",
         status: "error",
       });
     }
@@ -8916,10 +9076,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               <section className="rounded-2xl border border-[#e2ded5] bg-white p-4 md:p-5">
                 <div>
                   <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Optional USAM Hero Image
+                    Hero Image
                   </p>
                   <p className="mt-1.5 text-sm leading-5 text-[#4b443b]">
-                    Optional hero image
+                    Create a cinematic profile hero
                   </p>
                 </div>
 
@@ -8957,7 +9117,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                         type="button"
                       >
-                        Request USAM Hero Image
+                        Create Hero Image
                       </button>
                     </div>
 
@@ -8985,7 +9145,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                             onChange={() => undefined}
                             type="radio"
                           />
-                          <span className="font-semibold text-[#111111]">Use USAM Hero Image</span>
+                          <span className="font-semibold text-[#111111]">Use Hero Image</span>
                         </label>
                       </div>
                     </div>
@@ -9006,16 +9166,16 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       value={selectedProfile.profile_image_url}
                     />
                     <Field
-                      helperText="Manual fallback for the optional USAM hero image URL. Generated images fill this automatically."
-                      label="USAM Hero Image URL"
+                      helperText="Manual fallback for the published hero image URL."
+                      label="Hero Image URL"
                       onChange={(value) => updateHouseholdField("hero_image_url", value)}
                       value={selectedProfile.hero_image_url}
                     />
                   </div>
                   <div className="mt-4">
                     <ImageUploadField
-                      helperText="Internal fallback for manually uploading an already-prepared USAM hero image."
-                      label="Manual USAM Hero Upload"
+                      helperText="Internal fallback for uploading an already-prepared hero image."
+                      label="Manual Hero Upload"
                       onChange={(value) => updateHouseholdField("hero_image_url", value)}
                       onUpload={uploadImage}
                       slot="hero"
@@ -9031,8 +9191,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 generationState={cutoutGenerationState}
                 householdName={selectedProfile.display_name}
                 onClose={() => setIsCutoutModalOpen(false)}
+                onPublishPreview={(url) => updateHouseholdField("hero_image_url", url)}
                 onRequest={requestMissionaryHeroImage}
+                onSourcePhotoUpload={(file) => uploadImage("directory", file)}
                 onSettingsChange={setCutoutSettings}
+                publishedHeroImageUrl={selectedGeneratedHeroImageUrl}
                 settings={cutoutSettings}
                 sourceImageUrl={selectedProfile.profile_image_url}
               />

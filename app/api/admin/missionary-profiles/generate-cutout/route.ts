@@ -25,9 +25,12 @@ type CutoutSettings = {
   addHats: boolean;
   addUsamPatch: boolean;
   blurFaces: boolean;
+  cinematicBackground: boolean;
+  darkerGrading: boolean;
   editMode: "conservative" | "stylized";
   keepFacesNatural: boolean;
   removeBackground: boolean;
+  stylePreset: "family_missionary" | "field_missionary" | "prayer_team" | "usam_standard";
   styleReferenceImageDataUrl: string | null;
 };
 
@@ -54,7 +57,7 @@ type ImageInput = {
 
 const cutoutGenerationModel = "gpt-5.5";
 const cutoutGenerationModelLabel = "OpenAI image generation";
-const adminAssistedHeroMessage = "Automated USAM hero image generation is paused until reliable masked editing is available. Use the admin-assisted request flow and upload an approved hero image manually.";
+const adminAssistedHeroMessage = "Hero image generation is routed through assisted preview processing until reliable masked editing is available.";
 
 const defaultCutoutSettings: CutoutSettings = {
   addCamoFatigues: true,
@@ -62,9 +65,12 @@ const defaultCutoutSettings: CutoutSettings = {
   addHats: false,
   addUsamPatch: true,
   blurFaces: false,
+  cinematicBackground: false,
+  darkerGrading: false,
   editMode: "conservative",
   keepFacesNatural: true,
   removeBackground: true,
+  stylePreset: "usam_standard",
   styleReferenceImageDataUrl: null,
 };
 
@@ -78,6 +84,19 @@ function asBoolean(value: unknown, fallback: boolean) {
 
 function normalizeEditMode(value: unknown): CutoutSettings["editMode"] {
   return value === "stylized" ? "stylized" : "conservative";
+}
+
+function normalizeStylePreset(value: unknown): CutoutSettings["stylePreset"] {
+  if (
+    value === "family_missionary"
+    || value === "field_missionary"
+    || value === "prayer_team"
+    || value === "usam_standard"
+  ) {
+    return value;
+  }
+
+  return "usam_standard";
 }
 
 function normalizeStyleReferenceImageDataUrl(value: unknown) {
@@ -97,9 +116,12 @@ function normalizeCutoutSettings(value: unknown): CutoutSettings {
     addHats: asBoolean(settings.addHats, defaultCutoutSettings.addHats),
     addUsamPatch: true,
     blurFaces: false,
+    cinematicBackground: asBoolean(settings.cinematicBackground, defaultCutoutSettings.cinematicBackground),
+    darkerGrading: asBoolean(settings.darkerGrading, defaultCutoutSettings.darkerGrading),
     editMode: "conservative",
     keepFacesNatural: true,
     removeBackground: true,
+    stylePreset: normalizeStylePreset(settings.stylePreset),
     styleReferenceImageDataUrl: normalizeStyleReferenceImageDataUrl(settings.styleReferenceImageDataUrl),
   };
 }
@@ -138,6 +160,16 @@ function buildCutoutPrompt(settings: CutoutSettings, hasStyleReferenceImage: boo
     instructions.push("Keep clothing tasteful, simple, and close to the original photo.");
   }
 
+  if (settings.stylePreset === "family_missionary") {
+    instructions.push("Use a warm family missionary hero composition with respectful cinematic polish and a calm public-profile presence.");
+  } else if (settings.stylePreset === "field_missionary") {
+    instructions.push("Use a bold field missionary hero composition with practical field-readiness styling and strong visual focus.");
+  } else if (settings.stylePreset === "prayer_team") {
+    instructions.push("Use a reverent prayer-team hero composition with quieter lighting and a ministry-focused tone.");
+  } else {
+    instructions.push("Use the standard USA Missionaries public hero composition.");
+  }
+
   if (settings.addHats) {
     instructions.push("Add simple matching hats only if they look natural. Hats must not cover eyes, faces, smiles, hairline, or identifying facial features.");
   } else {
@@ -166,6 +198,14 @@ function buildCutoutPrompt(settings: CutoutSettings, hasStyleReferenceImage: boo
     instructions.push("Remove the background completely and output a clean transparent PNG cutout.");
   } else {
     instructions.push("Do not remove the background. Keep the original setting as much as possible and avoid adding a busy new background.");
+  }
+
+  if (settings.cinematicBackground) {
+    instructions.push("If a background is used, keep it cinematic, dark, subtle, and secondary to the people.");
+  }
+
+  if (settings.darkerGrading) {
+    instructions.push("Use slightly darker, premium color grading while preserving natural skin tone and facial detail.");
   }
 
   instructions.push(
