@@ -1328,7 +1328,6 @@ export default async function MissionaryProfilesAdminPage() {
   return (
     <AdminShell
       active="missionary-profiles"
-      description="Manage missionary households, public profiles, and field workspace access."
       title="Missionary Workspace"
     >
       {loadError ? (
