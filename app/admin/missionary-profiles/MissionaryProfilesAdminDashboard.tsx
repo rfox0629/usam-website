@@ -5787,22 +5787,23 @@ function ShareTemplateCard({
   const previewParts = body.split(/({{[^}]+}})/g);
 
   return (
-    <article className="rounded-2xl border border-[#dcd6ca] bg-white p-5 shadow-[0_10px_30px_rgba(17,17,17,0.04)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <article className="rounded-2xl border border-[#dcd6ca] bg-white p-4 shadow-[0_8px_22px_rgba(17,17,17,0.035)]">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h4 className="text-lg font-semibold leading-tight text-[#111111]">{title}</h4>
-          <p className="mt-1 text-sm leading-6 text-[#6f6658]">{description}</p>
+          <h4 className="text-base font-semibold leading-tight text-[#111111]">{title}</h4>
+          <p className="mt-1 text-xs leading-5 text-[#6f6658]">{description}</p>
         </div>
         <button
-          className="inline-flex min-h-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-[#fbfaf7] px-3 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+          className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md border border-[#d7d2c8] bg-[#fbfaf7] px-2.5 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
           onClick={() => onCopy(body, title)}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
         >
+          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
           Copy
         </button>
       </div>
-      <div className="mt-4 rounded-xl border border-[#ece7dd] bg-[#fbfaf7] p-4 text-sm leading-7 text-[#3f3932]">
+      <div className="mt-3 max-h-[190px] overflow-auto rounded-xl border border-[#ece7dd] bg-[#fbfaf7] p-3 text-[13px] leading-6 text-[#3f3932]">
         {previewParts.map((part, index) => (
           part.startsWith("{{") && part.endsWith("}}") ? (
             <span className="rounded-md border border-[#d4a63d]/35 bg-[#fff2c6] px-1.5 py-0.5 text-[#7a5a12]" key={`${part}-${index}`}>
@@ -5827,8 +5828,8 @@ function SupportToolkitSection({
   title: string;
 }) {
   return (
-    <section className="rounded-3xl border border-[#dcd6ca] bg-[#fdfbf7] p-5 md:p-6">
-      <div className="border-b border-[#e8e1d4] pb-4">
+    <section className="rounded-2xl border border-[#dcd6ca] bg-[#fdfbf7] p-4 md:p-5">
+      <div className="border-b border-[#e8e1d4] pb-3">
         <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {title}
         </p>
@@ -5836,7 +5837,7 @@ function SupportToolkitSection({
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f6658]">{description}</p>
         ) : null}
       </div>
-      <div className="mt-5">
+      <div className="mt-4">
         {children}
       </div>
     </section>
@@ -5874,81 +5875,78 @@ function SupportShareTools({
   const socialTemplate = `${missionaryName} is raising support with USA Missionaries to reach the lost, make disciples, and multiply across America.\n\n${missionStatement}\n\nWould you prayerfully consider partnering monthly or sharing this with someone who may want to stand with the mission?\n${supportLink}`;
   const videoPrompt = `Record a 60-90 second video:\n1. Introduce yourself: ${missionaryName}.\n2. Share the mission in one sentence: ${missionStatement}\n3. Explain the current support goal: ${formatCurrency(annualGoal)} annually.\n4. Invite viewers to pray, share, or partner monthly.\n5. Close with the support link: ${supportLink}`;
 
+  const statusPills = [
+    profileStatus,
+    `${formatCurrency(monthlyGoal)}/mo`,
+    publishState,
+  ];
+
   return (
-    <div className="mx-auto max-w-[1120px] space-y-6">
-      <div className="rounded-3xl border border-[#dcd6ca] bg-white p-5 shadow-[0_14px_40px_rgba(17,17,17,0.05)] md:p-6">
-        <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
+    <div className="mx-auto max-w-[1120px] space-y-4">
+      <div className="rounded-2xl border border-[#dcd6ca] bg-white p-4 shadow-[0_10px_28px_rgba(17,17,17,0.045)] md:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Support Toolkit
             </p>
-            <h3 className="mt-2 text-2xl font-semibold text-[#111111]">{missionaryName}</h3>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6f6658]">
-              Reusable links, flyer assets, and message templates for inviting support with clarity and care.
-            </p>
+            <h3 className="mt-1 text-xl font-semibold text-[#111111]">{missionaryName}</h3>
           </div>
-          <div className="grid gap-2 text-sm sm:grid-cols-2 lg:min-w-[380px]">
-            <div className="rounded-2xl border border-[#e2ded5] bg-[#fbfaf7] p-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Profile Status</p>
-              <p className="mt-1 font-semibold text-[#111111]">{profileStatus}</p>
-            </div>
-            <div className="rounded-2xl border border-[#e2ded5] bg-[#fbfaf7] p-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Support Goal</p>
-              <p className="mt-1 font-semibold text-[#111111]">{formatCurrency(monthlyGoal)} monthly</p>
-            </div>
-            <div className="rounded-2xl border border-[#e2ded5] bg-[#fbfaf7] p-3 sm:col-span-2">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Publish State</p>
-              <p className="mt-1 font-semibold text-[#111111]">{publishState}</p>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {statusPills.map((pill) => (
+              <span
+                className="rounded-full border border-[#ded7ca] bg-[#fbfaf7] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#3f3932]"
+                key={pill}
+                style={{ fontFamily: font.rajdhani }}
+              >
+                {pill}
+              </span>
+            ))}
           </div>
         </div>
       </div>
 
-      <SupportToolkitSection description="Copy stable public links for texts, emails, church pages, and support conversations." title="Public Links">
-        <div className="grid gap-3 md:grid-cols-2">
+      <SupportToolkitSection title="Public Links">
+        <div className="grid gap-2 md:grid-cols-3">
           {[
             { label: "Public Profile Link", value: profileLink },
             { label: "Support Link", value: supportLink },
             { label: "Flyer Link", value: flyerLink },
           ].map((link) => (
-            <div className="rounded-2xl border border-[#e2ded5] bg-white p-4" key={link.label}>
+            <div className="rounded-xl border border-[#e2ded5] bg-white p-3" key={link.label}>
               <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{link.label}</p>
-              <p className="mt-2 break-all text-sm leading-6 text-[#3f3932]">{link.value}</p>
-              <button className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[#8a5a00] hover:text-[#111111]" onClick={() => onCopy(link.value, link.label)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                Copy Link
+              <p className="mt-1 line-clamp-2 break-all text-xs leading-5 text-[#3f3932]">{link.value}</p>
+              <button className="mt-2 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-[#8a5a00] hover:text-[#111111]" onClick={() => onCopy(link.value, link.label)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                Copy
               </button>
             </div>
           ))}
         </div>
       </SupportToolkitSection>
 
-      <SupportToolkitSection description="Edit the flyer copy separately from the sharing actions. Save Changes when the copy is ready." title="Flyer Builder">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="grid gap-4">
+      <SupportToolkitSection title="Flyer Builder">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="grid gap-3">
             <Field
-              helperText="Appears as the main headline on the generated flyer. Keep it direct and donor-facing."
               label="Flyer Headline"
               onChange={(value) => onSupportFieldChange("flyer_headline", value)}
               value={support.flyer_headline ?? ""}
             />
             <Field
-              helperText="Short ask displayed near the giving CTA. Best as one warm, specific sentence."
               label="Prayer / Support Ask"
               onChange={(value) => onSupportFieldChange("flyer_prayer_ask", value)}
               value={support.flyer_prayer_ask ?? ""}
             />
             <TextArea
-              helperText="Brief support appeal for churches, meetings, and print handouts. This should explain why partnership matters."
               label="Short Support Appeal"
               onChange={(value) => onSupportFieldChange("flyer_support_appeal", value)}
-              rows={4}
+              rows={3}
               value={support.flyer_support_appeal ?? ""}
             />
             <TextArea
-              helperText="Optional closing note shown near the bottom of the flyer. Use this for a personal thank-you or prayer emphasis."
               label="Optional Note"
               onChange={(value) => onSupportFieldChange("flyer_note", value)}
-              rows={4}
+              rows={3}
               value={support.flyer_note ?? ""}
             />
           </div>
@@ -5956,11 +5954,8 @@ function SupportShareTools({
             <p className="text-[10px] uppercase tracking-[0.2em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Generated Asset
             </p>
-            <h4 className="mt-2 text-xl font-semibold text-[#111111]">One-page support flyer</h4>
-            <p className="mt-2 text-sm leading-6 text-[#6f6658]">
-              Full-color and print-friendly versions use the same saved copy and production-safe links.
-            </p>
-            <div className="mt-5 grid gap-2">
+            <h4 className="mt-1 text-lg font-semibold text-[#111111]">One-page flyer</h4>
+            <div className="mt-4 grid gap-2">
               <a className={`${lightPrimaryButtonClass} min-h-11 gap-2 px-5`} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
                 Preview Full Color
@@ -5982,28 +5977,28 @@ function SupportShareTools({
         </div>
       </SupportToolkitSection>
 
-      <SupportToolkitSection description="Polished starter copy missionaries can personalize before sending. Merge fields are highlighted for quick editing." title="Message Templates">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <ShareTemplateCard body={textTemplate} description="Short personal invitation for one-to-one texts." onCopy={onCopy} title="Text Message Template" />
-          <ShareTemplateCard body={emailTemplate} description="Longer support invitation with mission context." onCopy={onCopy} title="Email Template" />
-          <ShareTemplateCard body={socialTemplate} description="Caption for Facebook, Instagram, or church group posts." onCopy={onCopy} title="Facebook / Instagram Caption" />
-          <ShareTemplateCard body={videoPrompt} description="Simple outline for a short support video." onCopy={onCopy} title="YouTube / Video Script Prompt" />
+      <SupportToolkitSection title="Message Templates">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ShareTemplateCard body={textTemplate} description="One-to-one text." onCopy={onCopy} title="Text Message Template" />
+          <ShareTemplateCard body={emailTemplate} description="Email invitation." onCopy={onCopy} title="Email Template" />
+          <ShareTemplateCard body={socialTemplate} description="Social caption." onCopy={onCopy} title="Facebook / Instagram Caption" />
+          <ShareTemplateCard body={videoPrompt} description="Short video outline." onCopy={onCopy} title="YouTube / Video Script Prompt" />
         </div>
       </SupportToolkitSection>
 
-      <SupportToolkitSection description="Support progress remains based on confirmed active commitments, not public form submissions." title="Support Tracking">
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+      <SupportToolkitSection title="Support Tracking">
+        <div className="grid gap-2 md:grid-cols-3">
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
             <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Annual Goal</p>
-            <p className="mt-2 text-2xl font-semibold text-[#111111]">{formatCurrency(annualGoal)}</p>
+            <p className="mt-1 text-xl font-semibold text-[#111111]">{formatCurrency(annualGoal)}</p>
           </div>
-          <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
             <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Monthly Goal</p>
-            <p className="mt-2 text-2xl font-semibold text-[#111111]">{formatCurrency(monthlyGoal)}</p>
+            <p className="mt-1 text-xl font-semibold text-[#111111]">{formatCurrency(monthlyGoal)}</p>
           </div>
-          <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
             <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Monthly Committed</p>
-            <p className="mt-2 text-2xl font-semibold text-[#111111]">{formatCurrency(support.monthly_committed ?? 0)}</p>
+            <p className="mt-1 text-xl font-semibold text-[#111111]">{formatCurrency(support.monthly_committed ?? 0)}</p>
           </div>
         </div>
       </SupportToolkitSection>
@@ -8997,10 +8992,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "support" ? (
           <SectionIntro
-            description="Raise support, shape the donor-facing page, share the mission, and follow up with supporters."
             title="Support"
           >
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="flex flex-wrap gap-2 border-b border-[#e2ded5] pb-3">
                 {supportSubsectionOptions.map((option) => (
                   <button
@@ -9097,9 +9091,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   missionaryName={selectedProfile.display_name}
                   onCopy={copyTextToClipboard}
                   onSupportFieldChange={updateSupportField}
-                  profileStatus={isProfilePublic(selectedProfile) ? "Public profile visible" : "Public profile hidden"}
+                  profileStatus={isProfilePublic(selectedProfile) ? "Public Visible" : "Public Hidden"}
                   profileLink={publicProfileLink}
-                  publishState={getFeatureValue(selectedProfile, "show_support") ? "Support section enabled" : "Support section hidden"}
+                  publishState={getFeatureValue(selectedProfile, "show_support") ? "Support Enabled" : "Support Hidden"}
                   support={support}
                   supportLink={publicSupportLink}
                 />
