@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Activity, BookOpen, Copy, ExternalLink, FileText, Globe, Smartphone, Users, type LucideIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -408,6 +408,8 @@ type StatusMessage = {
   tone: "error" | "success";
   text: string;
 } | null;
+
+type ProfileLinkCopyState = "copied" | "failed" | "idle";
 
 type UploadState = {
   message?: string;
@@ -6726,6 +6728,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [profileQuery, setProfileQuery] = useState("");
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
+  const [profileLinkCopyState, setProfileLinkCopyState] = useState<ProfileLinkCopyState>("idle");
+  const profileLinkCopyTimerRef = useRef<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadStates, setUploadStates] = useState<Record<MissionaryImageSlot, UploadState>>({
     directory: { status: "idle" },
@@ -6748,6 +6752,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   useEffect(() => {
     setActiveTab((currentTab) => normalizeEditorTab(currentTab));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (profileLinkCopyTimerRef.current !== null) {
+        window.clearTimeout(profileLinkCopyTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -7032,6 +7044,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   function resetTransientEditorState() {
     setStatus(null);
+    resetProfileLinkCopyState();
     setUploadStates({
       directory: { status: "idle" },
       hero: { status: "idle" },
@@ -7061,7 +7074,37 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     const profileUrl = getPublicMissionaryProfileUrl(selectedProfile.slug);
 
-    copyTextToClipboard(profileUrl, "Public profile link");
+    try {
+      await window.navigator.clipboard.writeText(profileUrl);
+      showProfileLinkCopyState("copied");
+    } catch {
+      showProfileLinkCopyState("failed");
+    }
+  }
+
+  function resetProfileLinkCopyState() {
+    if (typeof window !== "undefined" && profileLinkCopyTimerRef.current !== null) {
+      window.clearTimeout(profileLinkCopyTimerRef.current);
+    }
+
+    profileLinkCopyTimerRef.current = null;
+    setProfileLinkCopyState("idle");
+  }
+
+  function showProfileLinkCopyState(nextState: Exclude<ProfileLinkCopyState, "idle">) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (profileLinkCopyTimerRef.current !== null) {
+      window.clearTimeout(profileLinkCopyTimerRef.current);
+    }
+
+    setProfileLinkCopyState(nextState);
+    profileLinkCopyTimerRef.current = window.setTimeout(() => {
+      setProfileLinkCopyState("idle");
+      profileLinkCopyTimerRef.current = null;
+    }, 2000);
   }
 
   async function copyTextToClipboard(value: string, label: string) {
@@ -8229,6 +8272,16 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const publicProfileLink = getPublicMissionaryProfileUrl(selectedProfile.slug);
   const publicSupportLink = `${publicProfileLink}#support`;
   const publicFlyerLink = `${publicProfileLink}/flyer`;
+  const profileLinkCopyTitle = profileLinkCopyState === "copied"
+    ? "Copied"
+    : profileLinkCopyState === "failed"
+      ? "Copy failed"
+      : "Copy Link";
+  const profileLinkCopySubtitle = profileLinkCopyState === "copied"
+    ? "Ready to share"
+    : profileLinkCopyState === "failed"
+      ? "Try again"
+      : "Share page";
   const selectedSupportModeLabel = supportModeOptions.find((option) => option.value === supportMode)?.label ?? supportModeOptions[0].label;
   const targetHouseholdOptions = targetHouseholdLoadState === "loading"
     ? [{ label: "Loading households...", value: "" }]
@@ -8398,6 +8451,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 </div>
               </Link>
               <button
+                aria-label={profileLinkCopyState === "failed" ? "Copy profile link failed. Try again." : "Copy public profile link"}
                 className="flex min-h-20 rounded-xl border border-stone-700 bg-stone-950/70 p-3.5 text-left text-stone-100 transition-colors hover:border-stone-500 hover:text-[#F5B942]"
                 onClick={copySelectedProfileLink}
                 type="button"
@@ -8405,8 +8459,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 <div className="flex items-start gap-2.5">
                   <Copy className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A63D]" aria-hidden="true" />
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Copy Link</p>
-                    <p className="mt-1 text-xs leading-5 text-stone-400">Share page</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{profileLinkCopyTitle}</p>
+                    <p className="mt-1 text-xs leading-5 text-stone-400">{profileLinkCopySubtitle}</p>
                   </div>
                 </div>
               </button>
