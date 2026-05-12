@@ -15,6 +15,7 @@ type HeroProfileProps = {
   image?: string;
   backgroundImage?: string;
   actions?: ReactNode;
+  spotlight?: ReactNode;
 };
 
 export function HeroProfile({
@@ -24,6 +25,7 @@ export function HeroProfile({
   image,
   location,
   name,
+  spotlight,
 }: HeroProfileProps) {
   // USAM default hero background is managed globally for brand consistency.
   const heroBackgroundImage = backgroundImage ?? sharedMissionaryProfileHeroBackground;
@@ -37,8 +39,8 @@ export function HeroProfile({
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_48%,rgba(0,0,0,.38)_78%,#050505_100%)]" />
       <div className="absolute inset-0 opacity-15 [background-image:linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] [background-size:104px_104px]" />
 
-      <div className="relative z-20 mx-auto flex max-w-6xl items-start md:min-h-[520px] md:items-center lg:min-h-[550px]">
-        <div className="max-w-[540px] py-12 md:py-16 lg:py-20">
+      <div className="relative z-30 mx-auto grid max-w-6xl gap-8 md:min-h-[520px] md:items-center lg:min-h-[550px] lg:grid-cols-[minmax(0,0.92fr)_minmax(320px,380px)]">
+        <div className="max-w-[540px] py-10 md:py-16 lg:py-20">
           <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
             Missionary Profile
           </p>
@@ -53,6 +55,12 @@ export function HeroProfile({
           </p>
           {actions}
         </div>
+
+        {spotlight ? (
+          <div className="relative z-40 pb-10 md:pb-16 lg:justify-self-end lg:pb-0">
+            {spotlight}
+          </div>
+        ) : null}
       </div>
 
       {image ? (

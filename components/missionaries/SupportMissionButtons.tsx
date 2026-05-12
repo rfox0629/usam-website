@@ -38,6 +38,18 @@ function secondaryButtonClassName() {
   return "inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#D4A63D] hover:bg-white/[0.04] sm:w-auto sm:min-w-[208px]";
 }
 
+function compactPrimaryButtonClassName() {
+  return "inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-4 py-3 text-center text-[11px] uppercase leading-5 tracking-[0.22em] text-black transition-all duration-300 hover:bg-[#F5B942]";
+}
+
+function compactSecondaryButtonClassName() {
+  return "inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#D4A63D]/35 bg-black/25 px-4 py-3 text-center text-[11px] uppercase leading-5 tracking-[0.22em] text-[#F5B942] transition-all duration-300 hover:border-[#D4A63D] hover:bg-[#D4A63D]/10";
+}
+
+function compactTertiaryButtonClassName() {
+  return "inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-white/[0.14] bg-white/[0.03] px-4 py-2 text-center text-[10px] uppercase leading-5 tracking-[0.2em] text-stone-300 transition-all duration-300 hover:border-[#D4A63D]/50 hover:text-[#F5B942]";
+}
+
 function useSupportModal() {
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [initialGiftType, setInitialGiftType] = useState<CommitmentGiftType>("monthly");
@@ -147,11 +159,12 @@ export function MonthlySupportActions(props: SharedSupportProps) {
   );
 }
 
-export function ProfileSupportSectionActions(props: SharedSupportProps) {
+export function ProfileSupportSectionActions(props: SharedSupportProps & { layout?: "default" | "compact" }) {
   const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
   const {
     enableMajorGiftInquiry = true,
     initialMajorGiftOpen = false,
+    layout = "default",
     majorGiftButtonLabel = "Contact About Major Gift",
     majorGiftPublicDescription,
     missionaryId,
@@ -166,11 +179,13 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
     return null;
   }
 
+  const isCompact = layout === "compact";
+
   return (
     <>
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      <div className={isCompact ? "mt-5 grid gap-2" : "mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap"}>
         <button
-          className={primaryButtonClassName()}
+          className={isCompact ? compactPrimaryButtonClassName() : primaryButtonClassName()}
           onClick={() => openModal("monthly")}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
@@ -178,7 +193,7 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
           {monthlyButtonLabel}
         </button>
         <button
-          className={secondaryButtonClassName()}
+          className={isCompact ? compactSecondaryButtonClassName() : secondaryButtonClassName()}
           onClick={() => openModal("onetime")}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
@@ -187,6 +202,7 @@ export function ProfileSupportSectionActions(props: SharedSupportProps) {
         </button>
         {enableMajorGiftInquiry ? (
           <MajorGiftInquiryModal
+            buttonClassName={isCompact ? compactTertiaryButtonClassName() : undefined}
             buttonLabel={majorGiftButtonLabel}
             description={majorGiftPublicDescription}
             householdId={missionaryId}

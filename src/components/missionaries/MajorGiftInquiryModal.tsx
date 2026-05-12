@@ -48,6 +48,7 @@ const intendedForOptions = [
 ] as const;
 
 type MajorGiftInquiryModalProps = {
+  buttonClassName?: string;
   buttonLabel?: string;
   description?: string | null;
   householdId: string;
@@ -65,6 +66,7 @@ function subtleButtonClassName() {
 }
 
 export function MajorGiftInquiryModal({
+  buttonClassName,
   buttonLabel = "Contact About Major Gift",
   description,
   householdId,
@@ -142,7 +144,7 @@ export function MajorGiftInquiryModal({
   return (
     <>
       <button
-        className={subtleButtonClassName()}
+        className={buttonClassName ?? subtleButtonClassName()}
         onClick={() => setIsOpen(true)}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         type="button"

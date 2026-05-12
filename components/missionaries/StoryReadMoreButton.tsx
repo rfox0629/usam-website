@@ -10,11 +10,13 @@ import {
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 type StoryReadMoreButtonProps = {
+  buttonLabel?: string;
   paragraphs: readonly string[];
   title?: string;
 };
 
 export function StoryReadMoreButton({
+  buttonLabel = "Read More",
   paragraphs,
   title = "Our Story",
 }: StoryReadMoreButtonProps) {
@@ -48,7 +50,7 @@ export function StoryReadMoreButton({
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         onClick={() => setIsOpen(true)}
       >
-        Read More
+        {buttonLabel}
       </button>
 
       {isOpen ? (
