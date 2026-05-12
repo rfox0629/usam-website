@@ -342,7 +342,6 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
 
 function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
   const ctaLabel = missionary.prayerSettings?.ctaLabel || "Join Prayer Team";
-  const destination = missionary.prayerSettings?.destination || "/prayer";
   const prayerTeamEnabled = missionary.prayerSettings?.enablePrayerTeam !== false;
   const prayerRequests = missionary.prayerRequests ?? [];
   const previewRequest = prayerRequests[0];
@@ -364,9 +363,7 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
               profileSlug={missionary.slug}
               variant="compact"
             />
-          ) : (
-            <ActionLink href={destination}>{ctaLabel}</ActionLink>
-          )}
+          ) : null}
           <SubmitPrayerRequestModal
             householdId={missionary.id}
             householdName={missionary.name}
