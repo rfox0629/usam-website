@@ -27,16 +27,6 @@ function supportProgress(missionary: Missionary) {
   return Math.min(100, Math.max(0, Math.round((missionary.funding.monthlyCommitted / monthlyGoal) * 100)));
 }
 
-function publicNumber(missionary: Missionary) {
-  const number = missionary.householdMembers?.find((member) => member.publicNumber)?.publicNumber ?? missionary.missionaryNumber;
-
-  if (!number) {
-    return "";
-  }
-
-  return number.startsWith("#") ? number : `#${number}`;
-}
-
 function shortUrl(value: string) {
   return value.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
@@ -128,7 +118,7 @@ export function SupportFlyer({
             <img alt={`${missionary.name} support flyer`} className="max-h-[420px] w-full object-contain" src={image} />
           </div>
           <div className="absolute inset-x-6 bottom-6 rounded-2xl border border-white/20 bg-black/62 p-5 text-white shadow-none backdrop-blur-md md:inset-x-8 md:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#f3c75b]">
                   USA Missionaries
@@ -140,11 +130,6 @@ export function SupportFlyer({
                   {missionary.statement}
                 </p>
               </div>
-              {publicNumber(missionary) ? (
-                <div className="inline-flex shrink-0 self-start rounded-full border border-[#f3c75b]/60 bg-black/35 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-[#f3c75b]">
-                  {publicNumber(missionary)}
-                </div>
-              ) : null}
             </div>
           </div>
         </header>
