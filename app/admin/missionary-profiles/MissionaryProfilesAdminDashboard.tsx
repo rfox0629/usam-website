@@ -3,6 +3,7 @@
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { Copy, ExternalLink, FileText, Smartphone } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
@@ -41,6 +42,7 @@ const lightLabelClass = "text-[11px] uppercase tracking-[0.16em] text-[#6f6658]"
 const lightHelperClass = "mt-2 block text-[12px] leading-5 text-[#7b746a]";
 const lightPrimaryButtonClass = "inline-flex items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60";
 const lightSecondaryButtonClass = "inline-flex items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
+const lightTertiaryButtonClass = "inline-flex items-center justify-center gap-1.5 rounded-md border border-[#e2ded5] bg-transparent px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
 const lightDividerClass = "border-[#e2ded5]";
 
 export type AdminSupportMode = SupportRoutingMode;
@@ -5958,14 +5960,21 @@ function SupportShareTools({
               Full-color and print-friendly versions use the same saved copy and production-safe links.
             </p>
             <div className="mt-5 grid gap-2">
-              <a className={lightPrimaryButtonClass} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+              <a className={`${lightPrimaryButtonClass} min-h-11 gap-2 px-5`} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
                 Preview Full Color
               </a>
-              <a className={lightSecondaryButtonClass} href={`${flyerLink}?version=print&print=1`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+              <a className={`${lightSecondaryButtonClass} min-h-10 gap-2 bg-[#111111] text-stone-100`} href={`${flyerLink}?version=print&print=1`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+                <FileText className="h-4 w-4" aria-hidden="true" />
                 Print-Friendly PDF
               </a>
-              <button className="text-[10px] uppercase tracking-[0.18em] text-[#8a5a00] hover:text-[#111111]" onClick={() => onCopy(flyerLink, "Flyer Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              <button className={lightTertiaryButtonClass} onClick={() => onCopy(flyerLink, "Flyer Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                 Copy Flyer Link
+              </button>
+              <button className={lightTertiaryButtonClass} onClick={() => onCopy(supportLink, "Support Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                Copy Support Link
               </button>
             </div>
           </div>
@@ -8333,31 +8342,46 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 lg:min-w-[560px] lg:grid-cols-3">
             <Link
               aria-label="Open mobile Field App for this workspace"
-              className="inline-flex min-h-11 items-center justify-center border border-[#D4A63D]/60 bg-[#D4A63D]/10 px-4 py-3 text-center text-xs uppercase tracking-[0.2em] text-[#F5B942] transition-all hover:border-[#F5B942] hover:text-[#FFE08A]"
+              className="rounded-xl border border-[#D4A63D] bg-[#D4A63D] p-4 text-black shadow-[0_14px_34px_rgba(212,166,61,0.16)] transition-all hover:bg-[#F5B942]"
               href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               title="Open mobile Field App for this workspace"
             >
-              Open DOS App
+              <div className="flex items-start gap-3">
+                <Smartphone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open DOS App</p>
+                  <p className="mt-1 text-xs leading-5 text-black/70">Manage field activity</p>
+                </div>
+              </div>
             </Link>
             <Link
-              className="inline-flex min-h-11 items-center justify-center border border-stone-700 px-4 py-3 text-center text-xs uppercase tracking-[0.2em] text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+              className="rounded-xl border border-[#D4A63D]/55 bg-[#111111] p-4 text-stone-100 transition-all hover:border-[#F5B942] hover:text-[#F5B942]"
               href={`/missionaries/${selectedProfile.slug}`}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               target="_blank"
             >
-              View Public Profile
+              <div className="flex items-start gap-3">
+                <ExternalLink className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>View Public Profile</p>
+                  <p className="mt-1 text-xs leading-5 text-stone-400">See the donor facing page</p>
+                </div>
+              </div>
             </Link>
             <button
-              className="inline-flex min-h-11 items-center justify-center border border-stone-700 px-4 py-3 text-center text-xs uppercase tracking-[0.2em] text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+              className="rounded-xl border border-stone-700 bg-stone-950/70 p-4 text-left text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
               onClick={copySelectedProfileLink}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               type="button"
             >
-              Copy Profile Link
+              <div className="flex items-start gap-3">
+                <Copy className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Copy Profile Link</p>
+                  <p className="mt-1 text-xs leading-5 text-stone-400">Share this missionary page</p>
+                </div>
+              </div>
             </button>
           </div>
         </div>
@@ -8372,17 +8396,20 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </p>
         ) : null}
 
-        <div className="mt-6 border-b border-stone-800/80 pb-5">
-          <div className="grid gap-3 md:grid-cols-4" role="tablist" aria-label="Workspace primary sections">
+        <div className="mt-8 border-b border-stone-800/80 pb-6">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Current section: {activePrimaryGroup.label}
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-4" role="tablist" aria-label="Workspace primary sections">
             {visiblePrimaryNavGroups.map((group) => {
               const selected = activePrimaryNav === group.key;
 
               return (
                 <button
                   aria-selected={selected}
-                  className={`min-h-20 rounded-md border px-4 py-3 text-left transition-colors ${
+                  className={`min-h-24 rounded-xl border px-5 py-4 text-left transition-colors ${
                     selected
-                      ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                      ? "border-[#D4A63D] bg-[#D4A63D] text-black shadow-[0_16px_38px_rgba(212,166,61,0.16)]"
                       : "border-stone-700 bg-stone-900/70 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
                   }`}
                   key={group.key}
@@ -8408,7 +8435,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           </div>
 
           {activePrimaryGroup.tabs.length > 0 ? (
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-6 overflow-x-auto border-t border-stone-800/70 pt-4">
             <div className="flex min-w-max gap-2" role="tablist" aria-label={`${activePrimaryGroup.label} submenu`}>
               {activePrimaryGroup.tabs.map((tab) => {
                 const tabId = tab.id ?? tab.value;
@@ -8417,7 +8444,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 return (
                   <button
                     aria-selected={selected}
-                    className={`rounded-md border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                    className={`rounded-lg border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
                       selected
                         ? "border-[#D4A63D] bg-[#D4A63D] text-black"
                         : "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-[#D4A63D] hover:text-[#F5B942]"
@@ -8440,21 +8467,35 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         {hasUnsavedChanges ? (
           <div className="sticky top-3 z-20 mt-5 flex flex-col gap-2 rounded-xl border border-[#D4A63D]/35 bg-[#0f0f0f]/90 px-3 py-2.5 shadow-[0_10px_26px_rgba(0,0,0,0.22)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs leading-5 text-stone-300">
-              Unsaved changes in this workspace.
+              You have unsaved changes.
             </p>
-            <button
-              className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={saving}
-              onClick={saveSelectedProfile}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-              type="button"
-            >
-              {saving ? "Saving" : "Save Changes"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                className="inline-flex min-h-9 items-center justify-center rounded-md border border-stone-700 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                onClick={() => {
+                  if (selectedLastSavedProfile) {
+                    updateSelected(selectedLastSavedProfile);
+                  }
+                }}
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                type="button"
+              >
+                Discard Changes
+              </button>
+              <button
+                className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={saving}
+                onClick={saveSelectedProfile}
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                type="button"
+              >
+                {saving ? "Saving" : "Save Changes"}
+              </button>
+            </div>
           </div>
         ) : null}
 
-        <div className="mt-8">
+        <div className="mt-10">
           {activeTab === "overview" ? (
           <SectionIntro
             description="Metrics, recent activity, pending actions, and operational visibility for this workspace."
