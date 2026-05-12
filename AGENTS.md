@@ -487,6 +487,12 @@ Copywriting rules:
 - Avoid implementation language in normal UI: no schema, routing internals, fallback behavior, migration talk, or system plumbing unless the screen is explicitly admin diagnostics.
 - Do not repeat the same idea in a heading, paragraph, and card.
 - Prefer calm operational copy over motivational or marketing copy inside admin/workspace tools.
+- Titles should do most of the communication; avoid repeating the title with a paragraph below it.
+- Prefer status pills over explanatory status paragraphs.
+- Avoid enterprise/table-heavy wording such as verbose statuses, redundant toggle labels, or long row descriptions.
+- Keep workflows scannable within seconds.
+- Default to minimal copy unless operational clarity truly requires more.
+- Missionary Workspace UI should feel premium, lightweight, and fast.
 
 Spacing and layout standards:
 - Use compact vertical rhythm in admin/workspace surfaces.
