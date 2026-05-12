@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { AdminShell } from "../_components/AdminShell";
-import { AdminBadge, adminFont } from "../_components/AdminUI";
+import { adminFont, type AdminBadgeTone } from "../_components/AdminUI";
 import { addAdminUser, removeAdminUser, updateAdminUser, updateSystemAccessCodes } from "./actions";
 import { adminRoles, canManageAdminSettings, getAdminAuthorization, type AdminRole } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -14,6 +15,18 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
+const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#F5B942]";
+const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
+const dangerButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-red-500/35 px-4 text-[11px] uppercase tracking-[0.14em] text-red-200 transition-colors hover:bg-red-950/25";
+const badgeToneClassName: Record<AdminBadgeTone, string> = {
+  amber: "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]",
+  blue: "border-blue-400/25 bg-blue-950/30 text-blue-300",
+  green: "border-green-500/25 bg-green-950/30 text-green-300",
+  muted: "border-stone-700 bg-stone-900/70 text-stone-300",
+  red: "border-red-500/35 bg-red-950/25 text-red-200",
+};
 
 type SearchParams = {
   error?: string;
@@ -138,6 +151,198 @@ function statusMessage(params: SearchParams) {
   };
 }
 
+function Badge({
+  children,
+  tone = "muted",
+}: {
+  children: ReactNode;
+  tone?: AdminBadgeTone;
+}) {
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 text-[9px] uppercase tracking-[0.13em] ${badgeToneClassName[tone]}`}
+      style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Notice({ children, tone = "info" }: { children: ReactNode; tone?: "amber" | "error" | "info" | "success" }) {
+  const className = {
+    amber: "border-l-[#D4A63D] bg-amber-950/10 text-amber-100",
+    error: "border-l-red-400 bg-red-950/10 text-red-100",
+    info: "border-l-stone-500 bg-stone-950/60 text-stone-300",
+    success: "border-l-green-400 bg-green-950/15 text-green-200",
+  }[tone];
+
+  return <div className={`rounded-xl border border-stone-800/75 border-l-2 px-4 py-3 text-sm leading-6 ${className}`}>{children}</div>;
+}
+
+function Section({
+  badge,
+  children,
+  title,
+}: {
+  badge?: ReactNode;
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4 md:p-5">
+      <div className="flex flex-col gap-3 border-b border-stone-800/70 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p
+            className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]"
+            style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+          >
+            {title}
+          </p>
+        </div>
+        {badge ? <div className="flex flex-wrap gap-2">{badge}</div> : null}
+      </div>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function EmptyState({ title }: { title: string }) {
+  return (
+    <div className="rounded-xl border border-stone-800/75 bg-[#050505] p-5">
+      <p className="text-sm font-semibold text-stone-100">{title}</p>
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="text-[10px] uppercase tracking-[0.15em] text-stone-400" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+      {children}
+    </span>
+  );
+}
+
+function InviteAdminForm() {
+  return (
+    <form action={addAdminUser} className="grid gap-3 rounded-xl border border-stone-800/75 bg-[#050505] p-3 lg:grid-cols-[minmax(220px,1fr)_180px_auto]">
+      <label>
+        <FieldLabel>Email</FieldLabel>
+        <input
+          autoComplete="email"
+          className={inputClassName}
+          name="email"
+          placeholder="name@example.com"
+          required
+          type="email"
+        />
+      </label>
+      <label>
+        <FieldLabel>Role</FieldLabel>
+        <select className={`${inputClassName} capitalize`} defaultValue="viewer" name="role">
+          {adminRoles.map((role) => (
+            <option key={role} value={role}>{role}</option>
+          ))}
+        </select>
+      </label>
+      <button className={`${primaryButtonClassName} self-end`} style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }} type="submit">
+        Invite
+      </button>
+    </form>
+  );
+}
+
+function AdminUserCard({ user }: { user: AdminUserRow }) {
+  return (
+    <article className="rounded-xl border border-stone-800/75 bg-[#050505] p-4">
+      <div className="grid gap-4 lg:grid-cols-[minmax(220px,1fr)_160px_130px_auto] lg:items-center">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-stone-100">{user.email}</p>
+          <p className="mt-1 text-xs text-stone-500">{formatDate(user.created_at)}</p>
+        </div>
+        <form action={updateAdminUser} className="contents" id={`admin-user-${user.id}`}>
+          <input name="admin_user_id" type="hidden" value={user.id} />
+          <label>
+            <FieldLabel>Role</FieldLabel>
+            <select className={`${inputClassName} capitalize`} defaultValue={user.role} name="role">
+              {adminRoles.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-h-10 items-center gap-2 pt-5 text-[10px] uppercase tracking-[0.14em] text-stone-300 lg:pt-6" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+            <input
+              className="h-4 w-4 accent-[#D4A63D]"
+              defaultChecked={user.is_active}
+              name="is_active"
+              type="checkbox"
+            />
+            Active
+          </label>
+        </form>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <button className={secondaryButtonClassName} form={`admin-user-${user.id}`} style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }} type="submit">
+            Save
+          </button>
+          <form action={removeAdminUser}>
+            <input name="admin_user_id" type="hidden" value={user.id} />
+            <button className={dangerButtonClassName} style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }} type="submit">
+              Remove
+            </button>
+          </form>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Badge tone={user.is_active ? "green" : "muted"}>{user.is_active ? "Active" : "Disabled"}</Badge>
+        <Badge>{user.role}</Badge>
+      </div>
+    </article>
+  );
+}
+
+function AccessCodeCard({
+  field,
+  row,
+}: {
+  field: typeof accessCodeFields[number];
+  row?: SystemAccessCodeRow;
+}) {
+  return (
+    <article className="rounded-xl border border-stone-800/75 bg-[#050505] p-4">
+      <div className="grid gap-4 lg:grid-cols-[minmax(180px,0.85fr)_minmax(220px,1fr)_120px] lg:items-center">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-stone-100">{field.label}</p>
+          <p className="mt-1 text-xs text-stone-500">{formatDate(row?.updated_at)}</p>
+        </div>
+        <label>
+          <FieldLabel>Code</FieldLabel>
+          <input
+            autoComplete="off"
+            className={inputClassName}
+            defaultValue={row?.code ?? ""}
+            id={`${field.name}_code`}
+            name={`${field.name}_code`}
+            placeholder="Enter access code"
+            required
+            type="password"
+          />
+        </label>
+        <label className="flex min-h-10 items-center gap-2 pt-5 text-[10px] uppercase tracking-[0.14em] text-stone-300 lg:pt-6" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+          <input
+            className="h-4 w-4 accent-[#D4A63D]"
+            defaultChecked={row?.active ?? true}
+            name={`${field.name}_active`}
+            type="checkbox"
+          />
+          Active
+        </label>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Badge tone={row?.active ?? true ? "green" : "muted"}>{row?.active ?? true ? "Active" : "Disabled"}</Badge>
+      </div>
+    </article>
+  );
+}
+
 async function loadAccessCodes() {
   if (!isSupabaseAdminConfigured()) {
     return {
@@ -214,263 +419,65 @@ export default async function AdminSettingsPage({
   const rowByType = new Map(rows.map((row) => [row.code_type, row]));
 
   return (
-    <AdminShell
-      active="settings"
-      description="Manage core admin controls, access model, and system-level configuration."
-      title="Admin Settings"
-    >
+    <AdminShell active="settings" title="Admin Settings">
       <div className="space-y-5">
         {!canManageSettings ? (
-          <p className="border border-red-500/30 bg-red-950/20 p-4 text-sm leading-6 text-red-100">
+          <Notice tone="error">
             Admin role is required to manage Settings, access codes, and admin permissions.
-          </p>
+          </Notice>
         ) : null}
 
         {message ? (
-          <p className={`border p-4 text-sm leading-6 ${
-            message.tone === "success"
-              ? "border-green-500/25 bg-green-950/20 text-green-100"
-              : "border-red-500/30 bg-red-950/20 text-red-100"
-          }`}>
+          <Notice tone={message.tone === "success" ? "success" : "error"}>
             {message.text}
-          </p>
+          </Notice>
         ) : null}
 
         {error ? (
-          <p className="border border-amber-500/30 bg-amber-950/15 p-4 text-sm leading-6 text-amber-100">
-            {error}
-          </p>
+          <Notice tone="amber">{error}</Notice>
         ) : null}
 
         {adminUsersError ? (
-          <p className="border border-amber-500/30 bg-amber-950/15 p-4 text-sm leading-6 text-amber-100">
-            {adminUsersError}
-          </p>
+          <Notice tone="amber">{adminUsersError}</Notice>
         ) : null}
 
         {canManageSettings ? (
           <>
-        <section className="border border-stone-800/75 bg-[#080808]/85 p-5 md:p-6">
-          <div className="flex flex-col gap-3 border-b border-stone-800/75 pb-5 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p
-                className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]"
-                style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
-              >
-                Permissions
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-stone-100">
-                Admin Access & Permissions
-              </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400">
-                Manage Supabase Auth users allowed into the Command Center. Access codes remain as an optional backup for protected public experiences, not the primary admin login system.
-              </p>
-              <p className="mt-2 text-xs leading-5 text-stone-500">
-                TODO: Expand permissions per feature for DOS, Prayer, Support, and missionary-specific review workflows.
-              </p>
-            </div>
-            <AdminBadge tone={adminUsersError ? "amber" : "green"}>{adminUsersError ? "Migration Needed" : "User-Based"}</AdminBadge>
-          </div>
+            <Section
+              badge={<Badge tone={adminUsersError ? "amber" : "green"}>{adminUsersError ? "Migration Required" : "User Based"}</Badge>}
+              title="Admin Access"
+            >
+              <div className="grid gap-4">
+                <InviteAdminForm />
 
-          {canManageSettings ? (
-            <>
-              <form action={addAdminUser} className="mt-6 grid gap-3 border border-stone-800/75 bg-[#050505] p-4 lg:grid-cols-[minmax(260px,1fr)_220px_auto]">
-                <label>
-                  <span className="text-[10px] uppercase tracking-[0.18em] text-stone-300" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
-                    Email
-                  </span>
-                  <input
-                    autoComplete="email"
-                    className="mt-2 min-h-11 w-full border border-stone-700 bg-[#111111] px-4 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
-                    name="email"
-                    placeholder="name@example.com"
-                    required
-                    type="email"
-                  />
-                </label>
-                <label>
-                  <span className="text-[10px] uppercase tracking-[0.18em] text-stone-300" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
-                    Role
-                  </span>
-                  <select
-                    className="mt-2 min-h-11 w-full border border-stone-700 bg-[#111111] px-4 text-sm capitalize text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
-                    defaultValue="viewer"
-                    name="role"
-                  >
-                    {adminRoles.map((role) => (
-                      <option key={role} value={role}>{role}</option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  className="inline-flex min-h-11 items-center justify-center self-end bg-[#D4A63D] px-5 text-xs uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942]"
-                  style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
-                  type="submit"
-                >
-                  Add Admin User
-                </button>
-              </form>
-
-              <div className="mt-5 overflow-hidden border border-stone-800/75">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[780px] border-collapse text-left">
-                    <thead>
-                      <tr className="border-b border-stone-800/75 bg-[#050505] text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
-                        <th className="px-4 py-3">Email</th>
-                        <th className="px-4 py-3">Role</th>
-                        <th className="px-4 py-3">Active</th>
-                        <th className="px-4 py-3">Created</th>
-                        <th className="px-4 py-3">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-900 bg-[#070707]">
-                      {adminUsers.length ? adminUsers.map((user) => (
-                        <tr key={user.id} className="align-middle">
-                          <td className="px-4 py-3 text-sm text-stone-100">{user.email}</td>
-                          <td className="px-4 py-3">
-                            <form action={updateAdminUser} id={`admin-user-${user.id}`} className="contents">
-                              <input name="admin_user_id" type="hidden" value={user.id} />
-                              <select
-                                className="min-h-10 w-full max-w-[180px] border border-stone-700 bg-[#111111] px-3 text-sm capitalize text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
-                                defaultValue={user.role}
-                                name="role"
-                              >
-                                {adminRoles.map((role) => (
-                                  <option key={role} value={role}>{role}</option>
-                                ))}
-                              </select>
-                            </form>
-                          </td>
-                          <td className="px-4 py-3">
-                            <label className="inline-flex min-h-10 items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-stone-300" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
-                              <input
-                                className="h-4 w-4 accent-[#D4A63D]"
-                                defaultChecked={user.is_active}
-                                form={`admin-user-${user.id}`}
-                                name="is_active"
-                                type="checkbox"
-                              />
-                              Active
-                            </label>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-stone-400">{formatDate(user.created_at)}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                                form={`admin-user-${user.id}`}
-                                style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
-                                type="submit"
-                              >
-                                Save
-                              </button>
-                              <form action={removeAdminUser}>
-                                <input name="admin_user_id" type="hidden" value={user.id} />
-                                <button
-                                  className="inline-flex min-h-9 items-center justify-center border border-red-500/35 px-3 text-[10px] uppercase tracking-[0.16em] text-red-200 transition-colors hover:bg-red-950/25"
-                                  style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
-                                  type="submit"
-                                >
-                                  Remove User
-                                </button>
-                              </form>
-                            </div>
-                          </td>
-                        </tr>
-                      )) : (
-                        <tr>
-                          <td className="px-4 py-6 text-sm leading-6 text-stone-400" colSpan={5}>
-                            No admin users have been added yet. Add the first admin user above after the migration is applied.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                <div className="grid gap-3">
+                  {adminUsers.length ? adminUsers.map((user) => (
+                    <AdminUserCard key={user.id} user={user} />
+                  )) : (
+                    <EmptyState title="No admin users yet" />
+                  )}
                 </div>
               </div>
-            </>
-          ) : null}
-        </section>
+            </Section>
 
-        <section className="border border-stone-800/75 bg-[#080808]/85 p-5 md:p-6">
-          <div className="flex flex-col gap-3 border-b border-stone-800/75 pb-5 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p
-                className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]"
-                style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
-              >
-                System
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-stone-100">
-                System Access Codes
-              </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400">
-                Manage the private codes used for System access, Team access, and the protected DOS preview. These values are loaded server-side and are never sent to public pages.
-              </p>
-            </div>
-            <AdminBadge tone={error ? "amber" : "green"}>{error ? "Migration Needed" : "Active"}</AdminBadge>
-          </div>
+            <Section
+              badge={<Badge tone={error ? "amber" : "green"}>{error ? "Migration Required" : "Active"}</Badge>}
+              title="System Access"
+            >
+              <form action={updateSystemAccessCodes} className="grid gap-3">
+                {accessCodeFields.map((field) => {
+                  const row = rowByType.get(field.name);
 
-          <form action={updateSystemAccessCodes} className="mt-6 space-y-4">
-            {accessCodeFields.map((field) => {
-              const row = rowByType.get(field.name);
+                  return <AccessCodeCard field={field} key={field.name} row={row} />;
+                })}
 
-              return (
-                <div
-                  className="grid gap-4 border border-stone-800/75 bg-[#050505] p-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,420px)_auto]"
-                  key={field.name}
-                >
-                  <div>
-                    <label
-                      className="text-[10px] uppercase tracking-[0.18em] text-stone-300"
-                      htmlFor={`${field.name}_code`}
-                      style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
-                    >
-                      {field.label}
-                    </label>
-                    <p className="mt-2 text-sm leading-6 text-stone-400">
-                      {field.description}
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-stone-500">
-                      Last updated: {formatDate(row?.updated_at)}
-                    </p>
-                  </div>
-
-                  <input
-                    autoComplete="off"
-                    className="min-h-12 w-full border border-stone-700 bg-[#111111] px-4 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
-                    defaultValue={row?.code ?? ""}
-                    id={`${field.name}_code`}
-                    name={`${field.name}_code`}
-                    placeholder="Enter access code"
-                    required
-                    type="text"
-                  />
-
-                  <label className="flex min-h-12 items-center gap-3 text-xs uppercase tracking-[0.16em] text-stone-300" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
-                    <input
-                      className="h-4 w-4 accent-[#D4A63D]"
-                      defaultChecked={row?.active ?? true}
-                      name={`${field.name}_active`}
-                      type="checkbox"
-                    />
-                    Active
-                  </label>
+                <div className="flex justify-end border-t border-stone-800/70 pt-4">
+                  <button className={primaryButtonClassName} style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }} type="submit">
+                    Update
+                  </button>
                 </div>
-              );
-            })}
-
-            <div className="flex justify-end border-t border-stone-800/75 pt-5">
-              <button
-                className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 text-xs uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942]"
-                style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
-                type="submit"
-              >
-                Save Access Codes
-              </button>
-            </div>
-          </form>
-        </section>
+              </form>
+            </Section>
           </>
         ) : null}
       </div>
