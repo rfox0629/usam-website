@@ -6026,6 +6026,164 @@ function SupportToolkitSection({
   );
 }
 
+const defaultFlyerHeadline = "Reaching the lost. Making disciples. Multiplying across America.";
+const defaultFlyerPrayerAsk = "Join our family in prayer and monthly partnership.";
+const defaultFlyerSupportAppeal = "USA Missionaries exists to bring the Gospel into homes, coffee shops, and everyday life through discipleship and evangelism.";
+const defaultFlyerNote = "Thank you for standing with our family in the mission.";
+const flyerQrCells = [
+  0, 1, 2, 4, 6, 7, 8,
+  10, 14, 16, 18, 20, 22,
+  24, 25, 27, 29, 31, 33,
+  36, 38, 40, 42, 44, 45,
+  48, 50, 52, 54, 56, 58,
+  60, 61, 62,
+];
+
+function FlyerField({
+  label,
+  onChange,
+  placeholder,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  value: string | null | undefined;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </span>
+      <input
+        className="mt-1.5 min-h-10 w-full rounded-lg border border-[#d7d2c8] bg-white px-3 py-2 text-sm text-[#111111] outline-none transition-all placeholder:text-[#a49d91] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.14)]"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        value={value ?? ""}
+      />
+    </label>
+  );
+}
+
+function FlyerTextAreaField({
+  label,
+  onChange,
+  placeholder,
+  rows = 3,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  rows?: number;
+  value: string | null | undefined;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[10px] uppercase tracking-[0.16em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </span>
+      <textarea
+        className="mt-1.5 w-full rounded-lg border border-[#d7d2c8] bg-white px-3 py-2 text-sm leading-5 text-[#111111] outline-none transition-all placeholder:text-[#a49d91] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.14)]"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        value={value ?? ""}
+      />
+    </label>
+  );
+}
+
+function MiniQrCode() {
+  return (
+    <div className="grid h-[74px] w-[74px] grid-cols-8 gap-[2px] rounded-lg border border-[#d8c79d] bg-white p-2">
+      {Array.from({ length: 64 }).map((_, index) => (
+        <span
+          className={`rounded-[1px] ${flyerQrCells.includes(index) ? "bg-[#111111]" : "bg-[#f3ead4]"}`}
+          key={index}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FlyerPreviewCard({
+  annualGoal,
+  headline,
+  imageUrl,
+  missionStatement,
+  note,
+  prayerAsk,
+  supportAppeal,
+  supportLink,
+}: {
+  annualGoal: number;
+  headline: string;
+  imageUrl?: string | null;
+  missionStatement: string;
+  note: string;
+  prayerAsk: string;
+  supportAppeal: string;
+  supportLink: string;
+}) {
+  const shortSupportLink = supportLink.replace(/^https?:\/\//, "");
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[#d8c79d] bg-[#fffdf7] shadow-[0_18px_46px_rgba(17,17,17,0.09)]">
+      <div className="flex items-center justify-between border-b border-[#eadfcd] bg-[#111111] px-4 py-3 text-white">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          USA Missionaries
+        </p>
+        <p className="text-[9px] uppercase tracking-[0.16em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Support Flyer
+        </p>
+      </div>
+      <div className="p-4">
+        <div className="grid gap-3 sm:grid-cols-[0.9fr_1.1fr] lg:grid-cols-1 xl:grid-cols-[0.9fr_1.1fr]">
+          <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-[#f8f6f1]">
+            {imageUrl ? (
+              <img
+                alt="Flyer preview"
+                className="h-40 w-full object-cover"
+                src={imageUrl}
+              />
+            ) : (
+              <div className="flex h-40 items-center justify-center bg-[#efe7d8] text-[#9a6b12]">
+                <ImageIcon className="h-8 w-8" aria-hidden="true" />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-2xl font-bold uppercase leading-[0.96] text-[#111111]" style={{ fontFamily: font.oswald }}>
+              {headline}
+            </h4>
+            <p className="mt-3 text-sm leading-6 text-[#4b443b]">
+              {missionStatement}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 rounded-xl border border-[#eadfcd] bg-white p-3">
+          <p className="text-sm font-semibold text-[#111111]">{prayerAsk}</p>
+          <p className="mt-2 text-xs leading-5 text-[#6f6658]">{supportAppeal}</p>
+        </div>
+        <div className="mt-3 grid gap-3 rounded-xl border border-[#d8c79d] bg-[#fff4cf] p-3 sm:grid-cols-[auto_1fr]">
+          <MiniQrCode />
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#7a5a12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Partner Monthly
+            </p>
+            <p className="mt-1 text-lg font-semibold text-[#111111]">
+              {formatCurrency(calculateMonthlyGoal(annualGoal))}/mo goal
+            </p>
+            <p className="mt-1 truncate text-xs text-[#6f6658]">{shortSupportLink}</p>
+          </div>
+        </div>
+        <p className="mt-3 text-xs italic leading-5 text-[#7b746a]">{note}</p>
+      </div>
+    </div>
+  );
+}
+
 function SupportShareTools({
   annualGoal,
   flyerLink,
@@ -6033,6 +6191,7 @@ function SupportShareTools({
   missionaryName,
   onCopy,
   onSupportFieldChange,
+  previewImageUrl,
   profileLink,
   support,
   supportLink,
@@ -6043,11 +6202,16 @@ function SupportShareTools({
   missionaryName: string;
   onCopy: (value: string, label: string) => void;
   onSupportFieldChange: (field: keyof AdminSupportSettings, value: boolean | number | string) => void;
+  previewImageUrl?: string | null;
   profileLink: string;
   support: AdminSupportSettings;
   supportLink: string;
 }) {
   const monthlyGoal = calculateMonthlyGoal(annualGoal);
+  const flyerHeadline = support.flyer_headline?.trim() || defaultFlyerHeadline;
+  const flyerPrayerAsk = support.flyer_prayer_ask?.trim() || defaultFlyerPrayerAsk;
+  const flyerSupportAppeal = support.flyer_support_appeal?.trim() || defaultFlyerSupportAppeal;
+  const flyerNote = support.flyer_note?.trim() || defaultFlyerNote;
   const textTemplate = `Hey {{FirstName}}, we are raising support as USA Missionaries to reach the lost, make disciples, and multiply across America. Would you prayerfully consider partnering with us monthly? You can learn more or support here: ${supportLink}`;
   const emailTemplate = `Subject: Would you prayerfully consider partnering with ${missionaryName}?\n\nHi {{FirstName}},\n\nWe are serving with USA Missionaries and raising monthly support so we can keep saying yes to the mission God has put in front of us.\n\n${missionStatement}\n\nWould you prayerfully consider becoming a monthly support partner? You can learn more about our mission and give securely here:\n${supportLink}\n\nThank you for praying with us and considering partnership.\n\n${missionaryName}`;
   const socialTemplate = `${missionaryName} is raising support with USA Missionaries to reach the lost, make disciples, and multiply across America.\n\n${missionStatement}\n\nWould you prayerfully consider partnering monthly or sharing this with someone who may want to stand with the mission?\n${supportLink}`;
@@ -6086,44 +6250,75 @@ function SupportShareTools({
       </SupportToolkitSection>
 
       <SupportToolkitSection title="Flyer Builder">
-        <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_290px]">
-          <div className="grid gap-3">
-            <Field
-              label="Flyer Headline"
-              onChange={(value) => onSupportFieldChange("flyer_headline", value)}
-              value={support.flyer_headline ?? ""}
-            />
-            <Field
-              label="Prayer / Support Ask"
-              onChange={(value) => onSupportFieldChange("flyer_prayer_ask", value)}
-              value={support.flyer_prayer_ask ?? ""}
-            />
-            <TextArea
-              label="Short Support Appeal"
-              onChange={(value) => onSupportFieldChange("flyer_support_appeal", value)}
-              rows={3}
-              value={support.flyer_support_appeal ?? ""}
-            />
-            <TextArea
-              label="Optional Note"
-              onChange={(value) => onSupportFieldChange("flyer_note", value)}
-              rows={3}
-              value={support.flyer_note ?? ""}
-            />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:items-start">
+          <div className="rounded-2xl border border-[#e2ded5] bg-white p-3.5">
+            <div className="grid gap-3">
+              <FlyerField
+                label="Flyer Headline"
+                onChange={(value) => onSupportFieldChange("flyer_headline", value)}
+                placeholder={defaultFlyerHeadline}
+                value={support.flyer_headline}
+              />
+              <FlyerField
+                label="Prayer / Support Ask"
+                onChange={(value) => onSupportFieldChange("flyer_prayer_ask", value)}
+                placeholder={defaultFlyerPrayerAsk}
+                value={support.flyer_prayer_ask}
+              />
+              <FlyerTextAreaField
+                label="Short Support Appeal"
+                onChange={(value) => onSupportFieldChange("flyer_support_appeal", value)}
+                placeholder={defaultFlyerSupportAppeal}
+                rows={3}
+                value={support.flyer_support_appeal}
+              />
+              <FlyerTextAreaField
+                label="Optional Note"
+                onChange={(value) => onSupportFieldChange("flyer_note", value)}
+                placeholder={defaultFlyerNote}
+                rows={2}
+                value={support.flyer_note}
+              />
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <a className={`${lightSecondaryButtonClass} min-h-9 gap-2 bg-[#111111] text-stone-100`} href={`${flyerLink}?version=print&print=1`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+                <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                Print PDF
+              </a>
+              <button className={`${lightTertiaryButtonClass} min-h-9`} onClick={() => onCopy(supportLink, "Support Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                Copy Support Link
+              </button>
+            </div>
           </div>
           <div className="rounded-2xl border border-[#dcd6ca] bg-white p-3.5">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Generated Asset
-            </p>
-            <h4 className="mt-1 text-lg font-semibold text-[#111111]">One-page flyer</h4>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Generated Asset
+                </p>
+                <h4 className="mt-1 text-lg font-semibold text-[#111111]">Flyer preview</h4>
+              </div>
+              <span className="rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Live copy
+              </span>
+            </div>
+            <div className="mt-3">
+              <FlyerPreviewCard
+                annualGoal={annualGoal}
+                headline={flyerHeadline}
+                imageUrl={previewImageUrl}
+                missionStatement={missionStatement}
+                note={flyerNote}
+                prayerAsk={flyerPrayerAsk}
+                supportAppeal={flyerSupportAppeal}
+                supportLink={supportLink}
+              />
+            </div>
             <div className="mt-3 grid gap-2">
               <a className={`${lightPrimaryButtonClass} min-h-10 gap-2 px-4`} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                Preview Full Color
-              </a>
-              <a className={`${lightSecondaryButtonClass} min-h-10 gap-2 bg-[#111111] text-stone-100`} href={`${flyerLink}?version=print&print=1`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
-                <FileText className="h-4 w-4" aria-hidden="true" />
-                Print-Friendly PDF
+                Preview Flyer
               </a>
               <button className={lightTertiaryButtonClass} onClick={() => onCopy(flyerLink, "Flyer Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
                 <Copy className="h-3.5 w-3.5" aria-hidden="true" />
@@ -6166,7 +6361,6 @@ function SupportShareTools({
     </div>
   );
 }
-
 function StatusPill({ children }: { children: ReactNode }) {
   return (
     <span className="inline-flex rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#4b443b]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -9429,6 +9623,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   missionaryName={selectedProfile.display_name}
                   onCopy={copyTextToClipboard}
                   onSupportFieldChange={updateSupportField}
+                  previewImageUrl={selectedProfile.hero_image_url || selectedProfile.profile_image_url}
                   profileLink={publicProfileLink}
                   support={support}
                   supportLink={publicSupportLink}
