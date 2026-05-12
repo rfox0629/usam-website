@@ -8518,10 +8518,10 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
                 >
-                  <span className="block text-[11px] uppercase tracking-[0.17em]">
+                  <span className="block text-sm uppercase tracking-[0.13em]">
                     {group.label}
                   </span>
-                  <span className={`mt-1.5 block text-xs normal-case leading-5 tracking-normal ${selected ? "text-black/70" : "text-stone-500"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
+                  <span className={`mt-1 block text-[11px] normal-case leading-5 tracking-normal ${selected ? "text-black/65" : "text-stone-500"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
                     {group.helper}
                   </span>
                 </button>
