@@ -12,6 +12,10 @@ import {
   markSystemWaitlistContacted,
   updateSupportSubmission,
 } from "./actions";
+import {
+  getPlanningCenterGivingConfigStatus,
+  getPlanningCenterGivingSyncNotes,
+} from "@/src/lib/planning-center/giving-sync";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
@@ -69,6 +73,7 @@ type SearchParams = {
   status?: string;
   submission?: string;
   type?: string;
+  view?: string;
 };
 
 type RawFormSubmission = {
@@ -102,6 +107,68 @@ type SupportTeamData = {
   supportCommitmentFollowUpCount: number;
 };
 
+type SupportCommitmentStatus =
+  | "active"
+  | "cancelled"
+  | "incomplete"
+  | "needs_follow_up"
+  | "pending_giving_setup";
+
+type SupportCommitmentRecord = {
+  activated_at: string | null;
+  allocation_preference: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+  email: string | null;
+  first_name: string | null;
+  general_fund_amount: number | string | null;
+  gift_type: "monthly" | "one_time" | string | null;
+  gross_amount: number | string | null;
+  household_id: string | null;
+  household_name: string | null;
+  id: string;
+  last_name: string | null;
+  match_confidence: number | string | null;
+  matched_at: string | null;
+  missionary_net_amount: number | string | null;
+  other_amount: number | string | null;
+  pco_donation_id: string | null;
+  pco_recurring_donation_id: string | null;
+  phone: string | null;
+  profile_slug: string | null;
+  selected_amount: string | null;
+  source: string | null;
+  status: SupportCommitmentStatus | string | null;
+  submitted_at: string | null;
+  support_mode: string | null;
+};
+
+type PcoGivingRecord = {
+  designation_name: string | null;
+  donation_date: string | null;
+  donor_email: string | null;
+  donor_first_name: string | null;
+  donor_last_name: string | null;
+  donor_phone: string | null;
+  fund_name: string | null;
+  gift_type: string | null;
+  gross_amount: number | string | null;
+  id: string;
+  pco_donation_id: string | null;
+  pco_recurring_donation_id: string | null;
+  status: string | null;
+};
+
+type SupportCommitmentMatch = {
+  confidence: number | string | null;
+  created_at: string;
+  id: string;
+  match_criteria: Record<string, unknown> | null;
+  match_status: string | null;
+  pco_giving_record_id: string;
+  support_commitment_id: string;
+};
+
 function formatDate(value: string) {
   const date = new Date(value);
 
@@ -114,6 +181,30 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(date);
+}
+
+function formatCurrency(value: number | string | null | undefined) {
+  const amount = typeof value === "number"
+    ? value
+    : Number(String(value ?? "").replace(/[^0-9.]/g, ""));
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    currency: "USD",
+    maximumFractionDigits: 0,
+    style: "currency",
+  }).format(amount);
+}
+
+function getCommitmentAmount(commitment: Pick<SupportCommitmentRecord, "other_amount" | "selected_amount">) {
+  if (commitment.selected_amount === "Other") {
+    return formatCurrency(commitment.other_amount);
+  }
+
+  return commitment.selected_amount || formatCurrency(commitment.other_amount);
 }
 
 function labelFromValue(value: string) {
@@ -389,6 +480,63 @@ async function loadSupportSubmissions(): Promise<SupportTeamData> {
       .filter((submission) => !prayerFormTypes.has(submission.form_type))
       .map(normalizeSubmission),
     supportCommitmentFollowUpCount: supportCommitmentResult.error ? 0 : supportCommitmentResult.count ?? 0,
+  };
+}
+
+function isMissingReconciliationTable(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("support_commitments")
+    || message.includes("pco_giving_records")
+    || message.includes("support_commitment_matches");
+}
+
+async function loadGivingReconciliationData() {
+  if (!isSupabaseAdminConfigured()) {
+    return {
+      commitments: [] as SupportCommitmentRecord[],
+      error: "Supabase admin environment variables are not configured.",
+      matches: [] as SupportCommitmentMatch[],
+      pcoRecords: [] as PcoGivingRecord[],
+    };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const [commitmentsResult, pcoRecordsResult, matchesResult] = await Promise.all([
+    supabase
+      .from("support_commitments")
+      .select("id, household_id, household_name, profile_slug, first_name, last_name, email, phone, gift_type, selected_amount, other_amount, allocation_preference, support_mode, status, source, submitted_at, completed_at, created_at, pco_donation_id, pco_recurring_donation_id, matched_at, activated_at, gross_amount, general_fund_amount, missionary_net_amount, match_confidence")
+      .order("submitted_at", { ascending: false }),
+    supabase
+      .from("pco_giving_records")
+      .select("id, pco_donation_id, pco_recurring_donation_id, donor_first_name, donor_last_name, donor_email, donor_phone, gross_amount, gift_type, designation_name, fund_name, donation_date, status")
+      .order("donation_date", { ascending: false })
+      .limit(100),
+    supabase
+      .from("support_commitment_matches")
+      .select("id, support_commitment_id, pco_giving_record_id, match_status, confidence, match_criteria, created_at")
+      .order("confidence", { ascending: false })
+      .limit(100),
+  ]);
+
+  const firstError = commitmentsResult.error ?? pcoRecordsResult.error ?? matchesResult.error;
+
+  if (firstError) {
+    return {
+      commitments: [] as SupportCommitmentRecord[],
+      error: isMissingReconciliationTable(firstError)
+        ? `${firstError.message}. Apply the giving reconciliation migration.`
+        : firstError.message,
+      matches: [] as SupportCommitmentMatch[],
+      pcoRecords: [] as PcoGivingRecord[],
+    };
+  }
+
+  return {
+    commitments: (commitmentsResult.data ?? []) as SupportCommitmentRecord[],
+    error: undefined,
+    matches: (matchesResult.data ?? []) as SupportCommitmentMatch[],
+    pcoRecords: (pcoRecordsResult.data ?? []) as PcoGivingRecord[],
   };
 }
 
@@ -772,18 +920,257 @@ function SubmissionDetail({ submission }: { submission: FormSubmission | null })
   );
 }
 
+function PrimarySupportTeamNav({ view }: { view: string }) {
+  const items = [
+    {
+      description: "Public form submissions, major gift inquiries, and public experience requests.",
+      href: "/admin/support-team",
+      label: "Submission Inbox",
+      value: "inbox",
+    },
+    {
+      description: "Reconcile donor intent against Planning Center Giving confirmation.",
+      href: "/admin/support-team?view=reconciliation",
+      label: "Giving Reconciliation",
+      value: "reconciliation",
+    },
+  ];
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {items.map((item) => {
+        const active = view === item.value;
+
+        return (
+          <Link
+            className={`border p-4 transition-colors ${
+              active
+                ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                : "border-stone-800 bg-[#080808]/85 text-stone-100 hover:border-[#D4A63D]/70"
+            }`}
+            href={item.href}
+            key={item.value}
+          >
+            <p className="text-[11px] uppercase tracking-[0.2em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {item.label}
+            </p>
+            <p className={`mt-2 text-sm leading-6 ${active ? "text-black/75" : "text-stone-500"}`}>
+              {item.description}
+            </p>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function donorName(record: Pick<SupportCommitmentRecord, "first_name" | "last_name"> | Pick<PcoGivingRecord, "donor_first_name" | "donor_last_name">) {
+  if ("first_name" in record) {
+    return [record.first_name, record.last_name].filter(Boolean).join(" ").trim() || "Unknown";
+  }
+
+  return [record.donor_first_name, record.donor_last_name].filter(Boolean).join(" ").trim() || "Unknown";
+}
+
+function CommitmentRow({ commitment }: { commitment: SupportCommitmentRecord }) {
+  return (
+    <div className="grid gap-3 border-b border-stone-900 px-4 py-4 text-sm text-stone-300 last:border-b-0 md:grid-cols-[1.15fr_0.9fr_0.7fr_0.75fr_0.9fr_0.8fr] md:items-center">
+      <div className="min-w-0">
+        <p className="font-semibold text-stone-100">{donorName(commitment)}</p>
+        <p className="truncate text-xs text-stone-500">{commitment.email || commitment.phone || "No contact"}</p>
+      </div>
+      <p>{commitment.household_name || commitment.profile_slug || "General support"}</p>
+      <p>{getCommitmentAmount(commitment)}</p>
+      <p>{labelFromValue(commitment.gift_type || "unknown")}</p>
+      <p>{commitment.allocation_preference || commitment.support_mode || "-"}</p>
+      <p className="text-xs text-stone-500">{commitment.submitted_at ? formatDate(commitment.submitted_at) : "-"}</p>
+    </div>
+  );
+}
+
+function PcoGiftRow({ gift }: { gift: PcoGivingRecord }) {
+  return (
+    <div className="grid gap-3 border-b border-stone-900 px-4 py-4 text-sm text-stone-300 last:border-b-0 md:grid-cols-[1.1fr_0.8fr_0.75fr_1fr_0.85fr] md:items-center">
+      <div className="min-w-0">
+        <p className="font-semibold text-stone-100">{donorName(gift)}</p>
+        <p className="truncate text-xs text-stone-500">{gift.donor_email || gift.donor_phone || "No contact"}</p>
+      </div>
+      <p>{formatCurrency(gift.gross_amount)}</p>
+      <p>{labelFromValue(gift.gift_type || "unknown")}</p>
+      <p>{gift.designation_name || gift.fund_name || "No designation"}</p>
+      <p className="text-xs text-stone-500">{gift.donation_date ? formatDate(gift.donation_date) : "-"}</p>
+    </div>
+  );
+}
+
+function MatchRow({
+  commitmentsById,
+  match,
+  pcoRecordsById,
+}: {
+  commitmentsById: Map<string, SupportCommitmentRecord>;
+  match: SupportCommitmentMatch;
+  pcoRecordsById: Map<string, PcoGivingRecord>;
+}) {
+  const commitment = commitmentsById.get(match.support_commitment_id);
+  const gift = pcoRecordsById.get(match.pco_giving_record_id);
+
+  return (
+    <div className="grid gap-3 border-b border-stone-900 px-4 py-4 text-sm text-stone-300 last:border-b-0 md:grid-cols-[1fr_1fr_0.6fr_0.8fr] md:items-center">
+      <div>
+        <p className="font-semibold text-stone-100">{commitment ? donorName(commitment) : "Missing commitment"}</p>
+        <p className="text-xs text-stone-500">{commitment?.email || commitment?.phone || "-"}</p>
+      </div>
+      <div>
+        <p className="font-semibold text-stone-100">{gift ? donorName(gift) : "Missing PCO gift"}</p>
+        <p className="text-xs text-stone-500">{gift?.donor_email || gift?.donor_phone || "-"}</p>
+      </div>
+      <Badge className="border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]">{Number(match.confidence ?? 0)}%</Badge>
+      <p>{labelFromValue(match.match_status || "suggested")}</p>
+    </div>
+  );
+}
+
+function ReconciliationSection({
+  children,
+  empty,
+  title,
+}: {
+  children: ReactNode;
+  empty: string;
+  title: string;
+}) {
+  const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children);
+
+  return (
+    <section className="overflow-hidden border border-stone-800/75 bg-[#080808]/85">
+      <div className="border-b border-stone-800/70 px-4 py-3">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {title}
+        </p>
+      </div>
+      {hasChildren ? children : <p className="px-4 py-8 text-sm leading-6 text-stone-500">{empty}</p>}
+    </section>
+  );
+}
+
+function GivingReconciliationView({
+  commitments,
+  error,
+  matches,
+  pcoRecords,
+}: {
+  commitments: readonly SupportCommitmentRecord[];
+  error?: string;
+  matches: readonly SupportCommitmentMatch[];
+  pcoRecords: readonly PcoGivingRecord[];
+}) {
+  const config = getPlanningCenterGivingConfigStatus();
+  const notes = getPlanningCenterGivingSyncNotes();
+  const pending = commitments.filter((commitment) => commitment.status === "pending_giving_setup");
+  const active = commitments.filter((commitment) => commitment.status === "active");
+  const needsReview = commitments.filter((commitment) => (
+    commitment.status === "needs_follow_up"
+    || commitment.status === "incomplete"
+    || (commitment.status === "pending_giving_setup" && !commitment.email && !commitment.phone)
+  ));
+  const commitmentsById = new Map(commitments.map((commitment) => [commitment.id, commitment]));
+  const pcoRecordsById = new Map(pcoRecords.map((record) => [record.id, record]));
+  const matchedPcoIds = new Set(matches.filter((match) => match.match_status !== "rejected").map((match) => match.pco_giving_record_id));
+  const unmatchedPcoGifts = pcoRecords.filter((record) => !matchedPcoIds.has(record.id) && record.status !== "ignored");
+
+  return (
+    <div className="space-y-5">
+      {error ? (
+        <p className="border border-red-500/30 bg-red-950/20 p-4 text-sm leading-6 text-red-100">
+          Giving reconciliation data is not ready: {error}
+        </p>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="border border-stone-800/75 bg-[#080808]/85 p-5">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Planning Center Giving
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-stone-100">Reconciliation workspace</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-400">
+            Public support forms record donor intent first. Planning Center Giving confirms financial truth. NCC uses this area to review pending setup, suggested matches, active supporters, and unmatched gifts without asking missionaries to reconcile donations.
+          </p>
+        </section>
+        <section className="border border-stone-800/75 bg-[#080808]/85 p-5">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Sync Readiness
+          </p>
+          <Badge className={config.configured ? "mt-3 border-green-500/25 bg-green-950/30 text-green-300" : "mt-3 border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"}>
+            {config.configured ? "Credentials configured" : "Credentials needed"}
+          </Badge>
+          <p className="mt-4 text-sm leading-6 text-stone-400">
+            {config.configured
+              ? "Daily polling can be wired to the Planning Center Giving API."
+              : `Missing env vars: ${config.missing.join(", ") || "none"}.`}
+          </p>
+          <ul className="mt-4 space-y-2 text-xs leading-5 text-stone-500">
+            {notes.map((note) => <li key={note}>{note}</li>)}
+          </ul>
+        </section>
+      </div>
+
+      <InlineStatBar
+        stats={[
+          { label: "Pending Giving Setup", tone: "amber", value: pending.length },
+          { label: "Suggested Matches", value: matches.filter((match) => match.match_status === "suggested").length },
+          { label: "Active Supporters", tone: "green", value: active.length },
+          { label: "Needs Review", tone: "red", value: needsReview.length },
+          { label: "Unmatched PCO Gifts", value: unmatchedPcoGifts.length },
+        ]}
+      />
+
+      <ReconciliationSection empty="No pending giving setup records." title="Pending Giving Setup">
+        {pending.map((commitment) => <CommitmentRow commitment={commitment} key={commitment.id} />)}
+      </ReconciliationSection>
+
+      <ReconciliationSection empty="No suggested PCO matches yet. Imported Planning Center Giving records will appear here once matching is connected." title="Suggested Matches">
+        {matches.filter((match) => match.match_status === "suggested").map((match) => (
+          <MatchRow commitmentsById={commitmentsById} key={match.id} match={match} pcoRecordsById={pcoRecordsById} />
+        ))}
+      </ReconciliationSection>
+
+      <ReconciliationSection empty="No active confirmed supporters yet." title="Active Supporters">
+        {active.map((commitment) => <CommitmentRow commitment={commitment} key={commitment.id} />)}
+      </ReconciliationSection>
+
+      <ReconciliationSection empty="No records currently need reconciliation review." title="Needs Review">
+        {needsReview.map((commitment) => <CommitmentRow commitment={commitment} key={commitment.id} />)}
+      </ReconciliationSection>
+
+      <ReconciliationSection empty="No unmatched Planning Center gifts imported yet." title="Unmatched PCO Gifts">
+        {unmatchedPcoGifts.map((gift) => <PcoGiftRow gift={gift} key={gift.id} />)}
+      </ReconciliationSection>
+    </div>
+  );
+}
+
 export default async function SupportTeamAdminPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
+  const activeView = params.view === "reconciliation" ? "reconciliation" : "inbox";
   const {
     error,
     majorGiftFollowUpCount,
     submissions,
     supportCommitmentFollowUpCount,
   } = await loadSupportSubmissions();
+  const reconciliationData = activeView === "reconciliation"
+    ? await loadGivingReconciliationData()
+    : {
+      commitments: [] as SupportCommitmentRecord[],
+      error: undefined,
+      matches: [] as SupportCommitmentMatch[],
+      pcoRecords: [] as PcoGivingRecord[],
+    };
   const filteredSubmissions = filterSubmissions(submissions, params);
   const selectedSubmission = params.submission
     ? submissions.find((submission) => submission.id === params.submission) ?? null
@@ -803,6 +1190,8 @@ export default async function SupportTeamAdminPage({
       title="Support Team"
     >
       <div className="space-y-5">
+        <PrimarySupportTeamNav view={activeView} />
+
         {error ? (
           <p className="border border-red-500/30 bg-red-950/20 p-4 text-sm leading-6 text-red-100">
             Support Team data is not ready: {error}. Apply the form_submissions migration to the usam-website Supabase project.
@@ -821,21 +1210,32 @@ export default async function SupportTeamAdminPage({
           </p>
         ) : null}
 
-        <InlineStatBar
-          stats={[
-            { label: "New", value: newCount },
-            { label: "Needs Follow Up", tone: "amber", value: followUpCount },
-            { label: "Major Gifts", value: majorGiftCount },
-            { label: "High Priority", tone: "red", value: highPriorityCount },
-          ]}
-        />
+        {activeView === "reconciliation" ? (
+          <GivingReconciliationView
+            commitments={reconciliationData.commitments}
+            error={reconciliationData.error}
+            matches={reconciliationData.matches}
+            pcoRecords={reconciliationData.pcoRecords}
+          />
+        ) : (
+          <>
+            <InlineStatBar
+              stats={[
+                { label: "New", value: newCount },
+                { label: "Needs Follow Up", tone: "amber", value: followUpCount },
+                { label: "Major Gifts", value: majorGiftCount },
+                { label: "High Priority", tone: "red", value: highPriorityCount },
+              ]}
+            />
 
-        <FilterBar assignedToOptions={assignedToOptions} params={params} />
+            <FilterBar assignedToOptions={assignedToOptions} params={params} />
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <InboxList params={params} submissions={filteredSubmissions} />
-          <SubmissionDetail submission={selectedSubmission} />
-        </div>
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+              <InboxList params={params} submissions={filteredSubmissions} />
+              <SubmissionDetail submission={selectedSubmission} />
+            </div>
+          </>
+        )}
       </div>
     </AdminShell>
   );

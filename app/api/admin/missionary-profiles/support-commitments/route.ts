@@ -13,6 +13,9 @@ type UpdateSupportCommitmentPayload = {
   adminNotes?: unknown;
   commitmentId?: unknown;
   householdId?: unknown;
+  matchConfidence?: unknown;
+  pcoDonationId?: unknown;
+  pcoRecurringDonationId?: unknown;
   status?: unknown;
 };
 
@@ -46,6 +49,18 @@ function commitmentAmount(commitment: { other_amount: number | string | null; se
   const amount = Number((commitment.selected_amount ?? "").replace(/[^0-9.]/g, ""));
 
   return Number.isFinite(amount) ? amount : 0;
+}
+
+function asNullableNumber(value: unknown) {
+  const valueString = typeof value === "number" ? String(value) : asString(value);
+
+  if (!valueString) {
+    return null;
+  }
+
+  const numberValue = Number(valueString.replace(/[^0-9.]/g, ""));
+
+  return Number.isFinite(numberValue) ? numberValue : null;
 }
 
 function missionaryNetSupportAmount(amount: number) {
@@ -133,11 +148,39 @@ export async function PATCH(request: Request) {
 
   const timestamp = new Date().toISOString();
   const supabase = createSupabaseAdminClient();
+  const commitmentResult = await supabase
+    .from("support_commitments")
+    .select("id, household_id, gift_type, selected_amount, other_amount, activated_at")
+    .eq("id", commitmentId)
+    .eq("household_id", householdId)
+    .single();
+
+  if (commitmentResult.error) {
+    return NextResponse.json({ error: commitmentResult.error.message }, { status: 500 });
+  }
+
+  const commitment = commitmentResult.data as {
+    activated_at: string | null;
+    gift_type: "monthly" | "one_time";
+    other_amount: number | string | null;
+    selected_amount: string | null;
+  };
+  const grossAmount = commitmentAmount(commitment);
+  const isActive = status === "active";
+  const matchConfidence = asNullableNumber(payload.matchConfidence);
   const { data, error } = await supabase
     .from("support_commitments")
     .update({
       admin_notes: asString(payload.adminNotes) || null,
+      activated_at: isActive ? (commitment.activated_at ?? timestamp) : null,
       completed_at: status === "active" ? timestamp : null,
+      general_fund_amount: isActive ? generalFundReserveAmount(grossAmount) : null,
+      gross_amount: isActive ? grossAmount : null,
+      match_confidence: isActive ? matchConfidence : null,
+      missionary_net_amount: isActive ? missionaryNetSupportAmount(grossAmount) : null,
+      pco_donation_id: asString(payload.pcoDonationId) || null,
+      pco_recurring_donation_id: asString(payload.pcoRecurringDonationId) || null,
+      matched_at: isActive ? timestamp : null,
       status,
       updated_at: timestamp,
     })
