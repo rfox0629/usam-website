@@ -548,6 +548,15 @@ Operational density standards:
 - If a title already communicates intent, do not restate it underneath.
 - Operational editing screens should prioritize clarity through hierarchy, not paragraphs.
 - Default to minimal instructional copy.
+- Eliminate repetitive instructional copy.
+- Interfaces should communicate primarily through hierarchy and labels.
+- Avoid explaining obvious UI behavior.
+- Prefer compact operational layouts.
+- Default to one-line descriptions maximum.
+- Status pills are preferred over paragraphs.
+- Reduce enterprise software feel.
+- Prioritize calm, premium, lightweight UX.
+- Optimize screens for scanning within seconds.
 
 Mobile-first requirements:
 - Every admin/workspace surface must remain usable on mobile.

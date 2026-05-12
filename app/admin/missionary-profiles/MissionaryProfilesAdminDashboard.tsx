@@ -5610,27 +5610,20 @@ function activeSupporterCount(commitments: readonly AdminSupportCommitment[]) {
 }
 
 function SupportMetricCard({
-  helper,
   label,
   value,
 }: {
-  helper?: string;
   label: string;
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+    <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5">
       <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </p>
-      <p className="mt-3 text-2xl font-semibold text-[#111111]">
+      <p className="mt-2 text-2xl font-semibold text-[#111111]">
         {value}
       </p>
-      {helper ? (
-        <p className="mt-2 text-xs leading-5 text-[#7b746a]">
-          {helper}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -5651,17 +5644,14 @@ function SupportOverview({
   const visualProgressPercentage = Math.min(Math.max(progressPercentage, 0), 100);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
         <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Support Overview
-        </p>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-          A simple view of monthly support, confirmed partners, and the next people who need a relational follow-up.
+          Support overview
         </p>
       </div>
 
-      <div className="rounded-2xl border border-[#e2ded5] bg-white p-5">
+      <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -5676,7 +5666,7 @@ function SupportOverview({
             {progressPercentage}% funded
           </p>
         </div>
-        <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e9e3d8]">
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-[#e9e3d8]">
           <div
             className={`h-full rounded-full transition-all ${getSupportProgressFillClass(progressPercentage)}`}
             style={{ width: `${visualProgressPercentage}%` }}
@@ -5687,31 +5677,28 @@ function SupportOverview({
       <div className="grid gap-4 md:grid-cols-3">
         <SupportMetricCard label="Annual Goal" value={formatCurrency(support.annual_goal)} />
         <SupportMetricCard label="Monthly Goal" value={formatCurrency(monthlyGoal)} />
-        <SupportMetricCard label="Monthly Committed" value={formatCurrency(monthlyCommitted)} helper="Active confirmed monthly support only." />
-        <SupportMetricCard label="Pending Giving Setup" value={String(countSupportCommitments(commitments, "pending_giving_setup"))} helper="Submitted forms awaiting giving platform confirmation." />
-        <SupportMetricCard label="Active Supporters" value={String(activeSupporterCount(commitments))} helper="Confirmed active support partners." />
-        <SupportMetricCard label="Needs Follow Up" value={String(countSupportCommitments(commitments, "needs_follow_up"))} helper="People to reconnect with relationally." />
+        <SupportMetricCard label="Monthly Committed" value={formatCurrency(monthlyCommitted)} />
+        <SupportMetricCard label="Pending Giving Setup" value={String(countSupportCommitments(commitments, "pending_giving_setup"))} />
+        <SupportMetricCard label="Active Supporters" value={String(activeSupporterCount(commitments))} />
+        <SupportMetricCard label="Needs Follow Up" value={String(countSupportCommitments(commitments, "needs_follow_up"))} />
       </div>
 
-      <div className="rounded-2xl border border-[#e2ded5] bg-[#f8f6f1] p-5">
+      <div className="rounded-2xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
         <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Goal Settings
         </p>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-3 grid gap-4 md:grid-cols-3">
           <CurrencyField
-            helperText="Annual fundraising goal for this household."
             label="Annual Goal"
             onChange={onAnnualGoalChange}
             value={support.annual_goal}
           />
           <CurrencyField
-            helperText="Calculated from Annual Goal divided by 12."
             label="Monthly Goal"
             readOnly
             value={monthlyGoal}
           />
           <CurrencyField
-            helperText="Confirmed through admin reconciliation or giving system sync."
             label="Monthly Committed"
             readOnly
             value={support.monthly_committed}
@@ -5729,18 +5716,20 @@ function ShareTemplateCard({
   title,
 }: {
   body: string;
-  description: string;
+  description?: string;
   onCopy: (value: string, label: string) => void;
   title: string;
 }) {
   const previewParts = body.split(/({{[^}]+}})/g);
 
   return (
-    <article className="rounded-2xl border border-[#dcd6ca] bg-white p-4 shadow-[0_8px_22px_rgba(17,17,17,0.035)]">
+    <article className="rounded-2xl border border-[#dcd6ca] bg-white p-3.5 shadow-[0_8px_22px_rgba(17,17,17,0.035)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h4 className="text-base font-semibold leading-tight text-[#111111]">{title}</h4>
-          <p className="mt-1 text-xs leading-5 text-[#6f6658]">{description}</p>
+          {description ? (
+            <p className="mt-1 text-xs leading-5 text-[#6f6658]">{description}</p>
+          ) : null}
         </div>
         <button
           className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md border border-[#d7d2c8] bg-[#fbfaf7] px-2.5 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
@@ -5752,7 +5741,7 @@ function ShareTemplateCard({
           Copy
         </button>
       </div>
-      <div className="mt-3 max-h-[190px] overflow-auto rounded-xl border border-[#ece7dd] bg-[#fbfaf7] p-3 text-[13px] leading-6 text-[#3f3932]">
+      <div className="mt-3 max-h-[180px] overflow-auto rounded-xl border border-[#ece7dd] bg-[#fbfaf7] p-3 text-[13px] leading-6 text-[#3f3932]">
         {previewParts.map((part, index) => (
           part.startsWith("{{") && part.endsWith("}}") ? (
             <span className="rounded-md border border-[#d4a63d]/35 bg-[#fff2c6] px-1.5 py-0.5 text-[#7a5a12]" key={`${part}-${index}`}>
@@ -5777,8 +5766,8 @@ function SupportToolkitSection({
   title: string;
 }) {
   return (
-    <section className="rounded-2xl border border-[#dcd6ca] bg-[#fdfbf7] p-4 md:p-5">
-      <div className="border-b border-[#e8e1d4] pb-3">
+    <section className="rounded-2xl border border-[#dcd6ca] bg-[#fdfbf7] p-3.5 md:p-4">
+      <div className="border-b border-[#e8e1d4] pb-2.5">
         <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {title}
         </p>
@@ -5786,7 +5775,7 @@ function SupportToolkitSection({
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f6658]">{description}</p>
         ) : null}
       </div>
-      <div className="mt-4">
+      <div className="mt-3">
         {children}
       </div>
     </section>
@@ -5800,9 +5789,7 @@ function SupportShareTools({
   missionaryName,
   onCopy,
   onSupportFieldChange,
-  profileStatus,
   profileLink,
-  publishState,
   support,
   supportLink,
 }: {
@@ -5812,9 +5799,7 @@ function SupportShareTools({
   missionaryName: string;
   onCopy: (value: string, label: string) => void;
   onSupportFieldChange: (field: keyof AdminSupportSettings, value: boolean | number | string) => void;
-  profileStatus: string;
   profileLink: string;
-  publishState: string;
   support: AdminSupportSettings;
   supportLink: string;
 }) {
@@ -5824,32 +5809,15 @@ function SupportShareTools({
   const socialTemplate = `${missionaryName} is raising support with USA Missionaries to reach the lost, make disciples, and multiply across America.\n\n${missionStatement}\n\nWould you prayerfully consider partnering monthly or sharing this with someone who may want to stand with the mission?\n${supportLink}`;
   const videoPrompt = `Record a 60-90 second video:\n1. Introduce yourself: ${missionaryName}.\n2. Share the mission in one sentence: ${missionStatement}\n3. Explain the current support goal: ${formatCurrency(annualGoal)} annually.\n4. Invite viewers to pray, share, or partner monthly.\n5. Close with the support link: ${supportLink}`;
 
-  const statusPills = [
-    profileStatus,
-    `${formatCurrency(monthlyGoal)}/mo`,
-    publishState,
-  ];
-
   return (
-    <div className="mx-auto max-w-[1120px] space-y-4">
-      <div className="rounded-2xl border border-[#dcd6ca] bg-white p-4 shadow-[0_10px_28px_rgba(17,17,17,0.045)] md:p-5">
+    <div className="mx-auto max-w-[1120px] space-y-3.5">
+      <div className="rounded-2xl border border-[#dcd6ca] bg-white p-3.5 shadow-[0_10px_28px_rgba(17,17,17,0.045)] md:p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Support Toolkit
             </p>
             <h3 className="mt-1 text-xl font-semibold text-[#111111]">{missionaryName}</h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {statusPills.map((pill) => (
-              <span
-                className="rounded-full border border-[#ded7ca] bg-[#fbfaf7] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#3f3932]"
-                key={pill}
-                style={{ fontFamily: font.rajdhani }}
-              >
-                {pill}
-              </span>
-            ))}
           </div>
         </div>
       </div>
@@ -5861,11 +5829,11 @@ function SupportShareTools({
             { label: "Support Link", value: supportLink },
             { label: "Flyer Link", value: flyerLink },
           ].map((link) => (
-            <div className="rounded-xl border border-[#e2ded5] bg-white p-3" key={link.label}>
+            <div className="rounded-xl border border-[#e2ded5] bg-white p-2.5" key={link.label}>
               <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{link.label}</p>
               <p className="mt-1 line-clamp-2 break-all text-xs leading-5 text-[#3f3932]">{link.value}</p>
-              <button className="mt-2 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-[#8a5a00] hover:text-[#111111]" onClick={() => onCopy(link.value, link.label)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+              <button className="mt-1.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-[#8a5a00] hover:text-[#111111]" onClick={() => onCopy(link.value, link.label)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                <Copy className="h-3 w-3" aria-hidden="true" />
                 Copy
               </button>
             </div>
@@ -5874,7 +5842,7 @@ function SupportShareTools({
       </SupportToolkitSection>
 
       <SupportToolkitSection title="Flyer Builder">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_290px]">
           <div className="grid gap-3">
             <Field
               label="Flyer Headline"
@@ -5899,13 +5867,13 @@ function SupportShareTools({
               value={support.flyer_note ?? ""}
             />
           </div>
-          <div className="rounded-2xl border border-[#dcd6ca] bg-white p-4">
+          <div className="rounded-2xl border border-[#dcd6ca] bg-white p-3.5">
             <p className="text-[10px] uppercase tracking-[0.2em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Generated Asset
             </p>
             <h4 className="mt-1 text-lg font-semibold text-[#111111]">One-page flyer</h4>
-            <div className="mt-4 grid gap-2">
-              <a className={`${lightPrimaryButtonClass} min-h-11 gap-2 px-5`} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+            <div className="mt-3 grid gap-2">
+              <a className={`${lightPrimaryButtonClass} min-h-10 gap-2 px-4`} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
                 Preview Full Color
               </a>
@@ -5928,10 +5896,10 @@ function SupportShareTools({
 
       <SupportToolkitSection title="Message Templates">
         <div className="grid gap-3 lg:grid-cols-2">
-          <ShareTemplateCard body={textTemplate} description="One-to-one text." onCopy={onCopy} title="Text Message Template" />
-          <ShareTemplateCard body={emailTemplate} description="Email invitation." onCopy={onCopy} title="Email Template" />
-          <ShareTemplateCard body={socialTemplate} description="Social caption." onCopy={onCopy} title="Facebook / Instagram Caption" />
-          <ShareTemplateCard body={videoPrompt} description="Short video outline." onCopy={onCopy} title="YouTube / Video Script Prompt" />
+          <ShareTemplateCard body={textTemplate} onCopy={onCopy} title="Text Message Template" />
+          <ShareTemplateCard body={emailTemplate} onCopy={onCopy} title="Email Template" />
+          <ShareTemplateCard body={socialTemplate} onCopy={onCopy} title="Facebook / Instagram Caption" />
+          <ShareTemplateCard body={videoPrompt} onCopy={onCopy} title="YouTube / Video Script Prompt" />
         </div>
       </SupportToolkitSection>
 
@@ -6115,8 +6083,8 @@ function SupportCommitmentsManager({
   });
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
+    <div className="space-y-4">
+      <div className="space-y-2.5">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Support Interest & Commitments
@@ -6125,7 +6093,7 @@ function SupportCommitmentsManager({
 
       {sortedCommitments.length > 0 ? (
         <div className="rounded-xl border border-[#e2ded5] bg-white">
-          <div className="hidden grid-cols-[minmax(0,1.4fr)_110px_92px_minmax(124px,0.8fr)_74px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <div className="hidden grid-cols-[minmax(0,1.4fr)_110px_92px_minmax(124px,0.8fr)_70px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             <span>Donor</span>
             <span>Amount</span>
             <span>Type</span>
@@ -6134,9 +6102,9 @@ function SupportCommitmentsManager({
           </div>
           <div className="divide-y divide-[#e2ded5]">
               {sortedCommitments.map((commitment) => (
-                <div className="grid gap-3 px-3 py-3 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.4fr)_110px_92px_minmax(124px,0.8fr)_74px] md:items-center" key={commitment.id}>
+                <div className="grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.4fr)_110px_92px_minmax(124px,0.8fr)_70px] md:items-center" key={commitment.id}>
                   <button
-                    className="min-w-0 text-left font-semibold text-[#111111] underline-offset-4 hover:text-[#8a5a00] hover:underline"
+                    className="min-w-0 text-left text-base font-semibold text-[#111111] underline-offset-4 hover:text-[#8a5a00] hover:underline"
                     onClick={() => setSelectedCommitment(commitment)}
                     type="button"
                   >
@@ -6156,7 +6124,7 @@ function SupportCommitmentsManager({
                   </div>
                   <div className="flex justify-end">
                     <button
-                      className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                      className="inline-flex min-h-7 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-2.5 text-[10px] uppercase tracking-[0.14em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
                       onClick={() => setSelectedCommitment(commitment)}
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
@@ -6169,13 +6137,13 @@ function SupportCommitmentsManager({
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
+        <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
           No support interest or commitment records yet.
         </div>
       )}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Major Gift Follow-Up
@@ -6184,7 +6152,7 @@ function SupportCommitmentsManager({
 
         {sortedMajorGiftInquiries.length > 0 ? (
           <div className="rounded-xl border border-[#e2ded5] bg-white">
-            <div className="hidden grid-cols-[minmax(0,1.35fr)_minmax(0,1.2fr)_130px_minmax(120px,0.8fr)_74px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <div className="hidden grid-cols-[minmax(0,1.35fr)_minmax(0,1.2fr)_130px_minmax(120px,0.8fr)_70px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               <span>Donor</span>
               <span>Gift Type</span>
               <span>Estimated Range</span>
@@ -6193,9 +6161,9 @@ function SupportCommitmentsManager({
             </div>
             <div className="divide-y divide-[#e2ded5]">
                 {sortedMajorGiftInquiries.map((inquiry) => (
-                  <div className="grid gap-3 px-3 py-3 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.2fr)_130px_minmax(120px,0.8fr)_74px] md:items-center" key={inquiry.id}>
+                  <div className="grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.2fr)_130px_minmax(120px,0.8fr)_70px] md:items-center" key={inquiry.id}>
                     <button
-                      className="min-w-0 text-left font-semibold text-[#111111] underline-offset-4 hover:text-[#8a5a00] hover:underline"
+                      className="min-w-0 text-left text-base font-semibold text-[#111111] underline-offset-4 hover:text-[#8a5a00] hover:underline"
                       onClick={() => setSelectedMajorGiftInquiry(inquiry)}
                       type="button"
                     >
@@ -6215,7 +6183,7 @@ function SupportCommitmentsManager({
                     </div>
                     <div className="flex justify-end">
                       <button
-                        className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        className="inline-flex min-h-7 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-2.5 text-[10px] uppercase tracking-[0.14em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
                         onClick={() => setSelectedMajorGiftInquiry(inquiry)}
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                         type="button"
@@ -6228,7 +6196,7 @@ function SupportCommitmentsManager({
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#7b746a]">
+          <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
             No major gift inquiries yet.
           </div>
         )}
@@ -9065,32 +9033,27 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               ) : null}
 
               {supportSubsection === "giving-page" ? (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       Giving Page
                     </p>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-                      Shape the public invitation donors see when they decide whether to pray, share, or partner monthly.
-                    </p>
                   </div>
 
-                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-                    <div className="space-y-4">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className="space-y-3.5">
                       <TextArea
-                        helperText="Public donor-facing explanation shown in the Support This Mission section."
                         label="Support Explanation"
                         onChange={(value) => updateHouseholdField("support_explanation", value)}
                         rows={5}
                         value={selectedProfile.support_explanation}
                       />
                       <div className="grid gap-4 md:grid-cols-3">
-                        <Field label="Monthly Button Label" onChange={(value) => updateSupportField("monthly_button_label", value)} value={support.monthly_button_label ?? "Support Monthly"} />
-                        <Field label="One-Time Button Label" onChange={(value) => updateSupportField("one_time_button_label", value)} value={support.one_time_button_label ?? "Give One Time"} />
-                        <Field label="Major Gift Button Label" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
+                        <Field label="Monthly Button" onChange={(value) => updateSupportField("monthly_button_label", value)} value={support.monthly_button_label ?? "Support Monthly"} />
+                        <Field label="One-Time Button" onChange={(value) => updateSupportField("one_time_button_label", value)} value={support.one_time_button_label ?? "Give One Time"} />
+                        <Field label="Major Gift Button" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
                       </div>
                       <TextArea
-                        helperText="Optional public description in the major gift modal."
                         label="Major Gift Public Description"
                         onChange={(value) => updateSupportField("major_gift_public_description", value)}
                         rows={3}
@@ -9098,17 +9061,17 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-[#e2ded5] bg-white p-5">
+                    <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Public Preview
                       </p>
-                      <h3 className="mt-3 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                      <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
                         Support This Mission
                       </h3>
                       <p className="mt-3 text-sm leading-6 text-[#4b443b]">
                         {selectedProfile.support_explanation || "Stand with this missionary household as they reach, disciple, and serve across the mission field."}
                       </p>
-                      <div className="mt-5 space-y-2">
+                      <div className="mt-4 space-y-2">
                         <button className={lightPrimaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
                           {support.monthly_button_label || "Support Monthly"}
                         </button>
@@ -9116,9 +9079,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                           {support.one_time_button_label || "Give One Time"}
                         </button>
                       </div>
-                      <p className="mt-4 text-xs leading-5 text-[#7b746a]">
-                        This is a content preview. Public buttons still route through the secure giving flow.
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -9132,9 +9092,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   missionaryName={selectedProfile.display_name}
                   onCopy={copyTextToClipboard}
                   onSupportFieldChange={updateSupportField}
-                  profileStatus={isProfilePublic(selectedProfile) ? "Public Visible" : "Public Hidden"}
                   profileLink={publicProfileLink}
-                  publishState={getFeatureValue(selectedProfile, "show_support") ? "Support Enabled" : "Support Hidden"}
                   support={support}
                   supportLink={publicSupportLink}
                 />
@@ -9228,10 +9186,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "prayer" ? (
           <SectionIntro
-            description="Updates Profile + Feeds Field. Control the public prayer section and the Join The Prayer Team flow."
             title="Prayer"
           >
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="flex flex-wrap gap-2 border-b border-[#e2ded5] pb-3">
                 {prayerSubsectionOptions.map((option) => (
                   <button
@@ -9265,35 +9222,29 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     Visibility
                   </p>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <label className="flex items-start justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
-                      <span>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <label className="flex items-center justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm text-[#111111]">
+                      <span className="min-w-0">
                         <span className="block text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                           Show Prayer Section
-                        </span>
-                        <span className="mt-2 block leading-6 text-[#7b746a]">
-                          Controls whether the prayer section renders on the public profile.
                         </span>
                       </span>
                       <input
                         checked={selectedProfile.show_prayer !== false}
-                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                        className="h-4 w-4 accent-[#D4A63D]"
                         onChange={(event) => updateFeatureField("show_prayer", event.target.checked)}
                         type="checkbox"
                       />
                     </label>
-                    <label className="flex items-start justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
-                      <span>
+                    <label className="flex items-center justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm text-[#111111]">
+                      <span className="min-w-0">
                         <span className="block text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Enable Join Prayer Team
-                        </span>
-                        <span className="mt-2 block leading-6 text-[#7b746a]">
-                          Enables the prayer-team modal entry point. Disable when the CTA should use a fallback link.
+                          Join Prayer Team
                         </span>
                       </span>
                       <input
                         checked={selectedProfile.enable_prayer_team !== false}
-                        className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                        className="h-4 w-4 accent-[#D4A63D]"
                         onChange={(event) => updateHouseholdField("enable_prayer_team", event.target.checked)}
                         type="checkbox"
                       />
@@ -9309,13 +9260,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   </p>
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <Field
-                      helperText="Defaults to Join The Prayer Team."
                       label="Button Label"
                       onChange={(value) => updateHouseholdField("prayer_cta_label", value)}
                       value={selectedProfile.prayer_cta_label}
                     />
                     <SelectField
-                      helperText="Modal opens the profile-aware prayer team signup. Link uses the fallback URL."
                       label="Behavior"
                       onChange={(value) => updateHouseholdField("enable_prayer_team", value !== "link")}
                       options={[
@@ -9326,7 +9275,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                     />
                     {prayerBehavior === "link" ? (
                       <Field
-                        helperText="Used when Behavior is Link. Defaults to /prayer if blank."
                         label="Fallback URL"
                         onChange={(value) => updateHouseholdField("prayer_destination", value)}
                         value={selectedProfile.prayer_destination}
@@ -9343,13 +9291,11 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   </p>
                   <div className="mt-4 grid gap-4">
                     <Field
-                      helperText="Optional public heading. Defaults to Prayer Requests."
                       label="Prayer Section Headline"
                       onChange={(value) => updateHouseholdField("prayer_section_headline", value)}
                       value={selectedProfile.prayer_section_headline}
                     />
                     <TextArea
-                      helperText="Optional public description shown beside current prayer requests."
                       label="Prayer Section Description"
                       onChange={(value) => updateHouseholdField("prayer_section_description", value)}
                       rows={4}
@@ -9364,10 +9310,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     Prayer Team
                   </p>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-                    Prayer partners and active requests are managed from the Prayer Team admin hub. This profile view only shows the connected totals.
-                  </p>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <StatPreview label="Recruited Partners" tone="light" value={String(selectedProfile.prayerPartnerCount ?? 0)} />
                     <StatPreview label="Active Requests" tone="light" value={String(selectedProfile.activePrayerRequestCount ?? 0)} />
                   </div>
