@@ -12,7 +12,7 @@ import {
   validateMissionaryImageFile,
   type MissionaryImageSlot,
 } from "@/src/lib/missionaries/profile-image-upload";
-import { getDosGuideResourceByTitle } from "@/src/lib/dos/guide-resources";
+import { dosGuideResources, getDosGuideResourceByTitle, type DosGuideResource } from "@/src/lib/dos/guide-resources";
 import {
   normalizeSupportRoutingMode,
   type SupportRoutingMode,
@@ -5333,57 +5333,62 @@ function LibraryManager({
 }) {
   const [editingItem, setEditingItem] = useState<AdminLibraryItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const commandsOfJesusGuides = dosGuideResources.filter((guide) => guide.href.includes("/commands-of-jesus/"));
+  const registeredTeachingGuides = dosGuideResources.filter((guide) => !guide.href.includes("/commands-of-jesus/"));
+  const workspaceItems = items.filter((item) => {
+    const normalizedTitle = item.title.trim().toLowerCase();
+
+    return normalizedTitle !== "commands of jesus" && !getDosGuideResourceByTitle(item.title);
+  });
   // TODO: Re-enable Library item editing when the guide/PDF CMS can edit the actual teaching resource.
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-2xl text-sm leading-6 text-[#7b746a]">
-          Light teaching framework storage for the Missionary Workspace now and future Table references later.
-        </p>
+        <p className="text-sm font-medium text-[#4b443b]">Teaching guides</p>
         <button className={lightPrimaryButtonClass} onClick={() => setIsAddingItem(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
           + Add Library Item
         </button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {items.length > 0 ? items.map((item) => {
-          const guideResource = getDosGuideResourceByTitle(item.title);
+      {registeredTeachingGuides.length > 0 ? (
+        <GuideResourceSection
+          guides={registeredTeachingGuides}
+          title="Teaching Resources"
+          typeLabel="Guide"
+        />
+      ) : null}
 
-          return (
-            <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={item.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-[#111111]">{item.title}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {item.category || "Uncategorized"}
-                  </p>
-                </div>
-                {guideResource ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    <a
-                      className="inline-flex min-h-9 items-center justify-center rounded-md border border-[#e2ded5] bg-[#fbfaf7] px-3 text-[10px] uppercase tracking-[0.16em] text-[#8a5a00] transition-colors hover:border-[#c8952d] hover:text-[#111111]"
-                      href={guideResource.href}
-                      rel="noopener noreferrer"
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      target="_blank"
-                    >
-                      Open Guide
-                    </a>
-                  </div>
-                ) : null}
-              </div>
-              <p className="mt-3 text-sm leading-6 text-[#4b443b]">
-                {item.description || "No description added."}
-              </p>
-            </div>
-          );
-        }) : (
-          <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-            No library items yet.
+      <GuideResourceSection
+        guides={commandsOfJesusGuides}
+        title="Commands of Jesus"
+        typeLabel="Commands Guide"
+      />
+
+      {workspaceItems.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Workspace Library
           </p>
-        )}
-      </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {workspaceItems.map((item) => (
+              <div className="rounded-xl border border-[#e2ded5] bg-white p-4" key={item.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[#111111]">{item.title}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      {item.category || "Workspace Item"}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-[#4b443b]">
+                  {item.description || "No description added."}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {isAddingItem ? (
         <LibraryEditorModal
@@ -5406,6 +5411,56 @@ function LibraryManager({
         />
       ) : null}
     </div>
+  );
+}
+
+function GuideResourceSection({
+  guides,
+  title,
+  typeLabel,
+}: {
+  guides: readonly DosGuideResource[];
+  title: string;
+  typeLabel: string;
+}) {
+  if (guides.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="space-y-3">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {title}
+      </p>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {guides.map((guide) => (
+          <article className="flex min-h-40 flex-col justify-between rounded-xl border border-[#e2ded5] bg-white p-4" key={guide.href}>
+            <div>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold text-[#111111]">{guide.title}</p>
+                <span className="shrink-0 rounded-full border border-[#e2ded5] bg-[#fbfaf7] px-2 py-1 text-[9px] uppercase tracking-[0.12em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {typeLabel}
+                </span>
+              </div>
+              {guide.description ? (
+                <p className="mt-3 text-sm leading-6 text-[#4b443b]">{guide.description}</p>
+              ) : null}
+            </div>
+            {guide.href ? (
+              <a
+                className="mt-4 inline-flex min-h-9 w-fit items-center justify-center rounded-md border border-[#e2ded5] bg-[#fbfaf7] px-3 text-[10px] uppercase tracking-[0.16em] text-[#8a5a00] transition-colors hover:border-[#c8952d] hover:text-[#111111]"
+                href={guide.href}
+                rel="noopener noreferrer"
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                target="_blank"
+              >
+                Open Guide
+              </a>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
