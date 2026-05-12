@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { AdminShell } from "../_components/AdminShell";
-import { AdminActionLink } from "../_components/AdminUI";
 import {
   PublicExperienceControl,
   type AccessGateRow,
@@ -346,8 +345,6 @@ export default async function PublicExperiencePage({
   return (
     <AdminShell
       active="public-experience"
-      action={<AdminActionLink href="/admin/public-experience?tab=forms" variant="gold">+ Add New Form</AdminActionLink>}
-      description="Control public pages, form previews, access gates, and routing ownership from one public experience command center."
       title="Public Experience"
     >
       <div className="space-y-4">
