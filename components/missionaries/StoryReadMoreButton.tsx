@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  PublicFormHeader,
+  PublicFormSection,
+  PublicFormShell,
+} from "@/components/forms/PublicForm";
 
-const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 type StoryReadMoreButtonProps = {
   paragraphs: readonly string[];
@@ -49,40 +54,41 @@ export function StoryReadMoreButton({
       {isOpen ? (
         <div
           aria-modal="true"
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/75 px-4 py-8 backdrop-blur-sm sm:px-5 md:py-12"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-stone-950/75 px-4 py-10 backdrop-blur-md sm:px-5 md:py-14"
           role="dialog"
           onMouseDown={() => setIsOpen(false)}
         >
           <div
-            className="relative mx-auto w-full max-w-[840px] rounded-[28px] border border-stone-200 bg-[#fbfaf7] p-5 text-stone-950 shadow-[0_28px_90px_rgba(12,10,9,0.28)] md:p-7"
+            className="relative w-full"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <button
-              type="button"
-              aria-label="Close story"
-              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-              onClick={() => setIsOpen(false)}
-            >
-              X
-            </button>
+            <PublicFormShell size="wide">
+              <button
+                type="button"
+                aria-label="Close story"
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                onClick={() => setIsOpen(false)}
+              >
+                X
+              </button>
 
-            <div className="pr-12">
-              <p className="text-[11px] uppercase tracking-[0.24em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                MISSIONARY PROFILE
-              </p>
-              <h2 className="mt-3 text-4xl font-bold uppercase leading-none text-stone-950 md:text-5xl" style={{ fontFamily: font.oswald }}>
-                {title}
-              </h2>
-            </div>
+              <div className="space-y-4">
+                <PublicFormHeader
+                  eyebrow="Missionary Profile"
+                  title={title}
+                  description="Read the public story behind this missionary household and their calling."
+                />
 
-            <div className="mt-7">
-              <div className="space-y-5 text-base leading-[1.65] text-stone-800 md:text-lg">
-                {paragraphs.map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
-                ))}
+                <PublicFormSection title="Story">
+                  <div className="max-h-[58vh] space-y-5 overflow-y-auto pr-1 text-[16px] leading-8 text-[#292524] md:max-h-[62vh] md:text-[17px]">
+                    {paragraphs.map((paragraph) => (
+                      <p key={paragraph}>{paragraph}</p>
+                    ))}
+                  </div>
+                </PublicFormSection>
               </div>
-            </div>
+            </PublicFormShell>
           </div>
         </div>
       ) : null}
