@@ -5772,32 +5772,71 @@ function SupportOverview({
 
 function ShareTemplateCard({
   body,
-  label,
+  description,
   onCopy,
+  title,
 }: {
   body: string;
-  label: string;
+  description: string;
   onCopy: (value: string, label: string) => void;
+  title: string;
 }) {
+  const previewParts = body.split(/({{[^}]+}})/g);
+
   return (
-    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+    <article className="rounded-2xl border border-[#dcd6ca] bg-white p-5 shadow-[0_10px_30px_rgba(17,17,17,0.04)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          {label}
-        </p>
+        <div>
+          <h4 className="text-lg font-semibold leading-tight text-[#111111]">{title}</h4>
+          <p className="mt-1 text-sm leading-6 text-[#6f6658]">{description}</p>
+        </div>
         <button
-          className={lightSecondaryButtonClass}
-          onClick={() => onCopy(body, label)}
+          className="inline-flex min-h-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-[#fbfaf7] px-3 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+          onClick={() => onCopy(body, title)}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
         >
           Copy
         </button>
       </div>
-      <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#4b443b]">
-        {body}
-      </p>
-    </div>
+      <div className="mt-4 rounded-xl border border-[#ece7dd] bg-[#fbfaf7] p-4 text-sm leading-7 text-[#3f3932]">
+        {previewParts.map((part, index) => (
+          part.startsWith("{{") && part.endsWith("}}") ? (
+            <span className="rounded-md border border-[#d4a63d]/35 bg-[#fff2c6] px-1.5 py-0.5 text-[#7a5a12]" key={`${part}-${index}`}>
+              {part}
+            </span>
+          ) : (
+            <span className="whitespace-pre-line" key={`${part}-${index}`}>{part}</span>
+          )
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function SupportToolkitSection({
+  children,
+  description,
+  title,
+}: {
+  children: ReactNode;
+  description?: string;
+  title: string;
+}) {
+  return (
+    <section className="rounded-3xl border border-[#dcd6ca] bg-[#fdfbf7] p-5 md:p-6">
+      <div className="border-b border-[#e8e1d4] pb-4">
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {title}
+        </p>
+        {description ? (
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f6658]">{description}</p>
+        ) : null}
+      </div>
+      <div className="mt-5">
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -5808,7 +5847,9 @@ function SupportShareTools({
   missionaryName,
   onCopy,
   onSupportFieldChange,
+  profileStatus,
   profileLink,
+  publishState,
   support,
   supportLink,
 }: {
@@ -5818,99 +5859,144 @@ function SupportShareTools({
   missionaryName: string;
   onCopy: (value: string, label: string) => void;
   onSupportFieldChange: (field: keyof AdminSupportSettings, value: boolean | number | string) => void;
+  profileStatus: string;
   profileLink: string;
+  publishState: string;
   support: AdminSupportSettings;
   supportLink: string;
 }) {
-  const textTemplate = `Hey [Name], we are raising support as USA Missionaries to reach the lost, make disciples, and multiply across America. Would you prayerfully consider partnering with us monthly? You can learn more or support here: ${supportLink}`;
-  const emailTemplate = `Subject: Would you prayerfully consider partnering with ${missionaryName}?\n\nHi [Name],\n\nWe are serving with USA Missionaries and raising monthly support so we can keep saying yes to the mission God has put in front of us.\n\n${missionStatement}\n\nWould you prayerfully consider becoming a monthly support partner? You can learn more about our mission and give securely here:\n${supportLink}\n\nThank you for praying with us and considering partnership.\n\n${missionaryName}`;
+  const monthlyGoal = calculateMonthlyGoal(annualGoal);
+  const textTemplate = `Hey {{FirstName}}, we are raising support as USA Missionaries to reach the lost, make disciples, and multiply across America. Would you prayerfully consider partnering with us monthly? You can learn more or support here: ${supportLink}`;
+  const emailTemplate = `Subject: Would you prayerfully consider partnering with ${missionaryName}?\n\nHi {{FirstName}},\n\nWe are serving with USA Missionaries and raising monthly support so we can keep saying yes to the mission God has put in front of us.\n\n${missionStatement}\n\nWould you prayerfully consider becoming a monthly support partner? You can learn more about our mission and give securely here:\n${supportLink}\n\nThank you for praying with us and considering partnership.\n\n${missionaryName}`;
   const socialTemplate = `${missionaryName} is raising support with USA Missionaries to reach the lost, make disciples, and multiply across America.\n\n${missionStatement}\n\nWould you prayerfully consider partnering monthly or sharing this with someone who may want to stand with the mission?\n${supportLink}`;
   const videoPrompt = `Record a 60-90 second video:\n1. Introduce yourself: ${missionaryName}.\n2. Share the mission in one sentence: ${missionStatement}\n3. Explain the current support goal: ${formatCurrency(annualGoal)} annually.\n4. Invite viewers to pray, share, or partner monthly.\n5. Close with the support link: ${supportLink}`;
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Share Tools
-        </p>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-          Simple copy-and-send tools to invite prayerful support without making the ask feel complicated.
-        </p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button className={lightPrimaryButtonClass} onClick={() => onCopy(profileLink, "Public Profile Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-          Copy Public Profile Link
-        </button>
-        <button className={lightPrimaryButtonClass} onClick={() => onCopy(supportLink, "Support Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-          Copy Support Link
-        </button>
-      </div>
-      <section className="rounded-2xl border border-[#e2ded5] bg-white p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="mx-auto max-w-[1120px] space-y-6">
+      <div className="rounded-3xl border border-[#dcd6ca] bg-white p-5 shadow-[0_14px_40px_rgba(17,17,17,0.05)] md:p-6">
+        <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Support Flyer
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Support Toolkit
             </p>
-            <h3 className="mt-2 text-2xl font-semibold text-[#111111]">
-              One-page support flyer
-            </h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#7b746a]">
-              Auto-generates a print-friendly flyer, full-color flyer, and shareable link from this profile and support data.
+            <h3 className="mt-2 text-2xl font-semibold text-[#111111]">{missionaryName}</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6f6658]">
+              Reusable links, flyer assets, and message templates for inviting support with clarity and care.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[360px]">
-            <a className={lightPrimaryButtonClass} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
-              Preview Full Color
-            </a>
-            <a className={lightSecondaryButtonClass} href={`${flyerLink}?version=print&print=1`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
-              Print-Friendly PDF
-            </a>
-            <button className={lightSecondaryButtonClass} onClick={() => onCopy(flyerLink, "Flyer Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-              Copy Flyer Link
-            </button>
-            <button className={lightSecondaryButtonClass} onClick={() => onCopy(supportLink, "Support Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-              Copy Support Link
-            </button>
+          <div className="grid gap-2 text-sm sm:grid-cols-2 lg:min-w-[380px]">
+            <div className="rounded-2xl border border-[#e2ded5] bg-[#fbfaf7] p-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Profile Status</p>
+              <p className="mt-1 font-semibold text-[#111111]">{profileStatus}</p>
+            </div>
+            <div className="rounded-2xl border border-[#e2ded5] bg-[#fbfaf7] p-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Support Goal</p>
+              <p className="mt-1 font-semibold text-[#111111]">{formatCurrency(monthlyGoal)} monthly</p>
+            </div>
+            <div className="rounded-2xl border border-[#e2ded5] bg-[#fbfaf7] p-3 sm:col-span-2">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Publish State</p>
+              <p className="mt-1 font-semibold text-[#111111]">{publishState}</p>
+            </div>
           </div>
         </div>
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <Field
-            helperText="Optional headline for the flyer."
-            label="Flyer Headline"
-            onChange={(value) => onSupportFieldChange("flyer_headline", value)}
-            value={support.flyer_headline ?? ""}
-          />
-          <Field
-            helperText="Short prayer/support ask shown near the giving CTA."
-            label="Prayer / Support Ask"
-            onChange={(value) => onSupportFieldChange("flyer_prayer_ask", value)}
-            value={support.flyer_prayer_ask ?? ""}
-          />
-          <TextArea
-            helperText="Brief support appeal for churches, meetings, and print handouts."
-            label="Short Support Appeal"
-            onChange={(value) => onSupportFieldChange("flyer_support_appeal", value)}
-            rows={4}
-            value={support.flyer_support_appeal ?? ""}
-          />
-          <TextArea
-            helperText="Optional note for the bottom of the flyer."
-            label="Optional Note"
-            onChange={(value) => onSupportFieldChange("flyer_note", value)}
-            rows={4}
-            value={support.flyer_note ?? ""}
-          />
-        </div>
-        <p className="mt-4 text-xs leading-5 text-[#7b746a]">
-          Use Save Changes after editing flyer copy. Download PDF opens a print-ready flyer where the browser can save as PDF.
-        </p>
-      </section>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ShareTemplateCard body={textTemplate} label="Text Message Template" onCopy={onCopy} />
-        <ShareTemplateCard body={emailTemplate} label="Email Template" onCopy={onCopy} />
-        <ShareTemplateCard body={socialTemplate} label="Facebook / Instagram Caption" onCopy={onCopy} />
-        <ShareTemplateCard body={videoPrompt} label="YouTube / Video Script Prompt" onCopy={onCopy} />
       </div>
+
+      <SupportToolkitSection description="Copy stable public links for texts, emails, church pages, and support conversations." title="Public Links">
+        <div className="grid gap-3 md:grid-cols-2">
+          {[
+            { label: "Public Profile Link", value: profileLink },
+            { label: "Support Link", value: supportLink },
+            { label: "Flyer Link", value: flyerLink },
+          ].map((link) => (
+            <div className="rounded-2xl border border-[#e2ded5] bg-white p-4" key={link.label}>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{link.label}</p>
+              <p className="mt-2 break-all text-sm leading-6 text-[#3f3932]">{link.value}</p>
+              <button className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[#8a5a00] hover:text-[#111111]" onClick={() => onCopy(link.value, link.label)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                Copy Link
+              </button>
+            </div>
+          ))}
+        </div>
+      </SupportToolkitSection>
+
+      <SupportToolkitSection description="Edit the flyer copy separately from the sharing actions. Save Changes when the copy is ready." title="Flyer Builder">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid gap-4">
+            <Field
+              helperText="Appears as the main headline on the generated flyer. Keep it direct and donor-facing."
+              label="Flyer Headline"
+              onChange={(value) => onSupportFieldChange("flyer_headline", value)}
+              value={support.flyer_headline ?? ""}
+            />
+            <Field
+              helperText="Short ask displayed near the giving CTA. Best as one warm, specific sentence."
+              label="Prayer / Support Ask"
+              onChange={(value) => onSupportFieldChange("flyer_prayer_ask", value)}
+              value={support.flyer_prayer_ask ?? ""}
+            />
+            <TextArea
+              helperText="Brief support appeal for churches, meetings, and print handouts. This should explain why partnership matters."
+              label="Short Support Appeal"
+              onChange={(value) => onSupportFieldChange("flyer_support_appeal", value)}
+              rows={4}
+              value={support.flyer_support_appeal ?? ""}
+            />
+            <TextArea
+              helperText="Optional closing note shown near the bottom of the flyer. Use this for a personal thank-you or prayer emphasis."
+              label="Optional Note"
+              onChange={(value) => onSupportFieldChange("flyer_note", value)}
+              rows={4}
+              value={support.flyer_note ?? ""}
+            />
+          </div>
+          <div className="rounded-2xl border border-[#dcd6ca] bg-white p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Generated Asset
+            </p>
+            <h4 className="mt-2 text-xl font-semibold text-[#111111]">One-page support flyer</h4>
+            <p className="mt-2 text-sm leading-6 text-[#6f6658]">
+              Full-color and print-friendly versions use the same saved copy and production-safe links.
+            </p>
+            <div className="mt-5 grid gap-2">
+              <a className={lightPrimaryButtonClass} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+                Preview Full Color
+              </a>
+              <a className={lightSecondaryButtonClass} href={`${flyerLink}?version=print&print=1`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+                Print-Friendly PDF
+              </a>
+              <button className="text-[10px] uppercase tracking-[0.18em] text-[#8a5a00] hover:text-[#111111]" onClick={() => onCopy(flyerLink, "Flyer Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                Copy Flyer Link
+              </button>
+            </div>
+          </div>
+        </div>
+      </SupportToolkitSection>
+
+      <SupportToolkitSection description="Polished starter copy missionaries can personalize before sending. Merge fields are highlighted for quick editing." title="Message Templates">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ShareTemplateCard body={textTemplate} description="Short personal invitation for one-to-one texts." onCopy={onCopy} title="Text Message Template" />
+          <ShareTemplateCard body={emailTemplate} description="Longer support invitation with mission context." onCopy={onCopy} title="Email Template" />
+          <ShareTemplateCard body={socialTemplate} description="Caption for Facebook, Instagram, or church group posts." onCopy={onCopy} title="Facebook / Instagram Caption" />
+          <ShareTemplateCard body={videoPrompt} description="Simple outline for a short support video." onCopy={onCopy} title="YouTube / Video Script Prompt" />
+        </div>
+      </SupportToolkitSection>
+
+      <SupportToolkitSection description="Support progress remains based on confirmed active commitments, not public form submissions." title="Support Tracking">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Annual Goal</p>
+            <p className="mt-2 text-2xl font-semibold text-[#111111]">{formatCurrency(annualGoal)}</p>
+          </div>
+          <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Monthly Goal</p>
+            <p className="mt-2 text-2xl font-semibold text-[#111111]">{formatCurrency(monthlyGoal)}</p>
+          </div>
+          <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Monthly Committed</p>
+            <p className="mt-2 text-2xl font-semibold text-[#111111]">{formatCurrency(support.monthly_committed ?? 0)}</p>
+          </div>
+        </div>
+      </SupportToolkitSection>
     </div>
   );
 }
@@ -6615,6 +6701,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [targetHouseholdLoadState, setTargetHouseholdLoadState] = useState<TargetHouseholdLoadState>("idle");
   const [targetHouseholds, setTargetHouseholds] = useState<TargetHouseholdOption[]>([]);
   const [isRefreshing, startRefreshTransition] = useTransition();
+  const [lastSavedProfiles, setLastSavedProfiles] = useState(initialProfiles);
 
   useEffect(() => {
     setActiveTab((currentTab) => normalizeEditorTab(currentTab));
@@ -6628,6 +6715,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
   useEffect(() => {
     setProfiles(initialProfiles);
+    setLastSavedProfiles(initialProfiles);
 
     if (selectedId && !initialProfiles.some((profile) => profile.id === selectedId)) {
       setSelectedId("");
@@ -6637,6 +6725,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedId),
     [profiles, selectedId],
+  );
+  const selectedLastSavedProfile = useMemo(
+    () => lastSavedProfiles.find((profile) => profile.id === selectedId),
+    [lastSavedProfiles, selectedId],
+  );
+  const hasUnsavedChanges = Boolean(
+    selectedProfile
+      && selectedLastSavedProfile
+      && JSON.stringify(selectedProfile) !== JSON.stringify(selectedLastSavedProfile),
   );
 
   useEffect(() => {
@@ -6919,7 +7016,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       return;
     }
 
-    const profileUrl = `${window.location.origin}/missionaries/${selectedProfile.slug}`;
+    const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://usamissionaries.org";
+    const profileOrigin = configuredSiteUrl.includes("localhost") ? "https://usamissionaries.org" : configuredSiteUrl;
+    const profileUrl = `${profileOrigin}/missionaries/${selectedProfile.slug}`;
 
     copyTextToClipboard(profileUrl, "Public profile link");
   }
@@ -7973,6 +8072,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       text: typeof result.message === "string" ? result.message : "Missionary workspace saved.",
       tone: "success",
     });
+    setLastSavedProfiles((currentProfiles) => currentProfiles.map((profile) => (
+      profile.id === selectedProfile.id ? selectedProfile : profile
+    )));
     setSaving(false);
     router.refresh();
   }
@@ -8083,7 +8185,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const support = selectedProfile.support ?? emptySupport(selectedProfile.id);
   const supportMode = selectedProfileSupportMode;
   const calculatedMonthlyGoal = calculateMonthlyGoal(support.annual_goal);
-  const profileOrigin = typeof window === "undefined" ? "" : window.location.origin;
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://usamissionaries.org";
+  const profileOrigin = configuredSiteUrl.includes("localhost") ? "https://usamissionaries.org" : configuredSiteUrl;
   const publicProfileLink = `${profileOrigin}/missionaries/${selectedProfile.slug}`;
   const publicSupportLink = `${publicProfileLink}#support`;
   const publicFlyerLink = `${publicProfileLink}/flyer`;
@@ -8334,20 +8437,22 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           ) : null}
         </div>
 
-        <div className="sticky top-4 z-20 mt-5 flex flex-col gap-3 border border-[#D4A63D]/25 bg-black/80 p-3 shadow-[0_14px_40px_rgba(0,0,0,0.28)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs leading-5 text-stone-400">
-            Save profile, workspace, and publishing edits when you are ready.
-          </p>
-          <button
-            className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 py-3 text-xs uppercase tracking-[0.22em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={saving}
-            onClick={saveSelectedProfile}
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            type="button"
-          >
-            {saving ? "Saving" : "Save Changes"}
-          </button>
-        </div>
+        {hasUnsavedChanges ? (
+          <div className="sticky top-3 z-20 mt-5 flex flex-col gap-2 rounded-xl border border-[#D4A63D]/35 bg-[#0f0f0f]/90 px-3 py-2.5 shadow-[0_10px_26px_rgba(0,0,0,0.22)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs leading-5 text-stone-300">
+              Unsaved changes in this workspace.
+            </p>
+            <button
+              className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={saving}
+              onClick={saveSelectedProfile}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              {saving ? "Saving" : "Save Changes"}
+            </button>
+          </div>
+        ) : null}
 
         <div className="mt-8">
           {activeTab === "overview" ? (
@@ -8983,7 +9088,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   missionaryName={selectedProfile.display_name}
                   onCopy={copyTextToClipboard}
                   onSupportFieldChange={updateSupportField}
+                  profileStatus={isProfilePublic(selectedProfile) ? "Public profile visible" : "Public profile hidden"}
                   profileLink={publicProfileLink}
+                  publishState={getFeatureValue(selectedProfile, "show_support") ? "Support section enabled" : "Support section hidden"}
                   support={support}
                   supportLink={publicSupportLink}
                 />
