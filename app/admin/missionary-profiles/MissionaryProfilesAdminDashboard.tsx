@@ -8427,6 +8427,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 aria-label="Open mobile Field App for this workspace"
                 className="flex min-h-20 rounded-xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_10px_24px_rgba(212,166,61,0.12)] transition-colors hover:bg-[#e7b742]"
                 href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
+                rel="noopener noreferrer"
+                target="_blank"
                 title="Open mobile Field App for this workspace"
               >
                 <div className="flex items-start gap-2.5">
