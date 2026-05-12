@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AdminBadge, AdminEmptyState, AdminMetricCard, adminFont, type AdminBadgeTone } from "../_components/AdminUI";
+import type { ReactNode } from "react";
+import { adminFont, type AdminBadgeTone } from "../_components/AdminUI";
 import { AdminShell } from "../_components/AdminShell";
 import {
   productFeedbackCategoryLabel,
@@ -18,6 +19,16 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+const badgeToneClassName: Record<AdminBadgeTone, string> = {
+  amber: "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]",
+  blue: "border-blue-400/25 bg-blue-950/30 text-blue-300",
+  green: "border-green-500/25 bg-green-950/30 text-green-300",
+  muted: "border-stone-700 bg-stone-900/70 text-stone-300",
+  red: "border-red-500/35 bg-red-950/25 text-red-200",
+};
+
+const secondaryActionClassName = "inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.13em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
 
 type ProductFeedbackRow = {
   admin_notes: string | null;
@@ -87,6 +98,74 @@ function getStatusTone(status: string): AdminBadgeTone {
   return tones[status as ProductFeedbackStatus] ?? "muted";
 }
 
+function Badge({
+  children,
+  tone = "muted",
+}: {
+  children: ReactNode;
+  tone?: AdminBadgeTone;
+}) {
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2 text-[9px] uppercase tracking-[0.13em] ${badgeToneClassName[tone]}`}
+      style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+      <p
+        className="text-[10px] uppercase tracking-[0.15em] text-stone-400"
+        style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+      >
+        {label}
+      </p>
+      <p
+        className="mt-3 text-3xl font-bold leading-none text-stone-100"
+        style={{ fontFamily: adminFont.oswald }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function EmptyState({
+  description,
+  title,
+}: {
+  description: string;
+  title: string;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-6">
+      <p className="text-sm font-semibold text-stone-100">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-stone-500">{description}</p>
+    </div>
+  );
+}
+
+function MetaItem({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[9px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+        {label}
+      </p>
+      <div className="mt-1 truncate text-sm text-stone-300">{value || "-"}</div>
+    </div>
+  );
+}
+
 async function loadProductFeedback(): Promise<FeedbackData> {
   if (!isSupabaseAdminConfigured()) {
     return {
@@ -142,6 +221,61 @@ async function loadProductFeedback(): Promise<FeedbackData> {
   };
 }
 
+function FeedbackItem({
+  organization,
+  row,
+  submittedBy,
+}: {
+  organization: OrganizationRow | undefined;
+  row: ProductFeedbackRow;
+  submittedBy: ProfileRow | undefined;
+}) {
+  const message = row.message_text?.trim() || "No text note.";
+  const hasVoice = Boolean(row.voice_file_url);
+
+  return (
+    <article className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4 transition-colors hover:border-stone-700 hover:bg-stone-950/70">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={getStatusTone(row.status)}>{productFeedbackStatusLabel(row.status)}</Badge>
+            <Badge tone="muted">{productFeedbackCategoryLabel(row.category)}</Badge>
+            {hasVoice ? <Badge tone="blue">Voice</Badge> : null}
+          </div>
+          <p className="mt-3 text-base leading-7 text-stone-100">{message}</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <MetaItem label="Submitter" value={getProfileLabel(submittedBy)} />
+            <MetaItem label="Organization" value={organization?.name ?? "Unassigned"} />
+            <MetaItem label="Date" value={formatDate(row.created_at)} />
+            <MetaItem label="Route" value={row.page_path ?? "Unknown"} />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          {row.page_path ? (
+            <Link className={secondaryActionClassName} href={row.page_path} style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+              Preview
+            </Link>
+          ) : null}
+          {row.voice_file_url ? (
+            <Link className={secondaryActionClassName} href={row.voice_file_url} style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+              Voice
+            </Link>
+          ) : null}
+        </div>
+      </div>
+
+      {row.admin_notes ? (
+        <details className="mt-4 rounded-lg border border-stone-900 bg-[#050505] px-3 py-2 text-sm text-stone-400">
+          <summary className="cursor-pointer text-[10px] uppercase tracking-[0.13em] text-stone-400" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+            Internal Note
+          </summary>
+          <p className="mt-2 leading-6">{row.admin_notes}</p>
+        </details>
+      ) : null}
+    </article>
+  );
+}
+
 export default async function ProductFeedbackAdminPage() {
   const data = await loadProductFeedback();
   const newFeedback = data.feedback.filter((row) => row.status === "new");
@@ -149,18 +283,17 @@ export default async function ProductFeedbackAdminPage() {
   return (
     <AdminShell
       active="product-feedback"
-      description="Review lightweight DOS feedback from users before deciding what belongs in the product plan."
       title="Product Feedback"
     >
-      <div className="grid gap-4 md:grid-cols-3">
-        <AdminMetricCard label="New feedback" value={data.error ? "-" : newFeedback.length} />
-        <AdminMetricCard label="Total feedback" value={data.error ? "-" : data.feedback.length} />
-        <AdminMetricCard label="Voice notes" value={data.error ? "-" : data.feedback.filter((row) => row.voice_file_url).length} />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <MetricCard label="New" value={data.error ? "-" : newFeedback.length} />
+        <MetricCard label="Total" value={data.error ? "-" : data.feedback.length} />
+        <MetricCard label="Voice Notes" value={data.error ? "-" : data.feedback.filter((row) => row.voice_file_url).length} />
       </div>
 
       {data.error ? (
         <div className="mt-6">
-          <AdminEmptyState
+          <EmptyState
             description={data.error}
             title="Feedback unavailable"
           />
@@ -169,7 +302,7 @@ export default async function ProductFeedbackAdminPage() {
 
       {!data.error && data.feedback.length === 0 ? (
         <div className="mt-6">
-          <AdminEmptyState
+          <EmptyState
             description="Feedback submitted from DOS will appear here."
             title="No feedback yet"
           />
@@ -177,68 +310,34 @@ export default async function ProductFeedbackAdminPage() {
       ) : null}
 
       {!data.error && data.feedback.length > 0 ? (
-        <section className="mt-6 overflow-hidden border border-stone-800/75 bg-[#080808]/85">
-          <div className="border-b border-stone-800/75 px-4 py-4 md:px-5">
+        <section className="mt-6 rounded-xl border border-stone-800/75 bg-[#050505]/75 p-3">
+          <div className="flex flex-col gap-3 px-1 pb-3 sm:flex-row sm:items-center sm:justify-between">
             <h2
-              className="text-sm font-bold uppercase tracking-[0.16em] text-stone-200"
+              className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#D4A63D]"
               style={{ fontFamily: adminFont.rajdhani }}
             >
-              New feedback
+              Feedback
             </h2>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="amber">{newFeedback.length} New</Badge>
+              <Badge tone="blue">{data.feedback.filter((row) => row.status === "planned" || row.status === "in_progress").length} In Product</Badge>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left">
-              <thead>
-                <tr className="border-b border-stone-800/75 text-[10px] uppercase tracking-[0.16em] text-stone-500">
-                  <th className="px-4 py-3 font-bold" style={{ fontFamily: adminFont.rajdhani }}>Submitted by</th>
-                  <th className="px-4 py-3 font-bold" style={{ fontFamily: adminFont.rajdhani }}>Organization</th>
-                  <th className="px-4 py-3 font-bold" style={{ fontFamily: adminFont.rajdhani }}>Category</th>
-                  <th className="px-4 py-3 font-bold" style={{ fontFamily: adminFont.rajdhani }}>Message</th>
-                  <th className="px-4 py-3 font-bold" style={{ fontFamily: adminFont.rajdhani }}>Voice</th>
-                  <th className="px-4 py-3 font-bold" style={{ fontFamily: adminFont.rajdhani }}>Status</th>
-                  <th className="px-4 py-3 font-bold" style={{ fontFamily: adminFont.rajdhani }}>Admin notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-900">
-                {data.feedback.map((row) => {
-                  const organization = row.organization_id ? data.organizations.get(row.organization_id) : undefined;
-                  const submittedBy = row.submitted_by_profile_id ? data.profiles.get(row.submitted_by_profile_id) : undefined;
+          <div className="grid gap-3">
+            {data.feedback.map((row) => {
+              const organization = row.organization_id ? data.organizations.get(row.organization_id) : undefined;
+              const submittedBy = row.submitted_by_profile_id ? data.profiles.get(row.submitted_by_profile_id) : undefined;
 
-                  return (
-                    <tr className="align-top text-sm text-stone-300" key={row.id}>
-                      <td className="px-4 py-4">
-                        <p className="font-medium text-stone-100">{getProfileLabel(submittedBy)}</p>
-                        <p className="mt-1 text-xs text-stone-500">{formatDate(row.created_at)}</p>
-                      </td>
-                      <td className="px-4 py-4">{organization?.name ?? "Unassigned"}</td>
-                      <td className="px-4 py-4">{productFeedbackCategoryLabel(row.category)}</td>
-                      <td className="max-w-sm px-4 py-4 leading-6">
-                        <p>{row.message_text ?? "No text note."}</p>
-                        {row.page_path ? <p className="mt-2 text-xs text-stone-500">{row.page_path}</p> : null}
-                      </td>
-                      <td className="px-4 py-4">
-                        {row.voice_file_url ? (
-                          <Link className="text-[#E4C465] underline-offset-4 hover:underline" href={row.voice_file_url}>
-                            Open file
-                          </Link>
-                        ) : (
-                          <span className="text-stone-600">None</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <AdminBadge tone={getStatusTone(row.status)}>
-                          {productFeedbackStatusLabel(row.status)}
-                        </AdminBadge>
-                      </td>
-                      <td className="max-w-xs px-4 py-4 leading-6 text-stone-400">
-                        {row.admin_notes ?? "No admin notes."}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+              return (
+                <FeedbackItem
+                  key={row.id}
+                  organization={organization}
+                  row={row}
+                  submittedBy={submittedBy}
+                />
+              );
+            })}
           </div>
         </section>
       ) : null}
