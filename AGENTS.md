@@ -536,6 +536,9 @@ Operational density standards:
 - Use hover states, detail drawers, and view buttons for secondary information.
 - Keep dashboards executive and awareness-focused: metrics, pending items, recent activity, status, and exceptions.
 - Do not turn dashboards into launchpads full of redundant buttons.
+- Operational tables should default to minimal copy, rely on hierarchy and labels, and avoid explanatory paragraphs.
+- Remove repeated explanations users already understand from section context.
+- Table rows should feel operational, premium, lightweight, and scannable within seconds.
 
 Mobile-first requirements:
 - Every admin/workspace surface must remain usable on mobile.

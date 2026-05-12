@@ -6298,12 +6298,9 @@ function TeamMemberManager({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <p className="max-w-3xl text-sm leading-6 text-[#7b746a]">
-          Public numbers are global across USA Missionaries. The UUID stays as the real database ID; this number is only the public roster display.
-        </p>
+      <div className="flex justify-end">
         <button
-          className="inline-flex min-h-11 items-center justify-center bg-[#D4A63D] px-5 py-3 text-xs uppercase tracking-[0.22em] text-black transition-all hover:bg-[#F5B942]"
+          className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942]"
           onClick={() => {
             setShouldEditNewestMember(true);
             onAdd();
@@ -6316,28 +6313,20 @@ function TeamMemberManager({
       </div>
 
       {sortedItems.length === 0 ? (
-        <p className="text-sm leading-6 text-[#7b746a]">
-          No team members yet. Add household or ministry team members connected to this profile.
+        <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
+          No team members yet.
         </p>
-      ) : null}
-
-      <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-        <div className="overflow-x-auto">
-        <table className="min-w-[840px] w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-              {["Name", "Role", "Location", "Status", "Public", "Actions"].map((heading) => (
-                <th
-                  className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0"
-                  key={heading}
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                >
-                  {heading}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+          <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_92px_72px_70px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <span>Name</span>
+            <span>Role</span>
+            <span>Location</span>
+            <span>Status</span>
+            <span>Public</span>
+            <span className="text-right">Actions</span>
+          </div>
+          <div className="divide-y divide-[#e2ded5]">
             {sortedItems.map((member) => (
               <TeamMemberRow
                 key={member.id}
@@ -6348,10 +6337,9 @@ function TeamMemberManager({
                 onUpdate={onUpdate}
               />
             ))}
-          </tbody>
-        </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {editingMember ? (
         <TeamMemberEditor
@@ -6384,30 +6372,32 @@ function TeamMemberRow({
   const isPublic = member.is_public !== false && isActive;
 
   return (
-    <tr className={`border-b border-[#e2ded5] transition-colors last:border-b-0 hover:bg-[#fbfaf7] ${isEditing ? "bg-[#fbfaf7]" : ""}`}>
-      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-[#111111]">
-            {member.display_name || "Name required"}
+    <div className={`grid gap-3 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_92px_72px_70px] md:items-center ${isEditing ? "bg-[#fbfaf7]" : ""}`}>
+      <div className="min-w-0">
+        <span className="block truncate text-base font-semibold text-[#111111]">
+          {member.display_name || "Name required"}
+        </span>
+        {member.public_number ? (
+          <span className="mt-0.5 block text-[9px] uppercase tracking-[0.14em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            #{normalizePublicRosterNumber(member.public_number)}
           </span>
-          {member.public_number ? (
-            <span className="text-[10px] uppercase tracking-[0.16em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              #{normalizePublicRosterNumber(member.public_number)}
-            </span>
-          ) : null}
-        </div>
-      </td>
-      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-        {member.role_title || "Not set"}
-      </td>
-      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle text-sm text-[#4b443b]">
-        {locationLabel || "Not set"}
-      </td>
-      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
+        ) : null}
+      </div>
+      <div className="flex items-center justify-between gap-3 md:block">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Role</span>
+        <span className="text-sm text-[#4b443b]">{member.role_title || "Not set"}</span>
+      </div>
+      <div className="flex items-center justify-between gap-3 md:block">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Location</span>
+        <span className="text-sm text-[#4b443b]">{locationLabel || "Not set"}</span>
+      </div>
+      <div className="flex items-center justify-between gap-3 md:block">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Status</span>
         <TeamStatusBadge isActive={isActive} />
-      </td>
-      <td className="border-r border-[#e2ded5] px-4 py-3 align-middle">
-        <label className="inline-flex cursor-pointer items-center gap-3 text-xs text-[#4b443b]">
+      </div>
+      <div className="flex items-center justify-between gap-3 md:block">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public</span>
+        <label className="inline-flex cursor-pointer items-center text-xs text-[#4b443b]">
           <input
             checked={isPublic}
             className="sr-only"
@@ -6428,24 +6418,19 @@ function TeamMemberRow({
                 : "translate-x-1 bg-[#9a9488]"
             }`} />
           </span>
-          <span className={`text-[10px] uppercase tracking-[0.16em] ${
-            isPublic ? "text-[#8a5a00]" : "text-[#7b746a]"
-          }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            {isPublic ? "On" : "Off"}
-          </span>
         </label>
-      </td>
-      <td className="px-4 py-3 align-middle">
+      </div>
+      <div className="flex justify-end">
         <button
-          className={lightSecondaryButtonClass}
+          className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
           onClick={onEdit}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
         >
           Edit
         </button>
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }
 
@@ -8925,7 +8910,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "team" ? (
           <SectionIntro
-            description="Updates Profile. Public team or household members displayed on the missionary Profile. Do not use this section for discipleship contacts or private ministry relationships."
+            description="Public team members"
             title="Team"
           >
             <TeamMemberManager
