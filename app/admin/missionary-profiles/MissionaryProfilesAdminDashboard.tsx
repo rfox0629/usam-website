@@ -3,7 +3,7 @@
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Copy, ExternalLink, FileText, Smartphone } from "lucide-react";
+import { Activity, BookOpen, Copy, ExternalLink, FileText, Globe, Smartphone, Users, type LucideIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
@@ -850,18 +850,21 @@ type PublishingFeatureField =
 
 const primaryNavGroups: Array<{
   helper: string;
+  icon: LucideIcon;
   key: PrimaryNavKey;
   label: "Dashboard" | "Field" | "Publishing" | "Resources";
   tabs: Array<{ id?: string; label: string; value: EditorTab }>;
 }> = [
   {
     helper: "Activity",
+    icon: Activity,
     key: "dashboard",
     label: "Dashboard",
     tabs: [],
   },
   {
     helper: "Public page",
+    icon: Globe,
     key: "publishing",
     label: "Publishing",
     tabs: [
@@ -876,6 +879,7 @@ const primaryNavGroups: Array<{
   },
   {
     helper: "Discipleship",
+    icon: Users,
     key: "field",
     label: "Field",
     tabs: [
@@ -888,6 +892,7 @@ const primaryNavGroups: Array<{
   },
   {
     helper: "Library",
+    icon: BookOpen,
     key: "resources",
     label: "Resources",
     tabs: [
@@ -8423,6 +8428,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           <div className="grid gap-3 md:grid-cols-4" role="tablist" aria-label="Workspace primary sections">
             {visiblePrimaryNavGroups.map((group) => {
               const selected = activePrimaryNav === group.key;
+              const Icon = group.icon;
 
               return (
                 <button
@@ -8443,11 +8449,16 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
                 >
-                  <span className="block text-sm uppercase tracking-[0.13em]">
-                    {group.label}
-                  </span>
-                  <span className={`mt-1 block text-[11px] normal-case leading-5 tracking-normal ${selected ? "text-black/65" : "text-stone-500"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
-                    {group.helper}
+                  <span className="flex items-start gap-2.5">
+                    <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${selected ? "text-black" : "text-[#D4A63D]"}`} aria-hidden="true" />
+                    <span>
+                      <span className="block text-sm uppercase tracking-[0.12em]">
+                        {group.label}
+                      </span>
+                      <span className={`mt-1 block text-[11px] normal-case leading-5 tracking-normal ${selected ? "text-black/65" : "text-stone-500"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
+                        {group.helper}
+                      </span>
+                    </span>
                   </span>
                 </button>
               );
