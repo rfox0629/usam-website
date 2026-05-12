@@ -14,7 +14,6 @@ import {
 } from "@/src/lib/missionaries/profile-image-upload";
 import {
   normalizeSupportRoutingMode,
-  supportRoutingModeDetails,
   type SupportRoutingMode,
 } from "@/src/lib/missionaries/support-routing";
 import { getPublicMissionaryProfileUrl } from "@/src/lib/missionaries/public-origin";
@@ -5489,52 +5488,6 @@ function DetailText({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SupportModeSummary({ mode }: { mode: AdminSupportMode }) {
-  const detail = supportRoutingModeDetails[mode];
-
-  return (
-    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        Mode Behavior
-      </p>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Public Page Says
-          </p>
-          <p className="mt-2 text-sm leading-6 text-[#111111]">
-            {detail.publicMeaning}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Giving Buttons Route
-          </p>
-          <p className="mt-2 text-sm leading-6 text-[#111111]">
-            {detail.adminRouting}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Missing Target
-          </p>
-          <p className="mt-2 text-sm leading-6 text-[#111111]">
-            {detail.adminFallback}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Admin Saves
-          </p>
-          <p className="mt-2 text-sm leading-6 text-[#111111]">
-            {detail.adminSavedFields}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function FundraisingProgressControls({
   monthlyGoal,
   onAnnualGoalChange,
@@ -8346,7 +8299,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const publicProfileLink = getPublicMissionaryProfileUrl(selectedProfile.slug);
   const publicSupportLink = `${publicProfileLink}#support`;
   const publicFlyerLink = `${publicProfileLink}/flyer`;
-  const selectedSupportModeOption = supportModeOptions.find((option) => option.value === supportMode) ?? supportModeOptions[0];
+  const selectedSupportModeLabel = supportModeOptions.find((option) => option.value === supportMode)?.label ?? supportModeOptions[0].label;
   const targetHouseholdOptions = targetHouseholdLoadState === "loading"
     ? [{ label: "Loading households...", value: "" }]
     : targetHouseholds.length > 0
@@ -8356,7 +8309,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       ]
       : [{ label: "No other missionary households available.", value: "" }];
   const targetHouseholdSelectDisabled = targetHouseholdLoadState !== "success" || targetHouseholds.length === 0;
-  const showLeadershipPlaceholder = supportMode === "state_leader" || supportMode === "regional_leader";
   const selectedTargetHousehold = targetHouseholds.find((household) => household.id === selectedProfile.support_target_household_id);
   const givingRoutingDestination = supportMode === "household"
     ? selectedProfile.display_name
@@ -9262,148 +9214,77 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               ) : null}
 
               {supportSubsection === "settings" ? (
-                <div className="space-y-6">
-                  <div>
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Giving Routing
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <StatusPill>Giving System: Active</StatusPill>
+                        <StatusPill>Destination: {givingRoutingDestination}</StatusPill>
+                        <StatusPill>Mode: {selectedSupportModeLabel}</StatusPill>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
                     <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Settings
+                      Major Gift Settings
                     </p>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-                      Admin routing, centralized giving status, major gift behavior, and support mode settings.
-                    </p>
+                    <label className="mt-3 flex items-center gap-3 text-sm font-semibold text-[#4b443b]">
+                      <input
+                        checked={support.enable_major_gift_inquiry !== false}
+                        className="h-4 w-4 accent-[#D4A63D]"
+                        onChange={(event) => updateSupportField("enable_major_gift_inquiry", event.target.checked)}
+                        type="checkbox"
+                      />
+                      Enable Major Gift Inquiry
+                    </label>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <Field
+                        label="Notify Email"
+                        onChange={(value) => updateSupportField("major_gift_notify_email", value)}
+                        value={support.major_gift_notify_email ?? "ryan@usamissionaries.org"}
+                      />
+                      <TextArea
+                        label="Optional Public Description"
+                        onChange={(value) => updateSupportField("major_gift_public_description", value)}
+                        rows={3}
+                        value={support.major_gift_public_description}
+                      />
+                    </div>
                   </div>
 
-                  <div className="rounded-2xl border border-[#e2ded5] bg-[#f8f6f1] p-5">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Giving Routing
-                    </p>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-                      Giving URLs are centrally controlled by USA Missionaries. Profile admins can review routing here but cannot paste external links.
-                    </p>
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Source
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-[#111111]">
-                        Master Giving System (USA Missionaries)
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Status
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-green-700">
-                        Active
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4 md:col-span-2">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Routing Description
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-[#111111]">
-                        This profile&apos;s support is connected to the centralized giving system managed by USA Missionaries.
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4 md:col-span-2">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Destination
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-[#111111]">
-                        {givingRoutingDestination}
-                      </p>
-                    </div>
-                  </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-5">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Major Gift Settings
-                  </p>
-                  <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-[#4b443b]">
-                    <input
-                      checked={support.enable_major_gift_inquiry !== false}
-                      className="mt-1 h-4 w-4 accent-[#D4A63D]"
-                      onChange={(event) => updateSupportField("enable_major_gift_inquiry", event.target.checked)}
-                      type="checkbox"
-                    />
-                    Enable major gift inquiry modal
-                  </label>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <Field
-                      helperText="Notification target when email is configured."
-                      label="Major Gift Notify Email"
-                      onChange={(value) => updateSupportField("major_gift_notify_email", value)}
-                      value={support.major_gift_notify_email ?? "ryan@usamissionaries.org"}
-                    />
-                    <TextArea
-                      helperText="Optional public description in the major gift modal."
-                      label="Major Gift Public Description"
-                      onChange={(value) => updateSupportField("major_gift_public_description", value)}
-                      rows={3}
-                      value={support.major_gift_public_description}
-                    />
-                  </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-5">
+                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
                     <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       Advanced Settings
                     </p>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-                      Control support routing, target fallbacks, and admin-only behavior for this profile.
-                    </p>
-
-                  <div className="grid gap-4 lg:grid-cols-2">
-                  <SelectField
-                    helperText={selectedSupportModeOption.description}
-                    label="Support Mode"
-                    onChange={(value) => updateSupportMode(value as AdminSupportMode)}
-                    options={supportModeOptions.map((option) => ({ label: option.label, value: option.value }))}
-                    value={supportMode}
-                  />
-
-                  {supportMode === "household_nomination" ? (
-                    <div>
+                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
                       <SelectField
-                        disabled={targetHouseholdSelectDisabled}
-                        helperText="Select a missionary household to receive support from this profile."
-                        label="Target Household"
-                        onChange={(value) => updateHouseholdField("support_target_household_id", value || null)}
-                        options={targetHouseholdOptions}
-                        value={targetHouseholdSelectDisabled ? "" : selectedProfile.support_target_household_id}
+                        label="Support Mode"
+                        onChange={(value) => updateSupportMode(value as AdminSupportMode)}
+                        options={supportModeOptions.map((option) => ({ label: option.label, value: option.value }))}
+                        value={supportMode}
                       />
-                      {targetHouseholdError ? (
-                        <p className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
-                          {targetHouseholdError}
-                        </p>
+
+                      {supportMode === "household_nomination" ? (
+                        <div>
+                          <SelectField
+                            disabled={targetHouseholdSelectDisabled}
+                            label="Target Household"
+                            onChange={(value) => updateHouseholdField("support_target_household_id", value || null)}
+                            options={targetHouseholdOptions}
+                            value={targetHouseholdSelectDisabled ? "" : selectedProfile.support_target_household_id}
+                          />
+                          {targetHouseholdError ? (
+                            <p className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
+                              {targetHouseholdError}
+                            </p>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
-                  ) : null}
-
-                  {showLeadershipPlaceholder ? (
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        {supportMode === "state_leader" ? "State Leader Target" : "Regional Leader Target"}
-                      </p>
-                      <p className="mt-2">
-                        Leadership target dropdowns are future-ready. Until a leader target exists, public giving falls back to the General Fund.
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {supportMode === "general_fund" || supportMode === "national_leadership" ? (
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#4b443b]">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Routing Note
-                      </p>
-                      <p className="mt-2">
-                        This mode uses the default Church Center giving link. Internal allocation can be handled in the giving platform.
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-
-                  <SupportModeSummary mode={supportMode} />
                   </div>
                 </div>
               ) : null}
