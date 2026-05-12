@@ -35,7 +35,7 @@ import { getAdminAuthorization } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Missionary Workspaces | USA Missionaries",
+  title: "Missionary Workspace | USA Missionaries",
   robots: {
     follow: false,
     index: false,
@@ -1328,8 +1328,7 @@ export default async function MissionaryProfilesAdminPage() {
   return (
     <AdminShell
       active="missionary-profiles"
-      description="Manage missionary operations, public profile content, support, prayer, and ministry activity."
-      title="Missionary Workspaces"
+      title="Missionary Workspace"
     >
       {loadError ? (
         <p className="mb-6 border border-red-500/30 bg-red-950/20 p-4 text-sm text-red-200">

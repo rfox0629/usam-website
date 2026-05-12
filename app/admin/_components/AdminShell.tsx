@@ -61,7 +61,7 @@ export function AdminShell({
   active: AdminNavKey;
   action?: ReactNode;
   children: ReactNode;
-  description: string;
+  description?: string;
   title: string;
 }) {
   return (
@@ -153,9 +153,11 @@ export function AdminShell({
                 <h1 className="text-3xl font-semibold tracking-tight text-stone-100 md:text-4xl">
                   {title}
                 </h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400 md:text-base">
-                  {description}
-                </p>
+                {description ? (
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400 md:text-base">
+                    {description}
+                  </p>
+                ) : null}
               </div>
               {action ? <div className="shrink-0">{action}</div> : null}
             </div>

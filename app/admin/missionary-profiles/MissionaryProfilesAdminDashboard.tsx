@@ -8437,9 +8437,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               <h2 className="text-4xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
                 {selectedProfile.display_name}
               </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-400">
-                Manage publishing, field activity, support tools, and operational resources for this missionary household.
-              </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
