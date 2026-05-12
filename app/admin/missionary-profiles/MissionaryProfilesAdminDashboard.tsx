@@ -5315,6 +5315,7 @@ function LibraryManager({
 }) {
   const [editingItem, setEditingItem] = useState<AdminLibraryItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  // TODO: Re-enable Library item editing when the guide/PDF CMS can edit the actual teaching resource.
 
   return (
     <div className="space-y-4">
@@ -5340,8 +5341,8 @@ function LibraryManager({
                     {item.category || "Uncategorized"}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {guideResource ? (
+                {guideResource ? (
+                  <div className="flex shrink-0 items-center gap-2">
                     <a
                       className="inline-flex min-h-9 items-center justify-center rounded-md border border-[#e2ded5] bg-[#fbfaf7] px-3 text-[10px] uppercase tracking-[0.16em] text-[#8a5a00] transition-colors hover:border-[#c8952d] hover:text-[#111111]"
                       href={guideResource.href}
@@ -5351,11 +5352,8 @@ function LibraryManager({
                     >
                       Open Guide
                     </a>
-                  ) : null}
-                  <button className={lightSecondaryButtonClass} onClick={() => setEditingItem(item)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                    Edit
-                  </button>
-                </div>
+                  </div>
+                ) : null}
               </div>
               <p className="mt-3 text-sm leading-6 text-[#4b443b]">
                 {item.description || "No description added."}
