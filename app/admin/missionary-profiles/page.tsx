@@ -972,6 +972,8 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       .order("last_activity_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false })
       .order("name", { ascending: true });
+    // TODO: Remove the household_id-only fallback after all Supabase environments
+    // have the Command Center workspace_id migration applied.
     const fallbackFieldPeopleResult = fieldPeopleResult.error && isMissingWorkspaceScopeColumn(fieldPeopleResult.error)
       ? await supabase
         .from("missionary_field_people")

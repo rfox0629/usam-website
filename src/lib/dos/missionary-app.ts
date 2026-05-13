@@ -215,6 +215,8 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
     .order("last_activity_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false });
 
+  // TODO: Remove the household_id-only fallback after all Supabase environments
+  // have the Command Center workspace_id migration applied.
   return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
     ? supabase
       .from("missionary_field_people")
