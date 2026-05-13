@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Briefcase, Cake, CalendarDays, ChevronRight, Church, Mail, MapPin, MessageCircle, MoreHorizontal, Pencil, Phone, StickyNote } from "lucide-react";
+import { ArrowLeft, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, FileImage, Mail, MapPin, MessageCircle, Mic, MoreHorizontal, Pencil, Phone, Square, StickyNote, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import {
   buildMeetingRecommendations,
   dosKitchenTableQuestions,
@@ -83,6 +83,14 @@ type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | 
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
 type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
 type KitchenTableNonRatingQuestionId = Exclude<DosKitchenTableQuestionId, "relationshipWithJesus">;
+type MeetingCaptureType = "photo" | "screenshot" | "voice";
+type MeetingCaptureDraft = {
+  file: Blob;
+  fileName: string;
+  id: string;
+  previewUrl?: string;
+  type: MeetingCaptureType;
+};
 type PersonFormDefaults = {
   birthday?: string;
   church?: string;
@@ -249,6 +257,32 @@ function formatRelativeDate(value: string | null) {
   }
 
   return `${daysAgo} days ago`;
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${Math.round(size / 1024)} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function captureTypeLabel(type: MeetingCaptureType) {
+  return {
+    photo: "Photo",
+    screenshot: "Screenshot",
+    voice: "Voice Note",
+  }[type];
+}
+
+function captureFileName(type: MeetingCaptureType, extension: string) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+  return `${type}-${timestamp}.${extension}`;
 }
 
 function todayDateValue() {
@@ -1055,6 +1089,230 @@ function MeetingPeopleSelector({
         <p className="mt-2 text-sm text-[#77716A]">No people added yet.</p>
       )}
     </section>
+  );
+}
+
+function MeetingCaptureNotes({
+  defaultValue,
+}: {
+  defaultValue?: string | null;
+}) {
+  const [captures, setCaptures] = useState<MeetingCaptureDraft[]>([]);
+  const [captureMessage, setCaptureMessage] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const screenshotInputRef = useRef<HTMLInputElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const voiceChunksRef = useRef<Blob[]>([]);
+  const objectUrlsRef = useRef<string[]>([]);
+
+  useEffect(() => () => {
+    mediaRecorderRef.current?.state === "recording" && mediaRecorderRef.current.stop();
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+
+  function addCapture(capture: Omit<MeetingCaptureDraft, "id">) {
+    setCaptures((currentCaptures) => [
+      ...currentCaptures,
+      {
+        ...capture,
+        id: `${capture.type}-${Date.now()}-${currentCaptures.length}`,
+      },
+    ]);
+    setCaptureMessage("");
+  }
+
+  function addFiles(type: Exclude<MeetingCaptureType, "voice">, files: FileList | null) {
+    const selectedFiles = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
+
+    if (!selectedFiles.length) {
+      return;
+    }
+
+    selectedFiles.forEach((file) => {
+      const previewUrl = URL.createObjectURL(file);
+      objectUrlsRef.current.push(previewUrl);
+      addCapture({
+        file,
+        fileName: file.name,
+        previewUrl,
+        type,
+      });
+    });
+  }
+
+  function handleFileSelection(type: Exclude<MeetingCaptureType, "voice">, event: ChangeEvent<HTMLInputElement>) {
+    addFiles(type, event.currentTarget.files);
+    event.currentTarget.value = "";
+  }
+
+  function removeCapture(captureId: string) {
+    setCaptures((currentCaptures) => {
+      const capture = currentCaptures.find((currentCapture) => currentCapture.id === captureId);
+
+      if (capture?.previewUrl) {
+        URL.revokeObjectURL(capture.previewUrl);
+        objectUrlsRef.current = objectUrlsRef.current.filter((url) => url !== capture.previewUrl);
+      }
+
+      return currentCaptures.filter((currentCapture) => currentCapture.id !== captureId);
+    });
+  }
+
+  async function startVoiceNote() {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setCaptureMessage("Voice recording is not available here.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      voiceChunksRef.current = [];
+
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data.size > 0) {
+          voiceChunksRef.current.push(event.data);
+        }
+      });
+
+      recorder.addEventListener("stop", () => {
+        const blob = new Blob(voiceChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        const previewUrl = URL.createObjectURL(blob);
+        objectUrlsRef.current.push(previewUrl);
+        addCapture({
+          file: blob,
+          fileName: captureFileName("voice", "webm"),
+          previewUrl,
+          type: "voice",
+        });
+        stream.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        setIsRecording(false);
+      });
+
+      recorder.start();
+      setIsRecording(true);
+      setCaptureMessage("");
+    } catch {
+      setCaptureMessage("Microphone unavailable.");
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      mediaRecorderRef.current = null;
+      setIsRecording(false);
+    }
+  }
+
+  function stopVoiceNote() {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+  }
+
+  return (
+    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3">
+      <div className="flex items-center justify-between gap-3">
+        <FieldLabel>Capture Notes</FieldLabel>
+        {captures.length ? (
+          <span className="rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+            Draft
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        <CaptureActionButton active={isRecording} icon={isRecording ? <Square className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} /> : <Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={isRecording ? stopVoiceNote : startVoiceNote}>
+          {isRecording ? "Stop" : "Voice"}
+        </CaptureActionButton>
+        <CaptureActionButton icon={<Camera className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={() => photoInputRef.current?.click()}>
+          Photo
+        </CaptureActionButton>
+        <CaptureActionButton icon={<FileImage className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={() => screenshotInputRef.current?.click()}>
+          Screenshot
+        </CaptureActionButton>
+      </div>
+
+      <input
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(event) => handleFileSelection("photo", event)}
+        ref={photoInputRef}
+        type="file"
+      />
+      <input
+        accept="image/*"
+        className="hidden"
+        multiple
+        onChange={(event) => handleFileSelection("screenshot", event)}
+        ref={screenshotInputRef}
+        type="file"
+      />
+
+      {captureMessage ? <p className="mt-2 text-xs text-[#8A5A12]">{captureMessage}</p> : null}
+      {captures.length ? (
+        <div className="mt-2 grid gap-1.5">
+          {/* TODO: Persist captures to a workspace-scoped meeting_attachments table with meeting_id, workspace_id, type, file_name, storage_path/file_url, and created_at once a DOS attachments bucket exists. */}
+          {/* TODO: Send voice notes through AI transcription and summary before attaching them to meeting insights. */}
+          {captures.map((capture) => (
+            <div className="flex min-h-11 items-center gap-2 rounded-2xl border border-[#E2DED6] bg-[#F8F7F3] p-1.5 pr-2" key={capture.id}>
+              {capture.type === "voice" ? (
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FFF8E7] text-[#8A5A12]">
+                  <Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                </span>
+              ) : (
+                <img alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover" src={capture.previewUrl} />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-[#1E1D1A]">{capture.fileName}</p>
+                <p className="text-[11px] text-[#77716A]">{captureTypeLabel(capture.type)} · {formatFileSize(capture.file.size)}</p>
+              </div>
+              <button
+                aria-label={`Remove ${captureTypeLabel(capture.type)}`}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#8E8880] transition-colors hover:bg-white hover:text-[#1E1D1A]"
+                onClick={() => removeCapture(capture.id)}
+                type="button"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <textarea className={`${FieldInputClass()} min-h-24 py-3`} defaultValue={defaultValue ?? ""} name="notes" placeholder="What happened?" />
+    </section>
+  );
+}
+
+function CaptureActionButton({
+  active = false,
+  children,
+  icon,
+  onClick,
+}: {
+  active?: boolean;
+  children: ReactNode;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={active}
+      className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border px-2 text-[11px] font-bold transition-colors ${
+        active ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#DDD9D0] bg-[#F8F7F3] text-[#1E1D1A] hover:border-[#D8C8A7]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      <span className="truncate">{children}</span>
+    </button>
   );
 }
 
@@ -2172,10 +2430,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 responses={kitchenTableResponses}
               />
             ) : null}
-            <label className="block">
-              <FieldLabel>What happened?</FieldLabel>
-              <textarea className={`${FieldInputClass()} min-h-24 py-3`} name="notes" placeholder="Briefly capture the conversation." />
-            </label>
+            <MeetingCaptureNotes />
             <MeetingRecommendationsPreview resources={draftRecommendedResources} />
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
             <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Log Meeting"}</AppButton>
@@ -2211,10 +2466,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 responses={kitchenTableResponses}
               />
             ) : null}
-            <label className="block">
-              <FieldLabel>What happened?</FieldLabel>
-              <textarea className={`${FieldInputClass()} min-h-24 py-3`} defaultValue={selectedMeeting.notes ?? ""} name="notes" placeholder="Briefly capture the conversation." />
-            </label>
+            <MeetingCaptureNotes defaultValue={selectedMeeting.notes} />
             <MeetingRecommendationsPreview resources={draftRecommendedResources} />
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
             <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Meeting"}</AppButton>
