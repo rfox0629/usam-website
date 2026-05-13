@@ -2232,52 +2232,7 @@ function DashboardActivityFeed({ activities }: { activities: DashboardActivityIt
   );
 }
 
-function DashboardQuickActions({
-  onNavigate,
-}: {
-  onNavigate: (tab: EditorTab, primaryNav: PrimaryNavKey, subnavId?: string) => void;
-}) {
-  const actions: Array<{ icon: LucideIcon; label: string; primaryNav: PrimaryNavKey; tab: EditorTab }> = [
-    { icon: Users, label: "People", primaryNav: "field", tab: "people" },
-    { icon: MessageCircle, label: "Meetings", primaryNav: "field", tab: "meetings" },
-    { icon: Sparkles, label: "Fruit", primaryNav: "field", tab: "fruit" },
-    { icon: Heart, label: "Prayer", primaryNav: "field", tab: "prayer" },
-  ];
-
-  return (
-    <section className="rounded-[1.25rem] border border-[#201b13] bg-[#080807] p-4 text-stone-100 shadow-[0_20px_56px_rgba(0,0,0,0.24)]">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        Quick Actions
-      </p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {actions.map((action) => {
-          const Icon = action.icon;
-
-          return (
-            <button
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.035] px-3 text-[10px] uppercase tracking-[0.15em] text-stone-200 transition-colors hover:border-[#D4A63D]/55 hover:text-[#F5B942]"
-              key={action.label}
-              onClick={() => onNavigate(action.tab, action.primaryNav, action.tab)}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-              type="button"
-            >
-              <Icon className="h-3.5 w-3.5 text-[#D4A63D]" aria-hidden="true" strokeWidth={1.8} />
-              {action.label}
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function WorkspaceOverview({
-  onNavigate,
-  profile,
-}: {
-  onNavigate: (tab: EditorTab, primaryNav: PrimaryNavKey, subnavId?: string) => void;
-  profile: AdminProfile;
-}) {
+function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
   const peopleCount = profile.fieldPeople?.length ?? 0;
   const meetingCount = (profile.tables?.length ?? 0) + (profile.connectionLogs?.length ?? 0);
   const reviewedTableIds = new Set((profile.tableReviews ?? []).map((review) => review.table_id));
@@ -2369,7 +2324,6 @@ function WorkspaceOverview({
         </DashboardMetricGroup>
       </div>
 
-      <DashboardQuickActions onNavigate={onNavigate} />
       <DashboardActivityFeed activities={recentActivity} />
     </div>
   );
@@ -9371,7 +9325,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           <SectionIntro
             title="Dashboard"
           >
-            <WorkspaceOverview onNavigate={changeEditorTab} profile={selectedProfile} />
+            <WorkspaceOverview profile={selectedProfile} />
           </SectionIntro>
           ) : null}
 
