@@ -8,6 +8,7 @@ import { StoryReadMoreButton } from "@/components/missionaries/StoryReadMoreButt
 import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromTheFieldModal";
 import { JoinPrayerTeamModal, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
 import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
+import { MissionaryProfileViewTracker } from "@/src/components/missionaries/MissionaryProfileViewTracker";
 import { SubmitPrayerRequestModal } from "@/src/components/missionaries/SubmitPrayerRequestModal";
 import type { Missionary, MissionaryFruitItem, MissionaryPrayerRequest } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
@@ -606,6 +607,7 @@ export function MissionaryProfileTemplate({
 
   return (
     <main className="min-h-screen bg-[#050505] text-stone-100">
+      <MissionaryProfileViewTracker missionaryProfileId={missionary.id} profileSlug={missionary.slug} />
       <PrimaryNav active="support" />
 
       <HeroProfile

@@ -3,7 +3,7 @@
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Activity, BookOpen, Check, Copy, ExternalLink, FileText, Globe, Heart, ImageIcon, Link as LinkIcon, Mail, MessageCircle, Printer, RefreshCw, Send, Share2, Smartphone, Sparkles, Upload, Users, Wand2, type LucideIcon } from "lucide-react";
+import { Activity, BookOpen, Check, Copy, ExternalLink, Eye, FileText, Globe, Heart, ImageIcon, Link as LinkIcon, Mail, MessageCircle, Printer, RefreshCw, Send, Share2, Smartphone, Sparkles, Upload, Users, Wand2, type LucideIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
@@ -364,6 +364,16 @@ export type AdminPrayerRequest = {
   workspace_id: string;
 };
 
+export type AdminProfileAnalytics = {
+  totalViews: number;
+  uniqueVisitors: number;
+  last7Days: number;
+  last7UniqueVisitors: number;
+  last30Days: number;
+  last30UniqueVisitors: number;
+  trackingAvailable: boolean;
+};
+
 // Team is a public-facing roster surface only. Do not use it to store
 // disciples, follow-up contacts, or ministry relationships; those belong in
 // future People/Tables relationship models.
@@ -394,6 +404,7 @@ export type AdminProfile = AdminHousehold & {
   majorGiftInquiries?: AdminMajorGiftInquiry[];
   prayerPartnerCount?: number;
   prayerRequests?: AdminPrayerRequest[];
+  profileAnalytics?: AdminProfileAnalytics;
   publicFruitItemCount?: number;
   support?: AdminSupportSettings;
   supportCommitments?: AdminSupportCommitment[];
@@ -2251,6 +2262,15 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
     ...(profile.tables ?? []).map((table) => table.table_date),
     ...(profile.connectionLogs ?? []).map((connection) => connection.connection_date),
   ].filter((date) => isWithinLastDays(date, 7)).length;
+  const profileAnalytics = profile.profileAnalytics ?? {
+    last7Days: 0,
+    last7UniqueVisitors: 0,
+    last30Days: 0,
+    last30UniqueVisitors: 0,
+    totalViews: 0,
+    trackingAvailable: false,
+    uniqueVisitors: 0,
+  };
   const recentActivity = ([
     ...(profile.tables ?? []).slice(0, 3).map((table) => ({
       date: table.table_date,
@@ -2289,7 +2309,7 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
               This Week
             </h3>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[520px]">
+          <div className="grid w-full min-w-0 gap-2 sm:grid-cols-2 xl:max-w-[760px] xl:grid-cols-4">
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Field</p>
               <p className="mt-1 text-sm font-semibold text-stone-100">{formatCountLabel(peopleAddedThisWeek, "person", "people")} added</p>
@@ -2301,6 +2321,10 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Publishing</p>
               <p className="mt-1 text-sm font-semibold text-stone-100">{isProfilePublic(profile) ? "Live profile" : "Hidden profile"}</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Profile Views</p>
+              <p className="mt-1 text-sm font-semibold text-stone-100">{formatCountLabel(profileAnalytics.last7Days, "view")} this week</p>
             </div>
           </div>
         </div>
@@ -2316,6 +2340,14 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
         <DashboardMetricGroup icon={Globe} title="Public Experience">
           <DashboardMetricCard detail={formatCountLabel(reviewsPending, "meeting awaiting review", "meetings awaiting review")} icon={FileText} label="Reviews Pending" signal={reviewsPending > 0 ? "Review" : "Clear"} tone={reviewsPending > 0 ? "amber" : "green"} value={String(reviewsPending)} />
           <DashboardMetricCard detail={isProfilePublic(profile) ? "Public profile visible" : "Profile not public"} icon={Globe} label="Publishing Status" signal={isProfilePublic(profile) ? "Live" : "Hidden"} tone={isProfilePublic(profile) ? "green" : "neutral"} value={publishingStatus} />
+          <DashboardMetricCard
+            detail={`Last 30 days · ${formatCountLabel(profileAnalytics.last30UniqueVisitors, "unique visitor")}`}
+            icon={Eye}
+            label="Profile Views"
+            signal={profileAnalytics.trackingAvailable ? "Tracking" : "Pending"}
+            tone={profileAnalytics.trackingAvailable ? "amber" : "neutral"}
+            value={String(profileAnalytics.last30Days)}
+          />
           <DashboardMetricCard detail={formatCountLabel(approvedFruitCount, "approved outcome")} icon={Sparkles} label="Approved Fruit" tone="amber" value={String(approvedFruitCount)} />
         </DashboardMetricGroup>
 

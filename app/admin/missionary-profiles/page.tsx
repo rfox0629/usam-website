@@ -21,6 +21,7 @@ import {
   type AdminOutcomeTag,
   type AdminPrayerRequest,
   type AdminProfile,
+  type AdminProfileAnalytics,
   type AdminReadiness,
   type AdminSupportCommitment,
   type AdminSupportCommitmentStatus,
@@ -162,6 +163,16 @@ type FieldPersonRow = {
   status: string | null;
   updated_at: string | null;
   workspace_id?: string | null;
+};
+
+type ProfilePageViewRollupRow = {
+  last_7_days: number | null;
+  last_7_unique_visitors: number | null;
+  last_30_days: number | null;
+  last_30_unique_visitors: number | null;
+  missionary_profile_id: string;
+  total_views: number | null;
+  unique_visitors: number | null;
 };
 
 type TableReviewRow = {
@@ -475,6 +486,21 @@ function isMissingFormSubmissionsTable(error: { message?: string } | null | unde
   return message.includes("form_submissions");
 }
 
+function isMissingProfileAnalyticsTable(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code ?? "";
+  const message = error?.message?.toLowerCase() ?? "";
+  const missingRelation = code === "42P01"
+    || code === "PGRST205"
+    || message.includes("schema cache")
+    || message.includes("does not exist")
+    || message.includes("could not find the table");
+
+  return missingRelation && (
+    message.includes("missionary_profile_page_views")
+    || message.includes("missionary_profile_view_rollups")
+  );
+}
+
 function isMissingEncountersTable(error: { code?: string; message?: string } | null | undefined) {
   const code = error?.code ?? "";
   const message = error?.message ?? "";
@@ -687,6 +713,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const majorGiftInquiriesByHouseholdId = new Map<string, AdminMajorGiftInquiry[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
   const prayerRequestsByHouseholdId = new Map<string, AdminPrayerRequest[]>();
+  const profileAnalyticsByHouseholdId = new Map<string, AdminProfileAnalytics>();
   const publicFruitItemCountByHouseholdId = new Map<string, number>();
   const supportCommitmentsByHouseholdId = new Map<string, AdminSupportCommitment[]>();
   const tableReviewsByHouseholdId = new Map<string, AdminTableReview[]>();
@@ -1216,6 +1243,45 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       libraryItemsByHouseholdId.set(workspaceId, currentItems);
     });
 
+    const profileAnalyticsResult = await supabase
+      .from("missionary_profile_view_rollups")
+      .select("missionary_profile_id, total_views, unique_visitors, last_7_days, last_7_unique_visitors, last_30_days, last_30_unique_visitors")
+      .in("missionary_profile_id", ids);
+
+    if (profileAnalyticsResult.error && !isMissingProfileAnalyticsTable(profileAnalyticsResult.error)) {
+      return { error: profileAnalyticsResult.error.message, profiles: [] };
+    }
+
+    if (!profileAnalyticsResult.error) {
+      ids.forEach((id) => {
+        profileAnalyticsByHouseholdId.set(id, {
+          last7Days: 0,
+          last7UniqueVisitors: 0,
+          last30Days: 0,
+          last30UniqueVisitors: 0,
+          totalViews: 0,
+          trackingAvailable: true,
+          uniqueVisitors: 0,
+        });
+      });
+    }
+
+    ((profileAnalyticsResult.data ?? []) as ProfilePageViewRollupRow[]).forEach((rollup) => {
+      if (!rollup.missionary_profile_id || !ids.includes(rollup.missionary_profile_id)) {
+        return;
+      }
+
+      profileAnalyticsByHouseholdId.set(rollup.missionary_profile_id, {
+        last7Days: rollup.last_7_days ?? 0,
+        last7UniqueVisitors: rollup.last_7_unique_visitors ?? 0,
+        last30Days: rollup.last_30_days ?? 0,
+        last30UniqueVisitors: rollup.last_30_unique_visitors ?? 0,
+        totalViews: rollup.total_views ?? 0,
+        trackingAvailable: true,
+        uniqueVisitors: rollup.unique_visitors ?? 0,
+      });
+    });
+
     const inSeasonResult = await supabase
       .from("missionary_in_season_focus")
       .select("id, workspace_id, household_id, current_focus, prayer_emphasis, active_people_note, active_tables_note, updated_at")
@@ -1302,6 +1368,15 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       majorGiftInquiries: majorGiftInquiriesByHouseholdId.get(household.id) ?? [],
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
       prayerRequests: prayerRequestsByHouseholdId.get(household.id) ?? [],
+      profileAnalytics: profileAnalyticsByHouseholdId.get(household.id) ?? {
+        last7Days: 0,
+        last7UniqueVisitors: 0,
+        last30Days: 0,
+        last30UniqueVisitors: 0,
+        totalViews: 0,
+        trackingAvailable: false,
+        uniqueVisitors: 0,
+      },
       publicFruitItemCount: publicFruitItemCountByHouseholdId.get(household.id) ?? 0,
       support: supportByHouseholdId.get(household.id),
       supportCommitments: supportCommitmentsByHouseholdId.get(household.id) ?? [],
