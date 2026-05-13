@@ -105,6 +105,7 @@ type DashboardData = {
   newMajorGiftInquiries: number;
   newInquiries: number;
   people: number;
+  pendingFruitReviews: number;
   pendingReviews: number;
   prayerPartners: number;
   privateFruit: number;
@@ -130,6 +131,7 @@ const emptyDashboardData: DashboardData = {
   newMajorGiftInquiries: 0,
   newInquiries: 0,
   people: 0,
+  pendingFruitReviews: 0,
   pendingReviews: 0,
   prayerPartners: 0,
   privateFruit: 0,
@@ -303,7 +305,7 @@ async function getDashboardData(): Promise<DashboardData> {
       .select("id", { count: "exact", head: true }),
     supabase
       .from("missionary_fruit_items")
-      .select("id, cc_status, status"),
+      .select("id, cc_status, source_app, status"),
     supabase
       .from("prayer_requests")
       .select("id", { count: "exact", head: true })
@@ -356,7 +358,11 @@ async function getDashboardData(): Promise<DashboardData> {
     : (majorGiftResult.data ?? []) as DashboardMajorGiftInquiry[];
   const fruitRows = fruitResult.error
     ? []
-    : (fruitResult.data ?? []) as Array<{ cc_status: string | null; status: string | null }>;
+    : (fruitResult.data ?? []) as Array<{ cc_status: string | null; source_app: string | null; status: string | null }>;
+  const pendingFruitReviews = fruitRows.filter((fruit) => (
+    fruit.source_app === "dos_quick_review"
+    && (fruit.cc_status === "pending_review" || fruit.cc_status === "draft")
+  )).length;
   const activeProfiles = profiles.filter((profile) => profile.show_household !== false);
   const publishedProfiles = activeProfiles.filter((profile) => profile.public_visible !== false).length;
   const incompleteProfiles = activeProfiles.filter(isIncompleteProfile);
@@ -415,17 +421,18 @@ async function getDashboardData(): Promise<DashboardData> {
     activeUsers: adminUsersResult.error ? 0 : adminUsersResult.count ?? 0,
     approvedFruit: fruitRows.filter((fruit) => fruit.cc_status === "approved").length,
     connectionLogs: connectionLogsResult.error ? 0 : connectionLogsResult.count ?? 0,
-    draftFruit: fruitRows.filter((fruit) => fruit.cc_status === "draft").length,
+    draftFruit: fruitRows.filter((fruit) => fruit.cc_status === "draft" && fruit.source_app !== "dos_quick_review").length,
     incompleteProfiles,
     latestInquiries,
     meetings: (tablesResult.error ? 0 : tablesResult.count ?? 0) + (connectionLogsResult.error ? 0 : connectionLogsResult.count ?? 0),
     newMajorGiftInquiries: majorGiftInquiries.filter((inquiry) => inquiry.status === "new").length,
     newInquiries: inquiries.filter((inquiry) => inquiry.status === "new").length,
     people: fieldPeopleResult.error ? 0 : fieldPeopleResult.count ?? 0,
+    pendingFruitReviews,
     pendingReviews: inquiries.filter((inquiry) => inquiry.status === "new").length
       + majorGiftInquiries.filter((inquiry) => inquiry.status === "new").length
       + incompleteProfiles.length
-      + fruitRows.filter((fruit) => fruit.cc_status === "draft").length,
+      + pendingFruitReviews,
     prayerPartners: prayerPartnersResult.error ? 0 : prayerPartnersResult.count ?? 0,
     privateFruit: fruitRows.filter((fruit) => fruit.cc_status === "private").length,
     publishedProfiles,
@@ -777,7 +784,7 @@ export default async function AdminDashboardPage() {
     { detail: "Field contacts", href: "/admin/missionary-profiles?tab=people", label: "People", value: hasDataError ? "-" : formatMetric(data.people) },
     { detail: "This month", href: "/admin/support-team", label: "Support", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
     { detail: `${hasDataError ? "-" : formatMetric(data.prayerPartners)} partners`, href: "/admin/prayer-team", label: "Prayer", value: hasDataError ? "-" : formatMetric(data.activePrayerRequests) },
-    { detail: "Needs action", href: "/admin/missionary-profiles?tab=fruit", label: "Pending Review", value: hasDataError ? "-" : formatMetric(data.pendingReviews) },
+    { detail: "Quick Reviews", href: "/admin/missionary-profiles?tab=fruit", label: "Fruit Inbox", value: hasDataError ? "-" : formatMetric(data.pendingFruitReviews) },
   ] as const;
 
   return (
@@ -840,7 +847,7 @@ export default async function AdminDashboardPage() {
               actionHref="/admin/missionary-profiles?tab=features"
               actionLabel="Open Publishing"
               details={[
-                { label: "Pending Fruit", value: hasDataError ? "-" : formatMetric(data.draftFruit) },
+                { label: "Fruit Inbox", value: hasDataError ? "-" : formatMetric(data.pendingFruitReviews) },
                 { label: "Profile Alerts", value: hasDataError ? "-" : formatMetric(data.incompleteProfiles.length) },
                 { label: "Approved Fruit", value: hasDataError ? "-" : formatMetric(data.approvedFruit) },
               ]}
@@ -855,10 +862,10 @@ export default async function AdminDashboardPage() {
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <TaskModule
               action="Review Fruit"
-              count={data.draftFruit}
-              description="Pending public review."
+              count={data.pendingFruitReviews}
+              description="Quick Reviews waiting."
               href="/admin/missionary-profiles?tab=fruit"
-              title="Pending Review"
+              title="Fruit Inbox"
             />
             <TaskModule
               action="View Meetings"

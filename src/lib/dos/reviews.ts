@@ -236,7 +236,7 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
 
   const fruitInsert = {
     body: quickReviewFruitSummary(submission),
-    cc_status: "draft",
+    cc_status: "pending_review",
     field_person_id: typedLink.reviewer_person_id,
     household_id: typedLink.workspace_id,
     internal_notes: quickReviewInternalNotes(submission),

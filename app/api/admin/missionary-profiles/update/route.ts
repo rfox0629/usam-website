@@ -202,7 +202,7 @@ const teachingUsedOptions = ["Kitchen Table Gospel", "Are You Really a Disciple"
 const readinessOptions = ["Not ready", "Curious", "Open", "Ready to follow", "Actively following"] as const;
 const assessmentFollowUpAreas = ["Repentance", "Baptism", "Scripture", "Prayer", "Community", "Obedience"] as const;
 const connectionTypes = ["Phone call", "Zoom", "Text", "Coffee", "Prayer", "Discipleship", "Other"] as const;
-const fruitStatuses = ["draft", "approved", "private"] as const;
+const fruitStatuses = ["draft", "pending_review", "approved", "private", "archived"] as const;
 const teamMemberSources = ["website_admin", "dos", "public_form"] as const;
 const teamMemberStatuses = ["active", "hidden", "archived"] as const;
 
@@ -1188,11 +1188,13 @@ export async function POST(request: Request) {
       .filter((fruit) => isExistingUuid(fruit.id))
       .map((fruit) => ({
         ...fruit.record,
-        ...(fruit.record.cc_status === "private" || fruit.record.cc_status === "draft"
+        ...(fruit.record.cc_status === "private" || fruit.record.cc_status === "draft" || fruit.record.cc_status === "pending_review" || fruit.record.cc_status === "archived"
           ? {
             missionary_public_approved: false,
-            permission_to_share: fruit.record.source_app === "dos_quick_review" ? fruit.record.permission_to_share : false,
-            status: fruit.record.cc_status === "private" ? "hidden" : "draft",
+            permission_to_share: fruit.record.source_app === "dos_quick_review" && !["private", "archived"].includes(fruit.record.cc_status)
+              ? fruit.record.permission_to_share
+              : false,
+            status: fruit.record.cc_status === "archived" ? "archived" : fruit.record.cc_status === "private" ? "hidden" : "draft",
             visibility: "private",
           }
           : {}),

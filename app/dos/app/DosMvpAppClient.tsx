@@ -1372,6 +1372,38 @@ function MeetingRecommendationsPreview({
   );
 }
 
+function fruitStatusLabel(status: string) {
+  switch (status) {
+    case "approved":
+      return "Approved";
+    case "archived":
+      return "Archived";
+    case "pending_review":
+      return "Pending Review";
+    case "private":
+      return "Private";
+    case "draft":
+    default:
+      return "Private Draft";
+  }
+}
+
+function fruitStatusBadgeClass(status: string) {
+  switch (status) {
+    case "approved":
+      return "bg-[#EAF6EA] text-[#2F6B3B]";
+    case "pending_review":
+      return "bg-[#FFF8E7] text-[#8A5A12]";
+    case "private":
+      return "bg-[#F1F0EC] text-[#6F6658]";
+    case "archived":
+      return "bg-[#E7E4DE] text-[#77716A]";
+    case "draft":
+    default:
+      return "bg-[#F1F0EC] text-[#8A5A12]";
+  }
+}
+
 function FruitCard({
   fruit,
   people,
@@ -1381,6 +1413,7 @@ function FruitCard({
 }) {
   const isQuickReview = fruit.sourceApp === "dos_quick_review";
   const linkedPerson = fruit.fieldPersonId ? personName(people, fruit.fieldPersonId) : null;
+  const statusLabel = fruitStatusLabel(fruit.status);
   const quickReviewPermission = isQuickReview
     ? fruit.permissionToShare
       ? fruit.submittedByName ? "Name OK" : "Anonymous OK"
@@ -1391,12 +1424,12 @@ function FruitCard({
     <article className="rounded-2xl border border-[#E2DED6] bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#1E1D1A]">{isQuickReview ? "Quick Review" : fruit.status === "approved" ? "Approved Fruit" : "Private Draft"}</p>
+          <p className="text-sm font-semibold text-[#1E1D1A]">{isQuickReview ? "Quick Review" : statusLabel}</p>
           <p className="mt-1 text-xs text-[#8E8880]">{formatDate(fruit.testimonyDate)}</p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
-          <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
-            {isQuickReview ? "Pending" : fruit.status}
+          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${fruitStatusBadgeClass(fruit.status)}`} style={{ fontFamily: font.rajdhani }}>
+            {statusLabel}
           </span>
           {quickReviewPermission ? (
             <span className="rounded-full border border-[#E2DED6] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
@@ -1983,8 +2016,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [selectedRelationshipType, setSelectedRelationshipType] = useState<RelationshipTypeValue>(defaultRelationshipType);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
+  const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const latestMeeting = data.meetings[0];
-  const latestFruit = data.fruit[0];
+  const latestFruit = visibleFruit[0];
   const visiblePeople = useMemo(() => filteredPeople(data.people, peopleQuery), [data.people, peopleQuery]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(data.people, meetingPeopleQuery), [data.people, meetingPeopleQuery]);
   const draftRecommendedResources = useMemo(() => (
@@ -2016,7 +2050,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const selectedPerson = useMemo(() => data.people.find((person) => person.id === selectedPersonId) ?? null, [data.people, selectedPersonId]);
   const attentionPeople = useMemo(() => data.people.filter(isNeedsAttention), [data.people]);
   const relatingCount = data.people.filter((person) => normalizeText(person.status).toLowerCase() !== "new").length;
-  const multiplyingCount = Math.max(data.stats.approvedFruit, data.fruit.length);
+  const multiplyingCount = Math.max(data.stats.approvedFruit, visibleFruit.length);
   const recentPeople = data.people.slice(0, 3);
   const workspaceLabel = data.workspace.isUsamWorkspace ? `${data.workspace.displayName} · USA` : data.workspace.displayName;
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
@@ -2534,8 +2568,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             {activeTab === "fruit" ? (
               <div>
               <SectionHeading action={<CompactButton icon="fruit" onClick={() => openForm("fruit")}>Record</CompactButton>} title="Fruit" />
-              {data.fruit.length ? (
-                <div className="grid gap-3">{data.fruit.map((fruit) => <FruitCard fruit={fruit} key={fruit.id} people={data.people} />)}</div>
+              {visibleFruit.length ? (
+                <div className="grid gap-3">{visibleFruit.map((fruit) => <FruitCard fruit={fruit} key={fruit.id} people={data.people} />)}</div>
               ) : (
                 <EmptyState action={<CompactButton icon="fruit" onClick={() => openForm("fruit")}>Record Fruit</CompactButton>} text="Record what changed when you see spiritual movement." title="No fruit recorded yet." />
               )}

@@ -57,10 +57,12 @@ DOS Reviews are external fruit verification from the person ministered to.
 - A logged meeting can generate a `Send Review` link from the DOS meeting detail screen.
 - Review status now appears on meeting details as Not Sent, Pending, Submitted, Approved, or Private.
 - Quick Reviews save to `dos_meeting_reviews` with `status = pending_review`.
-- A private draft Fruit item is queued from the review so DOS Fruit and Missionary Workspace Fruit can see it.
+- A pending private Fruit item is queued from the review so DOS Fruit and Missionary Workspace Fruit can see it.
 - Quick Review Fruit keeps the review source, snippet, sharing permission, and submitted name only when the reviewer allowed name sharing.
-- Public sharing permission is captured, but reviews and Fruit stay private until a future approval/publishing workflow explicitly approves them.
-- Future work: moderation inbox, Quick Check-In variants, Ministry Experience, Full Testimony / Fruit Story, SMS/email/WhatsApp sending, and public testimony publishing.
+- The Missionary Workspace Fruit Inbox manages Quick Review status: `pending_review`, `approved`, `private`, or `archived`.
+- Approved means approved for internal Fruit tracking only. It does not publish to public Profiles.
+- Public sharing permission is captured, but reviews and Fruit stay private until a future publishing workflow explicitly publishes them.
+- Future work: publishing approvals, testimony pages, Quick Check-In variants, Ministry Experience, Full Testimony / Fruit Story, SMS/email/WhatsApp sending, and public testimony publishing.
 
 ## Active Route Boundary
 
