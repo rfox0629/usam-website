@@ -72,6 +72,7 @@ export type DosAppFruit = {
   fieldPersonId: string | null;
   id: string;
   outcomeTags: DosAppOutcomeTag[];
+  sourceApp: string | null;
   status: string;
   summary: string;
   testimonyDate: string | null;
@@ -150,6 +151,7 @@ type FruitRow = {
   field_person_id: string | null;
   id: string;
   outcome_tags: string[] | null;
+  source_app?: string | null;
   testimony_date: string | null;
   updated_at: string | null;
 };
@@ -292,7 +294,7 @@ async function loadConnectionLogsForWorkspace(supabase: SupabaseAdminClient, wor
 async function loadFruitForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const scopedResult = await supabase
     .from("missionary_fruit_items")
-    .select("id, body, outcome_tags, cc_status, field_person_id, testimony_date, updated_at")
+    .select("id, body, outcome_tags, cc_status, field_person_id, source_app, testimony_date, updated_at")
     .or(workspaceScopeFilter(workspaceId))
     .order("testimony_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
@@ -300,7 +302,7 @@ async function loadFruitForWorkspace(supabase: SupabaseAdminClient, workspaceId:
   return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
     ? supabase
       .from("missionary_fruit_items")
-      .select("id, body, outcome_tags, cc_status, field_person_id, testimony_date, updated_at")
+      .select("id, body, outcome_tags, cc_status, field_person_id, source_app, testimony_date, updated_at")
       .eq("household_id", workspaceId)
       .order("testimony_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -447,6 +449,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     fieldPersonId: item.field_person_id,
     id: item.id,
     outcomeTags: mapOutcomeTags(item.outcome_tags),
+    sourceApp: item.source_app ?? null,
     status: item.cc_status ?? "draft",
     summary: item.body,
     testimonyDate: item.testimony_date,

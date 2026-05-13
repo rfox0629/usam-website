@@ -1156,7 +1156,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       .from("missionary_fruit_items")
       .select("id, workspace_id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, testimony_date, created_at, updated_at")
       .in("workspace_id", ids)
-      .eq("source_app", "command_center")
+      .in("source_app", ["command_center", "dos_quick_review"])
       .order("testimony_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
     const fallbackFruitItemsResult = fruitItemsResult.error && isMissingFruitWorkflowColumns(fruitItemsResult.error)
@@ -1164,7 +1164,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         .from("missionary_fruit_items")
         .select("id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, testimony_date, created_at, updated_at")
         .in("household_id", ids)
-        .eq("source_app", "command_center")
+        .in("source_app", ["command_center", "dos_quick_review"])
         .order("testimony_date", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
       : fruitItemsResult;

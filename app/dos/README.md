@@ -49,6 +49,17 @@ Do not introduce another people, contact, disciple, or relationship table for th
 - Recommended resources are queued on the meeting record. DOS does not automatically send texts, emails, or shared guides yet.
 - Future work: move resource recommendations to a database-backed library and add explicit SMS/email/share actions.
 
+## Reviews And Fruit Verification
+
+DOS Reviews are external fruit verification from the person ministered to.
+
+- Quick Review MVP uses token links under `/dos/review/[token]`.
+- A logged meeting can generate a `Send Review` link from the DOS meeting detail screen.
+- Quick Reviews save to `dos_meeting_reviews` with `status = pending_review`.
+- A private draft Fruit item is queued from the review so DOS Fruit and Missionary Workspace Fruit can see it.
+- Public sharing permission is captured, but reviews and Fruit stay private until a future approval/publishing workflow explicitly approves them.
+- Future work: Quick Check-In variants, Ministry Experience, Full Testimony / Fruit Story, SMS/email/WhatsApp sending, and public testimony publishing.
+
 ## Active Route Boundary
 
 - Canonical DOS route: `/dos/app?workspace=<slug>`.
