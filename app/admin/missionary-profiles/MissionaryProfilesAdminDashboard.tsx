@@ -2067,7 +2067,217 @@ function DataFlowLabels({ items }: { items: string[] }) {
   );
 }
 
-function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
+type DashboardMetricTone = "amber" | "green" | "neutral";
+
+type DashboardActivityItem = {
+  date: string;
+  label: string;
+  meta: string;
+  type: string;
+};
+
+function isWithinLastDays(value: string | null | undefined, days: number) {
+  if (!value) {
+    return false;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  return date.getTime() >= cutoff;
+}
+
+function formatCountLabel(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function DashboardMetricCard({
+  detail,
+  icon: Icon,
+  label,
+  signal,
+  tone = "neutral",
+  value,
+}: {
+  detail: string;
+  icon: LucideIcon;
+  label: string;
+  signal?: string;
+  tone?: DashboardMetricTone;
+  value: string;
+}) {
+  const toneClass = tone === "green"
+    ? "border-emerald-200/70 bg-emerald-50 text-emerald-800"
+    : tone === "amber"
+      ? "border-[#e2c872]/80 bg-[#fff8e4] text-[#8a5a00]"
+      : "border-[#e4ddcf] bg-[#fffdf8] text-[#111111]";
+  const iconClass = tone === "green"
+    ? "border-emerald-200 bg-emerald-100 text-emerald-700"
+    : tone === "amber"
+      ? "border-[#e2c872] bg-[#D4A63D]/15 text-[#9b741f]"
+      : "border-[#e2ded5] bg-[#f7f2e8] text-[#9b741f]";
+
+  return (
+    <article className={`min-w-0 rounded-2xl border p-4 shadow-[0_14px_34px_rgba(17,17,17,0.06)] transition-transform hover:-translate-y-0.5 ${toneClass}`}>
+      <div className="flex items-start justify-between gap-3">
+        <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${iconClass}`}>
+          <Icon className="h-4.5 w-4.5" aria-hidden="true" strokeWidth={1.8} />
+        </span>
+        {signal ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-current/15 bg-white/55 px-2 py-1 text-[9px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+            {signal}
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-4 text-[10px] uppercase tracking-[0.17em] text-current/65" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </p>
+      <p className="mt-2 text-4xl font-bold uppercase leading-none text-current" style={{ fontFamily: font.oswald }}>
+        {value}
+      </p>
+      <p className="mt-2 text-sm leading-5 text-current/68">
+        {detail}
+      </p>
+    </article>
+  );
+}
+
+function DashboardMetricGroup({
+  children,
+  icon: Icon,
+  title,
+}: {
+  children: ReactNode;
+  icon: LucideIcon;
+  title: string;
+}) {
+  return (
+    <section className="rounded-[1.25rem] border border-[#e0d6c3] bg-[#f9f5ec] p-4 shadow-[0_18px_44px_rgba(17,17,17,0.08)]">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D4A63D]/30 bg-white text-[#9b741f]">
+          <Icon className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+        </span>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {title}
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function DashboardActivityFeed({ activities }: { activities: DashboardActivityItem[] }) {
+  return (
+    <section className="overflow-hidden rounded-[1.25rem] border border-[#201b13] bg-[#080807] text-stone-100 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+      <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-4">
+        <div className="flex items-center gap-2.5">
+          <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D4A63D]/35 bg-[#D4A63D]/10 text-[#F5B942]">
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" aria-hidden="true" />
+            <Activity className="h-4.5 w-4.5" aria-hidden="true" strokeWidth={1.8} />
+          </span>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Activity Feed
+            </p>
+            <p className="mt-1 text-sm text-stone-400">Field, reviews, fruit, and prayer updates</p>
+          </div>
+        </div>
+        <span className="hidden rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-stone-400 sm:inline-flex" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Live View
+        </span>
+      </div>
+
+      {activities.length > 0 ? (
+        <div className="divide-y divide-white/[0.07]">
+          {activities.map((activity) => (
+            <div className="flex gap-3 px-4 py-3.5 transition-colors hover:bg-white/[0.035]" key={`${activity.label}-${activity.date}-${activity.meta}`}>
+              <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border border-[#D4A63D] bg-[#D4A63D]/70 shadow-[0_0_0_4px_rgba(212,166,61,0.08)]" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[9px] uppercase tracking-[0.13em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      {activity.type}
+                    </span>
+                    <p className="truncate text-sm font-semibold text-stone-100">{activity.label}</p>
+                  </div>
+                  <p className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {formatProfileUpdatedDate(activity.date)}
+                  </p>
+                </div>
+                <p className="mt-1 line-clamp-2 text-sm leading-6 text-stone-400">{activity.meta}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="px-5 py-8 text-center">
+          <span className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035] text-stone-500">
+            <Activity className="h-5 w-5" aria-hidden="true" strokeWidth={1.7} />
+          </span>
+          <p className="mt-4 text-sm font-semibold text-stone-100">No recent activity</p>
+          <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-stone-500">
+            Field activity, meetings, fruit, reviews, and prayer updates will appear here.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DashboardQuickActions({
+  onNavigate,
+}: {
+  onNavigate: (tab: EditorTab, primaryNav: PrimaryNavKey, subnavId?: string) => void;
+}) {
+  const actions: Array<{ icon: LucideIcon; label: string; primaryNav: PrimaryNavKey; tab: EditorTab }> = [
+    { icon: Users, label: "People", primaryNav: "field", tab: "people" },
+    { icon: MessageCircle, label: "Meetings", primaryNav: "field", tab: "meetings" },
+    { icon: Sparkles, label: "Fruit", primaryNav: "field", tab: "fruit" },
+    { icon: Heart, label: "Prayer", primaryNav: "field", tab: "prayer" },
+  ];
+
+  return (
+    <section className="rounded-[1.25rem] border border-[#201b13] bg-[#080807] p-4 text-stone-100 shadow-[0_20px_56px_rgba(0,0,0,0.24)]">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        Quick Actions
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {actions.map((action) => {
+          const Icon = action.icon;
+
+          return (
+            <button
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.035] px-3 text-[10px] uppercase tracking-[0.15em] text-stone-200 transition-colors hover:border-[#D4A63D]/55 hover:text-[#F5B942]"
+              key={action.label}
+              onClick={() => onNavigate(action.tab, action.primaryNav, action.tab)}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              <Icon className="h-3.5 w-3.5 text-[#D4A63D]" aria-hidden="true" strokeWidth={1.8} />
+              {action.label}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function WorkspaceOverview({
+  onNavigate,
+  profile,
+}: {
+  onNavigate: (tab: EditorTab, primaryNav: PrimaryNavKey, subnavId?: string) => void;
+  profile: AdminProfile;
+}) {
   const peopleCount = profile.fieldPeople?.length ?? 0;
   const meetingCount = (profile.tables?.length ?? 0) + (profile.connectionLogs?.length ?? 0);
   const reviewedTableIds = new Set((profile.tableReviews ?? []).map((review) => review.table_id));
@@ -2080,72 +2290,87 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
     ...(profile.connectionLogs ?? []).filter((connection) => Boolean(connection.follow_up_needed?.trim())),
   ].length;
   const publishingStatus = isProfilePublic(profile) ? "Live" : "Hidden";
-  const recentActivity = [
+  const approvedFruitCount = profile.fruitItems?.filter((fruit) => fruit.status === "approved").length ?? 0;
+  const peopleAddedThisWeek = (profile.fieldPeople ?? []).filter((person) => isWithinLastDays(person.created_at, 7)).length;
+  const meetingsThisWeek = [
+    ...(profile.tables ?? []).map((table) => table.table_date),
+    ...(profile.connectionLogs ?? []).map((connection) => connection.connection_date),
+  ].filter((date) => isWithinLastDays(date, 7)).length;
+  const recentActivity = ([
     ...(profile.tables ?? []).slice(0, 3).map((table) => ({
       date: table.table_date,
       label: tableTypeLabel(table.table_type),
       meta: table.participant_names.length ? table.participant_names.join(", ") : "Meeting logged",
+      type: "Meeting",
     })),
     ...(profile.connectionLogs ?? []).slice(0, 3).map((connection) => ({
       date: connection.connection_date,
       label: connection.interaction_type,
       meta: connection.follow_up_needed || "Connection logged",
+      type: "Field",
     })),
     ...(profile.fruitItems ?? []).slice(0, 2).map((fruit) => ({
       date: fruit.testimony_date ?? fruit.created_at,
       label: "Fruit logged",
       meta: fruit.summary || "Summary needed",
+      type: "Fruit",
     })),
-  ]
+  ] satisfies DashboardActivityItem[])
     .sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime())
     .slice(0, 5);
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatPreview label="People in Field" tone="light" value={String(peopleCount)} />
-        <StatPreview label="Meetings" tone="light" value={String(meetingCount)} />
-        <StatPreview label="Reviews Pending" tone="light" value={String(reviewsPending)} />
-        <StatPreview label="Prayer Requests" tone="light" value={String(openPrayerRequests)} />
-        <StatPreview label="Fruit Logged" tone="light" value={String(fruitLogged)} />
-        <StatPreview label="Follow Ups Needed" tone="light" value={String(followUpsNeeded)} />
-        <StatPreview label="Publishing Status" tone="light" value={publishingStatus} />
-        <StatPreview label="Approved Fruit" tone="light" value={String(profile.fruitItems?.filter((fruit) => fruit.status === "approved").length ?? 0)} />
-      </div>
-
-      <div className="rounded-2xl border border-[#d9cdb8] bg-[#f7f2e8] p-4 sm:p-5">
-        <div className="flex items-center gap-2.5">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D4A63D]/30 bg-white text-[#D4A63D]">
-            <Activity className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-          </span>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[#9b741f]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Activity Feed
-          </p>
-        </div>
-        <div className="mt-5 overflow-hidden rounded-xl border border-[#e1d8c7] bg-[#fffdf8]">
-          {recentActivity.length > 0 ? recentActivity.map((activity) => (
-            <div className="flex gap-3 border-b border-[#eadfcd] px-4 py-3 last:border-b-0" key={`${activity.label}-${activity.date}-${activity.meta}`}>
-              <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#D4A63D]" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="truncate text-sm font-semibold text-[#111111]">{activity.label}</p>
-                  <p className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {formatProfileUpdatedDate(activity.date)}
-                  </p>
-                </div>
-                <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5f574c]">{activity.meta}</p>
-              </div>
-            </div>
-          )) : (
-            <div className="px-5 py-7 text-center">
-              <p className="text-sm font-semibold text-[#111111]">No activity has been logged yet.</p>
-              <p className="mt-1 text-sm leading-6 text-[#7b746a]">
-                Meetings, fruit, reviews, and prayer activity will appear here.
+      <section className="overflow-hidden rounded-[1.35rem] border border-[#201b13] bg-[#080807] p-4 text-stone-100 shadow-[0_24px_70px_rgba(0,0,0,0.26)] sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_5px_rgba(52,211,153,0.1)]" aria-hidden="true" />
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Operating Picture
               </p>
             </div>
-          )}
+            <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+              This Week
+            </h3>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[520px]">
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Field</p>
+              <p className="mt-1 text-sm font-semibold text-stone-100">{formatCountLabel(peopleAddedThisWeek, "person", "people")} added</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Meetings</p>
+              <p className="mt-1 text-sm font-semibold text-stone-100">{formatCountLabel(meetingsThisWeek, "meeting")} logged</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Publishing</p>
+              <p className="mt-1 text-sm font-semibold text-stone-100">{isProfilePublic(profile) ? "Live profile" : "Hidden profile"}</p>
+            </div>
+          </div>
         </div>
+      </section>
+
+      <div className="grid gap-4">
+        <DashboardMetricGroup icon={Users} title="Field">
+          <DashboardMetricCard detail={formatCountLabel(peopleCount, "active contact")} icon={Users} label="People In Field" signal="Active" tone="amber" value={String(peopleCount)} />
+          <DashboardMetricCard detail={formatCountLabel(meetingCount, "logged interaction")} icon={MessageCircle} label="Meetings" value={String(meetingCount)} />
+          <DashboardMetricCard detail={formatCountLabel(followUpsNeeded, "next step")} icon={Send} label="Follow Ups" signal={followUpsNeeded > 0 ? "Open" : "Clear"} tone={followUpsNeeded > 0 ? "amber" : "green"} value={String(followUpsNeeded)} />
+        </DashboardMetricGroup>
+
+        <DashboardMetricGroup icon={Globe} title="Public Experience">
+          <DashboardMetricCard detail={formatCountLabel(reviewsPending, "meeting awaiting review", "meetings awaiting review")} icon={FileText} label="Reviews Pending" signal={reviewsPending > 0 ? "Review" : "Clear"} tone={reviewsPending > 0 ? "amber" : "green"} value={String(reviewsPending)} />
+          <DashboardMetricCard detail={isProfilePublic(profile) ? "Public profile visible" : "Profile not public"} icon={Globe} label="Publishing Status" signal={isProfilePublic(profile) ? "Live" : "Hidden"} tone={isProfilePublic(profile) ? "green" : "neutral"} value={publishingStatus} />
+          <DashboardMetricCard detail={formatCountLabel(approvedFruitCount, "approved outcome")} icon={Sparkles} label="Approved Fruit" tone="amber" value={String(approvedFruitCount)} />
+        </DashboardMetricGroup>
+
+        <DashboardMetricGroup icon={Heart} title="Prayer">
+          <DashboardMetricCard detail={formatCountLabel(openPrayerRequests, "open request")} icon={Heart} label="Prayer Requests" signal={openPrayerRequests > 0 ? "Open" : "Clear"} tone={openPrayerRequests > 0 ? "amber" : "green"} value={String(openPrayerRequests)} />
+        </DashboardMetricGroup>
       </div>
+
+      <DashboardQuickActions onNavigate={onNavigate} />
+      <DashboardActivityFeed activities={recentActivity} />
     </div>
   );
 }
@@ -9146,7 +9371,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           <SectionIntro
             title="Dashboard"
           >
-            <WorkspaceOverview profile={selectedProfile} />
+            <WorkspaceOverview onNavigate={changeEditorTab} profile={selectedProfile} />
           </SectionIntro>
           ) : null}
 
