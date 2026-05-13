@@ -4,6 +4,7 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 
 const fieldPersonStatuses = ["new", "active", "follow_up", "discipleship", "paused", "archived"] as const;
 const personSelect = "id, workspace_id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, created_at, updated_at";
+const legacyPersonSelect = "id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, created_at, updated_at";
 
 type FieldPersonPayload = {
   church?: unknown;
@@ -46,14 +47,28 @@ function fieldPeopleErrorMessage(error: { code?: string; message?: string }) {
   const lowerMessage = message.toLowerCase();
 
   if (error.code === "PGRST205" || (lowerMessage.includes("missionary_field_people") && lowerMessage.includes("schema cache"))) {
-    return "People table is missing. Apply the missionary_field_people migration.";
+    return "People are not available for this workspace yet.";
   }
 
-  if (lowerMessage.includes("workspace_id") && lowerMessage.includes("schema cache")) {
-    return "People workspace scope is missing. Apply the Command Center workspace_id migration.";
+  if (isMissingWorkspaceScopeColumn(error)) {
+    return "People workspace setup is still syncing. Please try again.";
   }
 
   return message;
+}
+
+function isMissingWorkspaceScopeColumn(error: { message?: string } | null | undefined) {
+  return Boolean(error?.message?.includes("workspace_id"));
+}
+
+function withWorkspaceId<T extends { household_id?: string | null; workspace_id?: string | null }>(person: T | null, workspaceId: string) {
+  return person
+    ? {
+      ...person,
+      household_id: person.household_id ?? workspaceId,
+      workspace_id: person.workspace_id ?? person.household_id ?? workspaceId,
+    }
+    : null;
 }
 
 async function authorizePeopleWrite() {
@@ -116,24 +131,33 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  const insertPayload = {
+    church: asNullableString(payload.church),
+    created_by: authResult.authorization.userId,
+    email: asNullableString(payload.email),
+    engagement_level: asNullableString(payload.engagement_level),
+    household_id: workspaceId,
+    name,
+    notes: asNullableString(payload.notes),
+    phone,
+    relationship_type: asNullableString(payload.relationship_type),
+    source: "command_center",
+    status: asFieldPersonStatus(payload.status),
+    workspace_id: workspaceId,
+  };
+  const insertResult = await supabase
     .from("missionary_field_people")
-    .insert({
-      church: asNullableString(payload.church),
-      created_by: authResult.authorization.userId,
-      email: asNullableString(payload.email),
-      engagement_level: asNullableString(payload.engagement_level),
-      household_id: workspaceId,
-      name,
-      notes: asNullableString(payload.notes),
-      phone,
-      relationship_type: asNullableString(payload.relationship_type),
-      source: "command_center",
-      status: asFieldPersonStatus(payload.status),
-      workspace_id: workspaceId,
-    })
+    .insert(insertPayload)
     .select(personSelect)
     .single();
+  const { workspace_id: _workspaceId, ...legacyInsertPayload } = insertPayload;
+  const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
+    ? await supabase
+      .from("missionary_field_people")
+      .insert(legacyInsertPayload)
+      .select(legacyPersonSelect)
+      .single()
+    : insertResult;
 
   if (error) {
     const errorMessage = fieldPeopleErrorMessage(error);
@@ -142,7 +166,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 
-  return NextResponse.json({ person: data });
+  return NextResponse.json({ person: withWorkspaceId(data, workspaceId) });
 }
 
 export async function PATCH(request: Request) {
@@ -168,22 +192,32 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  const updatePayload = {
+    church: asNullableString(payload.church),
+    email: asNullableString(payload.email),
+    engagement_level: asNullableString(payload.engagement_level),
+    name,
+    notes: asNullableString(payload.notes),
+    phone,
+    relationship_type: asNullableString(payload.relationship_type),
+    status: asFieldPersonStatus(payload.status),
+  };
+  const updateResult = await supabase
     .from("missionary_field_people")
-    .update({
-      church: asNullableString(payload.church),
-      email: asNullableString(payload.email),
-      engagement_level: asNullableString(payload.engagement_level),
-      name,
-      notes: asNullableString(payload.notes),
-      phone,
-      relationship_type: asNullableString(payload.relationship_type),
-      status: asFieldPersonStatus(payload.status),
-    })
+    .update(updatePayload)
     .eq("id", id)
     .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
     .select(personSelect)
     .single();
+  const { data, error } = updateResult.error && isMissingWorkspaceScopeColumn(updateResult.error)
+    ? await supabase
+      .from("missionary_field_people")
+      .update(updatePayload)
+      .eq("id", id)
+      .eq("household_id", workspaceId)
+      .select(legacyPersonSelect)
+      .single()
+    : updateResult;
 
   if (error) {
     const errorMessage = fieldPeopleErrorMessage(error);
@@ -192,5 +226,5 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 
-  return NextResponse.json({ person: data });
+  return NextResponse.json({ person: withWorkspaceId(data, workspaceId) });
 }

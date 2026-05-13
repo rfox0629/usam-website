@@ -7747,7 +7747,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       ? result.error
       : response.statusText || "Unable to save person.";
     const errorMessage = responseError.includes("missionary_field_people") && responseError.toLowerCase().includes("schema cache")
-      ? "People table is missing. Apply the missionary_field_people migration."
+      ? "People are not available for this workspace yet."
       : responseError;
 
     if (!response.ok || !result.person) {

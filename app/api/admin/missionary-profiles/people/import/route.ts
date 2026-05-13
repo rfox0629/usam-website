@@ -3,6 +3,7 @@ import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 const personSelect = "id, workspace_id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, updated_at, created_at";
+const legacyPersonSelect = "id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, updated_at, created_at";
 
 type CsvPersonRow = {
   church?: unknown;
@@ -41,14 +42,26 @@ function fieldPeopleImportErrorMessage(error: { code?: string; message?: string 
   const lowerMessage = message.toLowerCase();
 
   if (error.code === "PGRST205" || (lowerMessage.includes("missionary_field_people") && lowerMessage.includes("schema cache"))) {
-    return "People table is missing. Apply the missionary_field_people migration.";
+    return "People are not available for this workspace yet.";
   }
 
-  if (lowerMessage.includes("workspace_id") && lowerMessage.includes("schema cache")) {
-    return "People workspace scope is missing. Apply the Command Center workspace_id migration.";
+  if (isMissingWorkspaceScopeColumn(error)) {
+    return "People workspace setup is still syncing. Please try again.";
   }
 
   return message;
+}
+
+function isMissingWorkspaceScopeColumn(error: { message?: string } | null | undefined) {
+  return Boolean(error?.message?.includes("workspace_id"));
+}
+
+function withWorkspaceId<T extends { household_id?: string | null; workspace_id?: string | null }>(person: T, workspaceId: string) {
+  return {
+    ...person,
+    household_id: person.household_id ?? workspaceId,
+    workspace_id: person.workspace_id ?? person.household_id ?? workspaceId,
+  };
 }
 
 async function authorizeImport() {
@@ -109,10 +122,16 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data: existingPeople, error: existingError } = await supabase
+  const existingResult = await supabase
     .from("missionary_field_people")
     .select("phone")
     .eq("workspace_id", workspaceId);
+  const { data: existingPeople, error: existingError } = existingResult.error && isMissingWorkspaceScopeColumn(existingResult.error)
+    ? await supabase
+      .from("missionary_field_people")
+      .select("phone")
+      .eq("household_id", workspaceId)
+    : existingResult;
 
   if (existingError) {
     return NextResponse.json({ error: fieldPeopleImportErrorMessage(existingError) }, { status: 500 });
@@ -164,10 +183,17 @@ export async function POST(request: Request) {
     });
   }
 
-  const { data, error } = await supabase
+  const insertResult = await supabase
     .from("missionary_field_people")
     .insert(rowsToInsert)
     .select(personSelect);
+  const legacyRowsToInsert = rowsToInsert.map(({ workspace_id: _workspaceId, ...row }) => row);
+  const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
+    ? await supabase
+      .from("missionary_field_people")
+      .insert(legacyRowsToInsert)
+      .select(legacyPersonSelect)
+    : insertResult;
 
   if (error) {
     return NextResponse.json({ error: fieldPeopleImportErrorMessage(error) }, { status: 500 });
@@ -175,7 +201,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     importedCount: data?.length ?? 0,
-    people: data ?? [],
+    people: (data ?? []).map((person) => withWorkspaceId(person, workspaceId)),
     skippedCount,
   });
 }
