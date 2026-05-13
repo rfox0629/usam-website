@@ -13,6 +13,7 @@ import {
   type MissionaryImageSlot,
 } from "@/src/lib/missionaries/profile-image-upload";
 import { dosGuideResources, getDosGuideResourceByTitle, type DosGuideResource } from "@/src/lib/dos/guide-resources";
+import { formatDosMeetingSecondary, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import {
   normalizeSupportRoutingMode,
   type SupportRoutingMode,
@@ -571,6 +572,7 @@ type MeetingListItem = {
   meetingType: AdminMeetingType;
   nextStep: string;
   notes: string;
+  participantNames: string[];
   source: MeetingSource;
   status: AdminMeetingStatus;
   table?: AdminMissionaryTable;
@@ -2089,6 +2091,7 @@ function DataFlowLabels({ items }: { items: string[] }) {
 
 type DashboardActivityItem = {
   date: string;
+  description?: string;
   label: string;
   meta: string;
   type: string;
@@ -2237,11 +2240,16 @@ function DashboardActivityRow({ activity }: { activity: DashboardActivityItem })
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="truncate text-sm font-semibold text-stone-100">{activity.label}</p>
-          <p className="shrink-0 text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            {formatProfileUpdatedDate(activity.date)}
-          </p>
+          {activity.type === "Meeting" ? null : (
+            <p className="shrink-0 text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {formatProfileUpdatedDate(activity.date)}
+            </p>
+          )}
         </div>
         <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-stone-500">{activity.meta}</p>
+        {activity.description ? (
+          <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-stone-400">{activity.description}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -2273,7 +2281,7 @@ function DashboardRecentActivity({
       {activities.length ? (
         <div className="grid gap-2">
           {activities.map((activity) => (
-            <DashboardActivityRow activity={activity} key={`${activity.label}-${activity.date}-${activity.meta}`} />
+            <DashboardActivityRow activity={activity} key={`${activity.label}-${activity.date}-${activity.meta}-${activity.description ?? ""}`} />
           ))}
         </div>
       ) : (
@@ -2334,12 +2342,17 @@ function WorkspaceOverview({
       meta: "Contact added",
       type: "Contact",
     })),
-    ...(profile.tables ?? []).slice(0, 3).map((table) => ({
-      date: table.table_date,
-      label: tableTypeLabel(table.table_type),
-      meta: table.participant_names.length ? table.participant_names.join(", ") : "Meeting logged",
-      type: "Meeting",
-    })),
+    ...(profile.tables ?? []).slice(0, 3).map((table) => {
+      const display = tableActivityDisplay(table, profile.fieldPeople ?? []);
+
+      return {
+        date: table.table_date,
+        description: display.description,
+        label: display.label,
+        meta: display.meta,
+        type: "Meeting",
+      };
+    }),
     ...(profile.connectionLogs ?? []).slice(0, 3).map((connection) => ({
       date: connection.connection_date,
       label: connection.interaction_type,
@@ -2948,13 +2961,21 @@ function participantNamesText(names: readonly string[]) {
 }
 
 function tableLinkedPeople(table: AdminMissionaryTable, people: readonly AdminFieldPerson[]) {
-  const peopleById = new Map(people.map((person) => [person.id, person.name]));
-  const linkedNames = table.field_person_ids
-    .map((personId) => peopleById.get(personId))
-    .filter((name): name is string => Boolean(name?.trim()));
-  const quickNames = table.participant_names.filter((name) => !linkedNames.some((linkedName) => linkedName.toLowerCase() === name.toLowerCase()));
+  return resolveDosMeetingParticipantNames({
+    fieldPersonIds: table.field_person_ids,
+    participantNames: table.participant_names,
+    people,
+  });
+}
 
-  return [...linkedNames, ...quickNames];
+function tableActivityDisplay(table: AdminMissionaryTable, people: readonly AdminFieldPerson[]) {
+  const parsedNotes = parseMeetingNotes(table.notes);
+
+  return {
+    description: parsedNotes.notes.trim(),
+    label: formatDosParticipantTitle(tableLinkedPeople(table, people)),
+    meta: formatDosMeetingSecondary(meetingTypeLabel(parsedNotes.meta.meetingType ?? table.table_type), formatProfileUpdatedDate(table.table_date)),
+  };
 }
 
 function tableDateValue(value: string | null | undefined) {
@@ -3698,18 +3719,14 @@ function PersonEditorModal({
 }
 
 function meetingPeopleLabel(meeting: MeetingListItem, fieldPeople: readonly AdminFieldPerson[]) {
-  const peopleById = new Map(fieldPeople.map((person) => [person.id, person.name]));
-  const linkedNames = meeting.fieldPersonIds
-    .map((personId) => peopleById.get(personId))
-    .filter((name): name is string => Boolean(name?.trim()));
-
-  if (linkedNames.length > 0) {
-    return linkedNames.length <= 3
-      ? linkedNames.join(", ")
-      : `${linkedNames.slice(0, 3).join(", ")} +${linkedNames.length - 3}`;
-  }
-
-  return "People optional";
+  return formatDosParticipantTitle(
+    resolveDosMeetingParticipantNames({
+      fieldPersonIds: meeting.fieldPersonIds,
+      participantNames: meeting.participantNames,
+      people: fieldPeople,
+    }),
+    "People optional",
+  );
 }
 
 function meetingDateTimeLabel(meeting: MeetingListItem) {
@@ -3760,6 +3777,7 @@ function tableToMeetingListItem(
     meetingType: parsedNotes.meta.meetingType ?? table.table_type,
     nextStep: review?.movement_step ?? parsedNotes.meta.movementStep ?? "Not set",
     notes: parsedNotes.notes,
+    participantNames: table.participant_names,
     source: "table",
     status: deriveTableMeetingStatus(table, parsedNotes.meta, review, fruitItems),
     table,
@@ -3780,6 +3798,7 @@ function connectionToMeetingListItem(connection: AdminConnectionLog): MeetingLis
     meetingType: parsedNotes.meta.meetingType ?? meetingTypeFromConnection(connection.interaction_type),
     nextStep: connection.movement_step ?? "Not set",
     notes: parsedNotes.notes,
+    participantNames: [],
     source: "connection",
     status: parsedNotes.meta.status ?? "completed",
     time: parsedNotes.meta.time ?? "",
@@ -3926,6 +3945,7 @@ function ReviewsManager({
   const reviewedRows = reviewRows.filter((row) => row.isReviewed);
   const [selectedTableId, setSelectedTableId] = useState(reviewRows[0]?.table.id ?? "");
   const selectedRow = reviewRows.find((row) => row.table.id === selectedTableId) ?? reviewRows[0] ?? null;
+  const selectedReviewDisplay = selectedRow ? tableActivityDisplay(selectedRow.table, fieldPeople) : null;
 
   useEffect(() => {
     if (selectedTableId && reviewRows.some((row) => row.table.id === selectedTableId)) {
@@ -3983,7 +4003,7 @@ function ReviewsManager({
             <div className="divide-y divide-[#e2ded5]">
               {reviewRows.map((row) => {
                 const selected = selectedRow?.table.id === row.table.id;
-                const people = tableLinkedPeople(row.table, fieldPeople);
+                const display = tableActivityDisplay(row.table, fieldPeople);
 
                 return (
                   <button
@@ -3994,15 +4014,18 @@ function ReviewsManager({
                   >
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm font-semibold text-[#111111]">
-                        {tableLabel(row.table)}
+                        {display.label}
                       </p>
                       <span className={`w-fit rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${row.isReviewed ? "border-[#D4A63D]/40 bg-[#fff8e8] text-[#8a5a00]" : "border-stone-200 bg-stone-50 text-[#6f6658]"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         {row.isReviewed ? "Reviewed" : "Pending"}
                       </span>
                     </div>
                     <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                      {people.length > 0 ? participantNamesText(people) : "No people linked"}
+                      {display.meta}
                     </p>
+                    {display.description ? (
+                      <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-[#9a9286]">{display.description}</p>
+                    ) : null}
                   </button>
                 );
               })}
@@ -4017,8 +4040,11 @@ function ReviewsManager({
                     Selected Review
                   </p>
                   <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                    {tableLabel(selectedRow.table)}
+                    {selectedReviewDisplay?.label ?? tableLabel(selectedRow.table)}
                   </h3>
+                  {selectedReviewDisplay ? (
+                    <p className="mt-1 text-xs leading-5 text-[#7b746a]">{selectedReviewDisplay.meta}</p>
+                  ) : null}
                 </div>
                 <button
                   className={lightPrimaryButtonClass}
@@ -4184,11 +4210,11 @@ function MeetingsManager({
       {meetings.length > 0 ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
           <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-            <div className="hidden grid-cols-[118px_minmax(0,0.8fr)_88px_minmax(0,1fr)_112px_minmax(0,1fr)_104px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              <span>Date / Time</span>
-              <span>Type</span>
-              <span>Depth</span>
+            <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)_118px_88px_112px_minmax(0,1fr)_104px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               <span>People</span>
+              <span>Context</span>
+              <span>Date / Time</span>
+              <span>Depth</span>
               <span>Status</span>
               <span>Next Step</span>
               <span className="text-right">Actions</span>
@@ -4198,12 +4224,12 @@ function MeetingsManager({
                 const selected = selectedMeeting?.id === meeting.id;
 
                 return (
-                  <div className={`grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[118px_minmax(0,0.8fr)_88px_minmax(0,1fr)_112px_minmax(0,1fr)_104px] lg:items-center ${selected ? "bg-[#fff8e8]" : ""}`} key={meeting.id}>
+                  <div className={`grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)_118px_88px_112px_minmax(0,1fr)_104px] lg:items-center ${selected ? "bg-[#fff8e8]" : ""}`} key={meeting.id}>
                     {[
+                      ["People", meetingPeopleLabel(meeting, fieldPeople), "text-sm font-semibold text-[#111111]"],
+                      ["Context", meetingTypeLabel(meeting.meetingType), "text-sm text-[#4b443b]"],
                       ["Date / Time", meetingDateTimeLabel(meeting), "text-sm text-[#4b443b]"],
-                      ["Type", meetingTypeLabel(meeting.meetingType), "text-sm font-semibold text-[#111111]"],
                       ["Depth", meetingDepthLabel(meeting.depth), "text-sm text-[#4b443b]"],
-                      ["People", meetingPeopleLabel(meeting, fieldPeople), "text-sm text-[#4b443b]"],
                     ].map(([label, value, className]) => (
                       <div className="flex items-center justify-between gap-3 lg:block" key={label}>
                         <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -4333,8 +4359,11 @@ function QuickTouchDetailPanel({
             Quick Touch
           </p>
           <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-            {meetingTypeLabel(meeting.meetingType)}
+            {meetingPeopleLabel(meeting, fieldPeople)}
           </h3>
+          <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+            {formatDosMeetingSecondary(meetingTypeLabel(meeting.meetingType), meetingDateTimeLabel(meeting))}
+          </p>
         </div>
         <button className={lightSecondaryButtonClass} onClick={onEdit} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
           Edit
@@ -4574,6 +4603,7 @@ function TableDetailPanel({
 
   const activeTable = table;
   const parsedTableNotes = parseMeetingNotes(activeTable.notes);
+  const tableDisplay = tableActivityDisplay(activeTable, fieldPeople);
   const tablePeople = tableLinkedPeople(activeTable, fieldPeople);
   const peopleLabel = tablePeople.length > 0 ? participantNamesText(tablePeople) : "Not added";
   const linkedPeople = fieldPeople.filter((person) => activeTable.field_person_ids.includes(person.id));
@@ -4645,8 +4675,9 @@ function TableDetailPanel({
           Selected Meeting
         </p>
         <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-          {meetingTypeLabel(parsedTableNotes.meta.meetingType ?? table.table_type)}
+          {tableDisplay.label}
         </h3>
+        <p className="mt-1 text-xs leading-5 text-[#7b746a]">{tableDisplay.meta}</p>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">

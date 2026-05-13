@@ -15,6 +15,7 @@ import {
   type DosRecommendedResource,
   type DosKitchenTableResponses,
 } from "@/src/lib/dos/meeting-engine";
+import { formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppMeetingType, DosAppPerson } from "@/src/lib/dos/missionary-app";
 import { dosGuideResources } from "@/src/lib/dos/guide-resources";
 
@@ -431,35 +432,19 @@ function personName(people: DosAppPerson[], id: string | null | undefined) {
 }
 
 function meetingParticipantNames(meeting: DosAppMeeting, people: DosAppPerson[]) {
-  const linkedNames = meeting.fieldPersonIds
-    .map((id) => people.find((person) => person.id === id)?.name)
-    .filter((name): name is string => Boolean(name));
-
-  return linkedNames.length ? linkedNames : meeting.participantNames;
+  return resolveDosMeetingParticipantNames({
+    fieldPersonIds: meeting.fieldPersonIds,
+    participantNames: meeting.participantNames,
+    people,
+  });
 }
 
 function meetingPeople(meeting: DosAppMeeting, people: DosAppPerson[]) {
-  const names = meetingParticipantNames(meeting, people);
-
-  return names.length ? names.join(" + ") : "Private meeting";
+  return formatDosParticipantList(meetingParticipantNames(meeting, people));
 }
 
 function meetingPeopleTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
-  const names = meetingParticipantNames(meeting, people);
-
-  if (!names.length) {
-    return "Private meeting";
-  }
-
-  if (names.length === 1) {
-    return names[0];
-  }
-
-  if (names.length === 2) {
-    return `${names[0]} + ${names[1]}`;
-  }
-
-  return `${names[0]} + ${names.length - 1} others`;
+  return formatDosParticipantTitle(meetingParticipantNames(meeting, people));
 }
 
 function meetingAvatarNames(meeting: DosAppMeeting, people: DosAppPerson[]) {
@@ -1899,7 +1884,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         icon="log"
                         title="Latest meeting"
                       >
-                        {meetingActivityTitle(latestMeeting)} · {meetingPeople(latestMeeting, data.people)} · {formatRelativeDate(latestMeeting.date)}
+                        {meetingPeopleTitle(latestMeeting, data.people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
                       </TaskCard>
                     ) : null}
                     {latestFruit ? (
