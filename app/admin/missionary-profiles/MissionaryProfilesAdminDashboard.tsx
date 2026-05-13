@@ -1426,7 +1426,7 @@ function ImageUploadField({
   uploadState,
   value,
 }: {
-  helperText: string;
+  helperText?: string;
   label: string;
   onChange: (value: string) => void;
   onUpload: (slot: MissionaryImageSlot, file: File) => void;
@@ -1470,13 +1470,15 @@ function ImageUploadField({
       <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
-      <p className="mt-1.5 text-[12px] leading-5 text-[#7b746a]">
-        {helperText}
-      </p>
+      {helperText ? (
+        <p className="mt-1 text-[12px] leading-5 text-[#7b746a]">
+          {helperText}
+        </p>
+      ) : null}
 
-      <div className="relative mt-2.5 overflow-hidden rounded-xl border border-[#d7d2c8] bg-white">
+      <div className="relative mt-2 overflow-hidden rounded-xl border border-[#d7d2c8] bg-white">
         {imageUrl ? (
-          <div className="flex h-48 items-center justify-center p-2.5 md:h-56">
+          <div className="flex h-40 items-center justify-center p-2 md:h-48">
             <img
               alt={`${label} preview`}
               className="max-h-full w-full object-contain"
@@ -1486,7 +1488,7 @@ function ImageUploadField({
             />
           </div>
         ) : (
-          <div className="flex h-48 items-center justify-center px-4 text-center text-xs uppercase tracking-[0.18em] text-[#7b746a] md:h-56" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <div className="flex h-40 items-center justify-center px-4 text-center text-xs uppercase tracking-[0.18em] text-[#7b746a] md:h-48" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             No image selected
           </div>
         )}
@@ -1503,7 +1505,7 @@ function ImageUploadField({
       </div>
 
       <div
-        className={`mt-2.5 rounded-lg border border-dashed p-3 transition-colors ${
+        className={`mt-2 rounded-lg border border-dashed p-2.5 transition-colors ${
           isDragActive
             ? "border-[#c8952d] bg-[#fff8ea]"
             : "border-[#d7d2c8] bg-white"
@@ -1515,17 +1517,17 @@ function ImageUploadField({
         }}
         onDrop={handleDrop}
       >
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-[#111111]">
               Upload / replace image
             </p>
-            <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+            <p className="mt-0.5 text-xs leading-5 text-[#7b746a]">
               {imageTypeLabel}. Max {MISSIONARY_IMAGE_MAX_BYTES / 1024 / 1024}MB.
             </p>
           </div>
           <label
-            className={`inline-flex min-h-9 cursor-pointer items-center justify-center rounded-md border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition-colors ${
+            className={`inline-flex min-h-8 cursor-pointer items-center justify-center rounded-md border px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
               isUploading
                 ? "border-[#d7d2c8] text-[#9a9488]"
                 : "border-[#d7d2c8] bg-white text-[#111111] hover:border-[#c8952d] hover:text-[#8a5a00]"
@@ -1556,11 +1558,11 @@ function ImageUploadField({
       {showManualUrlFallback ? (
         <details className="mt-3 rounded-xl border border-[#d7d2c8] bg-white">
           <summary className="cursor-pointer px-3.5 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Manual URL fallback
+            Image URL
           </summary>
           <div className="border-t border-[#e2ded5] p-3.5">
             <Field
-              helperText="Dev fallback. Uploaded images save the full Supabase public URL here automatically."
+              helperText=""
               label="Image URL"
               onChange={onChange}
               value={value}
@@ -1724,13 +1726,13 @@ function MissionaryCutoutGenerationModal({
         <div className="flex items-start justify-between gap-4 border-b border-white/[0.08] px-5 py-5 md:px-6">
           <div>
             <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Hero Image
+              Generated Hero Image
             </p>
             <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
-              Create Hero Image
+              Generate New Hero Image
             </h3>
             <p className="mt-2 max-w-xl text-sm leading-6 text-stone-400">
-              Turn the uploaded profile photo into a cinematic USAM hero image.
+              Create a styled public hero image from the uploaded profile photo.
             </p>
           </div>
           <button
@@ -8743,7 +8745,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       setUploadStates((currentState) => ({
         ...currentState,
         directory: {
-          message: "Upload a primary profile photo before creating a hero image.",
+          message: "Upload a primary profile photo before generating a hero image.",
           status: "error",
         },
       }));
@@ -8758,7 +8760,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   async function requestMissionaryHeroImage() {
     if (!selectedProfile?.profile_image_url?.trim()) {
       setCutoutGenerationState({
-        message: "Upload a primary profile photo before creating a hero image.",
+        message: "Upload a primary profile photo before generating a hero image.",
         status: "error",
       });
       return;
@@ -8782,12 +8784,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         body: JSON.stringify({
           category: "design_feedback",
           messageText: [
-            `Create hero image preview for ${selectedProfile.display_name} (${selectedProfile.slug}).`,
+            `Generate new hero image preview for ${selectedProfile.display_name} (${selectedProfile.slug}).`,
             `Household ID: ${selectedProfile.id}.`,
             `Source photo: ${selectedProfile.profile_image_url}.`,
             `Generation choices: ${requestedOptions}.`,
             "Future generation direction: masked editing, face preservation, style transfer, and approved USAM style reference conditioning.",
-            "Fallback path: create/upload the approved hero image through Missionary Workspace > Publishing > Profile Photos > Advanced Settings.",
+            "Fallback path: create/upload the approved hero image through Missionary Workspace > Publishing > Profile Photos > Advanced Options.",
           ].join("\n"),
           pagePath: `/admin/missionary-profiles?tab=media&profile=${selectedProfile.slug}`,
         }),
@@ -9642,11 +9644,30 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Profile images"
             title="Profile Photos"
           >
-            <div className="space-y-3.5">
-              <section className="rounded-2xl border border-[#e2ded5] bg-white p-3.5 md:p-4">
+            <div className="space-y-3">
+              <section className="rounded-2xl border border-[#e2ded5] bg-white p-3 md:p-4">
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Primary Profile Photo
+                    </p>
+                    <p className="mt-1 text-sm leading-5 text-[#4b443b]">
+                      Original uploaded photo
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${
+                      selectedGeneratedHeroImageUrl
+                        ? "border-[#d7d2c8] bg-[#f8f6f1] text-[#6f6658]"
+                        : "border-[#b7ebc6] bg-[#ecfff2] text-[#147a35]"
+                    }`}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  >
+                    {selectedGeneratedHeroImageUrl ? "Original" : "Live"}
+                  </span>
+                </div>
                 <ImageUploadField
-                  helperText="Public profile image"
-                  label="Primary Profile Photo"
+                  label="Uploaded Photo"
                   onChange={(value) => updateHouseholdField("profile_image_url", value)}
                   onUpload={uploadImage}
                   showManualUrlFallback={false}
@@ -9656,70 +9677,98 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 />
               </section>
 
-              <section className="rounded-2xl border border-[#e2ded5] bg-white p-4 md:p-5">
-                <div>
-                  <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Hero Image
-                  </p>
-                  <p className="mt-1.5 text-sm leading-5 text-[#4b443b]">
-                    Create a cinematic profile hero
-                  </p>
+              <section className="rounded-2xl border border-[#e2ded5] bg-white p-3.5 md:p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Generated Hero Image
+                    </p>
+                    <p className="mt-1 text-sm leading-5 text-[#4b443b]">
+                      Styled public hero image
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${
+                      selectedGeneratedHeroImageUrl
+                        ? "border-[#b7ebc6] bg-[#ecfff2] text-[#147a35]"
+                        : "border-[#e2ded5] bg-[#f8f6f1] text-[#7b746a]"
+                    }`}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  >
+                    {selectedGeneratedHeroImageUrl ? "Live" : "Not generated"}
+                  </span>
                 </div>
 
-                <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
-                  <div className="overflow-hidden rounded-[18px] bg-[#f8f6f1]">
+                <div className="mt-3.5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
+                  <div className="overflow-hidden rounded-2xl border border-[#e2ded5] bg-[#f8f6f1]">
                     {selectedGeneratedHeroImageUrl ? (
-                      <div className="flex min-h-[240px] items-center justify-center p-3 md:min-h-[320px]">
+                      <div className="flex min-h-[210px] items-center justify-center p-3 md:min-h-[260px]">
                         <img
-                          alt="Current USAM hero image preview"
+                          alt="Generated hero image preview"
                           className="max-h-full w-full object-contain"
                           src={selectedGeneratedHeroImageUrl}
                         />
                       </div>
                     ) : (
-                      <div className="flex min-h-[240px] flex-col items-center justify-center px-5 text-center md:min-h-[320px]">
-                        <div className="mb-4 h-12 w-12 rounded-full border border-[#d7d2c8] bg-white shadow-sm">
-                          <div className="mx-auto mt-4 h-3.5 w-3.5 rotate-45 bg-[#D4A63D]" />
+                      <div className="flex min-h-[210px] flex-col items-center justify-center px-5 text-center md:min-h-[260px]">
+                        <div className="mb-3 h-10 w-10 rounded-full border border-[#d7d2c8] bg-white shadow-sm">
+                          <div className="mx-auto mt-3.5 h-3 w-3 rotate-45 bg-[#D4A63D]" />
                         </div>
                         <p className="text-base font-semibold text-[#111111]">
-                          No hero image
+                          No generated hero image
                         </p>
-                        <p className="mt-2 max-w-sm text-xs leading-5 text-[#7b746a]">
-                          Using uploaded photo
+                        <p className="mt-1.5 max-w-sm text-xs leading-5 text-[#7b746a]">
+                          Using original photo
                         </p>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div>
                       <button
-                        className="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-[#c8952d] bg-[#D4A63D] px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] text-[#111111] shadow-[0_12px_26px_rgba(212,166,61,0.14)] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-[#c8952d] bg-[#D4A63D] px-4 py-2.5 text-center text-[11px] uppercase tracking-[0.18em] text-[#111111] shadow-[0_12px_26px_rgba(212,166,61,0.14)] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
                         disabled={!selectedProfile.profile_image_url?.trim()}
                         onClick={openCutoutModal}
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                         type="button"
                       >
-                        Create Hero Image
+                        Generate New Hero Image
                       </button>
                     </div>
 
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Public Profile Hero
+                    <div className="rounded-2xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Public Image
                       </p>
                       <div className="mt-2.5 space-y-2">
-                        <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-2.5 text-sm leading-5 text-[#4b443b]">
-                          <input
-                            checked={!selectedGeneratedHeroImageUrl}
-                            className="h-4 w-4 accent-[#D4A63D]"
-                            name="profile_public_image_source"
-                            onChange={() => updateHouseholdField("hero_image_url", "")}
-                            type="radio"
-                          />
-                          <span className="font-semibold text-[#111111]">Use Uploaded Photo</span>
+                        <label className={`flex items-center justify-between gap-3 rounded-xl border p-2.5 text-sm leading-5 ${
+                          selectedGeneratedHeroImageUrl
+                            ? "border-[#e2ded5] bg-white text-[#4b443b]"
+                            : "border-[#c8952d] bg-white text-[#111111]"
+                        }`}>
+                          <span className="flex items-center gap-3">
+                            <input
+                              checked={!selectedGeneratedHeroImageUrl}
+                              className="h-4 w-4 accent-[#D4A63D]"
+                              name="profile_public_image_source"
+                              onChange={() => updateHouseholdField("hero_image_url", "")}
+                              type="radio"
+                            />
+                            <span className="font-semibold text-[#111111]">Use Original Photo</span>
+                          </span>
+                          {!selectedGeneratedHeroImageUrl ? (
+                            <span className="rounded-full border border-[#b7ebc6] bg-[#ecfff2] px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] text-[#147a35]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                              Live
+                            </span>
+                          ) : null}
                         </label>
-                        <label className="flex items-center gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-2.5 text-sm leading-5 text-[#4b443b]">
+                        <label className={`flex items-center justify-between gap-3 rounded-xl border p-2.5 text-sm leading-5 ${
+                          selectedGeneratedHeroImageUrl
+                            ? "border-[#c8952d] bg-white text-[#111111]"
+                            : "border-[#e2ded5] bg-white text-[#9a9488]"
+                        }`}>
+                          <span className="flex items-center gap-3">
                           <input
                             checked={Boolean(selectedGeneratedHeroImageUrl)}
                             className="h-4 w-4 accent-[#D4A63D]"
@@ -9728,7 +9777,17 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                             onChange={() => undefined}
                             type="radio"
                           />
-                          <span className="font-semibold text-[#111111]">Use Hero Image</span>
+                            <span className={`font-semibold ${selectedGeneratedHeroImageUrl ? "text-[#111111]" : "text-[#7b746a]"}`}>
+                              Use Generated Hero
+                            </span>
+                          </span>
+                          <span className={`rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] ${
+                            selectedGeneratedHeroImageUrl
+                              ? "border-[#b7ebc6] bg-[#ecfff2] text-[#147a35]"
+                              : "border-[#e2ded5] bg-[#f8f6f1] text-[#9a9488]"
+                          }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                            {selectedGeneratedHeroImageUrl ? "Live" : "Unavailable"}
+                          </span>
                         </label>
                       </div>
                     </div>
@@ -9738,29 +9797,30 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
               <details className="rounded-2xl border border-[#e2ded5] bg-white">
                 <summary className="cursor-pointer px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Advanced Settings
+                  Advanced Options
                 </summary>
-                <div className="border-t border-[#e2ded5] p-4">
-                  <div className="grid gap-4 lg:grid-cols-2">
+                <div className="border-t border-[#e2ded5] p-3.5 md:p-4">
+                  <div className="grid gap-3.5 lg:grid-cols-2">
                     <Field
-                      helperText="Manual fallback for the uploaded primary photo URL. Normal uploads fill this automatically."
+                      helperText=""
                       label="Primary Photo URL"
                       onChange={(value) => updateHouseholdField("profile_image_url", value)}
                       value={selectedProfile.profile_image_url}
                     />
                     <Field
-                      helperText="Manual fallback for the published hero image URL."
+                      helperText=""
                       label="Hero Image URL"
                       onChange={(value) => updateHouseholdField("hero_image_url", value)}
                       value={selectedProfile.hero_image_url}
                     />
                   </div>
-                  <div className="mt-4">
+                  <div className="mt-3.5">
                     <ImageUploadField
-                      helperText="Internal fallback for uploading an already-prepared hero image."
+                      helperText="Upload a prepared hero image."
                       label="Manual Hero Upload"
                       onChange={(value) => updateHouseholdField("hero_image_url", value)}
                       onUpload={uploadImage}
+                      showManualUrlFallback={false}
                       slot="hero"
                       uploadState={uploadStates.hero}
                       value={selectedProfile.hero_image_url}
