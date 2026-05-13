@@ -3,12 +3,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AdminShell } from "../_components/AdminShell";
 import {
+  approvePrayerPartnerApplication,
   approvePrayerTeamApplication,
   archivePrayerRequest,
   archivePrayerSubmission,
   assignPrayerRequestPartners,
   createPrayerRequest,
   deactivatePrayerPartner,
+  declinePrayerPartnerApplication,
   declinePrayerTeamApplication,
   markPrayerRequestAnswered,
   markPrayerRequestCovered,
@@ -40,12 +42,10 @@ const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center
 const tabButtonClassName = "inline-flex h-10 w-[132px] shrink-0 items-center justify-center rounded-lg border px-3 text-center text-[10px] uppercase tracking-[0.15em] transition-colors";
 
 const tabs = [
-  { key: "requests", label: "Requests" },
-  { key: "partners", label: "Partners" },
+  { key: "overview", label: "Overview" },
   { key: "applications", label: "Applications" },
-  { key: "coverage", label: "Coverage" },
-  { key: "regions", label: "Regions" },
-  { key: "email", label: "Email" },
+  { key: "partners", label: "Partners" },
+  { key: "requests", label: "Requests" },
 ] as const;
 
 const prayerCategories = [
@@ -145,6 +145,8 @@ type HouseholdRow = {
 
 type PrayerPartnerRow = {
   assigned_coverage: Record<string, unknown> | null;
+  approved_at: string | null;
+  approved_by: string | null;
   availability: string[] | null;
   church_affiliation: string | null;
   city: string | null;
@@ -160,8 +162,12 @@ type PrayerPartnerRow = {
   permissions: Record<string, unknown> | null;
   phone: string | null;
   recruited_by: string | null;
+  recruited_by_household_id: string | null;
+  recruited_by_household_name: string | null;
+  recruited_by_profile_slug: string | null;
   region: string | null;
   sms_alerts: boolean | null;
+  source: string | null;
   state: string | null;
   status: PartnerStatus;
   updated_at: string | null;
@@ -220,7 +226,7 @@ type PrayerAdminData = {
 };
 
 function getTab(value?: string): PrayerAdminTab {
-  return tabs.some((tab) => tab.key === value) ? value as PrayerAdminTab : "requests";
+  return tabs.some((tab) => tab.key === value) ? value as PrayerAdminTab : "overview";
 }
 
 function formatDate(value: string | null | undefined) {
@@ -685,35 +691,27 @@ async function loadPrayerAdminData(): Promise<PrayerAdminData> {
   }
 
   const supabase = createSupabaseAdminClient();
-  const [householdsResult, partnersResult, requestsResult, applicationsResult] = await Promise.all([
+  const [householdsResult, partnersResult, requestsResult] = await Promise.all([
     supabase
       .from("missionary_households")
       .select("id, display_name, slug, primary_state, region")
       .order("display_name", { ascending: true }),
     supabase
       .from("prayer_partners")
-      .select("id, first_name, last_name, name, email, phone, city, state, region, church_affiliation, availability, email_alerts, sms_alerts, status, permissions, assigned_coverage, internal_notes, recruited_by, date_joined, created_at, updated_at")
+      .select("id, first_name, last_name, name, email, phone, city, state, region, church_affiliation, availability, email_alerts, sms_alerts, status, permissions, assigned_coverage, internal_notes, recruited_by, recruited_by_household_id, recruited_by_household_name, recruited_by_profile_slug, source, approved_at, approved_by, date_joined, created_at, updated_at")
       .order("date_joined", { ascending: false }),
     supabase
       .from("prayer_requests")
       .select("id, title, request, description, category, urgency, status, confidentiality_level, household_id, related_household_id, related_missionary_profile_id, related_state, related_region, assigned_partner_ids, prayer_notes, prayed_count, last_prayed_at, answered_at, created_at, updated_at")
       .order("created_at", { ascending: false }),
-    supabase
-      .from("form_submissions")
-      .select("id, form_type, source_page, first_name, last_name, email, phone, message, payload, status, assigned_team, assigned_to, internal_notes, created_at")
-      .eq("assigned_team", "prayer_team")
-      .in("form_type", ["prayer_team_application", "prayer_request"])
-      .order("created_at", { ascending: false }),
   ]);
 
   const error = partnersResult.error?.message
     ?? requestsResult.error?.message
-    ?? applicationsResult.error?.message
     ?? householdsResult.error?.message;
 
   if (error) {
     console.error("[Prayer Team Admin] Failed to load prayer team data:", {
-      applications: applicationsResult.error,
       households: householdsResult.error,
       partners: partnersResult.error,
       requests: requestsResult.error,
@@ -721,7 +719,7 @@ async function loadPrayerAdminData(): Promise<PrayerAdminData> {
   }
 
   return {
-    applications: (applicationsResult.data ?? []) as PrayerSubmissionRow[],
+    applications: [],
     error: error ? "Prayer Team data could not be loaded." : undefined,
     households: (householdsResult.data ?? []) as HouseholdRow[],
     partners: (partnersResult.data ?? []) as PrayerPartnerRow[],
@@ -741,20 +739,128 @@ function SummaryCards({
   partners: readonly PrayerPartnerRow[];
   requests: readonly PrayerRequestRow[];
 }) {
+  const pendingApplications = partners.filter((partner) => partner.status === "pending").length;
   const activePartners = partners.filter((partner) => partner.status === "active").length;
   const openRequests = requests.filter(isOpenRequest).length;
   const coverageGaps = requests.filter(isNeedsCoverage).length;
-  const coverageKeys = new Set([
-    ...partners.filter((partner) => partner.status === "active").map((partner) => partner.state || partner.region).filter(Boolean),
-    ...households.map((household) => household.primary_state || household.region).filter(Boolean),
-  ]);
+  void households;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricCard label="Pending Applications" tone={pendingApplications > 0 ? "amber" : "green"} value={pendingApplications} />
       <MetricCard label="Active Partners" tone="green" value={activePartners} />
       <MetricCard label="Open Requests" value={openRequests} />
       <MetricCard label="Coverage Gaps" tone={coverageGaps > 0 ? "amber" : "green"} value={coverageGaps} />
-      <MetricCard label="Regions Active" value={coverageKeys.size} />
+    </div>
+  );
+}
+
+function OverviewTab({
+  partners,
+  requests,
+}: {
+  partners: readonly PrayerPartnerRow[];
+  requests: readonly PrayerRequestRow[];
+}) {
+  const pendingApplications = partners.filter((partner) => partner.status === "pending").slice(0, 4);
+  const activePartners = partners.filter((partner) => partner.status === "active");
+  const openRequests = requests.filter(isOpenRequest).slice(0, 4);
+  const recentPartnerActivity = partners
+    .filter((partner) => partner.status === "active" || partner.status === "pending")
+    .slice(0, 4);
+  const regionsActive = new Set(
+    activePartners.map((partner) => partner.state || partner.region).filter(Boolean),
+  ).size;
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              New Applications
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-stone-100">Pending review</h2>
+          </div>
+          <Link className={secondaryButtonClassName} href="/admin/prayer-team?tab=applications" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Review All
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-2">
+          {pendingApplications.length > 0 ? pendingApplications.map((partner) => (
+            <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-[#D4A63D]/55" href={`/admin/prayer-team?tab=applications&partner=${partner.id}`} key={partner.id}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-stone-100">{partnerName(partner)}</p>
+                  <p className="mt-0.5 truncate text-xs text-stone-500">{partner.email || "No email"}</p>
+                </div>
+                <StatusBadge status={partner.status} />
+              </div>
+            </Link>
+          )) : (
+            <EmptyState title="No pending applications." />
+          )}
+        </div>
+      </section>
+
+      <div className="grid gap-4">
+        <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Open Prayer Requests
+              </p>
+              <p className="mt-1 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                {requests.filter(isOpenRequest).length}
+              </p>
+            </div>
+            <Link className={secondaryButtonClassName} href="/admin/prayer-team?tab=requests" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Open
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-2">
+            {openRequests.length > 0 ? openRequests.map((request) => (
+              <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-[#D4A63D]/55" href={`/admin/prayer-team?tab=requests&request=${request.id}`} key={request.id}>
+                <p className="truncate text-sm font-semibold text-stone-100">{request.title}</p>
+                <p className="mt-0.5 line-clamp-1 text-xs text-stone-500">{requestText(request)}</p>
+              </Link>
+            )) : (
+              <p className="text-sm text-stone-500">All clear.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Recent Partner Activity
+              </p>
+              <p className="mt-1 text-sm text-stone-400">{regionsActive} active region{regionsActive === 1 ? "" : "s"}</p>
+            </div>
+            <Link className={secondaryButtonClassName} href="/admin/prayer-team?tab=partners" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Partners
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-2">
+            {recentPartnerActivity.length > 0 ? recentPartnerActivity.map((partner) => (
+              <div className="rounded-lg border border-stone-800 bg-black/30 p-3" key={partner.id}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-stone-100">{partnerName(partner)}</p>
+                    <p className="mt-0.5 text-xs text-stone-500">
+                      {partner.status === "pending" ? "Applied to join prayer team" : "Approved prayer partner"}
+                    </p>
+                  </div>
+                  <StatusBadge status={partner.status} />
+                </div>
+              </div>
+            )) : (
+              <p className="text-sm text-stone-500">No prayer partner activity yet.</p>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
@@ -1078,12 +1184,13 @@ function PartnersTab({
   partners: readonly PrayerPartnerRow[];
   requests: readonly PrayerRequestRow[];
 }) {
-  const filteredPartners = filterPartners(partners, params);
+  const partnerPool = params.status ? partners : partners.filter((partner) => partner.status === "active");
+  const filteredPartners = filterPartners(partnerPool, params);
   const selectedPartner = params.partner
     ? partners.find((partner) => partner.id === params.partner) ?? null
     : null;
-  const states = Array.from(new Set(partners.map((partner) => partner.state).filter(Boolean) as string[])).sort();
-  const regions = Array.from(new Set(partners.map((partner) => partner.region).filter(Boolean) as string[])).sort();
+  const states = Array.from(new Set(partnerPool.map((partner) => partner.state).filter(Boolean) as string[])).sort();
+  const regions = Array.from(new Set(partnerPool.map((partner) => partner.region).filter(Boolean) as string[])).sort();
 
   return (
     <div className="space-y-5">
@@ -1243,53 +1350,66 @@ function PartnerDetailDrawer({
 }
 
 function ApplicationsTab({
-  applications,
   params,
+  partners,
 }: {
-  applications: readonly PrayerSubmissionRow[];
   params: SearchParams;
+  partners: readonly PrayerPartnerRow[];
 }) {
-  const filteredApplications = applications.filter((submission) => submission.form_type === "prayer_team_application");
-  const selectedApplication = params.submission
-    ? filteredApplications.find((submission) => submission.id === params.submission) ?? null
+  const applications = partners.filter((partner) => partner.status === "pending");
+  const filteredApplications = filterPartners(applications, params);
+  const selectedApplication = params.partner
+    ? applications.find((partner) => partner.id === params.partner) ?? null
     : null;
 
   return (
     <div className="space-y-5">
+      <form className="grid min-w-0 gap-3 rounded-xl border border-stone-800/75 bg-[#080808]/90 p-3 lg:grid-cols-[minmax(260px,1fr)_auto]" action="/admin/prayer-team" method="get">
+        <input name="tab" type="hidden" value="applications" />
+        <input className={toolbarInputClassName} defaultValue={params.q ?? ""} name="q" placeholder="Search applications" />
+        <button className={primaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
+          Search
+        </button>
+      </form>
+
       <section className="grid gap-3">
-        {filteredApplications.length > 0 ? filteredApplications.map((submission) => (
-          <Link
+        {filteredApplications.length > 0 ? filteredApplications.map((application) => (
+          <article
             className={`min-w-0 rounded-xl border p-4 text-sm transition-colors hover:border-stone-700 hover:bg-stone-950/80 ${
-              selectedApplication?.id === submission.id
+              selectedApplication?.id === application.id
                 ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
                 : "border-stone-800/75 bg-[#080808]/90"
             }`}
-            href={`/admin/prayer-team?tab=applications&submission=${submission.id}`}
-            key={submission.id}
+            key={application.id}
           >
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto] lg:items-center">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto] lg:items-center">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate font-semibold text-stone-100">{submissionName(submission)}</p>
-                  <StatusBadge status={normalizeSubmissionStatus(submission.status)} />
+                  <p className="truncate font-semibold text-stone-100">{partnerName(application)}</p>
+                  <StatusBadge status={application.status} />
                 </div>
-                <p className="mt-1 truncate text-xs text-stone-500">{payloadValue(submission.payload, "church_affiliation") || "Prayer team application"}</p>
+                <p className="mt-1 truncate text-xs text-stone-500">{application.recruited_by_household_name || application.recruited_by || "Public profile application"}</p>
               </div>
               <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                <MetaItem label="Email" value={submission.email || "-"} />
-                <MetaItem label="Phone" value={submission.phone || "-"} />
+                <MetaItem label="Email" value={application.email || "-"} />
+                <MetaItem label="Phone" value={application.phone || "-"} />
               </div>
               <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                <MetaItem label="Location" value={[payloadValue(submission.payload, "city"), payloadValue(submission.payload, "state")].filter(Boolean).join(", ") || "-"} />
-                <MetaItem label="Submitted" value={formatDate(submission.created_at)} />
+                <MetaItem label="Location" value={[application.city, application.state || application.region].filter(Boolean).join(", ") || "-"} />
+                <MetaItem label="Submitted" value={formatDate(application.created_at)} />
               </div>
-              <span className={secondaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Review</span>
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <Link className={secondaryButtonClassName} href={`/admin/prayer-team?tab=applications&partner=${application.id}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Manage
+                </Link>
+                <ActionForm action={approvePrayerPartnerApplication} fieldName="partner_id" id={application.id} tone="green">Approve</ActionForm>
+                <ActionForm action={declinePrayerPartnerApplication} fieldName="partner_id" id={application.id} tone="red">Decline</ActionForm>
+              </div>
             </div>
-          </Link>
+          </article>
         )) : (
           <EmptyState
-            description="Prayer team applications will appear here after the public application form is connected."
-            title="No applications yet."
+            title="No pending applications."
           />
         )}
       </section>
@@ -1299,72 +1419,38 @@ function ApplicationsTab({
   );
 }
 
-function ApplicationDetailDrawer({ application }: { application: PrayerSubmissionRow | null }) {
+function ApplicationDetailDrawer({ application }: { application: PrayerPartnerRow | null }) {
   if (!application) {
     return null;
   }
-
-  const payload = application.payload ?? {};
 
   return (
     <DetailFrame
       badges={(
         <>
-          <StatusBadge status={normalizeSubmissionStatus(application.status)} />
-          <Badge tone="amber">Prayer Team</Badge>
+          <StatusBadge status={application.status} />
+          <Badge tone="amber">Application</Badge>
         </>
       )}
       closeHref="/admin/prayer-team?tab=applications"
       eyebrow="Prayer Application"
-      title={submissionName(application)}
+      title={partnerName(application)}
     >
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <DetailItem label="Email" value={application.email ? <a className="hover:text-[#F5B942]" href={`mailto:${application.email}`}>{application.email}</a> : "-"} />
         <DetailItem label="Phone" value={application.phone || "-"} />
-        <DetailItem label="City / State" value={[payloadValue(payload, "city"), payloadValue(payload, "state")].filter(Boolean).join(", ") || "-"} />
-        <DetailItem label="Church" value={payloadValue(payload, "church_affiliation") || "-"} />
-        <DetailItem label="Availability" value={payloadArray(payload, "availability").join(", ") || "-"} />
+        <DetailItem label="City / State" value={[application.city, application.state].filter(Boolean).join(", ") || "-"} />
+        <DetailItem label="Region" value={application.region || "-"} />
+        <DetailItem label="Household" value={application.recruited_by_household_name || application.recruited_by || "-"} />
+        <DetailItem label="Source" value={titleLabel(application.source || "public_profile")} />
         <DetailItem label="Submitted" value={formatDate(application.created_at)} />
-        <DetailItem label="Email Alerts" value={payloadBoolean(payload, "email_alerts") ? "Yes" : "No"} />
-        <DetailItem label="SMS Alerts" value={payloadBoolean(payload, "sms_alerts") ? "Yes" : "No"} />
-        <DetailItem label="Confidentiality Agreement" value={payloadBoolean(payload, "confidentiality_agreement") ? "Accepted" : "Not accepted"} />
+        <DetailItem label="Email Alerts" value={application.email_alerts ? "Yes" : "No"} />
       </div>
-
-      <div className="mt-6 space-y-5">
-        <DetailItem label="Why They Want To Join" value={<p className="whitespace-pre-wrap">{application.message || payloadValue(payload, "motivation") || "-"}</p>} />
-        <DetailItem label="How They Heard About USAM" value={payloadValue(payload, "referral_source") || "-"} />
-      </div>
-
-      <form action={updatePrayerSubmission} className="mt-6 border-y border-stone-800/70 py-5">
-        <input name="submission_id" type="hidden" value={application.id} />
-        <SelectField defaultValue={normalizeSubmissionStatus(application.status)} label="Status" name="status">
-          <option value="new">New</option>
-          <option value="reviewed">Reviewed</option>
-          <option value="needs_follow_up">Needs Follow Up</option>
-          <option value="converted">Converted</option>
-          <option value="archived">Archived</option>
-        </SelectField>
-        <TextField defaultValue={application.assigned_to} label="Assigned To" name="assigned_to" />
-        <TextAreaField defaultValue={application.internal_notes} label="Internal Notes" name="internal_notes" />
-        <button className={`${primaryButtonClassName} mt-4 w-full`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
-          Save Application
-        </button>
-      </form>
 
       <div className="mt-5 grid gap-3">
-        <ActionForm action={approvePrayerTeamApplication} fieldName="submission_id" id={application.id} tone="green">Approve as Prayer Partner</ActionForm>
-        <ActionForm action={declinePrayerTeamApplication} fieldName="submission_id" id={application.id} tone="red">Decline</ActionForm>
-        <ActionForm action={markPrayerSubmissionNeedsFollowUp} fieldName="submission_id" id={application.id}>Mark Needs Follow Up</ActionForm>
-        <ActionForm action={markPrayerSubmissionReviewed} fieldName="submission_id" id={application.id}>Mark Reviewed</ActionForm>
-        <ActionForm action={archivePrayerSubmission} fieldName="submission_id" id={application.id} tone="red">Archive</ActionForm>
-      </div>
-
-      <div className="mt-6 border-t border-stone-800/70 pt-5">
-        <p className="mb-3 text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Full Submitted Application
-        </p>
-        <PayloadFields payload={payload} />
+        <ActionForm action={approvePrayerPartnerApplication} fieldName="partner_id" id={application.id} tone="green">Approve</ActionForm>
+        <ActionForm action={declinePrayerPartnerApplication} fieldName="partner_id" id={application.id} tone="red">Decline</ActionForm>
       </div>
     </DetailFrame>
   );
@@ -1642,23 +1728,17 @@ export default async function PrayerTeamAdminPage({
             <SummaryCards households={data.households} partners={data.partners} requests={data.requests} />
             <TabNav activeTab={activeTab} />
 
-            {activeTab === "requests" ? (
-              <RequestsTab households={data.households} params={params} partners={data.partners} requests={data.requests} />
+            {activeTab === "overview" ? (
+              <OverviewTab partners={data.partners} requests={data.requests} />
+            ) : null}
+            {activeTab === "applications" ? (
+              <ApplicationsTab params={params} partners={data.partners} />
             ) : null}
             {activeTab === "partners" ? (
               <PartnersTab params={params} partners={data.partners} requests={data.requests} />
             ) : null}
-            {activeTab === "applications" ? (
-              <ApplicationsTab applications={data.applications} params={params} />
-            ) : null}
-            {activeTab === "coverage" ? (
-              <CoverageBoardTab partners={data.partners} requests={data.requests} />
-            ) : null}
-            {activeTab === "regions" ? (
-              <RegionsTab households={data.households} partners={data.partners} requests={data.requests} />
-            ) : null}
-            {activeTab === "email" ? (
-              <EmailPreviewTab requests={data.requests} />
+            {activeTab === "requests" ? (
+              <RequestsTab households={data.households} params={params} partners={data.partners} requests={data.requests} />
             ) : null}
           </>
         )}

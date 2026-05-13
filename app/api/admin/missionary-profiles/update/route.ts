@@ -204,7 +204,7 @@ const assessmentFollowUpAreas = ["Repentance", "Baptism", "Scripture", "Prayer",
 const connectionTypes = ["Phone call", "Zoom", "Text", "Coffee", "Prayer", "Discipleship", "Other"] as const;
 const fruitStatuses = ["draft", "pending_review", "approved", "private", "archived"] as const;
 const teamMemberSources = ["website_admin", "dos", "public_form"] as const;
-const teamMemberStatuses = ["active", "hidden", "archived"] as const;
+const teamMemberStatuses = ["pending", "active", "declined", "inactive", "hidden", "archived"] as const;
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";

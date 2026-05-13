@@ -847,7 +847,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     const [prayerPartnersResult, prayerRequestsResult] = await Promise.all([
       supabase
         .from("prayer_partners")
-        .select("id, first_name, last_name, name, email, phone, recruited_by_household_id, recruited_by_profile_slug, workspace_id, missionary_profile_id, source, status, date_joined, created_at, updated_at")
+        .select("id, first_name, last_name, name, email, phone, recruited_by_household_id, recruited_by_profile_slug, workspace_id, missionary_profile_id, source, status, approved_at, approved_by, date_joined, created_at, updated_at")
         .or(ids.map((id) => `recruited_by_household_id.eq.${id},workspace_id.eq.${id},missionary_profile_id.eq.${id}`).join(",")),
       supabase
         .from("prayer_requests")
@@ -874,6 +874,8 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       const currentPartners = prayerPartnersByHouseholdId.get(partnerHouseholdId) ?? [];
 
       currentPartners.push({
+        approved_at: partner.approved_at ?? null,
+        approved_by: partner.approved_by ?? null,
         created_at: partner.created_at ?? "",
         date_joined: partner.date_joined ?? null,
         email: partner.email ?? null,

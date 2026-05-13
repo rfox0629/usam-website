@@ -166,7 +166,7 @@ export async function POST(request: Request) {
     region: asNullableString(payload.region),
     source: "public_profile",
     state: asNullableString(payload.state),
-    status: "active",
+    status: "pending",
     workspace_id: household.id,
   };
   const existingPartnerResult = await supabase
@@ -189,10 +189,16 @@ export async function POST(request: Request) {
   }
 
   const existingPartner = existingPartnerResult.data as { id: string; status?: string | null } | null;
-  const nextPrayerPartnerRecord = existingPartner?.status === "active"
+  const existingStatus = existingPartner?.status;
+  const nextPrayerPartnerRecord = existingPartner
     ? {
       ...prayerPartnerRecord,
-      status: "active",
+      status: existingStatus === "active"
+        || existingStatus === "declined"
+        || existingStatus === "inactive"
+        || existingStatus === "archived"
+        ? existingStatus
+        : "pending",
     }
     : prayerPartnerRecord;
   const partnerWriteResult = existingPartner
@@ -214,45 +220,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "We could not submit your request. Please try again." }, { status: 500 });
   }
 
-  const existingTeamMemberResult = await supabase
-    .from("missionary_team_members")
-    .select("id, role_title")
-    .eq("household_id", household.id)
-    .ilike("display_name", name)
-    .limit(1)
-    .maybeSingle();
-
-  if (existingTeamMemberResult.error) {
-    console.error("[Prayer Team Join API] team member mirror lookup failed:", existingTeamMemberResult.error);
-  } else if (!existingTeamMemberResult.data) {
-    const teamMemberResult = await supabase
-      .from("missionary_team_members")
-      .insert({
-        display_name: name,
-        household_id: household.id,
-        is_public: false,
-        role_title: "Prayer Partner",
-        short_description: "Public Profile prayer team signup.",
-        sort_order: 999,
-        source: "public_form",
-        status: "active",
-      });
-
-    if (teamMemberResult.error) {
-      console.error("[Prayer Team Join API] team member mirror insert failed:", teamMemberResult.error);
-    }
-  } else if (!(existingTeamMemberResult.data as { role_title?: string | null }).role_title) {
-    const teamMemberResult = await supabase
-      .from("missionary_team_members")
-      .update({
-        role_title: "Prayer Partner",
-        source: "public_form",
-      })
-      .eq("id", (existingTeamMemberResult.data as { id: string }).id);
-
-    if (teamMemberResult.error) {
-      console.error("[Prayer Team Join API] team member mirror update failed:", teamMemberResult.error);
-    }
+  if (existingPartner) {
+    return NextResponse.json({
+      applicationStatus: "already_received",
+    });
   }
 
   const submissionResult = await createFormSubmission({

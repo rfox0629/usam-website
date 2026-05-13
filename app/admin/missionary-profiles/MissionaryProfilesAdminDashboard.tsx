@@ -90,7 +90,7 @@ export type AdminAssessmentFollowUpArea = "Baptism" | "Community" | "Obedience" 
 export type AdminConnectionType = "Coffee" | "Discipleship" | "Other" | "Phone call" | "Prayer" | "Text" | "Zoom";
 export type AdminFruitStatus = "approved" | "archived" | "draft" | "pending_review" | "private";
 type FruitReviewModerationAction = "approve" | "archive" | "private";
-export type AdminTeamMemberStatus = "active" | "hidden" | "archived";
+export type AdminTeamMemberStatus = "active" | "archived" | "declined" | "hidden" | "inactive" | "pending";
 export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 
 // Profiles (PF) public read model. These fields control public profile
@@ -377,6 +377,8 @@ export type AdminPrayerRequest = {
 export type AdminPrayerPartnerStatus = "active" | "archived" | "declined" | "inactive" | "pending";
 
 export type AdminPrayerPartner = {
+  approved_at?: string | null;
+  approved_by?: string | null;
   created_at: string;
   date_joined: string | null;
   email: string | null;
@@ -894,7 +896,10 @@ const encounterStatusOptions: Array<{ label: string; value: AdminEncounterStatus
 ];
 
 const teamMemberStatusOptions: Array<{ label: string; value: AdminTeamMemberStatus }> = [
+  { label: "Pending", value: "pending" },
   { label: "Active", value: "active" },
+  { label: "Inactive", value: "inactive" },
+  { label: "Declined", value: "declined" },
   { label: "Hidden", value: "hidden" },
   { label: "Archived", value: "archived" },
 ];
@@ -2351,6 +2356,7 @@ function WorkspaceOverview({
   const openPrayerRequests = prayerRequests.filter((request) => request.status === "open").length || profile.activePrayerRequestCount || 0;
   const prayerPartners = profile.prayerPartners ?? [];
   const activePrayerPartners = prayerPartners.filter((partner) => partner.status === "active").length || profile.prayerPartnerCount || 0;
+  const pendingPrayerApplications = prayerPartners.filter((partner) => partner.status === "pending").length;
   const followUpsNeeded = [
     ...(profile.tableReviews ?? []).filter((review) => Boolean(review.follow_up_needed?.trim())),
     ...(profile.connectionLogs ?? []).filter((connection) => Boolean(connection.follow_up_needed?.trim())),
@@ -2407,10 +2413,10 @@ function WorkspaceOverview({
       meta: request.request,
       type: "Prayer",
     })),
-    ...prayerPartners.slice(0, 3).map((partner) => ({
-      date: partner.date_joined ?? partner.created_at,
+    ...prayerPartners.filter((partner) => partner.status === "pending" || partner.status === "active").slice(0, 3).map((partner) => ({
+      date: partner.status === "active" ? (partner.approved_at ?? partner.updated_at ?? partner.date_joined ?? partner.created_at) : partner.created_at,
       label: prayerPartnerDisplayName(partner),
-      meta: "Joined prayer team",
+      meta: partner.status === "active" ? "Approved as prayer partner" : "Applied to join prayer team",
       type: "Prayer",
     })),
   ] satisfies DashboardActivityItem[])
@@ -2473,16 +2479,21 @@ function WorkspaceOverview({
               icon={Heart}
               title="Prayer"
             />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div className="border-r border-white/[0.08] pr-3">
                 <p className="text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Requests</p>
                 <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>{openPrayerRequests}</p>
                 <p className="mt-1 text-xs text-stone-500">open</p>
               </div>
-              <div>
+              <div className="border-r border-white/[0.08] pr-3">
                 <p className="text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Partners</p>
                 <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>{activePrayerPartners}</p>
                 <p className="mt-1 text-xs text-stone-500">active</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Applications</p>
+                <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>{pendingPrayerApplications}</p>
+                <p className="mt-1 text-xs text-stone-500">pending</p>
               </div>
             </div>
             <button
@@ -7415,6 +7426,7 @@ function TeamMemberManager({
   onArchive,
   onRemove,
   onUpdate,
+  prayerPartners,
 }: {
   allItems: readonly AdminTeamMember[];
   items: readonly AdminTeamMember[];
@@ -7423,6 +7435,7 @@ function TeamMemberManager({
   onArchive: (memberId: string) => void;
   onRemove: (memberId: string) => void;
   onUpdate: (memberId: string, patch: Partial<AdminTeamMember>) => void;
+  prayerPartners: readonly AdminPrayerPartner[];
 }) {
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [shouldEditNewestMember, setShouldEditNewestMember] = useState(false);
@@ -7441,6 +7454,10 @@ function TeamMemberManager({
     || publicRosterNumberValue(first.public_number).localeCompare(publicRosterNumberValue(second.public_number), undefined, { numeric: true })
     || first.display_name.localeCompare(second.display_name)
   ));
+  const isPrayerPartnerMember = (member: AdminTeamMember) => member.role_title?.trim().toLowerCase() === "prayer partner";
+  const missionaryTeamItems = sortedItems.filter((member) => !isPrayerPartnerMember(member));
+  const activePrayerPartnerItems = sortedItems.filter((member) => isPrayerPartnerMember(member) && member.status === "active");
+  const pendingPrayerPartners = prayerPartners.filter((partner) => partner.status === "pending");
   const editingMember = sortedItems.find((member) => member.id === editingMemberId);
 
   useEffect(() => {
@@ -7453,8 +7470,52 @@ function TeamMemberManager({
     setShouldEditNewestMember(false);
   }, [shouldEditNewestMember, sortedItems]);
 
+  function renderMemberGroup(title: string, groupItems: readonly AdminTeamMember[], emptyText: string) {
+    return (
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            {title}
+          </p>
+          <span className="rounded-full border border-[#e2ded5] bg-white px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#7b746a]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            {groupItems.length}
+          </span>
+        </div>
+
+        {groupItems.length === 0 ? (
+          <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
+            {emptyText}
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+            <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_92px_72px_70px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <span>Name</span>
+              <span>Category</span>
+              <span>Location</span>
+              <span>Status</span>
+              <span>Public</span>
+              <span className="text-right">Actions</span>
+            </div>
+            <div className="divide-y divide-[#e2ded5]">
+              {groupItems.map((member) => (
+                <TeamMemberRow
+                  key={member.id}
+                  isEditing={editingMemberId === member.id}
+                  locationLabel={locationLabel}
+                  member={member}
+                  onEdit={() => setEditingMemberId(member.id)}
+                  onUpdate={onUpdate}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex justify-end">
         <button
           className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942]"
@@ -7469,34 +7530,43 @@ function TeamMemberManager({
         </button>
       </div>
 
-      {sortedItems.length === 0 ? (
-        <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-          No team members yet.
-        </p>
-      ) : (
-        <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-          <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_92px_72px_70px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            <span>Name</span>
-            <span>Category</span>
-            <span>Location</span>
-            <span>Status</span>
-            <span>Public</span>
-            <span className="text-right">Actions</span>
+      {renderMemberGroup("Missionary Team", missionaryTeamItems, "No missionary team members yet.")}
+      {renderMemberGroup("Prayer Partners", activePrayerPartnerItems, "Approved prayer partners will appear here.")}
+
+      {pendingPrayerPartners.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Pending Prayer Partners
+            </p>
+            <span className="rounded-full border border-[#D4A63D]/30 bg-[#D4A63D]/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {pendingPrayerPartners.length}
+            </span>
           </div>
-          <div className="divide-y divide-[#e2ded5]">
-            {sortedItems.map((member) => (
-              <TeamMemberRow
-                key={member.id}
-                isEditing={editingMemberId === member.id}
-                locationLabel={locationLabel}
-                member={member}
-                onEdit={() => setEditingMemberId(member.id)}
-                onUpdate={onUpdate}
-              />
+          <div className="divide-y divide-[#e2ded5] overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+            {pendingPrayerPartners.map((partner) => (
+              <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={partner.id}>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[#111111]">{prayerPartnerName(partner)}</p>
+                  <p className="mt-0.5 truncate text-xs text-[#7b746a]">{prayerPartnerContact(partner)}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Applied {formatProfileUpdatedDate(partner.created_at)}
+                  </p>
+                </div>
+                <a
+                  className={`${lightSecondaryButtonClass} min-h-8`}
+                  href={`/admin/prayer-team?tab=applications&partner=${partner.id}`}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Review
+                </a>
+              </div>
             ))}
           </div>
-        </div>
-      )}
+        </section>
+      ) : null}
 
       {editingMember ? (
         <TeamMemberEditor
@@ -7527,6 +7597,7 @@ function TeamMemberRow({
 }) {
   const isActive = member.status === "active";
   const isPublic = member.is_public !== false && isActive;
+  const isPrayerPartner = member.role_title?.trim().toLowerCase() === "prayer partner";
 
   return (
     <div className={`grid gap-3 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_92px_72px_70px] md:items-center ${isEditing ? "bg-[#fbfaf7]" : ""}`}>
@@ -7550,11 +7621,11 @@ function TeamMemberRow({
       </div>
       <div className="flex items-center justify-between gap-3 md:block">
         <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Status</span>
-        <TeamStatusBadge isActive={isActive} />
+        <TeamStatusBadge status={member.status} />
       </div>
       <div className="flex items-center justify-between gap-3 md:block">
         <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public</span>
-        <label className="inline-flex cursor-pointer items-center text-xs text-[#4b443b]">
+        <label className={`inline-flex items-center text-xs text-[#4b443b] ${isPrayerPartner ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
           <input
             checked={isPublic}
             className="sr-only"
@@ -7562,6 +7633,7 @@ function TeamMemberRow({
               is_public: event.target.checked,
               status: event.target.checked ? "active" : member.status,
             })}
+            disabled={isPrayerPartner}
             type="checkbox"
           />
           <span className={`relative h-5 w-9 rounded-full border transition-colors ${
@@ -7591,17 +7663,21 @@ function TeamMemberRow({
   );
 }
 
-function TeamStatusBadge({ isActive }: { isActive: boolean }) {
+function TeamStatusBadge({ status }: { status: AdminTeamMemberStatus }) {
+  const toneClass = status === "active"
+    ? "border-green-200 bg-green-50 text-green-800"
+    : status === "pending"
+      ? "border-[#D4A63D]/40 bg-[#D4A63D]/10 text-[#8a5a00]"
+      : status === "declined" || status === "archived"
+        ? "border-red-200 bg-red-50 text-red-700"
+        : "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]";
+
   return (
     <span
-      className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${
-        isActive
-          ? "border-green-200 bg-green-50 text-green-800"
-          : "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]"
-      }`}
+      className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${toneClass}`}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
-      {isActive ? "Active" : "Inactive"}
+      {labelFromToken(status)}
     </span>
   );
 }
@@ -7921,7 +7997,7 @@ function PrayerPublishingWorkspace({
   ));
   const activePartners = partners.filter((partner) => partner.status === "active").length;
   const pendingPartners = partners.filter((partner) => partner.status === "pending").length;
-  const recentPartners = partners.slice(0, 4);
+  const recentPartners = partners.filter((partner) => partner.status === "pending" || partner.status === "active").slice(0, 4);
   const requests = [...(profile.prayerRequests ?? [])].sort((a, b) => (
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   ));
@@ -10594,6 +10670,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               onArchive={archiveTeamMember}
               onRemove={removeTeamMember}
               onUpdate={updateTeamMember}
+              prayerPartners={selectedProfile.prayerPartners ?? []}
             />
           </SectionIntro>
           ) : null}

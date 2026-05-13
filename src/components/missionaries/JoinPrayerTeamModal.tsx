@@ -161,6 +161,7 @@ export function JoinPrayerTeamModal({
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("Thanks. Your prayer team application has been received.");
   const [formValues, setFormValues] = useState<{
     email: string;
     name: string;
@@ -219,6 +220,9 @@ export function JoinPrayerTeamModal({
       return;
     }
 
+    setSuccessMessage(result.applicationStatus === "already_received"
+      ? "Your application has already been received."
+      : "Thanks. Your prayer team application has been received.");
     setStatus("success");
   }
 
@@ -259,7 +263,7 @@ export function JoinPrayerTeamModal({
             {status === "success" ? (
               <div className="mt-6">
                 <p className="text-sm leading-7 text-stone-300">
-                  Thank you for applying to join the prayer team for {householdName}. Our team will review your request and follow up with next steps.
+                  {successMessage}
                 </p>
                 <button
                   className={`${buttonClassName("outline")} mt-5`}

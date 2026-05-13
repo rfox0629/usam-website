@@ -135,9 +135,13 @@ function payloadStringArray(payload: Record<string, unknown>, key: string) {
 }
 
 async function getPrayerAdminClient() {
+  return (await getPrayerAdminContext()).supabase;
+}
+
+async function getPrayerAdminContext() {
   const authorization = await getAdminAuthorization();
 
-  if (!hasPrayerAdminAccess(authorization)) {
+  if (authorization.status !== "authorized" || !hasPrayerAdminAccess(authorization)) {
     throw new Error("Prayer Team admin access is required.");
   }
 
@@ -145,7 +149,10 @@ async function getPrayerAdminClient() {
     throw new Error("Supabase admin environment variables are not configured.");
   }
 
-  return createSupabaseAdminClient();
+  return {
+    authorization,
+    supabase: createSupabaseAdminClient(),
+  };
 }
 
 function redirectToPrayerSubmission(submissionId: string, suffix = "saved=1") {
@@ -158,6 +165,22 @@ function redirectToPrayerRequest(requestId: string, suffix = "saved=1") {
 
 function redirectToPrayerPartner(partnerId: string, suffix = "saved=1") {
   redirect(`/admin/prayer-team?tab=partners&partner=${partnerId}&${suffix}`);
+}
+
+function redirectToPrayerApplication(partnerId: string, suffix = "saved=1") {
+  redirect(`/admin/prayer-team?tab=applications&partner=${partnerId}&${suffix}`);
+}
+
+function prayerPartnerDisplayName(partner: {
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  name?: string | null;
+}) {
+  return partner.name
+    || [partner.first_name, partner.last_name].filter(Boolean).join(" ").trim()
+    || partner.email
+    || "Prayer Partner";
 }
 
 export async function createPrayerRequest(formData: FormData) {
@@ -577,6 +600,151 @@ export async function approvePrayerTeamApplication(formData: FormData) {
 
   revalidatePath("/admin/prayer-team");
   redirectToPrayerSubmission(submissionId, "saved=converted");
+}
+
+export async function approvePrayerPartnerApplication(formData: FormData) {
+  const { authorization, supabase } = await getPrayerAdminContext();
+  const partnerId = getString(formData, "partner_id");
+
+  if (!partnerId) {
+    redirect("/admin/prayer-team?tab=applications&error=missing");
+  }
+
+  const { data, error } = await supabase
+    .from("prayer_partners")
+    .select("id, first_name, last_name, name, email, phone, recruited_by_household_id, workspace_id, missionary_profile_id, recruited_by_profile_slug, status")
+    .eq("id", partnerId)
+    .maybeSingle();
+
+  if (error || !data) {
+    redirectToPrayerApplication(partnerId, `error=${encodeURIComponent(error?.message ?? "Application not found")}`);
+  }
+
+  const partner = data as {
+    email: string | null;
+    first_name: string | null;
+    id: string;
+    last_name: string | null;
+    missionary_profile_id: string | null;
+    name: string | null;
+    phone: string | null;
+    recruited_by_household_id: string | null;
+    recruited_by_profile_slug: string | null;
+    status: string | null;
+    workspace_id: string | null;
+  };
+  const householdId = partner.recruited_by_household_id ?? partner.workspace_id ?? partner.missionary_profile_id;
+  const displayName = prayerPartnerDisplayName(partner);
+
+  const updateResult = await supabase
+    .from("prayer_partners")
+    .update({
+      approved_at: new Date().toISOString(),
+      approved_by: authorization.email,
+      status: "active",
+    })
+    .eq("id", partnerId);
+
+  if (updateResult.error) {
+    redirectToPrayerApplication(partnerId, `error=${encodeURIComponent(updateResult.error.message)}`);
+  }
+
+  if (householdId) {
+    const existingMemberResult = await supabase
+      .from("missionary_team_members")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("role_title", "Prayer Partner")
+      .ilike("display_name", displayName)
+      .limit(1)
+      .maybeSingle();
+
+    const memberPayload = {
+      display_name: displayName,
+      household_id: householdId,
+      is_public: false,
+      role_title: "Prayer Partner",
+      short_description: "Approved prayer team partner.",
+      sort_order: 999,
+      source: "public_form",
+      status: "active",
+    };
+    const memberResult = existingMemberResult.data
+      ? await supabase
+        .from("missionary_team_members")
+        .update(memberPayload)
+        .eq("id", (existingMemberResult.data as { id: string }).id)
+      : await supabase
+        .from("missionary_team_members")
+        .insert(memberPayload);
+
+    if (existingMemberResult.error || memberResult.error) {
+      redirectToPrayerApplication(partnerId, `error=${encodeURIComponent(existingMemberResult.error?.message ?? memberResult.error?.message ?? "Team member mirror could not be saved")}`);
+    }
+  }
+
+  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/missionary-profiles");
+  redirect(`/admin/prayer-team?tab=partners&partner=${partnerId}&saved=approved`);
+}
+
+export async function declinePrayerPartnerApplication(formData: FormData) {
+  const supabase = await getPrayerAdminClient();
+  const partnerId = getString(formData, "partner_id");
+
+  if (!partnerId) {
+    redirect("/admin/prayer-team?tab=applications&error=missing");
+  }
+
+  const { data, error: readError } = await supabase
+    .from("prayer_partners")
+    .select("id, first_name, last_name, name, email, recruited_by_household_id, workspace_id, missionary_profile_id")
+    .eq("id", partnerId)
+    .maybeSingle();
+
+  if (readError || !data) {
+    redirectToPrayerApplication(partnerId, `error=${encodeURIComponent(readError?.message ?? "Application not found")}`);
+  }
+
+  const partner = data as {
+    email: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    missionary_profile_id: string | null;
+    name: string | null;
+    recruited_by_household_id: string | null;
+    workspace_id: string | null;
+  };
+  const householdId = partner.recruited_by_household_id ?? partner.workspace_id ?? partner.missionary_profile_id;
+  const displayName = prayerPartnerDisplayName(partner);
+  const { error } = await supabase
+    .from("prayer_partners")
+    .update({ status: "declined" })
+    .eq("id", partnerId);
+
+  if (error) {
+    redirectToPrayerApplication(partnerId, `error=${encodeURIComponent(error.message)}`);
+  }
+
+  if (householdId) {
+    const memberResult = await supabase
+      .from("missionary_team_members")
+      .update({
+        is_public: false,
+        status: "declined",
+      })
+      .eq("household_id", householdId)
+      .eq("role_title", "Prayer Partner")
+      .ilike("display_name", displayName);
+
+    if (memberResult.error) {
+      redirectToPrayerApplication(partnerId, `error=${encodeURIComponent(memberResult.error.message)}`);
+    }
+  }
+
+  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/missionary-profiles");
+  redirectToPrayerApplication(partnerId, "saved=declined");
 }
 
 export async function updatePrayerPartner(formData: FormData) {
