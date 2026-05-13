@@ -246,6 +246,7 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     source: "dos",
     source_app: "dos_quick_review",
     source_external_id: String(review.id),
+    submitted_by_name: submission.sharePermission === "with_name" ? submission.submittedName : null,
     status: "draft",
     table_id: typedLink.meeting_id,
     testimony_date: new Date().toISOString().slice(0, 10),

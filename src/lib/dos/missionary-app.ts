@@ -9,6 +9,7 @@ import {
   type DosKitchenTableResponses,
   type DosRecommendedResource,
 } from "@/src/lib/dos/meeting-engine";
+import { dosQuickReviewType } from "@/src/lib/dos/review-types";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -28,6 +29,7 @@ export const dosAppOutcomeTags = [
 
 export type DosAppMeetingType = typeof dosAppMeetingTypes[number];
 export type DosAppOutcomeTag = typeof dosAppOutcomeTags[number];
+export type DosAppReviewStatus = "approved" | "not_sent" | "pending" | "private" | "submitted";
 
 export type DosAppWorkspace = {
   displayName: string;
@@ -62,6 +64,14 @@ export type DosAppMeeting = {
   notes: string | null;
   participantNames: string[];
   recommendedResources: DosRecommendedResource[];
+  review: {
+    sharePermission: string | null;
+    status: DosAppReviewStatus;
+    stoodOut: string | null;
+    submittedAt: string | null;
+    submittedName: string | null;
+    token: string | null;
+  };
   source: "connection" | "table";
   title: string;
   type: DosAppMeetingType;
@@ -72,9 +82,12 @@ export type DosAppFruit = {
   fieldPersonId: string | null;
   id: string;
   outcomeTags: DosAppOutcomeTag[];
+  permissionToShare: boolean;
   sourceApp: string | null;
   status: string;
+  submittedByName: string | null;
   summary: string;
+  tableId: string | null;
   testimonyDate: string | null;
   updatedAt: string | null;
 };
@@ -151,9 +164,28 @@ type FruitRow = {
   field_person_id: string | null;
   id: string;
   outcome_tags: string[] | null;
+  permission_to_share?: boolean | null;
   source_app?: string | null;
+  submitted_by_name?: string | null;
+  table_id?: string | null;
   testimony_date: string | null;
   updated_at: string | null;
+};
+
+type ReviewLinkRow = {
+  created_at: string | null;
+  meeting_id: string;
+  token: string;
+  used_at: string | null;
+};
+
+type MeetingReviewRow = {
+  created_at: string | null;
+  meeting_id: string;
+  share_permission: string | null;
+  status: string | null;
+  stood_out: string | null;
+  submitted_name: string | null;
 };
 
 function mapMeetingType(value: string | null): DosAppMeetingType {
@@ -194,6 +226,59 @@ function mapOutcomeTags(value: string[] | null | undefined): DosAppOutcomeTag[] 
   return Array.isArray(value)
     ? value.filter((tag): tag is DosAppOutcomeTag => dosAppOutcomeTags.includes(tag as DosAppOutcomeTag))
     : [];
+}
+
+function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
+  if (value === "approved") {
+    return "approved";
+  }
+
+  if (value === "private" || value === "archived") {
+    return "private";
+  }
+
+  return "submitted";
+}
+
+function emptyReviewSummary(): DosAppMeeting["review"] {
+  return {
+    sharePermission: null,
+    status: "not_sent",
+    stoodOut: null,
+    submittedAt: null,
+    submittedName: null,
+    token: null,
+  };
+}
+
+function meetingReviewSummary(
+  meetingId: string,
+  reviewLinkByMeetingId: Map<string, ReviewLinkRow>,
+  meetingReviewByMeetingId: Map<string, MeetingReviewRow>,
+): DosAppMeeting["review"] {
+  const review = meetingReviewByMeetingId.get(meetingId);
+  const link = reviewLinkByMeetingId.get(meetingId);
+
+  if (review) {
+    return {
+      sharePermission: review.share_permission,
+      status: mapReviewStatus(review.status),
+      stoodOut: review.stood_out,
+      submittedAt: review.created_at,
+      submittedName: review.submitted_name,
+      token: null,
+    };
+  }
+
+  if (link && !link.used_at) {
+    return {
+      ...emptyReviewSummary(),
+      status: "pending",
+      token: link.token,
+    };
+  }
+
+  return emptyReviewSummary();
 }
 
 function workspaceScopeFilter(workspaceId: string) {
@@ -294,7 +379,7 @@ async function loadConnectionLogsForWorkspace(supabase: SupabaseAdminClient, wor
 async function loadFruitForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const scopedResult = await supabase
     .from("missionary_fruit_items")
-    .select("id, body, outcome_tags, cc_status, field_person_id, source_app, testimony_date, updated_at")
+    .select("id, body, outcome_tags, cc_status, field_person_id, permission_to_share, source_app, submitted_by_name, table_id, testimony_date, updated_at")
     .or(workspaceScopeFilter(workspaceId))
     .order("testimony_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
@@ -302,11 +387,37 @@ async function loadFruitForWorkspace(supabase: SupabaseAdminClient, workspaceId:
   return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
     ? supabase
       .from("missionary_fruit_items")
-      .select("id, body, outcome_tags, cc_status, field_person_id, source_app, testimony_date, updated_at")
+      .select("id, body, outcome_tags, cc_status, field_person_id, permission_to_share, source_app, submitted_by_name, table_id, testimony_date, updated_at")
       .eq("household_id", workspaceId)
       .order("testimony_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
     : scopedResult;
+}
+
+async function loadReviewLinksForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("dos_review_links")
+    .select("meeting_id, token, used_at, created_at")
+    .eq("workspace_id", workspaceId)
+    .eq("review_type", dosQuickReviewType)
+    .order("created_at", { ascending: false });
+
+  return result.error && isMissingWorkflowTable(result.error, "dos_review_links")
+    ? { data: [], error: null }
+    : result;
+}
+
+async function loadMeetingReviewsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("dos_meeting_reviews")
+    .select("meeting_id, share_permission, status, stood_out, submitted_name, created_at")
+    .eq("workspace_id", workspaceId)
+    .eq("review_type", dosQuickReviewType)
+    .order("created_at", { ascending: false });
+
+  return result.error && isMissingWorkflowTable(result.error, "dos_meeting_reviews")
+    ? { data: [], error: null }
+    : result;
 }
 
 async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<HouseholdRow>> {
@@ -350,19 +461,23 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
     loadFruitForWorkspace(supabase, workspace.id),
+    loadReviewLinksForWorkspace(supabase, workspace.id),
+    loadMeetingReviewsForWorkspace(supabase, workspace.id),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
         ?? connectionLogsResult.error?.message
         ?? fruitResult.error?.message
+        ?? reviewLinksResult.error?.message
+        ?? meetingReviewsResult.error?.message
         ?? "Unable to load DOS app data.",
       status: "error",
     };
@@ -370,7 +485,23 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const meetingRows = (meetingsResult.data ?? []) as MeetingRow[];
   const connectionRows = (connectionLogsResult.data ?? []) as ConnectionLogRow[];
+  const reviewLinkRows = (reviewLinksResult.data ?? []) as ReviewLinkRow[];
+  const meetingReviewRows = (meetingReviewsResult.data ?? []) as MeetingReviewRow[];
+  const reviewLinkByMeetingId = new Map<string, ReviewLinkRow>();
+  const meetingReviewByMeetingId = new Map<string, MeetingReviewRow>();
   const latestActivityByPersonId = new Map<string, string>();
+
+  reviewLinkRows.forEach((link) => {
+    if (!reviewLinkByMeetingId.has(link.meeting_id)) {
+      reviewLinkByMeetingId.set(link.meeting_id, link);
+    }
+  });
+
+  meetingReviewRows.forEach((review) => {
+    if (!meetingReviewByMeetingId.has(review.meeting_id)) {
+      meetingReviewByMeetingId.set(review.meeting_id, review);
+    }
+  });
 
   meetingRows.forEach((meeting) => {
     const activityDate = latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at);
@@ -423,6 +554,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       notes: meeting.notes,
       participantNames: meeting.participant_names ?? [],
       recommendedResources: normalizeRecommendedResources(meeting.recommended_resources),
+      review: meetingReviewSummary(meeting.id, reviewLinkByMeetingId, meetingReviewByMeetingId),
       source: "table" as const,
       title: "Meeting",
       type: mapMeetingType(meeting.table_type),
@@ -439,6 +571,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         ? [peopleById.get(connection.field_person_id) as string]
         : [],
       recommendedResources: [],
+      review: emptyReviewSummary(),
       source: "connection" as const,
       title: connection.interaction_type ?? "Connection",
       type: mapConnectionType(connection.interaction_type),
@@ -449,9 +582,12 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     fieldPersonId: item.field_person_id,
     id: item.id,
     outcomeTags: mapOutcomeTags(item.outcome_tags),
+    permissionToShare: item.permission_to_share === true,
     sourceApp: item.source_app ?? null,
     status: item.cc_status ?? "draft",
+    submittedByName: item.submitted_by_name ?? null,
     summary: item.body,
+    tableId: item.table_id ?? null,
     testimonyDate: item.testimony_date,
     updatedAt: item.updated_at,
   }));

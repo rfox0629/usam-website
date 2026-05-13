@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, FileImage, Mail, MapPin, MessageCircle, Mic, MoreHorizontal, Pencil, Phone, Square, StickyNote, X } from "lucide-react";
+import { ArrowLeft, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, FileImage, Mail, MapPin, MessageCircle, Mic, MoreHorizontal, Pencil, Phone, Send, Share2, Square, StickyNote, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
@@ -16,7 +16,7 @@ import {
   type DosKitchenTableResponses,
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
-import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppMeetingType, DosAppPerson } from "@/src/lib/dos/missionary-app";
+import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppMeetingType, DosAppPerson, DosAppReviewStatus } from "@/src/lib/dos/missionary-app";
 import { dosGuideResources } from "@/src/lib/dos/guide-resources";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -311,6 +311,34 @@ function answerLabel(value: DosKitchenTableAnswer | undefined) {
 
 function meetingMetadataLine(meeting: DosAppMeeting) {
   return formatDosMeetingSecondary(meetingActivityTitle(meeting), formatDate(meeting.date));
+}
+
+function reviewStatusLabel(value: DosAppReviewStatus) {
+  return {
+    approved: "Approved",
+    not_sent: "Not Sent",
+    pending: "Pending",
+    private: "Private",
+    submitted: "Submitted",
+  }[value];
+}
+
+function reviewStatusClass(value: DosAppReviewStatus) {
+  return value === "not_sent"
+    ? "border-[#E2DED6] bg-[#F8F7F3] text-[#77716A]"
+    : "border-[#D7C7A4] bg-[#FFF8E7] text-[#8A5A12]";
+}
+
+function reviewSharePermissionLabel(value: string | null) {
+  if (value === "with_name") {
+    return "Name OK";
+  }
+
+  if (value === "anonymous") {
+    return "Anonymous OK";
+  }
+
+  return "Private";
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -1352,15 +1380,36 @@ function FruitCard({
   people: DosAppPerson[];
 }) {
   const isQuickReview = fruit.sourceApp === "dos_quick_review";
+  const linkedPerson = fruit.fieldPersonId ? personName(people, fruit.fieldPersonId) : null;
+  const quickReviewPermission = isQuickReview
+    ? fruit.permissionToShare
+      ? fruit.submittedByName ? "Name OK" : "Anonymous OK"
+      : "Private"
+    : null;
 
   return (
     <article className="rounded-2xl border border-[#E2DED6] bg-white p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-[#1E1D1A]">{isQuickReview ? "Pending Review" : fruit.status === "approved" ? "Approved Fruit" : "Private Draft"}</p>
-        <p className="text-xs text-[#8E8880]">{formatDate(fruit.testimonyDate)}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#1E1D1A]">{isQuickReview ? "Quick Review" : fruit.status === "approved" ? "Approved Fruit" : "Private Draft"}</p>
+          <p className="mt-1 text-xs text-[#8E8880]">{formatDate(fruit.testimonyDate)}</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+          <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+            {isQuickReview ? "Pending" : fruit.status}
+          </span>
+          {quickReviewPermission ? (
+            <span className="rounded-full border border-[#E2DED6] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+              {quickReviewPermission}
+            </span>
+          ) : null}
+        </div>
       </div>
       <p className="mt-3 text-sm leading-6 text-[#3B3935]">{fruit.summary}</p>
-      {fruit.fieldPersonId ? <p className="mt-3 text-xs text-[#77716A]">Linked to {personName(people, fruit.fieldPersonId)}</p> : null}
+      <div className="mt-3 grid gap-1 text-xs leading-5 text-[#77716A]">
+        {isQuickReview && fruit.submittedByName ? <span>Submitted by {fruit.submittedByName}</span> : null}
+        {linkedPerson ? <span>Linked to {linkedPerson}</span> : null}
+      </div>
       {fruit.outcomeTags.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {fruit.outcomeTags.map((tag) => (
@@ -1714,22 +1763,50 @@ function PersonDetailOverlay({
   );
 }
 
+function ReviewActionButton({
+  children,
+  disabled,
+  icon,
+  onClick,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="inline-flex min-h-10 items-center justify-center gap-1 rounded-2xl border border-[#D7C7A4] bg-[#FFF8E7] px-1.5 text-[11px] font-bold text-[#8A5A12] transition-colors hover:border-[#D4A63D] disabled:cursor-not-allowed disabled:opacity-55"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
 function MeetingDetailOverlay({
   isSendingReview,
   meeting,
+  onCopyReview,
   onBack,
   onEdit,
   onLogMeeting,
   onSendReview,
+  onShareReview,
   people,
   reviewShareMessage,
 }: {
   isSendingReview?: boolean;
   meeting: DosAppMeeting;
+  onCopyReview: () => void;
   onBack: () => void;
   onEdit: () => void;
   onLogMeeting: () => void;
   onSendReview: () => void;
+  onShareReview: () => void;
   people: DosAppPerson[];
   reviewShareMessage?: string;
 }) {
@@ -1792,19 +1869,55 @@ function MeetingDetailOverlay({
 
       <div className="mt-5 grid gap-2">
         <AppButton icon="log" onClick={onLogMeeting} tone="black">Log Meeting</AppButton>
-        {isTableMeeting ? (
-          <>
-            <AppButton disabled={isSendingReview} onClick={onSendReview} tone="soft">
-              {isSendingReview ? "Preparing..." : "Send Review"}
-            </AppButton>
-            {reviewShareMessage ? (
-              <p className="rounded-2xl border border-[#E2DED6] bg-white px-3 py-2 text-center text-xs font-semibold text-[#8A5A12]">{reviewShareMessage}</p>
-            ) : null}
-          </>
-        ) : null}
       </div>
 
       <div className="mt-5 grid gap-3">
+        {isTableMeeting ? (
+          <DetailCard title="Review Status">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[#1E1D1A]">{reviewStatusLabel(meeting.review.status)}</p>
+                <p className="mt-1 text-xs leading-5 text-[#77716A]">
+                  {meeting.review.status === "not_sent"
+                    ? "Create a quick check-in link."
+                    : meeting.review.status === "pending"
+                      ? "Link ready. Waiting for a response."
+                      : meeting.review.submittedAt
+                        ? `Received ${formatDate(meeting.review.submittedAt)}.`
+                        : "Review received."}
+                </p>
+              </div>
+              <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${reviewStatusClass(meeting.review.status)}`} style={{ fontFamily: font.rajdhani }}>
+                {reviewStatusLabel(meeting.review.status)}
+              </span>
+            </div>
+            {meeting.review.status !== "not_sent" && meeting.review.sharePermission ? (
+              <span className="mt-3 inline-flex rounded-full border border-[#E2DED6] bg-[#F8F7F3] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+                {reviewSharePermissionLabel(meeting.review.sharePermission)}
+              </span>
+            ) : null}
+            {meeting.review.stoodOut ? (
+              <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F8F7F3] p-3 text-sm leading-6 text-[#3B3935]">{meeting.review.stoodOut}</p>
+            ) : null}
+            {meeting.review.status === "not_sent" || meeting.review.status === "pending" ? (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
+                  Send Review
+                </ReviewActionButton>
+                <ReviewActionButton disabled={isSendingReview} icon={<Copy className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyReview}>
+                  Copy Link
+                </ReviewActionButton>
+                <ReviewActionButton disabled={isSendingReview} icon={<Share2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onShareReview}>
+                  Share
+                </ReviewActionButton>
+              </div>
+            ) : null}
+            {reviewShareMessage ? (
+              <p className="mt-3 rounded-2xl border border-[#E2DED6] bg-[#FFF8E7] px-3 py-2 text-center text-xs font-semibold text-[#8A5A12]">{reviewShareMessage}</p>
+            ) : null}
+          </DetailCard>
+        ) : null}
+
         <DetailCard title="Summary">
           <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Notes" value={meeting.notes || "No summary added yet."} />
         </DetailCard>
@@ -1860,6 +1973,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [kitchenTableResponses, setKitchenTableResponses] = useState<DosKitchenTableResponses>({});
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
+  const [reviewLinksByMeetingId, setReviewLinksByMeetingId] = useState<Record<string, string>>({});
   const [reviewLinkMeetingId, setReviewLinkMeetingId] = useState<string | null>(null);
   const [reviewShareMessage, setReviewShareMessage] = useState("");
   const [selectedConversationFlow, setSelectedConversationFlow] = useState<DosConversationFlowKey>("none");
@@ -1879,6 +1993,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       : []
   ), [kitchenTableResponses, selectedConversationFlow]);
   const selectedMeeting = useMemo(() => data.meetings.find((meeting) => meeting.id === selectedMeetingId) ?? null, [data.meetings, selectedMeetingId]);
+  const selectedMeetingWithReview = useMemo(() => {
+    if (!selectedMeeting) {
+      return null;
+    }
+
+    const token = reviewLinksByMeetingId[selectedMeeting.id];
+
+    if (!token || selectedMeeting.review.status !== "not_sent") {
+      return selectedMeeting;
+    }
+
+    return {
+      ...selectedMeeting,
+      review: {
+        ...selectedMeeting.review,
+        status: "pending" as const,
+        token,
+      },
+    };
+  }, [reviewLinksByMeetingId, selectedMeeting]);
   const selectedPerson = useMemo(() => data.people.find((person) => person.id === selectedPersonId) ?? null, [data.people, selectedPersonId]);
   const attentionPeople = useMemo(() => data.people.filter(isNeedsAttention), [data.people]);
   const relatingCount = data.people.filter((person) => normalizeText(person.status).toLowerCase() !== "new").length;
@@ -2083,30 +2217,97 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     });
   }
 
-  async function handleSendReview(meeting: DosAppMeeting) {
+  function reviewUrlFromToken(token: string) {
+    return typeof window !== "undefined"
+      ? `${window.location.origin}/dos/review/${token}`
+      : `/dos/review/${token}`;
+  }
+
+  function existingReviewUrl(meeting: DosAppMeeting) {
+    const token = reviewLinksByMeetingId[meeting.id] ?? meeting.review.token;
+
+    return token ? reviewUrlFromToken(token) : null;
+  }
+
+  async function ensureReviewLink(meeting: DosAppMeeting) {
     if (meeting.source !== "table") {
-      return;
+      return null;
     }
 
+    const existingUrl = existingReviewUrl(meeting);
+
+    if (existingUrl) {
+      return existingUrl;
+    }
+
+    const response = await fetch("/api/dos/app/review-links", {
+      body: JSON.stringify({
+        meetingId: meeting.id,
+        workspaceId: data.workspace.id,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    const result = await response.json().catch(() => ({})) as { error?: string; token?: string; url?: string };
+
+    if (!response.ok || !result.url) {
+      throw new Error(result.error ?? "Unable to create review link.");
+    }
+
+    if (result.token) {
+      setReviewLinksByMeetingId((current) => ({
+        ...current,
+        [meeting.id]: result.token as string,
+      }));
+    }
+
+    return result.url;
+  }
+
+  async function copyReviewUrl(url: string) {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  async function handleCopyReview(meeting: DosAppMeeting) {
     setErrorMessage("");
     setReviewLinkMeetingId(meeting.id);
     setReviewShareMessage("");
 
     try {
-      const response = await fetch("/api/dos/app/review-links", {
-        body: JSON.stringify({
-          meetingId: meeting.id,
-          workspaceId: data.workspace.id,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      });
-      const result = await response.json().catch(() => ({})) as { error?: string; url?: string };
+      const url = await ensureReviewLink(meeting);
 
-      if (!response.ok || !result.url) {
-        throw new Error(result.error ?? "Unable to create review link.");
+      if (!url) {
+        return;
+      }
+
+      const copied = await copyReviewUrl(url);
+
+      setReviewShareMessage(copied ? "Review link copied." : url);
+    } catch (error) {
+      setReviewShareMessage(error instanceof Error ? error.message : "Unable to create review link.");
+    } finally {
+      setReviewLinkMeetingId(null);
+    }
+  }
+
+  async function handleShareReview(meeting: DosAppMeeting) {
+    setErrorMessage("");
+    setReviewLinkMeetingId(meeting.id);
+    setReviewShareMessage("");
+
+    try {
+      const url = await ensureReviewLink(meeting);
+
+      if (!url) {
+        return;
       }
 
       // TODO: Add SMS/email/WhatsApp sending from this link once DOS messaging workflows exist.
@@ -2115,7 +2316,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           await navigator.share({
             text: "Quick check-in for our conversation.",
             title: "DOS Quick Review",
-            url: result.url,
+            url,
           });
           setReviewShareMessage("Review link shared.");
           return;
@@ -2124,18 +2325,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }
       }
 
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(result.url);
-        setReviewShareMessage("Review link copied.");
-        return;
-      }
+      const copied = await copyReviewUrl(url);
 
-      setReviewShareMessage(result.url);
+      setReviewShareMessage(copied ? "Review link copied." : url);
     } catch (error) {
-      setReviewShareMessage(error instanceof Error ? error.message : "Unable to create review link.");
+      setReviewShareMessage(error instanceof Error ? error.message : "Unable to share review link.");
     } finally {
       setReviewLinkMeetingId(null);
     }
+  }
+
+  async function handleSendReview(meeting: DosAppMeeting) {
+    await handleShareReview(meeting);
   }
 
   function toggleOutcomeTag(tag: string) {
@@ -2402,14 +2603,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
 
-        {selectedMeeting ? (
+        {selectedMeetingWithReview ? (
           <MeetingDetailOverlay
-            isSendingReview={reviewLinkMeetingId === selectedMeeting.id}
-            meeting={selectedMeeting}
+            isSendingReview={reviewLinkMeetingId === selectedMeetingWithReview.id}
+            meeting={selectedMeetingWithReview}
             onBack={() => setSelectedMeetingId(null)}
-            onEdit={() => openMeetingEdit(selectedMeeting)}
+            onCopyReview={() => handleCopyReview(selectedMeetingWithReview)}
+            onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
             onLogMeeting={() => openForm("meeting")}
-            onSendReview={() => handleSendReview(selectedMeeting)}
+            onSendReview={() => handleSendReview(selectedMeetingWithReview)}
+            onShareReview={() => handleShareReview(selectedMeetingWithReview)}
             people={data.people}
             reviewShareMessage={reviewShareMessage}
           />

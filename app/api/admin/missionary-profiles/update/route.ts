@@ -75,6 +75,9 @@ type UpdatePayload = {
     id?: unknown;
     internal_notes?: unknown;
     outcome_tags?: unknown;
+    permission_to_share?: unknown;
+    source_app?: unknown;
+    submitted_by_name?: unknown;
     status?: unknown;
     summary?: unknown;
     table_id?: unknown;
@@ -1155,6 +1158,7 @@ export async function POST(request: Request) {
         const outcomeTags = asOutcomeTags(fruit.outcome_tags);
         const ccStatus = asFruitStatus(fruit.status);
         const category = outcomeTags.length > 0 ? outcomeTags.join(", ") : "Other";
+        const sourceApp = asString(fruit.source_app) === "dos_quick_review" ? "dos_quick_review" : "command_center";
 
         return {
           id: asString(fruit.id),
@@ -1167,8 +1171,10 @@ export async function POST(request: Request) {
             household_id: householdId,
             internal_notes: asNullableString(fruit.internal_notes),
             outcome_tags: outcomeTags,
-            source: "website_admin",
-            source_app: "command_center",
+            permission_to_share: fruit.permission_to_share === true,
+            source: sourceApp === "dos_quick_review" ? "dos" : "website_admin",
+            source_app: sourceApp,
+            submitted_by_name: asNullableString(fruit.submitted_by_name),
             table_id: tableId,
             testimony_date: asNullableDateString(fruit.testimony_date) ?? timestamp.slice(0, 10),
             title: outcomeTags[0] ?? "Field Fruit",
@@ -1185,7 +1191,7 @@ export async function POST(request: Request) {
         ...(fruit.record.cc_status === "private" || fruit.record.cc_status === "draft"
           ? {
             missionary_public_approved: false,
-            permission_to_share: false,
+            permission_to_share: fruit.record.source_app === "dos_quick_review" ? fruit.record.permission_to_share : false,
             status: fruit.record.cc_status === "private" ? "hidden" : "draft",
             visibility: "private",
           }

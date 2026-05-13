@@ -309,7 +309,10 @@ export type AdminFruitItem = {
   id: string;
   internal_notes: string | null;
   outcome_tags: AdminOutcomeTag[];
+  permission_to_share: boolean;
+  source_app: string | null;
   status: AdminFruitStatus;
+  submitted_by_name: string | null;
   summary: string;
   table_id: string | null;
   testimony_date: string | null;
@@ -1283,7 +1286,10 @@ function newFruitItem(workspaceId: string, draft: FruitDraft, table?: AdminMissi
     id: newClientId(),
     internal_notes: draft.internalNotes,
     outcome_tags: draft.outcomeTags,
+    permission_to_share: false,
+    source_app: "command_center",
     status: draft.status,
+    submitted_by_name: null,
     summary: draft.summary,
     table_id: draft.tableId || null,
     testimony_date: draft.testimonyDate || table?.table_date || todayDateValue(),
@@ -5824,35 +5830,57 @@ function FruitManager({
       ) : null}
 
       <div className="grid gap-3 lg:grid-cols-2">
-        {visibleFruit.map((fruit) => (
-          <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5" key={fruit.id}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-sm leading-6 text-[#111111]">
-                  {fruit.summary || "Summary needed."}
-                </p>
-                <div className="mt-2 grid gap-1 text-xs leading-5 text-[#7b746a]">
-                  <span>Person: {personNameById(fieldPeople, fruit.field_person_id)}</span>
-                  <span>Table: {tableNameById(tables, fruit.table_id)}</span>
-                  <span>Date: {fruit.testimony_date ? formatProfileUpdatedDate(fruit.testimony_date) : formatProfileUpdatedDate(fruit.created_at)}</span>
+        {visibleFruit.map((fruit) => {
+          const isQuickReview = fruit.source_app === "dos_quick_review";
+          const permissionLabel = isQuickReview
+            ? fruit.permission_to_share
+              ? fruit.submitted_by_name ? "Name OK" : "Anonymous OK"
+              : "Private"
+            : null;
+
+          return (
+            <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5" key={fruit.id}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {isQuickReview ? (
+                      <span className="rounded-full border border-[#d6c28d] bg-[#fff8e8] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Quick Review
+                      </span>
+                    ) : null}
+                    {permissionLabel ? (
+                      <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        {permissionLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-sm leading-6 text-[#111111]">
+                    {fruit.summary || "Summary needed."}
+                  </p>
+                  <div className="mt-2 grid gap-1 text-xs leading-5 text-[#7b746a]">
+                    {isQuickReview && fruit.submitted_by_name ? <span>Submitted by {fruit.submitted_by_name}</span> : null}
+                    <span>Person: {personNameById(fieldPeople, fruit.field_person_id)}</span>
+                    <span>Table: {tableNameById(tables, fruit.table_id)}</span>
+                    <span>Date: {fruit.testimony_date ? formatProfileUpdatedDate(fruit.testimony_date) : formatProfileUpdatedDate(fruit.created_at)}</span>
+                  </div>
                 </div>
+                <FruitStatusBadge status={fruit.status} />
               </div>
-              <FruitStatusBadge status={fruit.status} />
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {fruit.outcome_tags.length > 0 ? fruit.outcome_tags.map((tag) => (
+                  <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {tag}
+                  </span>
+                )) : (
+                  <span className="text-xs text-[#7b746a]">No outcome tags yet.</span>
+                )}
+              </div>
+              <button className={`${lightSecondaryButtonClass} mt-4`} onClick={() => setEditingFruit(fruit)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                View / Edit
+              </button>
             </div>
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {fruit.outcome_tags.length > 0 ? fruit.outcome_tags.map((tag) => (
-                <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  {tag}
-                </span>
-              )) : (
-                <span className="text-xs text-[#7b746a]">No outcome tags yet.</span>
-              )}
-            </div>
-            <button className={`${lightSecondaryButtonClass} mt-4`} onClick={() => setEditingFruit(fruit)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-              View / Edit
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {editingFruit ? (

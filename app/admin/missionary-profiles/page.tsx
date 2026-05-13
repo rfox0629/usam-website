@@ -207,6 +207,9 @@ type CommandFruitRow = {
   id: string;
   internal_notes?: string | null;
   outcome_tags?: string[] | null;
+  permission_to_share?: boolean | null;
+  source_app?: string | null;
+  submitted_by_name?: string | null;
   table_id?: string | null;
   testimony_date: string | null;
   updated_at: string | null;
@@ -1156,7 +1159,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
 
     const fruitItemsResult = await supabase
       .from("missionary_fruit_items")
-      .select("id, workspace_id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, testimony_date, created_at, updated_at")
+      .select("id, workspace_id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, permission_to_share, source_app, submitted_by_name, testimony_date, created_at, updated_at")
       .in("workspace_id", ids)
       .in("source_app", ["command_center", "dos_quick_review"])
       .order("testimony_date", { ascending: false, nullsFirst: false })
@@ -1164,7 +1167,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     const fallbackFruitItemsResult = fruitItemsResult.error && isMissingFruitWorkflowColumns(fruitItemsResult.error)
       ? await supabase
         .from("missionary_fruit_items")
-        .select("id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, testimony_date, created_at, updated_at")
+        .select("id, household_id, table_id, encounter_id, field_person_id, body, internal_notes, outcome_tags, cc_status, permission_to_share, source_app, submitted_by_name, testimony_date, created_at, updated_at")
         .in("household_id", ids)
         .in("source_app", ["command_center", "dos_quick_review"])
         .order("testimony_date", { ascending: false, nullsFirst: false })
@@ -1192,7 +1195,10 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         id: fruit.id,
         internal_notes: fruit.internal_notes ?? "",
         outcome_tags: getOutcomeTags(fruit.outcome_tags),
+        permission_to_share: fruit.permission_to_share === true,
+        source_app: fruit.source_app ?? "command_center",
         status: getFruitStatus(fruit.cc_status),
+        submitted_by_name: fruit.submitted_by_name ?? null,
         summary: fruit.body,
         table_id: fruit.table_id ?? null,
         testimony_date: fruit.testimony_date,

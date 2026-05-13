@@ -182,10 +182,10 @@ export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink
             DOS Review
           </p>
           <h1 className="mt-3 text-4xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
-            Thank you
+            Thank you for sharing your experience.
           </h1>
           <p className="mt-3 text-sm leading-6 text-[#77716A]">
-            Your review was sent privately for review.
+            Your review helps encourage and strengthen the mission.
           </p>
         </section>
       </main>
