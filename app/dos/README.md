@@ -37,6 +37,18 @@ Desktop dashboard and Command Center are The Hub:
 
 Do not introduce another people, contact, disciple, or relationship table for the same core model.
 
+## Meetings Discipleship Engine
+
+`missionary_tables` is the active DOS meeting model.
+
+- Meetings separate Meeting Context from Conversation Flow.
+- Meeting Context records how the interaction happened, such as Kitchen Table, Coffee, Phone, Zoom, Text, Prayer, Group, Discipleship, or Other.
+- Conversation Flow records what spiritual guide was used. `None` is the universal default.
+- Kitchen Table Gospel is currently gated to USAM Missionary Workspaces.
+- Kitchen Table Gospel responses are stored as flexible private JSONB on the meeting record so future flows can expand without a migration for every question.
+- Recommended resources are queued on the meeting record. DOS does not automatically send texts, emails, or shared guides yet.
+- Future work: move resource recommendations to a database-backed library and add explicit SMS/email/share actions.
+
 ## Active Route Boundary
 
 - Canonical DOS route: `/dos/app?workspace=<slug>`.

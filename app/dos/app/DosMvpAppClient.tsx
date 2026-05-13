@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Briefcase, Cake, CalendarDays, ChevronRight, Church, Mail, MapPin, MessageCircle, MoreHorizontal, Pencil, Phone, StickyNote } from "lucide-react";
+import { ArrowLeft, BookOpen, Briefcase, Cake, CalendarDays, Check, ChevronRight, Church, Mail, MapPin, MessageCircle, MoreHorizontal, Pencil, Phone, StickyNote } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppPerson } from "@/src/lib/dos/missionary-app";
+import {
+  dosKitchenTableQuestions,
+  relationshipWithJesusTemperature,
+  type DosConversationFlowKey,
+  type DosKitchenTableAnswer,
+  type DosKitchenTableQuestionId,
+  type DosKitchenTableResponses,
+} from "@/src/lib/dos/meeting-engine";
+import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppMeetingType, DosAppPerson } from "@/src/lib/dos/missionary-app";
 import { dosGuideResources } from "@/src/lib/dos/guide-resources";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -18,17 +26,33 @@ const tabs = [
   { icon: "more", label: "More", value: "more" },
 ] as const;
 
-const meetingTypeOptions = [
-  { label: "Kitchen Table", value: "kitchen_table" },
-  { label: "Coffee", value: "coffee" },
-  { label: "Phone", value: "phone" },
-  { label: "Zoom", value: "zoom" },
-  { label: "Text", value: "text" },
-  { label: "Prayer", value: "prayer" },
-  { label: "Group", value: "group" },
-  { label: "Discipleship", value: "discipleship" },
-  { label: "Other", value: "other" },
+const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppMeetingType }> = [
+  { helper: "Around the table", label: "Kitchen Table", value: "kitchen_table" },
+  { helper: "Coffee or meal", label: "Coffee", value: "coffee" },
+  { helper: "Voice call", label: "Phone", value: "phone" },
+  { helper: "Video call", label: "Zoom", value: "zoom" },
+  { helper: "Message thread", label: "Text", value: "text" },
+  { helper: "Prayer moment", label: "Prayer", value: "prayer" },
+  { helper: "Several people", label: "Group", value: "group" },
+  { helper: "Training rhythm", label: "Discipleship", value: "discipleship" },
+  { helper: "Something else", label: "Other", value: "other" },
 ];
+
+const conversationFlowOptions: ReadonlyArray<{ helper: string; label: string; value: DosConversationFlowKey }> = [
+  { helper: "No structured guide", label: "None", value: "none" },
+  { helper: "USAM table questions", label: "Kitchen Table Gospel", value: "kitchen_table_gospel" },
+];
+
+const kitchenTableAnswerOptions = [
+  { label: "Yes", value: "yes" },
+  { label: "No", value: "no" },
+] as const satisfies ReadonlyArray<{ label: string; value: DosKitchenTableAnswer }>;
+
+const kitchenTableUnsureAnswerOptions = [
+  { label: "Yes", value: "yes" },
+  { label: "No", value: "no" },
+  { label: "Unsure", value: "unsure" },
+] as const satisfies ReadonlyArray<{ label: string; value: DosKitchenTableAnswer }>;
 
 const outcomeTagOptions = [
   "Salvation",
@@ -52,9 +76,10 @@ const futureTools = ["Prayer Alerts", "Connection Logs", "Discussion Guides", "F
 
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
-type FormMode = "editPerson" | "fruit" | "meeting" | "person" | null;
+type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
 type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
+type KitchenTableNonRatingQuestionId = Exclude<DosKitchenTableQuestionId, "relationshipWithJesus">;
 type PersonFormDefaults = {
   birthday?: string;
   church?: string;
@@ -219,6 +244,22 @@ function meetingTypeLabel(value: string) {
 
 function meetingActivityTitle(meeting: DosAppMeeting) {
   return meeting.source === "connection" ? meeting.title : meetingTypeLabel(meeting.type);
+}
+
+function conversationFlowLabel(value: DosConversationFlowKey) {
+  return conversationFlowOptions.find((option) => option.value === value)?.label ?? "None";
+}
+
+function answerLabel(value: DosKitchenTableAnswer | undefined) {
+  if (!value) {
+    return "Skipped";
+  }
+
+  return value === "unsure" ? "Unsure" : value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function meetingDetailSubtitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  return `${formatDate(meeting.date)} · ${meetingPeople(meeting, people)}`;
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -659,25 +700,264 @@ function PersonCard({
 
 function MeetingCard({
   meeting,
+  onClick,
   people,
 }: {
   meeting: DosAppMeeting;
+  onClick: () => void;
   people: DosAppPerson[];
 }) {
+  const hasFlow = meeting.conversationFlowKey !== "none";
+
   return (
-    <article className="rounded-2xl border border-[#E2DED6] bg-white p-4">
+    <button className="w-full rounded-2xl border border-[#E2DED6] bg-white p-4 text-left transition-colors hover:border-[#D8C8A7] hover:bg-[#FFFDF8]" onClick={onClick} type="button">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</p>
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
-            {meeting.source === "connection" ? "Connection" : "Meeting"}
-          </p>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#D79C37]" aria-hidden="true" />
+            <p className="truncate text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</p>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+              {meeting.source === "connection" ? "Connection" : "Meeting"}
+            </span>
+            {hasFlow ? (
+              <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+                {conversationFlowLabel(meeting.conversationFlowKey)}
+              </span>
+            ) : null}
+          </div>
         </div>
-        <p className="text-xs text-[#8E8880]">{formatDate(meeting.date)}</p>
+        <div className="flex shrink-0 items-center gap-2 text-xs text-[#8E8880]">
+          <span>{formatDate(meeting.date)}</span>
+          <ChevronRight className="h-4 w-4 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+        </div>
       </div>
       <p className="mt-2 text-xs text-[#77716A]">{meetingPeople(meeting, people)}</p>
-      <p className="mt-3 text-sm leading-6 text-[#3B3935]">{meeting.notes || "No summary added yet."}</p>
-    </article>
+      <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#3B3935]">{meeting.notes || "No summary added yet."}</p>
+      {meeting.recommendedResources.length ? (
+        <p className="mt-3 text-xs font-semibold text-[#8A5A12]">{meeting.recommendedResources.length} queued follow-up{meeting.recommendedResources.length === 1 ? "" : "s"}</p>
+      ) : null}
+    </button>
+  );
+}
+
+function MeetingContextPicker({
+  onChange,
+  value,
+}: {
+  onChange: (value: DosAppMeetingType) => void;
+  value: DosAppMeetingType;
+}) {
+  return (
+    <fieldset>
+      <FieldLabel>Meeting Context</FieldLabel>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        {meetingTypeOptions.map((option) => {
+          const selected = value === option.value;
+
+          return (
+            <button
+              aria-pressed={selected}
+              className={`min-h-[68px] rounded-2xl border px-2.5 py-2 text-left transition-colors ${
+                selected
+                  ? "border-[#D4A63D] bg-[#FFF8E7] shadow-[0_10px_24px_rgba(212,166,61,0.12)]"
+                  : "border-[#E2DED6] bg-white hover:border-[#D8C8A7]"
+              }`}
+              key={option.value}
+              onClick={() => onChange(option.value)}
+              type="button"
+            >
+              <span className="block text-xs font-bold leading-tight text-[#1E1D1A]">{option.label}</span>
+              <span className="mt-1 block text-[10px] leading-4 text-[#77716A]">{option.helper}</span>
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function ConversationFlowPicker({
+  allowKitchenTableGospel,
+  onChange,
+  value,
+}: {
+  allowKitchenTableGospel: boolean;
+  onChange: (value: DosConversationFlowKey) => void;
+  value: DosConversationFlowKey;
+}) {
+  const options = allowKitchenTableGospel
+    ? conversationFlowOptions
+    : conversationFlowOptions.filter((option) => option.value === "none");
+
+  return (
+    <fieldset>
+      <FieldLabel>Conversation Flow</FieldLabel>
+      <div className="mt-2 grid grid-cols-1 gap-2">
+        {options.map((option) => {
+          const selected = value === option.value;
+
+          return (
+            <button
+              aria-pressed={selected}
+              className={`flex min-h-14 items-center gap-3 rounded-2xl border px-3 py-2 text-left transition-colors ${
+                selected
+                  ? "border-[#D4A63D] bg-[#FFF8E7]"
+                  : "border-[#E2DED6] bg-white hover:border-[#D8C8A7]"
+              }`}
+              key={option.value}
+              onClick={() => onChange(option.value)}
+              type="button"
+            >
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${selected ? "bg-[#D4A63D] text-white" : "bg-[#F1F0EC] text-[#8A5A12]"}`}>
+                {option.value === "kitchen_table_gospel" ? <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} /> : <Check className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-[#1E1D1A]">{option.label}</span>
+                <span className="mt-0.5 block text-xs text-[#77716A]">{option.helper}</span>
+              </span>
+              {selected ? <span className="h-2 w-2 rounded-full bg-[#D4A63D]" aria-hidden="true" /> : null}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function KitchenTableGospelFlow({
+  onAnswer,
+  onRating,
+  responses,
+}: {
+  onAnswer: (questionId: KitchenTableNonRatingQuestionId, answer: DosKitchenTableAnswer) => void;
+  onRating: (rating: number) => void;
+  responses: DosKitchenTableResponses;
+}) {
+  const temperature = relationshipWithJesusTemperature(responses.relationshipWithJesus);
+
+  return (
+    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-[#1E1D1A]">Kitchen Table Gospel</p>
+          <p className="mt-1 text-xs leading-5 text-[#77716A]">Answer what you know.</p>
+        </div>
+        {temperature ? (
+          <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+            {temperature}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        {dosKitchenTableQuestions.map((question) => {
+          if (question.kind === "rating") {
+            return (
+              <div className="rounded-2xl border border-[#EEEAE2] bg-[#F8F7F3] p-3" key={question.id}>
+                <p className="text-sm font-semibold text-[#1E1D1A]">{question.label}</p>
+                <div className="mt-2 grid grid-cols-5 gap-1.5">
+                  {Array.from({ length: 10 }, (_, index) => index + 1).map((rating) => {
+                    const selected = responses.relationshipWithJesus === rating;
+
+                    return (
+                      <button
+                        aria-pressed={selected}
+                        className={`min-h-9 rounded-xl border text-xs font-bold ${
+                          selected ? "border-[#D4A63D] bg-[#D4A63D] text-white" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
+                        }`}
+                        key={rating}
+                        onClick={() => onRating(rating)}
+                        type="button"
+                      >
+                        {rating}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[11px] leading-4 text-[#77716A]">1-3 Cold · 4-7 Lukewarm · 8-10 Hot</p>
+              </div>
+            );
+          }
+
+          const questionId = question.id as KitchenTableNonRatingQuestionId;
+          const answer = responses[questionId];
+          const options = question.kind === "yes_no_unsure" ? kitchenTableUnsureAnswerOptions : kitchenTableAnswerOptions;
+
+          return (
+            <div className="rounded-2xl border border-[#EEEAE2] bg-[#F8F7F3] p-3" key={question.id}>
+              <p className="text-sm font-semibold leading-5 text-[#1E1D1A]">{question.label}</p>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {options.map((option) => {
+                  const selected = answer === option.value;
+
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`min-h-9 rounded-xl border text-xs font-bold ${
+                        selected ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
+                      }`}
+                      key={option.value}
+                      onClick={() => onAnswer(questionId, option.value)}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function MeetingPeopleSelector({
+  onQueryChange,
+  onToggle,
+  people,
+  query,
+  selectedPersonIds,
+  totalPeople,
+}: {
+  onQueryChange: (value: string) => void;
+  onToggle: (personId: string) => void;
+  people: DosAppPerson[];
+  query: string;
+  selectedPersonIds: string[];
+  totalPeople: number;
+}) {
+  return (
+    <div>
+      <SearchField label="People Involved" onChange={onQueryChange} placeholder="Search people in your field" value={query} />
+      {totalPeople ? (
+        <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto pr-1">
+          {people.map((person, index) => {
+            const selected = selectedPersonIds.includes(person.id);
+
+            return (
+              <label className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border px-3 text-sm transition-colors ${selected ? "border-[#D4A63D] bg-[#FFF8E7]" : "border-[#E2DED6] bg-white"}`} key={person.id}>
+                <input checked={selected} className="accent-black" onChange={() => onToggle(person.id)} type="checkbox" value={person.id} />
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${avatarTone(index)}`}>
+                  {initials(person.name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{person.name}</span>
+                  <span className="block truncate text-xs text-[#8E8880]">{relationshipLine(person)}</span>
+                </span>
+                {selected ? <Check className="h-4 w-4 shrink-0 text-[#8A5A12]" aria-hidden="true" strokeWidth={1.8} /> : null}
+              </label>
+            );
+          })}
+          {!people.length ? <p className="rounded-2xl border border-dashed border-[#DDD9D0] p-3 text-sm text-[#77716A]">No matching people.</p> : null}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-[#77716A]">No people added yet.</p>
+      )}
+    </div>
   );
 }
 
@@ -931,6 +1211,7 @@ function PersonDetailOverlay({
   meetings,
   onBack,
   onEdit,
+  onOpenMeeting,
   onLogMeeting,
   person,
 }: {
@@ -939,6 +1220,7 @@ function PersonDetailOverlay({
   meetings: DosAppMeeting[];
   onBack: () => void;
   onEdit: () => void;
+  onOpenMeeting: (meetingId: string) => void;
   onLogMeeting: () => void;
   person: DosAppPerson;
 }) {
@@ -1032,7 +1314,7 @@ function PersonDetailOverlay({
 
         <DetailCard title="History">
           {recentMeetings.length ? recentMeetings.map((meeting) => (
-            <button className="flex items-center gap-3 rounded-2xl bg-[#F8F7F3] p-3 text-left" key={meeting.id} type="button" onClick={onLogMeeting}>
+            <button className="flex items-center gap-3 rounded-2xl bg-[#F8F7F3] p-3 text-left" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
               <CalendarDays className="h-4 w-4 shrink-0 text-[#8A5A12]" aria-hidden="true" strokeWidth={1.8} />
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</span>
@@ -1047,6 +1329,113 @@ function PersonDetailOverlay({
   );
 }
 
+function MeetingDetailOverlay({
+  meeting,
+  onBack,
+  onEdit,
+  onLogMeeting,
+  people,
+}: {
+  meeting: DosAppMeeting;
+  onBack: () => void;
+  onEdit: () => void;
+  onLogMeeting: () => void;
+  people: DosAppPerson[];
+}) {
+  const isTableMeeting = meeting.source === "table";
+  const temperature = relationshipWithJesusTemperature(meeting.conversationResponses.relationshipWithJesus);
+  const hasKitchenTableFlow = meeting.conversationFlowKey === "kitchen_table_gospel";
+
+  return (
+    <div className="absolute inset-0 z-[70] overflow-y-auto bg-[#F5F3EE] px-4 pb-24 pt-7 [scrollbar-width:none]">
+      <header className="flex items-center justify-between gap-3">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#DDD9D0] bg-white text-[#1E1D1A]" onClick={onBack} type="button" aria-label="Back to meetings">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+        </button>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+          Meeting
+        </p>
+        {isTableMeeting ? (
+          <button className="inline-flex items-center gap-1.5 rounded-full border border-[#DDD9D0] bg-white px-4 py-2 text-xs font-bold text-[#1E1D1A]" onClick={onEdit} type="button">
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+            Edit
+          </button>
+        ) : <span className="h-10 w-10" aria-hidden="true" />}
+      </header>
+
+      <section className="mt-5 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF8E7] text-[#8A5A12]">
+          <CalendarDays className="h-7 w-7" aria-hidden="true" strokeWidth={1.6} />
+        </div>
+        <h2 className="mt-3 text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
+          {meetingActivityTitle(meeting)}
+        </h2>
+        <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#77716A]">{meetingDetailSubtitle(meeting, people)}</p>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 py-1.5 text-xs font-semibold text-[#8A5A12]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#D4A63D]" aria-hidden="true" />
+            {conversationFlowLabel(meeting.conversationFlowKey)}
+          </span>
+          {temperature ? (
+            <span className="inline-flex items-center rounded-full bg-[#F1F0EC] px-3 py-1.5 text-xs font-semibold text-[#5F5952]">
+              {temperature}
+            </span>
+          ) : null}
+        </div>
+      </section>
+
+      <div className="mt-5">
+        <AppButton icon="log" onClick={onLogMeeting} tone="black">Log Meeting</AppButton>
+      </div>
+
+      <div className="mt-5 grid gap-3">
+        <DetailCard title="Summary">
+          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={formatDate(meeting.date)} />
+          <DetailRow icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Context" value={meetingTypeLabel(meeting.type)} />
+          <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Notes" value={meeting.notes || "No summary added yet."} />
+        </DetailCard>
+
+        {hasKitchenTableFlow ? (
+          <DetailCard title="Kitchen Table Gospel">
+            {dosKitchenTableQuestions.map((question) => {
+              const value = question.kind === "rating"
+                ? meeting.conversationResponses.relationshipWithJesus
+                : meeting.conversationResponses[question.id as KitchenTableNonRatingQuestionId];
+              const renderedValue = question.kind === "rating"
+                ? value ? `${value} · ${relationshipWithJesusTemperature(value as number)}` : "Skipped"
+                : answerLabel(value as DosKitchenTableAnswer | undefined);
+
+              return (
+                <div className="flex items-start justify-between gap-3 rounded-2xl bg-[#F8F7F3] p-3" key={question.id}>
+                  <p className="text-sm leading-5 text-[#1E1D1A]">{question.label}</p>
+                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[#5F5952]">{renderedValue}</span>
+                </div>
+              );
+            })}
+          </DetailCard>
+        ) : null}
+
+        {meeting.recommendedResources.length ? (
+          <DetailCard title="Recommended Resources">
+            {/* TODO: Add SMS/email/share actions for queued resources after DOS messaging workflows exist. */}
+            {meeting.recommendedResources.map((resource) => (
+              <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F8F7F3] p-3" key={resource.id}>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[#1E1D1A]">{resource.title}</p>
+                  {resource.reason ? <p className="mt-1 text-xs text-[#77716A]">{resource.reason}</p> : null}
+                </div>
+                <span className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+                  Queued
+                </span>
+              </div>
+            ))}
+          </DetailCard>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
@@ -1054,9 +1443,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [kitchenTableResponses, setKitchenTableResponses] = useState<DosKitchenTableResponses>({});
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
-  const [prefilledMeetingPersonIds, setPrefilledMeetingPersonIds] = useState<string[]>([]);
+  const [selectedConversationFlow, setSelectedConversationFlow] = useState<DosConversationFlowKey>("none");
+  const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
+  const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [selectedRelationshipType, setSelectedRelationshipType] = useState<RelationshipTypeValue>(defaultRelationshipType);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
@@ -1064,29 +1457,39 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const latestFruit = data.fruit[0];
   const visiblePeople = useMemo(() => filteredPeople(data.people, peopleQuery), [data.people, peopleQuery]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(data.people, meetingPeopleQuery), [data.people, meetingPeopleQuery]);
+  const selectedMeeting = useMemo(() => data.meetings.find((meeting) => meeting.id === selectedMeetingId) ?? null, [data.meetings, selectedMeetingId]);
   const selectedPerson = useMemo(() => data.people.find((person) => person.id === selectedPersonId) ?? null, [data.people, selectedPersonId]);
   const attentionPeople = useMemo(() => data.people.filter(isNeedsAttention), [data.people]);
   const relatingCount = data.people.filter((person) => normalizeText(person.status).toLowerCase() !== "new").length;
   const multiplyingCount = Math.max(data.stats.approvedFruit, data.fruit.length);
   const recentPeople = data.people.slice(0, 3);
-  const workspaceLabel = `${data.workspace.displayName} · USA`;
+  const workspaceLabel = data.workspace.isUsamWorkspace ? `${data.workspace.displayName} · USA` : data.workspace.displayName;
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
+
+  function resetMeetingDraft(personIds: string[] = []) {
+    setKitchenTableResponses({});
+    setMeetingPeopleQuery("");
+    setSelectedConversationFlow("none");
+    setSelectedMeetingContext("kitchen_table");
+    setSelectedMeetingPersonIds(personIds);
+  }
 
   function closeForm() {
     setErrorMessage("");
     setFormMode(null);
     setIsAdditionalPersonInfoOpen(false);
-    setMeetingPeopleQuery("");
-    setPrefilledMeetingPersonIds([]);
     setSelectedRelationshipType(defaultRelationshipType);
+    resetMeetingDraft();
   }
 
   function openForm(mode: Exclude<FormMode, null>) {
     setErrorMessage("");
     setFormMode(mode);
     setIsAdditionalPersonInfoOpen(false);
-    setMeetingPeopleQuery("");
-    setPrefilledMeetingPersonIds([]);
+    if (mode === "meeting") {
+      setSelectedMeetingId(null);
+      resetMeetingDraft();
+    }
     if (mode === "person") {
       setSelectedRelationshipType(defaultRelationshipType);
     }
@@ -1094,6 +1497,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openPersonDetail(personId: string) {
     setErrorMessage("");
+    setSelectedMeetingId(null);
     setSelectedPersonId(personId);
   }
 
@@ -1106,11 +1510,33 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openMeetingForPerson(personId: string) {
     setSelectedPersonId(null);
+    setSelectedMeetingId(null);
     setErrorMessage("");
     setFormMode("meeting");
     setIsAdditionalPersonInfoOpen(false);
+    resetMeetingDraft([personId]);
+  }
+
+  function openMeetingDetail(meetingId: string) {
+    setErrorMessage("");
+    setSelectedPersonId(null);
+    setSelectedMeetingId(meetingId);
+  }
+
+  function openMeetingEdit(meeting: DosAppMeeting) {
+    if (meeting.source !== "table") {
+      return;
+    }
+
+    setErrorMessage("");
+    setFormMode("editMeeting");
+    setIsAdditionalPersonInfoOpen(false);
+    setKitchenTableResponses(meeting.conversationFlowKey === "kitchen_table_gospel" ? meeting.conversationResponses : {});
     setMeetingPeopleQuery("");
-    setPrefilledMeetingPersonIds([personId]);
+    setSelectedConversationFlow(data.workspace.isUsamWorkspace ? meeting.conversationFlowKey : "none");
+    setSelectedMeetingContext(meeting.type);
+    setSelectedMeetingId(meeting.id);
+    setSelectedMeetingPersonIds(meeting.fieldPersonIds);
   }
 
   function personPayloadFromForm(formData: FormData, relationshipType: RelationshipTypeValue, id?: string) {
@@ -1187,13 +1613,37 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function handleMeetingSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    const conversationFlowKey = data.workspace.isUsamWorkspace ? selectedConversationFlow : "none";
 
     void submitJson("/api/dos/app/meetings", {
-      fieldPersonIds: formData.getAll("field_person_ids"),
+      conversationFlowKey,
+      conversationResponses: conversationFlowKey === "kitchen_table_gospel" ? kitchenTableResponses : {},
+      fieldPersonIds: selectedMeetingPersonIds,
       notes: String(formData.get("notes") ?? ""),
       tableDate: String(formData.get("table_date") ?? todayDateValue()),
-      tableType: String(formData.get("table_type") ?? "kitchen_table"),
+      tableType: selectedMeetingContext,
     });
+  }
+
+  function handleEditMeetingSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    if (!selectedMeeting || selectedMeeting.source !== "table") {
+      return;
+    }
+
+    const conversationFlowKey = data.workspace.isUsamWorkspace ? selectedConversationFlow : "none";
+
+    void submitJson("/api/dos/app/meetings", {
+      conversationFlowKey,
+      conversationResponses: conversationFlowKey === "kitchen_table_gospel" ? kitchenTableResponses : {},
+      fieldPersonIds: selectedMeetingPersonIds,
+      id: selectedMeeting.id,
+      notes: String(formData.get("notes") ?? ""),
+      tableDate: String(formData.get("table_date") ?? selectedMeeting.date ?? todayDateValue()),
+      tableType: selectedMeetingContext,
+    }, "PATCH");
   }
 
   function handleFruitSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1214,6 +1664,44 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         ? current.filter((currentTag) => currentTag !== tag)
         : [...current, tag],
     );
+  }
+
+  function toggleMeetingPersonId(personId: string) {
+    setSelectedMeetingPersonIds((current) =>
+      current.includes(personId)
+        ? current.filter((currentPersonId) => currentPersonId !== personId)
+        : [...current, personId],
+    );
+  }
+
+  function handleKitchenTableAnswer(questionId: KitchenTableNonRatingQuestionId, answer: DosKitchenTableAnswer) {
+    setKitchenTableResponses((current) => {
+      if (current[questionId] === answer) {
+        const { [questionId]: _removed, ...rest } = current;
+
+        return rest;
+      }
+
+      return {
+        ...current,
+        [questionId]: answer,
+      };
+    });
+  }
+
+  function handleKitchenTableRating(rating: number) {
+    setKitchenTableResponses((current) => {
+      if (current.relationshipWithJesus === rating) {
+        const { relationshipWithJesus: _removed, ...rest } = current;
+
+        return rest;
+      }
+
+      return {
+        ...current,
+        relationshipWithJesus: rating,
+      };
+    });
   }
 
   return (
@@ -1355,7 +1843,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <div>
               <SectionHeading action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log</CompactButton>} title="Meetings" />
               {data.meetings.length ? (
-                <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} people={data.people} />)}</div>
+                <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={data.people} />)}</div>
               ) : (
                 <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Meeting</CompactButton>} text="Capture the next conversation, table, call, or prayer moment." title="No meetings logged yet." />
               )}
@@ -1429,7 +1917,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onBack={() => setSelectedPersonId(null)}
             onEdit={() => openPersonEdit(selectedPerson)}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
+            onOpenMeeting={openMeetingDetail}
             person={selectedPerson}
+          />
+        ) : null}
+
+        {selectedMeeting ? (
+          <MeetingDetailOverlay
+            meeting={selectedMeeting}
+            onBack={() => setSelectedMeetingId(null)}
+            onEdit={() => openMeetingEdit(selectedMeeting)}
+            onLogMeeting={() => openForm("meeting")}
+            people={data.people}
           />
         ) : null}
 
@@ -1505,46 +2004,75 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       {formMode === "meeting" ? (
         <Sheet description="Log what happened. Meeting notes stay private to this field." onClose={closeForm} title="Log Meeting">
           <form className="space-y-4" onSubmit={handleMeetingSubmit}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <FieldLabel>Type</FieldLabel>
-                <select className={FieldInputClass()} name="table_type" defaultValue="kitchen_table">
-                  {meetingTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <FieldLabel>Date</FieldLabel>
-                <input className={FieldInputClass()} defaultValue={todayDateValue()} name="table_date" type="date" />
-              </label>
-            </div>
-            <div>
-              <SearchField label="People Involved" onChange={setMeetingPeopleQuery} placeholder="Search people in your field" value={meetingPeopleQuery} />
-              {data.people.length ? (
-                <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto pr-1">
-                  {meetingPeopleOptions.map((person, index) => (
-                    <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-[#E2DED6] bg-white px-3 text-sm text-[#1E1D1A]" key={person.id}>
-                      <input className="accent-black" defaultChecked={prefilledMeetingPersonIds.includes(person.id)} name="field_person_ids" type="checkbox" value={person.id} />
-                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${avatarTone(index)}`}>
-                        {initials(person.name)}
-                      </span>
-                      <span>
-                        <span className="block font-medium">{person.name}</span>
-                        <span className="block text-xs text-[#8E8880]">{relationshipLine(person)}</span>
-                      </span>
-                    </label>
-                  ))}
-                  {!meetingPeopleOptions.length ? <p className="rounded-2xl border border-dashed border-[#DDD9D0] p-3 text-sm text-[#77716A]">No matching people.</p> : null}
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-[#77716A]">No people added yet.</p>
-              )}
-            </div>
+            <MeetingContextPicker onChange={setSelectedMeetingContext} value={selectedMeetingContext} />
+            <ConversationFlowPicker
+              allowKitchenTableGospel={data.workspace.isUsamWorkspace}
+              onChange={setSelectedConversationFlow}
+              value={selectedConversationFlow}
+            />
+            {selectedConversationFlow === "kitchen_table_gospel" ? (
+              <KitchenTableGospelFlow
+                onAnswer={handleKitchenTableAnswer}
+                onRating={handleKitchenTableRating}
+                responses={kitchenTableResponses}
+              />
+            ) : null}
+            <MeetingPeopleSelector
+              onQueryChange={setMeetingPeopleQuery}
+              onToggle={toggleMeetingPersonId}
+              people={meetingPeopleOptions}
+              query={meetingPeopleQuery}
+              selectedPersonIds={selectedMeetingPersonIds}
+              totalPeople={data.people.length}
+            />
+            <label className="block">
+              <FieldLabel>Date</FieldLabel>
+              <input className={FieldInputClass()} defaultValue={todayDateValue()} name="table_date" type="date" />
+            </label>
             <label className="block">
               <FieldLabel>What happened?</FieldLabel>
               <textarea className={`${FieldInputClass()} min-h-24 py-3`} name="notes" placeholder="Briefly capture the conversation." />
             </label>
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
             <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Log Meeting"}</AppButton>
+          </form>
+        </Sheet>
+      ) : null}
+
+      {formMode === "editMeeting" && selectedMeeting ? (
+        <Sheet description="Update the meeting record. Recommendations stay queued until you send them later." onClose={closeForm} title="Edit Meeting">
+          <form className="space-y-4" onSubmit={handleEditMeetingSubmit}>
+            <MeetingContextPicker onChange={setSelectedMeetingContext} value={selectedMeetingContext} />
+            <ConversationFlowPicker
+              allowKitchenTableGospel={data.workspace.isUsamWorkspace}
+              onChange={setSelectedConversationFlow}
+              value={selectedConversationFlow}
+            />
+            {selectedConversationFlow === "kitchen_table_gospel" ? (
+              <KitchenTableGospelFlow
+                onAnswer={handleKitchenTableAnswer}
+                onRating={handleKitchenTableRating}
+                responses={kitchenTableResponses}
+              />
+            ) : null}
+            <MeetingPeopleSelector
+              onQueryChange={setMeetingPeopleQuery}
+              onToggle={toggleMeetingPersonId}
+              people={meetingPeopleOptions}
+              query={meetingPeopleQuery}
+              selectedPersonIds={selectedMeetingPersonIds}
+              totalPeople={data.people.length}
+            />
+            <label className="block">
+              <FieldLabel>Date</FieldLabel>
+              <input className={FieldInputClass()} defaultValue={selectedMeeting.date ?? todayDateValue()} name="table_date" type="date" />
+            </label>
+            <label className="block">
+              <FieldLabel>What happened?</FieldLabel>
+              <textarea className={`${FieldInputClass()} min-h-24 py-3`} defaultValue={selectedMeeting.notes ?? ""} name="notes" placeholder="Briefly capture the conversation." />
+            </label>
+            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Meeting"}</AppButton>
           </form>
         </Sheet>
       ) : null}

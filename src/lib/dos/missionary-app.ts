@@ -1,5 +1,14 @@
 import "server-only";
 
+import {
+  isUsamKitchenTableGospelWorkspace,
+  normalizeConversationFlowKey,
+  normalizeKitchenTableResponses,
+  normalizeRecommendedResources,
+  type DosConversationFlowKey,
+  type DosKitchenTableResponses,
+  type DosRecommendedResource,
+} from "@/src/lib/dos/meeting-engine";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -23,6 +32,7 @@ export type DosAppOutcomeTag = typeof dosAppOutcomeTags[number];
 export type DosAppWorkspace = {
   displayName: string;
   id: string;
+  isUsamWorkspace: boolean;
   profileImageUrl: string | null;
   publicProfileHref: string;
   shortMission: string | null;
@@ -44,11 +54,14 @@ export type DosAppPerson = {
 };
 
 export type DosAppMeeting = {
+  conversationFlowKey: DosConversationFlowKey;
+  conversationResponses: DosKitchenTableResponses;
   date: string | null;
   fieldPersonIds: string[];
   id: string;
   notes: string | null;
   participantNames: string[];
+  recommendedResources: DosRecommendedResource[];
   source: "connection" | "table";
   title: string;
   type: DosAppMeetingType;
@@ -107,11 +120,14 @@ type FieldPersonRow = {
 };
 
 type MeetingRow = {
+  conversation_flow_key?: string | null;
+  conversation_responses?: unknown;
   created_at?: string | null;
   field_person_ids: string[] | null;
   id: string;
   notes: string | null;
   participant_names: string[] | null;
+  recommended_resources?: unknown;
   table_date: string | null;
   table_type: string | null;
   updated_at: string | null;
@@ -236,7 +252,7 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
 async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const scopedResult = await supabase
     .from("missionary_tables")
-    .select("id, table_type, table_date, notes, participant_names, field_person_ids, created_at, updated_at")
+    .select("id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at")
     .or(workspaceScopeFilter(workspaceId))
     .order("table_date", { ascending: false })
     .order("created_at", { ascending: false });
@@ -244,7 +260,7 @@ async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspace
   return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
     ? supabase
       .from("missionary_tables")
-      .select("id, table_type, table_date, notes, participant_names, field_person_ids, created_at, updated_at")
+      .select("id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at")
       .eq("household_id", workspaceId)
       .order("table_date", { ascending: false })
       .order("created_at", { ascending: false })
@@ -398,10 +414,13 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const meetings = [
     ...meetingRows.map((meeting) => ({
       date: latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at),
+      conversationFlowKey: normalizeConversationFlowKey(meeting.conversation_flow_key),
+      conversationResponses: normalizeKitchenTableResponses(meeting.conversation_responses),
       fieldPersonIds: meeting.field_person_ids ?? [],
       id: meeting.id,
       notes: meeting.notes,
       participantNames: meeting.participant_names ?? [],
+      recommendedResources: normalizeRecommendedResources(meeting.recommended_resources),
       source: "table" as const,
       title: "Meeting",
       type: mapMeetingType(meeting.table_type),
@@ -409,12 +428,15 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     })),
     ...connectionRows.map((connection) => ({
       date: latestActivityDate(connection.connection_date, connection.updated_at, connection.created_at),
+      conversationFlowKey: "none" as const,
+      conversationResponses: {},
       fieldPersonIds: connection.field_person_id ? [connection.field_person_id] : [],
       id: `connection-${connection.id}`,
       notes: connection.notes,
       participantNames: connection.field_person_id && peopleById.has(connection.field_person_id)
         ? [peopleById.get(connection.field_person_id) as string]
         : [],
+      recommendedResources: [],
       source: "connection" as const,
       title: connection.interaction_type ?? "Connection",
       type: mapConnectionType(connection.interaction_type),
@@ -446,6 +468,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       workspace: {
         displayName: workspace.display_name,
         id: workspace.id,
+        isUsamWorkspace: isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug }),
         profileImageUrl: workspace.profile_image_url,
         publicProfileHref: `/missionaries/${workspace.slug}`,
         shortMission: workspace.short_mission,
@@ -457,10 +480,16 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 }
 
 export async function resolveDosAppWorkspaceId(workspaceId: string) {
+  const workspace = await resolveDosAppWorkspace(workspaceId);
+
+  return workspace?.id ?? null;
+}
+
+export async function resolveDosAppWorkspace(workspaceId: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("missionary_households")
-    .select("id")
+    .select("id, slug, display_name")
     .eq("id", workspaceId)
     .maybeSingle();
 
@@ -468,5 +497,5 @@ export async function resolveDosAppWorkspaceId(workspaceId: string) {
     return null;
   }
 
-  return data.id as string;
+  return data as Pick<HouseholdRow, "display_name" | "id" | "slug">;
 }
