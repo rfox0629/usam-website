@@ -23,6 +23,11 @@ type PersonRow = {
   missionary_number: string | null;
 };
 
+type SupabaseWriteError = {
+  code?: string;
+  message?: string;
+};
+
 const sourceValues = [
   "invited_by_household",
   "friend",
@@ -49,10 +54,14 @@ function isSourceValue(value: string): value is typeof sourceValues[number] {
   return sourceValues.includes(value as typeof sourceValues[number]);
 }
 
-function isMissingPrayerTeamTable(error: { message?: string } | null | undefined) {
-  const message = error?.message ?? "";
+function isMissingTable(error: SupabaseWriteError | null | undefined, tableName: string) {
+  const message = error?.message?.toLowerCase() ?? "";
 
-  return message.includes("form_submissions");
+  return error?.code === "42P01"
+    || error?.code === "PGRST205"
+    || message.includes("schema cache")
+    || message.includes(tableName)
+    || message.includes("does not exist");
 }
 
 function splitName(name: string) {
@@ -129,6 +138,116 @@ export async function POST(request: Request) {
     ? null
     : ((peopleResult.data as PersonRow | null)?.missionary_number ?? null);
   const { firstName, lastName } = splitName(name);
+  const prayerPartnerRecord = {
+    assigned_coverage: {},
+    email,
+    email_alerts: true,
+    first_name: firstName || null,
+    last_name: lastName || null,
+    name,
+    permissions: {
+      prayer_admin: false,
+      receive_email_alerts: true,
+      receive_sms_alerts: false,
+      view_confidential_requests: false,
+      view_general_requests: true,
+      view_kitchen_table_alerts: true,
+      view_missionary_couple_requests: true,
+    },
+    recruited_by: "Public Profile",
+    recruited_by_household_id: household.id,
+    recruited_by_household_name: household.display_name,
+    recruited_by_household_number: missionaryNumber,
+    recruited_by_profile_slug: household.slug,
+    region: asNullableString(payload.region),
+    source: "public_profile",
+    state: asNullableString(payload.state),
+    status: "pending",
+  };
+  const existingPartnerResult = await supabase
+    .from("prayer_partners")
+    .select("id, status")
+    .eq("email", email)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingPartnerResult.error) {
+    console.error("[Prayer Team Join API] Failed to find existing prayer partner:", existingPartnerResult.error);
+
+    if (isMissingTable(existingPartnerResult.error, "prayer_partners")) {
+      return NextResponse.json({ error: "Prayer Team signup database table is not ready yet." }, { status: 503 });
+    }
+
+    return NextResponse.json({ error: "Unable to save your prayer team signup." }, { status: 500 });
+  }
+
+  const existingPartner = existingPartnerResult.data as { id: string; status?: string | null } | null;
+  const nextPrayerPartnerRecord = existingPartner?.status === "active"
+    ? {
+      ...prayerPartnerRecord,
+      status: "active",
+    }
+    : prayerPartnerRecord;
+  const partnerWriteResult = existingPartner
+    ? await supabase
+      .from("prayer_partners")
+      .update(nextPrayerPartnerRecord)
+      .eq("id", existingPartner.id)
+    : await supabase
+      .from("prayer_partners")
+      .insert(nextPrayerPartnerRecord);
+
+  if (partnerWriteResult.error) {
+    console.error("[Prayer Team Join API] Failed to save prayer partner:", partnerWriteResult.error);
+
+    if (isMissingTable(partnerWriteResult.error, "prayer_partners")) {
+      return NextResponse.json({ error: "Prayer Team signup database table is not ready yet." }, { status: 503 });
+    }
+
+    return NextResponse.json({ error: "Unable to save your prayer team signup." }, { status: 500 });
+  }
+
+  const existingTeamMemberResult = await supabase
+    .from("missionary_team_members")
+    .select("id, role_title")
+    .eq("household_id", household.id)
+    .ilike("display_name", name)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingTeamMemberResult.error) {
+    console.error("[Prayer Team Join API] team member mirror lookup failed:", existingTeamMemberResult.error);
+  } else if (!existingTeamMemberResult.data) {
+    const teamMemberResult = await supabase
+      .from("missionary_team_members")
+      .insert({
+        display_name: name,
+        household_id: household.id,
+        is_public: false,
+        role_title: "Prayer Partner",
+        short_description: "Public Profile prayer team signup.",
+        sort_order: 999,
+        source: "public_form",
+        status: "active",
+      });
+
+    if (teamMemberResult.error) {
+      console.error("[Prayer Team Join API] team member mirror insert failed:", teamMemberResult.error);
+    }
+  } else if (!(existingTeamMemberResult.data as { role_title?: string | null }).role_title) {
+    const teamMemberResult = await supabase
+      .from("missionary_team_members")
+      .update({
+        role_title: "Prayer Partner",
+        source: "public_form",
+      })
+      .eq("id", (existingTeamMemberResult.data as { id: string }).id);
+
+    if (teamMemberResult.error) {
+      console.error("[Prayer Team Join API] team member mirror update failed:", teamMemberResult.error);
+    }
+  }
 
   const submissionResult = await createFormSubmission({
     assignedTeam: "prayer_team",
@@ -152,11 +271,7 @@ export async function POST(request: Request) {
   // TODO: Future email/SMS/DOS integration can notify admins when household
   // profile prayer team applications arrive and route alerts after approval.
   if (submissionResult.error) {
-    if (isMissingPrayerTeamTable({ message: submissionResult.error })) {
-      return NextResponse.json({ error: "Prayer Team application database table is not ready yet." }, { status: 503 });
-    }
-
-    return NextResponse.json({ error: "Unable to save your prayer team application." }, { status: 500 });
+    console.error("[Prayer Team Join API] form_submissions mirror failed:", submissionResult.error);
   }
 
   return NextResponse.json({

@@ -19,6 +19,8 @@ import {
   type AdminMissionaryTable,
   type AdminMovementStep,
   type AdminOutcomeTag,
+  type AdminPrayerPartner,
+  type AdminPrayerPartnerStatus,
   type AdminPrayerRequest,
   type AdminProfile,
   type AdminProfileAnalytics,
@@ -97,6 +99,7 @@ const fruitStatuses = ["draft", "approved", "private"] as const satisfies readon
 const prayerRequestStatuses = ["open", "covered", "answered", "archived"] as const;
 const prayerRequestUrgencies = ["normal", "important", "urgent"] as const;
 const prayerRequestVisibilities = ["private", "team", "public"] as const;
+const prayerPartnerStatuses = ["active", "archived", "declined", "inactive", "pending"] as const;
 const outcomeTagOptions = [
   "Salvation",
   "Baptism",
@@ -411,6 +414,10 @@ function getPrayerRequestVisibility(value: string | null | undefined): AdminPray
   return prayerRequestVisibilities.includes(value as AdminPrayerRequest["visibility"]) ? value as AdminPrayerRequest["visibility"] : "private";
 }
 
+function getPrayerPartnerStatus(value: string | null | undefined): AdminPrayerPartnerStatus {
+  return prayerPartnerStatuses.includes(value as AdminPrayerPartnerStatus) ? value as AdminPrayerPartnerStatus : "pending";
+}
+
 function getPermissionToShare(payload: Record<string, unknown>) {
   return payloadBoolean(payload, "permission_to_share")
     || payloadString(payload, "permission_to_share").toLowerCase() === "true"
@@ -716,6 +723,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const libraryItemsByHouseholdId = new Map<string, AdminLibraryItem[]>();
   const majorGiftInquiriesByHouseholdId = new Map<string, AdminMajorGiftInquiry[]>();
   const prayerPartnerCountByHouseholdId = new Map<string, number>();
+  const prayerPartnersByHouseholdId = new Map<string, AdminPrayerPartner[]>();
   const prayerRequestsByHouseholdId = new Map<string, AdminPrayerRequest[]>();
   const profileAnalyticsByHouseholdId = new Map<string, AdminProfileAnalytics>();
   const publicFruitItemCountByHouseholdId = new Map<string, number>();
@@ -836,7 +844,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     const [prayerPartnersResult, prayerRequestsResult] = await Promise.all([
       supabase
         .from("prayer_partners")
-        .select("recruited_by_household_id, status")
+        .select("id, first_name, last_name, name, email, phone, recruited_by_household_id, recruited_by_profile_slug, source, status, date_joined, created_at, updated_at")
         .in("recruited_by_household_id", ids),
       supabase
         .from("prayer_requests")
@@ -853,14 +861,36 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     }
 
     (prayerPartnersResult.data ?? []).forEach((partner) => {
-      if (partner.status !== "active" || !partner.recruited_by_household_id) {
+      if (!partner.recruited_by_household_id) {
         return;
       }
 
-      prayerPartnerCountByHouseholdId.set(
-        partner.recruited_by_household_id,
-        (prayerPartnerCountByHouseholdId.get(partner.recruited_by_household_id) ?? 0) + 1,
-      );
+      const status = getPrayerPartnerStatus(partner.status);
+      const currentPartners = prayerPartnersByHouseholdId.get(partner.recruited_by_household_id) ?? [];
+
+      currentPartners.push({
+        created_at: partner.created_at ?? "",
+        date_joined: partner.date_joined ?? null,
+        email: partner.email ?? null,
+        first_name: partner.first_name ?? null,
+        id: partner.id ?? "",
+        last_name: partner.last_name ?? null,
+        name: partner.name ?? null,
+        phone: partner.phone ?? null,
+        recruited_by_household_id: partner.recruited_by_household_id,
+        recruited_by_profile_slug: partner.recruited_by_profile_slug ?? null,
+        source: partner.source ?? null,
+        status,
+        updated_at: partner.updated_at ?? null,
+      });
+      prayerPartnersByHouseholdId.set(partner.recruited_by_household_id, currentPartners);
+
+      if (status === "active") {
+        prayerPartnerCountByHouseholdId.set(
+          partner.recruited_by_household_id,
+          (prayerPartnerCountByHouseholdId.get(partner.recruited_by_household_id) ?? 0) + 1,
+        );
+      }
     });
 
     (prayerRequestsResult.data ?? []).forEach((request) => {
@@ -1373,6 +1403,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       libraryItems: libraryItemsByHouseholdId.get(household.id) ?? [],
       majorGiftInquiries: majorGiftInquiriesByHouseholdId.get(household.id) ?? [],
       prayerPartnerCount: prayerPartnerCountByHouseholdId.get(household.id) ?? 0,
+      prayerPartners: prayerPartnersByHouseholdId.get(household.id) ?? [],
       prayerRequests: prayerRequestsByHouseholdId.get(household.id) ?? [],
       profileAnalytics: profileAnalyticsByHouseholdId.get(household.id) ?? {
         last7Days: 0,

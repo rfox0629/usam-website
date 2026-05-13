@@ -370,6 +370,24 @@ export type AdminPrayerRequest = {
   workspace_id: string;
 };
 
+export type AdminPrayerPartnerStatus = "active" | "archived" | "declined" | "inactive" | "pending";
+
+export type AdminPrayerPartner = {
+  created_at: string;
+  date_joined: string | null;
+  email: string | null;
+  first_name: string | null;
+  id: string;
+  last_name: string | null;
+  name: string | null;
+  phone: string | null;
+  recruited_by_household_id: string | null;
+  recruited_by_profile_slug: string | null;
+  source: string | null;
+  status: AdminPrayerPartnerStatus;
+  updated_at: string | null;
+};
+
 export type AdminProfileAnalytics = {
   totalViews: number;
   uniqueVisitors: number;
@@ -380,9 +398,9 @@ export type AdminProfileAnalytics = {
   trackingAvailable: boolean;
 };
 
-// Team is a public-facing roster surface only. Do not use it to store
-// disciples, follow-up contacts, or ministry relationships; those belong in
-// future People/Tables relationship models.
+// Team contains household-connected people such as missionaries, prayer
+// partners, support partners, and volunteers. Public profile rendering still
+// uses only active members explicitly marked public.
 export type AdminTeamMember = {
   created_at: string;
   display_name: string;
@@ -409,6 +427,7 @@ export type AdminProfile = AdminHousehold & {
   libraryItems?: AdminLibraryItem[];
   majorGiftInquiries?: AdminMajorGiftInquiry[];
   prayerPartnerCount?: number;
+  prayerPartners?: AdminPrayerPartner[];
   prayerRequests?: AdminPrayerRequest[];
   profileAnalytics?: AdminProfileAnalytics;
   publicFruitItemCount?: number;
@@ -648,7 +667,6 @@ type EditorTab =
 type LegacyEditorTab = "connections" | "tables";
 type RawEditorTab = EditorTab | LegacyEditorTab;
 type SupportSubsection = "commitments" | "giving-page" | "overview" | "settings" | "share-tools";
-type PrayerSubsection = "public-experience" | "requests" | "team";
 type PrimaryNavKey = "dashboard" | "field" | "publishing" | "resources";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
@@ -875,6 +893,14 @@ const teamMemberStatusOptions: Array<{ label: string; value: AdminTeamMemberStat
   { label: "Archived", value: "archived" },
 ];
 
+const teamMemberCategoryOptions = [
+  { label: "Missionary", value: "Missionary" },
+  { label: "Prayer Partner", value: "Prayer Partner" },
+  { label: "Support Partner", value: "Support Partner" },
+  { label: "Volunteer", value: "Volunteer" },
+  { label: "Other", value: "Other" },
+];
+
 type PublishingFeatureField =
   | "show_fruit"
   | "show_household"
@@ -995,12 +1021,6 @@ const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection 
   { label: "Share Tools", value: "share-tools" },
   { label: "Commitments", value: "commitments" },
   { label: "Settings", value: "settings" },
-];
-
-const prayerSubsectionOptions: Array<{ label: string; value: PrayerSubsection }> = [
-  { label: "Public Experience", value: "public-experience" },
-  { label: "Requests", value: "requests" },
-  { label: "Prayer Team", value: "team" },
 ];
 
 const stateOptions = [
@@ -2375,7 +2395,6 @@ function WorkspaceOverview({
     .sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime())
     .slice(0, 5);
   const mostRecentActivity = recentActivity[0];
-  const summaryLine = `${formatCountLabel(peopleAddedThisWeek, "new contact")} • ${formatCountLabel(meetingsThisWeek, "meeting")} • ${formatCountLabel(followUpsNeeded, "follow-up")} pending`;
   const openPeople = () => onNavigate("people", "field");
   const openMeetings = () => onNavigate("meetings", "field");
 
@@ -2385,7 +2404,6 @@ function WorkspaceOverview({
         <h3 className="text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
           This week at a glance
         </h3>
-        <p className="mt-2 text-sm text-[#6f6658]">{summaryLine}</p>
       </div>
 
       <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -7264,7 +7282,7 @@ function TeamMemberManager({
         <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
           <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_92px_72px_70px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             <span>Name</span>
-            <span>Role</span>
+            <span>Category</span>
             <span>Location</span>
             <span>Status</span>
             <span>Public</span>
@@ -7328,7 +7346,7 @@ function TeamMemberRow({
         ) : null}
       </div>
       <div className="flex items-center justify-between gap-3 md:block">
-        <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Role</span>
+        <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Category</span>
         <span className="text-sm text-[#4b443b]">{member.role_title || "Not set"}</span>
       </div>
       <div className="flex items-center justify-between gap-3 md:block">
@@ -7347,7 +7365,7 @@ function TeamMemberRow({
             className="sr-only"
             onChange={(event) => onUpdate(member.id, {
               is_public: event.target.checked,
-              status: event.target.checked ? "active" : "hidden",
+              status: event.target.checked ? "active" : member.status,
             })}
             type="checkbox"
           />
@@ -7486,10 +7504,11 @@ function TeamMemberEditor({
             </span>
           ) : null}
         </div>
-        <Field
-          label="Role / Title"
+        <SelectField
+          label="Category"
           onChange={(value) => onUpdate(member.id, { role_title: value })}
-          value={member.role_title}
+          options={teamMemberCategoryOptions}
+          value={member.role_title || "Other"}
         />
         <Field
           label="Sort Order"
@@ -7499,7 +7518,10 @@ function TeamMemberEditor({
         />
         <SelectField
           label="Status"
-          onChange={(value) => onUpdate(member.id, { status: value as AdminTeamMemberStatus, is_public: value === "active" })}
+          onChange={(value) => onUpdate(member.id, {
+            is_public: value === "active" ? member.is_public : false,
+            status: value as AdminTeamMemberStatus,
+          })}
           options={teamMemberStatusOptions}
           value={member.status}
         />
@@ -7527,7 +7549,7 @@ function TeamMemberEditor({
           className="h-4 w-4 accent-[#D4A63D]"
           onChange={(event) => onUpdate(member.id, {
             is_public: event.target.checked,
-            status: event.target.checked ? "active" : "hidden",
+            status: event.target.checked ? "active" : member.status,
           })}
           type="checkbox"
         />
@@ -7640,6 +7662,210 @@ function PrayerRequestsWorkspace({
   );
 }
 
+const defaultPrayerHeadline = "Prayer";
+const defaultPrayerDescription = "Pray with this household as they reach, disciple, and serve.";
+
+function labelFromToken(value: string | null | undefined) {
+  const normalizedValue = value?.trim();
+
+  if (!normalizedValue) {
+    return "Not set";
+  }
+
+  return normalizedValue
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function prayerPartnerName(partner: AdminPrayerPartner) {
+  return partner.name
+    || [partner.first_name, partner.last_name].filter(Boolean).join(" ")
+    || partner.email
+    || "Prayer partner";
+}
+
+function prayerPartnerContact(partner: AdminPrayerPartner) {
+  return [partner.email, partner.phone].filter(Boolean).join(" · ") || "No contact";
+}
+
+function prayerPartnerSourceLabel(source: string | null | undefined) {
+  return source === "public_profile" || source === "prayer_team_application"
+    ? "Public Profile"
+    : labelFromToken(source);
+}
+
+function PrayerStatusChip({ children, tone = "neutral" }: { children: ReactNode; tone?: "amber" | "green" | "neutral" | "red" }) {
+  const toneClass = {
+    amber: "border-[#D4A63D]/40 bg-[#fff7df] text-[#7a5200]",
+    green: "border-green-200 bg-green-50 text-green-800",
+    neutral: "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658]",
+    red: "border-red-200 bg-red-50 text-red-700",
+  }[tone];
+
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center rounded-full border px-2.5 py-0.5 text-[9px] uppercase tracking-[0.14em] ${toneClass}`}
+      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function PrayerPublishingWorkspace({
+  onUpdateHouseholdField,
+  profile,
+  publicProfileLink,
+}: {
+  onUpdateHouseholdField: (field: keyof AdminHousehold, value: boolean | number | string | null) => void;
+  profile: AdminProfile;
+  publicProfileLink: string;
+}) {
+  const partners = [...(profile.prayerPartners ?? [])].sort((a, b) => (
+    new Date(b.date_joined ?? b.created_at).getTime() - new Date(a.date_joined ?? a.created_at).getTime()
+  ));
+  const activePartners = partners.filter((partner) => partner.status === "active").length;
+  const pendingPartners = partners.filter((partner) => partner.status === "pending").length;
+  const recentPartners = partners.slice(0, 4);
+  const requests = [...(profile.prayerRequests ?? [])].sort((a, b) => (
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  ));
+  const openRequests = requests.filter((request) => request.status === "open").length;
+  const recentRequests = requests.slice(0, 4);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <a
+          className={`${lightSecondaryButtonClass} min-h-9 gap-2`}
+          href={publicProfileLink}
+          rel="noopener noreferrer"
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          target="_blank"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open Public Profile
+        </a>
+      </div>
+
+      <section className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Public Prayer Section
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <PrayerStatusChip tone="amber">Join Prayer Team</PrayerStatusChip>
+              <PrayerStatusChip tone="amber">Submit Prayer Request</PrayerStatusChip>
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+          <Field
+            label="Headline"
+            onChange={(value) => onUpdateHouseholdField("prayer_section_headline", value)}
+            value={profile.prayer_section_headline ?? defaultPrayerHeadline}
+          />
+          <TextArea
+            label="Description"
+            onChange={(value) => onUpdateHouseholdField("prayer_section_description", value)}
+            rows={3}
+            value={profile.prayer_section_description ?? defaultPrayerDescription}
+          />
+        </div>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Prayer Team Signups
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <PrayerStatusChip tone="green">Active {activePartners}</PrayerStatusChip>
+                <PrayerStatusChip tone={pendingPartners > 0 ? "amber" : "neutral"}>Pending {pendingPartners}</PrayerStatusChip>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 divide-y divide-[#e2ded5] overflow-hidden rounded-xl border border-[#e2ded5]">
+            {recentPartners.length === 0 ? (
+              <p className="p-3.5 text-sm text-[#7b746a]">No prayer team signups yet.</p>
+            ) : recentPartners.map((partner) => (
+              <div className="grid gap-2 p-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={partner.id}>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[#111111]">{prayerPartnerName(partner)}</p>
+                  <p className="mt-0.5 truncate text-xs text-[#7b746a]">{prayerPartnerContact(partner)}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {prayerPartnerSourceLabel(partner.source)} · {formatProfileUpdatedDate(partner.date_joined ?? partner.created_at)}
+                  </p>
+                </div>
+                <PrayerStatusChip tone={partner.status === "active" ? "green" : partner.status === "pending" ? "amber" : "neutral"}>
+                  {labelFromToken(partner.status)}
+                </PrayerStatusChip>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Prayer Requests
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <PrayerStatusChip tone={openRequests > 0 ? "amber" : "neutral"}>Open {openRequests}</PrayerStatusChip>
+                <PrayerStatusChip>Private by default</PrayerStatusChip>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 divide-y divide-[#e2ded5] overflow-hidden rounded-xl border border-[#e2ded5]">
+            {recentRequests.length === 0 ? (
+              <p className="p-3.5 text-sm text-[#7b746a]">No prayer requests yet.</p>
+            ) : recentRequests.map((request) => (
+              <div className="grid gap-2 p-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={request.id}>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[#111111]">{request.title}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-[#7b746a]">{request.request}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <PrayerStatusChip>{labelFromToken(request.urgency)}</PrayerStatusChip>
+                    <PrayerStatusChip>{labelFromToken(request.visibility)}</PrayerStatusChip>
+                    <PrayerStatusChip>{formatProfileUpdatedDate(request.created_at)}</PrayerStatusChip>
+                  </div>
+                </div>
+                <PrayerStatusChip tone={request.status === "open" ? "amber" : request.status === "answered" ? "green" : "neutral"}>
+                  {labelFromToken(request.status)}
+                </PrayerStatusChip>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <section className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+        <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          Settings
+        </p>
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          <PrayerSettingRow label="Anonymous requests" value="Allowed" />
+          <PrayerSettingRow label="Approved public requests" value="Off" />
+          <PrayerSettingRow label="Household notifications" value="NCC queue" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PrayerSettingRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] px-3 py-2">
+      <span className="text-sm font-medium text-[#111111]">{label}</span>
+      <PrayerStatusChip>{value}</PrayerStatusChip>
+    </div>
+  );
+}
+
 function StatPreview({ label, tone = "dark", value }: { label: string; tone?: "dark" | "light"; value: string }) {
   const isLight = tone === "light";
 
@@ -7702,7 +7928,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [activePrimaryNav, setActivePrimaryNav] = useState<PrimaryNavKey>(initialPrimaryNav);
   const [activeSubnavId, setActiveSubnavId] = useState<string>(getSubnavIdForTab(normalizeEditorTab(initialTab), initialPrimaryNav));
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("overview");
-  const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("public-experience");
   const [profileQuery, setProfileQuery] = useState("");
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
@@ -8286,9 +8511,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       setSupportSubsection("overview");
     }
 
-    if (nextTab === "prayer") {
-      setPrayerSubsection("public-experience");
-    }
   }
 
   function updateFeatureField(field: PublishingFeatureField, value: boolean) {
@@ -9661,8 +9883,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             <WorkspaceOverview
               onNavigate={changeEditorTab}
               onOpenPrayerRequests={() => {
-                changeEditorTab("prayer", "field", "prayer");
-                setPrayerSubsection("requests");
+                changeEditorTab("prayer", "publishing", "prayer");
               }}
               profile={selectedProfile}
             />
@@ -10092,7 +10313,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "team" ? (
           <SectionIntro
-            description="Public team members"
+            description="Household team and partners"
             title="Team"
           >
             <TeamMemberManager
@@ -10502,155 +10723,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "prayer" ? (
           <SectionIntro
-            description="Public prayer experience"
             title="Prayer"
           >
-            <div className="space-y-3.5">
-              <div className="flex flex-col gap-3 border-b border-[#e2ded5] pb-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-wrap justify-center gap-2 lg:justify-start">
-                  {prayerSubsectionOptions.map((option) => (
-                    <button
-                      aria-pressed={prayerSubsection === option.value}
-                      className={`${workspaceTabBaseClass} ${
-                        prayerSubsection === option.value
-                          ? workspaceLightTabActiveClass
-                          : workspaceLightTabInactiveClass
-                      }`}
-                      key={option.value}
-                      onClick={() => setPrayerSubsection(option.value)}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-                <a
-                  className={`${lightSecondaryButtonClass} min-h-10 gap-2`}
-                  href={publicProfileLink}
-                  rel="noopener noreferrer"
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  target="_blank"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Open Public Profile
-                </a>
-              </div>
-
-              {prayerSubsection === "public-experience" ? (
-                <div className="grid gap-3">
-                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-                    <div className="grid gap-3.5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-                      <Field
-                        label="Section Headline"
-                        onChange={(value) => updateHouseholdField("prayer_section_headline", value)}
-                        value={selectedProfile.prayer_section_headline}
-                      />
-                      <TextArea
-                        label="Section Description"
-                        onChange={(value) => updateHouseholdField("prayer_section_description", value)}
-                        rows={3}
-                        value={selectedProfile.prayer_section_description}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
-                    <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-                      <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Public Actions
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {["Join Prayer Team", "Submit Prayer Request"].map((action) => (
-                          <span
-                            className="rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-[#111111]"
-                            key={action}
-                            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                          >
-                            {action}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <label className="flex items-center justify-between gap-4 rounded-2xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
-                      <span className="min-w-0">
-                        <span className="block text-[11px] uppercase tracking-[0.16em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Allow Anonymous Requests
-                        </span>
-                      </span>
-                      <input
-                        checked
-                        className="h-4 w-4 accent-[#D4A63D]"
-                        readOnly
-                        type="checkbox"
-                      />
-                    </label>
-                  </div>
-                </div>
-              ) : null}
-
-              {prayerSubsection === "requests" ? (
-                <div className="space-y-3">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
-                      <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Default Visibility</p>
-                      <p className="mt-2 text-lg font-semibold text-[#111111]">Private</p>
-                    </div>
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
-                      <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Default Urgency</p>
-                      <p className="mt-2 text-lg font-semibold text-[#111111]">Normal</p>
-                    </div>
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
-                      <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Moderation</p>
-                      <p className="mt-2 text-lg font-semibold text-[#111111]">Internal</p>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
-                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Categories</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {["Healing", "Family", "Financial", "Salvation", "Guidance", "Other"].map((category) => (
-                        <span
-                          className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]"
-                          key={category}
-                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                        >
-                          {category}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <PrayerRequestsWorkspace
-                    fieldPeople={selectedProfile.fieldPeople ?? []}
-                    onCreate={savePrayerRequest}
-                    onUpdateStatus={updatePrayerRequestStatus}
-                    prayerRequests={selectedProfile.prayerRequests ?? []}
-                  />
-                </div>
-              ) : null}
-
-              {prayerSubsection === "team" ? (
-                <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Prayer Team
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <StatusPill>Active Partners: {selectedProfile.prayerPartnerCount ?? 0}</StatusPill>
-                        <StatusPill>Open Requests: {selectedProfile.activePrayerRequestCount ?? 0}</StatusPill>
-                        <StatusPill>Coverage: {(selectedProfile.prayerPartnerCount ?? 0) > 0 ? "Active" : "Needs Coverage"}</StatusPill>
-                      </div>
-                    </div>
-                    <Link
-                      className={`${lightPrimaryButtonClass} min-h-10 w-full sm:w-auto`}
-                      href={`/admin/prayer-team?tab=requests&household=${selectedProfile.id}`}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    >
-                      Open Prayer Team
-                    </Link>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <PrayerPublishingWorkspace
+              onUpdateHouseholdField={updateHouseholdField}
+              profile={selectedProfile}
+              publicProfileLink={publicProfileLink}
+            />
           </SectionIntro>
           ) : null}
         </div>

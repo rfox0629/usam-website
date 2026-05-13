@@ -478,16 +478,13 @@ function MissionProfileSection({
   return (
     <section className="border-t border-stone-900/80 px-6 py-8 md:py-10">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Mission Profile
-            </p>
-            <h2 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-[2.5rem]" style={{ fontFamily: font.oswald }}>
-              Connect With The Mission
-            </h2>
-          </div>
-          <HandHeart aria-hidden="true" className="hidden h-7 w-7 text-[#D4A63D] md:block" strokeWidth={1.6} />
+        <div className="mb-5">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Mission Profile
+          </p>
+          <h2 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-[2.5rem]" style={{ fontFamily: font.oswald }}>
+            Connect With The Mission
+          </h2>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -506,19 +503,6 @@ function MissionProfileSection({
         </div>
       </div>
     </section>
-  );
-}
-
-function ProfileFooter({ missionary }: { missionary: Missionary }) {
-  return (
-    <footer className="border-t border-stone-900/80 px-6 py-6">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 text-sm text-stone-500 sm:flex-row sm:items-center sm:justify-between">
-        <p className="uppercase tracking-[0.18em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          USA Missionaries
-        </p>
-        <p>{missionary.name}</p>
-      </div>
-    </footer>
   );
 }
 
@@ -617,8 +601,6 @@ export function MissionaryProfileTemplate({
       {showFruit ? (
         <FruitSection fruitItems={fruitItems} initialReviewOpen={shouldPreviewProfileReview} missionary={missionary} />
       ) : null}
-
-      <ProfileFooter missionary={missionary} />
     </main>
   );
 }
