@@ -8872,12 +8872,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     ? "Copied"
     : profileLinkCopyState === "failed"
       ? "Copy failed"
-      : "Copy Link";
-  const profileLinkCopySubtitle = profileLinkCopyState === "copied"
-    ? "Ready"
-    : profileLinkCopyState === "failed"
-      ? "Try again"
-      : "Share";
+      : "Copy Public Link";
   const selectedSupportModeLabel = supportModeOptions.find((option) => option.value === supportMode)?.label ?? supportModeOptions[0].label;
   const targetHouseholdOptions = targetHouseholdLoadState === "loading"
     ? [{ label: "Loading households...", value: "" }]
@@ -9023,44 +9018,41 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
               <Link
                 aria-label="Open mobile Field App for this workspace"
-                className="flex min-h-[74px] min-w-0 rounded-2xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_14px_34px_rgba(212,166,61,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#e7b742] hover:shadow-[0_18px_42px_rgba(212,166,61,0.24)] sm:min-h-24 sm:p-4"
+                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_14px_34px_rgba(212,166,61,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#e7b742] hover:shadow-[0_18px_42px_rgba(212,166,61,0.24)] sm:min-h-24 sm:p-4"
                 href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
                 rel="noopener noreferrer"
                 target="_blank"
                 title="Open mobile Field App for this workspace"
               >
-                <div className="flex min-w-0 items-start gap-3">
-                  <Smartphone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                <div className="flex min-w-0 items-center gap-3">
+                  <Smartphone className="h-5 w-5 shrink-0" aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open DOS</p>
-                    <p className="mt-1 text-[11px] leading-4 text-black/70 sm:text-xs">Field</p>
                   </div>
                 </div>
               </Link>
               <Link
-                className="flex min-h-[74px] min-w-0 rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
+                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
                 href={`/missionaries/${selectedProfile.slug}`}
                 target="_blank"
               >
-                <div className="flex min-w-0 items-start gap-3">
-                  <ExternalLink className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                <div className="flex min-w-0 items-center gap-3">
+                  <ExternalLink className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public Profile</p>
-                    <p className="mt-1 text-[11px] leading-4 text-stone-400 sm:text-xs">Public</p>
                   </div>
                 </div>
               </Link>
               <button
                 aria-label={profileLinkCopyState === "failed" ? "Copy profile link failed. Try again." : "Copy public profile link"}
-                className="flex min-h-[74px] min-w-0 rounded-2xl border border-stone-700 bg-stone-950/70 p-3.5 text-left text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.2)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/55 hover:bg-stone-900/70 hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.08)] sm:min-h-24 sm:p-4"
+                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-stone-700 bg-stone-950/70 p-3.5 text-left text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.2)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/55 hover:bg-stone-900/70 hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.08)] sm:min-h-24 sm:p-4"
                 onClick={copySelectedProfileLink}
                 type="button"
               >
-                <div className="flex min-w-0 items-start gap-3">
-                  <Copy className="mt-0.5 h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                <div className="flex min-w-0 items-center gap-3">
+                  <Copy className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{profileLinkCopyTitle}</p>
-                    <p className="mt-1 text-[11px] leading-4 text-stone-400 sm:text-xs">{profileLinkCopySubtitle}</p>
                   </div>
                 </div>
               </button>
