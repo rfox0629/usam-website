@@ -7,8 +7,13 @@ import { MajorGiftInquiryModal } from "@/src/components/missionaries/MajorGiftIn
 import { SupportMissionModal } from "@/src/components/missionaries/SupportMissionModal";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
+const monthlySupportLabel = "Support Monthly";
+const oneTimeSupportLabel = "Give One Time";
+const majorGiftLabel = "Contact About Major Gift";
 
 type SharedSupportProps = {
+  enableMonthlyPartnership?: boolean;
+  enableOneTimeGift?: boolean;
   enableMajorGiftInquiry?: boolean;
   extraAction?: ReactNode;
   initialMajorGiftOpen?: boolean;
@@ -79,6 +84,8 @@ function ProfileSupportModal({
   return (
     <SupportMissionModal
       defaultAllocation={props.supportPublicLabel}
+      enableMonthlyPartnership={props.enableMonthlyPartnership}
+      enableOneTimeGift={props.enableOneTimeGift}
       householdId={props.missionaryId}
       householdName={props.missionaryName}
       initialGiftType={initialGiftType}
@@ -101,15 +108,16 @@ function ProfileSupportModal({
 export function HeroSupportActions(props: SharedSupportProps) {
   const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
   const {
+    enableMonthlyPartnership = true,
     extraAction,
-    monthlyButtonLabel = "Support Monthly",
+    monthlyButtonLabel = monthlySupportLabel,
     showSupport = true,
   } = props;
 
   return (
     <>
       <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:gap-4 md:mt-10">
-        {showSupport ? (
+        {showSupport && enableMonthlyPartnership ? (
           <button
             className={primaryButtonClassName()}
             onClick={() => openModal("monthly")}
@@ -134,7 +142,11 @@ export function HeroSupportActions(props: SharedSupportProps) {
 
 export function MonthlySupportActions(props: SharedSupportProps) {
   const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
-  const triggerLabel = props.supportButtonLabel || props.monthlyButtonLabel || "Submit Commitment";
+  const triggerLabel = props.supportButtonLabel || props.monthlyButtonLabel || monthlySupportLabel;
+
+  if (props.enableMonthlyPartnership === false) {
+    return null;
+  }
 
   return (
     <>
@@ -162,16 +174,18 @@ export function MonthlySupportActions(props: SharedSupportProps) {
 export function ProfileSupportSectionActions(props: SharedSupportProps & { layout?: "default" | "compact" }) {
   const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
   const {
+    enableMonthlyPartnership = true,
+    enableOneTimeGift = true,
     enableMajorGiftInquiry = true,
     initialMajorGiftOpen = false,
     layout = "default",
-    majorGiftButtonLabel = "Contact About Major Gift",
+    majorGiftButtonLabel = majorGiftLabel,
     majorGiftPublicDescription,
     missionaryId,
     missionaryName,
     missionarySlug,
-    monthlyButtonLabel = "Support Monthly",
-    oneTimeButtonLabel = "Give One Time",
+    monthlyButtonLabel = monthlySupportLabel,
+    oneTimeButtonLabel = oneTimeSupportLabel,
     showSupport = true,
   } = props;
 
@@ -184,22 +198,26 @@ export function ProfileSupportSectionActions(props: SharedSupportProps & { layou
   return (
     <>
       <div className={isCompact ? "mt-4 grid gap-2" : "mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap"}>
-        <button
-          className={isCompact ? compactPrimaryButtonClassName() : primaryButtonClassName()}
-          onClick={() => openModal("monthly")}
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          type="button"
-        >
-          {monthlyButtonLabel}
-        </button>
-        <button
-          className={isCompact ? compactSecondaryButtonClassName() : secondaryButtonClassName()}
-          onClick={() => openModal("onetime")}
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          type="button"
-        >
-          {oneTimeButtonLabel}
-        </button>
+        {enableMonthlyPartnership ? (
+          <button
+            className={isCompact ? compactPrimaryButtonClassName() : primaryButtonClassName()}
+            onClick={() => openModal("monthly")}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            {monthlyButtonLabel}
+          </button>
+        ) : null}
+        {enableOneTimeGift ? (
+          <button
+            className={isCompact ? compactSecondaryButtonClassName() : secondaryButtonClassName()}
+            onClick={() => openModal("onetime")}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            {oneTimeButtonLabel}
+          </button>
+        ) : null}
         {enableMajorGiftInquiry ? (
           <MajorGiftInquiryModal
             buttonClassName={isCompact ? compactTertiaryButtonClassName() : undefined}

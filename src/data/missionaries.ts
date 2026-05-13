@@ -59,7 +59,11 @@ export type MissionarySupportRouting = {
   monthlyButtonLabel?: string | null;
   oneTimeButtonLabel?: string | null;
   majorGiftButtonLabel?: string | null;
+  enableMonthlyPartnership?: boolean | null;
+  enableOneTimeGift?: boolean | null;
   enableMajorGiftInquiry?: boolean | null;
+  monthlySupportDescription?: string | null;
+  oneTimeSupportDescription?: string | null;
   flyerHeadline?: string | null;
   flyerNote?: string | null;
   flyerPrayerAsk?: string | null;

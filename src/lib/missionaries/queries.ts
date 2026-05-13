@@ -73,7 +73,7 @@ const householdFeatureSelect = [
 ].join(", ");
 const householdProfileSelect = `${householdBaseSelect}, ${householdFeatureSelect}`;
 const supportSettingsBaseSelect = "show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis";
-const supportSettingsFullSelect = `${supportSettingsBaseSelect}, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description, flyer_headline, flyer_support_appeal, flyer_prayer_ask, flyer_note`;
+const supportSettingsFullSelect = `${supportSettingsBaseSelect}, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_monthly_partnership, enable_one_time_gift, enable_major_gift_inquiry, monthly_support_description, one_time_support_description, major_gift_notify_email, major_gift_public_description, flyer_headline, flyer_support_appeal, flyer_prayer_ask, flyer_note`;
 
 type HouseholdRow = {
   id: string;
@@ -155,7 +155,11 @@ type SupportSettingsRow = {
   monthly_button_label?: string | null;
   one_time_button_label?: string | null;
   major_gift_button_label?: string | null;
+  enable_monthly_partnership?: boolean | null;
+  enable_one_time_gift?: boolean | null;
   enable_major_gift_inquiry?: boolean | null;
+  monthly_support_description?: string | null;
+  one_time_support_description?: string | null;
   flyer_headline?: string | null;
   flyer_note?: string | null;
   flyer_prayer_ask?: string | null;
@@ -393,7 +397,11 @@ function hasMissingSupportSettingsColumnsError(error: { message?: string } | nul
     "monthly_button_label",
     "one_time_button_label",
     "major_gift_button_label",
+    "enable_monthly_partnership",
+    "enable_one_time_gift",
     "enable_major_gift_inquiry",
+    "monthly_support_description",
+    "one_time_support_description",
     "major_gift_notify_email",
     "major_gift_public_description",
     "flyer_headline",
@@ -592,6 +600,8 @@ function mapHouseholdToMissionary({
     supportRouting: {
       buttonLabel: household.support_button_label ?? null,
       enableMajorGiftInquiry: isEnabledByDefault(support?.enable_major_gift_inquiry),
+      enableMonthlyPartnership: isEnabledByDefault(support?.enable_monthly_partnership),
+      enableOneTimeGift: isEnabledByDefault(support?.enable_one_time_gift),
       explanation: household.support_explanation ?? null,
       flyerHeadline: support?.flyer_headline ?? null,
       flyerNote: support?.flyer_note ?? null,
@@ -603,8 +613,10 @@ function mapHouseholdToMissionary({
       mode: supportMode,
       monthlyButtonLabel: support?.monthly_button_label ?? null,
       monthlyGivingUrl,
+      monthlySupportDescription: support?.monthly_support_description ?? null,
       oneTimeButtonLabel: support?.one_time_button_label ?? null,
       oneTimeGivingUrl,
+      oneTimeSupportDescription: support?.one_time_support_description ?? null,
       publicLabel: household.support_public_label ?? null,
       targetFund: household.support_target_fund ?? null,
       targetHouseholdId: household.support_target_household_id ?? null,

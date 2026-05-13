@@ -122,20 +122,22 @@ function getSupportDefaults(missionary: Missionary) {
   const mode = missingTarget ? "general_fund" : requestedMode;
   const publicCopy = getSupportRoutingPublicCopy(mode, missionary.supportRouting?.targetHouseholdName);
   const publicLabel = publicCopy.title;
-  const monthlyButtonLabel = missionary.supportRouting?.monthlyButtonLabel || "Support Monthly";
+  const monthlyButtonLabel = "Support Monthly";
   const explanation = missionary.supportRouting?.explanation || publicCopy.explanation;
 
   return {
     buttonLabel: monthlyButtonLabel,
     enableMajorGiftInquiry: missionary.supportRouting?.enableMajorGiftInquiry !== false,
+    enableMonthlyPartnership: missionary.supportRouting?.enableMonthlyPartnership !== false,
+    enableOneTimeGift: missionary.supportRouting?.enableOneTimeGift !== false,
     explanation,
     isHouseholdFundraising: mode === "household",
-    majorGiftButtonLabel: missionary.supportRouting?.majorGiftButtonLabel || "Contact About Major Gift",
+    majorGiftButtonLabel: "Contact About Major Gift",
     majorGiftPublicDescription: missionary.supportRouting?.majorGiftPublicDescription ?? null,
     mode,
     monthlyButtonLabel,
     monthlyGivingUrl: missionary.supportRouting?.monthlyGivingUrl ?? null,
-    oneTimeButtonLabel: missionary.supportRouting?.oneTimeButtonLabel || "Give One Time",
+    oneTimeButtonLabel: "Give One Time",
     oneTimeGivingUrl: missionary.supportRouting?.oneTimeGivingUrl ?? null,
     publicLabel,
     targetFund: missionary.supportRouting?.targetFund ?? (mode === "household" ? null : mode),
@@ -585,6 +587,8 @@ export function MissionaryProfileTemplate({
   ) : null;
   const supportModalProps = {
     enableMajorGiftInquiry: supportDefaults.enableMajorGiftInquiry,
+    enableMonthlyPartnership: supportDefaults.enableMonthlyPartnership,
+    enableOneTimeGift: supportDefaults.enableOneTimeGift,
     extraAction: joinPrayerTeamAction,
     initialMajorGiftOpen: previewForm === "major_gift",
     majorGiftButtonLabel: supportDefaults.majorGiftButtonLabel,

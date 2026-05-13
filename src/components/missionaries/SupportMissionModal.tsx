@@ -8,6 +8,8 @@ const font = { rajdhani: "'Rajdhani', sans-serif" };
 type SupportMissionModalProps = {
   isOpen: boolean;
   defaultAllocation?: string | null;
+  enableMonthlyPartnership?: boolean;
+  enableOneTimeGift?: boolean;
   householdId?: string | null;
   householdName: string;
   monthlyGivingUrl?: string | null;
@@ -27,6 +29,8 @@ type SupportMissionModalProps = {
 export function SupportMissionModal({
   isOpen,
   defaultAllocation,
+  enableMonthlyPartnership = true,
+  enableOneTimeGift = true,
   householdId,
   householdName,
   monthlyGivingUrl,
@@ -89,6 +93,8 @@ export function SupportMissionModal({
         <GivingCommitmentForm
           defaultAllocation={defaultAllocation ?? supportPublicLabel}
           displayMode="modal"
+          enableMonthlyPartnership={enableMonthlyPartnership}
+          enableOneTimeGift={enableOneTimeGift}
           householdId={householdId}
           householdName={householdName}
           initialGiftType={initialGiftType}

@@ -17,6 +17,7 @@ import {
   normalizeSupportRoutingMode,
   type SupportRoutingMode,
 } from "@/src/lib/missionaries/support-routing";
+import { ProfileSupportSectionActions } from "@/components/missionaries/SupportMissionButtons";
 import { getPublicMissionaryProfileUrl } from "@/src/lib/missionaries/public-origin";
 import {
   locationVisibilityOptions,
@@ -150,7 +151,11 @@ export type AdminSupportSettings = {
   monthly_button_label?: string | null;
   one_time_button_label?: string | null;
   major_gift_button_label?: string | null;
+  enable_monthly_partnership?: boolean | null;
+  enable_one_time_gift?: boolean | null;
   enable_major_gift_inquiry?: boolean | null;
+  monthly_support_description?: string | null;
+  one_time_support_description?: string | null;
   major_gift_notify_email?: string | null;
   major_gift_public_description?: string | null;
   flyer_headline?: string | null;
@@ -657,7 +662,11 @@ const emptySupport = (householdId: string): AdminSupportSettings => ({
   one_time_button_label: "Give One Time",
   one_time_giving_url: "",
   major_gift_button_label: "Contact About Major Gift",
+  enable_monthly_partnership: true,
+  enable_one_time_gift: true,
   enable_major_gift_inquiry: true,
+  monthly_support_description: "",
+  one_time_support_description: "",
   major_gift_notify_email: "ryan@usamissionaries.org",
   major_gift_public_description: "",
   flyer_headline: "",
@@ -6083,6 +6092,53 @@ function SupportMetricCard({
   );
 }
 
+function SupportFlowSetting({
+  ctaLabel,
+  description,
+  enabled,
+  label,
+  onDescriptionChange,
+  onEnabledChange,
+  placeholder,
+}: {
+  ctaLabel: string;
+  description: string | null | undefined;
+  enabled: boolean;
+  label: string;
+  onDescriptionChange: (value: string) => void;
+  onEnabledChange: (value: boolean) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex items-center gap-3 text-sm font-semibold text-[#111111]">
+          <input
+            checked={enabled}
+            className="h-4 w-4 accent-[#D4A63D]"
+            onChange={(event) => onEnabledChange(event.target.checked)}
+            type="checkbox"
+          />
+          {label}
+        </label>
+        <span className="inline-flex w-fit rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {ctaLabel}
+        </span>
+      </div>
+      <Field
+        label="Description"
+        onChange={onDescriptionChange}
+        value={description ?? ""}
+      />
+      {!description ? (
+        <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+          {placeholder}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function SupportOverview({
   commitments,
   monthlyGoal,
@@ -9900,48 +9956,115 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                 <div className="space-y-4">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Giving Page
+                      Support Experience
                     </p>
                   </div>
 
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-                    <div className="space-y-3.5">
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+                    <div className="space-y-4">
                       <TextArea
-                        label="Support Explanation"
+                        label="Support Description"
                         onChange={(value) => updateHouseholdField("support_explanation", value)}
-                        rows={5}
+                        rows={3}
                         value={selectedProfile.support_explanation}
                       />
-                      <div className="grid gap-4 md:grid-cols-3">
-                        <Field label="Monthly Button" onChange={(value) => updateSupportField("monthly_button_label", value)} value={support.monthly_button_label ?? "Support Monthly"} />
-                        <Field label="One-Time Button" onChange={(value) => updateSupportField("one_time_button_label", value)} value={support.one_time_button_label ?? "Give One Time"} />
-                        <Field label="Major Gift Button" onChange={(value) => updateSupportField("major_gift_button_label", value)} value={support.major_gift_button_label ?? "Contact About Major Gift"} />
+
+                      <div className="space-y-3">
+                        <SupportFlowSetting
+                          ctaLabel="Support Monthly"
+                          description={support.monthly_support_description}
+                          enabled={support.enable_monthly_partnership !== false}
+                          label="Enable Monthly Partnership"
+                          onDescriptionChange={(value) => updateSupportField("monthly_support_description", value)}
+                          onEnabledChange={(value) => updateSupportField("enable_monthly_partnership", value)}
+                          placeholder="Partner monthly to sustain this mission."
+                        />
+                        <SupportFlowSetting
+                          ctaLabel="Give One Time"
+                          description={support.one_time_support_description}
+                          enabled={support.enable_one_time_gift !== false}
+                          label="Enable One-Time Gift"
+                          onDescriptionChange={(value) => updateSupportField("one_time_support_description", value)}
+                          onEnabledChange={(value) => updateSupportField("enable_one_time_gift", value)}
+                          placeholder="Give once toward this missionary household."
+                        />
+                        <SupportFlowSetting
+                          ctaLabel="Contact About Major Gift"
+                          description={support.major_gift_public_description}
+                          enabled={support.enable_major_gift_inquiry !== false}
+                          label="Enable Major Gift Conversation"
+                          onDescriptionChange={(value) => updateSupportField("major_gift_public_description", value)}
+                          onEnabledChange={(value) => updateSupportField("enable_major_gift_inquiry", value)}
+                          placeholder="Connect regarding strategic or larger support opportunities."
+                        />
                       </div>
-                      <TextArea
-                        label="Major Gift Public Description"
-                        onChange={(value) => updateSupportField("major_gift_public_description", value)}
-                        rows={3}
-                        value={support.major_gift_public_description}
-                      />
                     </div>
 
-                    <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+                    <div className="rounded-2xl border border-[#201b13] bg-[#080807] p-4 text-stone-100 shadow-[0_24px_70px_rgba(0,0,0,0.22)]">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Public Preview
+                        Live Public Preview
                       </p>
-                      <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                      <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
                         Support This Mission
                       </h3>
-                      <p className="mt-3 text-sm leading-6 text-[#4b443b]">
+                      <p className="mt-3 text-sm leading-6 text-stone-400">
                         {selectedProfile.support_explanation || "Stand with this missionary household as they reach, disciple, and serve across the mission field."}
                       </p>
-                      <div className="mt-4 space-y-2">
-                        <button className={lightPrimaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                          {support.monthly_button_label || "Support Monthly"}
-                        </button>
-                        <button className={lightSecondaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                          {support.one_time_button_label || "Give One Time"}
-                        </button>
+                      <div className="mt-4 space-y-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3">
+                        {support.enable_monthly_partnership !== false ? (
+                          <div>
+                            <p className="text-[9px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                              Monthly Partnership
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-stone-400">
+                              {support.monthly_support_description || "Partner monthly to sustain this mission."}
+                            </p>
+                          </div>
+                        ) : null}
+                        {support.enable_one_time_gift !== false ? (
+                          <div className="border-t border-white/[0.07] pt-2">
+                            <p className="text-[9px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                              One-Time Gift
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-stone-400">
+                              {support.one_time_support_description || "Give once toward this missionary household."}
+                            </p>
+                          </div>
+                        ) : null}
+                        {support.enable_major_gift_inquiry !== false ? (
+                          <div className="border-t border-white/[0.07] pt-2">
+                            <p className="text-[9px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                              Major Gift Conversation
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-stone-400">
+                              {support.major_gift_public_description || "Connect regarding strategic or larger support opportunities."}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="mt-4">
+                        <ProfileSupportSectionActions
+                          enableMajorGiftInquiry={support.enable_major_gift_inquiry !== false}
+                          enableMonthlyPartnership={support.enable_monthly_partnership !== false}
+                          enableOneTimeGift={support.enable_one_time_gift !== false}
+                          majorGiftButtonLabel="Contact About Major Gift"
+                          majorGiftPublicDescription={support.major_gift_public_description}
+                          missionaryId={selectedProfile.id}
+                          missionaryName={selectedProfile.display_name}
+                          missionarySlug={selectedProfile.slug}
+                          monthlyButtonLabel="Support Monthly"
+                          monthlyGivingUrl={support.monthly_giving_url}
+                          oneTimeButtonLabel="Give One Time"
+                          oneTimeGivingUrl={support.one_time_giving_url}
+                          showSupport={support.show_support !== false && selectedProfile.show_support !== false}
+                          supportButtonLabel="Support Monthly"
+                          supportExplanation={selectedProfile.support_explanation ?? undefined}
+                          supportMode={supportMode}
+                          supportPublicLabel={selectedProfile.support_public_label || givingRoutingDestination}
+                          supportTargetFund={selectedProfile.support_target_fund}
+                          supportTargetHouseholdName={selectedTargetHousehold?.display_name ?? null}
+                          layout="compact"
+                        />
                       </div>
                     </div>
                   </div>
@@ -9987,28 +10110,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
                   <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
                     <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Major Gift Settings
+                      Major Gift Notifications
                     </p>
-                    <label className="mt-3 flex items-center gap-3 text-sm font-semibold text-[#4b443b]">
-                      <input
-                        checked={support.enable_major_gift_inquiry !== false}
-                        className="h-4 w-4 accent-[#D4A63D]"
-                        onChange={(event) => updateSupportField("enable_major_gift_inquiry", event.target.checked)}
-                        type="checkbox"
-                      />
-                      Enable Major Gift Inquiry
-                    </label>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="mt-3">
                       <Field
                         label="Notify Email"
                         onChange={(value) => updateSupportField("major_gift_notify_email", value)}
                         value={support.major_gift_notify_email ?? "ryan@usamissionaries.org"}
-                      />
-                      <TextArea
-                        label="Optional Public Description"
-                        onChange={(value) => updateSupportField("major_gift_public_description", value)}
-                        rows={3}
-                        value={support.major_gift_public_description}
                       />
                     </div>
                   </div>

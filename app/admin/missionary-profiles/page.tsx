@@ -600,7 +600,11 @@ function isMissingSupportLinkColumns(error: { message?: string } | null | undefi
     "monthly_button_label",
     "one_time_button_label",
     "major_gift_button_label",
+    "enable_monthly_partnership",
+    "enable_one_time_gift",
     "enable_major_gift_inquiry",
+    "monthly_support_description",
+    "one_time_support_description",
     "major_gift_notify_email",
     "major_gift_public_description",
     "flyer_headline",
@@ -723,7 +727,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   if (ids.length > 0) {
     const supportResult = await supabase
       .from("missionary_support_settings")
-      .select("household_id, show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_major_gift_inquiry, major_gift_notify_email, major_gift_public_description, flyer_headline, flyer_support_appeal, flyer_prayer_ask, flyer_note")
+      .select("household_id, show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_monthly_partnership, enable_one_time_gift, enable_major_gift_inquiry, monthly_support_description, one_time_support_description, major_gift_notify_email, major_gift_public_description, flyer_headline, flyer_support_appeal, flyer_prayer_ask, flyer_note")
       .in("household_id", ids);
     const fallbackSupportResult = supportResult.error && isMissingSupportLinkColumns(supportResult.error)
       ? await supabase

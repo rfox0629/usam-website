@@ -12,6 +12,8 @@ export type SupportCommitmentSource = "missionary_profile" | "general_support_pa
 export type GivingCommitmentFormProps = {
   defaultAllocation?: string | null;
   displayMode?: "section" | "modal";
+  enableMonthlyPartnership?: boolean;
+  enableOneTimeGift?: boolean;
   householdId?: string | null;
   householdName?: string | null;
   initialGiftType?: CommitmentGiftType;
@@ -144,6 +146,8 @@ function SelectField({
 export function GivingCommitmentForm({
   defaultAllocation,
   displayMode = "section",
+  enableMonthlyPartnership = true,
+  enableOneTimeGift = true,
   householdId = null,
   householdName,
   initialGiftType = "monthly",
@@ -168,6 +172,15 @@ export function GivingCommitmentForm({
       ? [...baseAllocationPreferences]
       : [allocationLabel, ...baseAllocationPreferences];
   }, [allocationLabel]);
+  const enabledGiftTypeOptions = useMemo(() => {
+    return giftTypeOptions.filter((option) => {
+      if (option.value === "monthly") {
+        return enableMonthlyPartnership;
+      }
+
+      return enableOneTimeGift;
+    });
+  }, [enableMonthlyPartnership, enableOneTimeGift]);
 
   const [giftType, setGiftType] = useState<CommitmentGiftType>(initialGiftType);
   const [monthlyAmount, setMonthlyAmount] = useState("");
@@ -187,6 +200,15 @@ export function GivingCommitmentForm({
   useEffect(() => {
     setGiftType(initialGiftType);
   }, [initialGiftType]);
+
+  useEffect(() => {
+    if (enabledGiftTypeOptions.some((option) => option.value === giftType)) {
+      return;
+    }
+
+    const fallbackGiftType = enabledGiftTypeOptions[0]?.value ?? "monthly";
+    setGiftType(fallbackGiftType);
+  }, [enabledGiftTypeOptions, giftType]);
 
   useEffect(() => {
     setAllocationPreference(allocationLabel);
@@ -332,7 +354,7 @@ export function GivingCommitmentForm({
               <SectionTitle>Gift Details</SectionTitle>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <SelectField id="giftType" label="Gift Type" name="gift_type" value={giftType} onChange={(value) => setGiftType(value as CommitmentGiftType)}>
-                  {giftTypeOptions.map((option) => (
+                  {enabledGiftTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </SelectField>

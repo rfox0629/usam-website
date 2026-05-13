@@ -154,6 +154,8 @@ type UpdatePayload = {
   workspaceId?: unknown;
   support?: {
     annual_goal?: unknown;
+    enable_monthly_partnership?: unknown;
+    enable_one_time_gift?: unknown;
     enable_major_gift_inquiry?: unknown;
     general_fund_percentage?: unknown;
     goal_basis?: unknown;
@@ -169,8 +171,10 @@ type UpdatePayload = {
     monthly_giving_url?: unknown;
     monthly_goal?: unknown;
     monthly_received?: unknown;
+    monthly_support_description?: unknown;
     one_time_button_label?: unknown;
     one_time_giving_url?: unknown;
+    one_time_support_description?: unknown;
     show_support?: unknown;
   };
 };
@@ -533,7 +537,11 @@ function hasMissingSupportLinkColumnsError(error: { message?: string } | null | 
     "monthly_button_label",
     "one_time_button_label",
     "major_gift_button_label",
+    "enable_monthly_partnership",
+    "enable_one_time_gift",
     "enable_major_gift_inquiry",
+    "monthly_support_description",
+    "one_time_support_description",
     "major_gift_notify_email",
     "major_gift_public_description",
     "flyer_headline",
@@ -741,6 +749,8 @@ export async function POST(request: Request) {
 
   const supportUpdate = {
     annual_goal: asNumber(support.annual_goal),
+    enable_monthly_partnership: support.enable_monthly_partnership !== false,
+    enable_one_time_gift: support.enable_one_time_gift !== false,
     enable_major_gift_inquiry: support.enable_major_gift_inquiry !== false,
     flyer_headline: asNullableString(support.flyer_headline),
     flyer_note: asNullableString(support.flyer_note),
@@ -749,16 +759,18 @@ export async function POST(request: Request) {
     general_fund_percentage: asNumber(support.general_fund_percentage),
     goal_basis: asNullableString(support.goal_basis),
     household_id: householdId,
-    major_gift_button_label: asString(support.major_gift_button_label) || "Contact About Major Gift",
+    major_gift_button_label: "Contact About Major Gift",
     major_gift_notify_email: asString(support.major_gift_notify_email) || "ryan@usamissionaries.org",
     major_gift_public_description: asNullableString(support.major_gift_public_description),
-    monthly_button_label: asString(support.monthly_button_label) || "Support Monthly",
+    monthly_button_label: "Support Monthly",
     monthly_committed: asNumber(support.monthly_committed),
     monthly_giving_url: asNullableString(support.monthly_giving_url),
     monthly_goal: asNumber(support.monthly_goal),
     monthly_received: asNumber(support.monthly_received),
-    one_time_button_label: asString(support.one_time_button_label) || "Give One Time",
+    monthly_support_description: asNullableString(support.monthly_support_description),
+    one_time_button_label: "Give One Time",
     one_time_giving_url: asNullableString(support.one_time_giving_url),
+    one_time_support_description: asNullableString(support.one_time_support_description),
     show_support: showSupport,
     updated_at: timestamp,
   };
