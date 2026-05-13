@@ -203,8 +203,21 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   }
 }
 
-function formatDate(value: string | null) {
+function parseDisplayDate(value: string | null) {
   if (!value) {
+    return null;
+  }
+
+  const normalizedValue = value.includes("T") ? value : `${value}T12:00:00`;
+  const date = new Date(normalizedValue);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDate(value: string | null) {
+  const date = parseDisplayDate(value);
+
+  if (!date) {
     return "No date";
   }
 
@@ -212,15 +225,16 @@ function formatDate(value: string | null) {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date(`${value}T12:00:00`));
+  }).format(date);
 }
 
 function formatRelativeDate(value: string | null) {
-  if (!value) {
+  const date = parseDisplayDate(value);
+
+  if (!date) {
     return "No contact yet";
   }
 
-  const date = new Date(value.includes("T") ? value : `${value}T12:00:00`);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const activityDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
