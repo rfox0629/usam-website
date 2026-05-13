@@ -428,13 +428,40 @@ function personName(people: DosAppPerson[], id: string | null | undefined) {
   return people.find((person) => person.id === id)?.name ?? "Unlinked person";
 }
 
-function meetingPeople(meeting: DosAppMeeting, people: DosAppPerson[]) {
+function meetingParticipantNames(meeting: DosAppMeeting, people: DosAppPerson[]) {
   const linkedNames = meeting.fieldPersonIds
     .map((id) => people.find((person) => person.id === id)?.name)
     .filter((name): name is string => Boolean(name));
-  const names = linkedNames.length ? linkedNames : meeting.participantNames;
+
+  return linkedNames.length ? linkedNames : meeting.participantNames;
+}
+
+function meetingPeople(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  const names = meetingParticipantNames(meeting, people);
 
   return names.length ? names.join(" + ") : "Private meeting";
+}
+
+function meetingPeopleTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  const names = meetingParticipantNames(meeting, people);
+
+  if (!names.length) {
+    return "Private meeting";
+  }
+
+  if (names.length === 1) {
+    return names[0];
+  }
+
+  if (names.length === 2) {
+    return `${names[0]} + ${names[1]}`;
+  }
+
+  return `${names[0]} + ${names.length - 1} others`;
+}
+
+function meetingAvatarNames(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  return meetingParticipantNames(meeting, people).slice(0, 3);
 }
 
 function filteredPeople(people: DosAppPerson[], query: string) {
@@ -708,36 +735,51 @@ function MeetingCard({
   people: DosAppPerson[];
 }) {
   const hasFlow = meeting.conversationFlowKey !== "none";
+  const avatarNames = meetingAvatarNames(meeting, people);
+  const title = meetingPeopleTitle(meeting, people);
 
   return (
     <button className="w-full rounded-2xl border border-[#E2DED6] bg-white p-4 text-left transition-colors hover:border-[#D8C8A7] hover:bg-[#FFFDF8]" onClick={onClick} type="button">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#D79C37]" aria-hidden="true" />
-            <p className="truncate text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</p>
+      <div className="flex items-start gap-3">
+        {avatarNames.length ? (
+          <div className="mt-0.5 flex shrink-0 -space-x-2">
+            {avatarNames.map((name, index) => (
+              <span
+                className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold ${avatarTone(index)}`}
+                key={`${meeting.id}-${name}`}
+              >
+                {initials(name)}
+              </span>
+            ))}
           </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-              {meeting.source === "connection" ? "Connection" : "Meeting"}
-            </span>
+        ) : (
+          <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#D79C37]" aria-hidden="true" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#1E1D1A]">{title}</p>
+              <p className="mt-1 truncate text-xs text-[#77716A]">
+                {meetingActivityTitle(meeting)} &bull; {formatDate(meeting.date)}
+              </p>
+            </div>
+            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+          </div>
+          <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#3B3935]">{meeting.notes || "No summary added yet."}</p>
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {hasFlow ? (
               <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
                 {conversationFlowLabel(meeting.conversationFlowKey)}
               </span>
             ) : null}
+            {meeting.recommendedResources.length ? (
+              <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+                {meeting.recommendedResources.length} queued
+              </span>
+            ) : null}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-xs text-[#8E8880]">
-          <span>{formatDate(meeting.date)}</span>
-          <ChevronRight className="h-4 w-4 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
-        </div>
       </div>
-      <p className="mt-2 text-xs text-[#77716A]">{meetingPeople(meeting, people)}</p>
-      <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#3B3935]">{meeting.notes || "No summary added yet."}</p>
-      {meeting.recommendedResources.length ? (
-        <p className="mt-3 text-xs font-semibold text-[#8A5A12]">{meeting.recommendedResources.length} queued follow-up{meeting.recommendedResources.length === 1 ? "" : "s"}</p>
-      ) : null}
     </button>
   );
 }
