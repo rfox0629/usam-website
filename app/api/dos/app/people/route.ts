@@ -75,6 +75,8 @@ export async function POST(request: Request) {
     .insert(personInsert)
     .select("id")
     .single();
+  // TODO: Remove the household_id-only fallback after all Supabase environments
+  // have the Command Center workspace_id migration applied.
   const { workspace_id: _workspaceId, ...legacyPersonInsert } = personInsert;
   const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
     ? await supabase
