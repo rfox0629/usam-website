@@ -711,9 +711,18 @@ async function loadPrayerAdminData(): Promise<PrayerAdminData> {
     ?? applicationsResult.error?.message
     ?? householdsResult.error?.message;
 
+  if (error) {
+    console.error("[Prayer Team Admin] Failed to load prayer team data:", {
+      applications: applicationsResult.error,
+      households: householdsResult.error,
+      partners: partnersResult.error,
+      requests: requestsResult.error,
+    });
+  }
+
   return {
     applications: (applicationsResult.data ?? []) as PrayerSubmissionRow[],
-    error,
+    error: error ? "Prayer Team data could not be loaded." : undefined,
     households: (householdsResult.data ?? []) as HouseholdRow[],
     partners: (partnersResult.data ?? []) as PrayerPartnerRow[],
     requests: ((requestsResult.data ?? []) as RawPrayerRequestRow[]).map((request) => ({
@@ -1624,8 +1633,7 @@ export default async function PrayerTeamAdminPage({
           <>
             {data.error ? (
               <SystemNotice
-                detail={data.error}
-                title="Prayer Team database not connected. Apply Prayer Team migration."
+                title={data.error}
               />
             ) : null}
             {params.saved ? <SystemNotice title="Prayer Team changes saved." tone="success" /> : null}

@@ -166,7 +166,7 @@ export async function POST(request: Request) {
     region: asNullableString(payload.region),
     source: "public_profile",
     state: asNullableString(payload.state),
-    status: "pending",
+    status: "active",
     workspace_id: household.id,
   };
   const existingPartnerResult = await supabase

@@ -844,8 +844,8 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     const [prayerPartnersResult, prayerRequestsResult] = await Promise.all([
       supabase
         .from("prayer_partners")
-        .select("id, first_name, last_name, name, email, phone, recruited_by_household_id, recruited_by_profile_slug, source, status, date_joined, created_at, updated_at")
-        .in("recruited_by_household_id", ids),
+        .select("id, first_name, last_name, name, email, phone, recruited_by_household_id, recruited_by_profile_slug, workspace_id, missionary_profile_id, source, status, date_joined, created_at, updated_at")
+        .or(ids.map((id) => `recruited_by_household_id.eq.${id},workspace_id.eq.${id},missionary_profile_id.eq.${id}`).join(",")),
       supabase
         .from("prayer_requests")
         .select("household_id, status")
@@ -861,12 +861,14 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     }
 
     (prayerPartnersResult.data ?? []).forEach((partner) => {
-      if (!partner.recruited_by_household_id) {
+      const partnerHouseholdId = partner.recruited_by_household_id ?? partner.workspace_id ?? partner.missionary_profile_id;
+
+      if (!partnerHouseholdId) {
         return;
       }
 
       const status = getPrayerPartnerStatus(partner.status);
-      const currentPartners = prayerPartnersByHouseholdId.get(partner.recruited_by_household_id) ?? [];
+      const currentPartners = prayerPartnersByHouseholdId.get(partnerHouseholdId) ?? [];
 
       currentPartners.push({
         created_at: partner.created_at ?? "",
@@ -877,18 +879,18 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         last_name: partner.last_name ?? null,
         name: partner.name ?? null,
         phone: partner.phone ?? null,
-        recruited_by_household_id: partner.recruited_by_household_id,
+        recruited_by_household_id: partnerHouseholdId,
         recruited_by_profile_slug: partner.recruited_by_profile_slug ?? null,
         source: partner.source ?? null,
         status,
         updated_at: partner.updated_at ?? null,
       });
-      prayerPartnersByHouseholdId.set(partner.recruited_by_household_id, currentPartners);
+      prayerPartnersByHouseholdId.set(partnerHouseholdId, currentPartners);
 
       if (status === "active") {
         prayerPartnerCountByHouseholdId.set(
-          partner.recruited_by_household_id,
-          (prayerPartnerCountByHouseholdId.get(partner.recruited_by_household_id) ?? 0) + 1,
+          partnerHouseholdId,
+          (prayerPartnerCountByHouseholdId.get(partnerHouseholdId) ?? 0) + 1,
         );
       }
     });

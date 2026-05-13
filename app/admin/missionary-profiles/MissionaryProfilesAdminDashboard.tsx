@@ -2137,6 +2137,13 @@ function formatCountLabel(count: number, singular: string, plural = `${singular}
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function prayerPartnerDisplayName(partner: AdminPrayerPartner) {
+  return partner.name
+    || [partner.first_name, partner.last_name].filter(Boolean).join(" ").trim()
+    || partner.email
+    || "Prayer partner";
+}
+
 function DashboardGlanceMetric({
   icon: Icon,
   label,
@@ -2336,6 +2343,8 @@ function WorkspaceOverview({
   const reviewsPending = (profile.tables ?? []).filter((table) => !reviewedTableIds.has(table.id)).length;
   const prayerRequests = profile.prayerRequests ?? [];
   const openPrayerRequests = prayerRequests.filter((request) => request.status === "open").length || profile.activePrayerRequestCount || 0;
+  const prayerPartners = profile.prayerPartners ?? [];
+  const activePrayerPartners = prayerPartners.filter((partner) => partner.status === "active").length || profile.prayerPartnerCount || 0;
   const followUpsNeeded = [
     ...(profile.tableReviews ?? []).filter((review) => Boolean(review.follow_up_needed?.trim())),
     ...(profile.connectionLogs ?? []).filter((connection) => Boolean(connection.follow_up_needed?.trim())),
@@ -2389,6 +2398,12 @@ function WorkspaceOverview({
       date: request.created_at,
       label: request.title,
       meta: request.request,
+      type: "Prayer",
+    })),
+    ...prayerPartners.slice(0, 3).map((partner) => ({
+      date: partner.date_joined ?? partner.created_at,
+      label: prayerPartnerDisplayName(partner),
+      meta: "Joined prayer team",
       type: "Prayer",
     })),
   ] satisfies DashboardActivityItem[])
@@ -2449,11 +2464,19 @@ function WorkspaceOverview({
                 </span>
               )}
               icon={Heart}
-              title="Prayer Requests"
+              title="Prayer"
             />
-            <div className="flex items-end gap-2">
-              <p className="text-4xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>{openPrayerRequests}</p>
-              <p className="pb-1 text-sm text-stone-500">open</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="border-r border-white/[0.08] pr-3">
+                <p className="text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Requests</p>
+                <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>{openPrayerRequests}</p>
+                <p className="mt-1 text-xs text-stone-500">open</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Partners</p>
+                <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>{activePrayerPartners}</p>
+                <p className="mt-1 text-xs text-stone-500">active</p>
+              </div>
             </div>
             <button
               className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#D4A63D]/45 bg-[#D4A63D]/10 px-3 text-[10px] uppercase tracking-[0.14em] text-[#F5B942] transition-colors hover:border-[#D4A63D] hover:bg-[#D4A63D]/15"
