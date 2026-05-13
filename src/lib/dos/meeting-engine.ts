@@ -153,18 +153,6 @@ export function buildKitchenTableRecommendations(responses: DosKitchenTableRespo
     }
   });
 
-  const temperature = relationshipWithJesusTemperature(responses.relationshipWithJesus);
-
-  if (temperature) {
-    recommendations.push({
-      id: `relationship-with-jesus-${temperature.toLowerCase()}`,
-      reason: "Relationship with Jesus rating",
-      status: "queued",
-      title: `${temperature}: Relationship with Jesus`,
-      type: "flag",
-    });
-  }
-
   return recommendations;
 }
 
@@ -186,6 +174,10 @@ export function normalizeRecommendedResources(value: unknown): DosRecommendedRes
       ? source.id.trim()
       : title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
+    if (source.type === "flag") {
+      return;
+    }
+
     if (!title || !id) {
       return;
     }
@@ -196,7 +188,7 @@ export function normalizeRecommendedResources(value: unknown): DosRecommendedRes
       reason: typeof source.reason === "string" ? source.reason : undefined,
       status: "queued",
       title,
-      type: source.type === "flag" ? "flag" : "resource",
+      type: "resource",
     });
   });
 
