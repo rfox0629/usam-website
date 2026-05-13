@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Briefcase, Cake, CalendarDays, ChevronRight, Church, Mail, MapPin, MessageCircle, MoreHorizontal, Pencil, Phone, StickyNote } from "lucide-react";
+import { ArrowLeft, Briefcase, Cake, CalendarDays, ChevronRight, Church, Mail, MapPin, MessageCircle, MoreHorizontal, Pencil, Phone, StickyNote } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -15,7 +15,7 @@ import {
   type DosRecommendedResource,
   type DosKitchenTableResponses,
 } from "@/src/lib/dos/meeting-engine";
-import { formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
+import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppMeetingType, DosAppPerson } from "@/src/lib/dos/missionary-app";
 import { dosGuideResources } from "@/src/lib/dos/guide-resources";
 
@@ -261,8 +261,8 @@ function answerLabel(value: DosKitchenTableAnswer | undefined) {
   return value === "unsure" ? "Unsure" : value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function meetingDetailSubtitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
-  return `${formatDate(meeting.date)} · ${meetingPeople(meeting, people)}`;
+function meetingMetadataLine(meeting: DosAppMeeting) {
+  return formatDosMeetingSecondary(meetingActivityTitle(meeting), formatDate(meeting.date));
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -747,7 +747,7 @@ function MeetingCard({
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-[#1E1D1A]">{title}</p>
               <p className="mt-1 truncate text-xs text-[#77716A]">
-                {meetingActivityTitle(meeting)} &bull; {formatDate(meeting.date)}
+                {meetingMetadataLine(meeting)}
               </p>
             </div>
             <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
@@ -1452,6 +1452,8 @@ function MeetingDetailOverlay({
   const isTableMeeting = meeting.source === "table";
   const temperature = relationshipWithJesusTemperature(meeting.conversationResponses.relationshipWithJesus);
   const hasKitchenTableFlow = meeting.conversationFlowKey === "kitchen_table_gospel";
+  const avatarNames = meetingAvatarNames(meeting, people);
+  const title = meetingPeopleTitle(meeting, people);
 
   return (
     <div className="absolute inset-0 z-[70] overflow-y-auto bg-[#F5F3EE] px-4 pb-24 pt-7 [scrollbar-width:none]">
@@ -1471,13 +1473,26 @@ function MeetingDetailOverlay({
       </header>
 
       <section className="mt-5 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF8E7] text-[#8A5A12]">
-          <CalendarDays className="h-7 w-7" aria-hidden="true" strokeWidth={1.6} />
-        </div>
-        <h2 className="mt-3 text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
-          {meetingActivityTitle(meeting)}
+        {avatarNames.length ? (
+          <div className="mx-auto flex justify-center -space-x-2">
+            {avatarNames.map((name, index) => (
+              <span
+                className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F5F3EE] text-sm font-bold ${avatarTone(index)}`}
+                key={`${meeting.id}-detail-${name}`}
+              >
+                {initials(name)}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#FFF8E7] text-[#8A5A12]">
+            <CalendarDays className="h-6 w-6" aria-hidden="true" strokeWidth={1.6} />
+          </div>
+        )}
+        <h2 className="mx-auto mt-3 max-w-[320px] text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
+          {title}
         </h2>
-        <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#77716A]">{meetingDetailSubtitle(meeting, people)}</p>
+        <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#77716A]">{meetingMetadataLine(meeting)}</p>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           <span className="inline-flex items-center gap-2 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 py-1.5 text-xs font-semibold text-[#8A5A12]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#D4A63D]" aria-hidden="true" />
@@ -1497,8 +1512,6 @@ function MeetingDetailOverlay({
 
       <div className="mt-5 grid gap-3">
         <DetailCard title="Summary">
-          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={formatDate(meeting.date)} />
-          <DetailRow icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Context" value={meetingTypeLabel(meeting.type)} />
           <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Notes" value={meeting.notes || "No summary added yet."} />
         </DetailCard>
 
