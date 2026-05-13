@@ -3046,14 +3046,11 @@ function PeopleManager({
       ) : null}
 
       <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-        <div className="hidden grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1fr)_minmax(0,0.9fr)_92px_92px_110px_62px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          <span>Name</span>
-          <span>Phone</span>
+        <div className="hidden grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.95fr)_minmax(0,1.1fr)_78px] gap-4 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-2 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <span>Person</span>
           <span>Email</span>
           <span>Church</span>
-          <span>Relationship</span>
-          <span>Engagement</span>
-          <span>Last Activity</span>
+          <span>Status</span>
           <span className="text-right">Actions</span>
         </div>
         {sortedPeople.length === 0 ? (
@@ -3063,30 +3060,47 @@ function PeopleManager({
         ) : null}
         <div className="divide-y divide-[#e2ded5]">
           {sortedPeople.map((person) => (
-            <div className="grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1fr)_minmax(0,0.9fr)_92px_92px_110px_62px] lg:items-center" key={person.id}>
+            <div className="grid gap-3 px-4 py-3 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.95fr)_minmax(0,1.1fr)_78px] lg:items-center" key={person.id}>
               <div className="min-w-0">
                 <span className="block truncate text-base font-semibold text-[#111111]">
                   {person.name}
                 </span>
+                <span className="mt-1 block truncate text-sm text-[#6f6658]">
+                  {person.phone || "No phone"}
+                </span>
               </div>
-              {[
-                ["Phone", person.phone],
-                ["Email", person.email?.trim() || "Not set"],
-                ["Church", person.church?.trim() || "Not set"],
-                ["Relationship", person.relationship_type?.trim() || "Not set"],
-                ["Engagement", person.engagement_level?.trim() || "Not set"],
-                ["Last Activity", personLastActivityLabel(person)],
-              ].map(([label, value]) => (
-                <div className="flex items-center justify-between gap-3 lg:block" key={label}>
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {label}
-                  </span>
-                  <span className={`${label === "Relationship" || label === "Engagement" ? "text-xs" : "text-sm"} text-[#4b443b]`}>
-                    {value}
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Email
+                </span>
+                <span className="mt-1 block break-all text-sm leading-5 text-[#4b443b] lg:mt-0">
+                  {person.email?.trim() || "Not set"}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Church
+                </span>
+                <span className="mt-1 block break-words text-sm leading-5 text-[#4b443b] lg:mt-0">
+                  {person.church?.trim() || "Not set"}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Status
+                </span>
+                <div className="mt-1 flex flex-wrap gap-1.5 lg:mt-0">
+                  {[person.relationship_type?.trim() || "Not set", person.engagement_level?.trim() || "Not set"].map((value, index) => (
+                    <span className="rounded-full border border-[#e2ded5] bg-[#fbfaf7] px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={`${person.id}-status-${index}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      {value}
+                    </span>
+                  ))}
+                  <span className="rounded-full border border-[#e2ded5] bg-white px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    {personLastActivityLabel(person)}
                   </span>
                 </div>
-              ))}
-              <div className="flex justify-end">
+              </div>
+              <div className="flex justify-start lg:justify-end">
                 <button className={lightSecondaryButtonClass} onClick={() => setEditingPersonId(person.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
                   Edit
                 </button>
