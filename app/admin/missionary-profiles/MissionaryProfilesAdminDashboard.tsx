@@ -2087,8 +2087,6 @@ function DataFlowLabels({ items }: { items: string[] }) {
   );
 }
 
-type DashboardMetricTone = "amber" | "green" | "neutral";
-
 type DashboardActivityItem = {
   date: string;
   label: string;
@@ -2116,161 +2114,204 @@ function formatCountLabel(count: number, singular: string, plural = `${singular}
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-function DashboardMetricCard({
-  detail,
+function DashboardGlanceMetric({
   icon: Icon,
   label,
-  signal,
-  tone = "neutral",
+  subtext,
   value,
 }: {
-  detail: string;
   icon: LucideIcon;
   label: string;
-  signal?: string;
-  tone?: DashboardMetricTone;
+  subtext: string;
   value: string;
 }) {
-  const toneClass = tone === "green"
-    ? "border-emerald-200/70 bg-emerald-50 text-emerald-800"
-    : tone === "amber"
-      ? "border-[#e2c872]/80 bg-[#fff8e4] text-[#8a5a00]"
-      : "border-[#e4ddcf] bg-[#fffdf8] text-[#111111]";
-  const iconClass = tone === "green"
-    ? "border-emerald-200 bg-emerald-100 text-emerald-700"
-    : tone === "amber"
-      ? "border-[#e2c872] bg-[#D4A63D]/15 text-[#9b741f]"
-      : "border-[#e2ded5] bg-[#f7f2e8] text-[#9b741f]";
-
   return (
-    <article className={`min-w-0 rounded-2xl border p-4 shadow-[0_14px_34px_rgba(17,17,17,0.06)] transition-transform hover:-translate-y-0.5 ${toneClass}`}>
+    <article className="min-w-0 rounded-2xl border border-white/[0.08] bg-[#0b0b0a] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition-colors hover:border-[#D4A63D]/35">
       <div className="flex items-start justify-between gap-3">
-        <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${iconClass}`}>
-          <Icon className="h-4.5 w-4.5" aria-hidden="true" strokeWidth={1.8} />
-        </span>
-        {signal ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-current/15 bg-white/55 px-2 py-1 text-[9px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
-            {signal}
-          </span>
-        ) : null}
+        <p className="text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {label}
+        </p>
+        <Icon className="h-4 w-4 shrink-0 text-[#D4A63D]" aria-hidden="true" strokeWidth={1.8} />
       </div>
-      <p className="mt-4 text-[10px] uppercase tracking-[0.17em] text-current/65" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        {label}
-      </p>
-      <p className="mt-2 text-4xl font-bold uppercase leading-none text-current" style={{ fontFamily: font.oswald }}>
+      <p className="mt-3 text-4xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
         {value}
       </p>
-      <p className="mt-2 text-sm leading-5 text-current/68">
-        {detail}
+      <p className="mt-2 text-xs leading-5 text-stone-500">
+        {subtext}
       </p>
     </article>
   );
 }
 
-function DashboardMetricGroup({
+function DashboardPanelCard({
   children,
-  columns = "three",
-  icon: Icon,
-  title,
+  className = "",
 }: {
   children: ReactNode;
-  columns?: "three" | "two";
-  icon: LucideIcon;
-  title: string;
+  className?: string;
 }) {
-  const gridClass = columns === "two"
-    ? "grid gap-3 sm:grid-cols-2"
-    : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3";
-
   return (
-    <section className="rounded-[1.25rem] border border-[#e0d6c3] bg-[#f9f5ec] p-4 shadow-[0_18px_44px_rgba(17,17,17,0.08)]">
-      <div className="mb-3 flex items-center gap-2.5">
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D4A63D]/30 bg-white text-[#9b741f]">
-          <Icon className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-        </span>
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          {title}
-        </p>
-      </div>
-      <div className={gridClass}>
-        {children}
-      </div>
+    <section className={`min-w-0 rounded-2xl border border-white/[0.08] bg-[#090908] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.22)] ${className}`}>
+      {children}
     </section>
   );
 }
 
-function DashboardActivityFeed({ activities }: { activities: DashboardActivityItem[] }) {
+function DashboardPanelHeader({
+  action,
+  icon: Icon,
+  label,
+  title,
+}: {
+  action?: ReactNode;
+  icon: LucideIcon;
+  label?: string;
+  title: string;
+}) {
   return (
-    <section className="overflow-hidden rounded-[1.25rem] border border-[#201b13] bg-[#080807] text-stone-100 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
-      <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-4">
-        <div className="flex items-center gap-2.5">
-          <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D4A63D]/35 bg-[#D4A63D]/10 text-[#F5B942]">
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" aria-hidden="true" />
-            <Activity className="h-4.5 w-4.5" aria-hidden="true" strokeWidth={1.8} />
-          </span>
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Activity Feed
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <Icon className="h-4.5 w-4.5 shrink-0 text-[#D4A63D]" aria-hidden="true" strokeWidth={1.8} />
+        <div className="min-w-0">
+          <h3 className="text-base font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+            {title}
+          </h3>
+          {label ? (
+            <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {label}
             </p>
-            <p className="mt-1 text-sm text-stone-400">Field, reviews, fruit, and prayer updates</p>
-          </div>
+          ) : null}
         </div>
-        <span className="hidden rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-stone-400 sm:inline-flex" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Live View
-        </span>
       </div>
+      {action}
+    </div>
+  );
+}
 
-      {activities.length > 0 ? (
-        <div className="divide-y divide-white/[0.07]">
+function DashboardTinyButton({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="inline-flex min-h-9 items-center justify-center rounded-lg border border-white/[0.12] bg-white/[0.035] px-3 text-[10px] uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-[#D4A63D]/60 hover:text-[#F5B942]"
+      onClick={onClick}
+      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function DashboardStatSegment({
+  active = false,
+  label,
+  value,
+}: {
+  active?: boolean;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className={`min-w-0 rounded-xl border p-3 ${active ? "border-[#D4A63D]/45 bg-[#D4A63D]/12" : "border-white/[0.07] bg-white/[0.035]"}`}>
+      <p className={`text-[10px] uppercase tracking-[0.13em] ${active ? "text-[#F5B942]" : "text-stone-500"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function DashboardActivityRow({ activity }: { activity: DashboardActivityItem }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.035] p-3 transition-colors hover:border-[#D4A63D]/30 hover:bg-white/[0.055]">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D4A63D]/30 bg-[#D4A63D]/12 text-[10px] uppercase tracking-[0.12em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {activity.type.slice(0, 2)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <p className="truncate text-sm font-semibold text-stone-100">{activity.label}</p>
+          <p className="shrink-0 text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            {formatProfileUpdatedDate(activity.date)}
+          </p>
+        </div>
+        <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-stone-500">{activity.meta}</p>
+      </div>
+    </div>
+  );
+}
+
+function DashboardRecentActivity({
+  activities,
+  onAddContact,
+  onAddPrayerRequest,
+  onLogMeeting,
+}: {
+  activities: DashboardActivityItem[];
+  onAddContact: () => void;
+  onAddPrayerRequest: () => void;
+  onLogMeeting: () => void;
+}) {
+  return (
+    <DashboardPanelCard>
+      <DashboardPanelHeader
+        action={(
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-emerald-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Live
+          </span>
+        )}
+        icon={Activity}
+        title="Recent Activity"
+      />
+
+      {activities.length ? (
+        <div className="grid gap-2">
           {activities.map((activity) => (
-            <div className="flex gap-3 px-4 py-3.5 transition-colors hover:bg-white/[0.035]" key={`${activity.label}-${activity.date}-${activity.meta}`}>
-              <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border border-[#D4A63D] bg-[#D4A63D]/70 shadow-[0_0_0_4px_rgba(212,166,61,0.08)]" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[9px] uppercase tracking-[0.13em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      {activity.type}
-                    </span>
-                    <p className="truncate text-sm font-semibold text-stone-100">{activity.label}</p>
-                  </div>
-                  <p className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {formatProfileUpdatedDate(activity.date)}
-                  </p>
-                </div>
-                <p className="mt-1 line-clamp-2 text-sm leading-6 text-stone-400">{activity.meta}</p>
-              </div>
-            </div>
+            <DashboardActivityRow activity={activity} key={`${activity.label}-${activity.date}-${activity.meta}`} />
           ))}
         </div>
       ) : (
-        <div className="px-5 py-8 text-center">
-          <span className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035] text-stone-500">
-            <Activity className="h-5 w-5" aria-hidden="true" strokeWidth={1.7} />
-          </span>
-          <p className="mt-4 text-sm font-semibold text-stone-100">No recent activity</p>
-          <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-stone-500">
-            Field activity, meetings, fruit, reviews, and prayer updates will appear here.
-          </p>
+        <div className="py-6 text-center">
+          <p className="text-sm font-semibold text-stone-100">No activity yet</p>
+          <p className="mt-1 text-sm text-stone-500">Start with one of these to get going</p>
         </div>
       )}
-    </section>
+
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <DashboardTinyButton onClick={onAddContact}>Add a contact</DashboardTinyButton>
+        <DashboardTinyButton onClick={onLogMeeting}>Log a meeting</DashboardTinyButton>
+        <DashboardTinyButton onClick={onAddPrayerRequest}>Add prayer request</DashboardTinyButton>
+      </div>
+    </DashboardPanelCard>
   );
 }
 
-function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
+function WorkspaceOverview({
+  onNavigate,
+  onOpenPrayerRequests,
+  profile,
+}: {
+  onNavigate: (tab: RawEditorTab, primaryNav?: PrimaryNavKey, subnavId?: string) => void;
+  onOpenPrayerRequests: () => void;
+  profile: AdminProfile;
+}) {
   const peopleCount = profile.fieldPeople?.length ?? 0;
   const meetingCount = (profile.tables?.length ?? 0) + (profile.connectionLogs?.length ?? 0);
   const reviewedTableIds = new Set((profile.tableReviews ?? []).map((review) => review.table_id));
+  const reviewedCount = reviewedTableIds.size;
   const reviewsPending = (profile.tables ?? []).filter((table) => !reviewedTableIds.has(table.id)).length;
   const prayerRequests = profile.prayerRequests ?? [];
   const openPrayerRequests = prayerRequests.filter((request) => request.status === "open").length || profile.activePrayerRequestCount || 0;
-  const fruitLogged = profile.fruitItems?.length ?? 0;
   const followUpsNeeded = [
     ...(profile.tableReviews ?? []).filter((review) => Boolean(review.follow_up_needed?.trim())),
     ...(profile.connectionLogs ?? []).filter((connection) => Boolean(connection.follow_up_needed?.trim())),
   ].length;
-  const publishingStatus = isProfilePublic(profile) ? "Live" : "Hidden";
   const approvedFruitCount = profile.fruitItems?.filter((fruit) => fruit.status === "approved").length ?? 0;
   const peopleAddedThisWeek = (profile.fieldPeople ?? []).filter((person) => isWithinLastDays(person.created_at, 7)).length;
   const meetingsThisWeek = [
@@ -2287,6 +2328,12 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
     uniqueVisitors: 0,
   };
   const recentActivity = ([
+    ...(profile.fieldPeople ?? []).slice(0, 4).map((person) => ({
+      date: person.created_at,
+      label: person.name,
+      meta: "Contact added",
+      type: "Contact",
+    })),
     ...(profile.tables ?? []).slice(0, 3).map((table) => ({
       date: table.table_date,
       label: tableTypeLabel(table.table_type),
@@ -2305,59 +2352,110 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
       meta: fruit.summary || "Summary needed",
       type: "Fruit",
     })),
+    ...(profile.prayerRequests ?? []).slice(0, 2).map((request) => ({
+      date: request.created_at,
+      label: request.title,
+      meta: request.request,
+      type: "Prayer",
+    })),
   ] satisfies DashboardActivityItem[])
     .sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime())
     .slice(0, 5);
+  const mostRecentActivity = recentActivity[0];
+  const summaryLine = `${formatCountLabel(peopleAddedThisWeek, "new contact")} • ${formatCountLabel(meetingsThisWeek, "meeting")} • ${formatCountLabel(followUpsNeeded, "follow-up")} pending`;
+  const openPeople = () => onNavigate("people", "field");
+  const openMeetings = () => onNavigate("meetings", "field");
 
   return (
-    <div className="space-y-5">
-      <section className="overflow-hidden rounded-[1.35rem] border border-[#201b13] bg-[#080807] p-4 text-stone-100 shadow-[0_24px_70px_rgba(0,0,0,0.26)] sm:p-5">
-        <div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_5px_rgba(52,211,153,0.1)]" aria-hidden="true" />
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Operating Picture
-              </p>
-            </div>
-            <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-              Live Summary
-            </h3>
-          </div>
-          <div className="mt-4 grid w-full min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <DashboardMetricCard detail={`${formatCountLabel(peopleAddedThisWeek, "person", "people")} added this week`} icon={Users} label="Field" signal="This Week" tone="amber" value={String(peopleAddedThisWeek)} />
-            <DashboardMetricCard detail={formatCountLabel(meetingsThisWeek, "meeting logged this week", "meetings logged this week")} icon={MessageCircle} label="Meetings" signal="This Week" value={String(meetingsThisWeek)} />
-            <DashboardMetricCard detail={isProfilePublic(profile) ? "Public profile visible" : "Profile not public"} icon={Globe} label="Publishing Status" signal={isProfilePublic(profile) ? "Live" : "Hidden"} tone={isProfilePublic(profile) ? "green" : "neutral"} value={publishingStatus} />
-            <DashboardMetricCard
-              detail={`Last 30 days · ${formatCountLabel(profileAnalytics.last30UniqueVisitors, "unique visitor")}`}
-              icon={Eye}
-              label="Profile Views"
-              signal={profileAnalytics.trackingAvailable ? "Tracking" : "Pending"}
-              tone={profileAnalytics.trackingAvailable ? "amber" : "neutral"}
-              value={String(profileAnalytics.last30Days)}
-            />
-          </div>
-        </div>
-      </section>
-
-      <div className="grid gap-4">
-        <DashboardMetricGroup icon={Users} title="Field">
-          <DashboardMetricCard detail={formatCountLabel(peopleCount, "active contact")} icon={Users} label="People In Field" signal="Active" tone="amber" value={String(peopleCount)} />
-          <DashboardMetricCard detail={formatCountLabel(meetingCount, "logged interaction")} icon={MessageCircle} label="Meetings" value={String(meetingCount)} />
-          <DashboardMetricCard detail={formatCountLabel(followUpsNeeded, "next step")} icon={Send} label="Follow Ups" signal={followUpsNeeded > 0 ? "Open" : "Clear"} tone={followUpsNeeded > 0 ? "amber" : "green"} value={String(followUpsNeeded)} />
-        </DashboardMetricGroup>
-
-        <DashboardMetricGroup columns="two" icon={Globe} title="Public Experience">
-          <DashboardMetricCard detail={formatCountLabel(reviewsPending, "meeting awaiting review", "meetings awaiting review")} icon={FileText} label="Reviews Pending" signal={reviewsPending > 0 ? "Review" : "Clear"} tone={reviewsPending > 0 ? "amber" : "green"} value={String(reviewsPending)} />
-          <DashboardMetricCard detail={formatCountLabel(approvedFruitCount, "approved outcome")} icon={Sparkles} label="Approved Fruit" tone="amber" value={String(approvedFruitCount)} />
-        </DashboardMetricGroup>
-
-        <DashboardMetricGroup icon={Heart} title="Prayer">
-          <DashboardMetricCard detail={formatCountLabel(openPrayerRequests, "open request")} icon={Heart} label="Prayer Requests" signal={openPrayerRequests > 0 ? "Open" : "Clear"} tone={openPrayerRequests > 0 ? "amber" : "green"} value={String(openPrayerRequests)} />
-        </DashboardMetricGroup>
+    <div className="space-y-4 text-stone-100">
+      <div>
+        <h3 className="text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
+          This week at a glance
+        </h3>
+        <p className="mt-2 text-sm text-[#6f6658]">{summaryLine}</p>
       </div>
 
-      <DashboardActivityFeed activities={recentActivity} />
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <DashboardGlanceMetric icon={Users} label="Active contacts" subtext={peopleAddedThisWeek > 0 ? `+${peopleAddedThisWeek} this week` : "No new contacts"} value={String(peopleCount)} />
+        <DashboardGlanceMetric icon={MessageCircle} label="Meetings" subtext="Last 7 days" value={String(meetingsThisWeek)} />
+        <DashboardGlanceMetric icon={Send} label="Follow-ups" subtext={followUpsNeeded > 0 ? `${followUpsNeeded} pending` : "All clear"} value={String(followUpsNeeded)} />
+        <DashboardGlanceMetric icon={Eye} label="Profile visits" subtext={profileAnalytics.trackingAvailable ? "Last 30 days" : "Tracking pending"} value={String(profileAnalytics.last30Days)} />
+      </div>
+
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.8fr)]">
+        <DashboardPanelCard>
+          <DashboardPanelHeader
+            action={<DashboardTinyButton onClick={openPeople}>View all</DashboardTinyButton>}
+            icon={Users}
+            title="Field Activity"
+          />
+          <div className="grid gap-2 sm:grid-cols-4">
+            <DashboardStatSegment active label="Contacts" value={peopleCount} />
+            <DashboardStatSegment label="Meetings" value={meetingCount} />
+            <DashboardStatSegment label="Reviewed" value={reviewedCount} />
+            <DashboardStatSegment label="Approved" value={approvedFruitCount} />
+          </div>
+          <div className="mt-4">
+            <p className="mb-2 text-[10px] uppercase tracking-[0.14em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Most recent
+            </p>
+            {mostRecentActivity ? (
+              <DashboardActivityRow activity={mostRecentActivity} />
+            ) : (
+              <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-3 text-sm text-stone-500">
+                No activity yet
+              </div>
+            )}
+          </div>
+        </DashboardPanelCard>
+
+        <div className="grid gap-4">
+          <DashboardPanelCard>
+            <DashboardPanelHeader
+              action={(
+                <span className="text-[10px] uppercase tracking-[0.14em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {openPrayerRequests > 0 ? "Open" : "All clear"}
+                </span>
+              )}
+              icon={Heart}
+              title="Prayer Requests"
+            />
+            <div className="flex items-end gap-2">
+              <p className="text-4xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>{openPrayerRequests}</p>
+              <p className="pb-1 text-sm text-stone-500">open</p>
+            </div>
+            <button
+              className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#D4A63D]/45 bg-[#D4A63D]/10 px-3 text-[10px] uppercase tracking-[0.14em] text-[#F5B942] transition-colors hover:border-[#D4A63D] hover:bg-[#D4A63D]/15"
+              onClick={onOpenPrayerRequests}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              Add request
+            </button>
+          </DashboardPanelCard>
+
+          <DashboardPanelCard>
+            <DashboardPanelHeader icon={Globe} title="Public Experience" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="border-r border-white/[0.08] pr-3">
+                <p className="text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Pending review</p>
+                <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>{reviewsPending}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.13em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Approved</p>
+                <p className="mt-2 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>{approvedFruitCount}</p>
+              </div>
+            </div>
+          </DashboardPanelCard>
+        </div>
+      </div>
+
+      <DashboardRecentActivity
+        activities={recentActivity}
+        onAddContact={openPeople}
+        onAddPrayerRequest={onOpenPrayerRequests}
+        onLogMeeting={openMeetings}
+      />
     </div>
   );
 }
@@ -9529,7 +9627,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           <SectionIntro
             title="Dashboard"
           >
-            <WorkspaceOverview profile={selectedProfile} />
+            <WorkspaceOverview
+              onNavigate={changeEditorTab}
+              onOpenPrayerRequests={() => {
+                changeEditorTab("prayer", "field", "prayer");
+                setPrayerSubsection("requests");
+              }}
+              profile={selectedProfile}
+            />
           </SectionIntro>
           ) : null}
 
