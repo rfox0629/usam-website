@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { BookOpen, HandHeart, Heart, Users } from "lucide-react";
 import { PrimaryNav } from "@/components/PrimaryNav";
@@ -50,6 +49,14 @@ function splitStory(story?: string) {
     .filter(Boolean);
 
   return paragraphs.length > 0 ? paragraphs : undefined;
+}
+
+function getStoryPreview(paragraphs?: readonly string[]) {
+  if (!paragraphs?.length) {
+    return "";
+  }
+
+  return paragraphs.slice(0, 2).join(" ");
 }
 
 function formatPrayerDate(value: string) {
@@ -145,31 +152,7 @@ function getSupportDefaults(missionary: Missionary) {
   };
 }
 
-function ActionLink({
-  href,
-  children,
-  variant = "primary",
-}: {
-  href: string;
-  children: ReactNode;
-  variant?: "primary" | "secondary";
-}) {
-  const className = variant === "primary"
-    ? "border border-transparent bg-[#D4A63D] text-black hover:bg-[#F5B942] hover:shadow-[0_0_22px_rgba(212,166,61,0.24)]"
-    : "border border-white/[0.3] bg-transparent text-white hover:border-[#D4A63D] hover:bg-white/[0.04]";
-
-  return (
-    <Link
-      href={href}
-      className={`inline-flex min-h-12 w-full items-center justify-center px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] transition-all duration-300 sm:w-auto ${className}`}
-      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-    >
-      {children}
-    </Link>
-  );
-}
-
-function HeroSupportCard({
+function SupportProfileCard({
   actions,
   missionary,
 }: {
@@ -186,27 +169,18 @@ function HeroSupportCard({
   const hasGoal = monthlyGoal > 0;
 
   return (
-    <aside
+    <MissionProfileCard
       id="support"
-      className="w-full rounded-[1.25rem] border border-[#D4A63D]/26 bg-black/72 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl md:p-5"
+      icon={<HandHeart aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />}
+      label={hasGoal ? `${progressPercentage}% Funded` : "Support"}
+      title="Support"
     >
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Support
-        </p>
-        {hasGoal ? (
-          <span className="rounded-full border border-[#D4A63D]/35 bg-[#D4A63D]/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            {progressPercentage}% funded
-          </span>
-        ) : null}
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-3">
           <p className="text-[9px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Raised
           </p>
-          <p className="mt-2 text-2xl font-bold leading-none text-stone-100 md:text-[1.7rem]" style={{ fontFamily: font.oswald }}>
+          <p className="mt-2 text-2xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
             {formatMoney(monthlyCommitted)}
           </p>
         </div>
@@ -214,7 +188,7 @@ function HeroSupportCard({
           <p className="text-[9px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Monthly Goal
           </p>
-          <p className="mt-2 text-2xl font-bold leading-none text-stone-100 md:text-[1.7rem]" style={{ fontFamily: font.oswald }}>
+          <p className="mt-2 text-2xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
             {hasGoal ? formatMoney(monthlyGoal) : "Open"}
           </p>
         </div>
@@ -229,12 +203,11 @@ function HeroSupportCard({
         </div>
       ) : null}
 
-      <p className="mt-4 text-sm leading-6 text-stone-300">
-        Secure giving for this household.
+      <p className="mt-3 text-sm leading-6 text-stone-300">
+        Partner with this mission through monthly or one-time support.
       </p>
-
       {actions}
-    </aside>
+    </MissionProfileCard>
   );
 }
 
@@ -242,17 +215,19 @@ function MissionProfileCard({
   action,
   children,
   icon,
+  id,
   label,
   title,
 }: {
   action?: ReactNode;
   children: ReactNode;
   icon: ReactNode;
+  id?: string;
   label: string;
   title: string;
 }) {
   return (
-    <article className="group flex min-h-[210px] flex-col rounded-[1.25rem] border border-stone-800/80 bg-[#080808] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.2)] transition-all duration-300 hover:border-[#D4A63D]/45 hover:bg-[#0d0d0d] md:p-5">
+    <article id={id} className="group flex min-h-[280px] flex-col rounded-[1.25rem] border border-stone-800/80 bg-[#080808] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.2)] transition-all duration-300 hover:border-[#D4A63D]/45 hover:bg-[#0d0d0d] md:p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#D4A63D]/25 bg-[#D4A63D]/10 text-[#F5B942]">
           {icon}
@@ -290,7 +265,7 @@ function StoryProfileCard({
       label="Story"
       title="Our Story"
     >
-      <p className="max-h-[6.2rem] overflow-hidden">
+      <p className="max-h-[9.1rem] overflow-hidden">
         {storyPreview}
       </p>
     </MissionProfileCard>
@@ -377,9 +352,16 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
       label={previewRequest ? "Current" : "Prayer"}
       title={missionary.prayerSettings?.headline || "Prayer"}
     >
-      <p className="max-h-[6.2rem] overflow-hidden">
-        {previewText}
-      </p>
+      <div className="space-y-2.5">
+        <p className="max-h-[7rem] overflow-hidden">
+          {previewText}
+        </p>
+        {!previewRequest ? (
+          <p className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-xs leading-5 text-stone-400">
+            Prayer requests will appear here as they are shared.
+          </p>
+        ) : null}
+      </div>
     </MissionProfileCard>
   );
 }
@@ -469,20 +451,25 @@ function MissionProfileSection({
   missionary,
   showPrayer,
   showStory,
+  showSupport,
   showTeam,
+  supportActions,
   storyParagraphs,
   storyPreview,
 }: {
   missionary: Missionary;
   showPrayer: boolean;
   showStory: boolean;
+  showSupport: boolean;
   showTeam: boolean;
+  supportActions: ReactNode;
   storyParagraphs?: readonly string[];
   storyPreview: string;
 }) {
   const hasCards = (showStory && storyParagraphs)
     || showPrayer
-    || showTeam;
+    || showTeam
+    || showSupport;
 
   if (!hasCards) {
     return null;
@@ -503,7 +490,7 @@ function MissionProfileSection({
           <HandHeart aria-hidden="true" className="hidden h-7 w-7 text-[#D4A63D] md:block" strokeWidth={1.6} />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {showStory && storyParagraphs ? (
             <StoryProfileCard storyParagraphs={storyParagraphs} storyPreview={storyPreview} />
           ) : null}
@@ -512,6 +499,9 @@ function MissionProfileSection({
           ) : null}
           {showTeam ? (
             <TeamProfileCard missionary={missionary} />
+          ) : null}
+          {showSupport ? (
+            <SupportProfileCard actions={supportActions} missionary={missionary} />
           ) : null}
         </div>
       </div>
@@ -553,7 +543,8 @@ export function MissionaryProfileTemplate({
     ? undefined
     : missionary.slug === "ryan-brooke-fox" ? ryanBrookeStory : defaultStory;
   const storyParagraphs = storedStoryParagraphs ?? fallbackStoryParagraphs;
-  const storyPreview = storedStoryParagraphs?.[0] ?? (missionary.slug === "ryan-brooke-fox" ? ryanBrookeStoryPreview : storyParagraphs?.[0] ?? "");
+  const storyPreview = getStoryPreview(storyParagraphs)
+    || (missionary.slug === "ryan-brooke-fox" ? ryanBrookeStoryPreview : "");
   const fruitItems = missionary.fruitItems ?? [];
   const showPhotos = features.showPhotos;
   const showTeam = features.showTeam && Boolean(missionary.householdMembers?.length);
@@ -610,19 +601,15 @@ export function MissionaryProfileTemplate({
         description={missionary.statement}
         image={showPhotos ? missionary.heroImage : undefined}
         actions={joinPrayerTeamAction}
-        spotlight={showSupport ? (
-          <HeroSupportCard
-            actions={<ProfileSupportSectionActions {...supportModalProps} layout="compact" />}
-            missionary={missionary}
-          />
-        ) : null}
       />
 
       <MissionProfileSection
         missionary={missionary}
         showPrayer={showPrayer}
         showStory={showStory}
+        showSupport={showSupport}
         showTeam={showTeam}
+        supportActions={<ProfileSupportSectionActions {...supportModalProps} layout="compact" />}
         storyParagraphs={storyParagraphs}
         storyPreview={storyPreview}
       />
