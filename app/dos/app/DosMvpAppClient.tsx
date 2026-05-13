@@ -998,21 +998,25 @@ function MeetingPeopleSelector({
   return (
     <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3">
       <FieldLabel>People Involved</FieldLabel>
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-1.5">
         {selectedPeople.length ? selectedPeople.map((person, index) => (
           <button
-            className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] py-1 pl-1 pr-3 text-xs font-semibold text-[#1E1D1A]"
+            aria-label={`Remove ${person.name} from meeting`}
+            className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] pl-1 pr-2 text-[11px] font-semibold text-[#1E1D1A] transition-colors hover:border-[#D4A63D]"
             key={person.id}
             onClick={() => onToggle(person.id)}
             type="button"
           >
-            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${avatarTone(index)}`}>
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold ${avatarTone(index)}`}>
               {initials(person.name)}
             </span>
-            <span className="truncate">{person.name}</span>
+            <span className="max-w-[9rem] truncate">{person.name}</span>
+            <span className="ml-0.5 text-[13px] leading-none text-[#8A5A12]" aria-hidden="true">
+              &times;
+            </span>
           </button>
         )) : (
-          <span className="rounded-full bg-[#F8F7F3] px-3 py-1.5 text-xs text-[#77716A]">No people selected</span>
+          <span className="inline-flex h-7 items-center rounded-full bg-[#F8F7F3] px-2.5 text-[11px] text-[#77716A]">No people selected</span>
         )}
       </div>
 
