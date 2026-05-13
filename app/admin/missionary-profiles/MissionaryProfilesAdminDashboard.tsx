@@ -9079,7 +9079,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               return (
                 <button
                   aria-selected={selected}
-                  className={`h-full min-h-16 min-w-0 rounded-xl border px-3.5 py-2.5 text-left transition-colors sm:min-h-[72px] ${
+                  className={`h-full min-h-[78px] min-w-0 rounded-xl border px-4 py-3 text-left transition-colors sm:min-h-[88px] ${
                     selected
                       ? "border-[#D4A63D] bg-[#D4A63D] text-black"
                       : "border-stone-800 bg-[#090909] text-stone-300 hover:border-stone-600 hover:bg-stone-900/80 hover:text-stone-100"
@@ -9095,13 +9095,13 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
                 >
-                  <span className="flex min-w-0 items-start gap-2.5">
-                    <Icon className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${selected ? "text-black" : "text-[#D4A63D]"}`} aria-hidden="true" />
+                  <span className="flex h-full min-w-0 items-center gap-3">
+                    <Icon className={`h-4.5 w-4.5 shrink-0 md:h-5 md:w-5 ${selected ? "text-black" : "text-[#D4A63D]"}`} aria-hidden="true" />
                     <span className="min-w-0">
-                      <span className="block text-xs uppercase tracking-[0.12em]">
+                      <span className="block text-[15px] uppercase leading-none tracking-[0.105em] md:text-base">
                         {group.label}
                       </span>
-                      <span className={`mt-0.5 block text-[10px] normal-case leading-4 tracking-normal ${selected ? "text-black/65" : "text-stone-500"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
+                      <span className={`mt-1.5 block text-[12px] normal-case leading-4 tracking-normal md:text-[13px] ${selected ? "text-black/65" : "text-stone-500"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
                         {group.helper}
                       </span>
                     </span>
