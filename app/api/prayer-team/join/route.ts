@@ -60,7 +60,8 @@ function isMissingTable(error: SupabaseWriteError | null | undefined, tableName:
   return error?.code === "42P01"
     || error?.code === "PGRST205"
     || message.includes("schema cache")
-    || message.includes(tableName)
+    || message.includes(`relation "public.${tableName}" does not exist`)
+    || message.includes(`relation "${tableName}" does not exist`)
     || message.includes("does not exist");
 }
 
@@ -143,7 +144,10 @@ export async function POST(request: Request) {
     email,
     email_alerts: true,
     first_name: firstName || null,
+    how_heard: source,
     last_name: lastName || null,
+    missionary_profile_id: household.id,
+    missionary_profile_slug: household.slug,
     name,
     permissions: {
       prayer_admin: false,
@@ -163,11 +167,13 @@ export async function POST(request: Request) {
     source: "public_profile",
     state: asNullableString(payload.state),
     status: "pending",
+    workspace_id: household.id,
   };
   const existingPartnerResult = await supabase
     .from("prayer_partners")
     .select("id, status")
     .eq("email", email)
+    .eq("recruited_by_household_id", household.id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -176,10 +182,10 @@ export async function POST(request: Request) {
     console.error("[Prayer Team Join API] Failed to find existing prayer partner:", existingPartnerResult.error);
 
     if (isMissingTable(existingPartnerResult.error, "prayer_partners")) {
-      return NextResponse.json({ error: "Prayer Team signup database table is not ready yet." }, { status: 503 });
+      return NextResponse.json({ error: "We could not submit your request. Please try again." }, { status: 503 });
     }
 
-    return NextResponse.json({ error: "Unable to save your prayer team signup." }, { status: 500 });
+    return NextResponse.json({ error: "We could not submit your request. Please try again." }, { status: 500 });
   }
 
   const existingPartner = existingPartnerResult.data as { id: string; status?: string | null } | null;
@@ -202,10 +208,10 @@ export async function POST(request: Request) {
     console.error("[Prayer Team Join API] Failed to save prayer partner:", partnerWriteResult.error);
 
     if (isMissingTable(partnerWriteResult.error, "prayer_partners")) {
-      return NextResponse.json({ error: "Prayer Team signup database table is not ready yet." }, { status: 503 });
+      return NextResponse.json({ error: "We could not submit your request. Please try again." }, { status: 503 });
     }
 
-    return NextResponse.json({ error: "Unable to save your prayer team signup." }, { status: 500 });
+    return NextResponse.json({ error: "We could not submit your request. Please try again." }, { status: 500 });
   }
 
   const existingTeamMemberResult = await supabase
