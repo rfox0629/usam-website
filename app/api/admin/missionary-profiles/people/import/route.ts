@@ -126,6 +126,8 @@ export async function POST(request: Request) {
     .from("missionary_field_people")
     .select("phone")
     .eq("workspace_id", workspaceId);
+  // TODO: Remove the household_id-only fallback after all Supabase environments
+  // have the Command Center workspace_id migration applied.
   const { data: existingPeople, error: existingError } = existingResult.error && isMissingWorkspaceScopeColumn(existingResult.error)
     ? await supabase
       .from("missionary_field_people")
@@ -187,6 +189,8 @@ export async function POST(request: Request) {
     .from("missionary_field_people")
     .insert(rowsToInsert)
     .select(personSelect);
+  // TODO: Remove the household_id-only fallback after all Supabase environments
+  // have the Command Center workspace_id migration applied.
   const legacyRowsToInsert = rowsToInsert.map(({ workspace_id: _workspaceId, ...row }) => row);
   const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
     ? await supabase

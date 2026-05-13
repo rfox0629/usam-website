@@ -150,6 +150,8 @@ export async function POST(request: Request) {
     .insert(insertPayload)
     .select(personSelect)
     .single();
+  // TODO: Remove the household_id-only fallback after all Supabase environments
+  // have the Command Center workspace_id migration applied.
   const { workspace_id: _workspaceId, ...legacyInsertPayload } = insertPayload;
   const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
     ? await supabase
@@ -209,6 +211,8 @@ export async function PATCH(request: Request) {
     .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
     .select(personSelect)
     .single();
+  // TODO: Remove the household_id-only fallback after all Supabase environments
+  // have the Command Center workspace_id migration applied.
   const { data, error } = updateResult.error && isMissingWorkspaceScopeColumn(updateResult.error)
     ? await supabase
       .from("missionary_field_people")
