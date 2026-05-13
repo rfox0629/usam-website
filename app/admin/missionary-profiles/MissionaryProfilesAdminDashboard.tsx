@@ -2161,13 +2161,19 @@ function DashboardMetricCard({
 
 function DashboardMetricGroup({
   children,
+  columns = "three",
   icon: Icon,
   title,
 }: {
   children: ReactNode;
+  columns?: "three" | "two";
   icon: LucideIcon;
   title: string;
 }) {
+  const gridClass = columns === "two"
+    ? "grid gap-3 sm:grid-cols-2"
+    : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3";
+
   return (
     <section className="rounded-[1.25rem] border border-[#e0d6c3] bg-[#f9f5ec] p-4 shadow-[0_18px_44px_rgba(17,17,17,0.08)]">
       <div className="mb-3 flex items-center gap-2.5">
@@ -2178,7 +2184,7 @@ function DashboardMetricGroup({
           {title}
         </p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className={gridClass}>
         {children}
       </div>
     </section>
@@ -2297,7 +2303,7 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-[1.35rem] border border-[#201b13] bg-[#080807] p-4 text-stone-100 shadow-[0_24px_70px_rgba(0,0,0,0.26)] sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
           <div>
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_5px_rgba(52,211,153,0.1)]" aria-hidden="true" />
@@ -2306,26 +2312,21 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
               </p>
             </div>
             <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-              This Week
+              Live Summary
             </h3>
           </div>
-          <div className="grid w-full min-w-0 gap-2 sm:grid-cols-2 xl:max-w-[760px] xl:grid-cols-4">
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Field</p>
-              <p className="mt-1 text-sm font-semibold text-stone-100">{formatCountLabel(peopleAddedThisWeek, "person", "people")} added</p>
-            </div>
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Meetings</p>
-              <p className="mt-1 text-sm font-semibold text-stone-100">{formatCountLabel(meetingsThisWeek, "meeting")} logged</p>
-            </div>
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Publishing</p>
-              <p className="mt-1 text-sm font-semibold text-stone-100">{isProfilePublic(profile) ? "Live profile" : "Hidden profile"}</p>
-            </div>
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Profile Views</p>
-              <p className="mt-1 text-sm font-semibold text-stone-100">{formatCountLabel(profileAnalytics.last7Days, "view")} this week</p>
-            </div>
+          <div className="mt-4 grid w-full min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <DashboardMetricCard detail={`${formatCountLabel(peopleAddedThisWeek, "person", "people")} added this week`} icon={Users} label="Field" signal="This Week" tone="amber" value={String(peopleAddedThisWeek)} />
+            <DashboardMetricCard detail={formatCountLabel(meetingsThisWeek, "meeting logged this week", "meetings logged this week")} icon={MessageCircle} label="Meetings" signal="This Week" value={String(meetingsThisWeek)} />
+            <DashboardMetricCard detail={isProfilePublic(profile) ? "Public profile visible" : "Profile not public"} icon={Globe} label="Publishing Status" signal={isProfilePublic(profile) ? "Live" : "Hidden"} tone={isProfilePublic(profile) ? "green" : "neutral"} value={publishingStatus} />
+            <DashboardMetricCard
+              detail={`Last 30 days · ${formatCountLabel(profileAnalytics.last30UniqueVisitors, "unique visitor")}`}
+              icon={Eye}
+              label="Profile Views"
+              signal={profileAnalytics.trackingAvailable ? "Tracking" : "Pending"}
+              tone={profileAnalytics.trackingAvailable ? "amber" : "neutral"}
+              value={String(profileAnalytics.last30Days)}
+            />
           </div>
         </div>
       </section>
@@ -2337,17 +2338,8 @@ function WorkspaceOverview({ profile }: { profile: AdminProfile }) {
           <DashboardMetricCard detail={formatCountLabel(followUpsNeeded, "next step")} icon={Send} label="Follow Ups" signal={followUpsNeeded > 0 ? "Open" : "Clear"} tone={followUpsNeeded > 0 ? "amber" : "green"} value={String(followUpsNeeded)} />
         </DashboardMetricGroup>
 
-        <DashboardMetricGroup icon={Globe} title="Public Experience">
+        <DashboardMetricGroup columns="two" icon={Globe} title="Public Experience">
           <DashboardMetricCard detail={formatCountLabel(reviewsPending, "meeting awaiting review", "meetings awaiting review")} icon={FileText} label="Reviews Pending" signal={reviewsPending > 0 ? "Review" : "Clear"} tone={reviewsPending > 0 ? "amber" : "green"} value={String(reviewsPending)} />
-          <DashboardMetricCard detail={isProfilePublic(profile) ? "Public profile visible" : "Profile not public"} icon={Globe} label="Publishing Status" signal={isProfilePublic(profile) ? "Live" : "Hidden"} tone={isProfilePublic(profile) ? "green" : "neutral"} value={publishingStatus} />
-          <DashboardMetricCard
-            detail={`Last 30 days · ${formatCountLabel(profileAnalytics.last30UniqueVisitors, "unique visitor")}`}
-            icon={Eye}
-            label="Profile Views"
-            signal={profileAnalytics.trackingAvailable ? "Tracking" : "Pending"}
-            tone={profileAnalytics.trackingAvailable ? "amber" : "neutral"}
-            value={String(profileAnalytics.last30Days)}
-          />
           <DashboardMetricCard detail={formatCountLabel(approvedFruitCount, "approved outcome")} icon={Sparkles} label="Approved Fruit" tone="amber" value={String(approvedFruitCount)} />
         </DashboardMetricGroup>
 
