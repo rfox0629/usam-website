@@ -4,14 +4,53 @@ import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/l
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type PersonPayload = {
+  birthday?: unknown;
+  church?: unknown;
+  city?: unknown;
+  email?: unknown;
+  homeAddress?: unknown;
+  home_address?: unknown;
   name?: unknown;
+  notes?: unknown;
+  occupation?: unknown;
   phone?: unknown;
   relationshipType?: unknown;
+  state?: unknown;
   workspaceId?: unknown;
+  zip?: unknown;
 };
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function asNullableString(value: unknown) {
+  const nextValue = asString(value);
+
+  return nextValue ? nextValue : null;
+}
+
+function buildPersonNotes(payload: PersonPayload) {
+  const notes = asString(payload.notes);
+  const homeAddress = asString(payload.homeAddress) || asString(payload.home_address);
+  const city = asString(payload.city);
+  const state = asString(payload.state);
+  const zip = asString(payload.zip);
+  const occupation = asString(payload.occupation);
+  const birthday = asString(payload.birthday);
+  const cityStateZip = [city, [state, zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  const address = [homeAddress, cityStateZip].filter(Boolean).join(", ");
+  const detailLines = [
+    address ? `Home address: ${address}` : "",
+    occupation ? `Occupation: ${occupation}` : "",
+    birthday ? `Birthday: ${birthday}` : "",
+  ].filter(Boolean);
+
+  // TODO: Move address, occupation, and birthday into structured
+  // missionary_field_people columns after the DOS MVP profile fields migrate.
+  return [notes, detailLines.length ? ["Additional information:", ...detailLines].join("\n") : ""]
+    .filter(Boolean)
+    .join("\n\n") || null;
 }
 
 async function authorizeWrite() {
@@ -61,9 +100,12 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdminClient();
   const personInsert: Record<string, unknown> = {
+    church: asNullableString(payload.church),
     created_by: authResult.authorization.userId,
+    email: asNullableString(payload.email),
     household_id: workspaceId,
     name,
+    notes: buildPersonNotes(payload),
     phone,
     relationship_type: asString(payload.relationshipType) || null,
     source: "field",

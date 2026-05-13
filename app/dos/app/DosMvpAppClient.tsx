@@ -40,13 +40,20 @@ const outcomeTagOptions = [
   "Other",
 ] as const;
 
-const relationshipTypeOptions = ["Friend", "Family", "Neighbor", "Coworker", "Church", "Disciple", "Mentor", "Other"];
+const relationshipTypeOptions = [
+  { helper: "Just met / early contact", label: "New", value: "New" },
+  { helper: "Building relationship", label: "Walking With", value: "Walking With" },
+  { helper: "Regular discipleship", label: "Discipling", value: "Discipling" },
+  { helper: "Pouring into leaders", label: "Mentor", value: "Mentor" },
+] as const;
+const defaultRelationshipType = relationshipTypeOptions[0].value;
 const futureTools = ["Prayer Alerts", "Connection Logs", "Discussion Guides", "Follow Up"];
 
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
 type FormMode = "fruit" | "meeting" | "person" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
+type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
 
 function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   const commonProps = {
@@ -384,6 +391,10 @@ function FieldInputClass() {
   return "mt-2 min-h-12 w-full rounded-2xl border border-[#DDD9D0] bg-[#F8F7F3] px-4 text-[#1E1D1A] outline-none transition-colors placeholder:text-[#A9A29A] focus:border-[#111111]";
 }
 
+function FieldTextareaClass() {
+  return "mt-2 min-h-24 w-full resize-none rounded-2xl border border-[#DDD9D0] bg-[#F8F7F3] px-4 py-3 text-[#1E1D1A] outline-none transition-colors placeholder:text-[#A9A29A] focus:border-[#111111]";
+}
+
 function StatTile({
   label,
   value,
@@ -602,14 +613,136 @@ function SearchField({
   );
 }
 
+function RelationshipTypePicker({
+  onChange,
+  value,
+}: {
+  onChange: (value: RelationshipTypeValue) => void;
+  value: RelationshipTypeValue;
+}) {
+  return (
+    <fieldset>
+      <FieldLabel>Relationship Type</FieldLabel>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        {relationshipTypeOptions.map((option) => {
+          const selected = value === option.value;
+
+          return (
+            <label
+              className={`relative flex min-h-[70px] cursor-pointer flex-col justify-between rounded-2xl border p-3 transition-colors ${
+                selected
+                  ? "border-[#D4A63D] bg-[#FFF8E7] shadow-[0_10px_24px_rgba(212,166,61,0.12)]"
+                  : "border-[#E2DED6] bg-white hover:border-[#D8C8A7]"
+              }`}
+              key={option.value}
+            >
+              <input
+                checked={selected}
+                className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                name="relationship_type"
+                onChange={() => onChange(option.value)}
+                required
+                type="radio"
+                value={option.value}
+              />
+              <span className="pr-5 text-sm font-bold leading-tight text-[#1E1D1A]">{option.label}</span>
+              <span className="mt-1 text-[11px] leading-4 text-[#77716A]">{option.helper}</span>
+              <span
+                className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border ${
+                  selected ? "border-[#D4A63D] bg-[#D4A63D]" : "border-[#DDD9D0] bg-[#F8F7F3]"
+                }`}
+                aria-hidden="true"
+              >
+                {selected ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function AdditionalPersonInformation({
+  isOpen,
+  onToggle,
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-4">
+      <button
+        aria-expanded={isOpen}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        onClick={onToggle}
+        type="button"
+      >
+        <span>
+          <span className="block text-sm font-bold text-[#1E1D1A]">Additional Information</span>
+          <span className="mt-1 block text-xs leading-5 text-[#77716A]">Add details now or fill them in later.</span>
+        </span>
+        <span className={`text-lg leading-none text-[#8E8880] transition-transform ${isOpen ? "rotate-45" : ""}`} aria-hidden="true">
+          +
+        </span>
+      </button>
+
+      {isOpen ? (
+        <div className="mt-4 grid gap-3 border-t border-[#EEEAE2] pt-4">
+          <label className="block">
+            <FieldLabel>Email</FieldLabel>
+            <input className={FieldInputClass()} name="email" placeholder="email@example.com" type="email" />
+          </label>
+          <label className="block">
+            <FieldLabel>Home Address</FieldLabel>
+            <input className={FieldInputClass()} name="home_address" placeholder="Street address" />
+          </label>
+          <div className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2">
+            <label className="block min-w-0">
+              <FieldLabel>City</FieldLabel>
+              <input className={FieldInputClass()} name="city" placeholder="City" />
+            </label>
+            <label className="block min-w-0">
+              <FieldLabel>State</FieldLabel>
+              <input className={FieldInputClass()} maxLength={2} name="state" placeholder="ST" />
+            </label>
+            <label className="block min-w-0">
+              <FieldLabel>ZIP</FieldLabel>
+              <input className={FieldInputClass()} inputMode="numeric" name="zip" placeholder="ZIP" />
+            </label>
+          </div>
+          <label className="block">
+            <FieldLabel>Church</FieldLabel>
+            <input className={FieldInputClass()} name="church" placeholder="Church / community" />
+          </label>
+          <label className="block">
+            <FieldLabel>Occupation</FieldLabel>
+            <input className={FieldInputClass()} name="occupation" placeholder="What do they do?" />
+          </label>
+          <label className="block">
+            <FieldLabel>Birthday</FieldLabel>
+            <input className={FieldInputClass()} name="birthday" type="date" />
+          </label>
+          <label className="block">
+            <FieldLabel>Notes</FieldLabel>
+            <textarea className={FieldTextareaClass()} name="notes" placeholder="Private notes..." />
+          </label>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
+  const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
+  const [selectedRelationshipType, setSelectedRelationshipType] = useState<RelationshipTypeValue>(defaultRelationshipType);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
   const latestMeeting = data.meetings[0];
   const latestFruit = data.fruit[0];
@@ -624,13 +757,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function closeForm() {
     setErrorMessage("");
     setFormMode(null);
+    setIsAdditionalPersonInfoOpen(false);
     setMeetingPeopleQuery("");
+    setSelectedRelationshipType(defaultRelationshipType);
   }
 
   function openForm(mode: Exclude<FormMode, null>) {
     setErrorMessage("");
     setFormMode(mode);
+    setIsAdditionalPersonInfoOpen(false);
     setMeetingPeopleQuery("");
+    if (mode === "person") {
+      setSelectedRelationshipType(defaultRelationshipType);
+    }
   }
 
   async function submitJson(endpoint: string, payload: Record<string, unknown>) {
@@ -669,9 +808,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const formData = new FormData(event.currentTarget);
 
     void submitJson("/api/dos/app/people", {
+      birthday: String(formData.get("birthday") ?? ""),
+      church: String(formData.get("church") ?? ""),
+      city: String(formData.get("city") ?? ""),
+      email: String(formData.get("email") ?? ""),
+      homeAddress: String(formData.get("home_address") ?? ""),
       name: String(formData.get("name") ?? ""),
+      notes: String(formData.get("notes") ?? ""),
+      occupation: String(formData.get("occupation") ?? ""),
       phone: String(formData.get("phone") ?? ""),
-      relationshipType: String(formData.get("relationship_type") ?? ""),
+      relationshipType: selectedRelationshipType,
+      state: String(formData.get("state") ?? ""),
+      zip: String(formData.get("zip") ?? ""),
     });
   }
 
@@ -935,21 +1083,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       {formMode === "person" ? (
         <Sheet description="Add someone to your field. Keep the first pass fast." onClose={closeForm} title="Add Person">
           <form className="space-y-4" onSubmit={handlePersonSubmit}>
-            <label className="block">
-              <FieldLabel>Name</FieldLabel>
-              <input className={FieldInputClass()} name="name" required />
-            </label>
-            <label className="block">
-              <FieldLabel>Phone</FieldLabel>
-              <input className={FieldInputClass()} name="phone" required />
-            </label>
-            <label className="block">
-              <FieldLabel>Relationship Type</FieldLabel>
-              <select className={FieldInputClass()} name="relationship_type">
-                <option value="">Not set</option>
-                {relationshipTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
+            <div className="grid gap-3">
+              <label className="block">
+                <FieldLabel>Name</FieldLabel>
+                <input className={FieldInputClass()} name="name" placeholder="Full name" required />
+              </label>
+              <label className="block">
+                <FieldLabel>Phone</FieldLabel>
+                <input className={FieldInputClass()} inputMode="tel" name="phone" placeholder="Phone number" required />
+              </label>
+            </div>
+            <RelationshipTypePicker onChange={setSelectedRelationshipType} value={selectedRelationshipType} />
+            <AdditionalPersonInformation
+              isOpen={isAdditionalPersonInfoOpen}
+              onToggle={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+            />
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
             <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Person"}</AppButton>
           </form>
