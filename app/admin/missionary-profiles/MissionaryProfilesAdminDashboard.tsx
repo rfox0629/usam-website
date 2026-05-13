@@ -646,7 +646,7 @@ type EditorTab =
 type LegacyEditorTab = "connections" | "tables";
 type RawEditorTab = EditorTab | LegacyEditorTab;
 type SupportSubsection = "commitments" | "giving-page" | "overview" | "settings" | "share-tools";
-type PrayerSubsection = "preview" | "public-experience" | "requests" | "team" | "visibility";
+type PrayerSubsection = "public-experience" | "requests" | "team";
 type PrimaryNavKey = "dashboard" | "field" | "publishing" | "resources";
 
 const emptySupport = (householdId: string): AdminSupportSettings => ({
@@ -996,11 +996,9 @@ const supportSubsectionOptions: Array<{ label: string; value: SupportSubsection 
 ];
 
 const prayerSubsectionOptions: Array<{ label: string; value: PrayerSubsection }> = [
-  { label: "Visibility", value: "visibility" },
   { label: "Public Experience", value: "public-experience" },
   { label: "Requests", value: "requests" },
   { label: "Prayer Team", value: "team" },
-  { label: "Preview", value: "preview" },
 ];
 
 const stateOptions = [
@@ -7452,12 +7450,12 @@ function PrayerRequestsWorkspace({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+    <div className="space-y-3">
+      <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5">
         <p className="text-[11px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           New Request
         </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <div className="mt-2.5 grid gap-3 md:grid-cols-2">
           <Field label="Title" onChange={(value) => updateDraft({ title: value })} value={draft.title} />
           <SelectField
             label="Person"
@@ -7474,7 +7472,7 @@ function PrayerRequestsWorkspace({
         <TextArea
           label="Request"
           onChange={(value) => updateDraft({ request: value })}
-          rows={3}
+          rows={2}
           value={draft.request}
         />
         <button className={`${lightPrimaryButtonClass} mt-3`} disabled={!canSave} onClick={saveDraft} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
@@ -7575,7 +7573,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [activePrimaryNav, setActivePrimaryNav] = useState<PrimaryNavKey>(initialPrimaryNav);
   const [activeSubnavId, setActiveSubnavId] = useState<string>(getSubnavIdForTab(normalizeEditorTab(initialTab), initialPrimaryNav));
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("overview");
-  const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("visibility");
+  const [prayerSubsection, setPrayerSubsection] = useState<PrayerSubsection>("public-experience");
   const [profileQuery, setProfileQuery] = useState("");
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
@@ -8160,7 +8158,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     }
 
     if (nextTab === "prayer") {
-      setPrayerSubsection("visibility");
+      setPrayerSubsection("public-experience");
     }
   }
 
@@ -9275,12 +9273,6 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             : supportMode === "national_leadership"
               ? "National Leadership and Expansion"
               : "No public giving destination while support is hidden";
-  const prayerTeamCtaEnabled = selectedProfile.enable_prayer_team !== false;
-  const prayerRequestsCtaEnabled = selectedProfile.show_prayer !== false;
-  const prayerButtonLabel = selectedProfile.prayer_cta_label || "Join Prayer Team";
-  const prayerRequestButtonLabel = "Submit Prayer Request";
-  const prayerHeadline = selectedProfile.prayer_section_headline || "Prayer";
-  const prayerDescription = selectedProfile.prayer_section_description || "Stand with this household in prayer as they reach, disciple, and serve across the mission field.";
   const profileVisibilityEnabled = getFeatureValue(selectedProfile, "show_household");
   const profileVisibilityStatus = !profileVisibilityEnabled
     ? {
@@ -9378,8 +9370,8 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     enabled: getFeatureValue(selectedProfile, "show_prayer"),
     hasContent: hasRenderablePrayer(selectedProfile),
     hiddenMessage: "The Prayer section is disabled.",
-    missingMessage: "Configure prayer settings to show this section.",
-    showingMessage: "The Prayer section has a CTA, prayer settings, or active requests.",
+    missingMessage: "Add prayer settings to show this section.",
+    showingMessage: "Prayer is available on the public profile.",
   });
   const publishingEnabled = publishingEnabledByDefault;
   const visiblePrimaryNavGroups = primaryNavGroups.filter((group) => publishingEnabled || group.key !== "publishing");
@@ -10374,153 +10366,95 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "prayer" ? (
           <SectionIntro
-            description="Prayer settings"
+            description="Public prayer experience"
             title="Prayer"
           >
-            <div className="space-y-4">
-              <div className="flex flex-wrap justify-center gap-2 border-b border-[#e2ded5] pb-3">
-                {prayerSubsectionOptions.map((option) => (
-                  <button
-                    aria-pressed={prayerSubsection === option.value}
-                    className={`${workspaceTabBaseClass} ${
-                      prayerSubsection === option.value
-                        ? workspaceLightTabActiveClass
-                        : workspaceLightTabInactiveClass
-                    }`}
-                    key={option.value}
-                    onClick={() => setPrayerSubsection(option.value)}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    type="button"
-                  >
-                    {option.label}
-                  </button>
-                ))}
+            <div className="space-y-3.5">
+              <div className="flex flex-col gap-3 border-b border-[#e2ded5] pb-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap justify-center gap-2 lg:justify-start">
+                  {prayerSubsectionOptions.map((option) => (
+                    <button
+                      aria-pressed={prayerSubsection === option.value}
+                      className={`${workspaceTabBaseClass} ${
+                        prayerSubsection === option.value
+                          ? workspaceLightTabActiveClass
+                          : workspaceLightTabInactiveClass
+                      }`}
+                      key={option.value}
+                      onClick={() => setPrayerSubsection(option.value)}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <a
+                  className={`${lightSecondaryButtonClass} min-h-10 gap-2`}
+                  href={publicProfileLink}
+                  rel="noopener noreferrer"
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  target="_blank"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open Public Profile
+                </a>
               </div>
 
-              {prayerSubsection === "visibility" ? (
-                <div className="grid gap-3">
-                  <label className="flex items-center justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm text-[#111111]">
-                    <span className="min-w-0">
-                      <span className="block text-[11px] uppercase tracking-[0.16em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Show Prayer Section
-                      </span>
-                    </span>
-                    <input
-                      checked={selectedProfile.show_prayer !== false}
-                      className="h-4 w-4 accent-[#D4A63D]"
-                      onChange={(event) => updateFeatureField("show_prayer", event.target.checked)}
-                      type="checkbox"
-                    />
-                  </label>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="flex items-center justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm text-[#111111]">
-                      <span className="min-w-0">
-                        <span className="block text-[11px] uppercase tracking-[0.16em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Enable Prayer Team
-                        </span>
-                      </span>
-                      <input
-                        checked={prayerTeamCtaEnabled}
-                        className="h-4 w-4 accent-[#D4A63D]"
-                        onChange={(event) => updateHouseholdField("enable_prayer_team", event.target.checked)}
-                        type="checkbox"
-                      />
-                    </label>
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm text-[#111111]">
-                      <span className="min-w-0">
-                        <span className="block text-[11px] uppercase tracking-[0.16em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Enable Prayer Requests
-                        </span>
-                      </span>
-                      <span className={`rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] ${prayerRequestsCtaEnabled ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#d7d2c8] bg-[#f8f6f1] text-[#6f6658]"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        {prayerRequestsCtaEnabled ? "Enabled" : "Hidden"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
               {prayerSubsection === "public-experience" ? (
-                <div className="grid gap-5">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field
-                      label="Section Headline"
-                      onChange={(value) => updateHouseholdField("prayer_section_headline", value)}
-                      value={selectedProfile.prayer_section_headline}
-                    />
-                    <Field
-                      label="Prayer CTA Label"
-                      onChange={(value) => updateHouseholdField("prayer_cta_label", value)}
-                      value={selectedProfile.prayer_cta_label}
-                    />
-                    <label className="block">
-                      <span className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Prayer Request CTA Label
-                      </span>
-                      <input
-                        className={`${lightInputClass} bg-[#fbfaf7] text-[#4b443b]`}
-                        readOnly
-                        value={prayerRequestButtonLabel}
+                <div className="grid gap-3">
+                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+                    <div className="grid gap-3.5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+                      <Field
+                        label="Section Headline"
+                        onChange={(value) => updateHouseholdField("prayer_section_headline", value)}
+                        value={selectedProfile.prayer_section_headline}
                       />
-                    </label>
-                    <TextArea
-                      label="Section Description"
-                      onChange={(value) => updateHouseholdField("prayer_section_description", value)}
-                      rows={3}
-                      value={selectedProfile.prayer_section_description}
-                    />
+                      <TextArea
+                        label="Section Description"
+                        onChange={(value) => updateHouseholdField("prayer_section_description", value)}
+                        rows={3}
+                        value={selectedProfile.prayer_section_description}
+                      />
+                    </div>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="flex items-center justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm text-[#111111]">
-                      <span className="min-w-0">
-                        <span className="block text-[11px] uppercase tracking-[0.16em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Enable Prayer Team CTA
-                        </span>
-                      </span>
-                      <input
-                        checked={prayerTeamCtaEnabled}
-                        className="h-4 w-4 accent-[#D4A63D]"
-                        onChange={(event) => updateHouseholdField("enable_prayer_team", event.target.checked)}
-                        type="checkbox"
-                      />
-                    </label>
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm text-[#111111]">
-                      <span className="min-w-0">
-                        <span className="block text-[11px] uppercase tracking-[0.16em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Enable Prayer Request CTA
-                        </span>
-                      </span>
-                      <span className={`rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] ${prayerRequestsCtaEnabled ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#d7d2c8] bg-[#f8f6f1] text-[#6f6658]"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        {prayerRequestsCtaEnabled ? "Enabled" : "Hidden"}
-                      </span>
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+                    <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+                      <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Public Actions
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {["Join Prayer Team", "Submit Prayer Request"].map((action) => (
+                          <span
+                            className="rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-[#111111]"
+                            key={action}
+                            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                          >
+                            {action}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm text-[#111111]">
-                      <span className="min-w-0">
-                        <span className="block text-[11px] uppercase tracking-[0.16em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Show Recent Requests
-                        </span>
-                      </span>
-                      <span className="rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Approved Only
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm text-[#111111]">
+                    <label className="flex items-center justify-between gap-4 rounded-2xl border border-[#e2ded5] bg-white p-4 text-sm text-[#111111]">
                       <span className="min-w-0">
                         <span className="block text-[11px] uppercase tracking-[0.16em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                           Allow Anonymous Requests
                         </span>
                       </span>
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-emerald-700" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Enabled
-                      </span>
-                    </div>
+                      <input
+                        checked
+                        className="h-4 w-4 accent-[#D4A63D]"
+                        readOnly
+                        type="checkbox"
+                      />
+                    </label>
                   </div>
                 </div>
               ) : null}
 
               {prayerSubsection === "requests" ? (
-                <div className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-3">
+                  <div className="grid gap-3 md:grid-cols-3">
                     <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
                       <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Default Visibility</p>
                       <p className="mt-2 text-lg font-semibold text-[#111111]">Private</p>
@@ -10533,21 +10467,20 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                       <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Moderation</p>
                       <p className="mt-2 text-lg font-semibold text-[#111111]">Internal</p>
                     </div>
-                    <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
-                      <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Queue</p>
-                      <p className="mt-2 text-lg font-semibold text-[#111111]">Prayer Team</p>
-                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {["Healing", "Family", "Financial", "Salvation", "Guidance", "Other"].map((category) => (
-                      <span
-                        className="rounded-full border border-[#e2ded5] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]"
-                        key={category}
-                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      >
-                        {category}
-                      </span>
-                    ))}
+                  <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
+                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Categories</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {["Healing", "Family", "Financial", "Salvation", "Guidance", "Other"].map((category) => (
+                        <span
+                          className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]"
+                          key={category}
+                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                        >
+                          {category}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <PrayerRequestsWorkspace
                     fieldPeople={selectedProfile.fieldPeople ?? []}
@@ -10559,44 +10492,25 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               ) : null}
 
               {prayerSubsection === "team" ? (
-                <div className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <StatPreview label="Active Partners" tone="light" value={String(selectedProfile.prayerPartnerCount ?? 0)} />
-                    <StatPreview label="Open Requests" tone="light" value={String(selectedProfile.activePrayerRequestCount ?? 0)} />
-                    <StatPreview label="Coverage Status" tone="light" value={(selectedProfile.prayerPartnerCount ?? 0) > 0 ? "Active" : "Needs Coverage"} />
-                  </div>
-                  <Link
-                    className={`${lightPrimaryButtonClass} min-h-10 w-full sm:w-auto`}
-                    href={`/admin/prayer-team?tab=requests&household=${selectedProfile.id}`}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  >
-                    Open Prayer Team
-                  </Link>
-                </div>
-              ) : null}
-
-              {prayerSubsection === "preview" ? (
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Prayer Section Preview
-                  </p>
-                  <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-5">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                      {prayerTeamCtaEnabled ? (
-                        <button className={lightPrimaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                          {prayerButtonLabel}
-                        </button>
-                      ) : null}
-                      <button className={lightSecondaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                        {prayerRequestButtonLabel}
-                      </button>
+                <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Prayer Team
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <StatusPill>Active Partners: {selectedProfile.prayerPartnerCount ?? 0}</StatusPill>
+                        <StatusPill>Open Requests: {selectedProfile.activePrayerRequestCount ?? 0}</StatusPill>
+                        <StatusPill>Coverage: {(selectedProfile.prayerPartnerCount ?? 0) > 0 ? "Active" : "Needs Coverage"}</StatusPill>
+                      </div>
                     </div>
-                    <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                      {prayerHeadline}
-                    </h3>
-                    <p className="mt-3 text-sm leading-7 text-[#4b443b]">
-                      {prayerDescription}
-                    </p>
+                    <Link
+                      className={`${lightPrimaryButtonClass} min-h-10 w-full sm:w-auto`}
+                      href={`/admin/prayer-team?tab=requests&household=${selectedProfile.id}`}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    >
+                      Open Prayer Team
+                    </Link>
                   </div>
                 </div>
               ) : null}

@@ -10,7 +10,7 @@ import { JoinPrayerTeamModal, PrayerRequestsModalButton } from "@/src/components
 import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
 import { MissionaryProfileViewTracker } from "@/src/components/missionaries/MissionaryProfileViewTracker";
 import { SubmitPrayerRequestModal } from "@/src/components/missionaries/SubmitPrayerRequestModal";
-import type { Missionary, MissionaryFruitItem, MissionaryPrayerRequest } from "@/src/data/missionaries";
+import type { Missionary, MissionaryFruitItem } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -344,8 +344,6 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
 }
 
 function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
-  const ctaLabel = missionary.prayerSettings?.ctaLabel || "Join Prayer Team";
-  const prayerTeamEnabled = missionary.prayerSettings?.enablePrayerTeam !== false;
   const prayerRequests = missionary.prayerRequests ?? [];
   const previewRequest = prayerRequests[0];
   const previewText = previewRequest
@@ -356,17 +354,15 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
     <MissionProfileCard
       action={(
         <div className="grid gap-2 sm:grid-cols-2">
-          {prayerTeamEnabled ? (
-            <JoinPrayerTeamModal
-              buttonLabel={ctaLabel}
-              householdId={missionary.id}
-              householdName={missionary.name}
-              householdNumber={missionary.missionaryNumber}
-              initialPrayerRequests={prayerRequests}
-              profileSlug={missionary.slug}
-              variant="compact"
-            />
-          ) : null}
+          <JoinPrayerTeamModal
+            buttonLabel="Join Prayer Team"
+            householdId={missionary.id}
+            householdName={missionary.name}
+            householdNumber={missionary.missionaryNumber}
+            initialPrayerRequests={prayerRequests}
+            profileSlug={missionary.slug}
+            variant="compact"
+          />
           <SubmitPrayerRequestModal
             householdId={missionary.id}
             householdName={missionary.name}
@@ -536,12 +532,6 @@ function ProfileFooter({ missionary }: { missionary: Missionary }) {
   );
 }
 
-function hasPublicPrayerContent(missionary: Missionary, prayerRequests: readonly MissionaryPrayerRequest[]) {
-  const settings = missionary.prayerSettings;
-
-  return Boolean(settings) || prayerRequests.length > 0;
-}
-
 export function MissionaryProfileTemplate({
   missionary,
   previewForm,
@@ -572,11 +562,11 @@ export function MissionaryProfileTemplate({
   const showFruit = features.showFruit && (fruitItems.length > 0 || shouldPreviewProfileReview);
   const supportDefaults = getSupportDefaults(missionary);
   const showSupport = features.showSupport && supportDefaults.mode !== "hidden";
-  const prayerTeamEnabled = missionary.prayerSettings?.enablePrayerTeam !== false;
   const prayerRequests = missionary.prayerRequests ?? [];
-  const showPrayer = features.showPrayer && hasPublicPrayerContent(missionary, prayerRequests);
-  const joinPrayerTeamAction = showPrayer && prayerTeamEnabled ? (
+  const showPrayer = features.showPrayer;
+  const joinPrayerTeamAction = showPrayer ? (
     <JoinPrayerTeamModal
+      buttonLabel="Join Prayer Team"
       householdId={missionary.id}
       householdName={missionary.name}
       householdNumber={missionary.missionaryNumber}
