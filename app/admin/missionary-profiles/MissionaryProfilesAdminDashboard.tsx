@@ -2461,6 +2461,17 @@ function hasTextContent(value: string | null | undefined) {
   return Boolean(value?.trim());
 }
 
+function normalizeStoryText(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/\s+/g, " ");
+}
+
+function isSameStoryText(firstValue: string | null | undefined, secondValue: string | null | undefined) {
+  const firstStory = normalizeStoryText(firstValue);
+  const secondStory = normalizeStoryText(secondValue);
+
+  return Boolean(firstStory && secondStory && firstStory === secondStory);
+}
+
 function hasRenderableMedia(profile: AdminProfile) {
   return hasTextContent(profile.hero_image_url) || hasTextContent(profile.profile_image_url);
 }
@@ -7583,6 +7594,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const [storyRefinementState, setStoryRefinementState] = useState<StoryRefinementState>({
     status: "idle",
   });
+  const [storyDrafts, setStoryDrafts] = useState<Record<string, string>>({});
   const [focusedEncounterId, setFocusedEncounterId] = useState<string | null>(null);
   const [targetHouseholdError, setTargetHouseholdError] = useState("");
   const [targetHouseholdLoadState, setTargetHouseholdLoadState] = useState<TargetHouseholdLoadState>("idle");
@@ -7986,6 +7998,94 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       ...selectedProfile,
       public_story: value,
       story: value,
+    });
+  }
+
+  function getImprovedStoryDraft(profile: AdminProfile) {
+    if (storyDrafts[profile.id] !== undefined) {
+      return storyDrafts[profile.id];
+    }
+
+    if (isSameStoryText(profile.public_story, profile.original_story)) {
+      return "";
+    }
+
+    return profile.public_story ?? "";
+  }
+
+  function updateImprovedStoryDraft(value: string) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    setStoryDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [selectedProfile.id]: value,
+    }));
+  }
+
+  function publishOriginalStory() {
+    if (!selectedProfile) {
+      return;
+    }
+
+    if (!storyPublishingAvailable) {
+      setStoryRefinementState({
+        message: "Story publishing unavailable until story schema migration is applied.",
+        status: "error",
+      });
+      return;
+    }
+
+    const originalStory = selectedProfile.original_story?.trim();
+
+    if (!originalStory) {
+      setStoryRefinementState({
+        message: "Add your story before publishing it.",
+        status: "error",
+      });
+      return;
+    }
+
+    updateRefinedStory(originalStory);
+    setStoryRefinementState({
+      message: "Your story is selected for the public profile. Click Save Changes to publish.",
+      status: "success",
+    });
+  }
+
+  function publishImprovedStory() {
+    if (!selectedProfile) {
+      return;
+    }
+
+    if (!storyPublishingAvailable) {
+      setStoryRefinementState({
+        message: "Story publishing unavailable until story schema migration is applied.",
+        status: "error",
+      });
+      return;
+    }
+
+    const improvedStory = getImprovedStoryDraft(selectedProfile).trim();
+
+    if (!improvedStory) {
+      setStoryRefinementState({
+        message: "Add or improve a story draft before publishing it.",
+        status: "error",
+      });
+      return;
+    }
+
+    updateRefinedStory(improvedStory);
+    setStoryDrafts((currentDrafts) => {
+      const nextDrafts = { ...currentDrafts };
+      delete nextDrafts[selectedProfile.id];
+      return nextDrafts;
+    });
+    setStoryRefinementState({
+      message: "Improved story is selected for the public profile. Click Save Changes to publish.",
+      status: "success",
     });
   }
 
@@ -8827,14 +8927,14 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     if (!originalStory) {
       setStoryRefinementState({
-        message: "Add an Internal Story before generating a public draft.",
+        message: "Add your story before improving it.",
         status: "error",
       });
       return;
     }
 
     setStoryRefinementState({
-      message: "Generating public story draft...",
+      message: "Improving story draft...",
       status: "refining",
     });
 
@@ -8858,9 +8958,12 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
         throw new Error(result.error || "We could not refine the story. Please try again.");
       }
 
-      updateRefinedStory(result.refinedStory);
+      setStoryDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [selectedProfile.id]: result.refinedStory ?? "",
+      }));
       setStoryRefinementState({
-        message: "Refined story generated. Review it, then click Save Changes.",
+        message: "Improved draft created. Review it, then publish the version you want.",
         status: "success",
       });
     } catch (error) {
@@ -9226,20 +9329,33 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       : hasRenderableStory(selectedProfile)
         ? {
           label: "Published",
-          message: "Public Story is ready and can render on the public profile.",
+          message: "Story is ready for the public profile.",
           status: "showing" as const,
         }
         : hasInternalIntakeStory
           ? {
-            label: "Public Story Needed",
-            message: "Internal Story has been received. Create a Public Story before this section can render publicly.",
+            label: "Publish Version",
+            message: "Your story has been added. Choose which version to publish.",
             status: "waiting" as const,
           }
         : {
           label: "Missing Content",
-          message: "Add an Internal Story, then create the Public Story for publishing.",
+          message: "Add your story, then choose the version to publish.",
           status: "missing" as const,
         };
+  const improvedStoryDraft = getImprovedStoryDraft(selectedProfile);
+  const isOriginalStoryPublished = isSameStoryText(selectedProfile.public_story, selectedProfile.original_story);
+  const isImprovedStoryPublished = Boolean(
+    improvedStoryDraft.trim()
+    && isSameStoryText(selectedProfile.public_story, improvedStoryDraft)
+    && !isOriginalStoryPublished,
+  );
+  const canPublishOriginalStory = storyPublishingAvailable
+    && hasTextContent(selectedProfile.original_story)
+    && !isOriginalStoryPublished;
+  const canPublishImprovedStory = storyPublishingAvailable
+    && hasTextContent(improvedStoryDraft)
+    && !isImprovedStoryPublished;
   const fruitStatus = getFeaturePublicStatus({
     enabled: getFeatureValue(selectedProfile, "show_fruit"),
     hasContent: hasRenderableFruit(selectedProfile),
@@ -9868,71 +9984,110 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
             description="Profile story"
             title="Story"
           >
-            <div className="flex flex-wrap gap-2 rounded-xl border border-[#e2ded5] bg-white px-4 py-3">
-              {["Internal story is private", "Public story can publish"].map((item) => (
-                <span
-                  className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]"
-                  key={item}
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border border-[#e2ded5] bg-white p-4 md:p-5">
-                <div>
-                  <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                    Internal Story
-                  </h3>
+            {storyRefinementState.message ? (
+              <p className={`rounded-xl border px-4 py-3 text-sm leading-6 ${
+                storyRefinementState.status === "error"
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-[#e2ded5] bg-white text-[#6f6658]"
+              }`}>
+                {storyRefinementState.message}
+              </p>
+            ) : null}
+            <div className="mt-3 grid gap-3.5 lg:grid-cols-2">
+              <div className={`rounded-2xl border bg-white p-4 md:p-5 ${
+                isOriginalStoryPublished ? "border-[#c8952d] shadow-[0_14px_34px_rgba(200,149,45,0.12)]" : "border-[#e2ded5]"
+              }`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Original
+                    </p>
+                    <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                      Your Story
+                    </h3>
+                  </div>
+                  {isOriginalStoryPublished ? (
+                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#b7ebc6] bg-[#ecfff2] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#147a35]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      <Check className="h-3 w-3" />
+                      Currently Published
+                    </span>
+                  ) : null}
                 </div>
                 <div className="mt-3">
                   <TextArea
                     hideLabel
-                    label="Internal Story"
+                    label="Your Story"
                     onChange={(value) => updateHouseholdField("original_story", value)}
-                    rows={14}
+                    rows={12}
                     value={selectedProfile.original_story}
                   />
                 </div>
-              </div>
-
-              <div className="rounded-xl border border-[#e2ded5] bg-white p-4 md:p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                      Public Story
-                    </h3>
-                  </div>
+                <div className="mt-3 flex justify-end border-t border-[#e2ded5] pt-3">
                   <button
-                    className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:bg-[#d7d2c8] disabled:text-[#8a8174]"
-                    disabled={storyRefinementState.status === "refining"}
-                    onClick={refineStoryWithAI}
+                    className={lightPrimaryButtonClass}
+                    disabled={!canPublishOriginalStory}
+                    onClick={publishOriginalStory}
                     style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                     type="button"
                   >
-                    {storyRefinementState.status === "refining" ? "Generating" : "Generate Draft"}
+                    Publish This Story
                   </button>
                 </div>
+              </div>
 
-                {storyRefinementState.message ? (
-                  <p className={`mt-3 rounded-xl border p-3 text-sm leading-6 ${
-                    storyRefinementState.status === "error"
-                      ? "border-red-200 bg-red-50 text-red-700"
-                      : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658]"
-                  }`}>
-                    {storyRefinementState.message}
-                  </p>
-                ) : null}
+              <div className={`rounded-2xl border bg-white p-4 md:p-5 ${
+                isImprovedStoryPublished ? "border-[#c8952d] shadow-[0_14px_34px_rgba(200,149,45,0.12)]" : "border-[#e2ded5]"
+              }`}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Polished Version
+                    </p>
+                    <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                      Improved Story Draft
+                    </h3>
+                    <p className="mt-1 text-sm leading-5 text-[#7b746a]">
+                      Improved spelling, grammar, and story flow.
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+                    {isImprovedStoryPublished ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#b7ebc6] bg-[#ecfff2] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#147a35]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        <Check className="h-3 w-3" />
+                        Currently Published
+                      </span>
+                    ) : null}
+                    <button
+                      className={lightSecondaryButtonClass}
+                      disabled={storyRefinementState.status === "refining" || !hasTextContent(selectedProfile.original_story)}
+                      onClick={refineStoryWithAI}
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                      type="button"
+                    >
+                      {storyRefinementState.status === "refining" ? "Improving" : "Improve Story"}
+                    </button>
+                  </div>
+                </div>
 
                 <div className="mt-3">
                   <TextArea
                     hideLabel
-                    label="Public Story"
-                    onChange={updateRefinedStory}
-                    rows={14}
-                    value={selectedProfile.public_story}
+                    label="Improved Story Draft"
+                    onChange={updateImprovedStoryDraft}
+                    rows={12}
+                    value={improvedStoryDraft}
                   />
+                </div>
+                <div className="mt-3 flex justify-end border-t border-[#e2ded5] pt-3">
+                  <button
+                    className={lightPrimaryButtonClass}
+                    disabled={!canPublishImprovedStory}
+                    onClick={publishImprovedStory}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    Publish Improved Story
+                  </button>
                 </div>
               </div>
             </div>
