@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Briefcase, Cake, CalendarDays, Check, ChevronRight, Church, Mail, MapPin, MessageCircle, MoreHorizontal, Pencil, Phone, StickyNote } from "lucide-react";
+import { ArrowLeft, BookOpen, Briefcase, Cake, CalendarDays, ChevronRight, Church, Mail, MapPin, MessageCircle, MoreHorizontal, Pencil, Phone, StickyNote } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -41,9 +41,9 @@ const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: 
   { helper: "Something else", label: "Other", value: "other" },
 ];
 
-const conversationFlowOptions: ReadonlyArray<{ helper: string; label: string; value: DosConversationFlowKey }> = [
-  { helper: "No structured guide", label: "None", value: "none" },
-  { helper: "USAM table questions", label: "Kitchen Table Gospel", value: "kitchen_table_gospel" },
+const conversationFlowOptions: ReadonlyArray<{ helper?: string; label: string; value: DosConversationFlowKey }> = [
+  { label: "None", value: "none" },
+  { helper: "USAM only", label: "Kitchen Table Gospel", value: "kitchen_table_gospel" },
 ];
 
 const kitchenTableAnswerOptions = [
@@ -630,7 +630,7 @@ function Sheet({
   title,
 }: {
   children: ReactNode;
-  description: string;
+  description?: string;
   onClose: () => void;
   title: string;
 }) {
@@ -649,7 +649,7 @@ function Sheet({
                 DOS
               </p>
               <h2 className="mt-2 text-2xl font-bold leading-none text-[#1E1D1A]">{title}</h2>
-              <p className="mt-3 text-sm leading-6 text-[#77716A]">{description}</p>
+              {description ? <p className="mt-3 text-sm leading-6 text-[#77716A]">{description}</p> : null}
             </div>
             <button
               aria-label="Close"
@@ -771,6 +771,70 @@ function MeetingCard({
   );
 }
 
+function CompactOptionSelect({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  options: ReadonlyArray<{ helper?: string; label: string; value: string }>;
+  value: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value) ?? options[0];
+
+  return (
+    <div
+      className="relative"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsOpen(false);
+        }
+      }}
+    >
+      <FieldLabel>{label}</FieldLabel>
+      <button
+        aria-expanded={isOpen}
+        className={`mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border bg-white px-4 text-left text-sm transition-colors ${
+          isOpen ? "border-[#D4A63D] shadow-[0_10px_24px_rgba(212,166,61,0.12)]" : "border-[#DDD9D0] hover:border-[#D8C8A7]"
+        }`}
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span className="min-w-0 flex-1 truncate font-semibold text-[#1E1D1A]">{selectedOption?.label ?? "Select"}</span>
+        <ChevronRight className={`h-4 w-4 shrink-0 text-[#8E8880] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`} aria-hidden="true" strokeWidth={1.8} />
+      </button>
+      {isOpen ? (
+        <div className="absolute left-0 right-0 z-30 mt-1 overflow-hidden rounded-2xl border border-[#E2DED6] bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]">
+          {options.map((option) => {
+            const selected = option.value === selectedOption?.value;
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm transition-colors ${
+                  selected ? "bg-[#FFF8E7] text-[#8A5A12]" : "text-[#1E1D1A] hover:bg-[#F8F7F3]"
+                }`}
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                type="button"
+              >
+                <span className="min-w-0 flex-1 truncate font-semibold">{option.label}</span>
+                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#8E8880]">{option.helper}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function MeetingContextPicker({
   onChange,
   value,
@@ -779,30 +843,12 @@ function MeetingContextPicker({
   value: DosAppMeetingType;
 }) {
   return (
-    <fieldset className="min-w-0">
-      <FieldLabel>Meeting Context</FieldLabel>
-      <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-        {meetingTypeOptions.map((option) => {
-          const selected = value === option.value;
-
-          return (
-            <button
-              aria-pressed={selected}
-              className={`shrink-0 rounded-full border px-3.5 py-2 text-xs font-bold transition-colors ${
-                selected
-                  ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12] shadow-[0_8px_18px_rgba(212,166,61,0.12)]"
-                  : "border-[#E2DED6] bg-white hover:border-[#D8C8A7]"
-              }`}
-              key={option.value}
-              onClick={() => onChange(option.value)}
-              type="button"
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-    </fieldset>
+    <CompactOptionSelect
+      label="Meeting Context"
+      onChange={(nextValue) => onChange(nextValue as DosAppMeetingType)}
+      options={meetingTypeOptions.map((option) => ({ label: option.label, value: option.value }))}
+      value={value}
+    />
   );
 }
 
@@ -818,42 +864,14 @@ function ConversationFlowPicker({
   const options = allowKitchenTableGospel
     ? conversationFlowOptions
     : conversationFlowOptions.filter((option) => option.value === "none");
-  const selectedOption = options.find((option) => option.value === value) ?? options[0];
 
   return (
-    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3">
-      <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF8E7] text-[#8A5A12]">
-          {selectedOption.value === "kitchen_table_gospel" ? <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} /> : <Check className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <FieldLabel>Conversation Flow</FieldLabel>
-          <p className="mt-1 text-sm font-bold text-[#1E1D1A]">{selectedOption.label}</p>
-          <p className="mt-0.5 text-xs text-[#77716A]">{selectedOption.helper}</p>
-        </div>
-      </div>
-      {options.length > 1 ? (
-        <div className="mt-3 grid grid-cols-2 rounded-full bg-[#F1F0EC] p-1">
-          {options.map((option) => {
-            const selected = value === option.value;
-
-            return (
-              <button
-                aria-pressed={selected}
-                className={`min-h-9 rounded-full px-3 text-xs font-bold transition-colors ${
-                  selected ? "bg-white text-[#8A5A12] shadow-[0_8px_16px_rgba(42,37,29,0.08)]" : "text-[#77716A]"
-                }`}
-                key={option.value}
-                onClick={() => onChange(option.value)}
-                type="button"
-              >
-                {option.label === "Kitchen Table Gospel" ? "Kitchen Gospel" : option.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </section>
+    <CompactOptionSelect
+      label="Conversation Flow"
+      onChange={(nextValue) => onChange(nextValue as DosConversationFlowKey)}
+      options={options}
+      value={(options.find((option) => option.value === value) ?? options[0])?.value ?? "none"}
+    />
   );
 }
 
@@ -869,12 +887,9 @@ function KitchenTableGospelFlow({
   const temperature = relationshipWithJesusTemperature(responses.relationshipWithJesus);
 
   return (
-    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3.5">
+    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold text-[#1E1D1A]">Guided Questions</p>
-          <p className="mt-1 text-xs leading-5 text-[#77716A]">Skip what you do not know.</p>
-        </div>
+        <p className="text-sm font-bold text-[#1E1D1A]">Guided Questions</p>
         {temperature ? (
           <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
             {temperature}
@@ -886,7 +901,7 @@ function KitchenTableGospelFlow({
         {dosKitchenTableQuestions.map((question) => {
           if (question.kind === "rating") {
             return (
-              <div className="rounded-2xl bg-[#F8F7F3] p-3" key={question.id}>
+              <div className="rounded-2xl bg-[#F8F7F3] p-2.5" key={question.id}>
                 <p className="text-sm font-semibold text-[#1E1D1A]">{question.label}</p>
                 <div className="mt-2 grid grid-cols-5 gap-1.5">
                   {Array.from({ length: 10 }, (_, index) => index + 1).map((rating) => {
@@ -895,7 +910,7 @@ function KitchenTableGospelFlow({
                     return (
                       <button
                         aria-pressed={selected}
-                        className={`min-h-9 rounded-xl border text-xs font-bold ${
+                        className={`min-h-8 rounded-xl border text-xs font-bold ${
                           selected ? "border-[#D4A63D] bg-[#D4A63D] text-white" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
                         }`}
                         key={rating}
@@ -917,7 +932,7 @@ function KitchenTableGospelFlow({
           const options = question.kind === "yes_no_unsure" ? kitchenTableUnsureAnswerOptions : kitchenTableAnswerOptions;
 
           return (
-            <div className="rounded-2xl bg-[#F8F7F3] p-3" key={question.id}>
+            <div className="rounded-2xl bg-[#F8F7F3] p-2.5" key={question.id}>
               <p className="text-sm font-semibold leading-5 text-[#1E1D1A]">{question.label}</p>
               <div className="mt-2 grid grid-cols-3 gap-1.5">
                 {options.map((option) => {
@@ -926,7 +941,7 @@ function KitchenTableGospelFlow({
                   return (
                     <button
                       aria-pressed={selected}
-                      className={`min-h-9 rounded-xl border text-xs font-bold ${
+                      className={`min-h-8 rounded-xl border text-xs font-bold ${
                         selected ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
                       }`}
                       key={option.value}
@@ -967,7 +982,7 @@ function MeetingPeopleSelector({
   const visiblePeople = people.filter((person) => !selectedPersonIds.includes(person.id));
 
   return (
-    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3.5">
+    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3">
       <FieldLabel>People Involved</FieldLabel>
       <div className="mt-2 flex flex-wrap gap-2">
         {selectedPeople.length ? selectedPeople.map((person, index) => (
@@ -983,11 +998,11 @@ function MeetingPeopleSelector({
             <span className="truncate">{person.name}</span>
           </button>
         )) : (
-          <span className="rounded-full bg-[#F8F7F3] px-3 py-1.5 text-xs text-[#77716A]">Select people below</span>
+          <span className="rounded-full bg-[#F8F7F3] px-3 py-1.5 text-xs text-[#77716A]">No people selected</span>
         )}
       </div>
 
-      <div className="relative mt-3">
+      <div className="relative mt-2.5">
         <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8E8880]">
           <Icon name="search" size={14} />
         </span>
@@ -1001,10 +1016,10 @@ function MeetingPeopleSelector({
       </div>
 
       {allPeople.length ? (
-        <div className="mt-2 grid max-h-40 gap-1.5 overflow-y-auto pr-1">
+        <div className="mt-2 grid max-h-36 gap-1 overflow-y-auto pr-1">
           {visiblePeople.map((person, index) => (
             <button
-              className="flex min-h-10 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#1E1D1A] transition-colors hover:bg-[#F8F7F3]"
+              className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#1E1D1A] transition-colors hover:bg-[#F8F7F3]"
               key={person.id}
               onClick={() => onToggle(person.id)}
               type="button"
@@ -2099,14 +2114,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "meeting" ? (
-        <Sheet description="Log what happened. Meeting notes stay private to this field." onClose={closeForm} title="Log Meeting">
-          <form className="space-y-4" onSubmit={handleMeetingSubmit}>
+        <Sheet onClose={closeForm} title="Log Meeting">
+          <form className="space-y-3" onSubmit={handleMeetingSubmit}>
             <MeetingContextPicker onChange={setSelectedMeetingContext} value={selectedMeetingContext} />
-            <ConversationFlowPicker
-              allowKitchenTableGospel={data.workspace.isUsamWorkspace}
-              onChange={setSelectedConversationFlow}
-              value={selectedConversationFlow}
-            />
             <MeetingPeopleSelector
               allPeople={data.people}
               onQueryChange={setMeetingPeopleQuery}
@@ -2119,6 +2129,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <FieldLabel>Date</FieldLabel>
               <input className={FieldInputClass()} defaultValue={todayDateValue()} name="table_date" type="date" />
             </label>
+            <ConversationFlowPicker
+              allowKitchenTableGospel={data.workspace.isUsamWorkspace}
+              onChange={setSelectedConversationFlow}
+              value={selectedConversationFlow}
+            />
             {selectedConversationFlow === "kitchen_table_gospel" ? (
               <KitchenTableGospelFlow
                 onAnswer={handleKitchenTableAnswer}
@@ -2138,14 +2153,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "editMeeting" && selectedMeeting ? (
-        <Sheet description="Update the meeting record. Recommendations stay queued until you send them later." onClose={closeForm} title="Edit Meeting">
-          <form className="space-y-4" onSubmit={handleEditMeetingSubmit}>
+        <Sheet onClose={closeForm} title="Edit Meeting">
+          <form className="space-y-3" onSubmit={handleEditMeetingSubmit}>
             <MeetingContextPicker onChange={setSelectedMeetingContext} value={selectedMeetingContext} />
-            <ConversationFlowPicker
-              allowKitchenTableGospel={data.workspace.isUsamWorkspace}
-              onChange={setSelectedConversationFlow}
-              value={selectedConversationFlow}
-            />
             <MeetingPeopleSelector
               allPeople={data.people}
               onQueryChange={setMeetingPeopleQuery}
@@ -2158,6 +2168,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <FieldLabel>Date</FieldLabel>
               <input className={FieldInputClass()} defaultValue={selectedMeeting.date ?? todayDateValue()} name="table_date" type="date" />
             </label>
+            <ConversationFlowPicker
+              allowKitchenTableGospel={data.workspace.isUsamWorkspace}
+              onChange={setSelectedConversationFlow}
+              value={selectedConversationFlow}
+            />
             {selectedConversationFlow === "kitchen_table_gospel" ? (
               <KitchenTableGospelFlow
                 onAnswer={handleKitchenTableAnswer}
