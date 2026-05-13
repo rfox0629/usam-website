@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft, Briefcase, Cake, CalendarDays, ChevronRight, Church, Mail, MapPin, MessageCircle, MoreHorizontal, Pencil, Phone, StickyNote } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -51,9 +52,22 @@ const futureTools = ["Prayer Alerts", "Connection Logs", "Discussion Guides", "F
 
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
-type FormMode = "fruit" | "meeting" | "person" | null;
+type FormMode = "editPerson" | "fruit" | "meeting" | "person" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
 type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
+type PersonFormDefaults = {
+  birthday?: string;
+  church?: string;
+  city?: string;
+  email?: string;
+  homeAddress?: string;
+  name?: string;
+  notes?: string;
+  occupation?: string;
+  phone?: string;
+  state?: string;
+  zip?: string;
+};
 
 function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   const commonProps = {
@@ -209,6 +223,102 @@ function meetingActivityTitle(meeting: DosAppMeeting) {
 
 function normalizeText(value: string | null | undefined) {
   return value?.trim() || "";
+}
+
+function toRelationshipTypeValue(value: string | null | undefined): RelationshipTypeValue {
+  const normalized = normalizeText(value).toLowerCase();
+  const exactValue = relationshipTypeOptions.find((option) => option.value.toLowerCase() === normalized)?.value;
+
+  if (exactValue) {
+    return exactValue;
+  }
+
+  if (normalized.includes("mentor")) {
+    return "Mentor";
+  }
+
+  if (normalized.includes("disciple")) {
+    return "Discipling";
+  }
+
+  if (normalized && !normalized.includes("new")) {
+    return "Walking With";
+  }
+
+  return defaultRelationshipType;
+}
+
+function splitAdditionalInfo(notes: string | null | undefined) {
+  const rawNotes = normalizeText(notes);
+  const marker = "\n\nAdditional information:\n";
+
+  if (!rawNotes.includes(marker)) {
+    return { additional: "", notes: rawNotes };
+  }
+
+  const [baseNotes, additional = ""] = rawNotes.split(marker);
+
+  return {
+    additional,
+    notes: baseNotes.trim(),
+  };
+}
+
+function parseAddress(value: string) {
+  const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+  const stateZip = parts[2] ?? "";
+  const stateZipMatch = stateZip.match(/^([A-Za-z]{2})\s+(.+)$/);
+
+  return {
+    city: parts[1] ?? "",
+    homeAddress: parts[0] ?? value,
+    state: stateZipMatch?.[1] ?? "",
+    zip: stateZipMatch?.[2] ?? "",
+  };
+}
+
+function personFormDefaults(person?: DosAppPerson | null): PersonFormDefaults {
+  if (!person) {
+    return {};
+  }
+
+  const { additional, notes } = splitAdditionalInfo(person.notes);
+  const defaults: PersonFormDefaults = {
+    church: person.church ?? "",
+    email: person.email ?? "",
+    name: person.name,
+    notes,
+    phone: person.phone,
+  };
+
+  additional.split("\n").forEach((line) => {
+    const [label = "", ...rest] = line.split(":");
+    const value = rest.join(":").trim();
+
+    if (!value) {
+      return;
+    }
+
+    if (label === "Home address") {
+      Object.assign(defaults, parseAddress(value));
+    }
+
+    if (label === "Occupation") {
+      defaults.occupation = value;
+    }
+
+    if (label === "Birthday") {
+      defaults.birthday = value;
+    }
+  });
+
+  return defaults;
+}
+
+function personAddressLine(defaults: PersonFormDefaults) {
+  const cityStateZip = [defaults.city, [defaults.state, defaults.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+
+  return [defaults.homeAddress, cityStateZip].filter(Boolean).join(", ");
 }
 
 function statusLabel(value: string | null | undefined) {
@@ -504,21 +614,22 @@ function Sheet({
 
 function PersonCard({
   index,
+  onClick,
   person,
   variant = "card",
 }: {
   index: number;
+  onClick?: () => void;
   person: DosAppPerson;
   variant?: "card" | "row";
 }) {
   const isRow = variant === "row";
-
-  return (
-    <article className={`flex items-center gap-3 bg-white ${isRow ? "px-4 py-3" : "rounded-2xl border border-[#E2DED6] px-4 py-3"}`}>
+  const content = (
+    <>
       <div className={`flex ${isRow ? "h-9 w-9" : "h-10 w-10"} shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone(index)}`}>
         {initials(person.name)}
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 text-left">
         <div className="flex items-center justify-between gap-3">
           <p className="truncate text-sm font-semibold text-[#1E1D1A]">{person.name}</p>
           <span className={`h-2 w-2 shrink-0 rounded-full ${statusTone(person.status)}`} />
@@ -527,8 +638,23 @@ function PersonCard({
           {isRow ? recentActivityLine(person) : `${statusLabel(person.status)} · ${lastActivityLine(person).replace("Last interaction · ", "")}`}
         </p>
       </div>
-    </article>
+      {onClick ? <ChevronRight className="h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} /> : null}
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        className={`flex w-full items-center gap-3 bg-white transition-colors hover:bg-[#FFFDF8] ${isRow ? "px-4 py-3" : "rounded-2xl border border-[#E2DED6] px-4 py-3"}`}
+        onClick={onClick}
+        type="button"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <article className={`flex items-center gap-3 bg-white ${isRow ? "px-4 py-3" : "rounded-2xl border border-[#E2DED6] px-4 py-3"}`}>{content}</article>;
 }
 
 function MeetingCard({
@@ -664,9 +790,11 @@ function RelationshipTypePicker({
 }
 
 function AdditionalPersonInformation({
+  defaults = {},
   isOpen,
   onToggle,
 }: {
+  defaults?: PersonFormDefaults;
   isOpen: boolean;
   onToggle: () => void;
 }) {
@@ -691,45 +819,231 @@ function AdditionalPersonInformation({
         <div className="mt-4 grid gap-3 border-t border-[#EEEAE2] pt-4">
           <label className="block">
             <FieldLabel>Email</FieldLabel>
-            <input className={FieldInputClass()} name="email" placeholder="email@example.com" type="email" />
+            <input className={FieldInputClass()} defaultValue={defaults.email} name="email" placeholder="email@example.com" type="email" />
           </label>
           <label className="block">
             <FieldLabel>Home Address</FieldLabel>
-            <input className={FieldInputClass()} name="home_address" placeholder="Street address" />
+            <input className={FieldInputClass()} defaultValue={defaults.homeAddress} name="home_address" placeholder="Street address" />
           </label>
           <div className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2">
             <label className="block min-w-0">
               <FieldLabel>City</FieldLabel>
-              <input className={FieldInputClass()} name="city" placeholder="City" />
+              <input className={FieldInputClass()} defaultValue={defaults.city} name="city" placeholder="City" />
             </label>
             <label className="block min-w-0">
               <FieldLabel>State</FieldLabel>
-              <input className={FieldInputClass()} maxLength={2} name="state" placeholder="ST" />
+              <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" placeholder="ST" />
             </label>
             <label className="block min-w-0">
               <FieldLabel>ZIP</FieldLabel>
-              <input className={FieldInputClass()} inputMode="numeric" name="zip" placeholder="ZIP" />
+              <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" placeholder="ZIP" />
             </label>
           </div>
           <label className="block">
             <FieldLabel>Church</FieldLabel>
-            <input className={FieldInputClass()} name="church" placeholder="Church / community" />
+            <input className={FieldInputClass()} defaultValue={defaults.church} name="church" placeholder="Church / community" />
           </label>
           <label className="block">
             <FieldLabel>Occupation</FieldLabel>
-            <input className={FieldInputClass()} name="occupation" placeholder="What do they do?" />
+            <input className={FieldInputClass()} defaultValue={defaults.occupation} name="occupation" placeholder="What do they do?" />
           </label>
           <label className="block">
             <FieldLabel>Birthday</FieldLabel>
-            <input className={FieldInputClass()} name="birthday" type="date" />
+            <input className={FieldInputClass()} defaultValue={defaults.birthday} name="birthday" type="date" />
           </label>
           <label className="block">
             <FieldLabel>Notes</FieldLabel>
-            <textarea className={FieldTextareaClass()} name="notes" placeholder="Private notes..." />
+            <textarea className={FieldTextareaClass()} defaultValue={defaults.notes} name="notes" placeholder="Private notes..." />
           </label>
         </div>
       ) : null}
     </section>
+  );
+}
+
+function DetailCard({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-4">
+      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+        {title}
+      </p>
+      <div className="mt-3 grid gap-3">{children}</div>
+    </section>
+  );
+}
+
+function DetailRow({
+  action,
+  icon,
+  label,
+  value,
+}: {
+  action?: ReactNode;
+  icon?: ReactNode;
+  label?: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 text-sm text-[#1E1D1A]">
+      {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8F7F3] text-[#8A5A12]">{icon}</span> : null}
+      <div className="min-w-0 flex-1">
+        {label ? <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>{label}</p> : null}
+        <div className="mt-0.5 break-words leading-5 text-[#1E1D1A]">{value}</div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function PersonQuickAction({
+  children,
+  href,
+  icon,
+  onClick,
+}: {
+  children: ReactNode;
+  href?: string;
+  icon: ReactNode;
+  onClick?: () => void;
+}) {
+  const className = "flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-[#E2DED6] bg-white px-2 text-[10px] font-bold uppercase tracking-[0.11em] text-[#1E1D1A] transition-colors hover:border-[#D4A63D] hover:bg-[#FFF8E7]";
+
+  if (href) {
+    return (
+      <a className={className} href={href} style={{ fontFamily: font.rajdhani }}>
+        {icon}
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <button className={className} onClick={onClick} style={{ fontFamily: font.rajdhani }} type="button">
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function PersonDetailOverlay({
+  fruit,
+  index,
+  meetings,
+  onBack,
+  onEdit,
+  onLogMeeting,
+  person,
+}: {
+  fruit: DosAppFruit[];
+  index: number;
+  meetings: DosAppMeeting[];
+  onBack: () => void;
+  onEdit: () => void;
+  onLogMeeting: () => void;
+  person: DosAppPerson;
+}) {
+  const defaults = personFormDefaults(person);
+  const address = personAddressLine(defaults);
+  const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
+  const personFruit = fruit.filter((item) => item.fieldPersonId === person.id);
+  const recentMeetings = personMeetings.slice(0, 3);
+  const notesCount = defaults.notes ? 1 : 0;
+
+  return (
+    <div className="absolute inset-0 z-[70] overflow-y-auto bg-[#F5F3EE] px-4 pb-24 pt-7 [scrollbar-width:none]">
+      <header className="flex items-center justify-between gap-3">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#DDD9D0] bg-white text-[#1E1D1A]" onClick={onBack} type="button" aria-label="Back to people">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+        </button>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+          Person
+        </p>
+        <button className="inline-flex items-center gap-1.5 rounded-full border border-[#DDD9D0] bg-white px-4 py-2 text-xs font-bold text-[#1E1D1A]" onClick={onEdit} type="button">
+          <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+          Edit
+        </button>
+      </header>
+
+      <section className="mt-5 text-center">
+        <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-base font-bold ${avatarTone(index)}`}>
+          {initials(person.name)}
+        </div>
+        <h2 className="mt-3 text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
+          {person.name}
+        </h2>
+        <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 py-1.5 text-xs font-semibold text-[#8A5A12]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#D4A63D]" aria-hidden="true" />
+          {person.relationshipType || "New"}
+        </span>
+      </section>
+
+      <section className="mt-5 grid grid-cols-4 gap-2">
+        <PersonQuickAction icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} href={person.phone ? `tel:${person.phone}` : undefined} onClick={person.phone ? undefined : onEdit}>
+          Call
+        </PersonQuickAction>
+        <PersonQuickAction icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} href={person.phone ? `sms:${person.phone}` : undefined} onClick={person.phone ? undefined : onEdit}>
+          Text
+        </PersonQuickAction>
+        <PersonQuickAction icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={onEdit}>
+          Note
+        </PersonQuickAction>
+        <PersonQuickAction icon={<MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={onEdit}>
+          More
+        </PersonQuickAction>
+      </section>
+
+      <div className="mt-5">
+        <AppButton icon="log" onClick={onLogMeeting} tone="black">Log Meeting</AppButton>
+      </div>
+
+      <div className="mt-5 grid gap-3">
+        <DetailCard title="Contact Information">
+          <DetailRow
+            action={person.phone ? <a className="text-[#8A5A12]" href={`sms:${person.phone}`} aria-label={`Text ${person.name}`}><MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} /></a> : null}
+            icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+            value={person.phone}
+          />
+          {person.email ? (
+            <DetailRow
+              action={<a className="text-[#8A5A12]" href={`mailto:${person.email}`} aria-label={`Email ${person.name}`}><Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} /></a>}
+              icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+              value={person.email}
+            />
+          ) : null}
+          {address ? <DetailRow icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} value={address} /> : null}
+        </DetailCard>
+
+        <DetailCard title="About">
+          {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
+          {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
+          {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
+          {defaults.notes ? <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Notes" value={defaults.notes} /> : null}
+          {!person.church && !defaults.occupation && !defaults.birthday && !defaults.notes ? <p className="text-sm text-[#77716A]">No details yet.</p> : null}
+        </DetailCard>
+
+        <DetailCard title="Activity">
+          <div className="grid grid-cols-3 gap-2">
+            <StatTile label="Meetings" value={personMeetings.length} />
+            <StatTile label="Fruit" value={personFruit.length} />
+            <StatTile label="Notes" value={notesCount} />
+          </div>
+          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Last activity" value={formatRelativeDate(person.lastActivityAt)} />
+        </DetailCard>
+
+        <DetailCard title="History">
+          {recentMeetings.length ? recentMeetings.map((meeting) => (
+            <button className="flex items-center gap-3 rounded-2xl bg-[#F8F7F3] p-3 text-left" key={meeting.id} type="button" onClick={onLogMeeting}>
+              <CalendarDays className="h-4 w-4 shrink-0 text-[#8A5A12]" aria-hidden="true" strokeWidth={1.8} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</span>
+                <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#77716A]">{meeting.notes || formatDate(meeting.date)}</span>
+              </span>
+              <ChevronRight className="h-4 w-4 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+            </button>
+          )) : <p className="text-sm text-[#77716A]">No meetings yet.</p>}
+        </DetailCard>
+      </div>
+    </div>
   );
 }
 
@@ -742,23 +1056,28 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
+  const [prefilledMeetingPersonIds, setPrefilledMeetingPersonIds] = useState<string[]>([]);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [selectedRelationshipType, setSelectedRelationshipType] = useState<RelationshipTypeValue>(defaultRelationshipType);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
   const latestMeeting = data.meetings[0];
   const latestFruit = data.fruit[0];
   const visiblePeople = useMemo(() => filteredPeople(data.people, peopleQuery), [data.people, peopleQuery]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(data.people, meetingPeopleQuery), [data.people, meetingPeopleQuery]);
+  const selectedPerson = useMemo(() => data.people.find((person) => person.id === selectedPersonId) ?? null, [data.people, selectedPersonId]);
   const attentionPeople = useMemo(() => data.people.filter(isNeedsAttention), [data.people]);
   const relatingCount = data.people.filter((person) => normalizeText(person.status).toLowerCase() !== "new").length;
   const multiplyingCount = Math.max(data.stats.approvedFruit, data.fruit.length);
   const recentPeople = data.people.slice(0, 3);
   const workspaceLabel = `${data.workspace.displayName} · USA`;
+  const selectedPersonDefaults = personFormDefaults(selectedPerson);
 
   function closeForm() {
     setErrorMessage("");
     setFormMode(null);
     setIsAdditionalPersonInfoOpen(false);
     setMeetingPeopleQuery("");
+    setPrefilledMeetingPersonIds([]);
     setSelectedRelationshipType(defaultRelationshipType);
   }
 
@@ -767,12 +1086,52 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setFormMode(mode);
     setIsAdditionalPersonInfoOpen(false);
     setMeetingPeopleQuery("");
+    setPrefilledMeetingPersonIds([]);
     if (mode === "person") {
       setSelectedRelationshipType(defaultRelationshipType);
     }
   }
 
-  async function submitJson(endpoint: string, payload: Record<string, unknown>) {
+  function openPersonDetail(personId: string) {
+    setErrorMessage("");
+    setSelectedPersonId(personId);
+  }
+
+  function openPersonEdit(person: DosAppPerson) {
+    setErrorMessage("");
+    setFormMode("editPerson");
+    setIsAdditionalPersonInfoOpen(true);
+    setSelectedRelationshipType(toRelationshipTypeValue(person.relationshipType));
+  }
+
+  function openMeetingForPerson(personId: string) {
+    setSelectedPersonId(null);
+    setErrorMessage("");
+    setFormMode("meeting");
+    setIsAdditionalPersonInfoOpen(false);
+    setMeetingPeopleQuery("");
+    setPrefilledMeetingPersonIds([personId]);
+  }
+
+  function personPayloadFromForm(formData: FormData, relationshipType: RelationshipTypeValue, id?: string) {
+    return {
+      birthday: String(formData.get("birthday") ?? ""),
+      church: String(formData.get("church") ?? ""),
+      city: String(formData.get("city") ?? ""),
+      email: String(formData.get("email") ?? ""),
+      homeAddress: String(formData.get("home_address") ?? ""),
+      id,
+      name: String(formData.get("name") ?? ""),
+      notes: String(formData.get("notes") ?? ""),
+      occupation: String(formData.get("occupation") ?? ""),
+      phone: String(formData.get("phone") ?? ""),
+      relationshipType,
+      state: String(formData.get("state") ?? ""),
+      zip: String(formData.get("zip") ?? ""),
+    };
+  }
+
+  async function submitJson(endpoint: string, payload: Record<string, unknown>, method: "PATCH" | "POST" = "POST") {
     setErrorMessage("");
     setIsSubmitting(true);
 
@@ -785,7 +1144,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         headers: {
           "Content-Type": "application/json",
         },
-        method: "POST",
+        method,
       });
       const result = await response.json().catch(() => ({})) as { error?: string };
 
@@ -808,19 +1167,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const formData = new FormData(event.currentTarget);
 
     void submitJson("/api/dos/app/people", {
-      birthday: String(formData.get("birthday") ?? ""),
-      church: String(formData.get("church") ?? ""),
-      city: String(formData.get("city") ?? ""),
-      email: String(formData.get("email") ?? ""),
-      homeAddress: String(formData.get("home_address") ?? ""),
-      name: String(formData.get("name") ?? ""),
-      notes: String(formData.get("notes") ?? ""),
-      occupation: String(formData.get("occupation") ?? ""),
-      phone: String(formData.get("phone") ?? ""),
-      relationshipType: selectedRelationshipType,
-      state: String(formData.get("state") ?? ""),
-      zip: String(formData.get("zip") ?? ""),
+      ...personPayloadFromForm(formData, selectedRelationshipType),
     });
+  }
+
+  function handleEditPersonSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    if (!selectedPerson) {
+      return;
+    }
+
+    void submitJson("/api/dos/app/people", {
+      ...personPayloadFromForm(formData, selectedRelationshipType, selectedPerson.id),
+    }, "PATCH");
   }
 
   function handleMeetingSubmit(event: FormEvent<HTMLFormElement>) {
@@ -963,7 +1324,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <div className="overflow-hidden rounded-[20px] border border-[#E2DED6] bg-white">
                     {recentPeople.map((person, index) => (
                       <div className="border-b border-[#ECE8E0] last:border-b-0" key={person.id}>
-                        <PersonCard index={index} person={person} variant="row" />
+                        <PersonCard index={index} onClick={() => openPersonDetail(person.id)} person={person} variant="row" />
                       </div>
                     ))}
                   </div>
@@ -980,7 +1341,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <SearchField label="Find Person" onChange={setPeopleQuery} placeholder="Search by name, phone, or relationship" value={peopleQuery} />
               <div className="mt-4">
                 {visiblePeople.length ? (
-                  <div className="grid gap-3">{visiblePeople.map((person, index) => <PersonCard index={index} key={person.id} person={person} />)}</div>
+                  <div className="grid gap-3">{visiblePeople.map((person, index) => <PersonCard index={index} key={person.id} onClick={() => openPersonDetail(person.id)} person={person} />)}</div>
                 ) : data.people.length ? (
                   <EmptyState text="Try a different name or relationship." title="No matching people." />
                 ) : (
@@ -1060,6 +1421,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           </main>
         </div>
 
+        {selectedPerson ? (
+          <PersonDetailOverlay
+            fruit={data.fruit}
+            index={Math.max(0, data.people.findIndex((person) => person.id === selectedPerson.id))}
+            meetings={data.meetings}
+            onBack={() => setSelectedPersonId(null)}
+            onEdit={() => openPersonEdit(selectedPerson)}
+            onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
+            person={selectedPerson}
+          />
+        ) : null}
+
         <nav className="absolute inset-x-0 bottom-0 z-50 border-t border-[#E2DED6] bg-[#F8F7F3]/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-2 backdrop-blur">
           <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
           {tabs.map((tab) => (
@@ -1104,6 +1477,31 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         </Sheet>
       ) : null}
 
+      {formMode === "editPerson" && selectedPerson ? (
+        <Sheet description="Update the details you know. Keep the field record useful." onClose={closeForm} title="Edit Person">
+          <form className="space-y-4" onSubmit={handleEditPersonSubmit}>
+            <div className="grid gap-3">
+              <label className="block">
+                <FieldLabel>Name</FieldLabel>
+                <input className={FieldInputClass()} defaultValue={selectedPerson.name} name="name" placeholder="Full name" required />
+              </label>
+              <label className="block">
+                <FieldLabel>Phone</FieldLabel>
+                <input className={FieldInputClass()} defaultValue={selectedPerson.phone} inputMode="tel" name="phone" placeholder="Phone number" required />
+              </label>
+            </div>
+            <RelationshipTypePicker onChange={setSelectedRelationshipType} value={selectedRelationshipType} />
+            <AdditionalPersonInformation
+              defaults={selectedPersonDefaults}
+              isOpen={isAdditionalPersonInfoOpen}
+              onToggle={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+            />
+            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Person"}</AppButton>
+          </form>
+        </Sheet>
+      ) : null}
+
       {formMode === "meeting" ? (
         <Sheet description="Log what happened. Meeting notes stay private to this field." onClose={closeForm} title="Log Meeting">
           <form className="space-y-4" onSubmit={handleMeetingSubmit}>
@@ -1125,7 +1523,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto pr-1">
                   {meetingPeopleOptions.map((person, index) => (
                     <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-[#E2DED6] bg-white px-3 text-sm text-[#1E1D1A]" key={person.id}>
-                      <input className="accent-black" name="field_person_ids" type="checkbox" value={person.id} />
+                      <input className="accent-black" defaultChecked={prefilledMeetingPersonIds.includes(person.id)} name="field_person_ids" type="checkbox" value={person.id} />
                       <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${avatarTone(index)}`}>
                         {initials(person.name)}
                       </span>

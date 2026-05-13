@@ -30,10 +30,13 @@ export type DosAppWorkspace = {
 };
 
 export type DosAppPerson = {
+  church: string | null;
+  email: string | null;
   engagementLevel: string | null;
   id: string;
   lastActivityAt: string | null;
   name: string;
+  notes: string | null;
   phone: string;
   relationshipType: string | null;
   status: string;
@@ -90,10 +93,13 @@ type HouseholdRow = {
 };
 
 type FieldPersonRow = {
+  church: string | null;
+  email: string | null;
   engagement_level: string | null;
   id: string;
   last_activity_at: string | null;
   name: string;
+  notes: string | null;
   phone: string;
   relationship_type: string | null;
   status: string | null;
@@ -210,7 +216,7 @@ function latestActivityDate(...values: Array<string | null | undefined>) {
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const scopedResult = await supabase
     .from("missionary_field_people")
-    .select("id, name, phone, status, relationship_type, engagement_level, last_activity_at, updated_at")
+    .select("id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, updated_at")
     .or(workspaceScopeFilter(workspaceId))
     .order("last_activity_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false });
@@ -220,7 +226,7 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
   return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
     ? supabase
       .from("missionary_field_people")
-      .select("id, name, phone, status, relationship_type, engagement_level, last_activity_at, updated_at")
+      .select("id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, updated_at")
       .eq("household_id", workspaceId)
       .order("last_activity_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false })
@@ -376,10 +382,13 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   });
 
   const people = ((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => ({
+    church: person.church,
+    email: person.email,
     engagementLevel: person.engagement_level,
     id: person.id,
     lastActivityAt: latestActivityDate(person.last_activity_at, latestActivityByPersonId.get(person.id)),
     name: person.name,
+    notes: person.notes,
     phone: person.phone,
     relationshipType: person.relationship_type,
     status: person.status ?? "new",

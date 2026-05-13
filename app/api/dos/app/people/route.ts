@@ -10,6 +10,7 @@ type PersonPayload = {
   email?: unknown;
   homeAddress?: unknown;
   home_address?: unknown;
+  id?: unknown;
   name?: unknown;
   notes?: unknown;
   occupation?: unknown;
@@ -28,6 +29,10 @@ function asNullableString(value: unknown) {
   const nextValue = asString(value);
 
   return nextValue ? nextValue : null;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
 }
 
 function buildPersonNotes(payload: PersonPayload) {
@@ -51,6 +56,14 @@ function buildPersonNotes(payload: PersonPayload) {
   return [notes, detailLines.length ? ["Additional information:", ...detailLines].join("\n") : ""]
     .filter(Boolean)
     .join("\n\n") || null;
+}
+
+async function readPayload(request: Request) {
+  try {
+    return await request.json() as PersonPayload;
+  } catch {
+    return null;
+  }
 }
 
 async function authorizeWrite() {
@@ -82,11 +95,9 @@ export async function POST(request: Request) {
     return authResult.response;
   }
 
-  let payload: PersonPayload;
+  const payload = await readPayload(request);
 
-  try {
-    payload = await request.json();
-  } catch {
+  if (!payload) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
@@ -127,6 +138,63 @@ export async function POST(request: Request) {
       .select("id")
       .single()
     : insertResult;
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ id: data.id, ok: true });
+}
+
+export async function PATCH(request: Request) {
+  const authResult = await authorizeWrite();
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  const payload = await readPayload(request);
+
+  if (!payload) {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId));
+  const id = asString(payload.id);
+  const name = asString(payload.name);
+  const phone = asString(payload.phone);
+
+  if (!workspaceId || !isUuid(id) || !name || !phone) {
+    return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const personUpdate: Record<string, unknown> = {
+    church: asNullableString(payload.church),
+    email: asNullableString(payload.email),
+    name,
+    notes: buildPersonNotes(payload),
+    phone,
+    relationship_type: asString(payload.relationshipType) || null,
+  };
+  const updateResult = await supabase
+    .from("missionary_field_people")
+    .update(personUpdate)
+    .eq("id", id)
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+    .select("id")
+    .single();
+  // TODO: Remove the household_id-only fallback after all Supabase environments
+  // have the Command Center workspace_id migration applied.
+  const { data, error } = updateResult.error && isMissingWorkspaceScopeColumn(updateResult.error)
+    ? await supabase
+      .from("missionary_field_people")
+      .update(personUpdate)
+      .eq("id", id)
+      .eq("household_id", workspaceId)
+      .select("id")
+      .single()
+    : updateResult;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
