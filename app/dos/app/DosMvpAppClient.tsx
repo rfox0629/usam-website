@@ -1799,6 +1799,22 @@ function PersonDetailOverlay({
           </div>
         </DetailCard>
 
+        <div ref={meetingsSectionRef}>
+          <DetailCard title="Meetings">
+            {recentMeetings.length ? recentMeetings.map((meeting) => (
+              <button className="flex items-center gap-3 rounded-2xl bg-[#F8F7F3] p-3 text-left transition-colors hover:bg-[#EFEAE1] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
+                <CalendarDays className="h-4 w-4 shrink-0 text-[#8A5A12]" aria-hidden="true" strokeWidth={1.8} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</span>
+                  <span className="mt-1 block text-xs leading-5 text-[#77716A]">{formatDate(meeting.date)}</span>
+                  <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#3B3935]">{meeting.notes || "No summary added yet."}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+              </button>
+            )) : <p className="text-sm text-[#77716A]">No meetings yet.</p>}
+          </DetailCard>
+        </div>
+
         <div ref={reviewsSectionRef}>
           <DetailCard title="Reviews">
             {personReviews.length ? personReviews.slice(0, 3).map((meeting) => (
@@ -1816,22 +1832,6 @@ function PersonDetailOverlay({
                 </p>
               </button>
             )) : <p className="text-sm text-[#77716A]">No reviews yet.</p>}
-          </DetailCard>
-        </div>
-
-        <div ref={meetingsSectionRef}>
-          <DetailCard title="Meetings">
-            {recentMeetings.length ? recentMeetings.map((meeting) => (
-              <button className="flex items-center gap-3 rounded-2xl bg-[#F8F7F3] p-3 text-left transition-colors hover:bg-[#EFEAE1] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
-                <CalendarDays className="h-4 w-4 shrink-0 text-[#8A5A12]" aria-hidden="true" strokeWidth={1.8} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[#77716A]">{formatDate(meeting.date)}</span>
-                  <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#3B3935]">{meeting.notes || "No summary added yet."}</span>
-                </span>
-                <ChevronRight className="h-4 w-4 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
-              </button>
-            )) : <p className="text-sm text-[#77716A]">No meetings yet.</p>}
           </DetailCard>
         </div>
       </div>
