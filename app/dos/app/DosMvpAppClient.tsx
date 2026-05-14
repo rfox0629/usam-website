@@ -17,6 +17,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppMeetingType, DosAppPerson, DosAppReviewStatus } from "@/src/lib/dos/missionary-app";
+import { appendPersonNoteToValue, parsePersonNotes, personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { dosGuideResources } from "@/src/lib/dos/guide-resources";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -79,7 +80,7 @@ const futureTools = ["Prayer Alerts", "Connection Logs", "Discussion Guides", "F
 
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
-type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | null;
+type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | "personNote" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
 type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
 type KitchenTableNonRatingQuestionId = Exclude<DosKitchenTableQuestionId, "relationshipWithJesus">;
@@ -236,6 +237,22 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
+function formatDateTime(value: string | null) {
+  const date = parseDisplayDate(value);
+
+  if (!date) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 function formatRelativeDate(value: string | null) {
   const date = parseDisplayDate(value);
 
@@ -369,18 +386,10 @@ function toRelationshipTypeValue(value: string | null | undefined): Relationship
 }
 
 function splitAdditionalInfo(notes: string | null | undefined) {
-  const rawNotes = normalizeText(notes);
-  const marker = "\n\nAdditional information:\n";
-
-  if (!rawNotes.includes(marker)) {
-    return { additional: "", notes: rawNotes };
-  }
-
-  const [baseNotes, additional = ""] = rawNotes.split(marker);
-
+  const { additional, notes: baseNotes } = splitPersonNotesValue(notes);
   return {
     additional,
-    notes: baseNotes.trim(),
+    notes: personNotesToPlainText(baseNotes),
   };
 }
 
@@ -638,17 +647,35 @@ function FieldTextareaClass() {
 
 function StatTile({
   label,
+  onClick,
   value,
 }: {
   label: string;
+  onClick?: () => void;
   value: number;
 }) {
-  return (
-    <div className="rounded-xl bg-[#F1F0EC] px-3 py-3.5 text-center">
+  const className = "rounded-xl bg-[#F1F0EC] px-3 py-3.5 text-center";
+  const interactiveClassName = `${className} cursor-pointer transition-colors hover:bg-[#E9E4DA] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/35`;
+  const content = (
+    <>
       <p className="text-[21px] font-bold leading-none text-[#111111]">{value}</p>
       <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
         {label}
       </p>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button className={interactiveClassName} onClick={onClick} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={className}>
+      {content}
     </div>
   );
 }
@@ -1676,6 +1703,7 @@ function PersonDetailOverlay({
   fruit,
   index,
   meetings,
+  onAddNote,
   onBack,
   onEdit,
   onOpenMeeting,
@@ -1685,18 +1713,34 @@ function PersonDetailOverlay({
   fruit: DosAppFruit[];
   index: number;
   meetings: DosAppMeeting[];
+  onAddNote: () => void;
   onBack: () => void;
   onEdit: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onLogMeeting: () => void;
   person: DosAppPerson;
 }) {
+  const historySectionRef = useRef<HTMLDivElement | null>(null);
+  const fruitSectionRef = useRef<HTMLDivElement | null>(null);
+  const notesSectionRef = useRef<HTMLDivElement | null>(null);
+  const [showAllNotes, setShowAllNotes] = useState(false);
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
   const personFruit = fruit.filter((item) => item.fieldPersonId === person.id);
   const recentMeetings = personMeetings.slice(0, 3);
-  const notesCount = defaults.notes ? 1 : 0;
+  const personNotes = parsePersonNotes(person.notes, person.updatedAt);
+  const visibleNotes = showAllNotes ? personNotes : personNotes.slice(0, 3);
+  const notesCount = personNotes.length;
+  const scrollToSection = (section: "fruit" | "history" | "notes") => {
+    const sectionRef = {
+      fruit: fruitSectionRef,
+      history: historySectionRef,
+      notes: notesSectionRef,
+    }[section];
+
+    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div className="absolute inset-0 z-[70] overflow-y-auto bg-[#F5F3EE] px-4 pb-24 pt-7 [scrollbar-width:none]">
@@ -1733,7 +1777,7 @@ function PersonDetailOverlay({
         <PersonQuickAction icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} href={person.phone ? `sms:${person.phone}` : undefined} onClick={person.phone ? undefined : onEdit}>
           Text
         </PersonQuickAction>
-        <PersonQuickAction icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={onEdit}>
+        <PersonQuickAction icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={onAddNote}>
           Note
         </PersonQuickAction>
         <PersonQuickAction icon={<MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={onEdit}>
@@ -1766,31 +1810,70 @@ function PersonDetailOverlay({
           {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
           {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
           {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
-          {defaults.notes ? <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Notes" value={defaults.notes} /> : null}
-          {!person.church && !defaults.occupation && !defaults.birthday && !defaults.notes ? <p className="text-sm text-[#77716A]">No details yet.</p> : null}
+          {!person.church && !defaults.occupation && !defaults.birthday ? <p className="text-sm text-[#77716A]">No details yet.</p> : null}
         </DetailCard>
 
         <DetailCard title="Activity">
           <div className="grid grid-cols-3 gap-2">
-            <StatTile label="Meetings" value={personMeetings.length} />
-            <StatTile label="Fruit" value={personFruit.length} />
-            <StatTile label="Notes" value={notesCount} />
+            <StatTile label="Meetings" onClick={() => scrollToSection("history")} value={personMeetings.length} />
+            <StatTile label="Fruit" onClick={() => scrollToSection("fruit")} value={personFruit.length} />
+            <StatTile label="Notes" onClick={() => scrollToSection("notes")} value={notesCount} />
           </div>
           <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Last activity" value={formatRelativeDate(person.lastActivityAt)} />
         </DetailCard>
 
-        <DetailCard title="History">
-          {recentMeetings.length ? recentMeetings.map((meeting) => (
-            <button className="flex items-center gap-3 rounded-2xl bg-[#F8F7F3] p-3 text-left" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
-              <CalendarDays className="h-4 w-4 shrink-0 text-[#8A5A12]" aria-hidden="true" strokeWidth={1.8} />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</span>
-                <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#77716A]">{meeting.notes || formatDate(meeting.date)}</span>
-              </span>
-              <ChevronRight className="h-4 w-4 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
-            </button>
-          )) : <p className="text-sm text-[#77716A]">No meetings yet.</p>}
-        </DetailCard>
+        <div ref={fruitSectionRef}>
+          <DetailCard title="Fruit">
+            {personFruit.length ? personFruit.slice(0, 3).map((item) => (
+              <article className="rounded-2xl bg-[#F8F7F3] p-3" key={item.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-[#1E1D1A]">{fruitStatusLabel(item.status)}</p>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${fruitStatusBadgeClass(item.status)}`} style={{ fontFamily: font.rajdhani }}>
+                    {item.sourceApp === "dos_quick_review" ? "Review" : "Fruit"}
+                  </span>
+                </div>
+                <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3B3935]">{item.summary || "Fruit recorded."}</p>
+                <p className="mt-2 text-xs text-[#8E8880]">{formatDate(item.testimonyDate)}</p>
+              </article>
+            )) : <p className="text-sm text-[#77716A]">No fruit yet.</p>}
+          </DetailCard>
+        </div>
+
+        <div ref={notesSectionRef}>
+          <DetailCard title="Notes">
+            <div className="flex justify-end">
+              <button className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" onClick={onAddNote} style={{ fontFamily: font.rajdhani }} type="button">
+                Add Note
+              </button>
+            </div>
+            {visibleNotes.length ? visibleNotes.map((note) => (
+              <article className="rounded-2xl bg-[#F8F7F3] p-3" key={note.id}>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-[#1E1D1A]">{note.body}</p>
+                {note.createdAt ? <p className="mt-2 text-xs text-[#8E8880]">{formatDateTime(note.createdAt)}</p> : null}
+              </article>
+            )) : <p className="text-sm text-[#77716A]">No notes yet.</p>}
+            {personNotes.length > 3 ? (
+              <button className="text-left text-xs font-bold uppercase tracking-[0.12em] text-[#8A5A12]" onClick={() => setShowAllNotes((current) => !current)} style={{ fontFamily: font.rajdhani }} type="button">
+                {showAllNotes ? "Show latest 3" : "View all notes"}
+              </button>
+            ) : null}
+          </DetailCard>
+        </div>
+
+        <div ref={historySectionRef}>
+          <DetailCard title="History">
+            {recentMeetings.length ? recentMeetings.map((meeting) => (
+              <button className="flex items-center gap-3 rounded-2xl bg-[#F8F7F3] p-3 text-left transition-colors hover:bg-[#EFEAE1] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
+                <CalendarDays className="h-4 w-4 shrink-0 text-[#8A5A12]" aria-hidden="true" strokeWidth={1.8} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</span>
+                  <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#77716A]">{meeting.notes || formatDate(meeting.date)}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+              </button>
+            )) : <p className="text-sm text-[#77716A]">No meetings yet.</p>}
+          </DetailCard>
+        </div>
       </div>
     </div>
   );
@@ -2014,13 +2097,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [personOverridesById, setPersonOverridesById] = useState<Record<string, Partial<DosAppPerson>>>({});
   const [selectedRelationshipType, setSelectedRelationshipType] = useState<RelationshipTypeValue>(defaultRelationshipType);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
+  const people = useMemo(() => data.people.map((person) => ({
+    ...person,
+    ...(personOverridesById[person.id] ?? {}),
+  })), [data.people, personOverridesById]);
   const latestMeeting = data.meetings[0];
   const latestFruit = visibleFruit[0];
-  const visiblePeople = useMemo(() => filteredPeople(data.people, peopleQuery), [data.people, peopleQuery]);
-  const meetingPeopleOptions = useMemo(() => filteredPeople(data.people, meetingPeopleQuery), [data.people, meetingPeopleQuery]);
+  const visiblePeople = useMemo(() => filteredPeople(people, peopleQuery), [people, peopleQuery]);
+  const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
   const draftRecommendedResources = useMemo(() => (
     selectedConversationFlow === "kitchen_table_gospel"
       ? buildMeetingRecommendations(selectedConversationFlow, kitchenTableResponses)
@@ -2047,11 +2135,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       },
     };
   }, [reviewLinksByMeetingId, selectedMeeting]);
-  const selectedPerson = useMemo(() => data.people.find((person) => person.id === selectedPersonId) ?? null, [data.people, selectedPersonId]);
-  const attentionPeople = useMemo(() => data.people.filter(isNeedsAttention), [data.people]);
-  const relatingCount = data.people.filter((person) => normalizeText(person.status).toLowerCase() !== "new").length;
+  const selectedPerson = useMemo(() => people.find((person) => person.id === selectedPersonId) ?? null, [people, selectedPersonId]);
+  const attentionPeople = useMemo(() => people.filter(isNeedsAttention), [people]);
+  const relatingCount = people.filter((person) => normalizeText(person.status).toLowerCase() !== "new").length;
   const multiplyingCount = Math.max(data.stats.approvedFruit, visibleFruit.length);
-  const recentPeople = data.people.slice(0, 3);
+  const recentPeople = people.slice(0, 3);
   const workspaceLabel = data.workspace.isUsamWorkspace ? `${data.workspace.displayName} · USA` : data.workspace.displayName;
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
 
@@ -2097,6 +2185,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setFormMode("editPerson");
     setIsAdditionalPersonInfoOpen(true);
     setSelectedRelationshipType(toRelationshipTypeValue(person.relationshipType));
+  }
+
+  function openPersonNote(person: DosAppPerson) {
+    setErrorMessage("");
+    setFormMode("personNote");
+    setSelectedPersonId(person.id);
   }
 
   function openMeetingForPerson(personId: string) {
@@ -2201,6 +2295,61 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     void submitJson("/api/dos/app/people", {
       ...personPayloadFromForm(formData, selectedRelationshipType, selectedPerson.id),
     }, "PATCH");
+  }
+
+  async function handlePersonNoteSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedPerson) {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const noteBody = String(formData.get("note") ?? "").trim();
+
+    if (!noteBody) {
+      setErrorMessage("Add a note before saving.");
+      return;
+    }
+
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/people", {
+        body: JSON.stringify({
+          appendNote: noteBody,
+          id: selectedPerson.id,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; notes?: string | null; updatedAt?: string | null };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Unable to save note.");
+      }
+
+      const updatedAt = result.updatedAt ?? new Date().toISOString();
+      const notes = result.notes ?? appendPersonNoteToValue(selectedPerson.notes, noteBody, updatedAt);
+
+      setPersonOverridesById((current) => ({
+        ...current,
+        [selectedPerson.id]: {
+          notes,
+          updatedAt,
+        },
+      }));
+      setFormMode(null);
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to save note.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleMeetingSubmit(event: FormEvent<HTMLFormElement>) {
@@ -2502,7 +2651,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         icon="log"
                         title="Latest meeting"
                       >
-                        {meetingPeopleTitle(latestMeeting, data.people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
+                        {meetingPeopleTitle(latestMeeting, people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
                       </TaskCard>
                     ) : null}
                     {latestFruit ? (
@@ -2545,7 +2694,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <div className="mt-4">
                 {visiblePeople.length ? (
                   <div className="grid gap-3">{visiblePeople.map((person, index) => <PersonCard index={index} key={person.id} onClick={() => openPersonDetail(person.id)} person={person} />)}</div>
-                ) : data.people.length ? (
+                ) : people.length ? (
                   <EmptyState text="Try a different name or relationship." title="No matching people." />
                 ) : (
                   <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No people added yet." />
@@ -2558,7 +2707,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <div>
               <SectionHeading action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log</CompactButton>} title="Meetings" />
               {data.meetings.length ? (
-                <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={data.people} />)}</div>
+                <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
               ) : (
                 <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Meeting</CompactButton>} text="Capture the next conversation, table, call, or prayer moment." title="No meetings logged yet." />
               )}
@@ -2569,7 +2718,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <div>
               <SectionHeading action={<CompactButton icon="fruit" onClick={() => openForm("fruit")}>Record</CompactButton>} title="Fruit" />
               {visibleFruit.length ? (
-                <div className="grid gap-3">{visibleFruit.map((fruit) => <FruitCard fruit={fruit} key={fruit.id} people={data.people} />)}</div>
+                <div className="grid gap-3">{visibleFruit.map((fruit) => <FruitCard fruit={fruit} key={fruit.id} people={people} />)}</div>
               ) : (
                 <EmptyState action={<CompactButton icon="fruit" onClick={() => openForm("fruit")}>Record Fruit</CompactButton>} text="Record what changed when you see spiritual movement." title="No fruit recorded yet." />
               )}
@@ -2626,9 +2775,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {selectedPerson ? (
           <PersonDetailOverlay
-            fruit={data.fruit}
-            index={Math.max(0, data.people.findIndex((person) => person.id === selectedPerson.id))}
+            fruit={visibleFruit}
+            index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
             meetings={data.meetings}
+            onAddNote={() => openPersonNote(selectedPerson)}
             onBack={() => setSelectedPersonId(null)}
             onEdit={() => openPersonEdit(selectedPerson)}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
@@ -2647,7 +2797,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onLogMeeting={() => openForm("meeting")}
             onSendReview={() => handleSendReview(selectedMeetingWithReview)}
             onShareReview={() => handleShareReview(selectedMeetingWithReview)}
-            people={data.people}
+            people={people}
             reviewShareMessage={reviewShareMessage}
           />
         ) : null}
@@ -2721,12 +2871,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         </Sheet>
       ) : null}
 
+      {formMode === "personNote" && selectedPerson ? (
+        <Sheet onClose={closeForm} title="Add Note">
+          <form className="space-y-4" onSubmit={handlePersonNoteSubmit}>
+            <label className="block">
+              <FieldLabel>Note</FieldLabel>
+              <textarea autoFocus className={`${FieldTextareaClass()} min-h-32`} name="note" placeholder={`What should you remember about ${selectedPerson.name}?`} />
+            </label>
+            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Note"}</AppButton>
+          </form>
+        </Sheet>
+      ) : null}
+
       {formMode === "meeting" ? (
         <Sheet onClose={closeForm} title="Log Meeting">
           <form className="space-y-3" onSubmit={handleMeetingSubmit}>
             <MeetingContextPicker onChange={setSelectedMeetingContext} value={selectedMeetingContext} />
             <MeetingPeopleSelector
-              allPeople={data.people}
+              allPeople={people}
               onQueryChange={setMeetingPeopleQuery}
               onToggle={toggleMeetingPersonId}
               people={meetingPeopleOptions}
@@ -2762,7 +2925,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <form className="space-y-3" onSubmit={handleEditMeetingSubmit}>
             <MeetingContextPicker onChange={setSelectedMeetingContext} value={selectedMeetingContext} />
             <MeetingPeopleSelector
-              allPeople={data.people}
+              allPeople={people}
               onQueryChange={setMeetingPeopleQuery}
               onToggle={toggleMeetingPersonId}
               people={meetingPeopleOptions}
@@ -2808,7 +2971,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <FieldLabel>Linked Person</FieldLabel>
               <select className={FieldInputClass()} name="field_person_id">
                 <option value="">Not linked</option>
-                {data.people.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+                {people.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
               </select>
             </label>
             <div>

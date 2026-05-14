@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
+import { appendPersonNoteToValue, joinPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type PersonPayload = {
   birthday?: unknown;
+  appendNote?: unknown;
   church?: unknown;
   city?: unknown;
   email?: unknown;
@@ -53,9 +55,7 @@ function buildPersonNotes(payload: PersonPayload) {
 
   // TODO: Move address, occupation, and birthday into structured
   // missionary_field_people columns after the DOS MVP profile fields migrate.
-  return [notes, detailLines.length ? ["Additional information:", ...detailLines].join("\n") : ""]
-    .filter(Boolean)
-    .join("\n\n") || null;
+  return joinPersonNotesValue(notes, detailLines.join("\n"));
 }
 
 async function readPayload(request: Request) {
@@ -161,6 +161,72 @@ export async function PATCH(request: Request) {
 
   const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId));
   const id = asString(payload.id);
+  const appendNote = asString(payload.appendNote);
+
+  if (appendNote) {
+    if (!workspaceId || !isUuid(id)) {
+      return NextResponse.json({ error: "Person not found." }, { status: 404 });
+    }
+
+    const supabase = createSupabaseAdminClient();
+    const scopedPersonResult = await supabase
+      .from("missionary_field_people")
+      .select("id, notes")
+      .eq("id", id)
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+      .maybeSingle();
+    // TODO: Remove the household_id-only fallback after all Supabase environments
+    // have the Command Center workspace_id migration applied.
+    const { data: existingPerson, error: existingPersonError } = scopedPersonResult.error && isMissingWorkspaceScopeColumn(scopedPersonResult.error)
+      ? await supabase
+        .from("missionary_field_people")
+        .select("id, notes")
+        .eq("id", id)
+        .eq("household_id", workspaceId)
+        .maybeSingle()
+      : scopedPersonResult;
+
+    if (existingPersonError) {
+      return NextResponse.json({ error: existingPersonError.message }, { status: 500 });
+    }
+
+    if (!existingPerson) {
+      return NextResponse.json({ error: "Person not found." }, { status: 404 });
+    }
+
+    const createdAt = new Date().toISOString();
+    const notes = appendPersonNoteToValue((existingPerson as { notes: string | null }).notes, appendNote, createdAt);
+    const updateResult = await supabase
+      .from("missionary_field_people")
+      .update({ notes })
+      .eq("id", id)
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+      .select("id, notes, updated_at")
+      .single();
+    // TODO: Remove the household_id-only fallback after all Supabase environments
+    // have the Command Center workspace_id migration applied.
+    const { data, error } = updateResult.error && isMissingWorkspaceScopeColumn(updateResult.error)
+      ? await supabase
+        .from("missionary_field_people")
+        .update({ notes })
+        .eq("id", id)
+        .eq("household_id", workspaceId)
+        .select("id, notes, updated_at")
+        .single()
+      : updateResult;
+
+    if (error || !data) {
+      return NextResponse.json({ error: error?.message ?? "Unable to save note." }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      id: data.id,
+      notes: data.notes,
+      ok: true,
+      updatedAt: data.updated_at ?? createdAt,
+    });
+  }
+
   const name = asString(payload.name);
   const phone = asString(payload.phone);
 
