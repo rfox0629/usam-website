@@ -195,7 +195,7 @@ export const dosConversationFlowDefinitions = [
       },
     ],
     slug: "four-questions",
-    title: "The Four Questions",
+    title: "Four Questions",
   },
 ] as const satisfies readonly DosConversationFlowDefinition[];
 

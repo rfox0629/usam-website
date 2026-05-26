@@ -21,7 +21,7 @@ import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipa
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppMeetingType, DosAppPerson, DosAppReviewStatus } from "@/src/lib/dos/missionary-app";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
-import { dosConversationFlowResources, dosFollowUpGuideResources } from "@/src/lib/dos/guide-resources";
+import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
@@ -83,7 +83,6 @@ const relationshipTypeOptions = [
   { helper: "Pouring into leaders", label: "Mentor", value: "Mentor" },
 ] as const;
 const defaultRelationshipType = relationshipTypeOptions[0].value;
-const futureTools = ["Prayer Alerts", "Connection Logs", "Discussion Guides", "Follow Up"];
 
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
@@ -761,20 +760,20 @@ function LibrarySection({
   );
 }
 
-function ConversationFlowCard({
-  ctaLabel,
+function TableTeachingCard({
   description,
   disabled,
+  flowCtaLabel,
   href,
   onStart,
   pdfLabel,
   title,
 }: {
-  ctaLabel: string;
   description: string;
   disabled?: boolean;
+  flowCtaLabel?: string;
   href: string;
-  onStart: () => void;
+  onStart?: () => void;
   pdfLabel: string;
   title: string;
 }) {
@@ -785,18 +784,13 @@ function ConversationFlowCard({
           <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-[#1E1D1A]">{title}</p>
-              <p className="mt-1 text-xs leading-5 text-[#77716A]">{description}</p>
-            </div>
-            <span className="rounded-full bg-[#F5EFE1] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
-              Table
-            </span>
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-[#1E1D1A]">{title}</p>
+            <p className="mt-1 text-xs leading-5 text-[#77716A]">{description}</p>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <a
-              className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#D7C7A4] bg-white px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12] transition-colors hover:border-[#D4A63D] hover:bg-[#FFF8E8]"
+              className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#C99A2F] bg-[#D4A63D] px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1E1D1A] transition-colors hover:bg-[#C99A2F]"
               href={href}
               rel="noopener noreferrer"
               style={{ fontFamily: font.rajdhani }}
@@ -804,15 +798,17 @@ function ConversationFlowCard({
             >
               {pdfLabel}
             </a>
-            <button
-              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#1E1D1A] px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:bg-[#C9C3B8] disabled:text-white/80"
-              disabled={disabled}
-              onClick={onStart}
-              style={{ fontFamily: font.rajdhani }}
-              type="button"
-            >
-              {disabled ? "Unavailable" : ctaLabel}
-            </button>
+            {flowCtaLabel && onStart ? (
+              <button
+                className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#1E1D1A] px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:bg-[#C9C3B8] disabled:text-white/80"
+                disabled={disabled}
+                onClick={onStart}
+                style={{ fontFamily: font.rajdhani }}
+                type="button"
+              >
+                {disabled ? "Unavailable" : flowCtaLabel}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -3434,31 +3430,32 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "more" ? (
               <div>
-              <SectionHeading title="More" />
+              <SectionHeading title="Library" />
+              <p className="-mt-2 mb-5 text-sm leading-5 text-[#77716A]">Resources for conversations and follow up.</p>
               <div className="space-y-6">
                 <LibrarySection
-                  subtext="Guides to walk through during a live conversation."
-                  title="Table Conversations"
+                  subtext="PDFs and guided teachings to use during a live conversation."
+                  title="Table Teachings"
                 >
                   <div className="grid gap-3">
-                    {dosConversationFlowResources.map((flow) => (
-                      <ConversationFlowCard
-                        ctaLabel={flow.ctaLabel}
-                        description={flow.description}
+                    {dosTableTeachingResources.map((teaching) => (
+                      <TableTeachingCard
+                        description={teaching.description}
                         disabled={!data.workspace.isUsamWorkspace}
-                        href={flow.href}
-                        key={flow.flowKey}
-                        onStart={() => openConversationFlow(flow.flowKey)}
-                        pdfLabel={flow.pdfLabel}
-                        title={flow.title}
+                        flowCtaLabel={teaching.flowCtaLabel}
+                        href={teaching.href}
+                        key={teaching.href}
+                        onStart={teaching.flowKey ? () => openConversationFlow(teaching.flowKey) : undefined}
+                        pdfLabel={teaching.pdfLabel}
+                        title={teaching.title}
                       />
                     ))}
                   </div>
                 </LibrarySection>
 
                 <LibrarySection
-                  subtext="Resources to send after a conversation."
-                  title="Follow Up Guides"
+                  subtext="Guides to send after a conversation."
+                  title="Follow Up Resources"
                 >
                   <div className="grid gap-2.5">
                     {dosFollowUpGuideResources.map((guide) => (
@@ -3471,16 +3468,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     ))}
                   </div>
                 </LibrarySection>
-              </div>
-              <div className="mt-6 grid gap-3">
-                {futureTools.map((tool) => (
-                  <div className="flex min-h-14 items-center justify-between rounded-2xl border border-[#E2DED6] bg-white px-4" key={tool}>
-                    <span className="text-sm font-medium text-[#1E1D1A]">{tool}</span>
-                    <span className="rounded-full bg-[#F1F0EC] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-                      Soon
-                    </span>
-                  </div>
-                ))}
               </div>
               <Link
                 className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#DDD9D0] bg-white px-4 text-sm font-bold text-[#1E1D1A]"
