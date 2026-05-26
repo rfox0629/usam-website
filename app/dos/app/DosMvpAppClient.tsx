@@ -438,23 +438,32 @@ function mapsHrefForAddress(address: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
-function handleAddressMapClick(event: MouseEvent<HTMLAnchorElement>, address: string) {
-  if (typeof navigator === "undefined" || typeof window === "undefined") {
-    return;
-  }
-
+function preferredMapsHrefForAddress(address: string) {
   const encodedAddress = encodeURIComponent(address);
-  const userAgent = navigator.userAgent;
+  const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
 
   if (/iPad|iPhone|iPod|Macintosh/i.test(userAgent)) {
-    event.preventDefault();
-    window.location.href = `https://maps.apple.com/?q=${encodedAddress}`;
+    return `https://maps.apple.com/?q=${encodedAddress}`;
   }
 
   if (/Android/i.test(userAgent)) {
-    event.preventDefault();
-    window.location.href = `geo:0,0?q=${encodedAddress}`;
+    return `geo:0,0?q=${encodedAddress}`;
   }
+
+  return mapsHrefForAddress(address);
+}
+
+function openAddressInMaps(address: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.location.href = preferredMapsHrefForAddress(address);
+}
+
+function handleAddressMapClick(event: MouseEvent<HTMLAnchorElement>, address: string) {
+  event.preventDefault();
+  openAddressInMaps(address);
 }
 
 function statusLabel(value: string | null | undefined) {
@@ -1657,54 +1666,85 @@ function DetailCard({ children, title }: { children: ReactNode; title: string })
 }
 
 function DetailRow({
-  action,
+  ariaLabel,
+  href,
   icon,
   label,
+  onClick,
   value,
 }: {
-  action?: ReactNode;
+  ariaLabel?: string;
+  href?: string;
   icon?: ReactNode;
   label?: string;
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
   value: ReactNode;
 }) {
-  return (
-    <div className="flex items-center gap-3 text-sm text-[#1E1D1A]">
+  const content = (
+    <>
       {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8F7F3] text-[#8A5A12]">{icon}</span> : null}
       <div className="min-w-0 flex-1">
         {label ? <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>{label}</p> : null}
         <div className="mt-0.5 break-words leading-5 text-[#1E1D1A]">{value}</div>
       </div>
-      {action}
+      {href ? <ChevronRight className="h-4 w-4 shrink-0 text-[#B4ADA3]" aria-hidden="true" strokeWidth={1.8} /> : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <a
+        aria-label={ariaLabel}
+        className="-mx-1 flex items-center gap-3 rounded-2xl px-1 py-1 text-sm text-[#1E1D1A] transition-colors hover:bg-[#FFF8E7] active:scale-[0.99]"
+        href={href}
+        onClick={onClick}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 text-sm text-[#1E1D1A]">
+      {content}
     </div>
   );
 }
 
-function ContactActionLink({
+function MoreMenuAction({
   children,
+  disabled,
   href,
   icon,
   onClick,
 }: {
   children: ReactNode;
-  href: string;
+  disabled?: boolean;
+  href?: string;
   icon: ReactNode;
-  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+  onClick?: () => void;
 }) {
-  return (
-    <a
-      className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12] transition-colors hover:border-[#D4A63D] hover:bg-[#F4E3C8] active:scale-[0.98]"
-      href={href}
-      onClick={onClick}
-      style={{ fontFamily: font.rajdhani }}
-    >
-      {icon}
-      {children}
-    </a>
+  const className = "flex min-h-12 w-full items-center gap-3 rounded-2xl border border-[#E2DED6] bg-white px-4 text-left text-sm font-semibold text-[#1E1D1A] transition-colors hover:border-[#D4A63D] hover:bg-[#FFF8E7] disabled:cursor-not-allowed disabled:opacity-45";
+  const content = (
+    <>
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8F7F3] text-[#8A5A12]">{icon}</span>
+      <span>{children}</span>
+    </>
   );
-}
 
-function ContactActionGroup({ children }: { children: ReactNode }) {
-  return <div className="flex shrink-0 flex-wrap justify-end gap-1.5">{children}</div>;
+  if (href && !disabled) {
+    return (
+      <a className={className} href={href}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button className={className} disabled={disabled} onClick={onClick} type="button">
+      {content}
+    </button>
+  );
 }
 
 function PersonQuickAction({
@@ -1756,8 +1796,11 @@ function PersonDetailOverlay({
 }) {
   const meetingsSectionRef = useRef<HTMLDivElement | null>(null);
   const reviewsSectionRef = useRef<HTMLDivElement | null>(null);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [moreMessage, setMoreMessage] = useState("");
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
+  const mapHref = address ? mapsHrefForAddress(address) : "";
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
   const personReviews = personMeetings.filter((meeting) => meeting.review.status !== "not_sent" && meeting.review.status !== "pending");
   const recentMeetings = personMeetings.slice(0, 3);
@@ -1769,6 +1812,41 @@ function PersonDetailOverlay({
     }[section];
 
     sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const copyToClipboard = async (value: string, label: string) => {
+    if (!value || typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setMoreMessage("Copy unavailable.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setMoreMessage(`${label} copied.`);
+    } catch {
+      setMoreMessage("Copy failed.");
+    }
+  };
+  const shareContact = async () => {
+    const contactLines = [
+      person.name,
+      person.phone ? `Phone: ${person.phone}` : "",
+      person.email ? `Email: ${person.email}` : "",
+      address ? `Address: ${address}` : "",
+    ].filter(Boolean).join("\n");
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ text: contactLines, title: person.name });
+        setMoreMessage("Contact shared.");
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+      }
+    }
+
+    await copyToClipboard(contactLines, "Contact");
   };
 
   return (
@@ -1799,17 +1877,11 @@ function PersonDetailOverlay({
         </span>
       </section>
 
-      <section className="mt-5 grid grid-cols-4 gap-2">
-        <PersonQuickAction icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} href={person.phone ? `tel:${person.phone}` : undefined} onClick={person.phone ? undefined : onEdit}>
-          Call
-        </PersonQuickAction>
+      <section className="mx-auto mt-5 grid w-full max-w-[280px] grid-cols-2 gap-2">
         <PersonQuickAction icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} href={person.phone ? `sms:${person.phone}` : undefined} onClick={person.phone ? undefined : onEdit}>
           Text
         </PersonQuickAction>
-        <PersonQuickAction icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={onLogMeeting}>
-          Meeting
-        </PersonQuickAction>
-        <PersonQuickAction icon={<MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={onEdit}>
+        <PersonQuickAction icon={<MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => setIsMoreOpen(true)}>
           More
         </PersonQuickAction>
       </section>
@@ -1821,42 +1893,25 @@ function PersonDetailOverlay({
       <div className="mt-5 grid gap-3">
         <DetailCard title="Contact Information">
           <DetailRow
-            action={person.phone ? (
-              <ContactActionGroup>
-                <ContactActionLink href={`tel:${person.phone}`} icon={<Phone className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />}>
-                  Call
-                </ContactActionLink>
-                <ContactActionLink href={`sms:${person.phone}`} icon={<MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />}>
-                  Text
-                </ContactActionLink>
-              </ContactActionGroup>
-            ) : null}
+            ariaLabel={person.phone ? `Call ${person.name}` : undefined}
+            href={person.phone ? `tel:${person.phone}` : undefined}
             icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
             value={person.phone}
           />
           {person.email ? (
             <DetailRow
-              action={(
-                <ContactActionLink href={`mailto:${person.email}`} icon={<Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />}>
-                  Email
-                </ContactActionLink>
-              )}
+              ariaLabel={`Email ${person.name}`}
+              href={`mailto:${person.email}`}
               icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
               value={person.email}
             />
           ) : null}
           {address ? (
             <DetailRow
-              action={(
-                <ContactActionLink
-                  href={mapsHrefForAddress(address)}
-                  icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />}
-                  onClick={(event) => handleAddressMapClick(event, address)}
-                >
-                  Map
-                </ContactActionLink>
-              )}
+              ariaLabel={`Open map for ${address}`}
+              href={mapHref}
               icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+              onClick={(event) => handleAddressMapClick(event, address)}
               value={address}
             />
           ) : null}
@@ -1913,6 +1968,29 @@ function PersonDetailOverlay({
           </DetailCard>
         </div>
       </div>
+
+      {isMoreOpen ? (
+        <Sheet onClose={() => setIsMoreOpen(false)} title="More">
+          <div className="grid gap-2">
+            <MoreMenuAction icon={<Share2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => { void shareContact(); }}>
+              Share Contact
+            </MoreMenuAction>
+            <MoreMenuAction disabled={!person.phone} icon={<Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => { void copyToClipboard(person.phone, "Phone"); }}>
+              Copy Phone
+            </MoreMenuAction>
+            <MoreMenuAction disabled={!person.email} icon={<Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => { void copyToClipboard(person.email ?? "", "Email"); }}>
+              Copy Email
+            </MoreMenuAction>
+            <MoreMenuAction disabled={!address} icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => openAddressInMaps(address)}>
+              Open in Maps
+            </MoreMenuAction>
+            <MoreMenuAction icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => { setIsMoreOpen(false); onEdit(); }}>
+              Edit Details
+            </MoreMenuAction>
+            {moreMessage ? <p className="rounded-2xl bg-[#FFF8E7] px-3 py-2 text-center text-xs font-semibold text-[#8A5A12]">{moreMessage}</p> : null}
+          </div>
+        </Sheet>
+      ) : null}
     </div>
   );
 }
