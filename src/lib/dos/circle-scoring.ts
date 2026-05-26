@@ -69,6 +69,20 @@ export type DosCircleData = {
   my70: DosRelationshipScore[];
 };
 
+export type DosCircleActivityPerson = {
+  engagementLevel: string | null;
+  id: string;
+  lastActivityAt: string | null;
+  name: string;
+  relationshipType: string | null;
+  status: string | null;
+};
+
+export type DosCircleActivityMeeting = {
+  date: string | null;
+  fieldPersonIds: string[];
+};
+
 type PersonRow = {
   engagement_level: string | null;
   id: string;
@@ -224,6 +238,92 @@ function automaticCircle(index: number): CircleAssignment {
   }
 
   return "field";
+}
+
+function emptyCircleConfig(workspaceId: string): DosCircleConfig {
+  return {
+    ...defaultConfig,
+    id: null,
+    isActive: true,
+    workspaceId,
+  };
+}
+
+export function buildFallbackCircleDataFromActivity({
+  meetings,
+  people,
+  workspaceId,
+}: {
+  meetings: DosCircleActivityMeeting[];
+  people: DosCircleActivityPerson[];
+  workspaceId: string;
+}): DosCircleData {
+  const scores = people
+    .map((person) => {
+      const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
+      const recentMeetings = personMeetings.filter((meeting) => isWithinDays(meeting.date, 30));
+      const latestMeeting = latestDate(person.lastActivityAt, ...personMeetings.map((meeting) => meeting.date));
+      const breakdown = {
+        discipleshipProgress: clampScore(personMeetings.length * 12),
+        fruit: 0,
+        meetingFrequency: clampScore(recentMeetings.length * 25 || personMeetings.length * 15),
+        momentum: clampScore(dayDiff(latestMeeting) <= 7 ? 100 : dayDiff(latestMeeting) <= 30 ? 45 : 0),
+        multiplication: 0,
+        timeInvested: clampScore(personMeetings.length * 12),
+      };
+      const totalScore = clampScore(Math.max(
+        weightedTotal(breakdown, emptyCircleConfig(workspaceId)),
+        personMeetings.length ? 20 + personMeetings.length * 12 : 0,
+      ));
+
+      return {
+        assignmentSource: "automatic" as const,
+        breakdown,
+        circle: "field" as CircleAssignment,
+        confidenceScore: personMeetings.length ? clampScore(55 + personMeetings.length * 8) : 0,
+        explanation: {
+          negative_factors: personMeetings.length ? [] : ["No logged discipleship activity yet"],
+          positive_factors: personMeetings.length ? [`${personMeetings.length} logged ${personMeetings.length === 1 ? "meeting" : "meetings"}`] : [],
+          summary: personMeetings.length
+            ? `Placed from visible meeting activity while persisted circle scores catch up.`
+            : "In Field until discipleship activity is logged.",
+        },
+        lastCalculatedAt: null,
+        person,
+        totalScore,
+      } satisfies DosRelationshipScore;
+    })
+    .sort((first, second) => second.totalScore - first.totalScore);
+
+  scores.forEach((score, index) => {
+    score.circle = score.totalScore > 0 ? automaticCircle(index) : "field";
+    score.explanation.summary = score.totalScore > 0
+      ? `Assigned to ${circleLabel(score.circle)} because of logged meeting activity.`
+      : score.explanation.summary;
+  });
+
+  const activeScores = scores.filter((score) => score.totalScore > 0);
+  const field = scores.filter((score) => score.circle === "field");
+
+  return {
+    config: emptyCircleConfig(workspaceId),
+    field,
+    fieldSummary: {
+      activeThisMonth: scores.filter((score) => isWithinDays(score.person.lastActivityAt, 30) || score.breakdown.meetingFrequency > 0).length,
+      multiplying: scores.filter((score) => score.breakdown.multiplication > 0 || score.breakdown.fruit >= 50).length,
+      needFollowUp: scores.filter((score) => dayDiff(score.person.lastActivityAt) > 10).length,
+      newContacts: people.filter((person) => person.status === "new").length,
+      total: people.length,
+    },
+    metadata: {
+      calculatedAt: null,
+      lockedCount: 0,
+      peopleScored: activeScores.length,
+    },
+    my12: scores.filter((score) => score.circle === "twelve").slice(0, 9),
+    my3: scores.filter((score) => score.circle === "three").slice(0, 3),
+    my70: scores.filter((score) => score.circle === "seventy").slice(0, 58),
+  };
 }
 
 function normalizeConfig(row: Record<string, unknown> | null | undefined, workspaceId: string): DosCircleConfig {
@@ -615,7 +715,7 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
 
 export async function loadPersonRelationshipIntelligence(workspaceId: string, personId: string) {
   const supabase = createSupabaseAdminClient();
-  const [circleData, history] = await Promise.all([
+  let [circleData, history] = await Promise.all([
     loadCircleData(workspaceId),
     safeSelect<Record<string, unknown>>(
       supabase
@@ -628,8 +728,14 @@ export async function loadPersonRelationshipIntelligence(workspaceId: string, pe
       "dos_relationship_score_history",
     ),
   ]);
-  const allScores = [...circleData.my3, ...circleData.my12, ...circleData.my70, ...circleData.field];
-  const score = allScores.find((item) => item.person.id === personId);
+  let allScores = [...circleData.my3, ...circleData.my12, ...circleData.my70, ...circleData.field];
+  let score = allScores.find((item) => item.person.id === personId);
+
+  if (!score || score.totalScore === 0) {
+    circleData = await recalculateCircleScores(workspaceId).catch(() => circleData);
+    allScores = [...circleData.my3, ...circleData.my12, ...circleData.my70, ...circleData.field];
+    score = allScores.find((item) => item.person.id === personId);
+  }
 
   if (!score) {
     return null;

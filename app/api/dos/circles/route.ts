@@ -40,10 +40,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await loadCircleData(workspaceId);
+    const cachedOnly = url.searchParams.get("cached") === "1";
+    const data = cachedOnly ? await loadCircleData(workspaceId) : await recalculateCircleScores(workspaceId).catch(() => loadCircleData(workspaceId));
 
-    if (data.metadata.peopleScored === 0 && data.fieldSummary.total > 0) {
-      return NextResponse.json(await recalculateCircleScores(workspaceId));
+    if (!cachedOnly && data.metadata.peopleScored === 0 && data.fieldSummary.total > 0) {
+      return NextResponse.json(await recalculateCircleScores(workspaceId).catch(() => data));
     }
 
     return NextResponse.json(data);

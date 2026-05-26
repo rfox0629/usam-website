@@ -9,7 +9,7 @@ import {
   type DosConversationResponses,
   type DosRecommendedResource,
 } from "@/src/lib/dos/meeting-engine";
-import { loadCircleData, type DosCircleData } from "@/src/lib/dos/circle-scoring";
+import { buildFallbackCircleDataFromActivity, loadCircleData, recalculateCircleScores, type DosCircleData } from "@/src/lib/dos/circle-scoring";
 import { dosQuickReviewType } from "@/src/lib/dos/review-types";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -112,6 +112,43 @@ type LoadResult<T> =
   | { data: T; status: "ready" }
   | { message: string; status: "error" }
   | { status: "not_found" };
+
+async function loadFreshCircleData(
+  workspaceId: string,
+  people: DosAppPerson[],
+  meetings: DosAppMeeting[],
+) {
+  const fallbackData = buildFallbackCircleDataFromActivity({
+    meetings: meetings.map((meeting) => ({
+      date: meeting.date,
+      fieldPersonIds: meeting.fieldPersonIds,
+    })),
+    people: people.map((person) => ({
+      engagementLevel: person.engagementLevel,
+      id: person.id,
+      lastActivityAt: person.lastActivityAt,
+      name: person.name,
+      relationshipType: person.relationshipType,
+      status: person.status,
+    })),
+    workspaceId,
+  });
+  const activeMeetingPersonIds = new Set(meetings.flatMap((meeting) => meeting.fieldPersonIds));
+
+  try {
+    const circleData = await loadCircleData(workspaceId);
+    const hasActiveMeetingData = activeMeetingPersonIds.size > 0;
+    const hasUsefulCircleData = circleData.metadata.peopleScored > 0 && circleData.my3.some((score) => activeMeetingPersonIds.has(score.person.id));
+
+    if (!hasUsefulCircleData && hasActiveMeetingData) {
+      return await recalculateCircleScores(workspaceId).catch(() => fallbackData);
+    }
+
+    return circleData.metadata.peopleScored > 0 ? circleData : fallbackData;
+  } catch {
+    return fallbackData;
+  }
+}
 
 type HouseholdRow = {
   display_name: string;
@@ -600,7 +637,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   return {
     data: {
-      circles: await loadCircleData(workspace.id).catch(() => null),
+      circles: await loadFreshCircleData(workspace.id, people, meetings),
       fruit,
       meetings,
       people,
