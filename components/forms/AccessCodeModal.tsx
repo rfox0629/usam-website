@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import {
   PublicFieldLabel,
   PublicFormGrid,
@@ -70,6 +71,7 @@ export function AccessCodeModal({
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(initialOpen && !alreadyHasAccess);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAccessCodeVisible, setIsAccessCodeVisible] = useState(false);
 
   useEffect(() => {
     if (initialOpen && !alreadyHasAccess) {
@@ -105,6 +107,7 @@ export function AccessCodeModal({
 
     setAccessCode("");
     setError("");
+    setIsAccessCodeVisible(false);
     setIsOpen(true);
   }
 
@@ -251,15 +254,30 @@ export function AccessCodeModal({
                     <PublicFieldLabel htmlFor={`access-code-${type}`} required>
                       Access Code
                     </PublicFieldLabel>
-                    <input
-                      autoComplete="one-time-code"
-                      className={fieldClassName()}
-                      id={`access-code-${type}`}
-                      onChange={(event) => setAccessCode(event.target.value)}
-                      placeholder="Enter your code"
-                      type="password"
-                      value={accessCode}
-                    />
+                    <div className="relative mt-2">
+                      <input
+                        autoComplete="one-time-code"
+                        className={`${fieldClassName()} mt-0 pr-12`}
+                        id={`access-code-${type}`}
+                        onChange={(event) => setAccessCode(event.target.value)}
+                        placeholder="Enter your code"
+                        type={isAccessCodeVisible ? "text" : "password"}
+                        value={accessCode}
+                      />
+                      <button
+                        aria-label={isAccessCodeVisible ? "Hide access code" : "Show access code"}
+                        aria-pressed={isAccessCodeVisible}
+                        className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-500 transition-colors hover:border-[#D4A63D] hover:text-stone-950 focus:outline-none focus:ring-4 focus:ring-[#D4A63D]/15"
+                        onClick={() => setIsAccessCodeVisible((current) => !current)}
+                        type="button"
+                      >
+                        {isAccessCodeVisible ? (
+                          <EyeOff aria-hidden="true" size={18} strokeWidth={1.8} />
+                        ) : (
+                          <Eye aria-hidden="true" size={18} strokeWidth={1.8} />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {error ? (

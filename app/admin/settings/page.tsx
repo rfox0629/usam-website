@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AdminShell } from "../_components/AdminShell";
 import { adminFont, type AdminBadgeTone } from "../_components/AdminUI";
 import { addAdminUser, removeAdminUser, updateAdminUser, updateSystemAccessCodes } from "./actions";
+import { PasswordVisibilityInput } from "./PasswordVisibilityInput";
 import { adminRoles, canManageAdminSettings, getAdminAuthorization, type AdminRole } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -315,7 +316,7 @@ function AccessCodeCard({
         </div>
         <label>
           <FieldLabel>Code</FieldLabel>
-          <input
+          <PasswordVisibilityInput
             autoComplete="off"
             className={inputClassName}
             defaultValue={row?.code ?? ""}
@@ -323,7 +324,6 @@ function AccessCodeCard({
             name={`${field.name}_code`}
             placeholder="Enter access code"
             required
-            type="password"
           />
         </label>
         <label className="flex min-h-10 items-center gap-2 pt-5 text-[10px] uppercase tracking-[0.14em] text-stone-300 lg:pt-6" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
