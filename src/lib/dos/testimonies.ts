@@ -1,0 +1,194 @@
+import "server-only";
+
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { isValidReviewToken } from "@/src/lib/dos/reviews";
+import type { DosReviewLinkState } from "@/src/lib/dos/review-types";
+
+type ReviewLinkRow = {
+  created_by_user_id: string | null;
+  expires_at: string | null;
+  id: string;
+  meeting_id: string;
+  reviewer_person_id: string | null;
+  token: string;
+  used_at: string | null;
+  workspace_id: string;
+};
+
+type TestimonySubmission = {
+  decisionMade: string | null;
+  nextStep: string | null;
+  permissionToShare: boolean;
+  publicDisplayName: string | null;
+  story: string;
+  whatChanged: string | null;
+};
+
+function asString(value: unknown, maxLength = 2400) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+export function normalizeTestimonySubmission(value: unknown): TestimonySubmission | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const payload = value as Record<string, unknown>;
+  const story = asString(payload.story, 4000);
+
+  if (!story) {
+    return null;
+  }
+
+  return {
+    decisionMade: asString(payload.decisionMade) || null,
+    nextStep: asString(payload.nextStep) || null,
+    permissionToShare: payload.permissionToShare === true,
+    publicDisplayName: asString(payload.publicDisplayName, 120) || null,
+    story,
+    whatChanged: asString(payload.whatChanged) || null,
+  };
+}
+
+export async function loadDosTestimonyLink(token: string): Promise<DosReviewLinkState> {
+  if (!isSupabaseAdminConfigured()) {
+    return { status: "not_configured" };
+  }
+
+  if (!isValidReviewToken(token)) {
+    return { status: "invalid" };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: link, error: linkError } = await supabase
+    .from("dos_review_links")
+    .select("id, token, workspace_id, meeting_id, reviewer_person_id, expires_at, used_at")
+    .eq("token", token)
+    .eq("review_type", "testimony")
+    .maybeSingle();
+
+  if (linkError || !link) {
+    return { status: "invalid" };
+  }
+
+  const typedLink = link as ReviewLinkRow;
+
+  if (typedLink.used_at) {
+    return { status: "already_submitted" };
+  }
+
+  if (typedLink.expires_at && new Date(typedLink.expires_at).getTime() < Date.now()) {
+    return { status: "expired" };
+  }
+
+  const [{ data: workspace }, { data: meeting }, { data: reviewerPerson }] = await Promise.all([
+    supabase
+      .from("missionary_households")
+      .select("display_name, id")
+      .eq("id", typedLink.workspace_id)
+      .maybeSingle(),
+    supabase
+      .from("missionary_tables")
+      .select("id, table_date, table_type")
+      .eq("id", typedLink.meeting_id)
+      .maybeSingle(),
+    typedLink.reviewer_person_id
+      ? supabase
+        .from("missionary_field_people")
+        .select("id, name")
+        .eq("id", typedLink.reviewer_person_id)
+        .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  if (!workspace || !meeting) {
+    return { status: "invalid" };
+  }
+
+  return {
+    meetingDate: String(meeting.table_date ?? ""),
+    meetingType: String(meeting.table_type ?? ""),
+    reviewerPersonId: typedLink.reviewer_person_id,
+    reviewerPersonName: reviewerPerson && "name" in reviewerPerson ? String(reviewerPerson.name ?? "") : null,
+    status: "ready",
+    token: typedLink.token,
+    workspaceDisplayName: String(workspace.display_name ?? "DOS"),
+    workspaceId: typedLink.workspace_id,
+  };
+}
+
+export async function submitDosTestimony(token: string, submission: TestimonySubmission) {
+  if (!isSupabaseAdminConfigured()) {
+    return { error: "Testimonies are not configured.", status: 500 as const };
+  }
+
+  if (!isValidReviewToken(token)) {
+    return { error: "Testimony link not found.", status: 404 as const };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: link, error: linkError } = await supabase
+    .from("dos_review_links")
+    .select("id, workspace_id, meeting_id, reviewer_person_id, created_by_user_id, expires_at, used_at")
+    .eq("token", token)
+    .eq("review_type", "testimony")
+    .maybeSingle();
+
+  if (linkError || !link) {
+    return { error: "Testimony link not found.", status: 404 as const };
+  }
+
+  const typedLink = link as ReviewLinkRow;
+
+  if (typedLink.used_at) {
+    return { error: "This testimony link has already been used.", status: 409 as const };
+  }
+
+  if (typedLink.expires_at && new Date(typedLink.expires_at).getTime() < Date.now()) {
+    return { error: "This testimony link has expired.", status: 410 as const };
+  }
+
+  const { data: testimony, error: testimonyError } = await supabase
+    .from("participant_testimonies")
+    .insert({
+      decision_made: submission.decisionMade,
+      leader_id: typedLink.created_by_user_id,
+      meeting_id: typedLink.meeting_id,
+      next_step: submission.nextStep,
+      permission_to_share: submission.permissionToShare,
+      person_id: typedLink.reviewer_person_id,
+      public_display_name: submission.permissionToShare ? submission.publicDisplayName : null,
+      story: submission.story,
+      submitted_at: new Date().toISOString(),
+      what_changed: submission.whatChanged,
+    })
+    .select("id")
+    .single();
+
+  if (testimonyError || !testimony) {
+    return { error: testimonyError?.message ?? "Unable to save testimony.", status: 500 as const };
+  }
+
+  await Promise.all([
+    supabase
+      .from("fruit_events")
+      .insert({
+        confidence_level: "confirmed",
+        description: submission.whatChanged ?? submission.story,
+        fruit_type: "Shared Testimony",
+        leader_id: typedLink.created_by_user_id,
+        meeting_id: typedLink.meeting_id,
+        person_id: typedLink.reviewer_person_id,
+        source_id: testimony.id,
+        source_type: "testimony",
+        title: "Shared Testimony",
+        visibility: submission.permissionToShare ? "internal" : "private",
+      }),
+    supabase
+      .from("dos_review_links")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", typedLink.id),
+  ]);
+
+  return { id: String(testimony.id), ok: true as const };
+}

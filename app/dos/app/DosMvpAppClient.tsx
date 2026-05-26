@@ -19,7 +19,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppMeetingType, DosAppPerson, DosAppReviewStatus } from "@/src/lib/dos/missionary-app";
+import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppReviewStatus } from "@/src/lib/dos/missionary-app";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 
@@ -66,14 +66,21 @@ const conversationUnsureAnswerOptions = [
 ] as const satisfies ReadonlyArray<{ label: string; value: DosConversationAnswer }>;
 
 const outcomeTagOptions = [
+  "Gospel Conversation",
+  "Prayer Received",
   "Salvation",
+  "Re Dedication",
   "Baptism",
-  "Healing",
-  "Deliverance",
-  "Church Connection",
-  "Discipleship",
-  "Prayer Answered",
-  "Other",
+  "Joined Discipleship",
+  "Church Visit",
+  "Joined Church",
+  "Shared Testimony",
+  "Started Discipling Others",
+  "Marketplace Ministry",
+  "Prayer Request",
+  "Freedom / Deliverance",
+  "Repentance",
+  "Ongoing Accountability",
 ] as const;
 
 const relationshipTypeOptions = [
@@ -93,7 +100,7 @@ const libraryFilters = [
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "seventy" | "three" | "twelve";
-type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | null;
+type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | "reflection" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
 type LibraryFilter = typeof libraryFilters[number]["value"];
 type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
@@ -370,6 +377,24 @@ function reviewSharePermissionLabel(value: string | null) {
   }
 
   return "Private";
+}
+
+function fruitSourceLabel(value: DosAppFruitEvent["sourceType"]) {
+  return {
+    leader_reflection: "Leader Reflection",
+    manual: "Manual",
+    participant_review: "Review",
+    system: "System",
+    testimony: "Testimony",
+  }[value];
+}
+
+function confidenceLabel(value: DosAppFruitEvent["confidenceLevel"]) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function visibilityLabel(value: DosAppFruitEvent["visibility"]) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -2407,6 +2432,83 @@ function DetailCard({ children, title }: { children: ReactNode; title: string })
   );
 }
 
+function FruitEventRow({ event }: { event: DosAppFruitEvent }) {
+  return (
+    <div className="rounded-2xl bg-[#F8F7F3] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#1E1D1A]">{event.fruitType}</p>
+          <p className="mt-1 text-xs text-[#77716A]">{formatDate(event.date)}</p>
+        </div>
+        <span className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+          {confidenceLabel(event.confidenceLevel)}
+        </span>
+      </div>
+      {event.description ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3B3935]">{event.description}</p> : null}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{fruitSourceLabel(event.sourceType)}</span>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{visibilityLabel(event.visibility)}</span>
+      </div>
+    </div>
+  );
+}
+
+function LeaderReflectionRow({ reflection }: { reflection: DosAppLeaderReflection }) {
+  return (
+    <div className="rounded-2xl bg-[#F8F7F3] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 text-sm font-semibold text-[#1E1D1A]">{reflection.whatHappened || reflection.privateNotes || "Leader Reflection"}</p>
+        {reflection.followUpNeeded ? (
+          <span className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+            Follow Up
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-2 text-xs text-[#77716A]">{formatDate(reflection.createdAt)}</p>
+      {reflection.prayerNeeds ? <p className="mt-2 text-sm leading-6 text-[#3B3935]">Prayer: {reflection.prayerNeeds}</p> : null}
+      {reflection.observedFruit.length ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {reflection.observedFruit.map((fruit) => (
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]" key={fruit}>{fruit}</span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
+  return (
+    <div className="rounded-2xl bg-[#F8F7F3] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-semibold text-[#1E1D1A]">Review</p>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{formatDate(review.submittedAt)}</span>
+      </div>
+      <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3B3935]">{review.comments || "Participant review submitted."}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">Heard: {review.feltHeard ?? "Skipped"}</span>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">Meet Again: {review.wouldMeetAgain === null ? "Skipped" : review.wouldMeetAgain ? "Yes" : "No"}</span>
+      </div>
+    </div>
+  );
+}
+
+function ParticipantTestimonyRow({ testimony }: { testimony: DosAppParticipantTestimony }) {
+  return (
+    <div className="rounded-2xl bg-[#F8F7F3] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-semibold text-[#1E1D1A]">Testimony</p>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{formatDate(testimony.submittedAt)}</span>
+      </div>
+      <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3B3935]">{testimony.whatChanged || testimony.story}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{testimony.permissionToShare ? "Share OK" : "Private"}</span>
+        {testimony.publicDisplayName ? <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{testimony.publicDisplayName}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
   const flow = getConversationFlowDefinition(meeting.conversationFlowKey);
 
@@ -2670,27 +2772,38 @@ function CirclesDetailOverlay({
 
 function PersonDetailOverlay({
   circleScore,
+  fruitEvents,
   index,
+  leaderReflections,
   meetings,
   onBack,
   onEdit,
   onOpenMeeting,
   onLogMeeting,
+  participantReviews,
+  participantTestimonies,
   person,
   workspaceId,
 }: {
   circleScore?: DosRelationshipScore | null;
+  fruitEvents: DosAppFruitEvent[];
   index: number;
+  leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
   onBack: () => void;
   onEdit: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onLogMeeting: () => void;
+  participantReviews: DosAppParticipantReview[];
+  participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
   workspaceId: string;
 }) {
   const meetingsSectionRef = useRef<HTMLDivElement | null>(null);
   const reviewsSectionRef = useRef<HTMLDivElement | null>(null);
+  const testimoniesSectionRef = useRef<HTMLDivElement | null>(null);
+  const fruitSectionRef = useRef<HTMLDivElement | null>(null);
+  const reflectionsSectionRef = useRef<HTMLDivElement | null>(null);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isIntelligenceOpen, setIsIntelligenceOpen] = useState(false);
   const [intelligenceHistory, setIntelligenceHistory] = useState<IntelligenceHistoryItem[]>([]);
@@ -2701,12 +2814,19 @@ function PersonDetailOverlay({
   const mapHref = address ? mapsHrefForAddress(address) : "";
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
   const personReviews = personMeetings.filter((meeting) => meeting.review.status !== "not_sent" && meeting.review.status !== "pending");
+  const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || personMeetings.some((meeting) => meeting.id === review.meetingId));
+  const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || personMeetings.some((meeting) => meeting.id === testimony.meetingId));
+  const personFruitEvents = fruitEvents.filter((event) => event.personId === person.id || personMeetings.some((meeting) => meeting.id === event.meetingId));
+  const personReflections = leaderReflections.filter((reflection) => reflection.personId === person.id || personMeetings.some((meeting) => meeting.id === reflection.meetingId));
   const recentMeetings = personMeetings.slice(0, 3);
   const lastContact = person.lastActivityAt ? formatRelativeDate(person.lastActivityAt) : "None";
-  const scrollToSection = (section: "meetings" | "reviews") => {
+  const scrollToSection = (section: "fruit" | "meetings" | "reflections" | "reviews" | "testimonies") => {
     const sectionRef = {
+      fruit: fruitSectionRef,
       meetings: meetingsSectionRef,
+      reflections: reflectionsSectionRef,
       reviews: reviewsSectionRef,
+      testimonies: testimoniesSectionRef,
     }[section];
 
     sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2876,8 +2996,8 @@ function PersonDetailOverlay({
         <DetailCard title="Activity">
           <div className="grid grid-cols-3 gap-2">
             <StatTile label="Meetings" onClick={() => scrollToSection("meetings")} value={personMeetings.length} />
-            <StatTile label="Reviews" onClick={() => scrollToSection("reviews")} value={personReviews.length} />
-            <StatTile label="Last Contact" onClick={() => scrollToSection("meetings")} value={lastContact} />
+            <StatTile label="Reviews" onClick={() => scrollToSection("reviews")} value={personParticipantReviews.length + personReviews.length} />
+            <StatTile label="Fruit" onClick={() => scrollToSection("fruit")} value={personFruitEvents.length} />
           </div>
         </DetailCard>
 
@@ -3001,6 +3121,9 @@ function PersonDetailOverlay({
 
         <div ref={reviewsSectionRef}>
           <DetailCard title="Reviews">
+            {personParticipantReviews.length ? personParticipantReviews.slice(0, 3).map((review) => (
+              <ParticipantReviewRow key={review.id} review={review} />
+            )) : null}
             {personReviews.length ? personReviews.slice(0, 3).map((meeting) => (
               <button className="rounded-2xl bg-[#F8F7F3] p-3 text-left transition-colors hover:bg-[#EFEAE1] active:scale-[0.99]" key={meeting.id} onClick={() => onOpenMeeting(meeting.id)} type="button">
                 <div className="flex items-center justify-between gap-3">
@@ -3015,7 +3138,32 @@ function PersonDetailOverlay({
                   {meetingActivityTitle(meeting)} · {formatDate(meeting.review.submittedAt ?? meeting.date)}
                 </p>
               </button>
-            )) : <p className="text-sm text-[#77716A]">No reviews yet.</p>}
+            )) : null}
+            {!personParticipantReviews.length && !personReviews.length ? <p className="text-sm text-[#77716A]">No reviews yet.</p> : null}
+          </DetailCard>
+        </div>
+
+        <div ref={testimoniesSectionRef}>
+          <DetailCard title="Testimonies">
+            {personTestimonies.length ? personTestimonies.slice(0, 3).map((testimony) => (
+              <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
+            )) : <p className="text-sm text-[#77716A]">No testimonies yet.</p>}
+          </DetailCard>
+        </div>
+
+        <div ref={fruitSectionRef}>
+          <DetailCard title="Fruit Timeline">
+            {personFruitEvents.length ? personFruitEvents.map((event) => (
+              <FruitEventRow event={event} key={event.id} />
+            )) : <p className="text-sm text-[#77716A]">No structured fruit yet.</p>}
+          </DetailCard>
+        </div>
+
+        <div ref={reflectionsSectionRef}>
+          <DetailCard title="Leader Reflections">
+            {personReflections.length ? personReflections.slice(0, 4).map((reflection) => (
+              <LeaderReflectionRow key={reflection.id} reflection={reflection} />
+            )) : <p className="text-sm text-[#77716A]">No Leader Reflections yet.</p>}
           </DetailCard>
         </div>
       </div>
@@ -3071,27 +3219,47 @@ function ReviewActionButton({
 }
 
 function MeetingDetailOverlay({
+  fruitEvents,
   isSendingReview,
+  isSendingTestimony,
+  leaderReflections,
   meeting,
   onCopyReview,
+  onCopyTestimony,
   onBack,
   onEdit,
   onLogMeeting,
+  onLogReflection,
   onSendReview,
+  onSendTestimony,
   onShareReview,
+  onShareTestimony,
+  participantReviews,
+  participantTestimonies,
   people,
   reviewShareMessage,
+  testimonyShareMessage,
 }: {
+  fruitEvents: DosAppFruitEvent[];
   isSendingReview?: boolean;
+  isSendingTestimony?: boolean;
+  leaderReflections: DosAppLeaderReflection[];
   meeting: DosAppMeeting;
   onCopyReview: () => void;
+  onCopyTestimony: () => void;
   onBack: () => void;
   onEdit: () => void;
   onLogMeeting: () => void;
+  onLogReflection: () => void;
   onSendReview: () => void;
+  onSendTestimony: () => void;
   onShareReview: () => void;
+  onShareTestimony: () => void;
+  participantReviews: DosAppParticipantReview[];
+  participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
   reviewShareMessage?: string;
+  testimonyShareMessage?: string;
 }) {
   const isTableMeeting = meeting.source === "table";
   const temperature = meeting.conversationFlowKey === "kitchen_table_gospel"
@@ -3099,6 +3267,10 @@ function MeetingDetailOverlay({
     : null;
   const avatarNames = meetingAvatarNames(meeting, people);
   const title = meetingPeopleTitle(meeting, people);
+  const meetingReflections = leaderReflections.filter((reflection) => reflection.meetingId === meeting.id);
+  const meetingParticipantReviews = participantReviews.filter((review) => review.meetingId === meeting.id);
+  const meetingTestimonies = participantTestimonies.filter((testimony) => testimony.meetingId === meeting.id);
+  const meetingFruitEvents = fruitEvents.filter((event) => event.meetingId === meeting.id);
 
   return (
     <div className="absolute inset-0 z-40 overflow-y-auto bg-[#F5F3EE] px-4 pb-28 pt-7 [scrollbar-width:none]">
@@ -3153,6 +3325,7 @@ function MeetingDetailOverlay({
 
       <div className="mt-5 grid gap-2">
         <AppButton icon="log" onClick={onLogMeeting} tone="black">Log Meeting</AppButton>
+        {isTableMeeting ? <AppButton onClick={onLogReflection} tone="white">Leader Reflection</AppButton> : null}
       </div>
 
       <div className="mt-5 grid gap-3">
@@ -3202,11 +3375,55 @@ function MeetingDetailOverlay({
           </DetailCard>
         ) : null}
 
+        {isTableMeeting ? (
+          <DetailCard title="Testimony">
+            <p className="text-sm leading-6 text-[#3B3935]">Invite them to share a transformation story.</p>
+            <div className="grid grid-cols-3 gap-2">
+              <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
+                Send Testimony
+              </ReviewActionButton>
+              <ReviewActionButton disabled={isSendingTestimony} icon={<Copy className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyTestimony}>
+                Copy Testimony
+              </ReviewActionButton>
+              <ReviewActionButton disabled={isSendingTestimony} icon={<Share2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onShareTestimony}>
+                Share
+              </ReviewActionButton>
+            </div>
+            {testimonyShareMessage ? (
+              <p className="rounded-2xl border border-[#E2DED6] bg-[#FFF8E7] px-3 py-2 text-center text-xs font-semibold text-[#8A5A12]">{testimonyShareMessage}</p>
+            ) : null}
+          </DetailCard>
+        ) : null}
+
         <DetailCard title="Summary">
           <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Notes" value={meeting.notes || "No summary added yet."} />
         </DetailCard>
 
         <ConversationFlowDetail meeting={meeting} />
+
+        <DetailCard title="Leader Reflections">
+          {meetingReflections.length ? meetingReflections.map((reflection) => (
+            <LeaderReflectionRow key={reflection.id} reflection={reflection} />
+          )) : <p className="text-sm text-[#77716A]">No Leader Reflection yet.</p>}
+        </DetailCard>
+
+        <DetailCard title="Reviews">
+          {meetingParticipantReviews.length ? meetingParticipantReviews.map((review) => (
+            <ParticipantReviewRow key={review.id} review={review} />
+          )) : <p className="text-sm text-[#77716A]">No participant reviews yet.</p>}
+        </DetailCard>
+
+        <DetailCard title="Testimonies">
+          {meetingTestimonies.length ? meetingTestimonies.map((testimony) => (
+            <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
+          )) : <p className="text-sm text-[#77716A]">No testimonies yet.</p>}
+        </DetailCard>
+
+        <DetailCard title="Fruit Timeline">
+          {meetingFruitEvents.length ? meetingFruitEvents.map((event) => (
+            <FruitEventRow event={event} key={event.id} />
+          )) : <p className="text-sm text-[#77716A]">No structured fruit yet.</p>}
+        </DetailCard>
 
         {meeting.recommendedResources.length ? (
           <DetailCard title="Recommended Resources">
@@ -3244,6 +3461,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [reviewLinksByMeetingId, setReviewLinksByMeetingId] = useState<Record<string, string>>({});
   const [reviewLinkMeetingId, setReviewLinkMeetingId] = useState<string | null>(null);
   const [reviewShareMessage, setReviewShareMessage] = useState("");
+  const [testimonyLinksByMeetingId, setTestimonyLinksByMeetingId] = useState<Record<string, string>>({});
+  const [testimonyLinkMeetingId, setTestimonyLinkMeetingId] = useState<string | null>(null);
+  const [testimonyShareMessage, setTestimonyShareMessage] = useState("");
   const [selectedConversationFlow, setSelectedConversationFlow] = useState<DosConversationFlowKey>("none");
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
@@ -3332,6 +3552,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsAdditionalPersonInfoOpen(false);
     setReviewLinkMeetingId(null);
     setReviewShareMessage("");
+    setTestimonyLinkMeetingId(null);
+    setTestimonyShareMessage("");
     setSelectedRelationshipType(defaultRelationshipType);
     resetMeetingDraft();
   }
@@ -3360,6 +3582,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsCirclesOpen(false);
     setReviewLinkMeetingId(null);
     setReviewShareMessage("");
+    setTestimonyLinkMeetingId(null);
+    setTestimonyShareMessage("");
     setSelectedMeetingId(null);
     setSelectedPersonId(null);
   }
@@ -3393,6 +3617,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setReviewLinkMeetingId(null);
     setReviewShareMessage("");
+    setTestimonyLinkMeetingId(null);
+    setTestimonyShareMessage("");
     setSelectedPersonId(null);
     setSelectedMeetingId(meetingId);
   }
@@ -3532,16 +3758,48 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     });
   }
 
+  function handleReflectionSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    if (!selectedMeeting || selectedMeeting.source !== "table") {
+      return;
+    }
+
+    void submitJson("/api/dos/app/reflections", {
+      followUpNeeded: formData.get("follow_up_needed") === "on",
+      meetingId: selectedMeeting.id,
+      nextStep: String(formData.get("next_step") ?? ""),
+      observedFruit: selectedOutcomeTags,
+      prayerNeeds: String(formData.get("prayer_needs") ?? ""),
+      privateNotes: String(formData.get("private_notes") ?? ""),
+      spiritualOpenness: String(formData.get("spiritual_openness") ?? ""),
+      whatHappened: String(formData.get("what_happened") ?? ""),
+    });
+  }
+
   function reviewUrlFromToken(token: string) {
     return typeof window !== "undefined"
-      ? `${window.location.origin}/dos/review/${token}`
-      : `/dos/review/${token}`;
+      ? `${window.location.origin}/review/${token}`
+      : `/review/${token}`;
+  }
+
+  function testimonyUrlFromToken(token: string) {
+    return typeof window !== "undefined"
+      ? `${window.location.origin}/testimony/${token}`
+      : `/testimony/${token}`;
   }
 
   function existingReviewUrl(meeting: DosAppMeeting) {
     const token = reviewLinksByMeetingId[meeting.id] ?? meeting.review.token;
 
     return token ? reviewUrlFromToken(token) : null;
+  }
+
+  function existingTestimonyUrl(meeting: DosAppMeeting) {
+    const token = testimonyLinksByMeetingId[meeting.id];
+
+    return token ? testimonyUrlFromToken(token) : null;
   }
 
   async function ensureReviewLink(meeting: DosAppMeeting) {
@@ -3573,6 +3831,43 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     if (result.token) {
       setReviewLinksByMeetingId((current) => ({
+        ...current,
+        [meeting.id]: result.token as string,
+      }));
+    }
+
+    return result.url;
+  }
+
+  async function ensureTestimonyLink(meeting: DosAppMeeting) {
+    if (meeting.source !== "table") {
+      return null;
+    }
+
+    const existingUrl = existingTestimonyUrl(meeting);
+
+    if (existingUrl) {
+      return existingUrl;
+    }
+
+    const response = await fetch("/api/dos/app/testimony-links", {
+      body: JSON.stringify({
+        meetingId: meeting.id,
+        workspaceId: data.workspace.id,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    const result = await response.json().catch(() => ({})) as { error?: string; token?: string; url?: string };
+
+    if (!response.ok || !result.url) {
+      throw new Error(result.error ?? "Unable to create testimony link.");
+    }
+
+    if (result.token) {
+      setTestimonyLinksByMeetingId((current) => ({
         ...current,
         [meeting.id]: result.token as string,
       }));
@@ -3652,6 +3947,63 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   async function handleSendReview(meeting: DosAppMeeting) {
     await handleShareReview(meeting);
+  }
+
+  async function handleCopyTestimony(meeting: DosAppMeeting) {
+    setErrorMessage("");
+    setTestimonyLinkMeetingId(meeting.id);
+    setTestimonyShareMessage("");
+
+    try {
+      const url = await ensureTestimonyLink(meeting);
+
+      if (!url) {
+        return;
+      }
+
+      const copied = await copyReviewUrl(url);
+
+      setTestimonyShareMessage(copied ? "Testimony link copied." : url);
+    } catch (error) {
+      setTestimonyShareMessage(error instanceof Error ? error.message : "Unable to create testimony link.");
+    } finally {
+      setTestimonyLinkMeetingId(null);
+    }
+  }
+
+  async function handleShareTestimony(meeting: DosAppMeeting) {
+    setErrorMessage("");
+    setTestimonyLinkMeetingId(meeting.id);
+    setTestimonyShareMessage("");
+
+    try {
+      const url = await ensureTestimonyLink(meeting);
+
+      if (!url) {
+        return;
+      }
+
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({
+            text: "Share your story from our conversation.",
+            title: "Share Your Story",
+            url,
+          });
+          setTestimonyShareMessage("Testimony link shared.");
+          return;
+        } catch {
+        }
+      }
+
+      const copied = await copyReviewUrl(url);
+
+      setTestimonyShareMessage(copied ? "Testimony link copied." : url);
+    } catch (error) {
+      setTestimonyShareMessage(error instanceof Error ? error.message : "Unable to share testimony link.");
+    } finally {
+      setTestimonyLinkMeetingId(null);
+    }
   }
 
   function toggleOutcomeTag(tag: string) {
@@ -3923,12 +4275,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {selectedPerson ? (
           <PersonDetailOverlay
+            fruitEvents={data.fruitEvents}
             index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
+            leaderReflections={data.leaderReflections}
             meetings={data.meetings}
             onBack={() => setSelectedPersonId(null)}
             onEdit={() => openPersonEdit(selectedPerson)}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
             onOpenMeeting={openMeetingDetail}
+            participantReviews={data.participantReviews}
+            participantTestimonies={data.participantTestimonies}
             person={selectedPerson}
             circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
             workspaceId={data.workspace.id}
@@ -3937,16 +4293,29 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {selectedMeetingWithReview ? (
           <MeetingDetailOverlay
+            fruitEvents={data.fruitEvents}
             isSendingReview={reviewLinkMeetingId === selectedMeetingWithReview.id}
+            isSendingTestimony={testimonyLinkMeetingId === selectedMeetingWithReview.id}
+            leaderReflections={data.leaderReflections}
             meeting={selectedMeetingWithReview}
             onBack={() => setSelectedMeetingId(null)}
             onCopyReview={() => handleCopyReview(selectedMeetingWithReview)}
+            onCopyTestimony={() => handleCopyTestimony(selectedMeetingWithReview)}
             onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
             onLogMeeting={() => openForm("meeting")}
+            onLogReflection={() => {
+              setSelectedOutcomeTags([]);
+              setFormMode("reflection");
+            }}
             onSendReview={() => handleSendReview(selectedMeetingWithReview)}
+            onSendTestimony={() => handleShareTestimony(selectedMeetingWithReview)}
             onShareReview={() => handleShareReview(selectedMeetingWithReview)}
+            onShareTestimony={() => handleShareTestimony(selectedMeetingWithReview)}
+            participantReviews={data.participantReviews}
+            participantTestimonies={data.participantTestimonies}
             people={people}
             reviewShareMessage={reviewShareMessage}
+            testimonyShareMessage={testimonyShareMessage}
           />
         ) : null}
 
@@ -4072,6 +4441,79 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             <MeetingRecommendationsPreview resources={draftRecommendedResources} />
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
             <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Meeting"}</AppButton>
+          </form>
+        </Sheet>
+      ) : null}
+
+      {formMode === "reflection" && selectedMeeting ? (
+        <Sheet onClose={closeForm} title="Leader Reflection">
+          <form className="space-y-4" onSubmit={handleReflectionSubmit}>
+            <label className="block">
+              <FieldLabel>Spiritual Openness</FieldLabel>
+              <select className={FieldInputClass()} name="spiritual_openness">
+                <option value="">Select</option>
+                <option value="Not ready">Not ready</option>
+                <option value="Curious">Curious</option>
+                <option value="Open">Open</option>
+                <option value="Ready to follow">Ready to follow</option>
+                <option value="Actively following">Actively following</option>
+              </select>
+            </label>
+            <label className="block">
+              <FieldLabel>What Happened</FieldLabel>
+              <textarea className={FieldTextareaClass()} name="what_happened" placeholder="Internal observations from the meeting." />
+            </label>
+            <label className="block">
+              <FieldLabel>Prayer Needs</FieldLabel>
+              <textarea className={FieldTextareaClass()} name="prayer_needs" placeholder="Prayer needs or sensitive context." />
+            </label>
+            <label className="flex items-start gap-3 rounded-[20px] border border-[#E2DED6] bg-white p-3">
+              <input className="mt-1 h-4 w-4 accent-[#D4A63D]" name="follow_up_needed" type="checkbox" />
+              <span className="text-sm font-semibold text-[#1E1D1A]">Follow up needed</span>
+            </label>
+            <label className="block">
+              <FieldLabel>Next Step</FieldLabel>
+              <select className={FieldInputClass()} name="next_step">
+                <option value="">Select</option>
+                <option>Continue meeting</option>
+                <option>Begin discipleship</option>
+                <option>Send follow up</option>
+                <option>Invite to group</option>
+                <option>Connect to church</option>
+                <option>Connect to ministry</option>
+                <option>Hand off</option>
+                <option>Pray and wait</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <div>
+              <FieldLabel>Observed Fruit</FieldLabel>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {outcomeTagOptions.map((tag) => {
+                  const selected = selectedOutcomeTags.includes(tag);
+
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`min-h-11 rounded-2xl border px-3 text-left text-xs font-semibold ${
+                        selected ? "border-[#111111] bg-[#111111] text-white" : "border-[#DDD9D0] bg-white text-[#1E1D1A]"
+                      }`}
+                      key={tag}
+                      onClick={() => toggleOutcomeTag(tag)}
+                      type="button"
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <label className="block">
+              <FieldLabel>Private Notes</FieldLabel>
+              <textarea className={FieldTextareaClass()} name="private_notes" placeholder="Private internal notes." />
+            </label>
+            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Reflection"}</AppButton>
           </form>
         </Sheet>
       ) : null}

@@ -22,8 +22,10 @@ function asDateString(value: unknown) {
 }
 
 function asOutcomeTags(value: unknown): DosAppOutcomeTag[] {
+  const validTags = dosAppOutcomeTags as readonly string[];
+
   return Array.isArray(value)
-    ? value.filter((item): item is DosAppOutcomeTag => dosAppOutcomeTags.includes(item as DosAppOutcomeTag))
+    ? value.filter((item): item is DosAppOutcomeTag => typeof item === "string" && validTags.includes(item))
     : [];
 }
 

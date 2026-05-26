@@ -234,6 +234,20 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     return { error: reviewError?.message ?? "Unable to save review.", status: 500 as const };
   }
 
+  await supabase
+    .from("participant_reviews")
+    .insert({
+      comments: submission.stoodOut,
+      conversation_helpful: submission.stepTowardJesus ?? "skipped",
+      felt_cared_for: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
+      felt_heard: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
+      leader_id: typedLink.created_by_user_id,
+      meeting_id: typedLink.meeting_id,
+      person_id: typedLink.reviewer_person_id,
+      submitted_at: new Date().toISOString(),
+      would_meet_again: submission.wantsFollowUp === "yes" ? true : submission.wantsFollowUp === "no" ? false : null,
+    });
+
   const fruitInsert = {
     body: quickReviewFruitSummary(submission),
     cc_status: "pending_review",
@@ -262,6 +276,21 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
   if (fruitError || !fruit) {
     return { error: fruitError?.message ?? "Unable to queue review fruit.", status: 500 as const };
   }
+
+  await supabase
+    .from("fruit_events")
+    .insert({
+      confidence_level: "confirmed",
+      description: submission.stoodOut,
+      fruit_type: submission.stepTowardJesus === "yes" ? "Gospel Conversation" : "Prayer Received",
+      leader_id: typedLink.created_by_user_id,
+      meeting_id: typedLink.meeting_id,
+      person_id: typedLink.reviewer_person_id,
+      source_id: review.id,
+      source_type: "participant_review",
+      title: "Participant Review",
+      visibility: submission.sharePermission === "private" ? "private" : "internal",
+    });
 
   await Promise.all([
     supabase

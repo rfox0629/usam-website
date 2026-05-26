@@ -18,18 +18,27 @@ type SupabaseQueryError = { message?: string } | null | undefined;
 
 export const dosAppMeetingTypes = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "discipleship", "other"] as const;
 export const dosAppOutcomeTags = [
+  "Gospel Conversation",
+  "Prayer Received",
   "Salvation",
+  "Re Dedication",
   "Baptism",
-  "Healing",
-  "Deliverance",
-  "Church Connection",
-  "Discipleship",
-  "Prayer Answered",
-  "Other",
+  "Joined Discipleship",
+  "Church Visit",
+  "Joined Church",
+  "Shared Testimony",
+  "Started Discipling Others",
+  "Marketplace Ministry",
+  "Prayer Request",
+  "Freedom / Deliverance",
+  "Repentance",
+  "Ongoing Accountability",
 ] as const;
+export const dosAppLegacyOutcomeTags = ["Healing", "Deliverance", "Church Connection", "Discipleship", "Prayer Answered", "Other"] as const;
+export const dosAppFruitTypeOptions = dosAppOutcomeTags;
 
 export type DosAppMeetingType = typeof dosAppMeetingTypes[number];
-export type DosAppOutcomeTag = typeof dosAppOutcomeTags[number];
+export type DosAppOutcomeTag = typeof dosAppOutcomeTags[number] | typeof dosAppLegacyOutcomeTags[number];
 export type DosAppReviewStatus = "approved" | "not_sent" | "pending" | "private" | "submitted";
 
 export type DosAppWorkspace = {
@@ -79,6 +88,58 @@ export type DosAppMeeting = {
   updatedAt: string | null;
 };
 
+export type DosAppLeaderReflection = {
+  createdAt: string | null;
+  followUpNeeded: boolean;
+  id: string;
+  meetingId: string;
+  nextStep: string | null;
+  observedFruit: string[];
+  personId: string | null;
+  prayerNeeds: string | null;
+  privateNotes: string | null;
+  spiritualOpenness: string | null;
+  whatHappened: string | null;
+};
+
+export type DosAppParticipantReview = {
+  comments: string | null;
+  conversationHelpful: string | null;
+  feltCaredFor: string | null;
+  feltHeard: string | null;
+  id: string;
+  meetingId: string;
+  personId: string | null;
+  submittedAt: string | null;
+  wouldMeetAgain: boolean | null;
+};
+
+export type DosAppParticipantTestimony = {
+  decisionMade: string | null;
+  id: string;
+  meetingId: string;
+  nextStep: string | null;
+  permissionToShare: boolean;
+  personId: string | null;
+  publicDisplayName: string | null;
+  story: string;
+  submittedAt: string | null;
+  whatChanged: string | null;
+};
+
+export type DosAppFruitEvent = {
+  confidenceLevel: "observed" | "confirmed" | "verified";
+  date: string | null;
+  description: string | null;
+  fruitType: string;
+  id: string;
+  meetingId: string | null;
+  personId: string | null;
+  sourceType: "leader_reflection" | "participant_review" | "testimony" | "manual" | "system";
+  title: string | null;
+  visibility: "private" | "internal" | "public";
+};
+
 export type DosAppFruit = {
   fieldPersonId: string | null;
   id: string;
@@ -96,7 +157,11 @@ export type DosAppFruit = {
 export type DosAppData = {
   circles: DosCircleData | null;
   fruit: DosAppFruit[];
+  fruitEvents: DosAppFruitEvent[];
+  leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
+  participantReviews: DosAppParticipantReview[];
+  participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
   stats: {
     approvedFruit: number;
@@ -227,6 +292,58 @@ type MeetingReviewRow = {
   submitted_name: string | null;
 };
 
+type LeaderReflectionRow = {
+  created_at: string | null;
+  follow_up_needed: boolean | null;
+  id: string;
+  meeting_id: string;
+  next_step: string | null;
+  observed_fruit: unknown;
+  person_id: string | null;
+  prayer_needs: string | null;
+  private_notes: string | null;
+  spiritual_openness: string | null;
+  what_happened: string | null;
+};
+
+type ParticipantReviewRow = {
+  comments: string | null;
+  conversation_helpful: string | null;
+  felt_cared_for: string | null;
+  felt_heard: string | null;
+  id: string;
+  meeting_id: string;
+  person_id: string | null;
+  submitted_at: string | null;
+  would_meet_again: boolean | null;
+};
+
+type ParticipantTestimonyRow = {
+  decision_made: string | null;
+  id: string;
+  meeting_id: string;
+  next_step: string | null;
+  permission_to_share: boolean | null;
+  person_id: string | null;
+  public_display_name: string | null;
+  story: string;
+  submitted_at: string | null;
+  what_changed: string | null;
+};
+
+type FruitEventRow = {
+  confidence_level: string | null;
+  description: string | null;
+  fruit_type: string;
+  id: string;
+  meeting_id: string | null;
+  occurred_at: string | null;
+  person_id: string | null;
+  source_type: string | null;
+  title: string | null;
+  visibility: string | null;
+};
+
 function mapMeetingType(value: string | null): DosAppMeetingType {
   return dosAppMeetingTypes.includes(value as DosAppMeetingType) ? value as DosAppMeetingType : "other";
 }
@@ -262,9 +379,31 @@ function mapConnectionType(value: string | null): DosAppMeetingType {
 }
 
 function mapOutcomeTags(value: string[] | null | undefined): DosAppOutcomeTag[] {
+  const validTags = [...dosAppOutcomeTags, ...dosAppLegacyOutcomeTags] as readonly string[];
+
   return Array.isArray(value)
-    ? value.filter((tag): tag is DosAppOutcomeTag => dosAppOutcomeTags.includes(tag as DosAppOutcomeTag))
+    ? value.filter((tag): tag is DosAppOutcomeTag => validTags.includes(tag))
     : [];
+}
+
+function mapObservedFruit(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function mapConfidenceLevel(value: string | null): DosAppFruitEvent["confidenceLevel"] {
+  return value === "confirmed" || value === "verified" ? value : "observed";
+}
+
+function mapFruitSourceType(value: string | null): DosAppFruitEvent["sourceType"] {
+  return value === "leader_reflection" || value === "participant_review" || value === "testimony" || value === "system"
+    ? value
+    : "manual";
+}
+
+function mapVisibility(value: string | null): DosAppFruitEvent["visibility"] {
+  return value === "internal" || value === "public" ? value : "private";
 }
 
 function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
@@ -459,6 +598,76 @@ async function loadMeetingReviewsForWorkspace(supabase: SupabaseAdminClient, wor
     : result;
 }
 
+async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const [{ data: scopedMeetings }] = await Promise.all([
+    loadMeetingsForWorkspace(supabase, workspaceId),
+  ]);
+  const meetingIds = ((scopedMeetings ?? []) as MeetingRow[]).map((meeting) => meeting.id);
+
+  if (!meetingIds.length) {
+    return {
+      error: null,
+      fruitEvents: [],
+      leaderReflections: [],
+      participantReviews: [],
+      participantTestimonies: [],
+    };
+  }
+
+  const [leaderReflectionsResult, participantReviewsResult, participantTestimoniesResult, fruitEventsResult] = await Promise.all([
+    supabase
+      .from("meeting_reflections")
+      .select("id, meeting_id, person_id, spiritual_openness, what_happened, prayer_needs, follow_up_needed, next_step, observed_fruit, private_notes, created_at")
+      .in("meeting_id", meetingIds)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("participant_reviews")
+      .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, comments, submitted_at")
+      .in("meeting_id", meetingIds)
+      .order("submitted_at", { ascending: false }),
+    supabase
+      .from("participant_testimonies")
+      .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, submitted_at")
+      .in("meeting_id", meetingIds)
+      .order("submitted_at", { ascending: false }),
+    supabase
+      .from("fruit_events")
+      .select("id, meeting_id, person_id, source_type, fruit_type, confidence_level, title, description, occurred_at, visibility")
+      .in("meeting_id", meetingIds)
+      .order("occurred_at", { ascending: false }),
+  ]);
+
+  const missingTableError = [
+    leaderReflectionsResult.error,
+    participantReviewsResult.error,
+    participantTestimoniesResult.error,
+    fruitEventsResult.error,
+  ].find((error) => (
+    isMissingWorkflowTable(error, "meeting_reflections")
+    || isMissingWorkflowTable(error, "participant_reviews")
+    || isMissingWorkflowTable(error, "participant_testimonies")
+    || isMissingWorkflowTable(error, "fruit_events")
+  ));
+
+  if (missingTableError) {
+    return {
+      error: null,
+      fruitEvents: [],
+      leaderReflections: [],
+      participantReviews: [],
+      participantTestimonies: [],
+    };
+  }
+
+  return {
+    error: leaderReflectionsResult.error ?? participantReviewsResult.error ?? participantTestimoniesResult.error ?? fruitEventsResult.error,
+    fruitEvents: (fruitEventsResult.data ?? []) as FruitEventRow[],
+    leaderReflections: (leaderReflectionsResult.data ?? []) as LeaderReflectionRow[],
+    participantReviews: (participantReviewsResult.data ?? []) as ParticipantReviewRow[],
+    participantTestimonies: (participantTestimoniesResult.data ?? []) as ParticipantTestimonyRow[],
+  };
+}
+
 async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<HouseholdRow>> {
   if (!isSupabaseAdminConfigured()) {
     return {
@@ -500,16 +709,17 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, reviewsFruitResult] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
     loadFruitForWorkspace(supabase, workspace.id),
     loadReviewLinksForWorkspace(supabase, workspace.id),
     loadMeetingReviewsForWorkspace(supabase, workspace.id),
+    loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || reviewsFruitResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -517,6 +727,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         ?? fruitResult.error?.message
         ?? reviewLinksResult.error?.message
         ?? meetingReviewsResult.error?.message
+        ?? reviewsFruitResult.error?.message
         ?? "Unable to load DOS app data.",
       status: "error",
     };
@@ -634,12 +845,64 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     testimonyDate: item.testimony_date,
     updatedAt: item.updated_at,
   }));
+  const leaderReflections = reviewsFruitResult.leaderReflections.map((reflection) => ({
+    createdAt: reflection.created_at,
+    followUpNeeded: reflection.follow_up_needed === true,
+    id: reflection.id,
+    meetingId: reflection.meeting_id,
+    nextStep: reflection.next_step,
+    observedFruit: mapObservedFruit(reflection.observed_fruit),
+    personId: reflection.person_id,
+    prayerNeeds: reflection.prayer_needs,
+    privateNotes: reflection.private_notes,
+    spiritualOpenness: reflection.spiritual_openness,
+    whatHappened: reflection.what_happened,
+  }));
+  const participantReviews = reviewsFruitResult.participantReviews.map((review) => ({
+    comments: review.comments,
+    conversationHelpful: review.conversation_helpful,
+    feltCaredFor: review.felt_cared_for,
+    feltHeard: review.felt_heard,
+    id: review.id,
+    meetingId: review.meeting_id,
+    personId: review.person_id,
+    submittedAt: review.submitted_at,
+    wouldMeetAgain: review.would_meet_again,
+  }));
+  const participantTestimonies = reviewsFruitResult.participantTestimonies.map((testimony) => ({
+    decisionMade: testimony.decision_made,
+    id: testimony.id,
+    meetingId: testimony.meeting_id,
+    nextStep: testimony.next_step,
+    permissionToShare: testimony.permission_to_share === true,
+    personId: testimony.person_id,
+    publicDisplayName: testimony.public_display_name,
+    story: testimony.story,
+    submittedAt: testimony.submitted_at,
+    whatChanged: testimony.what_changed,
+  }));
+  const fruitEvents = reviewsFruitResult.fruitEvents.map((fruitEvent) => ({
+    confidenceLevel: mapConfidenceLevel(fruitEvent.confidence_level),
+    date: fruitEvent.occurred_at,
+    description: fruitEvent.description,
+    fruitType: fruitEvent.fruit_type,
+    id: fruitEvent.id,
+    meetingId: fruitEvent.meeting_id,
+    personId: fruitEvent.person_id,
+    sourceType: mapFruitSourceType(fruitEvent.source_type),
+    title: fruitEvent.title,
+    visibility: mapVisibility(fruitEvent.visibility),
+  }));
 
   return {
     data: {
       circles: await loadFreshCircleData(workspace.id, people, meetings),
       fruit,
+      fruitEvents,
+      leaderReflections,
       meetings,
+      participantReviews,
+      participantTestimonies,
       people,
       stats: {
         approvedFruit: fruit.filter((item) => item.status === "approved").length,
