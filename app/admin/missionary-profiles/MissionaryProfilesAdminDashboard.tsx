@@ -2865,6 +2865,20 @@ function FruitStatusBadge({ status }: { status: AdminFruitStatus }) {
   );
 }
 
+function FruitVisibilityBadge({ visibility }: { visibility: FruitListRow["visibilityLabel"] }) {
+  const className = visibility === "Public"
+    ? "border-green-200 bg-green-50 text-green-800"
+    : visibility === "Private"
+      ? "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]"
+      : "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]";
+
+  return (
+    <span className={`inline-flex min-h-6 w-fit items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      {visibility}
+    </span>
+  );
+}
+
 function isQuickReviewFruit(fruit: Pick<AdminFruitItem, "source_app" | "status">) {
   return fruit.source_app === "dos_quick_review";
 }
@@ -2879,6 +2893,42 @@ function fruitSharePermissionLabel(fruit: Pick<AdminFruitItem, "permission_to_sh
   }
 
   return fruit.submitted_by_name ? "Name OK" : "Anonymous OK";
+}
+
+function fruitSourceLabel(fruit: AdminFruitItem) {
+  if (fruit.source_app === "dos_quick_review") {
+    return "Review";
+  }
+
+  if (fruit.encounter_id) {
+    return "Testimony";
+  }
+
+  if (fruit.table_id) {
+    return "Meeting";
+  }
+
+  return "Manual";
+}
+
+function fruitVisibilityLabel(fruit: AdminFruitItem): FruitListRow["visibilityLabel"] {
+  if (fruit.status === "private" || fruit.status === "archived") {
+    return "Private";
+  }
+
+  if (fruit.status === "approved" && fruit.permission_to_share) {
+    return "Public";
+  }
+
+  return "Internal";
+}
+
+function fruitDisplayStatusLabel(fruit: AdminFruitItem) {
+  if (fruit.status === "approved" && fruit.permission_to_share) {
+    return "Published";
+  }
+
+  return fruitStatusLabel(fruit.status);
 }
 
 function personNameById(people: readonly AdminFieldPerson[], personId: string | null | undefined) {
@@ -5354,8 +5404,21 @@ function MeetingEditorModal({
 }
 
 type TableWorkflowSection = "assessment" | "fruit" | "responses" | "review" | "summary";
+type FruitFilter = "all" | "approved" | "pending" | "private" | "public";
 type MeetingsFilter = "all" | "completed" | "needs_follow_up" | "upcoming";
 type ReviewFilter = "all" | "draft_fruit" | "pending" | "reviewed";
+
+type FruitListRow = {
+  dateLabel: string;
+  fruit: AdminFruitItem;
+  outcomeLabel: string;
+  personLabel: string;
+  sourceLabel: string;
+  statusLabel: string;
+  storyLabel: string;
+  tableLabel: string;
+  visibilityLabel: "Internal" | "Private" | "Public";
+};
 
 type ReviewListRow = {
   dateTime: { date: string; time: string };
@@ -5392,6 +5455,14 @@ const reviewFilterOptions: Array<{ label: string; value: ReviewFilter }> = [
   { label: "Pending", value: "pending" },
   { label: "Reviewed", value: "reviewed" },
   { label: "Draft Fruit", value: "draft_fruit" },
+];
+
+const fruitFilterOptions: Array<{ label: string; value: FruitFilter }> = [
+  { label: "All", value: "all" },
+  { label: "Pending", value: "pending" },
+  { label: "Approved", value: "approved" },
+  { label: "Private/Internal", value: "private" },
+  { label: "Public", value: "public" },
 ];
 
 function TableDetailPanel({
@@ -6575,6 +6646,7 @@ function FruitManager({
   fieldPeople,
   fruitItems,
   moderatingFruitId,
+  onCreateFruit,
   onModerateReview,
   onUpdateFruit,
   tables,
@@ -6583,218 +6655,255 @@ function FruitManager({
   fieldPeople: readonly AdminFieldPerson[];
   fruitItems: readonly AdminFruitItem[];
   moderatingFruitId: string | null;
+  onCreateFruit: (draft: FruitDraft, table?: AdminMissionaryTable | null) => void;
   onModerateReview: (fruitId: string, action: FruitReviewModerationAction) => void;
   onUpdateFruit: (fruitId: string, patch: Partial<AdminFruitItem>) => void;
   tables: readonly AdminMissionaryTable[];
 }) {
+  const [fruitFilter, setFruitFilter] = useState<FruitFilter>("all");
+  const [fruitSearch, setFruitSearch] = useState("");
   const [editingFruit, setEditingFruit] = useState<AdminFruitItem | null>(null);
+  const [isCreatingFruit, setIsCreatingFruit] = useState(false);
+  const [selectedFruitId, setSelectedFruitId] = useState("");
   const pendingReviewFruit = fruitItems.filter(isPendingReviewFruit);
   const approvedFruit = fruitItems.filter((fruit) => fruit.status === "approved");
-  const privateInternalFruit = fruitItems.filter((fruit) => !isPendingReviewFruit(fruit) && fruit.status !== "approved");
+  const privateInternalFruit = fruitItems.filter((fruit) => fruit.status === "private" || fruit.status === "archived");
+  const publicStories = fruitItems.filter((fruit) => fruit.status === "approved" && fruit.permission_to_share);
   const outcomeCounts = outcomeTagOptions.map((tag) => ({
-    count: approvedFruit.filter((fruit) => fruit.outcome_tags.includes(tag)).length,
+    count: fruitItems.filter((fruit) => fruit.outcome_tags.includes(tag)).length,
     tag,
   }));
-  const renderEditableFruitCard = (fruit: AdminFruitItem) => {
-    const isQuickReview = isQuickReviewFruit(fruit);
-    const permissionLabel = isQuickReview ? fruitSharePermissionLabel(fruit) : null;
+  const fruitRows: FruitListRow[] = fruitItems.map((fruit) => {
+    const personLabel = fruit.submitted_by_name?.trim() || personNameById(fieldPeople, fruit.field_person_id);
+    const outcomeLabel = fruit.outcome_tags[0] ?? "Other";
+    const tableLabelValue = tableNameById(tables, fruit.table_id);
 
-    return (
-      <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5" key={fruit.id}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {isQuickReview ? (
-                <span className="rounded-full border border-[#d6c28d] bg-[#fff8e8] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Quick Review
-                </span>
-              ) : null}
-              {permissionLabel ? (
-                <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  {permissionLabel}
-                </span>
-              ) : null}
-            </div>
-            <p className="text-sm leading-6 text-[#111111]">
-              {fruit.summary || "Summary needed."}
-            </p>
-            <div className="mt-2 grid gap-1 text-xs leading-5 text-[#7b746a]">
-              {isQuickReview && fruit.submitted_by_name ? <span>Submitted by {fruit.submitted_by_name}</span> : null}
-              <span>Person: {personNameById(fieldPeople, fruit.field_person_id)}</span>
-              <span>Table: {tableNameById(tables, fruit.table_id)}</span>
-              <span>Date: {fruit.testimony_date ? formatProfileUpdatedDate(fruit.testimony_date) : formatProfileUpdatedDate(fruit.created_at)}</span>
-            </div>
-          </div>
-          <FruitStatusBadge status={fruit.status} />
-        </div>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {fruit.outcome_tags.length > 0 ? fruit.outcome_tags.map((tag) => (
-            <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              {tag}
-            </span>
-          )) : (
-            <span className="text-xs text-[#7b746a]">No outcome tags yet.</span>
-          )}
-        </div>
-        <button className={`${lightSecondaryButtonClass} mt-4`} onClick={() => setEditingFruit(fruit)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-          View / Edit
-        </button>
-      </div>
-    );
-  };
+    return {
+      dateLabel: fruit.testimony_date ? formatProfileUpdatedDate(fruit.testimony_date) : formatProfileUpdatedDate(fruit.created_at),
+      fruit,
+      outcomeLabel,
+      personLabel,
+      sourceLabel: fruitSourceLabel(fruit),
+      statusLabel: fruitDisplayStatusLabel(fruit),
+      storyLabel: fruit.summary || "Summary needed.",
+      tableLabel: tableLabelValue,
+      visibilityLabel: fruitVisibilityLabel(fruit),
+    };
+  });
+  const filteredRows = fruitRows.filter((row) => {
+    const matchesFilter = fruitFilter === "all"
+      || (fruitFilter === "pending" && isPendingReviewFruit(row.fruit))
+      || (fruitFilter === "approved" && row.fruit.status === "approved" && !row.fruit.permission_to_share)
+      || (fruitFilter === "private" && (row.visibilityLabel === "Private" || row.visibilityLabel === "Internal"))
+      || (fruitFilter === "public" && row.visibilityLabel === "Public");
+    const normalizedSearch = fruitSearch.trim().toLowerCase();
+    const matchesSearch = !normalizedSearch || [
+      row.personLabel,
+      row.storyLabel,
+      row.outcomeLabel,
+      row.sourceLabel,
+      row.statusLabel,
+      row.tableLabel,
+      row.fruit.internal_notes ?? "",
+    ].some((value) => value.toLowerCase().includes(normalizedSearch));
+
+    return matchesFilter && matchesSearch;
+  });
+  const selectedRow = fruitRows.find((row) => row.fruit.id === selectedFruitId) ?? null;
+
+  function updateSelectedFruit(patch: Partial<AdminFruitItem>) {
+    if (!selectedRow) {
+      return;
+    }
+
+    onUpdateFruit(selectedRow.fruit.id, patch);
+  }
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Fruit Inbox
-        </p>
-        <DataFlowLabels items={["Pending Reviews", "Approved Fruit", "Private/Internal"]} />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatPreview label="Pending Reviews" tone="light" value={String(pendingReviewFruit.length)} />
-        <StatPreview label="Approved" tone="light" value={String(approvedFruit.length)} />
-        <StatPreview label="Private/Internal" tone="light" value={String(privateInternalFruit.length)} />
-      </div>
-
-      <section className="rounded-xl border border-[#e2ded5] bg-white p-3.5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Pending Reviews
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Fruit
             </p>
-            <p className="mt-1 text-sm leading-6 text-[#7b746a]">
-              Quick Reviews waiting for internal moderation.
+            <h3 className="mt-2 text-2xl font-bold leading-tight text-[#111111]">
+              Fruit from the field
+            </h3>
+            <p className="mt-1 text-sm leading-5 text-[#4b443b]">
+              Review, approve, and manage ministry outcomes.
             </p>
           </div>
-          <span className="w-fit rounded-full border border-[#e6c777] bg-[#fff8e8] px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            {pendingReviewFruit.length} pending
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <button className={lightPrimaryButtonClass} onClick={() => setIsCreatingFruit(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Create Fruit
+            </button>
+            <button className={lightSecondaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Export
+            </button>
+          </div>
         </div>
 
-        {pendingReviewFruit.length ? (
-          <div className="mt-3 grid gap-3 lg:grid-cols-2">
-            {pendingReviewFruit.map((fruit) => {
-              const isBusy = moderatingFruitId === fruit.id;
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ReviewStatCard helper="Needs internal review" label="Pending Review" value={String(pendingReviewFruit.length)} />
+          <ReviewStatCard helper="Confirmed internally" label="Approved Fruit" value={String(approvedFruit.length)} />
+          <ReviewStatCard helper="Not public" label="Private/Internal" value={String(privateInternalFruit.length)} />
+          <ReviewStatCard helper="Allowed for profiles" label="Public Stories" value={String(publicStories.length)} />
+        </div>
 
-              return (
-                <article className="rounded-xl border border-[#e2ded5] bg-[#fbfaf7] p-3.5" key={fruit.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap gap-1.5">
-                        <span className="rounded-full border border-[#d6c28d] bg-[#fff8e8] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Quick Review
-                        </span>
-                        <span className="rounded-full border border-[#e2ded5] bg-white px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          {fruitSharePermissionLabel(fruit)}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm font-semibold text-[#111111]">
-                        {fruit.submitted_by_name || personNameById(fieldPeople, fruit.field_person_id)}
-                      </p>
-                    </div>
-                    <FruitStatusBadge status="pending_review" />
-                  </div>
-
-                  <p className="mt-3 text-sm leading-6 text-[#111111]">
-                    {fruit.summary || "Review submitted."}
-                  </p>
-                  <div className="mt-3 grid gap-1 text-xs leading-5 text-[#7b746a]">
-                    <span>Person: {personNameById(fieldPeople, fruit.field_person_id)}</span>
-                    <span>Meeting: {tableNameById(tables, fruit.table_id)}</span>
-                    <span>Submitted: {formatProfileUpdatedDate(fruit.testimony_date ?? fruit.created_at)}</span>
-                    <span>Source: Quick Review</span>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      className={lightPrimaryButtonClass}
-                      disabled={isBusy}
-                      onClick={() => onModerateReview(fruit.id, "approve")}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      className={lightSecondaryButtonClass}
-                      disabled={isBusy}
-                      onClick={() => onModerateReview(fruit.id, "private")}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      Keep Private
-                    </button>
-                    <button
-                      className={lightTertiaryButtonClass}
-                      disabled={isBusy}
-                      onClick={() => onModerateReview(fruit.id, "archive")}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      Archive
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="mt-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4 text-sm leading-6 text-[#7b746a]">
-            No pending reviews.
-          </div>
-        )}
-      </section>
-
-      <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Outcome Counts
-        </p>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
+        <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-3">
+          <div className="flex flex-wrap gap-2">
           {outcomeCounts.map((outcome) => (
-            <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={outcome.tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              {outcome.tag}: {outcome.count}
+            <span className="rounded-full border border-[#e2ded5] bg-[#f8f6f1] px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#6f6658]" key={outcome.tag} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              {outcome.tag} · {outcome.count}
             </span>
           ))}
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+          <div className="flex flex-col gap-3 border-b border-[#e2ded5] bg-white px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {fruitFilterOptions.map((option) => {
+                const selected = fruitFilter === option.value;
+
+                return (
+                  <button
+                    className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 text-[10px] uppercase tracking-[0.16em] transition-colors ${
+                      selected
+                        ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                        : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                    }`}
+                    key={option.value}
+                    onClick={() => setFruitFilter(option.value)}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="relative block min-w-0 sm:w-72">
+                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8174]" />
+                <span className="sr-only">Search fruit</span>
+                <input
+                  className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]"
+                  onChange={(event) => setFruitSearch(event.target.value)}
+                  placeholder="Search fruit"
+                  value={fruitSearch}
+                />
+              </label>
+              <button className={lightSecondaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                Filters
+              </button>
+            </div>
+          </div>
+
+          {fruitItems.length === 0 ? (
+            <div className="p-6 text-center">
+              <h4 className="text-xl font-bold text-[#111111]">
+                No fruit has been recorded yet.
+              </h4>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#7b746a]">
+                Fruit will appear here when meetings, reviews, testimonies, or field updates generate ministry outcomes.
+              </p>
+              <button className={`${lightPrimaryButtonClass} mt-4`} onClick={() => setIsCreatingFruit(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                Create Fruit
+              </button>
+            </div>
+          ) : null}
+
+          {fruitItems.length > 0 && filteredRows.length === 0 ? (
+            <p className="p-4 text-sm leading-6 text-[#7b746a]">
+              No fruit matches this view.
+            </p>
+          ) : null}
+
+          {filteredRows.length > 0 ? (
+            <div>
+              <div className="hidden grid-cols-[minmax(180px,1.3fr)_120px_104px_92px_108px_96px_minmax(110px,0.8fr)_56px] items-center gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] xl:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span>Person / Story</span>
+                <span>Outcome</span>
+                <span>Visibility</span>
+                <span>Source</span>
+                <span>Status</span>
+                <span>Date</span>
+                <span>Next Step</span>
+                <span className="text-right">Actions</span>
+              </div>
+              <div className="divide-y divide-[#e2ded5]">
+                {filteredRows.map((row) => {
+                  const isBusy = moderatingFruitId === row.fruit.id;
+
+                  return (
+                    <div
+                      className="grid min-h-[76px] cursor-pointer gap-3 bg-white px-4 py-4 transition-colors hover:bg-[#fbfaf7] xl:grid-cols-[minmax(180px,1.3fr)_120px_104px_92px_108px_96px_minmax(110px,0.8fr)_56px] xl:items-center"
+                      key={row.fruit.id}
+                      onClick={() => setSelectedFruitId(row.fruit.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedFruitId(row.fruit.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <div className="flex items-center justify-between gap-3 xl:block">
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Person / Story
+                        </span>
+                        <div className="flex min-w-0 items-center justify-end gap-3 xl:justify-start">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                            {initialsFromName(row.personLabel)}
+                          </span>
+                          <div className="min-w-0 text-right xl:text-left">
+                            <span className="block truncate text-sm font-semibold leading-5 text-[#111111]">
+                              {row.personLabel}
+                            </span>
+                            <span className="mt-1 block truncate text-xs leading-4 text-[#7b746a]">
+                              {row.storyLabel}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <FruitTextCell label="Outcome" value={row.outcomeLabel} />
+                      <div className="flex items-center justify-between gap-3 xl:block">
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Visibility</span>
+                        <FruitVisibilityBadge visibility={row.visibilityLabel} />
+                      </div>
+                      <FruitTextCell label="Source" value={row.sourceLabel} />
+                      <div className="flex items-center justify-between gap-3 xl:block">
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Status</span>
+                        <FruitStatusBadge status={row.fruit.status} />
+                      </div>
+                      <FruitTextCell label="Date" value={row.dateLabel} />
+                      <FruitTextCell label="Next Step" value={row.fruit.status === "pending_review" ? "Review needed" : row.visibilityLabel === "Public" ? "Published" : row.fruit.status === "approved" ? "Ready to publish" : "Internal"} />
+                      <div className="flex justify-end">
+                        <button
+                          aria-label={`Open actions for ${row.personLabel}`}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00] disabled:opacity-60"
+                          disabled={isBusy}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedFruitId(row.fruit.id);
+                          }}
+                          title="Open"
+                          type="button"
+                        >
+                          <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
-
-      {fruitItems.length === 0 ? (
-        <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-          No approved fruit
-        </div>
-      ) : null}
-
-      <section className="space-y-3">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Approved Fruit
-        </p>
-        {approvedFruit.length ? (
-          <div className="grid gap-3 lg:grid-cols-2">
-            {approvedFruit.map(renderEditableFruitCard)}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-            No approved Fruit yet.
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Private / Internal
-        </p>
-        {privateInternalFruit.length ? (
-          <div className="grid gap-3 lg:grid-cols-2">
-            {privateInternalFruit.map(renderEditableFruitCard)}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-            No private Fruit.
-          </div>
-        )}
-      </section>
 
       {editingFruit ? (
         <FruitEditorModal
@@ -6820,6 +6929,196 @@ function FruitManager({
           tables={tables}
         />
       ) : null}
+
+      {isCreatingFruit ? (
+        <FruitEditorModal
+          encounters={encounters}
+          fieldPeople={fieldPeople}
+          onClose={() => setIsCreatingFruit(false)}
+          onSave={(draft) => {
+            onCreateFruit(draft, tables.find((table) => table.id === draft.tableId) ?? null);
+            setIsCreatingFruit(false);
+          }}
+          tables={tables}
+        />
+      ) : null}
+
+      {selectedRow ? (
+        <FruitDetailDrawer
+          encounters={encounters}
+          isBusy={moderatingFruitId === selectedRow.fruit.id}
+          onArchive={() => {
+            if (isPendingReviewFruit(selectedRow.fruit)) {
+              onModerateReview(selectedRow.fruit.id, "archive");
+            } else {
+              updateSelectedFruit({ status: "archived", permission_to_share: false });
+            }
+          }}
+          onApprove={() => {
+            if (isPendingReviewFruit(selectedRow.fruit)) {
+              onModerateReview(selectedRow.fruit.id, "approve");
+            } else {
+              updateSelectedFruit({ status: "approved", permission_to_share: false });
+            }
+          }}
+          onClose={() => setSelectedFruitId("")}
+          onEdit={() => {
+            setEditingFruit(selectedRow.fruit);
+            setSelectedFruitId("");
+          }}
+          onPrivate={() => {
+            if (isPendingReviewFruit(selectedRow.fruit)) {
+              onModerateReview(selectedRow.fruit.id, "private");
+            } else {
+              updateSelectedFruit({ status: "private", permission_to_share: false });
+            }
+          }}
+          onPublish={() => updateSelectedFruit({ status: "approved", permission_to_share: true })}
+          row={selectedRow}
+          tables={tables}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function FruitTextCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 xl:block">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </span>
+      <span className="block max-w-[220px] truncate text-right text-sm leading-5 text-[#4b443b] xl:max-w-full xl:text-left">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function FruitDetailDrawer({
+  encounters,
+  isBusy,
+  onApprove,
+  onArchive,
+  onClose,
+  onEdit,
+  onPrivate,
+  onPublish,
+  row,
+  tables,
+}: {
+  encounters: readonly AdminEncounterSubmission[];
+  isBusy: boolean;
+  onApprove: () => void;
+  onArchive: () => void;
+  onClose: () => void;
+  onEdit: () => void;
+  onPrivate: () => void;
+  onPublish: () => void;
+  row: FruitListRow;
+  tables: readonly AdminMissionaryTable[];
+}) {
+  const linkedEncounter = encounters.find((encounter) => encounter.id === row.fruit.encounter_id);
+  const linkedTable = tables.find((table) => table.id === row.fruit.table_id);
+  const sourceRecord = linkedEncounter
+    ? `${linkedEncounter.submitter_name?.trim() || "Unnamed"} · ${submissionTypeLabel(linkedEncounter.submission_type)}`
+    : linkedTable
+      ? tableLabel(linkedTable)
+      : row.tableLabel;
+  const detailItems = [
+    { label: "Person", value: row.personLabel },
+    { label: "Outcome Category", value: row.outcomeLabel },
+    { label: "Source Record", value: sourceRecord },
+    { label: "Visibility", value: row.visibilityLabel },
+    { label: "Approval Status", value: row.statusLabel },
+    { label: "Public Profile Publishing", value: row.visibilityLabel === "Public" ? "Eligible for public profile" : "Not public" },
+    { label: "Created Date", value: formatProfileUpdatedDate(row.fruit.created_at) },
+    { label: "Updated Date", value: formatProfileUpdatedDate(row.fruit.updated_at ?? row.fruit.created_at) },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm">
+      <div className="ml-auto flex h-full w-full max-w-4xl flex-col border-l border-[#2a241a] bg-[#f8f6f1] text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+        <div className="border-b border-[#e2ded5] bg-white px-4 py-4 md:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Fruit Details
+              </p>
+              <div className="mt-2 flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {initialsFromName(row.personLabel)}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="truncate text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                    {row.personLabel}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                    {row.outcomeLabel} · {row.sourceLabel} · {row.dateLabel}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+              <X aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className={lightPrimaryButtonClass} disabled={isBusy} onClick={onApprove} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Approve
+            </button>
+            <button className={lightSecondaryButtonClass} disabled={isBusy} onClick={onPrivate} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Mark Private/Internal
+            </button>
+            <button className={lightSecondaryButtonClass} disabled={isBusy || row.fruit.status !== "approved"} onClick={onPublish} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Publish to Public Profile
+            </button>
+            <button className={lightSecondaryButtonClass} onClick={onEdit} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Edit Fruit
+            </button>
+            <button className={lightTertiaryButtonClass} disabled={isBusy} onClick={onArchive} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Delete or Archive
+            </button>
+            <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {detailItems.map((item) => (
+              <div className="rounded-lg border border-[#e2ded5] bg-white p-3" key={item.label}>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {item.label}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[#111111]">
+                  {item.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Story Summary
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#111111]">
+              {row.storyLabel}
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Full Notes / Testimony
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#4b443b]">
+              {row.fruit.internal_notes?.trim() || linkedEncounter?.original_testimony?.trim() || "No internal notes or testimony text linked."}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -11554,14 +11853,16 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "fruit" ? (
           <SectionIntro
-            description="Review and manage Fruit"
-            title="Fruit"
+            description="Review, approve, and manage ministry outcomes."
+            title="Fruit from the field"
+            wide
           >
             <FruitManager
               encounters={selectedProfile.encounterSubmissions ?? []}
               fieldPeople={selectedProfile.fieldPeople ?? []}
               fruitItems={selectedProfile.fruitItems ?? []}
               moderatingFruitId={moderatingFruitId}
+              onCreateFruit={createFruitSummary}
               onModerateReview={moderateFruitReview}
               onUpdateFruit={updateFruitItem}
               tables={selectedProfile.tables ?? []}
