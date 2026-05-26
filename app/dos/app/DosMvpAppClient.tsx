@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, FileImage, Mail, MapPin, MessageCircle, Mic, MoreHorizontal, Pencil, Phone, Send, Share2, Square, StickyNote, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, FileImage, Mail, MapPin, MessageCircle, Mic, MoreHorizontal, Pencil, Phone, Search, Send, Share2, Square, StickyNote, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -84,10 +84,18 @@ const relationshipTypeOptions = [
 ] as const;
 const defaultRelationshipType = relationshipTypeOptions[0].value;
 
+const libraryFilters = [
+  { label: "All", value: "all" },
+  { label: "Teachings", value: "teachings" },
+  { label: "Follow up", value: "follow_up" },
+] as const;
+
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
+type CircleFocusView = "seventy" | "three" | "twelve";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
+type LibraryFilter = typeof libraryFilters[number]["value"];
 type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
 type MeetingCaptureDraft = {
@@ -965,6 +973,46 @@ function scoreLabel(value: number) {
   return `${Math.round(value)}`;
 }
 
+function uniqueCircleMembers(items: Array<{ person: DosAppPerson; score: DosRelationshipScore }>) {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    if (seen.has(item.person.id)) {
+      return false;
+    }
+
+    seen.add(item.person.id);
+    return true;
+  });
+}
+
+function circleFocusCopy(view: CircleFocusView) {
+  switch (view) {
+    case "twelve":
+      return {
+        countLabel: "in My 12",
+        denominator: 12,
+        label: "My 12",
+        subtitle: "Your core discipleship circle",
+      };
+    case "seventy":
+      return {
+        countLabel: "in My 70",
+        denominator: 70,
+        label: "My 70",
+        subtitle: "Your broader field",
+      };
+    case "three":
+    default:
+      return {
+        countLabel: "in My 3",
+        denominator: 3,
+        label: "My 3",
+        subtitle: "Your closest discipleship investments",
+      };
+  }
+}
+
 function CircleAvatar({
   index,
   person,
@@ -972,12 +1020,13 @@ function CircleAvatar({
 }: {
   index: number;
   person?: DosAppPerson;
-  size?: "lg" | "md" | "sm";
+  size?: "lg" | "md" | "sm" | "xs";
 }) {
   const sizeClass = {
     lg: "h-12 w-12 text-sm",
     md: "h-11 w-11 text-xs",
     sm: "h-9 w-9 text-[11px]",
+    xs: "h-7 w-7 text-[9px]",
   }[size];
 
   if (!person) {
@@ -995,22 +1044,96 @@ function CircleAvatar({
   );
 }
 
+function TargetNode({
+  children,
+  className = "",
+  left,
+  top,
+}: {
+  children: ReactNode;
+  className?: string;
+  left: string;
+  top: string;
+}) {
+  return (
+    <span
+      className={`pointer-events-none absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center transition-all duration-300 ease-out ${className}`}
+      style={{ left, top }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function CircleClusterNode({
+  count,
+  left,
+  top,
+}: {
+  count: number;
+  left: string;
+  top: string;
+}) {
+  return (
+    <TargetNode left={left} top={top}>
+      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#E5D8B8] bg-[#FFF8E7] text-[10px] font-bold text-[#8A5A12] shadow-[0_8px_18px_rgba(42,37,29,0.08)]">
+        +{count}
+      </span>
+    </TargetNode>
+  );
+}
+
+const my12NodePositions = [
+  ["50%", "11%"],
+  ["69%", "18%"],
+  ["82%", "36%"],
+  ["79%", "58%"],
+  ["64%", "74%"],
+  ["39%", "76%"],
+  ["22%", "61%"],
+  ["18%", "38%"],
+  ["31%", "20%"],
+  ["50%", "83%"],
+  ["86%", "50%"],
+  ["14%", "50%"],
+] as const;
+
+const my70NodePositions = [
+  ["50%", "4%"],
+  ["70%", "8%"],
+  ["86%", "22%"],
+  ["95%", "44%"],
+  ["91%", "68%"],
+  ["76%", "87%"],
+  ["52%", "96%"],
+  ["28%", "89%"],
+  ["10%", "72%"],
+  ["4%", "48%"],
+  ["12%", "24%"],
+  ["30%", "8%"],
+] as const;
+
 function CircleFocusHero({
-  my12Count,
+  my12,
   my3,
-  my70Active,
-  my70FollowUp,
-  my70Multiplying,
+  my70,
   onViewCircles,
 }: {
-  my12Count: number;
+  my12: Array<{ person: DosAppPerson; score: DosRelationshipScore }>;
   my3: Array<{ person: DosAppPerson; score: DosRelationshipScore }>;
-  my70Active: number;
-  my70FollowUp: number;
-  my70Multiplying: number;
+  my70: Array<{ person: DosAppPerson; score: DosRelationshipScore }>;
   onViewCircles: () => void;
 }) {
+  const [activeView, setActiveView] = useState<CircleFocusView>("three");
+  const copy = circleFocusCopy(activeView);
   const my3Slots = [0, 1, 2].map((index) => my3[index]?.person);
+  const activeMembership = activeView === "three" ? my3 : activeView === "twelve" ? my12 : my70;
+  const my12OuterPeople = my12.filter((item) => !my3.some((my3Item) => my3Item.person.id === item.person.id)).slice(0, 12);
+  const my70OuterPeople = my70.filter((item) => !my12.some((my12Item) => my12Item.person.id === item.person.id)).slice(0, 70);
+  const visibleMy70Nodes = my70OuterPeople.length > 14 ? my70OuterPeople.slice(0, 8) : my70OuterPeople.slice(0, 12);
+  const clusterCount = my70OuterPeople.length > visibleMy70Nodes.length ? my70OuterPeople.length - visibleMy70Nodes.length : 0;
+  const my12Active = activeView === "twelve" || activeView === "seventy";
+  const my70Active = activeView === "seventy";
 
   return (
     <section className="rounded-[28px] bg-white px-5 py-5 shadow-[0_18px_48px_rgba(42,37,29,0.07)]">
@@ -1019,35 +1142,99 @@ function CircleFocusHero({
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
             Circle Focus
           </p>
-          <h2 className="mt-1 text-xl font-bold leading-tight text-[#111111]">Your closest discipleship investments.</h2>
+          <h2 className="mt-1 text-xl font-bold leading-tight text-[#111111]">{copy.label}</h2>
+          <p className="mt-1 text-sm leading-5 text-[#77716A]">{copy.subtitle}.</p>
         </div>
         <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#D4A63D]" aria-hidden="true" />
       </div>
 
-      <div className="mt-6 flex justify-center gap-3">
-        {my3Slots.map((person, index) => (
-          <CircleAvatar index={index} key={person?.id ?? `empty-${index}`} person={person} size="lg" />
-        ))}
-      </div>
-      <p className="mt-2 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
-        My 3
-      </p>
+      <div className="relative mx-auto mt-5 h-60 w-full max-w-[278px]">
+        <button
+          aria-label="Show My 70"
+          className={`absolute left-1/2 top-1/2 z-[1] h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40 ${
+            my70Active ? "scale-100 border-[#D4A63D]/45 bg-[#FFF8E7]/30" : "scale-95 border-[#E7E1D7]/70 bg-transparent"
+          }`}
+          onClick={() => setActiveView("seventy")}
+          type="button"
+        />
+        <button
+          aria-label="Show My 12"
+          className={`absolute left-1/2 top-1/2 z-[2] h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40 ${
+            my12Active ? "scale-100 border-[#D4A63D]/55 bg-[#FFF8E7]/45" : "scale-95 border-[#E7E1D7]/80 bg-transparent"
+          }`}
+          onClick={() => setActiveView("twelve")}
+          type="button"
+        />
+        <button
+          aria-label="Show My 3"
+          className={`absolute left-1/2 top-1/2 z-[3] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40 ${
+            activeView === "three" ? "scale-105 border-[#D4A63D]/70 bg-[#FFF8E7]" : "scale-100 border-[#E8DFCF] bg-white/70"
+          }`}
+          onClick={() => setActiveView("three")}
+          type="button"
+        />
 
-      <div className="mt-5 space-y-3">
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm font-semibold text-[#1E1D1A]">My 12</span>
-          <span className="text-sm text-[#77716A]">{my12Count} / 9</span>
+        {my12Active ? my12OuterPeople.slice(0, 12).map((item, index) => (
+          <TargetNode
+            className={activeView === "twelve" ? "opacity-100 scale-100" : "opacity-70 scale-90"}
+            key={`twelve-${item.person.id}`}
+            left={my12NodePositions[index % my12NodePositions.length][0]}
+            top={my12NodePositions[index % my12NodePositions.length][1]}
+          >
+            <CircleAvatar index={index + 3} person={item.person} size={activeView === "twelve" ? "sm" : "sm"} />
+          </TargetNode>
+        )) : null}
+
+        {my70Active ? visibleMy70Nodes.map((item, index) => (
+          <TargetNode
+            className="opacity-100 scale-100"
+            key={`seventy-${item.person.id}`}
+            left={my70NodePositions[index % my70NodePositions.length][0]}
+            top={my70NodePositions[index % my70NodePositions.length][1]}
+          >
+            <CircleAvatar index={index + 7} person={item.person} size="xs" />
+          </TargetNode>
+        )) : null}
+        {my70Active && clusterCount > 0 ? (
+          <CircleClusterNode count={clusterCount} left="82%" top="82%" />
+        ) : null}
+
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+          <div className={`flex justify-center gap-2 transition-all duration-300 ${activeView === "three" ? "scale-110" : "scale-95"}`}>
+            {my3Slots.map((person, index) => (
+              <CircleAvatar index={index} key={person?.id ?? `empty-${index}`} person={person} size={activeView === "three" ? "lg" : "md"} />
+            ))}
+          </div>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-[#EFECE5]">
-          <div className="h-full rounded-full bg-[#D4A63D]" style={{ width: `${Math.min(100, (my12Count / 9) * 100)}%` }} />
-        </div>
-        <div className="flex items-start justify-between gap-4 border-t border-[#F0ECE4] pt-3">
-          <span className="text-sm font-semibold text-[#1E1D1A]">My 70</span>
-          <span className="max-w-[190px] text-right text-xs leading-5 text-[#77716A]">
-            {my70Active} active · {my70FollowUp} follow up · {my70Multiplying} multiplying
-          </span>
-        </div>
+
+        <p className="absolute inset-x-0 bottom-5 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+          {copy.label}
+        </p>
       </div>
+
+      <div className="mt-1 grid grid-cols-3 rounded-full bg-[#F6F4EF] p-1">
+        {(["three", "twelve", "seventy"] as const).map((view) => {
+          const selected = activeView === view;
+
+          return (
+            <button
+              aria-pressed={selected}
+              className={`min-h-9 rounded-full px-2 text-xs font-bold transition-all ${
+                selected ? "bg-white text-[#111111] shadow-[0_6px_16px_rgba(42,37,29,0.08)]" : "text-[#77716A]"
+              }`}
+              key={view}
+              onClick={() => setActiveView(view)}
+              type="button"
+            >
+              {circleFocusCopy(view).label}
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="mt-3 text-center text-sm font-semibold text-[#1E1D1A]">
+        {Math.min(activeMembership.length, copy.denominator)} / {copy.denominator} {copy.countLabel}
+      </p>
 
       <button
         className="mt-5 inline-flex min-h-10 w-full items-center justify-center rounded-full bg-[#111111] px-4 text-sm font-bold text-white"
@@ -2313,7 +2500,7 @@ function CirclesDetailOverlay({
 }) {
   const sections = [
     { empty: "No one in My 3 yet.", items: my3, title: "My 3" },
-    { empty: "The next nine active relationships will appear here.", items: my12, title: "My 12" },
+    { empty: "The core circle will appear as activity grows.", items: my12, title: "My 12" },
     { empty: "The broader field will appear as activity grows.", items: my70, title: "My 70" },
   ];
 
@@ -2986,13 +3173,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [reviewLinksByMeetingId, selectedMeeting]);
   const selectedPerson = useMemo(() => people.find((person) => person.id === selectedPersonId) ?? null, [people, selectedPersonId]);
   const attentionPeople = useMemo(() => people.filter(isNeedsAttention), [people]);
-  const relatingCount = people.filter((person) => normalizeText(person.status).toLowerCase() !== "new").length;
-  const multiplyingCount = Math.max(data.stats.approvedFruit, visibleFruit.length);
-  const recentPeople = people.slice(0, 3);
   const my3People = (data.circles?.my3 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my12People = (data.circles?.my12 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my70People = (data.circles?.my70 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
-  const my70Summary = data.circles?.fieldSummary;
+  const my12CirclePeople = uniqueCircleMembers([...my3People, ...my12People]).slice(0, 12);
+  const my70CirclePeople = uniqueCircleMembers([...my3People, ...my12People, ...my70People]).slice(0, 70);
   const meetingCountByPersonId = useMemo(() => {
     const counts = new Map<string, number>();
 
@@ -3423,11 +3608,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             {activeTab === "home" ? (
               <div className="space-y-5">
                 <CircleFocusHero
-                  my12Count={my12People.length}
+                  my12={my12CirclePeople}
                   my3={my3People}
-                  my70Active={my70Summary?.activeThisMonth ?? 0}
-                  my70FollowUp={my70Summary?.needFollowUp ?? attentionPeople.length}
-                  my70Multiplying={my70Summary?.multiplying ?? multiplyingCount}
+                  my70={my70CirclePeople}
                   onViewCircles={() => setIsCirclesOpen(true)}
                 />
 
@@ -3575,9 +3758,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {isCirclesOpen ? (
           <CirclesDetailOverlay
             meetingCountByPersonId={meetingCountByPersonId}
-            my12={my12People}
+            my12={my12CirclePeople}
             my3={my3People}
-            my70={my70People}
+            my70={my70CirclePeople}
             onBack={() => setIsCirclesOpen(false)}
             onOpenPerson={openPersonDetail}
           />
