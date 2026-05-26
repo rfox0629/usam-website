@@ -120,11 +120,11 @@ export async function loadDosTestimonyLink(token: string): Promise<DosReviewLink
 
 export async function submitDosTestimony(token: string, submission: TestimonySubmission) {
   if (!isSupabaseAdminConfigured()) {
-    return { error: "Testimonies are not configured.", status: 500 as const };
+    return { error: "Story sharing is not configured.", status: 500 as const };
   }
 
   if (!isValidReviewToken(token)) {
-    return { error: "Testimony link not found.", status: 404 as const };
+    return { error: "Story link not found.", status: 404 as const };
   }
 
   const supabase = createSupabaseAdminClient();
@@ -136,17 +136,17 @@ export async function submitDosTestimony(token: string, submission: TestimonySub
     .maybeSingle();
 
   if (linkError || !link) {
-    return { error: "Testimony link not found.", status: 404 as const };
+    return { error: "Story link not found.", status: 404 as const };
   }
 
   const typedLink = link as ReviewLinkRow;
 
   if (typedLink.used_at) {
-    return { error: "This testimony link has already been used.", status: 409 as const };
+    return { error: "This story link has already been used.", status: 409 as const };
   }
 
   if (typedLink.expires_at && new Date(typedLink.expires_at).getTime() < Date.now()) {
-    return { error: "This testimony link has expired.", status: 410 as const };
+    return { error: "This story link has expired.", status: 410 as const };
   }
 
   const submittedAt = new Date().toISOString();
@@ -169,7 +169,7 @@ export async function submitDosTestimony(token: string, submission: TestimonySub
     .single();
 
   if (testimonyError || !testimony) {
-    return { error: testimonyError?.message ?? "Unable to save testimony.", status: 500 as const };
+    return { error: testimonyError?.message ?? "Unable to save story.", status: 500 as const };
   }
 
   await inferFruitEventsFromTestimony({

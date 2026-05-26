@@ -48,12 +48,12 @@ export function TestimonyForm({ link }: { link: ReadyLink }) {
       const result = await response.json().catch(() => ({})) as { error?: string };
 
       if (!response.ok) {
-        throw new Error(result.error ?? "Unable to send testimony.");
+        throw new Error(result.error ?? "Unable to send story.");
       }
 
       setSubmitted(true);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to send testimony.");
+      setErrorMessage(error instanceof Error ? error.message : "Unable to send story.");
     } finally {
       setIsSubmitting(false);
     }

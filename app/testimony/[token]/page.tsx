@@ -33,19 +33,19 @@ function TestimonyState({ detail, title }: { detail: string; title: string }) {
 function stateCopy(status: "already_submitted" | "expired" | "invalid" | "not_configured") {
   return {
     already_submitted: {
-      detail: "Thanks. This testimony has already been submitted.",
+      detail: "Thanks. This story has already been submitted.",
       title: "Story received",
     },
     expired: {
-      detail: "Ask the person who sent this to create a fresh testimony link.",
+      detail: "Ask the person who sent this to create a fresh story link.",
       title: "Link expired",
     },
     invalid: {
-      detail: "This testimony link is not available.",
+      detail: "This story link is not available.",
       title: "Story unavailable",
     },
     not_configured: {
-      detail: "Testimonies are not configured for this environment yet.",
+      detail: "Story sharing is not configured for this environment yet.",
       title: "Story unavailable",
     },
   }[status];
