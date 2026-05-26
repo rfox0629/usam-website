@@ -752,7 +752,7 @@ function LibrarySection({
   title,
 }: {
   children: ReactNode;
-  subtext: string;
+  subtext?: string;
   title: string;
 }) {
   return (
@@ -761,53 +761,67 @@ function LibrarySection({
         <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
           {title}
         </h2>
-        <p className="mt-1 text-xs leading-5 text-[#77716A]">{subtext}</p>
+        {subtext ? <p className="mt-1 text-xs leading-5 text-[#77716A]">{subtext}</p> : null}
       </div>
       {children}
     </section>
   );
 }
 
-function TableTeachingCard({
+const followUpIconClasses = [
+  "bg-[#E6F4ED] text-[#24724D]",
+  "bg-[#E8F0FF] text-[#2F5FAF]",
+  "bg-[#FFF0D8] text-[#986013]",
+  "bg-[#F4E9FF] text-[#7142A8]",
+] as const;
+
+function FeaturedTeachingCard({
   description,
   href,
-  pdfLabel,
   title,
 }: {
   description: string;
   href: string;
-  pdfLabel: string;
   title: string;
 }) {
   return (
-    <article className="rounded-[24px] border border-[#E5D5AD] bg-[#FFFCF5] p-4 shadow-[0_12px_30px_rgba(42,37,29,0.05)]">
-      <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#D7C7A4] bg-white text-[#9A6417]">
-          <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+    <article className="overflow-hidden rounded-[24px] border border-[#F0DEB9] bg-[#FFF0D8] shadow-[0_16px_34px_rgba(42,37,29,0.07)]">
+      <div className="relative p-4 pb-3">
+        <div className="min-w-0">
+          <span className="inline-flex rounded-full bg-white/75 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#9A6417]" style={{ fontFamily: font.rajdhani }}>
+            Start here
+          </span>
+          <h3 className="mt-3 text-lg font-bold leading-tight text-[#1E1D1A]">{title}</h3>
+          <p className="mt-1 text-xs font-medium leading-4 text-[#8A5A12]">{description}</p>
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="min-w-0">
-            <p className="text-base font-semibold text-[#1E1D1A]">{title}</p>
-            <p className="mt-1 text-xs leading-5 text-[#77716A]">{description}</p>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <a
-              className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#C99A2F] bg-[#D4A63D] px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1E1D1A] transition-colors hover:bg-[#C99A2F]"
-              href={href}
-              rel="noopener noreferrer"
-              style={{ fontFamily: font.rajdhani }}
-              target="_blank"
-            >
-              {pdfLabel}
-            </a>
-          </div>
+        <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/70 text-[#D9901E]">
+          <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
         </div>
+      </div>
+      <div className="flex flex-wrap gap-2 bg-[#FFF7E8]/80 p-3">
+        <a
+          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[#111111] px-4 text-[11px] font-bold text-white transition-colors hover:bg-[#2A2722]"
+          href={href}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+          Start walk-through
+        </a>
+        <a
+          className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#E0D3BD] bg-white px-4 text-[11px] font-bold text-[#1E1D1A] transition-colors hover:border-[#D4A63D] hover:bg-[#FFF8E8]"
+          href={href}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          PDF
+        </a>
       </div>
     </article>
   );
 }
 
-function FollowUpGuideCard({
+function TableTeachingRow({
   description,
   href,
   title,
@@ -816,23 +830,73 @@ function FollowUpGuideCard({
   href: string;
   title: string;
 }) {
+  const shortDescription = title === "Four Questions" ? "Honesty, help, surrender, and obedience." : description;
+
   return (
-    <article className="rounded-2xl border border-[#E2DED6] bg-white p-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#1E1D1A]">{title}</p>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#77716A]">{description}</p>
-        </div>
-        <a
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#D7C7A4] bg-[#FFF8E8] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12] transition-colors hover:border-[#D4A63D] hover:bg-[#F4E3C8]"
-          href={href}
-          rel="noopener noreferrer"
-          style={{ fontFamily: font.rajdhani }}
-          target="_blank"
-        >
-          Open Guide
-          <ChevronRight className="h-3 w-3" aria-hidden="true" strokeWidth={2} />
-        </a>
+    <a
+      className="flex min-h-[68px] items-center gap-2.5 rounded-[20px] border border-[#EEE8DD] bg-white px-3 py-2.5 shadow-[0_10px_24px_rgba(42,37,29,0.04)] transition-colors hover:border-[#D7C7A4]"
+      href={href}
+      rel="noopener noreferrer"
+      target="_blank"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#EEE7FF] text-[#6D55B8]">
+        <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold leading-tight text-[#1E1D1A]">{title}</span>
+        <span className="mt-1 block line-clamp-2 text-xs leading-4 text-[#77716A]">{shortDescription}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#B0A89C]" aria-hidden="true" strokeWidth={1.8} />
+    </a>
+  );
+}
+
+function FollowUpGuideRow({
+  description,
+  href,
+  index,
+  title,
+}: {
+  description: string;
+  href: string;
+  index: number;
+  title: string;
+}) {
+  const iconClassName = followUpIconClasses[index % followUpIconClasses.length];
+  const IconComponent = title === "Attending Church" ? Church : BookOpen;
+
+  return (
+    <a
+      className="group flex min-h-[64px] items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[#FFFCF5]"
+      href={href}
+      rel="noopener noreferrer"
+      target="_blank"
+    >
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
+        <IconComponent className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold leading-tight text-[#1E1D1A]">{title}</span>
+        <span className="mt-0.5 block line-clamp-1 text-xs leading-4 text-[#77716A]">{description}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#C79A31] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={1.9} />
+    </a>
+  );
+}
+
+function FollowUpGuideList() {
+  return (
+    <article className="overflow-hidden rounded-[22px] border border-[#E8E2D8] bg-white shadow-[0_12px_28px_rgba(42,37,29,0.04)]">
+      <div className="divide-y divide-[#EFEAE1]">
+        {dosFollowUpGuideResources.map((guide, index) => (
+          <FollowUpGuideRow
+            description={guide.description}
+            href={guide.href}
+            index={index}
+            key={guide.href}
+            title={guide.title}
+          />
+        ))}
       </div>
     </article>
   );
@@ -3123,6 +3187,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("all");
   const [conversationResponses, setConversationResponses] = useState<DosConversationResponses>({});
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
@@ -3150,6 +3215,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const draftRecommendedResources = useMemo(() => (
     buildMeetingRecommendations(selectedConversationFlow, conversationResponses)
   ), [conversationResponses, selectedConversationFlow]);
+  const featuredTableTeaching = dosTableTeachingResources[0];
+  const secondaryTableTeachings = dosTableTeachingResources.slice(1);
+  const showTableTeachings = libraryFilter === "all" || libraryFilter === "teachings";
+  const showFollowUpResources = libraryFilter === "all" || libraryFilter === "follow_up";
   const selectedMeeting = useMemo(() => data.meetings.find((meeting) => meeting.id === selectedMeetingId) ?? null, [data.meetings, selectedMeetingId]);
   const selectedMeetingWithReview = useMemo(() => {
     if (!selectedMeeting) {
@@ -3591,20 +3660,39 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       <div className="relative h-[100dvh] w-full overflow-hidden bg-[#F5F3EE] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[860px] sm:max-w-[390px] sm:rounded-[34px] sm:border sm:border-[#DED9CF]">
         <div className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none]">
           <header className="relative">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E1D1A]" style={{ fontFamily: font.rajdhani }}>
-                DOS
-              </p>
-              <h1 className="mt-1 max-w-[250px] text-4xl font-bold leading-[0.92] tracking-[-0.02em] text-[#111111]" style={{ fontFamily: font.oswald }}>
-                Discipleship on the go.
-              </h1>
-            </div>
-            <span className="absolute right-0 top-0 rounded-full border border-[#D9D4CA] bg-[#F8F7F3] px-4 py-1.5 text-xs font-medium text-[#1E1D1A]">
-              Field
-            </span>
+            {activeTab === "more" ? (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A6417]" style={{ fontFamily: font.rajdhani }}>
+                  Library
+                </p>
+                <h1 className="mt-1 text-[30px] font-bold leading-none text-[#1E1D1A]">Resources</h1>
+                <p className="mt-1 text-[13px] leading-5 text-[#77716A]">For conversations and follow up.</p>
+                <button
+                  aria-label="Search library"
+                  className="absolute right-0 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-[#1E1D1A] transition-colors hover:border-[#E2DED6] hover:bg-white"
+                  type="button"
+                >
+                  <Search className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E1D1A]" style={{ fontFamily: font.rajdhani }}>
+                    DOS
+                  </p>
+                  <h1 className="mt-1 max-w-[250px] text-4xl font-bold leading-[0.92] tracking-[-0.02em] text-[#111111]" style={{ fontFamily: font.oswald }}>
+                    Discipleship on the go.
+                  </h1>
+                </div>
+                <span className="absolute right-0 top-0 rounded-full border border-[#D9D4CA] bg-[#F8F7F3] px-4 py-1.5 text-xs font-medium text-[#1E1D1A]">
+                  Field
+                </span>
+              </>
+            )}
           </header>
 
-          <main className="mt-7">
+          <main className={activeTab === "more" ? "mt-5" : "mt-7"}>
             {activeTab === "home" ? (
               <div className="space-y-5">
                 <CircleFocusHero
@@ -3708,41 +3796,58 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "more" ? (
               <div>
-              <SectionHeading title="Library" />
-              <p className="-mt-2 mb-5 text-sm leading-5 text-[#77716A]">Resources for conversations and follow up.</p>
-              <div className="space-y-6">
-                <LibrarySection
-                  subtext="Teachings to walk through during a live conversation."
-                  title="Table Teachings"
-                >
-                  <div className="grid gap-3">
-                    {dosTableTeachingResources.map((teaching) => (
-                      <TableTeachingCard
-                        description={teaching.description}
-                        href={teaching.href}
-                        key={teaching.href}
-                        pdfLabel={teaching.pdfLabel}
-                        title={teaching.title}
-                      />
-                    ))}
-                  </div>
-                </LibrarySection>
+              <div className="mb-6 flex flex-wrap gap-1.5">
+                {libraryFilters.map((filter) => {
+                  const isActive = libraryFilter === filter.value;
 
-                <LibrarySection
-                  subtext="Resources to send after a conversation."
-                  title="Follow Up Resources"
-                >
-                  <div className="grid gap-2.5">
-                    {dosFollowUpGuideResources.map((guide) => (
-                      <FollowUpGuideCard
-                        description={guide.description}
-                        href={guide.href}
-                        key={guide.href}
-                        title={guide.title}
+                  return (
+                    <button
+                      className={`min-h-8 rounded-full border px-3 text-[11px] font-semibold transition-colors ${
+                        isActive
+                          ? "border-[#111111] bg-[#111111] text-white"
+                          : "border-[#DDD5C9] bg-white text-[#5E584F] hover:border-[#C99A2F]"
+                      }`}
+                      key={filter.value}
+                      onClick={() => setLibraryFilter(filter.value)}
+                      type="button"
+                    >
+                      {filter.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-6">
+                {showTableTeachings ? (
+                  <LibrarySection
+                    title="Table Teachings"
+                  >
+                    <div className="grid gap-3">
+                      <FeaturedTeachingCard
+                        description={featuredTableTeaching.description}
+                        href={featuredTableTeaching.href}
+                        title={featuredTableTeaching.title}
                       />
-                    ))}
-                  </div>
-                </LibrarySection>
+                      {secondaryTableTeachings.map((teaching) => (
+                        <TableTeachingRow
+                          description={teaching.description}
+                          href={teaching.href}
+                          key={teaching.href}
+                          title={teaching.title}
+                        />
+                      ))}
+                    </div>
+                  </LibrarySection>
+                ) : null}
+
+                {showFollowUpResources ? (
+                  <LibrarySection
+                    subtext="To send after a conversation."
+                    title="Follow Up Resources"
+                  >
+                    <FollowUpGuideList />
+                  </LibrarySection>
+                ) : null}
               </div>
               <Link
                 className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#DDD9D0] bg-white px-4 text-sm font-bold text-[#1E1D1A]"
