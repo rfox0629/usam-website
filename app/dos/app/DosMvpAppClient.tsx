@@ -1098,10 +1098,10 @@ function CircleAvatar({
   size?: "lg" | "md" | "sm" | "xs";
 }) {
   const sizeClass = {
-    lg: "h-12 w-12 text-sm",
-    md: "h-11 w-11 text-xs",
-    sm: "h-9 w-9 text-[11px]",
-    xs: "h-7 w-7 text-[9px]",
+    lg: "h-11 w-11 text-sm",
+    md: "h-10 w-10 text-xs",
+    sm: "h-8 w-8 text-[10px]",
+    xs: "h-6 w-6 text-[8px]",
   }[size];
 
   if (!person) {
@@ -1240,12 +1240,12 @@ function CircleFocusHero({
     const y = event.clientY - bounds.top - bounds.height / 2;
     const distanceFromCenter = Math.sqrt(x * x + y * y);
 
-    if (distanceFromCenter <= 64) {
+    if (distanceFromCenter <= 72) {
       setActiveView("three");
       return;
     }
 
-    if (distanceFromCenter <= 96) {
+    if (distanceFromCenter <= 108) {
       setActiveView("twelve");
       return;
     }
@@ -1268,20 +1268,20 @@ function CircleFocusHero({
 
       <button
         aria-label={`Circle Focus target. ${copy.label} selected.`}
-        className="relative mx-auto mt-5 block h-60 w-full max-w-[278px] cursor-pointer rounded-full text-left focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40"
+        className="relative mx-auto mt-5 block h-[17rem] w-full max-w-[304px] cursor-pointer rounded-full text-left focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40"
         onClick={handleTargetClick}
         type="button"
       >
         <span
-          className={`absolute left-1/2 top-1/2 z-[1] h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${outerRingClassName}`}
+          className={`absolute left-1/2 top-1/2 z-[1] h-60 w-60 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${outerRingClassName}`}
           data-circle-ring="outer"
         />
         <span
-          className={`absolute left-1/2 top-1/2 z-[2] h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${middleRingClassName}`}
+          className={`absolute left-1/2 top-1/2 z-[2] h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${middleRingClassName}`}
           data-circle-ring="middle"
         />
         <span
-          className={`absolute left-1/2 top-1/2 z-[3] h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${
+          className={`absolute left-1/2 top-1/2 z-[3] h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${
             activeView === "three" ? "scale-105 border-[#D4A63D]/70 bg-[#FFF8E7]" : "scale-100 border-[#E8DFCF] bg-white/70"
           }`}
           data-circle-ring="center"
