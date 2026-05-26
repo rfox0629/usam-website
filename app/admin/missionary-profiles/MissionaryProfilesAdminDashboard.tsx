@@ -40,6 +40,7 @@ import {
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 const lightPanelClass = "max-w-[900px] rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-7 text-[#111111] shadow-[0_22px_60px_rgba(0,0,0,0.28)] md:p-8";
+const lightWidePanelClass = "max-w-[1240px] rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-7 text-[#111111] shadow-[0_22px_60px_rgba(0,0,0,0.28)] md:p-8";
 const lightInputClass = "mt-2 min-h-12 w-full rounded-xl border border-[#d7d2c8] bg-white px-3.5 py-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]";
 const lightLabelClass = "text-[11px] uppercase tracking-[0.16em] text-[#6f6658]";
 const lightHelperClass = "mt-2 block text-[12px] leading-5 text-[#7b746a]";
@@ -2085,13 +2086,15 @@ function SectionIntro({
   children,
   description,
   title,
+  wide = false,
 }: {
   children: ReactNode;
   description?: string;
   title: string;
+  wide?: boolean;
 }) {
   return (
-    <div className={lightPanelClass}>
+    <div className={wide ? lightWidePanelClass : lightPanelClass}>
       <div className="mb-6 max-w-3xl">
         <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {title}
@@ -3841,10 +3844,23 @@ function meetingDateTimeParts(meeting: MeetingListItem) {
   };
 }
 
+function dateTimeDetailLabel(parts: { date: string; time: string }) {
+  return `${parts.date} · ${parts.time}`;
+}
+
 function meetingDateTimeLabel(meeting: MeetingListItem) {
   return meeting.time
     ? `${formatProfileUpdatedDate(meeting.date)} at ${meeting.time}`
     : formatProfileUpdatedDate(meeting.date);
+}
+
+function tableDateTimeParts(table: AdminMissionaryTable) {
+  const parsedNotes = parseMeetingNotes(table.notes);
+
+  return {
+    date: formatProfileUpdatedDate(table.table_date),
+    time: parsedNotes.meta.time || "Time not set",
+  };
 }
 
 function tableDateTimeLabel(table: AdminMissionaryTable) {
@@ -4008,7 +4024,7 @@ function MeetingStatusBadge({ status }: { status: AdminMeetingStatus }) {
   }[status];
 
   return (
-    <span className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+    <span className={`inline-flex min-h-6 w-fit items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
       {meetingStatusLabel(status)}
     </span>
   );
@@ -4329,116 +4345,123 @@ function MeetingsManager({
       ) : null}
 
       {meetings.length > 0 ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(820px,1fr)_minmax(320px,0.5fr)]">
           <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
             <div className="overflow-x-auto">
-              <div className="hidden min-w-[760px] grid-cols-[128px_minmax(210px,1fr)_108px_108px_minmax(112px,0.85fr)_72px] gap-4 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-2.5 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              <span>Date & Time</span>
-              <span>Person</span>
-              <span>Depth</span>
-              <span>Status</span>
-              <span>Next Step</span>
-              <span className="text-right">Action</span>
-            </div>
-            <div className="divide-y divide-[#e2ded5] lg:min-w-[760px]">
-              {meetings.map((meeting) => {
-                const selected = selectedMeeting?.id === meeting.id;
-                const personLabel = meetingPeopleLabel(meeting, fieldPeople);
-                const dateTime = meetingDateTimeParts(meeting);
+              <div className="hidden min-w-[820px] grid-cols-[112px_minmax(180px,1fr)_112px_104px_minmax(120px,0.8fr)_76px] items-center gap-2 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span>Date & Time</span>
+                <span>Person</span>
+                <span>Depth</span>
+                <span>Status</span>
+                <span>Next Step</span>
+                <span className="text-right">Action</span>
+              </div>
+              <div className="divide-y divide-[#e2ded5] lg:min-w-[820px]">
+                {meetings.map((meeting) => {
+                  const selected = selectedMeeting?.id === meeting.id;
+                  const personLabel = meetingPeopleLabel(meeting, fieldPeople);
+                  const dateTime = meetingDateTimeParts(meeting);
 
-                return (
-                  <div
-                    className={`grid min-h-[72px] cursor-pointer gap-3 px-4 py-3.5 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[128px_minmax(210px,1fr)_108px_108px_minmax(112px,0.85fr)_72px] lg:items-center ${selected ? "bg-[#fff8e8]" : ""}`}
-                    key={meeting.id}
-                    onClick={() => setSelectedMeetingId(meeting.id)}
-                  >
-                    <div className="flex items-start justify-between gap-3 lg:block">
-                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Date & Time
-                      </span>
-                      <div className="min-w-0 text-right lg:text-left">
-                        <span className="block whitespace-nowrap text-sm font-semibold text-[#111111]">
-                          {dateTime.date}
+                  return (
+                    <div
+                      className={`grid min-h-[72px] cursor-pointer gap-4 px-4 py-4 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[112px_minmax(180px,1fr)_112px_104px_minmax(120px,0.8fr)_76px] lg:items-center lg:gap-2 ${selected ? "bg-[#fff8e8] shadow-[inset_3px_0_0_#D4A63D]" : "bg-white"}`}
+                      key={meeting.id}
+                      onClick={() => setSelectedMeetingId(meeting.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedMeetingId(meeting.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <div className="grid gap-1 lg:block">
+                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Date & Time
                         </span>
-                        <span className="mt-1 block whitespace-nowrap text-xs leading-4 text-[#7b746a]">
-                          {dateTime.time}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start justify-between gap-3 lg:block">
-                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Person
-                      </span>
-                      <div className="flex min-w-0 items-center justify-end gap-3 lg:justify-start">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          {initialsFromName(personLabel)}
-                        </span>
-                        <div className="min-w-0 text-right lg:text-left">
-                          <span className="block truncate text-sm font-semibold text-[#111111]">
-                            {personLabel}
+                        <div className="min-w-0 text-left">
+                          <span className="block whitespace-nowrap text-sm font-semibold leading-5 text-[#111111]">
+                            {dateTime.date}
                           </span>
-                          <span className="mt-1 block truncate text-xs leading-4 text-[#7b746a]">
-                            {meetingTypeLabel(meeting.meetingType)}
+                          <span className="mt-1 block whitespace-nowrap text-xs leading-4 text-[#7b746a]">
+                            {dateTime.time}
                           </span>
                         </div>
                       </div>
-                    </div>
 
-                    {[
-                      ["Depth", meetingDepthLabel(meeting.depth), "text-sm leading-5 text-[#4b443b]"],
-                    ].map(([label, value, className]) => (
-                      <div className="flex items-center justify-between gap-3 lg:block" key={label}>
-                        <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          {label}
+                      <div className="grid gap-2 lg:block">
+                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Person
                         </span>
-                        <span className={`${className} text-right lg:text-left`}>
-                          {value}
+                        <div className="flex min-w-0 items-center justify-start gap-3">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                            {initialsFromName(personLabel)}
+                          </span>
+                          <div className="min-w-0 text-left">
+                            <span className="block truncate text-sm font-semibold leading-5 text-[#111111]">
+                              {personLabel}
+                            </span>
+                            <span className="mt-1 block truncate text-xs leading-4 text-[#7b746a]">
+                              {meetingTypeLabel(meeting.meetingType)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-1 lg:block">
+                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Depth
+                        </span>
+                        <span className="block text-left text-sm leading-5 text-[#4b443b]">
+                          {meetingDepthLabel(meeting.depth)}
                         </span>
                       </div>
-                    ))}
-                    <div className="flex items-center justify-between gap-3 lg:block">
-                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Status
-                      </span>
-                      <MeetingStatusBadge status={meeting.status} />
+
+                      <div className="grid gap-1 lg:block">
+                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Status
+                        </span>
+                        <MeetingStatusBadge status={meeting.status} />
+                      </div>
+
+                      <div className="grid gap-1 lg:block">
+                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Next Step
+                        </span>
+                        <span className="block max-w-full truncate text-left text-sm leading-5 text-[#4b443b]">{meeting.nextStep}</span>
+                      </div>
+
+                      <div className="flex justify-start gap-1.5 lg:justify-end">
+                        <button
+                          aria-label={`View ${personLabel}`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedMeetingId(meeting.id);
+                          }}
+                          title="View"
+                          type="button"
+                        >
+                          <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                        <button
+                          aria-label={`Edit ${personLabel}`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setEditingMeeting(meeting);
+                          }}
+                          title="Edit"
+                          type="button"
+                        >
+                          <Eye aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between gap-3 lg:block">
-                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Next Step
-                      </span>
-                      <span className="block text-right text-sm leading-5 text-[#4b443b] lg:text-left">{meeting.nextStep}</span>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <button
-                        aria-label={`View ${personLabel}`}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setSelectedMeetingId(meeting.id);
-                        }}
-                        title="View"
-                        type="button"
-                      >
-                        <ChevronRight aria-hidden="true" className="h-4 w-4" />
-                      </button>
-                      <button
-                        aria-label={`Edit ${personLabel}`}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setEditingMeeting(meeting);
-                        }}
-                        title="Edit"
-                        type="button"
-                      >
-                        <Eye aria-hidden="true" className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -4526,6 +4549,7 @@ function QuickTouchDetailPanel({
   onEdit: () => void;
 }) {
   const locationChannel = parseMeetingNotes(meeting.connection?.notes).meta.locationChannel ?? "";
+  const dateTime = meetingDateTimeParts(meeting);
 
   return (
     <aside className="self-start rounded-xl border border-[#e2ded5] bg-white p-4">
@@ -4547,7 +4571,8 @@ function QuickTouchDetailPanel({
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <DetailText label="Date / Time" value={meetingDateTimeLabel(meeting)} />
+        <DetailText label="Meeting Type" value={meetingTypeLabel(meeting.meetingType)} />
+        <DetailText label="Date & Time" value={dateTimeDetailLabel(dateTime)} />
         <DetailText label="People" value={meetingPeopleLabel(meeting, fieldPeople)} />
         <DetailText label="Status" value={meetingStatusLabel(meeting.status)} />
         <DetailText label="Next Step" value={meeting.nextStep} />
@@ -4780,6 +4805,7 @@ function TableDetailPanel({
   const activeTable = table;
   const parsedTableNotes = parseMeetingNotes(activeTable.notes);
   const tableDisplay = tableActivityDisplay(activeTable, fieldPeople);
+  const tableDateTime = tableDateTimeParts(activeTable);
   const tablePeople = tableLinkedPeople(activeTable, fieldPeople);
   const peopleLabel = tablePeople.length > 0 ? participantNamesText(tablePeople) : "Not added";
   const linkedPeople = fieldPeople.filter((person) => activeTable.field_person_ids.includes(person.id));
@@ -4799,12 +4825,12 @@ function TableDetailPanel({
         : "Private";
   const summaryItems = [
     { label: "Meeting Type", value: meetingTypeLabel(parsedTableNotes.meta.meetingType ?? activeTable.table_type) },
-    { label: "Date & Time", value: tableDateTimeLabel(activeTable) },
+    { label: "Date & Time", value: dateTimeDetailLabel(tableDateTime) },
     { label: "People", value: peopleLabel },
-    { label: "Notes", value: parsedTableNotes.notes || "No notes added." },
     { label: "Responses", value: String(encounters.length) },
     { label: "Review", value: reviewStarted ? "Started" : "Not started" },
     { label: "Fruit", value: fruitStatusText },
+    { label: "Notes", value: parsedTableNotes.notes || "No notes added.", wide: true },
   ];
 
   function updateReview(patch: Partial<AdminTableReview>) {
@@ -4858,7 +4884,7 @@ function TableDetailPanel({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {summaryItems.map((item) => (
-          <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3" key={item.label}>
+          <div className={`rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 ${item.wide ? "sm:col-span-2" : ""}`} key={item.label}>
             <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {item.label}
             </p>
@@ -10344,6 +10370,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
           <SectionIntro
             description="Meetings & follow-up"
             title="Meetings"
+            wide
           >
             <MeetingsManager
               connections={selectedProfile.connectionLogs ?? []}
