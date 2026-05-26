@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, FileImage, Mail, MapPin, MessageCircle, Mic, MoreHorizontal, Pencil, Phone, Search, Send, Share2, Square, StickyNote, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, FileImage, Flame, Gift, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Pencil, Phone, Search, Send, Share2, Sparkles, Square, StickyNote, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -768,12 +768,30 @@ function LibrarySection({
   );
 }
 
-const followUpIconClasses = [
-  "bg-[#E6F4ED] text-[#24724D]",
-  "bg-[#E8F0FF] text-[#2F5FAF]",
-  "bg-[#FFF0D8] text-[#986013]",
-  "bg-[#F4E9FF] text-[#7142A8]",
-] as const;
+function followUpResourceIcon(title: string) {
+  switch (title) {
+    case "Attending Church":
+      return { className: "bg-[#E6F4ED] text-[#24724D]", IconComponent: Church };
+    case "Daily Bible Reading":
+      return { className: "bg-[#E8F0FF] text-[#2F5FAF]", IconComponent: BookOpen };
+    case "Baptism":
+      return { className: "bg-[#E4F5F8] text-[#227083]", IconComponent: Droplet };
+    case "Biblical Giving":
+      return { className: "bg-[#FFF0D8] text-[#986013]", IconComponent: Gift };
+    case "Discipleship":
+      return { className: "bg-[#EAF1E2] text-[#577D31]", IconComponent: Users };
+    case "Evangelism":
+      return { className: "bg-[#FFF3CF] text-[#9A6417]", IconComponent: Megaphone };
+    case "Prayer and Fasting":
+      return { className: "bg-[#F4E9FF] text-[#7142A8]", IconComponent: Flame };
+    case "Sabbath":
+      return { className: "bg-[#E9ECFF] text-[#4F5FA8]", IconComponent: Moon };
+    case "Spiritual Gifts":
+      return { className: "bg-[#F8EAFE] text-[#8A4E9F]", IconComponent: Sparkles };
+    default:
+      return { className: "bg-[#F1F0EC] text-[#6F6658]", IconComponent: BookOpen };
+  }
+}
 
 function FeaturedTeachingCard({
   description,
@@ -798,23 +816,15 @@ function FeaturedTeachingCard({
           <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 bg-[#FFF7E8]/80 p-3">
+      <div className="bg-[#FFF7E8]/80 p-3">
         <a
-          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[#111111] px-4 text-[11px] font-bold text-white transition-colors hover:bg-[#2A2722]"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#111111] px-4 text-[11px] font-bold text-white transition-colors hover:bg-[#2A2722]"
           href={href}
           rel="noopener noreferrer"
           target="_blank"
         >
-          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
-          Start walk-through
-        </a>
-        <a
-          className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#E0D3BD] bg-white px-4 text-[11px] font-bold text-[#1E1D1A] transition-colors hover:border-[#D4A63D] hover:bg-[#FFF8E8]"
-          href={href}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          PDF
+          <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+          Open Teaching
         </a>
       </div>
     </article>
@@ -834,19 +844,22 @@ function TableTeachingRow({
 
   return (
     <a
-      className="flex min-h-[68px] items-center gap-2.5 rounded-[20px] border border-[#EEE8DD] bg-white px-3 py-2.5 shadow-[0_10px_24px_rgba(42,37,29,0.04)] transition-colors hover:border-[#D7C7A4]"
+      className="flex min-h-[72px] items-center gap-2.5 rounded-[20px] border border-[#F0DEB9] bg-[#FFFCF5] px-3 py-2.5 shadow-[0_10px_24px_rgba(42,37,29,0.04)] transition-colors hover:border-[#D7C7A4]"
       href={href}
       rel="noopener noreferrer"
       target="_blank"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#EEE7FF] text-[#6D55B8]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#FFF0D8] text-[#9A6417]">
         <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold leading-tight text-[#1E1D1A]">{title}</span>
         <span className="mt-1 block line-clamp-2 text-xs leading-4 text-[#77716A]">{shortDescription}</span>
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[#B0A89C]" aria-hidden="true" strokeWidth={1.8} />
+      <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9A6417]" style={{ fontFamily: font.rajdhani }}>
+        Open
+        <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+      </span>
     </a>
   );
 }
@@ -854,16 +867,13 @@ function TableTeachingRow({
 function FollowUpGuideRow({
   description,
   href,
-  index,
   title,
 }: {
   description: string;
   href: string;
-  index: number;
   title: string;
 }) {
-  const iconClassName = followUpIconClasses[index % followUpIconClasses.length];
-  const IconComponent = title === "Attending Church" ? Church : BookOpen;
+  const { className: iconClassName, IconComponent } = followUpResourceIcon(title);
 
   return (
     <a
@@ -888,11 +898,10 @@ function FollowUpGuideList() {
   return (
     <article className="overflow-hidden rounded-[22px] border border-[#E8E2D8] bg-white shadow-[0_12px_28px_rgba(42,37,29,0.04)]">
       <div className="divide-y divide-[#EFEAE1]">
-        {dosFollowUpGuideResources.map((guide, index) => (
+        {dosFollowUpGuideResources.map((guide) => (
           <FollowUpGuideRow
             description={guide.description}
             href={guide.href}
-            index={index}
             key={guide.href}
             title={guide.title}
           />
