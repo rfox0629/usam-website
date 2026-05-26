@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, FileImage, Mail, MapPin, MessageCircle, Mic, MoreHorizontal, Pencil, Phone, Send, Share2, Square, StickyNote, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent, ReactNode } from "react";
+import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
 import {
   buildMeetingRecommendations,
   dosKitchenTableQuestions,
@@ -432,6 +432,29 @@ function personAddressLine(defaults: PersonFormDefaults) {
   const cityStateZip = [defaults.city, [defaults.state, defaults.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
 
   return [defaults.homeAddress, cityStateZip].filter(Boolean).join(", ");
+}
+
+function mapsHrefForAddress(address: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
+function handleAddressMapClick(event: MouseEvent<HTMLAnchorElement>, address: string) {
+  if (typeof navigator === "undefined" || typeof window === "undefined") {
+    return;
+  }
+
+  const encodedAddress = encodeURIComponent(address);
+  const userAgent = navigator.userAgent;
+
+  if (/iPad|iPhone|iPod|Macintosh/i.test(userAgent)) {
+    event.preventDefault();
+    window.location.href = `https://maps.apple.com/?q=${encodedAddress}`;
+  }
+
+  if (/Android/i.test(userAgent)) {
+    event.preventDefault();
+    window.location.href = `geo:0,0?q=${encodedAddress}`;
+  }
 }
 
 function statusLabel(value: string | null | undefined) {
@@ -1656,6 +1679,34 @@ function DetailRow({
   );
 }
 
+function ContactActionLink({
+  children,
+  href,
+  icon,
+  onClick,
+}: {
+  children: ReactNode;
+  href: string;
+  icon: ReactNode;
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  return (
+    <a
+      className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12] transition-colors hover:border-[#D4A63D] hover:bg-[#F4E3C8] active:scale-[0.98]"
+      href={href}
+      onClick={onClick}
+      style={{ fontFamily: font.rajdhani }}
+    >
+      {icon}
+      {children}
+    </a>
+  );
+}
+
+function ContactActionGroup({ children }: { children: ReactNode }) {
+  return <div className="flex shrink-0 flex-wrap justify-end gap-1.5">{children}</div>;
+}
+
 function PersonQuickAction({
   children,
   href,
@@ -1770,18 +1821,45 @@ function PersonDetailOverlay({
       <div className="mt-5 grid gap-3">
         <DetailCard title="Contact Information">
           <DetailRow
-            action={person.phone ? <a className="text-[#8A5A12]" href={`sms:${person.phone}`} aria-label={`Text ${person.name}`}><MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} /></a> : null}
+            action={person.phone ? (
+              <ContactActionGroup>
+                <ContactActionLink href={`tel:${person.phone}`} icon={<Phone className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />}>
+                  Call
+                </ContactActionLink>
+                <ContactActionLink href={`sms:${person.phone}`} icon={<MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />}>
+                  Text
+                </ContactActionLink>
+              </ContactActionGroup>
+            ) : null}
             icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
             value={person.phone}
           />
           {person.email ? (
             <DetailRow
-              action={<a className="text-[#8A5A12]" href={`mailto:${person.email}`} aria-label={`Email ${person.name}`}><Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} /></a>}
+              action={(
+                <ContactActionLink href={`mailto:${person.email}`} icon={<Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />}>
+                  Email
+                </ContactActionLink>
+              )}
               icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
               value={person.email}
             />
           ) : null}
-          {address ? <DetailRow icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} value={address} /> : null}
+          {address ? (
+            <DetailRow
+              action={(
+                <ContactActionLink
+                  href={mapsHrefForAddress(address)}
+                  icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />}
+                  onClick={(event) => handleAddressMapClick(event, address)}
+                >
+                  Map
+                </ContactActionLink>
+              )}
+              icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+              value={address}
+            />
+          ) : null}
         </DetailCard>
 
         <DetailCard title="About">
