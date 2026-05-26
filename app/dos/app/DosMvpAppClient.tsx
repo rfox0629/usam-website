@@ -765,19 +765,23 @@ function ConversationFlowCard({
   ctaLabel,
   description,
   disabled,
+  href,
   onStart,
+  pdfLabel,
   title,
 }: {
   ctaLabel: string;
   description: string;
   disabled?: boolean;
+  href: string;
   onStart: () => void;
+  pdfLabel: string;
   title: string;
 }) {
   return (
-    <article className="rounded-[22px] border border-[#E2DED6] bg-white p-4 shadow-[0_12px_30px_rgba(42,37,29,0.05)]">
+    <article className="rounded-[24px] border border-[#E5D5AD] bg-[#FFFCF5] p-4 shadow-[0_12px_30px_rgba(42,37,29,0.05)]">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#E5D5AD] bg-[#FFF7E5] text-[#9A6417]">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#D7C7A4] bg-white text-[#9A6417]">
           <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </div>
         <div className="min-w-0 flex-1">
@@ -787,35 +791,31 @@ function ConversationFlowCard({
               <p className="mt-1 text-xs leading-5 text-[#77716A]">{description}</p>
             </div>
             <span className="rounded-full bg-[#F5EFE1] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
-              Flow
+              Table
             </span>
           </div>
-          <button
-            className="mt-3 inline-flex min-h-9 items-center justify-center rounded-full bg-[#1E1D1A] px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:bg-[#C9C3B8] disabled:text-white/80"
-            disabled={disabled}
-            onClick={onStart}
-            style={{ fontFamily: font.rajdhani }}
-            type="button"
-          >
-            {disabled ? "Unavailable" : ctaLabel}
-          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a
+              className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#D7C7A4] bg-white px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12] transition-colors hover:border-[#D4A63D] hover:bg-[#FFF8E8]"
+              href={href}
+              rel="noopener noreferrer"
+              style={{ fontFamily: font.rajdhani }}
+              target="_blank"
+            >
+              {pdfLabel}
+            </a>
+            <button
+              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#1E1D1A] px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:bg-[#C9C3B8] disabled:text-white/80"
+              disabled={disabled}
+              onClick={onStart}
+              style={{ fontFamily: font.rajdhani }}
+              type="button"
+            >
+              {disabled ? "Unavailable" : ctaLabel}
+            </button>
+          </div>
         </div>
       </div>
-    </article>
-  );
-}
-
-function FutureFlowCard() {
-  // TODO: Wire future flows into the DOS flow engine with structured questions and recommendation triggers.
-  return (
-    <article className="flex min-h-14 items-center justify-between rounded-2xl border border-dashed border-[#DCD5C8] bg-white/70 px-4">
-      <div>
-        <p className="text-sm font-semibold text-[#1E1D1A]">More conversation flows</p>
-        <p className="mt-0.5 text-xs text-[#8E8880]">Structured questions and next-step prompts.</p>
-      </div>
-      <span className="rounded-full bg-[#F1F0EC] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-        Soon
-      </span>
     </article>
   );
 }
@@ -3437,8 +3437,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <SectionHeading title="More" />
               <div className="space-y-6">
                 <LibrarySection
-                  subtext="Interactive discipleship conversations used during ministry."
-                  title="Conversation Flows"
+                  subtext="Guides to walk through during a live conversation."
+                  title="Table Conversations"
                 >
                   <div className="grid gap-3">
                     {dosConversationFlowResources.map((flow) => (
@@ -3446,18 +3446,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         ctaLabel={flow.ctaLabel}
                         description={flow.description}
                         disabled={!data.workspace.isUsamWorkspace}
+                        href={flow.href}
                         key={flow.flowKey}
                         onStart={() => openConversationFlow(flow.flowKey)}
+                        pdfLabel={flow.pdfLabel}
                         title={flow.title}
                       />
                     ))}
-                    <FutureFlowCard />
                   </div>
                 </LibrarySection>
 
                 <LibrarySection
-                  subtext="Resources to help people grow after conversations."
-                  title="Follow-Up Guides"
+                  subtext="Resources to send after a conversation."
+                  title="Follow Up Guides"
                 >
                   <div className="grid gap-2.5">
                     {dosFollowUpGuideResources.map((guide) => (

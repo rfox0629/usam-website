@@ -8,6 +8,8 @@ export type DosConversationFlowResource = {
   ctaLabel: string;
   description: string;
   flowKey: "four_questions" | "kitchen_table_gospel";
+  href: string;
+  pdfLabel: string;
   title: string;
 };
 
@@ -16,13 +18,17 @@ export const dosConversationFlowResources = [
     ctaLabel: "Start Conversation",
     description: "A guided Gospel conversation for live ministry moments.",
     flowKey: "kitchen_table_gospel",
+    href: "/guides/kitchen-table-gospel.pdf",
+    pdfLabel: "Open PDF",
     title: "Kitchen Table Gospel",
   },
   {
-    ctaLabel: "Start Flow",
+    ctaLabel: "Log With This Flow",
     description: "A guided honesty, help, surrender, and obedience conversation.",
     flowKey: "four_questions",
-    title: "Four Questions",
+    href: "/guides/four-questions.pdf",
+    pdfLabel: "Open PDF",
+    title: "The Four Questions",
   },
 ] as const satisfies readonly DosConversationFlowResource[];
 
@@ -79,6 +85,11 @@ export const dosGuideResources = [
     description: "A simple guide for presenting the Gospel around the table.",
     href: "/guides/kitchen-table-gospel.pdf",
     title: "Kitchen Table Gospel",
+  },
+  {
+    description: "A short coffee-table conversation teaching for honesty, help, surrender, and obedience.",
+    href: "/guides/four-questions.pdf",
+    title: "The Four Questions",
   },
   ...dosFollowUpGuideResources,
 ] as const satisfies readonly DosGuideResource[];

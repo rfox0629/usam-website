@@ -44,9 +44,10 @@ Do not introduce another people, contact, disciple, or relationship table for th
 - Meetings separate Meeting Context from Conversation Flow.
 - Meeting Context records how the interaction happened, such as Kitchen Table, Coffee, Phone, Zoom, Text, Prayer, Group, Discipleship, or Other.
 - Conversation Flow records what spiritual guide was used. `None` is the universal default.
-- Conversation Flows are reusable guided discipleship experiences, not passive PDFs.
-- Implemented flows: Kitchen Table Gospel and Four Questions.
-- Kitchen Table Gospel and Four Questions are currently gated to USAM Missionary Workspaces.
+- Table Conversations are live-meeting resources. They may include a printable PDF teaching guide, an app-startable flow, or both.
+- App-startable Conversation Flows are reusable guided discipleship experiences, not passive PDFs.
+- Implemented table conversations: Kitchen Table Gospel and The Four Questions.
+- Kitchen Table Gospel and The Four Questions are currently gated to USAM Missionary Workspaces.
 - Flow responses are stored as flexible private JSONB on the meeting record so new questions can expand without a migration for every prompt.
 - Flows support simple answer types, recommendations, and follow-up actions.
 - Recommended resources are queued on the meeting record. DOS does not automatically send texts, emails, or shared guides yet.
