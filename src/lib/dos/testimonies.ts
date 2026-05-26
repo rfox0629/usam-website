@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { isValidReviewToken } from "@/src/lib/dos/reviews";
+import { inferFruitEventsFromTestimony } from "@/src/lib/dos/fruit-intelligence";
 import type { DosReviewLinkState } from "@/src/lib/dos/review-types";
 
 type ReviewLinkRow = {
@@ -148,6 +149,7 @@ export async function submitDosTestimony(token: string, submission: TestimonySub
     return { error: "This testimony link has expired.", status: 410 as const };
   }
 
+  const submittedAt = new Date().toISOString();
   const { data: testimony, error: testimonyError } = await supabase
     .from("participant_testimonies")
     .insert({
@@ -159,7 +161,7 @@ export async function submitDosTestimony(token: string, submission: TestimonySub
       person_id: typedLink.reviewer_person_id,
       public_display_name: submission.permissionToShare ? submission.publicDisplayName : null,
       story: submission.story,
-      submitted_at: new Date().toISOString(),
+      submitted_at: submittedAt,
       what_changed: submission.whatChanged,
     })
     .select("id")
@@ -169,26 +171,22 @@ export async function submitDosTestimony(token: string, submission: TestimonySub
     return { error: testimonyError?.message ?? "Unable to save testimony.", status: 500 as const };
   }
 
-  await Promise.all([
-    supabase
-      .from("fruit_events")
-      .insert({
-        confidence_level: "confirmed",
-        description: submission.whatChanged ?? submission.story,
-        fruit_type: "Shared Testimony",
-        leader_id: typedLink.created_by_user_id,
-        meeting_id: typedLink.meeting_id,
-        person_id: typedLink.reviewer_person_id,
-        source_id: testimony.id,
-        source_type: "testimony",
-        title: "Shared Testimony",
-        visibility: submission.permissionToShare ? "internal" : "private",
-      }),
-    supabase
-      .from("dos_review_links")
-      .update({ used_at: new Date().toISOString() })
-      .eq("id", typedLink.id),
-  ]);
+  await inferFruitEventsFromTestimony({
+    decisionMade: submission.decisionMade,
+    id: String(testimony.id),
+    leaderId: typedLink.created_by_user_id,
+    meetingId: typedLink.meeting_id,
+    nextStep: submission.nextStep,
+    personId: typedLink.reviewer_person_id,
+    story: submission.story,
+    submittedAt,
+    whatChanged: submission.whatChanged,
+  }, supabase);
+
+  await supabase
+    .from("dos_review_links")
+    .update({ used_at: new Date().toISOString() })
+    .eq("id", typedLink.id);
 
   return { id: String(testimony.id), ok: true as const };
 }

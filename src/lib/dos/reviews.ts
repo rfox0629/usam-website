@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { inferFruitEventsFromReview } from "@/src/lib/dos/fruit-intelligence";
 import {
   dosQuickReviewType,
   dosReviewFollowUpAnswers,
@@ -234,7 +235,8 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     return { error: reviewError?.message ?? "Unable to save review.", status: 500 as const };
   }
 
-  await supabase
+  const submittedAt = new Date().toISOString();
+  const { data: participantReview } = await supabase
     .from("participant_reviews")
     .insert({
       comments: submission.stoodOut,
@@ -244,9 +246,11 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
       leader_id: typedLink.created_by_user_id,
       meeting_id: typedLink.meeting_id,
       person_id: typedLink.reviewer_person_id,
-      submitted_at: new Date().toISOString(),
+      submitted_at: submittedAt,
       would_meet_again: submission.wantsFollowUp === "yes" ? true : submission.wantsFollowUp === "no" ? false : null,
-    });
+    })
+    .select("id")
+    .maybeSingle();
 
   const fruitInsert = {
     body: quickReviewFruitSummary(submission),
@@ -277,20 +281,18 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     return { error: fruitError?.message ?? "Unable to queue review fruit.", status: 500 as const };
   }
 
-  await supabase
-    .from("fruit_events")
-    .insert({
-      confidence_level: "confirmed",
-      description: submission.stoodOut,
-      fruit_type: submission.stepTowardJesus === "yes" ? "Gospel Conversation" : "Prayer Received",
-      leader_id: typedLink.created_by_user_id,
-      meeting_id: typedLink.meeting_id,
-      person_id: typedLink.reviewer_person_id,
-      source_id: review.id,
-      source_type: "participant_review",
-      title: "Participant Review",
-      visibility: submission.sharePermission === "private" ? "private" : "internal",
-    });
+  await inferFruitEventsFromReview({
+    comments: submission.stoodOut,
+    conversationHelpful: submission.stepTowardJesus,
+    feltCaredFor: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
+    feltHeard: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
+    id: String(participantReview?.id ?? review.id),
+    leaderId: typedLink.created_by_user_id,
+    meetingId: typedLink.meeting_id,
+    personId: typedLink.reviewer_person_id,
+    submittedAt,
+    wouldMeetAgain: submission.wantsFollowUp === "yes" ? true : submission.wantsFollowUp === "no" ? false : null,
+  }, supabase);
 
   await Promise.all([
     supabase

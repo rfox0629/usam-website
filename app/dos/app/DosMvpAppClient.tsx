@@ -397,6 +397,34 @@ function visibilityLabel(value: DosAppFruitEvent["visibility"]) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function shortId(value: string | null | undefined) {
+  return value ? value.slice(0, 8) : "None";
+}
+
+function fruitNarrative(event: DosAppFruitEvent) {
+  if (event.description) {
+    return event.description;
+  }
+
+  if (event.sourceType === "leader_reflection") {
+    return "Observed in a Leader Reflection.";
+  }
+
+  if (event.sourceType === "participant_review") {
+    return "Confirmed through a participant Review.";
+  }
+
+  if (event.sourceType === "testimony") {
+    return "Confirmed through a shared Testimony.";
+  }
+
+  if (event.sourceType === "system") {
+    return "Verified from repeated engagement patterns.";
+  }
+
+  return "Recorded as structured Fruit.";
+}
+
 function normalizeText(value: string | null | undefined) {
   return value?.trim() || "";
 }
@@ -750,6 +778,17 @@ function StatTile({
   return (
     <div className={className}>
       {content}
+    </div>
+  );
+}
+
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-[#F1F0EC] px-3 py-3.5">
+      <p className="line-clamp-2 text-sm font-bold leading-tight text-[#111111]">{value}</p>
+      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </p>
     </div>
   );
 }
@@ -2432,24 +2471,79 @@ function DetailCard({ children, title }: { children: ReactNode; title: string })
   );
 }
 
+function FruitEventIcon({ event }: { event: DosAppFruitEvent }) {
+  const iconClass = "h-4 w-4";
+
+  if (event.fruitType.toLowerCase().includes("church")) {
+    return <Church className={iconClass} aria-hidden="true" strokeWidth={1.8} />;
+  }
+
+  if (event.fruitType.toLowerCase().includes("prayer")) {
+    return <Moon className={iconClass} aria-hidden="true" strokeWidth={1.8} />;
+  }
+
+  if (event.fruitType.toLowerCase().includes("testimony")) {
+    return <Mic className={iconClass} aria-hidden="true" strokeWidth={1.8} />;
+  }
+
+  if (event.fruitType.toLowerCase().includes("discip")) {
+    return <Users className={iconClass} aria-hidden="true" strokeWidth={1.8} />;
+  }
+
+  return <Flame className={iconClass} aria-hidden="true" strokeWidth={1.8} />;
+}
+
 function FruitEventRow({ event }: { event: DosAppFruitEvent }) {
+  const debugEntries = [
+    ["Source", fruitSourceLabel(event.sourceType)],
+    ["Generated From", event.generatedBy ?? "Manual"],
+    ["Meeting", shortId(event.meetingId)],
+    ["Source ID", shortId(event.sourceId)],
+    ["Key", event.generationKey ?? "None"],
+  ];
+
   return (
-    <div className="rounded-2xl bg-[#F8F7F3] p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#1E1D1A]">{event.fruitType}</p>
-          <p className="mt-1 text-xs text-[#77716A]">{formatDate(event.date)}</p>
-        </div>
-        <span className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
-          {confidenceLabel(event.confidenceLevel)}
+    <article className="rounded-2xl bg-[#F8F7F3] p-3">
+      <div className="flex gap-3">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF8E7] text-[#8A5A12]">
+          <FruitEventIcon event={event} />
         </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-[#1E1D1A]">{event.title || event.fruitType}</p>
+              <p className="mt-1 text-xs text-[#77716A]">{formatDate(event.date)}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+              {confidenceLabel(event.confidenceLevel)}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-[#3B3935]">{fruitNarrative(event)}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{event.fruitType}</span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{visibilityLabel(event.visibility)}</span>
+          </div>
+          <details className="mt-2 rounded-2xl border border-[#E7E2D9] bg-white px-3 py-2">
+            <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.14em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+              Debug
+            </summary>
+            <div className="mt-2 grid gap-1.5 text-xs text-[#5F5952]">
+              {debugEntries.map(([label, value]) => (
+                <p className="flex justify-between gap-3" key={label}>
+                  <span className="text-[#8E8880]">{label}</span>
+                  <span className="truncate text-right font-semibold">{value}</span>
+                </p>
+              ))}
+              {Object.keys(event.debugContext).length ? (
+                <p className="break-words rounded-xl bg-[#F8F7F3] p-2 text-[11px] leading-5 text-[#5F5952]">
+                  {Object.entries(event.debugContext).map(([key, value]) => `${key}: ${String(value)}`).join(" · ")}
+                </p>
+              ) : null}
+            </div>
+          </details>
+        </div>
       </div>
-      {event.description ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3B3935]">{event.description}</p> : null}
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{fruitSourceLabel(event.sourceType)}</span>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{visibilityLabel(event.visibility)}</span>
-      </div>
-    </div>
+    </article>
   );
 }
 
@@ -2818,6 +2912,10 @@ function PersonDetailOverlay({
   const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || personMeetings.some((meeting) => meeting.id === testimony.meetingId));
   const personFruitEvents = fruitEvents.filter((event) => event.personId === person.id || personMeetings.some((meeting) => meeting.id === event.meetingId));
   const personReflections = leaderReflections.filter((reflection) => reflection.personId === person.id || personMeetings.some((meeting) => meeting.id === reflection.meetingId));
+  const latestFruitEvent = personFruitEvents[0];
+  const hasDiscipleship = personFruitEvents.some((event) => event.fruitType.includes("Discipleship") || event.title?.includes("Discipleship"));
+  const hasFollowUpNeeded = personReflections.some((reflection) => reflection.followUpNeeded);
+  const hasMultiplication = personFruitEvents.some((event) => event.fruitType === "Started Discipling Others");
   const recentMeetings = personMeetings.slice(0, 3);
   const lastContact = person.lastActivityAt ? formatRelativeDate(person.lastActivityAt) : "None";
   const scrollToSection = (section: "fruit" | "meetings" | "reflections" | "reviews" | "testimonies") => {
@@ -2998,6 +3096,15 @@ function PersonDetailOverlay({
             <StatTile label="Meetings" onClick={() => scrollToSection("meetings")} value={personMeetings.length} />
             <StatTile label="Reviews" onClick={() => scrollToSection("reviews")} value={personParticipantReviews.length + personReviews.length} />
             <StatTile label="Fruit" onClick={() => scrollToSection("fruit")} value={personFruitEvents.length} />
+          </div>
+        </DetailCard>
+
+        <DetailCard title="Fruit Summary">
+          <div className="grid grid-cols-2 gap-2">
+            <SummaryTile label="Latest Fruit" value={latestFruitEvent?.title || latestFruitEvent?.fruitType || "None yet"} />
+            <SummaryTile label="Discipleship" value={hasDiscipleship ? "Active" : personMeetings.length >= 3 ? "Emerging" : "Not yet"} />
+            <SummaryTile label="Follow Up" value={hasFollowUpNeeded ? "Needed" : "Clear"} />
+            <SummaryTile label="Multiplication" value={hasMultiplication ? "Started" : "Watch"} />
           </div>
         </DetailCard>
 

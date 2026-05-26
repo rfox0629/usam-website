@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { inferFruitEventsFromReflection } from "@/src/lib/dos/fruit-intelligence";
 import { dosAppFruitTypeOptions, isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -121,22 +122,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: reflectionError?.message ?? "Unable to save Leader Reflection." }, { status: 500 });
   }
 
-  if (observedFruit.length) {
-    await supabase
-      .from("fruit_events")
-      .insert(observedFruit.map((fruitType) => ({
-        confidence_level: "observed",
-        description: reflectionInsert.what_happened,
-        fruit_type: fruitType,
-        leader_id: authResult.authorization.userId,
-        meeting_id: meetingId,
-        person_id: reflectionInsert.person_id,
-        source_id: reflection.id,
-        source_type: "leader_reflection",
-        title: fruitType,
-        visibility: "private",
-      })));
-  }
+  await inferFruitEventsFromReflection({
+    followUpNeeded: reflectionInsert.follow_up_needed,
+    id: String(reflection.id),
+    leaderId: authResult.authorization.userId,
+    meetingId,
+    nextStep: reflectionInsert.next_step,
+    observedFruit,
+    personId: reflectionInsert.person_id,
+    prayerNeeds: reflectionInsert.prayer_needs,
+    privateNotes: reflectionInsert.private_notes,
+    spiritualOpenness: reflectionInsert.spiritual_openness,
+    whatHappened: reflectionInsert.what_happened,
+  }, supabase);
 
   return NextResponse.json({ id: reflection.id, ok: true });
 }

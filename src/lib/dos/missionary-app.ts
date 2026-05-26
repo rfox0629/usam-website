@@ -130,11 +130,15 @@ export type DosAppParticipantTestimony = {
 export type DosAppFruitEvent = {
   confidenceLevel: "observed" | "confirmed" | "verified";
   date: string | null;
+  debugContext: Record<string, unknown>;
   description: string | null;
   fruitType: string;
+  generatedBy: string | null;
+  generationKey: string | null;
   id: string;
   meetingId: string | null;
   personId: string | null;
+  sourceId: string | null;
   sourceType: "leader_reflection" | "participant_review" | "testimony" | "manual" | "system";
   title: string | null;
   visibility: "private" | "internal" | "public";
@@ -333,12 +337,16 @@ type ParticipantTestimonyRow = {
 
 type FruitEventRow = {
   confidence_level: string | null;
+  debug_context?: unknown;
   description: string | null;
   fruit_type: string;
+  generated_by?: string | null;
+  generation_key?: string | null;
   id: string;
   meeting_id: string | null;
   occurred_at: string | null;
   person_id: string | null;
+  source_id?: string | null;
   source_type: string | null;
   title: string | null;
   visibility: string | null;
@@ -404,6 +412,10 @@ function mapFruitSourceType(value: string | null): DosAppFruitEvent["sourceType"
 
 function mapVisibility(value: string | null): DosAppFruitEvent["visibility"] {
   return value === "internal" || value === "public" ? value : "private";
+}
+
+function mapDebugContext(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
@@ -599,12 +611,14 @@ async function loadMeetingReviewsForWorkspace(supabase: SupabaseAdminClient, wor
 }
 
 async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
-  const [{ data: scopedMeetings }] = await Promise.all([
+  const [{ data: scopedMeetings }, { data: scopedPeople }] = await Promise.all([
     loadMeetingsForWorkspace(supabase, workspaceId),
+    loadPeopleForWorkspace(supabase, workspaceId),
   ]);
   const meetingIds = ((scopedMeetings ?? []) as MeetingRow[]).map((meeting) => meeting.id);
+  const personIds = ((scopedPeople ?? []) as FieldPersonRow[]).map((person) => person.id);
 
-  if (!meetingIds.length) {
+  if (!meetingIds.length && !personIds.length) {
     return {
       error: null,
       fruitEvents: [],
@@ -614,34 +628,50 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     };
   }
 
-  const [leaderReflectionsResult, participantReviewsResult, participantTestimoniesResult, fruitEventsResult] = await Promise.all([
-    supabase
-      .from("meeting_reflections")
-      .select("id, meeting_id, person_id, spiritual_openness, what_happened, prayer_needs, follow_up_needed, next_step, observed_fruit, private_notes, created_at")
-      .in("meeting_id", meetingIds)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("participant_reviews")
-      .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, comments, submitted_at")
-      .in("meeting_id", meetingIds)
-      .order("submitted_at", { ascending: false }),
-    supabase
-      .from("participant_testimonies")
-      .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, submitted_at")
-      .in("meeting_id", meetingIds)
-      .order("submitted_at", { ascending: false }),
-    supabase
-      .from("fruit_events")
-      .select("id, meeting_id, person_id, source_type, fruit_type, confidence_level, title, description, occurred_at, visibility")
-      .in("meeting_id", meetingIds)
-      .order("occurred_at", { ascending: false }),
+  const [leaderReflectionsResult, participantReviewsResult, participantTestimoniesResult, fruitEventsByMeetingResult, fruitEventsByPersonResult] = await Promise.all([
+    meetingIds.length
+      ? supabase
+        .from("meeting_reflections")
+        .select("id, meeting_id, person_id, spiritual_openness, what_happened, prayer_needs, follow_up_needed, next_step, observed_fruit, private_notes, created_at")
+        .in("meeting_id", meetingIds)
+        .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    meetingIds.length
+      ? supabase
+        .from("participant_reviews")
+        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, comments, submitted_at")
+        .in("meeting_id", meetingIds)
+        .order("submitted_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    meetingIds.length
+      ? supabase
+        .from("participant_testimonies")
+        .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, submitted_at")
+        .in("meeting_id", meetingIds)
+        .order("submitted_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    meetingIds.length
+      ? supabase
+        .from("fruit_events")
+        .select("id, meeting_id, person_id, source_type, source_id, fruit_type, confidence_level, title, description, occurred_at, visibility, generation_key, generated_by, debug_context")
+        .in("meeting_id", meetingIds)
+        .order("occurred_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    personIds.length
+      ? supabase
+        .from("fruit_events")
+        .select("id, meeting_id, person_id, source_type, source_id, fruit_type, confidence_level, title, description, occurred_at, visibility, generation_key, generated_by, debug_context")
+        .in("person_id", personIds)
+        .order("occurred_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const missingTableError = [
     leaderReflectionsResult.error,
     participantReviewsResult.error,
     participantTestimoniesResult.error,
-    fruitEventsResult.error,
+    fruitEventsByMeetingResult.error,
+    fruitEventsByPersonResult.error,
   ].find((error) => (
     isMissingWorkflowTable(error, "meeting_reflections")
     || isMissingWorkflowTable(error, "participant_reviews")
@@ -660,8 +690,13 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
   }
 
   return {
-    error: leaderReflectionsResult.error ?? participantReviewsResult.error ?? participantTestimoniesResult.error ?? fruitEventsResult.error,
-    fruitEvents: (fruitEventsResult.data ?? []) as FruitEventRow[],
+    error: leaderReflectionsResult.error ?? participantReviewsResult.error ?? participantTestimoniesResult.error ?? fruitEventsByMeetingResult.error ?? fruitEventsByPersonResult.error,
+    fruitEvents: Array.from(
+      new Map(
+        ([...(fruitEventsByMeetingResult.data ?? []), ...(fruitEventsByPersonResult.data ?? [])] as FruitEventRow[])
+          .map((event) => [event.id, event]),
+      ).values(),
+    ),
     leaderReflections: (leaderReflectionsResult.data ?? []) as LeaderReflectionRow[],
     participantReviews: (participantReviewsResult.data ?? []) as ParticipantReviewRow[],
     participantTestimonies: (participantTestimoniesResult.data ?? []) as ParticipantTestimonyRow[],
@@ -884,15 +919,19 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const fruitEvents = reviewsFruitResult.fruitEvents.map((fruitEvent) => ({
     confidenceLevel: mapConfidenceLevel(fruitEvent.confidence_level),
     date: fruitEvent.occurred_at,
+    debugContext: mapDebugContext(fruitEvent.debug_context),
     description: fruitEvent.description,
     fruitType: fruitEvent.fruit_type,
+    generatedBy: fruitEvent.generated_by ?? null,
+    generationKey: fruitEvent.generation_key ?? null,
     id: fruitEvent.id,
     meetingId: fruitEvent.meeting_id,
     personId: fruitEvent.person_id,
+    sourceId: fruitEvent.source_id ?? null,
     sourceType: mapFruitSourceType(fruitEvent.source_type),
     title: fruitEvent.title,
     visibility: mapVisibility(fruitEvent.visibility),
-  }));
+  })).sort((first, second) => activityDateValue(second.date) - activityDateValue(first.date));
 
   return {
     data: {

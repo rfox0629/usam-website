@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { inferFruitEventsFromEngagement } from "@/src/lib/dos/fruit-intelligence";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { joinPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -142,6 +143,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  await inferFruitEventsFromEngagement({
+    leaderId: authResult.authorization.userId,
+    personId: String(data.id),
+    workspaceId,
+  }, supabase).catch((fruitError) => {
+    console.warn("[Fruit Intelligence] Unable to infer engagement fruit after person create", fruitError);
+  });
+
   return NextResponse.json({ id: data.id, ok: true });
 }
 
@@ -199,6 +208,14 @@ export async function PATCH(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await inferFruitEventsFromEngagement({
+    leaderId: authResult.authorization.userId,
+    personId: String(data.id),
+    workspaceId,
+  }, supabase).catch((fruitError) => {
+    console.warn("[Fruit Intelligence] Unable to infer engagement fruit after person update", fruitError);
+  });
 
   return NextResponse.json({ id: data.id, ok: true });
 }

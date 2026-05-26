@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
+import { inferFruitEventsFromEngagement } from "@/src/lib/dos/fruit-intelligence";
 import {
   buildMeetingRecommendations,
   getConversationFlowDefinition,
@@ -209,6 +210,14 @@ export async function POST(request: Request) {
     console.warn("[DOS circles] Unable to recalculate after meeting create", scoreError);
   });
 
+  await Promise.all(validPersonIds.map((personId) => inferFruitEventsFromEngagement({
+    leaderId: authResult.authorization.userId,
+    personId,
+    workspaceId,
+  }, supabase))).catch((fruitError) => {
+    console.warn("[Fruit Intelligence] Unable to infer engagement fruit after meeting create", fruitError);
+  });
+
   return NextResponse.json({ id: data.id, ok: true });
 }
 
@@ -309,6 +318,14 @@ export async function PATCH(request: Request) {
 
   await recalculateCircleScores(workspaceId).catch((scoreError) => {
     console.warn("[DOS circles] Unable to recalculate after meeting update", scoreError);
+  });
+
+  await Promise.all(validPersonIds.map((personId) => inferFruitEventsFromEngagement({
+    leaderId: authResult.authorization.userId,
+    personId,
+    workspaceId,
+  }, supabase))).catch((fruitError) => {
+    console.warn("[Fruit Intelligence] Unable to infer engagement fruit after meeting update", fruitError);
   });
 
   return NextResponse.json({ id: data.id, ok: true });
