@@ -1123,6 +1123,18 @@ function CircleAvatar({
   );
 }
 
+function circleNodePosition(index: number, total: number, radiusPercent: number) {
+  const safeTotal = Math.max(1, total);
+  const angle = (-90 + (360 / safeTotal) * index) * (Math.PI / 180);
+  const left = 50 + Math.cos(angle) * radiusPercent;
+  const top = 50 + Math.sin(angle) * radiusPercent;
+
+  return {
+    left: `${left.toFixed(2)}%`,
+    top: `${top.toFixed(2)}%`,
+  };
+}
+
 function TargetNode({
   children,
   className = "",
@@ -1162,37 +1174,10 @@ function CircleClusterNode({
   );
 }
 
-const my12NodePositions = [
-  ["50%", "20%"],
-  ["69%", "27%"],
-  ["80%", "45%"],
-  ["73%", "65%"],
-  ["57%", "78%"],
-  ["37%", "75%"],
-  ["23%", "60%"],
-  ["23%", "40%"],
-  ["36%", "25%"],
-] as const;
-
 const my3NodePositions = [
-  ["50%", "39%"],
-  ["40%", "57%"],
-  ["60%", "57%"],
-] as const;
-
-const my70NodePositions = [
-  ["50%", "9%"],
-  ["70%", "14%"],
-  ["84%", "28%"],
-  ["89%", "48%"],
-  ["82%", "68%"],
-  ["68%", "82%"],
-  ["50%", "86%"],
-  ["32%", "82%"],
-  ["20%", "68%"],
-  ["11%", "48%"],
-  ["16%", "28%"],
-  ["30%", "14%"],
+  ["50%", "42%"],
+  ["42%", "58%"],
+  ["58%", "58%"],
 ] as const;
 
 function CircleFocusHero({
@@ -1221,6 +1206,7 @@ function CircleFocusHero({
   const my3Slots = [0, 1, 2].map((index) => centerPeople[index]?.person);
   const visibleMy70Nodes = outerLayerPeople.length > 14 ? outerLayerPeople.slice(0, 8) : outerLayerPeople.slice(0, 12);
   const clusterCount = outerLayerPeople.length > visibleMy70Nodes.length ? outerLayerPeople.length - visibleMy70Nodes.length : 0;
+  const outerNodeCount = visibleMy70Nodes.length + (clusterCount > 0 ? 1 : 0);
   const my12Active = activeView === "twelve";
   const my70Active = activeView === "seventy";
   const showMiddleLayer = activeView === "twelve" || activeView === "seventy";
@@ -1268,7 +1254,7 @@ function CircleFocusHero({
 
       <button
         aria-label={`Circle Focus target. ${copy.label} selected.`}
-        className="relative mx-auto mt-5 block h-[17rem] w-full max-w-[304px] cursor-pointer rounded-full text-left focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40"
+        className="relative mx-auto mt-5 block h-[17rem] w-[17rem] max-w-full cursor-pointer rounded-full text-left focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40"
         onClick={handleTargetClick}
         type="button"
       >
@@ -1287,29 +1273,41 @@ function CircleFocusHero({
           data-circle-ring="center"
         />
 
-        {showMiddleLayer ? middleLayerPeople.map((item, index) => (
-          <TargetNode
-            className={my12Active ? "opacity-100 scale-100" : "opacity-65 scale-90"}
-            key={`twelve-${item.person.id}`}
-            left={my12NodePositions[index % my12NodePositions.length][0]}
-            top={my12NodePositions[index % my12NodePositions.length][1]}
-          >
-            <CircleAvatar index={index + 3} layer="middle" person={item.person} size="sm" />
-          </TargetNode>
-        )) : null}
+        {showMiddleLayer ? middleLayerPeople.map((item, index) => {
+          const position = circleNodePosition(index, middleLayerPeople.length, 31.5);
 
-        {my70Active ? visibleMy70Nodes.map((item, index) => (
-          <TargetNode
-            className="opacity-80 scale-100"
-            key={`seventy-${item.person.id}`}
-            left={my70NodePositions[index % my70NodePositions.length][0]}
-            top={my70NodePositions[index % my70NodePositions.length][1]}
-          >
-            <CircleAvatar index={index + 7} layer="outer" person={item.person} size="xs" />
-          </TargetNode>
-        )) : null}
+          return (
+            <TargetNode
+              className={my12Active ? "opacity-100 scale-100" : "opacity-65 scale-90"}
+              key={`twelve-${item.person.id}`}
+              left={position.left}
+              top={position.top}
+            >
+              <CircleAvatar index={index + 3} layer="middle" person={item.person} size="sm" />
+            </TargetNode>
+          );
+        }) : null}
+
+        {my70Active ? visibleMy70Nodes.map((item, index) => {
+          const position = circleNodePosition(index, outerNodeCount, 41);
+
+          return (
+            <TargetNode
+              className="opacity-80 scale-100"
+              key={`seventy-${item.person.id}`}
+              left={position.left}
+              top={position.top}
+            >
+              <CircleAvatar index={index + 7} layer="outer" person={item.person} size="xs" />
+            </TargetNode>
+          );
+        }) : null}
         {my70Active && clusterCount > 0 ? (
-          <CircleClusterNode count={clusterCount} left="82%" top="82%" />
+          <CircleClusterNode
+            count={clusterCount}
+            left={circleNodePosition(visibleMy70Nodes.length, outerNodeCount, 41).left}
+            top={circleNodePosition(visibleMy70Nodes.length, outerNodeCount, 41).top}
+          />
         ) : null}
 
         {my3Slots.map((person, index) => (
