@@ -982,77 +982,187 @@ function scoreLabel(value: number) {
   return `${Math.round(value)}`;
 }
 
-function CircleFocusCard({
+function CircleAvatar({
+  index,
+  person,
+  size = "md",
+}: {
+  index: number;
+  person?: DosAppPerson;
+  size?: "lg" | "md" | "sm";
+}) {
+  const sizeClass = {
+    lg: "h-12 w-12 text-sm",
+    md: "h-11 w-11 text-xs",
+    sm: "h-9 w-9 text-[11px]",
+  }[size];
+
+  if (!person) {
+    return (
+      <span className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-dashed border-[#D8D2C8] bg-[#F8F7F3] text-[#B5AEA3]`}>
+        +
+      </span>
+    );
+  }
+
+  return (
+    <span className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full font-bold ${avatarTone(index)}`}>
+      {initials(person.name)}
+    </span>
+  );
+}
+
+function CircleFocusHero({
+  my12Count,
+  my3,
+  my70Active,
+  my70FollowUp,
+  my70Multiplying,
+  onViewCircles,
+}: {
+  my12Count: number;
+  my3: Array<{ person: DosAppPerson; score: DosRelationshipScore }>;
+  my70Active: number;
+  my70FollowUp: number;
+  my70Multiplying: number;
+  onViewCircles: () => void;
+}) {
+  const my3Slots = [0, 1, 2].map((index) => my3[index]?.person);
+
+  return (
+    <section className="rounded-[28px] bg-white px-5 py-5 shadow-[0_18px_48px_rgba(42,37,29,0.07)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+            Circle Focus
+          </p>
+          <h2 className="mt-1 text-xl font-bold leading-tight text-[#111111]">Your closest discipleship investments.</h2>
+        </div>
+        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#D4A63D]" aria-hidden="true" />
+      </div>
+
+      <div className="mt-6 flex justify-center gap-3">
+        {my3Slots.map((person, index) => (
+          <CircleAvatar index={index} key={person?.id ?? `empty-${index}`} person={person} size="lg" />
+        ))}
+      </div>
+      <p className="mt-2 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+        My 3
+      </p>
+
+      <div className="mt-5 space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm font-semibold text-[#1E1D1A]">My 12</span>
+          <span className="text-sm text-[#77716A]">{my12Count} / 9</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-[#EFECE5]">
+          <div className="h-full rounded-full bg-[#D4A63D]" style={{ width: `${Math.min(100, (my12Count / 9) * 100)}%` }} />
+        </div>
+        <div className="flex items-start justify-between gap-4 border-t border-[#F0ECE4] pt-3">
+          <span className="text-sm font-semibold text-[#1E1D1A]">My 70</span>
+          <span className="max-w-[190px] text-right text-xs leading-5 text-[#77716A]">
+            {my70Active} active · {my70FollowUp} follow up · {my70Multiplying} multiplying
+          </span>
+        </div>
+      </div>
+
+      <button
+        className="mt-5 inline-flex min-h-10 w-full items-center justify-center rounded-full bg-[#111111] px-4 text-sm font-bold text-white"
+        onClick={onViewCircles}
+        type="button"
+      >
+        View Circles
+      </button>
+    </section>
+  );
+}
+
+function CircleListRow({
   meetingCount,
   onClick,
-  onLogMeeting,
   person,
   score,
 }: {
   meetingCount: number;
   onClick: () => void;
-  onLogMeeting: () => void;
   person: DosAppPerson;
   score: DosRelationshipScore;
 }) {
-  const lastMeeting = person.lastActivityAt ? formatRelativeDate(person.lastActivityAt) : "No meeting";
-  const hasFruit = score.breakdown.fruit > 0;
-  const multiplying = score.breakdown.multiplication > 0;
-
   return (
-    <article className="rounded-[22px] border border-[#DDD9D0] bg-white p-4">
-      <button className="flex w-full items-start gap-3 text-left" onClick={onClick} type="button">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#111111] text-xs font-bold text-white">{initials(person.name)}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-base font-bold text-[#1E1D1A]">{person.name}</span>
-          <span className="mt-1 block truncate text-xs text-[#77716A]">{person.relationshipType || "Relationship"} · {lastMeeting}</span>
-          <span className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
-              {meetingCount} {meetingCount === 1 ? "Meeting" : "Meetings"}
-            </span>
-            <span className="rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
-              Score {scoreLabel(score.totalScore)}
-            </span>
-            <span className="rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
-              Progress {scoreLabel(score.breakdown.discipleshipProgress)}
-            </span>
-            {hasFruit || multiplying ? (
-              <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
-                {multiplying ? "Multiplying" : "Fruit"}
-              </span>
-            ) : null}
-          </span>
-        </span>
-        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
-      </button>
-      <button
-        className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-[#111111] px-4 text-xs font-bold text-white"
-        onClick={onLogMeeting}
-        type="button"
-      >
-        <Icon name="log" size={14} />
-        Log Meeting
-      </button>
-    </article>
+    <button className="flex min-h-14 w-full items-center gap-3 rounded-2xl bg-white px-3 text-left transition-colors hover:bg-[#FFFDF8]" onClick={onClick} type="button">
+      <CircleAvatar index={Math.round(score.totalScore) % 6} person={person} size="sm" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-[#1E1D1A]">{person.name}</span>
+        <span className="mt-0.5 block truncate text-xs text-[#77716A]">{meetingCount} {meetingCount === 1 ? "meeting" : "meetings"} · {formatRelativeDate(person.lastActivityAt)}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+    </button>
   );
 }
 
-function CircleCompactCard({
+function HomeActionPill({
+  children,
+  icon,
   onClick,
-  person,
-  score,
 }: {
+  children: ReactNode;
+  icon: IconName;
   onClick: () => void;
-  person: DosAppPerson;
-  score: DosRelationshipScore;
 }) {
   return (
-    <button className="w-[142px] shrink-0 rounded-2xl border border-[#E2DED6] bg-white p-3 text-left" onClick={onClick} type="button">
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF8E7] text-[11px] font-bold text-[#8A5A12]">{initials(person.name)}</span>
-      <span className="mt-3 block truncate text-sm font-bold text-[#1E1D1A]">{person.name}</span>
-      <span className="mt-1 block truncate text-[11px] text-[#77716A]">{person.relationshipType || "Relationship"}</span>
-      <span className="mt-3 inline-flex rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
-        {scoreLabel(score.totalScore)}
+    <button
+      className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white px-4 text-xs font-bold text-[#1E1D1A] shadow-[0_10px_26px_rgba(42,37,29,0.055)]"
+      onClick={onClick}
+      type="button"
+    >
+      <Icon name={icon} size={14} />
+      {children}
+    </button>
+  );
+}
+
+function FocusRow({
+  action,
+  index,
+  onClick,
+  person,
+}: {
+  action: string;
+  index: number;
+  onClick: () => void;
+  person: DosAppPerson;
+}) {
+  return (
+    <button className="flex min-h-12 w-full items-center gap-3 rounded-2xl bg-white px-3 text-left shadow-[0_8px_24px_rgba(42,37,29,0.045)]" onClick={onClick} type="button">
+      <CircleAvatar index={index} person={person} size="sm" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-[#1E1D1A]">{person.name}</span>
+        <span className="mt-0.5 block truncate text-xs text-[#77716A]">{action}</span>
+      </span>
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#D4A63D]" aria-hidden="true" />
+    </button>
+  );
+}
+
+function RecentActivityRow({
+  children,
+  icon,
+  onClick,
+  title,
+}: {
+  children: ReactNode;
+  icon: IconName;
+  onClick: () => void;
+  title: string;
+}) {
+  return (
+    <button className="flex min-h-12 w-full items-center gap-3 rounded-2xl bg-white px-3 text-left" onClick={onClick} type="button">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8F7F3] text-[#8A5A12]">
+        <Icon name={icon} size={14} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-[#1E1D1A]">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-[#77716A]">{children}</span>
       </span>
     </button>
   );
@@ -2203,6 +2313,77 @@ function PersonQuickAction({
   );
 }
 
+function CirclesDetailOverlay({
+  meetingCountByPersonId,
+  my12,
+  my3,
+  my70,
+  onBack,
+  onOpenPerson,
+}: {
+  meetingCountByPersonId: Map<string, number>;
+  my12: Array<{ person: DosAppPerson; score: DosRelationshipScore }>;
+  my3: Array<{ person: DosAppPerson; score: DosRelationshipScore }>;
+  my70: Array<{ person: DosAppPerson; score: DosRelationshipScore }>;
+  onBack: () => void;
+  onOpenPerson: (personId: string) => void;
+}) {
+  const sections = [
+    { empty: "No one in My 3 yet.", items: my3, title: "My 3" },
+    { empty: "The next nine active relationships will appear here.", items: my12, title: "My 12" },
+    { empty: "The broader field will appear as activity grows.", items: my70, title: "My 70" },
+  ];
+
+  return (
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#F5F3EE] px-4 pb-28 pt-7 [scrollbar-width:none]">
+      <header className="flex items-center justify-between gap-3">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#1E1D1A] shadow-[0_8px_20px_rgba(42,37,29,0.06)]" onClick={onBack} type="button" aria-label="Back to home">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+        </button>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+          Circle Focus
+        </p>
+        <span className="h-10 w-10" aria-hidden="true" />
+      </header>
+
+      <section className="mt-6">
+        <h2 className="text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
+          Circles
+        </h2>
+        <p className="mt-2 text-sm leading-5 text-[#77716A]">Expanded focus for the people you are actively investing in.</p>
+      </section>
+
+      <div className="mt-6 grid gap-5">
+        {sections.map((section) => (
+          <section key={section.title}>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+                {section.title}
+              </p>
+              <span className="text-xs text-[#77716A]">{section.items.length}</span>
+            </div>
+            {section.items.length ? (
+              <div className="grid gap-2">
+                {section.items.map(({ person, score }) => (
+                  <CircleListRow
+                    key={person.id}
+                    meetingCount={meetingCountByPersonId.get(person.id) ?? 0}
+                    onClick={() => onOpenPerson(person.id)}
+                    person={person}
+                    score={score}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-2xl bg-white px-4 py-3 text-sm text-[#77716A]">{section.empty}</p>
+            )}
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PersonDetailOverlay({
   circleScore,
   index,
@@ -2769,6 +2950,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
+  const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [conversationResponses, setConversationResponses] = useState<DosConversationResponses>({});
@@ -2826,6 +3008,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const recentPeople = people.slice(0, 3);
   const my3People = (data.circles?.my3 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my12People = (data.circles?.my12 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
+  const my70People = (data.circles?.my70 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my70Summary = data.circles?.fieldSummary;
   const meetingCountByPersonId = useMemo(() => {
     const counts = new Map<string, number>();
@@ -2838,6 +3021,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return counts;
   }, [data.meetings]);
+  const todayFocusPeople = useMemo(() => {
+    const preferredPeople = attentionPeople.length
+      ? attentionPeople
+      : my3People.map((item) => item.person);
+
+    return preferredPeople.slice(0, 3);
+  }, [attentionPeople, my3People]);
   const workspaceLabel = data.workspace.isUsamWorkspace ? `${data.workspace.displayName} · USA` : data.workspace.displayName;
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
 
@@ -2885,6 +3075,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function selectTab(tab: ActiveTab) {
     setActiveTab(tab);
     setErrorMessage("");
+    setIsCirclesOpen(false);
     setReviewLinkMeetingId(null);
     setReviewShareMessage("");
     setSelectedMeetingId(null);
@@ -2894,6 +3085,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openPersonDetail(personId: string) {
     setActiveTab("people");
     setErrorMessage("");
+    setIsCirclesOpen(false);
     setSelectedMeetingId(null);
     setSelectedPersonId(personId);
   }
@@ -3252,138 +3444,63 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <main className="mt-7">
             {activeTab === "home" ? (
               <div className="space-y-5">
-                <section className="rounded-[26px] border border-[#DDD9D0] bg-white p-4 shadow-[0_14px_40px_rgba(42,37,29,0.06)]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
-                        Your Circles
-                      </p>
-                      <h2 className="mt-1 text-xl font-bold leading-tight text-[#111111]">Focus your closest discipleship investments.</h2>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
-                      {workspaceLabel}
-                    </span>
-                  </div>
+                <CircleFocusHero
+                  my12Count={my12People.length}
+                  my3={my3People}
+                  my70Active={my70Summary?.activeThisMonth ?? 0}
+                  my70FollowUp={my70Summary?.needFollowUp ?? attentionPeople.length}
+                  my70Multiplying={my70Summary?.multiplying ?? multiplyingCount}
+                  onViewCircles={() => setIsCirclesOpen(true)}
+                />
 
-                  <p className="mt-3 text-sm leading-5 text-[#77716A]">
-                    People move closer as you meet, disciple, and see fruit.
-                  </p>
-
-                  <div className="mt-4 grid gap-3">
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-bold text-[#1E1D1A]">My 3</p>
-                        <span className="text-[11px] text-[#77716A]">{my3People.length}/3</span>
-                      </div>
-                      <div className="grid gap-2">
-                        {my3People.length ? my3People.map(({ person, score }) => (
-                          <CircleFocusCard
-                            key={person.id}
-                            meetingCount={meetingCountByPersonId.get(person.id) ?? 0}
-                            onClick={() => openPersonDetail(person.id)}
-                            onLogMeeting={() => openMeetingForPerson(person.id)}
-                            person={person}
-                            score={score}
-                          />
-                        )) : (
-                          <div className="rounded-[20px] bg-[#F8F7F3] p-4">
-                            <p className="text-sm font-semibold text-[#1E1D1A]">No one in My 3 yet.</p>
-                            <p className="mt-1 text-xs leading-5 text-[#77716A]">Log meetings and discipleship activity to help DOS identify your closest investments.</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded-[20px] bg-[#F8F7F3] p-3">
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-bold text-[#1E1D1A]">My 12</p>
-                        <span className="text-[11px] text-[#77716A]">{my12People.length}/9</span>
-                      </div>
-                      {my12People.length ? (
-                        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-                          {my12People.map(({ person, score }) => (
-                            <CircleCompactCard key={person.id} onClick={() => openPersonDetail(person.id)} person={person} score={score} />
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs leading-5 text-[#77716A]">The next nine active relationships will appear here.</p>
-                      )}
-                    </div>
-
-                    <div className="rounded-[20px] bg-[#111111] p-3 text-white">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-bold">My 70</p>
-                          <p className="mt-1 text-[11px] text-white/60">Field rhythm and follow up.</p>
-                        </div>
-                        <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ fontFamily: font.rajdhani }}>
-                          {data.circles?.my70.length ?? 0}
-                        </span>
-                      </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                        <div>
-                          <p className="text-sm font-bold">{my70Summary?.activeThisMonth ?? 0}</p>
-                          <p className="mt-0.5 text-[10px] text-white/55">Active</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold">{my70Summary?.needFollowUp ?? attentionPeople.length}</p>
-                          <p className="mt-0.5 text-[10px] text-white/55">Follow Up</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold">{my70Summary?.multiplying ?? multiplyingCount}</p>
-                          <p className="mt-0.5 text-[10px] text-white/55">Multiply</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="grid gap-2">
-                  <AppButton icon="add" onClick={() => openForm("person")} tone="black">Add Person</AppButton>
-                  <div className="grid grid-cols-2 gap-2">
-                    <AppButton icon="log" onClick={() => openForm("meeting")}>Log Meeting</AppButton>
-                    <AppButton icon="search" onClick={() => setActiveTab("people")}>Search</AppButton>
-                  </div>
+                <section className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+                  <HomeActionPill icon="add" onClick={() => openForm("person")}>Add Person</HomeActionPill>
+                  <HomeActionPill icon="log" onClick={() => openForm("meeting")}>Log Meeting</HomeActionPill>
+                  <HomeActionPill icon="search" onClick={() => setActiveTab("people")}>Search</HomeActionPill>
                 </section>
 
                 <section>
-                  <SectionHeading title="Needs Attention" />
-                  {attentionPeople.length ? (
-                    <div className="overflow-hidden rounded-[20px] border border-[#E2DED6] bg-white">
-                      {attentionPeople.slice(0, 3).map((person, index) => (
-                        <div className="border-b border-[#ECE8E0] last:border-b-0" key={person.id}>
-                          <PersonCard index={index} onClick={() => openPersonDetail(person.id)} person={person} variant="row" />
-                        </div>
+                  <SectionHeading title="Today's Focus" />
+                  {todayFocusPeople.length ? (
+                    <div className="grid gap-2">
+                      {todayFocusPeople.map((person, index) => (
+                        <FocusRow
+                          action={!person.lastActivityAt ? "no contact yet" : isNeedsAttention(person) ? "log follow up" : "stay close today"}
+                          index={index}
+                          key={person.id}
+                          onClick={() => openPersonDetail(person.id)}
+                          person={person}
+                        />
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-[20px] bg-white p-4 text-sm text-[#77716A]">No follow up needs right now.</div>
+                    <div className="rounded-2xl bg-white px-4 py-3 text-sm text-[#77716A]">No focus items right now.</div>
                   )}
                 </section>
 
                 <section>
                   <SectionHeading title="Recent Activity" />
-                  <div className="grid gap-3">
+                  <div className="grid gap-2">
                     {latestMeeting ? (
-                      <TaskCard
-                        action={<button className="rounded-full bg-[#111111] px-4 py-2 text-xs font-bold text-white" onClick={() => setActiveTab("meetings")} type="button">View</button>}
+                      <RecentActivityRow
                         icon="log"
+                        onClick={() => setActiveTab("meetings")}
                         title="Latest meeting"
                       >
                         {meetingPeopleTitle(latestMeeting, people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
-                      </TaskCard>
+                      </RecentActivityRow>
                     ) : null}
                     {latestFruit ? (
-                      <TaskCard
-                        action={<button className="rounded-full border border-[#DDD9D0] bg-white px-4 py-2 text-xs font-bold text-[#1E1D1A]" onClick={() => setActiveTab("fruit")} type="button">View</button>}
+                      <RecentActivityRow
                         icon="fruit"
+                        onClick={() => setActiveTab("fruit")}
                         title="Latest fruit"
                       >
                         {latestFruit.summary || "Fruit recorded"} · {formatDate(latestFruit.testimonyDate)}
-                      </TaskCard>
+                      </RecentActivityRow>
                     ) : null}
                     {!latestMeeting && !latestFruit ? (
-                      <div className="rounded-[20px] bg-white p-4 text-sm text-[#77716A]">Log a meeting to begin your activity rhythm.</div>
+                      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-[#77716A]">Log a meeting to begin your activity rhythm.</div>
                     ) : null}
                   </div>
                 </section>
@@ -3479,6 +3596,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             ) : null}
           </main>
         </div>
+
+        {isCirclesOpen ? (
+          <CirclesDetailOverlay
+            meetingCountByPersonId={meetingCountByPersonId}
+            my12={my12People}
+            my3={my3People}
+            my70={my70People}
+            onBack={() => setIsCirclesOpen(false)}
+            onOpenPerson={openPersonDetail}
+          />
+        ) : null}
 
         {selectedPerson ? (
           <PersonDetailOverlay
