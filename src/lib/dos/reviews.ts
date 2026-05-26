@@ -4,6 +4,7 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 import { inferFruitEventsFromReview } from "@/src/lib/dos/fruit-intelligence";
 import {
   dosQuickReviewType,
+  dosExperienceReviewTypes,
   dosReviewFollowUpAnswers,
   dosReviewSharePermissions,
   dosReviewStepAnswers,
@@ -11,7 +12,7 @@ import {
   type DosReviewLinkState,
 } from "@/src/lib/dos/review-types";
 
-export { dosQuickReviewType };
+export { dosExperienceReviewTypes, dosQuickReviewType };
 export type { DosQuickReviewSubmission, DosReviewLinkState };
 
 type ReviewLinkRow = {
@@ -127,6 +128,7 @@ export async function loadDosReviewLink(token: string): Promise<DosReviewLinkSta
     .from("dos_review_links")
     .select("id, token, workspace_id, meeting_id, reviewer_person_id, expires_at, used_at")
     .eq("token", token)
+    .in("review_type", [...dosExperienceReviewTypes])
     .maybeSingle();
 
   if (linkError || !link) {
@@ -195,6 +197,7 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     .from("dos_review_links")
     .select("id, workspace_id, meeting_id, reviewer_person_id, created_by_user_id, expires_at, used_at")
     .eq("token", token)
+    .in("review_type", [...dosExperienceReviewTypes])
     .maybeSingle();
 
   if (linkError || !link) {

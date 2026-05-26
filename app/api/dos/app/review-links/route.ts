@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
-import { dosQuickReviewType } from "@/src/lib/dos/reviews";
+import { dosExperienceReviewTypes, dosQuickReviewType } from "@/src/lib/dos/reviews";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     .select("token")
     .eq("workspace_id", workspaceId)
     .eq("meeting_id", meetingId)
-    .eq("review_type", dosQuickReviewType)
+    .in("review_type", [...dosExperienceReviewTypes])
     .is("used_at", null)
     .order("created_at", { ascending: false })
     .limit(1);

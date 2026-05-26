@@ -1,4 +1,6 @@
-export const dosQuickReviewType = "quick_check_in" as const;
+export const dosQuickReviewType = "review" as const;
+export const legacyDosQuickReviewType = "quick_check_in" as const;
+export const dosExperienceReviewTypes = [dosQuickReviewType, legacyDosQuickReviewType] as const;
 export const dosReviewSharePermissions = ["anonymous", "with_name", "private"] as const;
 export const dosReviewStepAnswers = ["yes", "no", "unsure"] as const;
 export const dosReviewFollowUpAnswers = ["yes", "no", "maybe"] as const;

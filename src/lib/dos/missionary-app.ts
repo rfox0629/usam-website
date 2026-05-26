@@ -10,7 +10,7 @@ import {
   type DosRecommendedResource,
 } from "@/src/lib/dos/meeting-engine";
 import { buildFallbackCircleDataFromActivity, loadCircleData, recalculateCircleScores, type DosCircleData } from "@/src/lib/dos/circle-scoring";
-import { dosQuickReviewType } from "@/src/lib/dos/review-types";
+import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -599,7 +599,7 @@ async function loadReviewLinksForWorkspace(supabase: SupabaseAdminClient, worksp
     .from("dos_review_links")
     .select("meeting_id, token, used_at, created_at")
     .eq("workspace_id", workspaceId)
-    .eq("review_type", dosQuickReviewType)
+    .in("review_type", [...dosExperienceReviewTypes])
     .order("created_at", { ascending: false });
 
   return result.error && isMissingWorkflowTable(result.error, "dos_review_links")
@@ -612,7 +612,7 @@ async function loadMeetingReviewsForWorkspace(supabase: SupabaseAdminClient, wor
     .from("dos_meeting_reviews")
     .select("meeting_id, share_permission, status, stood_out, submitted_name, created_at")
     .eq("workspace_id", workspaceId)
-    .eq("review_type", dosQuickReviewType)
+    .in("review_type", [...dosExperienceReviewTypes])
     .order("created_at", { ascending: false });
 
   return result.error && isMissingWorkflowTable(result.error, "dos_meeting_reviews")
