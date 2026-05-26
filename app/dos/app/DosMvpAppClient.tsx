@@ -1163,33 +1163,36 @@ function CircleClusterNode({
 }
 
 const my12NodePositions = [
-  ["50%", "11%"],
-  ["69%", "18%"],
-  ["82%", "36%"],
-  ["79%", "58%"],
-  ["64%", "74%"],
-  ["39%", "76%"],
-  ["22%", "61%"],
-  ["18%", "38%"],
-  ["31%", "20%"],
-  ["50%", "83%"],
-  ["86%", "50%"],
-  ["14%", "50%"],
+  ["50%", "20%"],
+  ["69%", "27%"],
+  ["80%", "45%"],
+  ["73%", "65%"],
+  ["57%", "78%"],
+  ["37%", "75%"],
+  ["23%", "60%"],
+  ["23%", "40%"],
+  ["36%", "25%"],
+] as const;
+
+const my3NodePositions = [
+  ["50%", "39%"],
+  ["40%", "57%"],
+  ["60%", "57%"],
 ] as const;
 
 const my70NodePositions = [
-  ["50%", "4%"],
-  ["70%", "8%"],
-  ["86%", "22%"],
-  ["95%", "44%"],
-  ["91%", "68%"],
-  ["76%", "87%"],
-  ["52%", "96%"],
-  ["28%", "89%"],
-  ["10%", "72%"],
-  ["4%", "48%"],
-  ["12%", "24%"],
-  ["30%", "8%"],
+  ["50%", "9%"],
+  ["70%", "14%"],
+  ["84%", "28%"],
+  ["89%", "48%"],
+  ["82%", "68%"],
+  ["68%", "82%"],
+  ["50%", "86%"],
+  ["32%", "82%"],
+  ["20%", "68%"],
+  ["11%", "48%"],
+  ["16%", "28%"],
+  ["30%", "14%"],
 ] as const;
 
 function CircleFocusHero({
@@ -1223,9 +1226,9 @@ function CircleFocusHero({
   const showMiddleLayer = activeView === "twelve" || activeView === "seventy";
   const centerClassName = activeView === "three" ? "scale-110 opacity-100" : activeView === "twelve" ? "scale-100 opacity-95" : "scale-95 opacity-85";
   const middleRingClassName = my12Active
-    ? "scale-100 border-[#D4A63D]/55 bg-[#FFF8E7]/45"
+    ? "scale-100 border-[#D4A63D]/55 bg-[#FFF8E7]/35"
     : my70Active
-      ? "scale-95 border-[#D7C7A4]/55 bg-white/35"
+      ? "scale-95 border-[#E7E1D7]/80 bg-white/25"
       : "scale-95 border-[#E7E1D7]/80 bg-transparent";
   const outerRingClassName = my70Active
     ? "scale-100 border-[#D4A63D]/50 bg-[#FFF8E7]/30"
@@ -1237,12 +1240,12 @@ function CircleFocusHero({
     const y = event.clientY - bounds.top - bounds.height / 2;
     const distanceFromCenter = Math.sqrt(x * x + y * y);
 
-    if (distanceFromCenter <= 52) {
+    if (distanceFromCenter <= 64) {
       setActiveView("three");
       return;
     }
 
-    if (distanceFromCenter <= 88) {
+    if (distanceFromCenter <= 96) {
       setActiveView("twelve");
       return;
     }
@@ -1270,15 +1273,15 @@ function CircleFocusHero({
         type="button"
       >
         <span
-          className={`absolute left-1/2 top-1/2 z-[1] h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${outerRingClassName}`}
+          className={`absolute left-1/2 top-1/2 z-[1] h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${outerRingClassName}`}
           data-circle-ring="outer"
         />
         <span
-          className={`absolute left-1/2 top-1/2 z-[2] h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${middleRingClassName}`}
+          className={`absolute left-1/2 top-1/2 z-[2] h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${middleRingClassName}`}
           data-circle-ring="middle"
         />
         <span
-          className={`absolute left-1/2 top-1/2 z-[3] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${
+          className={`absolute left-1/2 top-1/2 z-[3] h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${
             activeView === "three" ? "scale-105 border-[#D4A63D]/70 bg-[#FFF8E7]" : "scale-100 border-[#E8DFCF] bg-white/70"
           }`}
           data-circle-ring="center"
@@ -1309,15 +1312,18 @@ function CircleFocusHero({
           <CircleClusterNode count={clusterCount} left="82%" top="82%" />
         ) : null}
 
-        <span className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
-          <span className={`flex justify-center gap-2 transition-all duration-300 ${centerClassName}`}>
-            {my3Slots.map((person, index) => (
-              <CircleAvatar index={index} key={person?.id ?? `empty-${index}`} layer="center" person={person} size={activeView === "three" ? "lg" : "md"} />
-            ))}
-          </span>
-        </span>
+        {my3Slots.map((person, index) => (
+          <TargetNode
+            className={`z-30 ${centerClassName}`}
+            key={person?.id ?? `empty-${index}`}
+            left={my3NodePositions[index][0]}
+            top={my3NodePositions[index][1]}
+          >
+            <CircleAvatar index={index} layer="center" person={person} size={activeView === "three" ? "lg" : "md"} />
+          </TargetNode>
+        ))}
 
-        <span className="absolute inset-x-0 bottom-5 z-40 block text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+        <span className="absolute inset-x-0 bottom-0 z-40 block text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
           {copy.label}
         </span>
       </button>
