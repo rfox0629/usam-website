@@ -5408,6 +5408,7 @@ function MeetingEditorModal({
 type TableWorkflowSection = "assessment" | "fruit" | "responses" | "review" | "summary";
 type FruitFilter = "all" | "approved" | "pending" | "private" | "public";
 type MeetingsFilter = "all" | "completed" | "needs_follow_up" | "upcoming";
+type PrayerFilter = "active" | "all" | "archived" | "open_requests" | "pending" | "private_internal";
 type ReviewFilter = "all" | "draft_fruit" | "pending" | "reviewed";
 
 type FruitListRow = {
@@ -5465,6 +5466,15 @@ const fruitFilterOptions: Array<{ label: string; value: FruitFilter }> = [
   { label: "Approved", value: "approved" },
   { label: "Private/Internal", value: "private" },
   { label: "Public", value: "public" },
+];
+
+const prayerFilterOptions: Array<{ label: string; value: PrayerFilter }> = [
+  { label: "All", value: "all" },
+  { label: "Pending", value: "pending" },
+  { label: "Active", value: "active" },
+  { label: "Open Requests", value: "open_requests" },
+  { label: "Private/Internal", value: "private_internal" },
+  { label: "Archived", value: "archived" },
 ];
 
 function TableDetailPanel({
@@ -9116,6 +9126,46 @@ function prayerPartnerSourceLabel(source: string | null | undefined) {
     : labelFromToken(source);
 }
 
+function prayerPartnerStatusLabel(status: AdminPrayerPartnerStatus) {
+  if (status === "active") {
+    return "Active";
+  }
+
+  if (status === "declined") {
+    return "Declined";
+  }
+
+  if (status === "archived" || status === "inactive") {
+    return "Archived";
+  }
+
+  return "Pending";
+}
+
+function prayerRequestStatusLabel(status: AdminPrayerRequest["status"]) {
+  if (status === "covered" || status === "answered") {
+    return "Prayed";
+  }
+
+  if (status === "archived") {
+    return "Archived";
+  }
+
+  return "Open";
+}
+
+function prayerRequestVisibilityLabel(visibility: AdminPrayerRequest["visibility"]) {
+  if (visibility === "public") {
+    return "Public";
+  }
+
+  if (visibility === "team") {
+    return "Internal";
+  }
+
+  return "Private";
+}
+
 function PrayerStatusChip({ children, tone = "neutral" }: { children: ReactNode; tone?: "amber" | "green" | "neutral" | "red" }) {
   const toneClass = {
     amber: "border-[#D4A63D]/40 bg-[#fff7df] text-[#7a5200]",
@@ -9135,11 +9185,17 @@ function PrayerStatusChip({ children, tone = "neutral" }: { children: ReactNode;
 }
 
 function PrayerPublishingWorkspace({
+  onCreatePrayerRequest,
   onUpdateHouseholdField,
+  onUpdatePrayerPartnerStatus,
+  onUpdatePrayerRequest,
   profile,
   publicProfileLink,
 }: {
+  onCreatePrayerRequest: (draft: PrayerRequestDraft) => Promise<void> | void;
   onUpdateHouseholdField: (field: keyof AdminHousehold, value: boolean | number | string | null) => void;
+  onUpdatePrayerPartnerStatus: (partnerId: string, status: AdminPrayerPartnerStatus) => Promise<void> | void;
+  onUpdatePrayerRequest: (prayerRequestId: string, patch: Partial<Pick<AdminPrayerRequest, "status" | "visibility">>) => Promise<void> | void;
   profile: AdminProfile;
   publicProfileLink: string;
 }) {
@@ -9148,133 +9204,638 @@ function PrayerPublishingWorkspace({
   ));
   const activePartners = partners.filter((partner) => partner.status === "active").length;
   const pendingPartners = partners.filter((partner) => partner.status === "pending").length;
-  const recentPartners = partners.filter((partner) => partner.status === "pending" || partner.status === "active").slice(0, 4);
   const requests = [...(profile.prayerRequests ?? [])].sort((a, b) => (
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   ));
   const openRequests = requests.filter((request) => request.status === "open").length;
-  const recentRequests = requests.slice(0, 4);
+  const privateRequests = requests.filter((request) => request.visibility !== "public").length;
+  const publicRequests = requests.filter((request) => request.visibility === "public").length;
+  const [editingPublicCopy, setEditingPublicCopy] = useState(false);
+  const [isAddingPrayerRequest, setIsAddingPrayerRequest] = useState(false);
+  const [prayerFilter, setPrayerFilter] = useState<PrayerFilter>("all");
+  const [prayerSearch, setPrayerSearch] = useState("");
+  const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [selectedRequestId, setSelectedRequestId] = useState("");
+  const selectedPartner = partners.find((partner) => partner.id === selectedPartnerId) ?? null;
+  const selectedRequest = requests.find((request) => request.id === selectedRequestId) ?? null;
+  const normalizedSearch = prayerSearch.trim().toLowerCase();
+  const partnerMatchesFilter = (partner: AdminPrayerPartner) => {
+    if (prayerFilter === "pending") {
+      return partner.status === "pending";
+    }
+
+    if (prayerFilter === "active") {
+      return partner.status === "active";
+    }
+
+    if (prayerFilter === "archived") {
+      return partner.status === "archived" || partner.status === "declined" || partner.status === "inactive";
+    }
+
+    return prayerFilter === "all";
+  };
+  const requestMatchesFilter = (request: AdminPrayerRequest) => {
+    if (prayerFilter === "open_requests") {
+      return request.status === "open";
+    }
+
+    if (prayerFilter === "private_internal") {
+      return request.visibility !== "public";
+    }
+
+    if (prayerFilter === "archived") {
+      return request.status === "archived";
+    }
+
+    return prayerFilter === "all";
+  };
+  const filteredPartners = partners.filter((partner) => {
+    const matchesSearch = !normalizedSearch || [
+      prayerPartnerName(partner),
+      prayerPartnerContact(partner),
+      prayerPartnerSourceLabel(partner.source),
+      prayerPartnerStatusLabel(partner.status),
+    ].some((value) => value.toLowerCase().includes(normalizedSearch));
+
+    return partnerMatchesFilter(partner) && matchesSearch;
+  });
+  const filteredRequests = requests.filter((request) => {
+    const matchesSearch = !normalizedSearch || [
+      request.title,
+      request.request,
+      request.category ?? "",
+      prayerRequestStatusLabel(request.status),
+      prayerRequestVisibilityLabel(request.visibility),
+    ].some((value) => value.toLowerCase().includes(normalizedSearch));
+
+    return requestMatchesFilter(request) && matchesSearch;
+  });
+  const publicHeadline = profile.prayer_section_headline?.trim() || defaultPrayerHeadline;
+  const publicDescription = profile.prayer_section_description?.trim() || defaultPrayerDescription;
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <a
-          className={`${lightSecondaryButtonClass} min-h-9 gap-2`}
-          href={publicProfileLink}
-          rel="noopener noreferrer"
-          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          target="_blank"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Open Public Profile
-        </a>
-      </div>
-
-      <section className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Public Prayer Section
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Prayer
             </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <PrayerStatusChip tone="amber">Join Prayer Team</PrayerStatusChip>
-              <PrayerStatusChip tone="amber">Submit Prayer Request</PrayerStatusChip>
-            </div>
+            <h3 className="mt-2 text-2xl font-bold leading-tight text-[#111111]">
+              Prayer operations
+            </h3>
+            <p className="mt-1 text-sm leading-5 text-[#4b443b]">
+              Manage prayer partners, requests, and public prayer visibility.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a className={`${lightSecondaryButtonClass} gap-2`} href={publicProfileLink} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              Open Public Profile
+            </a>
+            <button className={lightPrimaryButtonClass} onClick={() => setIsAddingPrayerRequest(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Add Prayer Request
+            </button>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-          <Field
-            label="Headline"
-            onChange={(value) => onUpdateHouseholdField("prayer_section_headline", value)}
-            value={profile.prayer_section_headline ?? defaultPrayerHeadline}
-          />
-          <TextArea
-            label="Description"
-            onChange={(value) => onUpdateHouseholdField("prayer_section_description", value)}
-            rows={3}
-            value={profile.prayer_section_description ?? defaultPrayerDescription}
-          />
-        </div>
-      </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Prayer Team Signups
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ReviewStatCard helper="Approved prayer team" label="Active Prayer Partners" value={String(activePartners)} />
+          <ReviewStatCard helper="Need follow-up" label="Pending Signups" value={String(pendingPartners)} />
+          <ReviewStatCard helper="Currently open" label="Open Prayer Requests" value={String(openRequests)} />
+          <ReviewStatCard helper="Not public" label="Private Requests" value={String(privateRequests)} />
+        </div>
+
+        <section className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Public prayer section
               </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <PrayerStatusChip tone="green">Active {activePartners}</PrayerStatusChip>
-                <PrayerStatusChip tone={pendingPartners > 0 ? "amber" : "neutral"}>Pending {pendingPartners}</PrayerStatusChip>
-              </div>
+              <h4 className="mt-2 text-lg font-semibold leading-tight text-[#111111]">
+                {publicHeadline}
+              </h4>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4b443b]">
+                {publicDescription}
+              </p>
             </div>
-          </div>
-          <div className="mt-4 divide-y divide-[#e2ded5] overflow-hidden rounded-xl border border-[#e2ded5]">
-            {recentPartners.length === 0 ? (
-              <p className="p-3.5 text-sm text-[#7b746a]">No prayer team signups yet.</p>
-            ) : recentPartners.map((partner) => (
-              <div className="grid gap-2 p-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={partner.id}>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[#111111]">{prayerPartnerName(partner)}</p>
-                  <p className="mt-0.5 truncate text-xs text-[#7b746a]">{prayerPartnerContact(partner)}</p>
-                  <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#8a8174]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    {prayerPartnerSourceLabel(partner.source)} · {formatProfileUpdatedDate(partner.date_joined ?? partner.created_at)}
-                  </p>
-                </div>
-                <PrayerStatusChip tone={partner.status === "active" ? "green" : partner.status === "pending" ? "amber" : "neutral"}>
-                  {labelFromToken(partner.status)}
-                </PrayerStatusChip>
-              </div>
-            ))}
+            <div className="flex flex-wrap gap-2">
+              <button className={lightSecondaryButtonClass} onClick={() => setEditingPublicCopy(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                Edit Public Prayer Copy
+              </button>
+              <a className={lightSecondaryButtonClass} href={publicProfileLink} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+                Preview Public Profile
+              </a>
+            </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Prayer Requests
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <PrayerStatusChip tone={openRequests > 0 ? "amber" : "neutral"}>Open {openRequests}</PrayerStatusChip>
-                <PrayerStatusChip>Private by default</PrayerStatusChip>
-              </div>
-            </div>
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[#e2ded5] bg-white px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {prayerFilterOptions.map((option) => {
+              const selected = prayerFilter === option.value;
+
+              return (
+                <button
+                  className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 text-[10px] uppercase tracking-[0.16em] transition-colors ${
+                    selected
+                      ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                      : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                  }`}
+                  key={option.value}
+                  onClick={() => setPrayerFilter(option.value)}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
-          <div className="mt-4 divide-y divide-[#e2ded5] overflow-hidden rounded-xl border border-[#e2ded5]">
-            {recentRequests.length === 0 ? (
-              <p className="p-3.5 text-sm text-[#7b746a]">No prayer requests yet.</p>
-            ) : recentRequests.map((request) => (
-              <div className="grid gap-2 p-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={request.id}>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[#111111]">{request.title}</p>
-                  <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-[#7b746a]">{request.request}</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <PrayerStatusChip>{labelFromToken(request.urgency)}</PrayerStatusChip>
-                    <PrayerStatusChip>{labelFromToken(request.visibility)}</PrayerStatusChip>
-                    <PrayerStatusChip>{formatProfileUpdatedDate(request.created_at)}</PrayerStatusChip>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="relative block min-w-0 sm:w-72">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8174]" />
+              <span className="sr-only">Search prayer items</span>
+              <input
+                className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]"
+                onChange={(event) => setPrayerSearch(event.target.value)}
+                placeholder="Search prayer items"
+                value={prayerSearch}
+              />
+            </label>
+            <button className={lightSecondaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Filters
+            </button>
+          </div>
+        </div>
+
+        <section className="mt-4 overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+          <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Prayer team signups
+            </p>
+          </div>
+          {partners.length === 0 ? (
+            <PrayerEmptyState
+              actionLabel="Preview Public Profile"
+              href={publicProfileLink}
+              text="Prayer team signups will appear here when people join from the public profile."
+              title="No prayer partners yet."
+            />
+          ) : filteredPartners.length === 0 ? (
+            <p className="p-4 text-sm leading-6 text-[#7b746a]">No signups match this view.</p>
+          ) : (
+            <div>
+              <div className="hidden grid-cols-[minmax(140px,1.1fr)_minmax(180px,1.2fr)_minmax(110px,0.8fr)_96px_104px_170px] items-center gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] xl:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span>Name</span>
+                <span>Email</span>
+                <span>Source</span>
+                <span>Status</span>
+                <span>Date</span>
+                <span className="text-right">Actions</span>
+              </div>
+              <div className="divide-y divide-[#e2ded5]">
+                {filteredPartners.map((partner) => (
+                  <div className="grid min-h-[72px] cursor-pointer gap-3 bg-white px-4 py-4 transition-colors hover:bg-[#fbfaf7] xl:grid-cols-[minmax(140px,1.1fr)_minmax(180px,1.2fr)_minmax(110px,0.8fr)_96px_104px_170px] xl:items-center" key={partner.id} onClick={() => setSelectedPartnerId(partner.id)} role="button" tabIndex={0}>
+                    <PrayerTextCell label="Name" value={prayerPartnerName(partner)} strong />
+                    <PrayerTextCell label="Email" value={partner.email || "Not provided"} />
+                    <PrayerTextCell label="Source" value={prayerPartnerSourceLabel(partner.source)} />
+                    <PrayerPartnerStatusCell status={partner.status} />
+                    <PrayerTextCell label="Date" value={formatProfileUpdatedDate(partner.date_joined ?? partner.created_at)} />
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      <button className={lightTertiaryButtonClass} onClick={(event) => { event.stopPropagation(); onUpdatePrayerPartnerStatus(partner.id, "active"); }} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                        Approve
+                      </button>
+                      <button className={lightTertiaryButtonClass} onClick={(event) => { event.stopPropagation(); onUpdatePrayerPartnerStatus(partner.id, "declined"); }} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                        Decline
+                      </button>
+                      <button aria-label={`View ${prayerPartnerName(partner)}`} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={(event) => { event.stopPropagation(); setSelectedPartnerId(partner.id); }} type="button">
+                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <PrayerStatusChip tone={request.status === "open" ? "amber" : request.status === "answered" ? "green" : "neutral"}>
-                  {labelFromToken(request.status)}
-                </PrayerStatusChip>
+                ))}
               </div>
-            ))}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-4 overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+          <div className="flex flex-col gap-2 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Prayer requests
+            </p>
+            <button className={lightSecondaryButtonClass} onClick={() => setIsAddingPrayerRequest(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Add Prayer Request
+            </button>
+          </div>
+          {requests.length === 0 ? (
+            <PrayerEmptyState
+              actionLabel="Add Prayer Request"
+              onClick={() => setIsAddingPrayerRequest(true)}
+              text="Prayer requests will appear here when someone submits a request from the public profile or when a leader adds one manually."
+              title="No prayer requests yet."
+            />
+          ) : filteredRequests.length === 0 ? (
+            <p className="p-4 text-sm leading-6 text-[#7b746a]">No prayer requests match this view.</p>
+          ) : (
+            <div>
+              <div className="hidden grid-cols-[minmax(200px,1.5fr)_96px_94px_minmax(130px,0.9fr)_104px_150px] items-center gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] xl:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span>Request</span>
+                <span>Visibility</span>
+                <span>Status</span>
+                <span>Submitted By</span>
+                <span>Date</span>
+                <span className="text-right">Actions</span>
+              </div>
+              <div className="divide-y divide-[#e2ded5]">
+                {filteredRequests.map((request) => (
+                  <div className="grid min-h-[76px] cursor-pointer gap-3 bg-white px-4 py-4 transition-colors hover:bg-[#fbfaf7] xl:grid-cols-[minmax(200px,1.5fr)_96px_94px_minmax(130px,0.9fr)_104px_150px] xl:items-center" key={request.id} onClick={() => setSelectedRequestId(request.id)} role="button" tabIndex={0}>
+                    <div className="flex items-start justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Request</span>
+                      <div className="min-w-0 text-right xl:text-left">
+                        <span className="block truncate text-sm font-semibold text-[#111111]">{request.title}</span>
+                        <span className="mt-1 block line-clamp-2 text-xs leading-5 text-[#7b746a]">{request.request}</span>
+                      </div>
+                    </div>
+                    <PrayerRequestVisibilityCell visibility={request.visibility} />
+                    <PrayerRequestStatusCell status={request.status} />
+                    <PrayerTextCell label="Submitted By" value={request.field_person_id ? personNameById(profile.fieldPeople ?? [], request.field_person_id) : "Household"} />
+                    <PrayerTextCell label="Date" value={formatProfileUpdatedDate(request.created_at)} />
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      <button className={lightTertiaryButtonClass} onClick={(event) => { event.stopPropagation(); onUpdatePrayerRequest(request.id, { status: "covered" }); }} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                        Prayed
+                      </button>
+                      <button className={lightTertiaryButtonClass} onClick={(event) => { event.stopPropagation(); onUpdatePrayerRequest(request.id, { status: "archived" }); }} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                        Archive
+                      </button>
+                      <button aria-label={`View ${request.title}`} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={(event) => { event.stopPropagation(); setSelectedRequestId(request.id); }} type="button">
+                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Settings
+          </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            <PrayerSettingRow label="Anonymous requests allowed" value="Allowed" />
+            <PrayerSettingRow label="Approved public requests" value={String(publicRequests)} />
+            <PrayerSettingRow label="Prayer mode" value="Household" />
+            <label className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] px-3 py-2">
+              <span className="text-sm font-medium text-[#111111]">Public profile visibility</span>
+              <input checked={profile.show_prayer !== false} className="h-4 w-4 accent-[#D4A63D]" onChange={(event) => onUpdateHouseholdField("show_prayer", event.target.checked)} type="checkbox" />
+            </label>
+            <label className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] px-3 py-2">
+              <span className="text-sm font-medium text-[#111111]">Prayer team signups</span>
+              <input checked={profile.enable_prayer_team !== false} className="h-4 w-4 accent-[#D4A63D]" onChange={(event) => onUpdateHouseholdField("enable_prayer_team", event.target.checked)} type="checkbox" />
+            </label>
           </div>
         </section>
-      </div>
 
-      <section className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-        <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Settings
-        </p>
-        <div className="mt-3 grid gap-2 md:grid-cols-3">
-          <PrayerSettingRow label="Anonymous requests" value="Allowed" />
-          <PrayerSettingRow label="Approved public requests" value="Off" />
-          <PrayerSettingRow label="Household notifications" value="NCC queue" />
+        {editingPublicCopy ? (
+          <PrayerCopyModal
+            description={publicDescription}
+            headline={publicHeadline}
+            onClose={() => setEditingPublicCopy(false)}
+            onSave={(draft) => {
+              onUpdateHouseholdField("prayer_section_headline", draft.headline);
+              onUpdateHouseholdField("prayer_section_description", draft.description);
+              setEditingPublicCopy(false);
+            }}
+          />
+        ) : null}
+
+        {isAddingPrayerRequest ? (
+          <PrayerRequestEditorModal
+            fieldPeople={profile.fieldPeople ?? []}
+            onClose={() => setIsAddingPrayerRequest(false)}
+            onSave={async (draft) => {
+              await onCreatePrayerRequest(draft);
+              setIsAddingPrayerRequest(false);
+            }}
+          />
+        ) : null}
+
+        {selectedPartner ? (
+          <PrayerPartnerDetailDrawer
+            onClose={() => setSelectedPartnerId("")}
+            onUpdateStatus={(status) => onUpdatePrayerPartnerStatus(selectedPartner.id, status)}
+            partner={selectedPartner}
+          />
+        ) : null}
+
+        {selectedRequest ? (
+          <PrayerRequestDetailDrawer
+            fieldPeople={profile.fieldPeople ?? []}
+            onClose={() => setSelectedRequestId("")}
+            onUpdate={(patch) => onUpdatePrayerRequest(selectedRequest.id, patch)}
+            request={selectedRequest}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PrayerTextCell({ label, strong = false, value }: { label: string; strong?: boolean; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 xl:block">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </span>
+      <span className={`block max-w-[220px] truncate text-right text-sm leading-5 xl:max-w-full xl:text-left ${strong ? "font-semibold text-[#111111]" : "text-[#4b443b]"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function PrayerPartnerStatusCell({ status }: { status: AdminPrayerPartnerStatus }) {
+  return (
+    <div className="flex items-center justify-between gap-3 xl:block">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Status</span>
+      <PrayerStatusChip tone={status === "active" ? "green" : status === "pending" ? "amber" : status === "declined" ? "red" : "neutral"}>
+        {prayerPartnerStatusLabel(status)}
+      </PrayerStatusChip>
+    </div>
+  );
+}
+
+function PrayerRequestStatusCell({ status }: { status: AdminPrayerRequest["status"] }) {
+  return (
+    <div className="flex items-center justify-between gap-3 xl:block">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Status</span>
+      <PrayerStatusChip tone={status === "open" ? "amber" : status === "covered" || status === "answered" ? "green" : "neutral"}>
+        {prayerRequestStatusLabel(status)}
+      </PrayerStatusChip>
+    </div>
+  );
+}
+
+function PrayerRequestVisibilityCell({ visibility }: { visibility: AdminPrayerRequest["visibility"] }) {
+  return (
+    <div className="flex items-center justify-between gap-3 xl:block">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Visibility</span>
+      <PrayerStatusChip tone={visibility === "public" ? "green" : visibility === "private" ? "neutral" : "amber"}>
+        {prayerRequestVisibilityLabel(visibility)}
+      </PrayerStatusChip>
+    </div>
+  );
+}
+
+function PrayerEmptyState({
+  actionLabel,
+  href,
+  onClick,
+  text,
+  title,
+}: {
+  actionLabel: string;
+  href?: string;
+  onClick?: () => void;
+  text: string;
+  title: string;
+}) {
+  const className = `${lightPrimaryButtonClass} mt-4`;
+
+  return (
+    <div className="p-6 text-center">
+      <h4 className="text-xl font-bold text-[#111111]">{title}</h4>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#7b746a]">{text}</p>
+      {href ? (
+        <a className={className} href={href} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+          {actionLabel}
+        </a>
+      ) : (
+        <button className={className} onClick={onClick} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PrayerCopyModal({
+  description,
+  headline,
+  onClose,
+  onSave,
+}: {
+  description: string;
+  headline: string;
+  onClose: () => void;
+  onSave: (draft: { description: string; headline: string }) => void;
+}) {
+  const [draft, setDraft] = useState({ description, headline });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm">
+      <div className="ml-auto flex h-full w-full max-w-2xl flex-col border-l border-[#2a241a] bg-[#f8f6f1] text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] bg-white px-5 py-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public Prayer Copy</p>
+            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>Edit Prayer Section</h3>
+          </div>
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
-      </section>
+        <div className="flex-1 overflow-y-auto p-5">
+          <Field label="Headline" onChange={(value) => setDraft((current) => ({ ...current, headline: value }))} value={draft.headline} />
+          <div className="mt-4">
+            <TextArea label="Description" onChange={(value) => setDraft((current) => ({ ...current, description: value }))} rows={6} value={draft.description} />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-[#e2ded5] bg-white p-5">
+          <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Cancel</button>
+          <button className={lightPrimaryButtonClass} onClick={() => onSave(draft)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Save Copy</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrayerRequestEditorModal({
+  fieldPeople,
+  onClose,
+  onSave,
+}: {
+  fieldPeople: readonly AdminFieldPerson[];
+  onClose: () => void;
+  onSave: (draft: PrayerRequestDraft) => Promise<void> | void;
+}) {
+  const [draft, setDraft] = useState<PrayerRequestDraft>({
+    category: "",
+    fieldPersonId: "",
+    request: "",
+    title: "",
+    urgency: "normal",
+    visibility: "private",
+  });
+  const canSave = draft.title.trim() && draft.request.trim();
+
+  function updateDraft(patch: Partial<PrayerRequestDraft>) {
+    setDraft((currentDraft) => ({ ...currentDraft, ...patch }));
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm">
+      <div className="ml-auto flex h-full w-full max-w-2xl flex-col border-l border-[#2a241a] bg-[#f8f6f1] text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] bg-white px-5 py-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Prayer Request</p>
+            <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>Add Prayer Request</h3>
+          </div>
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Title" onChange={(value) => updateDraft({ title: value })} value={draft.title} />
+            <SelectField
+              label="Person"
+              onChange={(value) => updateDraft({ fieldPersonId: value })}
+              options={[
+                { label: "Missionary / household request", value: "" },
+                ...fieldPeople.map((person) => ({ label: person.name, value: person.id })),
+              ]}
+              value={draft.fieldPersonId}
+            />
+            <Field label="Category" onChange={(value) => updateDraft({ category: value })} value={draft.category} />
+            <SelectField label="Urgency" onChange={(value) => updateDraft({ urgency: value as AdminPrayerRequest["urgency"] })} options={prayerUrgencyOptions} value={draft.urgency} />
+            <SelectField
+              label="Visibility"
+              onChange={(value) => updateDraft({ visibility: value as PrayerRequestDraft["visibility"] })}
+              options={[
+                { label: "Private", value: "private" },
+                { label: "Internal", value: "team" },
+                { label: "Public", value: "public" },
+              ]}
+              value={draft.visibility}
+            />
+          </div>
+          <div className="mt-4">
+            <TextArea label="Request" onChange={(value) => updateDraft({ request: value })} rows={6} value={draft.request} />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-[#e2ded5] bg-white p-5">
+          <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Cancel</button>
+          <button className={lightPrimaryButtonClass} disabled={!canSave} onClick={() => onSave(draft)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Save Request</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrayerPartnerDetailDrawer({
+  onClose,
+  onUpdateStatus,
+  partner,
+}: {
+  onClose: () => void;
+  onUpdateStatus: (status: AdminPrayerPartnerStatus) => Promise<void> | void;
+  partner: AdminPrayerPartner;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm">
+      <div className="ml-auto flex h-full w-full max-w-3xl flex-col border-l border-[#2a241a] bg-[#f8f6f1] text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+        <PrayerDrawerHeader eyebrow="Prayer Partner" onClose={onClose} subtitle={prayerPartnerContact(partner)} title={prayerPartnerName(partner)} />
+        <div className="border-b border-[#e2ded5] bg-white px-5 pb-5">
+          <div className="flex flex-wrap gap-2">
+            <button className={lightPrimaryButtonClass} onClick={() => onUpdateStatus("active")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Approve</button>
+            <button className={lightSecondaryButtonClass} onClick={() => onUpdateStatus("active")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Mark Active</button>
+            <button className={lightTertiaryButtonClass} onClick={() => onUpdateStatus("declined")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Decline</button>
+            <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Close</button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DetailText label="Name" value={prayerPartnerName(partner)} />
+            <DetailText label="Email" value={partner.email || "Not provided"} />
+            <DetailText label="Phone" value={partner.phone || "Not provided"} />
+            <DetailText label="Source" value={prayerPartnerSourceLabel(partner.source)} />
+            <DetailText label="Status" value={prayerPartnerStatusLabel(partner.status)} />
+            <DetailText label="Date" value={formatProfileUpdatedDate(partner.date_joined ?? partner.created_at)} />
+            <DetailText label="Approved" value={partner.approved_at ? formatProfileUpdatedDate(partner.approved_at) : "Not approved"} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrayerRequestDetailDrawer({
+  fieldPeople,
+  onClose,
+  onUpdate,
+  request,
+}: {
+  fieldPeople: readonly AdminFieldPerson[];
+  onClose: () => void;
+  onUpdate: (patch: Partial<Pick<AdminPrayerRequest, "status" | "visibility">>) => Promise<void> | void;
+  request: AdminPrayerRequest;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm">
+      <div className="ml-auto flex h-full w-full max-w-3xl flex-col border-l border-[#2a241a] bg-[#f8f6f1] text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+        <PrayerDrawerHeader eyebrow="Prayer Request" onClose={onClose} subtitle={formatProfileUpdatedDate(request.created_at)} title={request.title} />
+        <div className="border-b border-[#e2ded5] bg-white px-5 pb-5">
+          <div className="flex flex-wrap gap-2">
+            <button className={lightPrimaryButtonClass} onClick={() => onUpdate({ status: "covered" })} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Mark Prayed</button>
+            <button className={lightSecondaryButtonClass} onClick={() => onUpdate({ visibility: "team" })} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Make Private/Internal</button>
+            <button className={lightSecondaryButtonClass} onClick={() => onUpdate({ visibility: "public" })} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Publish</button>
+            <button className={lightTertiaryButtonClass} onClick={() => onUpdate({ status: "archived" })} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Archive</button>
+            <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">Close</button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DetailText label="Submitted By" value={request.field_person_id ? personNameById(fieldPeople, request.field_person_id) : "Household"} />
+            <DetailText label="Visibility" value={prayerRequestVisibilityLabel(request.visibility)} />
+            <DetailText label="Status" value={prayerRequestStatusLabel(request.status)} />
+            <DetailText label="Urgency" value={labelFromToken(request.urgency)} />
+            <DetailText label="Category" value={request.category || "Not set"} />
+            <DetailText label="Date" value={formatProfileUpdatedDate(request.created_at)} />
+          </div>
+          <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Request</p>
+            <p className="mt-2 text-sm leading-6 text-[#4b443b]">{request.request}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrayerDrawerHeader({
+  eyebrow,
+  onClose,
+  subtitle,
+  title,
+}: {
+  eyebrow: string;
+  onClose: () => void;
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] bg-white px-5 py-5">
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{eyebrow}</p>
+        <h3 className="mt-2 truncate text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>{title}</h3>
+        <p className="mt-1 text-xs leading-5 text-[#7b746a]">{subtitle}</p>
+      </div>
+      <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
     </div>
   );
 }
@@ -10459,15 +11020,19 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
     });
   }
 
-  async function updatePrayerRequestStatus(prayerRequestId: string, nextStatus: AdminPrayerRequest["status"]) {
+  async function updatePrayerRequest(
+    prayerRequestId: string,
+    patch: Partial<Pick<AdminPrayerRequest, "status" | "visibility">>,
+  ) {
     if (!selectedProfile) {
       return;
     }
 
     const previousRequests = selectedProfile.prayerRequests ?? [];
+    const updatedAt = new Date().toISOString();
     const nextRequests = previousRequests.map((request) => (
       request.id === prayerRequestId
-        ? { ...request, status: nextStatus, updated_at: new Date().toISOString() }
+        ? { ...request, ...patch, updated_at: updatedAt }
         : request
     ));
 
@@ -10479,9 +11044,9 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
     const response = await fetch("/api/admin/missionary-profiles/prayer-requests", {
       body: JSON.stringify({
+        ...patch,
         householdId: selectedProfile.id,
         id: prayerRequestId,
-        status: nextStatus,
         workspaceId: selectedProfile.id,
       }),
       credentials: "same-origin",
@@ -10508,14 +11073,89 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
       return;
     }
 
+    const finalRequests = previousRequests.map((request) => (
+      request.id === result.prayerRequest?.id ? result.prayerRequest : request
+    ));
+
     updateSelected({
       ...selectedProfile,
-      activePrayerRequestCount: (selectedProfile.prayerRequests ?? []).filter((request) => (
-        request.id === prayerRequestId ? result.prayerRequest?.status === "open" : request.status === "open"
-      )).length,
-      prayerRequests: (selectedProfile.prayerRequests ?? []).map((request) => (
-        request.id === result.prayerRequest?.id ? result.prayerRequest : request
-      )),
+      activePrayerRequestCount: finalRequests.filter((request) => request.status === "open").length,
+      prayerRequests: finalRequests,
+    });
+    setStatus({
+      text: "Prayer request updated.",
+      tone: "success",
+    });
+  }
+
+  async function updatePrayerPartnerStatus(partnerId: string, nextStatus: AdminPrayerPartnerStatus) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    const previousPartners = selectedProfile.prayerPartners ?? [];
+    const updatedAt = new Date().toISOString();
+    const nextPartners = previousPartners.map((partner) => (
+      partner.id === partnerId
+        ? {
+          ...partner,
+          approved_at: nextStatus === "active" ? partner.approved_at ?? updatedAt : null,
+          approved_by: nextStatus === "active" ? partner.approved_by : null,
+          status: nextStatus,
+          updated_at: updatedAt,
+        }
+        : partner
+    ));
+
+    updateSelected({
+      ...selectedProfile,
+      prayerPartnerCount: nextPartners.filter((partner) => partner.status === "active").length,
+      prayerPartners: nextPartners,
+    });
+
+    const response = await fetch("/api/admin/missionary-profiles/prayer-partners", {
+      body: JSON.stringify({
+        householdId: selectedProfile.id,
+        id: partnerId,
+        status: nextStatus,
+        workspaceId: selectedProfile.id,
+      }),
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "PATCH",
+    });
+    const result = await response.json().catch(() => ({})) as {
+      error?: string;
+      prayerPartner?: AdminPrayerPartner;
+    };
+
+    if (!response.ok || !result.prayerPartner) {
+      updateSelected({
+        ...selectedProfile,
+        prayerPartnerCount: previousPartners.filter((partner) => partner.status === "active").length,
+        prayerPartners: previousPartners,
+      });
+      setStatus({
+        text: typeof result.error === "string" ? result.error : "Unable to update prayer partner.",
+        tone: "error",
+      });
+      return;
+    }
+
+    const finalPartners = previousPartners.map((partner) => (
+      partner.id === result.prayerPartner?.id ? result.prayerPartner : partner
+    ));
+
+    updateSelected({
+      ...selectedProfile,
+      prayerPartnerCount: finalPartners.filter((partner) => partner.status === "active").length,
+      prayerPartners: finalPartners,
+    });
+    setStatus({
+      text: "Prayer partner updated.",
+      tone: "success",
     });
   }
 
@@ -12246,10 +12886,15 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "prayer" ? (
           <SectionIntro
-            title="Prayer"
+            description="Manage prayer partners, requests, and public prayer visibility."
+            title="Prayer operations"
+            wide
           >
             <PrayerPublishingWorkspace
+              onCreatePrayerRequest={savePrayerRequest}
               onUpdateHouseholdField={updateHouseholdField}
+              onUpdatePrayerPartnerStatus={updatePrayerPartnerStatus}
+              onUpdatePrayerRequest={updatePrayerRequest}
               profile={selectedProfile}
               publicProfileLink={publicProfileLink}
             />

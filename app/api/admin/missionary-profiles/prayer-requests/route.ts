@@ -178,9 +178,26 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Workspace and prayer request ID are required." }, { status: 400 });
   }
 
+  const updatePayload: {
+    status?: typeof statuses[number];
+    visibility?: typeof visibilities[number];
+  } = {};
+
+  if (payload.status !== undefined) {
+    updatePayload.status = asStatus(payload.status);
+  }
+
+  if (payload.visibility !== undefined) {
+    updatePayload.visibility = asVisibility(payload.visibility);
+  }
+
+  if (!Object.keys(updatePayload).length) {
+    return NextResponse.json({ error: "Prayer request status or visibility is required." }, { status: 400 });
+  }
+
   const { data, error } = await createSupabaseAdminClient()
     .from("prayer_requests")
-    .update({ status: asStatus(payload.status) })
+    .update(updatePayload)
     .eq("id", id)
     .or(`household_id.eq.${workspaceId},related_household_id.eq.${workspaceId}`)
     .select(requestSelect)
