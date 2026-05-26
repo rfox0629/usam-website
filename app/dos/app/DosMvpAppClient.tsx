@@ -297,6 +297,36 @@ function isWithinLastDays(value: string | null | undefined, days: number) {
   return Date.now() - date.getTime() <= days * 24 * 60 * 60 * 1000;
 }
 
+function currentWeekRange(referenceDate = new Date()) {
+  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+  const day = start.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+
+  start.setDate(start.getDate() + mondayOffset);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+
+  return { end, start };
+}
+
+function isDateWithinRange(value: string | null | undefined, start: Date, end: Date) {
+  const date = value ? parseDisplayDate(value) : null;
+
+  return Boolean(date && date.getTime() >= start.getTime() && date.getTime() <= end.getTime());
+}
+
+function formatWeekRange(start: Date, end: Date) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+  });
+
+  return `${formatter.format(start)} - ${formatter.format(end)}`;
+}
+
 function formatFileSize(size: number) {
   if (size < 1024) {
     return `${size} B`;
@@ -333,6 +363,12 @@ function meetingTypeLabel(value: string) {
 
 function meetingActivityTitle(meeting: DosAppMeeting) {
   return meeting.source === "connection" ? meeting.title : meetingTypeLabel(meeting.type);
+}
+
+function isPrayerMeeting(meeting: DosAppMeeting) {
+  const content = `${meetingActivityTitle(meeting)} ${meeting.notes ?? ""}`.toLowerCase();
+
+  return meeting.type === "prayer" || content.includes("prayer") || content.includes("pray");
 }
 
 function conversationFlowLabel(value: DosConversationFlowKey) {
@@ -1153,6 +1189,51 @@ function rankedCircleMembers(items: CirclePersonItem[]) {
   return uniqueCircleMembers(items).sort((first, second) => second.score.totalScore - first.score.totalScore);
 }
 
+function circleLayerDetails(activeCircle: CircleFocusView, rankedPeople: CirclePersonItem[]) {
+  switch (activeCircle) {
+    case "three":
+      return {
+        capacity: 3,
+        cumulativeCount: Math.min(rankedPeople.length, 3),
+        empty: "No one in My 3 yet.",
+        items: rankedPeople.slice(0, 3),
+        sectionLabel: "Top 3",
+        startIndex: 0,
+        subtitle: "The people you invest in most deeply.",
+        title: "My 3",
+        value: "3",
+      };
+    case "twelve":
+      return {
+        capacity: 12,
+        cumulativeCount: Math.min(rankedPeople.length, 12),
+        empty: "No additional people in your 12 yet.",
+        items: rankedPeople.slice(3, 12),
+        sectionLabel: "Next 9 People",
+        startIndex: 3,
+        subtitle: "These are the next 9 people in your core circle. Together with your 3, this makes 12.",
+        title: "My 12",
+        value: "12",
+      };
+    case "seventy":
+      return {
+        capacity: 70,
+        cumulativeCount: Math.min(rankedPeople.length, 70),
+        empty: "No additional people in your 70 yet.",
+        items: rankedPeople.slice(12, 70),
+        sectionLabel: "Next 58 People",
+        startIndex: 12,
+        subtitle: "These are the next 58 people in your broader field. Together with your 12, this makes 70.",
+        title: "My 70",
+        value: "70",
+      };
+  }
+}
+
+function previewCircleLayerItems(activeCircle: CircleFocusView, items: CirclePersonItem[]) {
+  return activeCircle === "seventy" ? items.slice(0, 6) : items;
+}
+
 function CircleAvatar({
   index,
   layer,
@@ -1190,110 +1271,87 @@ function CircleAvatar({
   );
 }
 
-function TargetNode({
-  children,
-  className = "",
-  left,
-  top,
-}: {
-  children: ReactNode;
-  className?: string;
-  left: string;
-  top: string;
-}) {
-  return (
-    <span
-      className={`pointer-events-none absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center transition-all duration-300 ease-out ${className}`}
-      style={{ left, top }}
-    >
-      {children}
-    </span>
-  );
-}
-
-const my3NodePositions = [
-  ["50%", "42%"],
-  ["42%", "58%"],
-  ["58%", "58%"],
-] as const;
-
-function CircleCountColumn({
-  count,
-  label,
-}: {
-  count: number;
-  label: string;
-}) {
-  return (
-    <div className="text-center">
-      <p className="text-lg font-bold leading-none text-[#8A5A12]">{count}</p>
-      <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.13em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-        {label}
-      </p>
-    </div>
-  );
-}
-
 function CircleFocusHero({
+  onSelectCircle,
   onViewCircles,
   rankedPeople,
 }: {
+  onSelectCircle: (circle: CircleFocusView) => void;
   onViewCircles: () => void;
   rankedPeople: CirclePersonItem[];
 }) {
-  const centerPeople = rankedPeople.slice(0, 3);
-  const my3Count = Math.min(centerPeople.length, 3);
+  const my3Count = Math.min(rankedPeople.length, 3);
   const my12Count = Math.min(rankedPeople.length, 12);
   const my70Count = Math.min(rankedPeople.length, 70);
+  const circleLabels: Array<{
+    buttonClassName: string;
+    count: number;
+    label: string;
+    value: CircleFocusView;
+  }> = [
+    {
+      buttonClassName: "top-2",
+      count: my70Count,
+      label: "My 70",
+      value: "seventy",
+    },
+    {
+      buttonClassName: "top-[42px]",
+      count: my12Count,
+      label: "My 12",
+      value: "twelve",
+    },
+    {
+      buttonClassName: "top-1/2 -translate-y-1/2",
+      count: my3Count,
+      label: "My 3",
+      value: "three",
+    },
+  ];
 
   return (
-    <section className="rounded-[28px] bg-white px-5 py-3 shadow-[0_18px_48px_rgba(42,37,29,0.07)]">
+    <section className="rounded-[28px] bg-white px-5 py-4 shadow-[0_18px_48px_rgba(42,37,29,0.07)]">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
             Circle Focus
           </p>
-          <h2 className="mt-1 max-w-[240px] text-lg font-bold leading-tight text-[#111111]">Your closest discipleship investments.</h2>
-          <p className="mt-1 max-w-[220px] text-xs leading-4 text-[#77716A]">Faces for your 3. Rings show your 12 and 70.</p>
+          <h2 className="mt-1 max-w-[240px] text-lg font-bold leading-tight text-[#111111]">Your discipleship circles.</h2>
+          <p className="mt-1 max-w-[220px] text-xs leading-4 text-[#77716A]">Tap a circle to see who's inside.</p>
         </div>
         <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#D4A63D]" aria-hidden="true" />
       </div>
 
-      <div className="relative mx-auto mt-3 h-40 w-40 max-w-full rounded-full" aria-label="Nested circle focus summary">
-        <span className="absolute inset-0 rounded-full border border-[#E6DFD2] bg-[#FBFAF7]" data-circle-ring="outer" />
-        <span className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/25 bg-white" data-circle-ring="middle" />
-        <span className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/35 bg-[#FFF8E7]" data-circle-ring="center" />
-        <span className="absolute left-1/2 top-[1px] -translate-x-1/2 text-xs font-bold text-[#A87916]">
-          70
-        </span>
-        <span className="absolute left-1/2 top-7 -translate-x-1/2 text-xs font-bold text-[#A87916]">
-          12
-        </span>
-
-        {centerPeople.map(({ person }, index) => (
-          <TargetNode
-            className="z-30 opacity-100"
-            key={person.id}
-            left={my3NodePositions[index][0]}
-            top={my3NodePositions[index][1]}
+      <div className="relative mx-auto mt-4 h-[204px] w-[204px] max-w-full rounded-full" aria-label="Tap a discipleship circle">
+        <span className="absolute inset-0 z-0 rounded-full border border-[#E3D5B9] bg-[#FBFAF7]" aria-hidden="true" />
+        <span className="absolute left-1/2 top-1/2 z-10 h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/35 bg-[#FFF8E7]/70" aria-hidden="true" />
+        <span className="absolute left-1/2 top-1/2 z-20 h-[86px] w-[86px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/50 bg-[#F8EACB] shadow-[0_10px_26px_rgba(212,166,61,0.12)]" aria-hidden="true" />
+        {circleLabels.map((circle) => (
+          <button
+            aria-label={`Open ${circle.label}, ${circle.count} people`}
+            className={`absolute left-1/2 z-30 flex min-h-8 min-w-12 -translate-x-1/2 flex-col items-center justify-center rounded-full px-2 leading-none text-center transition duration-200 ease-out hover:bg-white/70 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/30 ${circle.buttonClassName}`}
+            key={circle.value}
+            onClick={() => onSelectCircle(circle.value)}
+            type="button"
           >
-            <CircleAvatar index={index} layer="center" person={person} size="md" />
-          </TargetNode>
+            <span className="text-base font-bold text-[#8A5A12]">{circle.count}</span>
+            <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+              {circle.label}
+            </span>
+          </button>
         ))}
       </div>
 
-      <div className="mt-2 grid grid-cols-3 px-3">
-        <CircleCountColumn count={my3Count} label="My 3" />
-        <CircleCountColumn count={my12Count} label="My 12" />
-        <CircleCountColumn count={my70Count} label="My 70" />
-      </div>
+      <p className="mx-auto mt-2 max-w-[250px] text-center text-[10px] leading-4 text-[#77716A]">
+        Your 3 are at the center. Your 12 surround them. Your 70 is your broader field.
+      </p>
 
       <button
         className="mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-full bg-[#111111] px-4 text-sm font-bold text-white"
         onClick={onViewCircles}
         type="button"
       >
-        View Circles
+        View All Circles
       </button>
     </section>
   );
@@ -1304,12 +1362,14 @@ function CircleListRow({
   isLast = false,
   lastMeetingDate,
   onClick,
+  onLogMeeting,
   person,
 }: {
   index: number;
   isLast?: boolean;
   lastMeetingDate?: string | null;
   onClick: () => void;
+  onLogMeeting?: () => void;
   person: DosAppPerson;
 }) {
   const needsFollowUp = person.status === "follow_up";
@@ -1320,18 +1380,33 @@ function CircleListRow({
       : "No meeting yet";
 
   return (
-    <button
+    <div
       className={`flex min-h-[64px] w-full items-center gap-3 bg-white px-3 py-2 text-left transition-colors hover:bg-[#FFFDF8] ${isLast ? "" : "border-b border-[#EEEAE2]"}`}
-      onClick={onClick}
-      type="button"
     >
       <CircleAvatar index={index} person={person} size="sm" />
-      <span className="min-w-0 flex-1">
+      <button className="min-w-0 flex-1 text-left" onClick={onClick} type="button">
         <span className="block truncate text-sm font-semibold text-[#1E1D1A]">{person.name}</span>
         <span className={`mt-0.5 block truncate text-xs ${needsFollowUp ? "font-semibold text-[#A87916]" : "text-[#5D786D]"}`}>{activity}</span>
-      </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
-    </button>
+      </button>
+      {onLogMeeting ? (
+        <button
+          aria-label={`Log meeting with ${person.name}`}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E2D8] bg-[#FFFCF5] text-[#8A5A12] transition-colors hover:border-[#D4A63D]"
+          onClick={onLogMeeting}
+          type="button"
+        >
+          <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+        </button>
+      ) : null}
+      <button
+        aria-label={`Open ${person.name}`}
+        className="flex h-8 w-7 shrink-0 items-center justify-center rounded-full text-[#A9A29A] transition-colors hover:bg-[#F8F7F3] hover:text-[#1E1D1A]"
+        onClick={onClick}
+        type="button"
+      >
+        <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+      </button>
+    </div>
   );
 }
 
@@ -1400,6 +1475,23 @@ function RecentActivityRow({
         <span className="mt-0.5 block truncate text-xs text-[#77716A]">{children}</span>
       </span>
     </button>
+  );
+}
+
+function WeekStatTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-2xl bg-white px-3 py-3 text-center shadow-[0_8px_22px_rgba(42,37,29,0.04)]">
+      <p className="text-lg font-bold leading-none text-[#111111]">{value}</p>
+      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </p>
+    </div>
   );
 }
 
@@ -2766,6 +2858,7 @@ function CircleLayerList({
   hiddenCount = 0,
   items,
   latestMeetingDateByPersonId,
+  onLogMeeting,
   onOpenPerson,
   startIndex = 0,
 }: {
@@ -2773,6 +2866,7 @@ function CircleLayerList({
   hiddenCount?: number;
   items: CirclePersonItem[];
   latestMeetingDateByPersonId: Map<string, string | null>;
+  onLogMeeting?: (personId: string) => void;
   onOpenPerson: (personId: string) => void;
   startIndex?: number;
 }) {
@@ -2787,6 +2881,7 @@ function CircleLayerList({
               key={person.id}
               lastMeetingDate={latestMeetingDateByPersonId.get(person.id) ?? null}
               onClick={() => onOpenPerson(person.id)}
+              onLogMeeting={onLogMeeting ? () => onLogMeeting(person.id) : undefined}
               person={person}
             />
           ))}
@@ -2805,60 +2900,103 @@ function CircleLayerList({
   );
 }
 
+function CircleLayerSheet({
+  activeCircle,
+  latestMeetingDateByPersonId,
+  onClose,
+  onLogMeeting,
+  onLogMeetingForPerson,
+  onOpenPerson,
+  rankedPeople,
+}: {
+  activeCircle: CircleFocusView;
+  latestMeetingDateByPersonId: Map<string, string | null>;
+  onClose: () => void;
+  onLogMeeting: () => void;
+  onLogMeetingForPerson: (personId: string) => void;
+  onOpenPerson: (personId: string) => void;
+  rankedPeople: CirclePersonItem[];
+}) {
+  const details = circleLayerDetails(activeCircle, rankedPeople);
+  const visiblePeople = previewCircleLayerItems(activeCircle, details.items);
+  const hiddenCount = Math.max(0, details.items.length - visiblePeople.length);
+  const badgeClassName = activeCircle === "three"
+    ? "bg-[#E8F4EE] text-[#2F765F]"
+    : "bg-[#FFF3D8] text-[#9A6417]";
+
+  return (
+    <div className="absolute inset-0 z-[70] flex items-end bg-black/10 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]" onMouseDown={onClose} role="presentation">
+      <section
+        aria-modal="true"
+        className="max-h-[calc(100dvh-1.5rem)] w-full overflow-y-auto rounded-t-[30px] rounded-b-[24px] bg-[#F6F4EF] p-3 shadow-[0_24px_70px_rgba(42,37,29,0.2)] [scrollbar-width:none]"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#D8D2C8]" aria-hidden="true" />
+        <header className="flex items-start gap-3 px-1 pb-3">
+          <button
+            aria-label="Close circles"
+            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#1E1D1A] transition-colors hover:bg-white"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${badgeClassName}`}>
+            {details.value}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold leading-tight text-[#111111]">{details.title}</h2>
+            <p className="mt-0.5 text-[11px] leading-4 text-[#5F5952]">{details.subtitle}</p>
+          </div>
+        </header>
+
+        <CircleLayerList
+          empty={details.empty}
+          hiddenCount={hiddenCount}
+          items={visiblePeople}
+          latestMeetingDateByPersonId={latestMeetingDateByPersonId}
+          onLogMeeting={onLogMeetingForPerson}
+          onOpenPerson={onOpenPerson}
+          startIndex={details.startIndex}
+        />
+
+        <button
+          className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-bold text-[#1E1D1A] shadow-[0_10px_24px_rgba(42,37,29,0.055)]"
+          onClick={onLogMeeting}
+          type="button"
+        >
+          <Icon name="add" size={14} />
+          Log Meeting
+        </button>
+      </section>
+    </div>
+  );
+}
+
 function CirclesDetailOverlay({
   latestMeetingDateByPersonId,
   onBack,
+  onLogMeetingForPerson,
   onOpenPerson,
   onSearch,
   rankedPeople,
 }: {
   latestMeetingDateByPersonId: Map<string, string | null>;
   onBack: () => void;
+  onLogMeetingForPerson: (personId: string) => void;
   onOpenPerson: (personId: string) => void;
   onSearch: () => void;
   rankedPeople: CirclePersonItem[];
 }) {
   const [activeCircle, setActiveCircle] = useState<CircleFocusView>("three");
-  const my3People = rankedPeople.slice(0, 3);
-  const nextNinePeople = rankedPeople.slice(3, 12);
-  const nextFiftyEightPeople = rankedPeople.slice(12, 70);
-  const cumulativeCounts: Record<CircleFocusView, number> = {
-    seventy: Math.min(rankedPeople.length, 70),
-    three: Math.min(rankedPeople.length, 3),
-    twelve: Math.min(rankedPeople.length, 12),
-  };
   const tabs: Array<{ label: string; value: CircleFocusView }> = [
     { label: "My 3", value: "three" },
     { label: "My 12", value: "twelve" },
     { label: "My 70", value: "seventy" },
   ];
-  const circleContent = {
-    seventy: {
-      capacity: 70,
-      copy: "These are the next 58 people in your broader field. Together with your 12, this makes 70.",
-      empty: "No additional My 70 people yet.",
-      items: nextFiftyEightPeople,
-      sectionLabel: "Next 58 People",
-      startIndex: 12,
-    },
-    three: {
-      capacity: 3,
-      copy: "The people you invest in most deeply.",
-      empty: "No one in My 3 yet.",
-      items: my3People,
-      sectionLabel: "My 3 People",
-      startIndex: 0,
-    },
-    twelve: {
-      capacity: 12,
-      copy: "These are the next 9 people in your core circle. Together with your 3, this makes 12.",
-      empty: "No additional My 12 people yet.",
-      items: nextNinePeople,
-      sectionLabel: "Next 9 People",
-      startIndex: 3,
-    },
-  }[activeCircle];
-  const visiblePeople = activeCircle === "seventy" ? circleContent.items.slice(0, 6) : circleContent.items;
+  const circleContent = circleLayerDetails(activeCircle, rankedPeople);
+  const visiblePeople = previewCircleLayerItems(activeCircle, circleContent.items);
   const hiddenCount = Math.max(0, circleContent.items.length - visiblePeople.length);
 
   return (
@@ -2891,9 +3029,9 @@ function CirclesDetailOverlay({
       </div>
 
       <section className="mx-auto mt-5 max-w-[300px] text-center">
-        <p className="text-sm leading-5 text-[#5F5952]">{circleContent.copy}</p>
+        <p className="text-sm leading-5 text-[#5F5952]">{circleContent.subtitle}</p>
         <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
-          {cumulativeCounts[activeCircle]} / {circleContent.capacity} in {circleDisplayName(activeCircle)}
+          {circleContent.cumulativeCount} / {circleContent.capacity} in {circleDisplayName(activeCircle)}
         </p>
       </section>
 
@@ -2909,6 +3047,7 @@ function CirclesDetailOverlay({
           hiddenCount={hiddenCount}
           items={visiblePeople}
           latestMeetingDateByPersonId={latestMeetingDateByPersonId}
+          onLogMeeting={onLogMeetingForPerson}
           onOpenPerson={onOpenPerson}
           startIndex={circleContent.startIndex}
         />
@@ -3661,6 +3800,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
+  const [circleSheetView, setCircleSheetView] = useState<CircleFocusView | null>(null);
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -3685,7 +3825,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const people = data.people;
   const latestMeeting = data.meetings[0];
-  const latestFruit = visibleFruit[0];
+  const latestFruitActivity = useMemo(() => {
+    const fruitItems = [
+      ...visibleFruit.map((fruit) => ({
+        date: fruit.testimonyDate,
+        label: `${fruit.summary || "Fruit recorded"} · ${formatDate(fruit.testimonyDate)}`,
+      })),
+      ...data.fruitEvents.map((event) => ({
+        date: event.date,
+        label: `${event.title || event.fruitType || "Fruit recorded"} · ${formatDate(event.date)}`,
+      })),
+    ];
+
+    return fruitItems.sort((first, second) => {
+      const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
+      const secondTime = parseDisplayDate(second.date)?.getTime() ?? 0;
+
+      return secondTime - firstTime;
+    })[0] ?? null;
+  }, [data.fruitEvents, visibleFruit]);
   const visiblePeople = useMemo(() => filteredPeople(people, peopleQuery), [people, peopleQuery]);
   const scoreByPersonId = useMemo(() => {
     const scores = data.circles ? [...data.circles.my3, ...data.circles.my12, ...data.circles.my70, ...data.circles.field] : [];
@@ -3750,6 +3908,50 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return latestDates;
   }, [data.meetings]);
+  const latestPrayerActivity = useMemo(() => {
+    const prayerMeetings = data.meetings
+      .filter(isPrayerMeeting)
+      .map((meeting) => ({
+        date: meeting.date,
+        label: `${meetingPeopleTitle(meeting, people)} · ${formatRelativeDate(meeting.date)}`,
+        meetingId: meeting.id,
+      }));
+    const prayerReflections = data.leaderReflections
+      .filter((reflection) => Boolean(normalizeText(reflection.prayerNeeds)))
+      .map((reflection) => {
+        const meeting = data.meetings.find((item) => item.id === reflection.meetingId) ?? null;
+
+        return {
+          date: reflection.createdAt,
+          label: meeting ? `${meetingPeopleTitle(meeting, people)} · ${formatRelativeDate(reflection.createdAt)}` : `Prayer note · ${formatRelativeDate(reflection.createdAt)}`,
+          meetingId: reflection.meetingId,
+        };
+      });
+
+    return [...prayerMeetings, ...prayerReflections].sort((first, second) => {
+      const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
+      const secondTime = parseDisplayDate(second.date)?.getTime() ?? 0;
+
+      return secondTime - firstTime;
+    })[0] ?? null;
+  }, [data.leaderReflections, data.meetings, people]);
+  const thisWeekStats = useMemo(() => {
+    const { end, start } = currentWeekRange();
+    const meetingsThisWeek = data.meetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
+    const prayedThisWeek = new Set<string>();
+
+    meetingsThisWeek.filter(isPrayerMeeting).forEach((meeting) => prayedThisWeek.add(`meeting-${meeting.id}`));
+    data.leaderReflections
+      .filter((reflection) => isDateWithinRange(reflection.createdAt, start, end) && Boolean(normalizeText(reflection.prayerNeeds)))
+      .forEach((reflection) => prayedThisWeek.add(`reflection-${reflection.id}`));
+
+    return {
+      label: formatWeekRange(start, end),
+      meetings: meetingsThisWeek.length,
+      newPeople: people.filter((person) => isDateWithinRange(person.createdAt, start, end)).length,
+      prayed: prayedThisWeek.size,
+    };
+  }, [data.leaderReflections, data.meetings, people]);
   const todayFocusPeople = useMemo(() => {
     const preferredPeople = attentionPeople.length
       ? attentionPeople
@@ -3782,6 +3984,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openForm(mode: Exclude<FormMode, null>) {
     setErrorMessage("");
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
     setFormMode(mode);
     setIsAdditionalPersonInfoOpen(false);
     if (mode === "meeting") {
@@ -3801,6 +4005,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function selectTab(tab: ActiveTab) {
     setActiveTab(tab);
     setErrorMessage("");
+    setCircleSheetView(null);
     setIsCirclesOpen(false);
     setReviewLinkMeetingId(null);
     setReviewShareMessage("");
@@ -3814,6 +4019,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openPersonDetail(personId: string) {
     setActiveTab("people");
     setErrorMessage("");
+    setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
     setSelectedPersonId(personId);
@@ -3827,6 +4033,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function openMeetingForPerson(personId: string) {
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
     setSelectedPersonId(null);
     setSelectedMeetingId(null);
     setErrorMessage("");
@@ -4383,6 +4591,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             {activeTab === "home" ? (
               <div className="space-y-5">
                 <CircleFocusHero
+                  onSelectCircle={setCircleSheetView}
                   onViewCircles={() => setIsCirclesOpen(true)}
                   rankedPeople={rankedCirclePeople}
                 />
@@ -4413,6 +4622,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 </section>
 
                 <section>
+                  <SectionHeading action={<span className="text-xs text-[#77716A]">{thisWeekStats.label}</span>} title="This Week" />
+                  <div className="grid grid-cols-3 gap-2">
+                    <WeekStatTile label="Meetings" value={thisWeekStats.meetings} />
+                    <WeekStatTile label="Prayed" value={thisWeekStats.prayed} />
+                    <WeekStatTile label="New People" value={thisWeekStats.newPeople} />
+                  </div>
+                </section>
+
+                <section>
                   <SectionHeading title="Recent Activity" />
                   <div className="grid gap-2">
                     {latestMeeting ? (
@@ -4424,16 +4642,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         {meetingPeopleTitle(latestMeeting, people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
                       </RecentActivityRow>
                     ) : null}
-                    {latestFruit ? (
+                    {latestPrayerActivity ? (
+                      <RecentActivityRow
+                        icon="bell"
+                        onClick={() => openMeetingDetail(latestPrayerActivity.meetingId)}
+                        title="Latest prayer"
+                      >
+                        {latestPrayerActivity.label}
+                      </RecentActivityRow>
+                    ) : null}
+                    {latestFruitActivity ? (
                       <RecentActivityRow
                         icon="fruit"
                         onClick={() => setActiveTab("fruit")}
                         title="Latest fruit"
                       >
-                        {latestFruit.summary || "Fruit recorded"} · {formatDate(latestFruit.testimonyDate)}
+                        {latestFruitActivity.label}
                       </RecentActivityRow>
                     ) : null}
-                    {!latestMeeting && !latestFruit ? (
+                    {!latestMeeting && !latestPrayerActivity && !latestFruitActivity ? (
                       <div className="rounded-2xl bg-white px-4 py-3 text-sm text-[#77716A]">Log a meeting to begin your activity rhythm.</div>
                     ) : null}
                   </div>
@@ -4549,11 +4776,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <CirclesDetailOverlay
             latestMeetingDateByPersonId={latestMeetingDateByPersonId}
             onBack={() => setIsCirclesOpen(false)}
+            onLogMeetingForPerson={openMeetingForPerson}
             onOpenPerson={openPersonDetail}
             onSearch={() => {
               setIsCirclesOpen(false);
               setActiveTab("people");
             }}
+            rankedPeople={rankedCirclePeople}
+          />
+        ) : null}
+
+        {circleSheetView ? (
+          <CircleLayerSheet
+            activeCircle={circleSheetView}
+            latestMeetingDateByPersonId={latestMeetingDateByPersonId}
+            onClose={() => setCircleSheetView(null)}
+            onLogMeeting={() => openForm("meeting")}
+            onLogMeetingForPerson={openMeetingForPerson}
+            onOpenPerson={openPersonDetail}
             rankedPeople={rankedCirclePeople}
           />
         ) : null}

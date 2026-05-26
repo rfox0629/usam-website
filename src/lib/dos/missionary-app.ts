@@ -53,6 +53,7 @@ export type DosAppWorkspace = {
 
 export type DosAppPerson = {
   church: string | null;
+  createdAt: string | null;
   email: string | null;
   engagementLevel: string | null;
   id: string;
@@ -232,6 +233,7 @@ type HouseholdRow = {
 
 type FieldPersonRow = {
   church: string | null;
+  created_at: string | null;
   email: string | null;
   engagement_level: string | null;
   id: string;
@@ -519,7 +521,7 @@ function latestActivityDate(...values: Array<string | null | undefined>) {
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const scopedResult = await supabase
     .from("missionary_field_people")
-    .select("id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, updated_at")
+    .select("id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at")
     .or(workspaceScopeFilter(workspaceId))
     .order("last_activity_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false });
@@ -529,7 +531,7 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
   return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
     ? supabase
       .from("missionary_field_people")
-      .select("id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, updated_at")
+      .select("id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at")
       .eq("household_id", workspaceId)
       .order("last_activity_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false })
@@ -827,6 +829,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const people = ((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => ({
     church: person.church,
+    createdAt: person.created_at,
     email: person.email,
     engagementLevel: person.engagement_level,
     id: person.id,
