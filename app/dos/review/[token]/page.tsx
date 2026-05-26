@@ -5,7 +5,7 @@ import { DosQuickReviewForm } from "./DosQuickReviewForm";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Quick Review | DOS",
+  title: "How was your conversation? | DOS",
   robots: {
     follow: false,
     index: false,

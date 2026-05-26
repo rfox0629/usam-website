@@ -415,7 +415,7 @@ function fruitNarrative(event: DosAppFruitEvent) {
   }
 
   if (event.sourceType === "testimony") {
-    return "Confirmed through a shared Testimony.";
+    return "Confirmed through a shared story.";
   }
 
   if (event.sourceType === "system") {
@@ -435,6 +435,18 @@ function sourceTransparencyLabel(event: DosAppFruitEvent) {
   }
 
   return "Verified by behavior";
+}
+
+function fruitSourceLine(event: DosAppFruitEvent) {
+  const source = {
+    leader_reflection: "From a Leader Reflection",
+    manual: "Added manually",
+    participant_review: "From a participant review",
+    system: "From engagement patterns",
+    testimony: "From a shared story",
+  }[event.sourceType];
+
+  return event.meetingId ? `${source} after a meeting` : source;
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -2350,6 +2362,24 @@ function DetailCard({ children, title }: { children: ReactNode; title: string })
   );
 }
 
+function SectionEmptyState({
+  action,
+  text,
+  title,
+}: {
+  action?: ReactNode;
+  text?: string;
+  title: string;
+}) {
+  return (
+    <div className="rounded-[20px] border border-dashed border-[#DDD9D0] bg-[#FBFAF7] p-4">
+      <p className="text-sm font-semibold text-[#1E1D1A]">{title}</p>
+      {text ? <p className="mt-1 text-sm leading-6 text-[#77716A]">{text}</p> : null}
+      {action ? <div className="mt-3">{action}</div> : null}
+    </div>
+  );
+}
+
 function FruitEventIcon({ event }: { event: DosAppFruitEvent }) {
   const iconClass = "h-4 w-4";
 
@@ -2390,34 +2420,31 @@ function FruitEventRow({
   ];
 
   return (
-    <article className="rounded-2xl bg-[#F8F7F3] p-3">
+    <article className="relative rounded-[22px] border border-[#E7E2D9] bg-[#FBFAF7] p-3.5">
       <div className="flex gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF8E7] text-[#8A5A12]">
+        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E7D3A4] bg-[#FFF8E7] text-[#8A5A12]">
           <FruitEventIcon event={event} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[#1E1D1A]">{event.title || event.fruitType}</p>
-              <p className="mt-1 text-xs text-[#77716A]">{formatDate(event.date)}</p>
-            </div>
-            <span className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
-              {confidenceLabel(event.confidenceLevel)}
-            </span>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-[#3B3935]">{fruitNarrative(event)}</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{event.fruitType}</span>
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
               {sourceTransparencyLabel(event)}
             </span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{confidenceLabel(event.confidenceLevel)}</span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{formatDate(event.date)}</span>
+          </div>
+          <h3 className="mt-2 text-lg font-bold leading-6 text-[#1E1D1A]">{event.title || event.fruitType}</h3>
+          <p className="mt-1 text-sm leading-6 text-[#5F5952]">{fruitNarrative(event)}</p>
+          <p className="mt-2 text-xs leading-5 text-[#8E8880]">{fruitSourceLine(event)}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{event.fruitType}</span>
             <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{visibilityLabel(event.visibility)}</span>
             {event.status === "hidden" ? <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#8A5A12]">Hidden</span> : null}
           </div>
           {onUpdate ? (
             <details className="mt-2 rounded-2xl border border-[#E7E2D9] bg-white px-3 py-2">
               <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.14em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-                Controls
+                Adjust
               </summary>
               <div className="mt-3 grid gap-2">
                 <div className="grid grid-cols-2 gap-2">
@@ -2470,7 +2497,7 @@ function FruitEventRow({
           ) : null}
           <details className="mt-2 rounded-2xl border border-[#E7E2D9] bg-white px-3 py-2">
             <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.14em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-              Debug
+              Source Details
             </summary>
             <div className="mt-2 grid gap-1.5 text-xs text-[#5F5952]">
               {debugEntries.map(([label, value]) => (
@@ -3284,6 +3311,19 @@ function PersonDetailOverlay({
           ) : null}
         </section>
 
+        <div ref={fruitSectionRef}>
+          <DetailCard title="Fruit Timeline">
+            {personFruitEvents.length ? personFruitEvents.map((event) => (
+              <FruitEventRow event={event} key={event.id} onDelete={onDeleteFruitEvent} onUpdate={onUpdateFruitEvent} />
+            )) : (
+              <SectionEmptyState
+                text="After a meeting, capture what happened or invite them to share their story."
+                title="No fruit has been logged yet."
+              />
+            )}
+          </DetailCard>
+        </div>
+
         <div ref={meetingsSectionRef}>
           <DetailCard title="Meetings">
             {recentMeetings.length ? recentMeetings.map((meeting) => (
@@ -3296,7 +3336,7 @@ function PersonDetailOverlay({
                 </span>
                 <ChevronRight className="h-4 w-4 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
               </button>
-            )) : <p className="text-sm text-[#77716A]">No meetings yet.</p>}
+            )) : <SectionEmptyState text="Log the next conversation when it happens." title="No meetings yet." />}
           </DetailCard>
         </div>
 
@@ -3320,7 +3360,9 @@ function PersonDetailOverlay({
                 </p>
               </button>
             )) : null}
-            {!personParticipantReviews.length && !personReviews.length ? <p className="text-sm text-[#77716A]">No reviews yet.</p> : null}
+            {!personParticipantReviews.length && !personReviews.length ? (
+              <SectionEmptyState text="Send a review link after your next meeting." title="No reviews yet." />
+            ) : null}
           </DetailCard>
         </div>
 
@@ -3328,15 +3370,9 @@ function PersonDetailOverlay({
           <DetailCard title="Testimonies">
             {personTestimonies.length ? personTestimonies.slice(0, 3).map((testimony) => (
               <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
-            )) : <p className="text-sm text-[#77716A]">No testimonies yet.</p>}
-          </DetailCard>
-        </div>
-
-        <div ref={fruitSectionRef}>
-          <DetailCard title="Fruit Timeline">
-            {personFruitEvents.length ? personFruitEvents.map((event) => (
-              <FruitEventRow event={event} key={event.id} onDelete={onDeleteFruitEvent} onUpdate={onUpdateFruitEvent} />
-            )) : <p className="text-sm text-[#77716A]">No fruit logged yet.</p>}
+            )) : (
+              <SectionEmptyState text="Invite them to share their story after a meaningful conversation." title="No stories yet." />
+            )}
           </DetailCard>
         </div>
 
@@ -3344,7 +3380,9 @@ function PersonDetailOverlay({
           <DetailCard title="Leader Reflections">
             {personReflections.length ? personReflections.slice(0, 4).map((reflection) => (
               <LeaderReflectionRow key={reflection.id} reflection={reflection} />
-            )) : <p className="text-sm text-[#77716A]">No reflections yet.</p>}
+            )) : (
+              <SectionEmptyState text="After a meeting, capture what happened while it is fresh." title="No reflections yet." />
+            )}
           </DetailCard>
         </div>
       </div>
@@ -3517,30 +3555,32 @@ function MeetingDetailOverlay({
 
       <div className="mt-5 grid gap-3">
         {showPostMeetingFollowUp && isTableMeeting ? (
-          <DetailCard title="Follow Up">
-            <div className="grid gap-2">
-              <button className="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-[#111111] px-4 text-left text-sm font-bold text-white" onClick={onLogReflection} type="button">
+          <section className="rounded-[24px] border border-[#D7C7A4] bg-[#FFF8E7] p-4 shadow-[0_18px_45px_rgba(138,90,18,0.10)]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+              Next
+            </p>
+            <h3 className="mt-1 text-xl font-bold text-[#1E1D1A]">Follow up while it is fresh.</h3>
+            <div className="mt-3 grid gap-2">
+              <button className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-[#111111] px-4 text-left text-sm font-bold text-white" onClick={onLogReflection} type="button">
                 <span>Capture what happened</span>
                 <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
               </button>
-              <button className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-[#D7C7A4] bg-[#FFF8E7] px-4 text-left text-sm font-bold text-[#8A5A12]" onClick={onCopyReview} type="button">
-                <span>Invite them to leave a review</span>
-                <Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-              </button>
-              <button className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-[#D7C7A4] bg-[#FFF8E7] px-4 text-left text-sm font-bold text-[#8A5A12]" onClick={onCopyTestimony} type="button">
-                <span>Invite them to share their story</span>
-                <Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-              </button>
               <div className="grid grid-cols-2 gap-2">
+                <ReviewActionButton disabled={isSendingReview} icon={<Copy className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyReview}>
+                  Copy Review Link
+                </ReviewActionButton>
+                <ReviewActionButton disabled={isSendingTestimony} icon={<Copy className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyTestimony}>
+                  Copy Story Link
+                </ReviewActionButton>
                 <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
-                  Send Review
+                  Send Review Link
                 </ReviewActionButton>
                 <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
-                  Send Testimony
+                  Send Story Link
                 </ReviewActionButton>
               </div>
             </div>
-          </DetailCard>
+          </section>
         ) : null}
 
         {isTableMeeting ? (
@@ -3590,14 +3630,14 @@ function MeetingDetailOverlay({
         ) : null}
 
         {isTableMeeting ? (
-          <DetailCard title="Testimony">
+          <DetailCard title="Share Your Story">
             <p className="text-sm leading-6 text-[#3B3935]">Invite them to share a transformation story.</p>
             <div className="grid grid-cols-3 gap-2">
               <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
-                Send Testimony
+                Send Story
               </ReviewActionButton>
               <ReviewActionButton disabled={isSendingTestimony} icon={<Copy className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyTestimony}>
-                Copy Testimony
+                Copy Story
               </ReviewActionButton>
               <ReviewActionButton disabled={isSendingTestimony} icon={<Share2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onShareTestimony}>
                 Share
@@ -3618,25 +3658,25 @@ function MeetingDetailOverlay({
         <DetailCard title="Leader Reflections">
           {meetingReflections.length ? meetingReflections.map((reflection) => (
             <LeaderReflectionRow key={reflection.id} reflection={reflection} />
-          )) : <p className="text-sm text-[#77716A]">No reflections yet.</p>}
+          )) : <SectionEmptyState text="Capture what happened after this meeting." title="No reflections yet." />}
         </DetailCard>
 
         <DetailCard title="Reviews">
           {meetingParticipantReviews.length ? meetingParticipantReviews.map((review) => (
             <ParticipantReviewRow key={review.id} review={review} />
-          )) : <p className="text-sm text-[#77716A]">No reviews yet.</p>}
+          )) : <SectionEmptyState text="Send a review link after this meeting." title="No reviews yet." />}
         </DetailCard>
 
         <DetailCard title="Testimonies">
           {meetingTestimonies.length ? meetingTestimonies.map((testimony) => (
             <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
-          )) : <p className="text-sm text-[#77716A]">No testimonies yet.</p>}
+          )) : <SectionEmptyState text="Invite them to share their story if something changed." title="No stories yet." />}
         </DetailCard>
 
         <DetailCard title="Fruit Timeline">
           {meetingFruitEvents.length ? meetingFruitEvents.map((event) => (
             <FruitEventRow event={event} key={event.id} onDelete={onDeleteFruitEvent} onUpdate={onUpdateFruitEvent} />
-          )) : <p className="text-sm text-[#77716A]">No fruit logged yet.</p>}
+          )) : <SectionEmptyState text="After a meeting, capture what happened or invite them to share their story." title="No fruit has been logged yet." />}
         </DetailCard>
 
         {meeting.recommendedResources.length ? (
@@ -4103,7 +4143,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const result = await response.json().catch(() => ({})) as { error?: string; token?: string; url?: string };
 
     if (!response.ok || !result.url) {
-      throw new Error(result.error ?? "Unable to create testimony link.");
+      throw new Error(result.error ?? "Unable to create story link.");
     }
 
     if (result.token) {
@@ -4203,9 +4243,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       const copied = await copyReviewUrl(url);
 
-      setTestimonyShareMessage(copied ? "Testimony link copied." : url);
+      setTestimonyShareMessage(copied ? "Story link copied." : url);
     } catch (error) {
-      setTestimonyShareMessage(error instanceof Error ? error.message : "Unable to create testimony link.");
+      setTestimonyShareMessage(error instanceof Error ? error.message : "Unable to create story link.");
     } finally {
       setTestimonyLinkMeetingId(null);
     }
@@ -4230,7 +4270,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             title: "Share Your Story",
             url,
           });
-          setTestimonyShareMessage("Testimony link shared.");
+          setTestimonyShareMessage("Story link shared.");
           return;
         } catch {
         }
@@ -4238,9 +4278,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       const copied = await copyReviewUrl(url);
 
-      setTestimonyShareMessage(copied ? "Testimony link copied." : url);
+      setTestimonyShareMessage(copied ? "Story link copied." : url);
     } catch (error) {
-      setTestimonyShareMessage(error instanceof Error ? error.message : "Unable to share testimony link.");
+      setTestimonyShareMessage(error instanceof Error ? error.message : "Unable to share story link.");
     } finally {
       setTestimonyLinkMeetingId(null);
     }

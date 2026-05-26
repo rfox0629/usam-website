@@ -58,6 +58,7 @@ export function normalizeQuickReviewSubmission(value: unknown): DosQuickReviewSu
 
   return {
     encouraged: asBoolean(payload.encouraged),
+    feltCaredFor: asBoolean(payload.feltCaredFor),
     feltHeard: asBoolean(payload.feltHeard),
     sharePermission,
     stepTowardJesus: normalizedChoice(payload.stepTowardJesus, dosReviewStepAnswers),
@@ -95,7 +96,8 @@ function quickReviewInternalNotes(submission: DosQuickReviewSubmission) {
   return [
     "DOS Quick Review",
     `Encouraged: ${formatBoolean(submission.encouraged)}`,
-    `Felt heard and cared for: ${formatBoolean(submission.feltHeard)}`,
+    `Felt heard: ${formatBoolean(submission.feltHeard)}`,
+    `Felt cared for: ${formatBoolean(submission.feltCaredFor)}`,
     `Step toward Jesus: ${formatChoice(submission.stepTowardJesus)}`,
     `Wants another conversation: ${formatChoice(submission.wantsFollowUp)}`,
     `Share permission: ${submission.sharePermission}`,
@@ -241,7 +243,7 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     .insert({
       comments: submission.stoodOut,
       conversation_helpful: submission.stepTowardJesus ?? "skipped",
-      felt_cared_for: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
+      felt_cared_for: submission.feltCaredFor === null || submission.feltCaredFor === undefined ? "skipped" : submission.feltCaredFor ? "yes" : "no",
       felt_heard: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
       leader_id: typedLink.created_by_user_id,
       meeting_id: typedLink.meeting_id,
@@ -285,7 +287,7 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
   await inferFruitEventsFromReview({
     comments: submission.stoodOut,
     conversationHelpful: submission.stepTowardJesus,
-    feltCaredFor: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
+    feltCaredFor: submission.feltCaredFor === null || submission.feltCaredFor === undefined ? "skipped" : submission.feltCaredFor ? "yes" : "no",
     feltHeard: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
     id: String(participantReview?.id ?? review.id),
     leaderId: typedLink.created_by_user_id,

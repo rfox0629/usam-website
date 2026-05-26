@@ -35,7 +35,7 @@ export function TestimonyForm({ link }: { link: ReadyLink }) {
     try {
       const response = await fetch(`/api/dos/testimonies/${link.token}`, {
         body: JSON.stringify({
-          decisionMade: String(formData.get("decision_made") ?? ""),
+          decisionMade: String(formData.get("next_step") ?? ""),
           nextStep: String(formData.get("next_step") ?? ""),
           permissionToShare,
           publicDisplayName: String(formData.get("public_display_name") ?? ""),
@@ -69,7 +69,7 @@ export function TestimonyForm({ link }: { link: ReadyLink }) {
           <h1 className="mt-3 text-4xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
             Thank you for sharing.
           </h1>
-          <p className="mt-3 text-sm leading-6 text-[#77716A]">Your story has been received.</p>
+          <p className="mt-3 text-sm leading-6 text-[#77716A]">Your story has been received for review.</p>
         </section>
       </main>
     );
@@ -82,32 +82,31 @@ export function TestimonyForm({ link }: { link: ReadyLink }) {
           Share Your Story
         </p>
         <h1 className="mt-2 text-4xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
-          What changed?
+          Share Your Story
         </h1>
-        <p className="mt-2 text-sm leading-6 text-[#77716A]">{link.workspaceDisplayName}</p>
+        <p className="mt-2 text-sm leading-6 text-[#77716A]">
+          If this conversation helped you take a step toward Jesus, we would be honored to hear what happened.
+        </p>
+        <p className="mt-2 rounded-full bg-white px-3 py-2 text-center text-xs font-semibold text-[#6F6658]">{link.workspaceDisplayName}</p>
 
         <div className="mt-5 grid gap-3">
           <label className="block rounded-[20px] border border-[#E2DED6] bg-white p-3">
-            <FieldLabel>Your Story</FieldLabel>
+            <FieldLabel>What happened?</FieldLabel>
             <textarea className={`${fieldClass()} min-h-32 py-3`} name="story" placeholder="Share what happened in your own words." required />
           </label>
           <label className="block rounded-[20px] border border-[#E2DED6] bg-white p-3">
-            <FieldLabel>What Changed</FieldLabel>
+            <FieldLabel>What changed?</FieldLabel>
             <textarea className={`${fieldClass()} min-h-24 py-3`} name="what_changed" placeholder="What feels different now?" />
           </label>
           <label className="block rounded-[20px] border border-[#E2DED6] bg-white p-3">
-            <FieldLabel>Decision Made</FieldLabel>
-            <input className={fieldClass()} name="decision_made" placeholder="Optional" />
-          </label>
-          <label className="block rounded-[20px] border border-[#E2DED6] bg-white p-3">
-            <FieldLabel>Next Step</FieldLabel>
+            <FieldLabel>Did you take a next step?</FieldLabel>
             <input className={fieldClass()} name="next_step" placeholder="Optional" />
           </label>
           <label className="flex items-start gap-3 rounded-[20px] border border-[#E2DED6] bg-white p-3">
             <input checked={permissionToShare} className="mt-1 h-4 w-4 accent-[#D4A63D]" onChange={(event) => setPermissionToShare(event.target.checked)} type="checkbox" />
             <span>
-              <span className="block text-sm font-semibold text-[#1E1D1A]">Permission to share</span>
-              <span className="mt-1 block text-xs leading-5 text-[#77716A]">Your story will be reviewed before any public use.</span>
+              <span className="block text-sm font-semibold text-[#1E1D1A]">May we share this story publicly?</span>
+              <span className="mt-1 block text-xs leading-5 text-[#77716A]">Your story will not be shared publicly unless you give permission and our team approves it.</span>
             </span>
           </label>
           {permissionToShare ? (
@@ -120,7 +119,7 @@ export function TestimonyForm({ link }: { link: ReadyLink }) {
 
         {errorMessage ? <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
         <button className="mt-5 min-h-12 w-full rounded-full bg-[#111111] px-4 text-sm font-bold text-white disabled:opacity-60" disabled={isSubmitting} type="submit">
-          {isSubmitting ? "Sending..." : "Send Testimony"}
+          {isSubmitting ? "Sending..." : "Share Story"}
         </button>
       </form>
     </main>

@@ -10,6 +10,7 @@ type ReadyReviewLink = Extract<DosReviewLinkState, { status: "ready" }>;
 
 type QuickReviewDraft = {
   encouraged: boolean | null;
+  feltCaredFor: boolean | null;
   feltHeard: boolean | null;
   sharePermission: DosReviewSharePermission;
   stepTowardJesus: DosReviewStepAnswer | null;
@@ -20,6 +21,7 @@ type QuickReviewDraft = {
 
 const initialDraft: QuickReviewDraft = {
   encouraged: null,
+  feltCaredFor: null,
   feltHeard: null,
   sharePermission: "private",
   stepTowardJesus: null,
@@ -195,76 +197,50 @@ export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink
   return (
     <main className="min-h-screen bg-[#EDEAE3] px-4 py-6 text-[#1E1D1A]">
       <form className="mx-auto max-w-md rounded-[30px] border border-[#DED9CF] bg-[#F5F3EE] p-4 shadow-[0_24px_70px_rgba(42,37,29,0.10)]" onSubmit={handleSubmit}>
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-          Quick Check-In
-        </p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>Review</p>
         <h1 className="mt-2 text-4xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
-          How was the conversation?
+          How was your conversation?
         </h1>
-        <p className="mt-2 text-sm leading-6 text-[#77716A]">{reviewLink.workspaceDisplayName} · {meetingMeta}</p>
+        <p className="mt-2 text-sm leading-6 text-[#77716A]">Your feedback helps us care for people better.</p>
+        <p className="mt-2 rounded-full bg-white px-3 py-2 text-center text-xs font-semibold text-[#6F6658]">{reviewLink.workspaceDisplayName} · {meetingMeta}</p>
 
         <div className="mt-5 grid gap-2.5">
-          <label className="block rounded-[20px] border border-[#E2DED6] bg-white p-3">
-            <FieldLabel>Name</FieldLabel>
-            <input
-              className="mt-2 min-h-11 w-full rounded-2xl border border-[#DDD9D0] bg-[#F8F7F3] px-3 text-sm text-[#1E1D1A] outline-none transition-colors placeholder:text-[#A9A29A] focus:border-[#111111]"
-              onChange={(event) => updateDraft({ submittedName: event.target.value })}
-              placeholder="Optional"
-              value={draft.submittedName}
-            />
-          </label>
-
-          <BooleanQuestion label="Did this conversation encourage you?" onChange={(value) => updateDraft({ encouraged: value })} value={draft.encouraged} />
-          <BooleanQuestion label="Did you feel heard and cared for?" onChange={(value) => updateDraft({ feltHeard: value })} value={draft.feltHeard} />
+          <BooleanQuestion label="I felt heard" onChange={(value) => updateDraft({ feltHeard: value })} value={draft.feltHeard} />
+          <BooleanQuestion label="I felt cared for" onChange={(value) => updateDraft({ feltCaredFor: value })} value={draft.feltCaredFor} />
           <ChoiceGroup
-            label="Did this help you take a step toward Jesus?"
-            onChange={(value) => updateDraft({ stepTowardJesus: value })}
+            label="This conversation helped me"
+            onChange={(value) => updateDraft({ encouraged: value === "yes" ? true : value === "no" ? false : null, stepTowardJesus: value })}
             options={[
               { label: "Yes", value: "yes" },
-              { label: "No", value: "no" },
               { label: "Unsure", value: "unsure" },
+              { label: "No", value: "no" },
             ]}
             value={draft.stepTowardJesus}
           />
           <ChoiceGroup
-            label="Would you like another conversation?"
+            label="I would meet again"
             onChange={(value) => updateDraft({ wantsFollowUp: value })}
             options={[
               { label: "Yes", value: "yes" },
-              { label: "No", value: "no" },
               { label: "Maybe", value: "maybe" },
+              { label: "No", value: "no" },
             ]}
             value={draft.wantsFollowUp}
           />
 
           <label className="block rounded-[20px] border border-[#E2DED6] bg-white p-3">
-            <FieldLabel>What stood out most?</FieldLabel>
+            <FieldLabel>Optional Note</FieldLabel>
             <textarea
               className="mt-2 min-h-24 w-full resize-none rounded-2xl border border-[#DDD9D0] bg-[#F8F7F3] px-3 py-3 text-sm text-[#1E1D1A] outline-none transition-colors placeholder:text-[#A9A29A] focus:border-[#111111]"
               onChange={(event) => updateDraft({ stoodOut: event.target.value })}
-              placeholder="Optional"
+              placeholder="Anything you want us to know?"
               value={draft.stoodOut}
             />
           </label>
 
-          <div className="rounded-[20px] border border-[#E2DED6] bg-white p-3">
-            <p className="text-sm font-semibold leading-5 text-[#1E1D1A]">May we share this publicly?</p>
-            <div className="mt-2 grid gap-1.5">
-              {[
-                { label: "Yes, anonymously", value: "anonymous" },
-                { label: "Yes, with my name", value: "with_name" },
-                { label: "No, keep private", value: "private" },
-              ].map((option) => (
-                <ChoiceButton
-                  active={draft.sharePermission === option.value}
-                  key={option.value}
-                  onClick={() => updateDraft({ sharePermission: option.value as DosReviewSharePermission })}
-                >
-                  {option.label}
-                </ChoiceButton>
-              ))}
-            </div>
-          </div>
+          <p className="rounded-[20px] border border-[#E2DED6] bg-white p-3 text-xs leading-5 text-[#77716A]">
+            Reviews are used internally unless our team approves them for public sharing.
+          </p>
         </div>
 
         {errorMessage ? <p className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}

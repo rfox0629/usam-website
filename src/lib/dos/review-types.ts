@@ -24,6 +24,7 @@ export type DosReviewLinkState =
 
 export type DosQuickReviewSubmission = {
   encouraged?: boolean | null;
+  feltCaredFor?: boolean | null;
   feltHeard?: boolean | null;
   sharePermission: DosReviewSharePermission;
   stepTowardJesus?: DosReviewStepAnswer | null;
