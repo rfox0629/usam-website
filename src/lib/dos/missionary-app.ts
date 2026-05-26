@@ -110,6 +110,7 @@ export type DosAppParticipantReview = {
   id: string;
   meetingId: string;
   personId: string | null;
+  status: "draft" | "submitted" | "reviewed" | "approved" | "hidden";
   submittedAt: string | null;
   wouldMeetAgain: boolean | null;
 };
@@ -123,6 +124,7 @@ export type DosAppParticipantTestimony = {
   personId: string | null;
   publicDisplayName: string | null;
   story: string;
+  status: "draft" | "submitted" | "reviewed" | "approved" | "hidden";
   submittedAt: string | null;
   whatChanged: string | null;
 };
@@ -140,6 +142,7 @@ export type DosAppFruitEvent = {
   personId: string | null;
   sourceId: string | null;
   sourceType: "leader_reflection" | "participant_review" | "testimony" | "manual" | "system";
+  status: "draft" | "submitted" | "reviewed" | "approved" | "hidden";
   title: string | null;
   visibility: "private" | "internal" | "public";
 };
@@ -318,6 +321,7 @@ type ParticipantReviewRow = {
   id: string;
   meeting_id: string;
   person_id: string | null;
+  status?: string | null;
   submitted_at: string | null;
   would_meet_again: boolean | null;
 };
@@ -331,6 +335,7 @@ type ParticipantTestimonyRow = {
   person_id: string | null;
   public_display_name: string | null;
   story: string;
+  status?: string | null;
   submitted_at: string | null;
   what_changed: string | null;
 };
@@ -348,6 +353,7 @@ type FruitEventRow = {
   person_id: string | null;
   source_id?: string | null;
   source_type: string | null;
+  status?: string | null;
   title: string | null;
   visibility: string | null;
 };
@@ -412,6 +418,10 @@ function mapFruitSourceType(value: string | null): DosAppFruitEvent["sourceType"
 
 function mapVisibility(value: string | null): DosAppFruitEvent["visibility"] {
   return value === "internal" || value === "public" ? value : "private";
+}
+
+function mapModerationStatus(value: string | null | undefined): "draft" | "submitted" | "reviewed" | "approved" | "hidden" {
+  return value === "draft" || value === "reviewed" || value === "approved" || value === "hidden" ? value : "submitted";
 }
 
 function mapDebugContext(value: unknown): Record<string, unknown> {
@@ -639,28 +649,28 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     meetingIds.length
       ? supabase
         .from("participant_reviews")
-        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, comments, submitted_at")
+        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, comments, status, submitted_at")
         .in("meeting_id", meetingIds)
         .order("submitted_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     meetingIds.length
       ? supabase
         .from("participant_testimonies")
-        .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, submitted_at")
+        .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, status, submitted_at")
         .in("meeting_id", meetingIds)
         .order("submitted_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     meetingIds.length
       ? supabase
         .from("fruit_events")
-        .select("id, meeting_id, person_id, source_type, source_id, fruit_type, confidence_level, title, description, occurred_at, visibility, generation_key, generated_by, debug_context")
+        .select("id, meeting_id, person_id, source_type, source_id, fruit_type, confidence_level, title, description, occurred_at, visibility, status, generation_key, generated_by, debug_context")
         .in("meeting_id", meetingIds)
         .order("occurred_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     personIds.length
       ? supabase
         .from("fruit_events")
-        .select("id, meeting_id, person_id, source_type, source_id, fruit_type, confidence_level, title, description, occurred_at, visibility, generation_key, generated_by, debug_context")
+        .select("id, meeting_id, person_id, source_type, source_id, fruit_type, confidence_level, title, description, occurred_at, visibility, status, generation_key, generated_by, debug_context")
         .in("person_id", personIds)
         .order("occurred_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
@@ -901,6 +911,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     id: review.id,
     meetingId: review.meeting_id,
     personId: review.person_id,
+    status: mapModerationStatus(review.status),
     submittedAt: review.submitted_at,
     wouldMeetAgain: review.would_meet_again,
   }));
@@ -913,6 +924,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     personId: testimony.person_id,
     publicDisplayName: testimony.public_display_name,
     story: testimony.story,
+    status: mapModerationStatus(testimony.status),
     submittedAt: testimony.submitted_at,
     whatChanged: testimony.what_changed,
   }));
@@ -929,6 +941,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     personId: fruitEvent.person_id,
     sourceId: fruitEvent.source_id ?? null,
     sourceType: mapFruitSourceType(fruitEvent.source_type),
+    status: mapModerationStatus(fruitEvent.status),
     title: fruitEvent.title,
     visibility: mapVisibility(fruitEvent.visibility),
   })).sort((first, second) => activityDateValue(second.date) - activityDateValue(first.date));

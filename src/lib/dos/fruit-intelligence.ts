@@ -131,6 +131,7 @@ export async function createFruitEvent(input: FruitEventInput, supabase: Supabas
     person_id: input.personId ?? null,
     source_id: input.sourceId ?? null,
     source_type: input.sourceType,
+    status: "submitted",
     title: input.title ?? input.fruitType,
     visibility: input.visibility ?? "private",
   };

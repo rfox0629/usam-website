@@ -161,6 +161,7 @@ export async function submitDosTestimony(token: string, submission: TestimonySub
       person_id: typedLink.reviewer_person_id,
       public_display_name: submission.permissionToShare ? submission.publicDisplayName : null,
       story: submission.story,
+      status: "submitted",
       submitted_at: submittedAt,
       what_changed: submission.whatChanged,
     })

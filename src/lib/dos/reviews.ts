@@ -246,6 +246,7 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
       leader_id: typedLink.created_by_user_id,
       meeting_id: typedLink.meeting_id,
       person_id: typedLink.reviewer_person_id,
+      status: "submitted",
       submitted_at: submittedAt,
       would_meet_again: submission.wantsFollowUp === "yes" ? true : submission.wantsFollowUp === "no" ? false : null,
     })
