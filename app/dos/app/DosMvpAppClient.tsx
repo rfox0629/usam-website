@@ -1149,6 +1149,10 @@ function uniqueCircleMembers(items: CirclePersonItem[]) {
   });
 }
 
+function rankedCircleMembers(items: CirclePersonItem[]) {
+  return uniqueCircleMembers(items).sort((first, second) => second.score.totalScore - first.score.totalScore);
+}
+
 function CircleAvatar({
   index,
   layer,
@@ -1222,7 +1226,7 @@ function CircleCountColumn({
 }) {
   return (
     <div className="text-center">
-      <p className="text-base font-bold leading-none text-[#111111]">{count}</p>
+      <p className="text-lg font-bold leading-none text-[#8A5A12]">{count}</p>
       <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.13em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
         {label}
       </p>
@@ -1231,20 +1235,16 @@ function CircleCountColumn({
 }
 
 function CircleFocusHero({
-  my12,
-  my3,
-  my70,
   onViewCircles,
+  rankedPeople,
 }: {
-  my12: CirclePersonItem[];
-  my3: CirclePersonItem[];
-  my70: CirclePersonItem[];
   onViewCircles: () => void;
+  rankedPeople: CirclePersonItem[];
 }) {
-  const centerPeople = my3.slice(0, 3);
+  const centerPeople = rankedPeople.slice(0, 3);
   const my3Count = Math.min(centerPeople.length, 3);
-  const my12Count = Math.min(my12.length, 12);
-  const my70Count = Math.min(my70.length, 70);
+  const my12Count = Math.min(rankedPeople.length, 12);
+  const my70Count = Math.min(rankedPeople.length, 70);
 
   return (
     <section className="rounded-[28px] bg-white px-5 py-3 shadow-[0_18px_48px_rgba(42,37,29,0.07)]">
@@ -1253,20 +1253,20 @@ function CircleFocusHero({
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
             Circle Focus
           </p>
-          <h2 className="mt-1 text-lg font-bold leading-tight text-[#111111]">Your closest discipleship investments</h2>
-          <p className="mt-1 text-xs leading-5 text-[#77716A]">Faces for your 3. Rings show your 12 and 70.</p>
+          <h2 className="mt-1 max-w-[240px] text-lg font-bold leading-tight text-[#111111]">Your closest discipleship investments.</h2>
+          <p className="mt-1 max-w-[220px] text-xs leading-4 text-[#77716A]">Faces for your 3. Rings show your 12 and 70.</p>
         </div>
         <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#D4A63D]" aria-hidden="true" />
       </div>
 
       <div className="relative mx-auto mt-3 h-40 w-40 max-w-full rounded-full" aria-label="Nested circle focus summary">
         <span className="absolute inset-0 rounded-full border border-[#E6DFD2] bg-[#FBFAF7]" data-circle-ring="outer" />
-        <span className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/35 bg-white" data-circle-ring="middle" />
-        <span className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/55 bg-[#FFF8E7]" data-circle-ring="center" />
-        <span className="absolute right-5 top-7 flex h-7 w-7 items-center justify-center rounded-full border border-[#E8DFCF] bg-white text-[11px] font-bold text-[#8A5A12] shadow-[0_8px_22px_rgba(42,37,29,0.06)]">
+        <span className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/25 bg-white" data-circle-ring="middle" />
+        <span className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/35 bg-[#FFF8E7]" data-circle-ring="center" />
+        <span className="absolute left-1/2 top-[1px] -translate-x-1/2 text-xs font-bold text-[#A87916]">
           70
         </span>
-        <span className="absolute bottom-7 left-6 flex h-7 w-7 items-center justify-center rounded-full border border-[#E8DFCF] bg-white text-[11px] font-bold text-[#8A5A12] shadow-[0_8px_22px_rgba(42,37,29,0.06)]">
+        <span className="absolute left-1/2 top-7 -translate-x-1/2 text-xs font-bold text-[#A87916]">
           12
         </span>
 
@@ -1282,7 +1282,7 @@ function CircleFocusHero({
         ))}
       </div>
 
-      <div className="mt-3 grid grid-cols-3 rounded-3xl bg-[#F6F4EF] px-2 py-2">
+      <div className="mt-2 grid grid-cols-3 px-3">
         <CircleCountColumn count={my3Count} label="My 3" />
         <CircleCountColumn count={my12Count} label="My 12" />
         <CircleCountColumn count={my70Count} label="My 70" />
@@ -1301,38 +1301,34 @@ function CircleFocusHero({
 
 function CircleListRow({
   index,
+  isLast = false,
   lastMeetingDate,
-  marker,
   onClick,
   person,
 }: {
   index: number;
+  isLast?: boolean;
   lastMeetingDate?: string | null;
-  marker?: string;
   onClick: () => void;
   person: DosAppPerson;
 }) {
-  const relationship = person.relationshipType?.trim() || statusLabel(person.status);
-  const activity = lastMeetingDate
-    ? `Last meeting ${formatRelativeDate(lastMeetingDate)}`
-    : person.status === "follow_up"
-      ? "Follow up needed"
+  const needsFollowUp = person.status === "follow_up";
+  const activity = needsFollowUp
+    ? "Follow up today"
+    : lastMeetingDate
+      ? `Met ${formatRelativeDate(lastMeetingDate).toLowerCase()}`
       : "No meeting yet";
 
   return (
-    <button className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl bg-white px-3 py-2 text-left transition-colors hover:bg-[#FFFDF8]" onClick={onClick} type="button">
+    <button
+      className={`flex min-h-[64px] w-full items-center gap-3 bg-white px-3 py-2 text-left transition-colors hover:bg-[#FFFDF8] ${isLast ? "" : "border-b border-[#EEEAE2]"}`}
+      onClick={onClick}
+      type="button"
+    >
       <CircleAvatar index={index} person={person} size="sm" />
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="block truncate text-sm font-semibold text-[#1E1D1A]">{person.name}</span>
-          {marker ? (
-            <span className="shrink-0 rounded-full bg-[#FFF8E7] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
-              {marker}
-            </span>
-          ) : null}
-        </span>
-        <span className="mt-0.5 block truncate text-xs text-[#77716A]">{relationship}</span>
-        <span className="mt-0.5 block truncate text-xs text-[#8E8880]">{activity}</span>
+        <span className="block truncate text-sm font-semibold text-[#1E1D1A]">{person.name}</span>
+        <span className={`mt-0.5 block truncate text-xs ${needsFollowUp ? "font-semibold text-[#A87916]" : "text-[#5D786D]"}`}>{activity}</span>
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
     </button>
@@ -2765,117 +2761,119 @@ function PersonQuickAction({
   );
 }
 
-function MiniMy3Ring({ items }: { items: CirclePersonItem[] }) {
-  const centerPeople = items.slice(0, 3);
-
-  return (
-    <div className="mx-auto h-36 w-36">
-      <div className="relative h-full w-full rounded-full bg-[#FBFAF7]" aria-label="My 3 circle">
-        <span className="absolute inset-0 rounded-full border border-[#E6DFD2]" />
-        <span className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/30 bg-white" />
-        <span className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/45 bg-[#FFF8E7]" />
-        {centerPeople.map(({ person }, index) => (
-          <TargetNode key={person.id} left={my3NodePositions[index][0]} top={my3NodePositions[index][1]}>
-            <CircleAvatar index={index} layer="center" person={person} size="sm" />
-          </TargetNode>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CirclePeopleGroup({
+function CircleLayerList({
   empty,
+  hiddenCount = 0,
   items,
   latestMeetingDateByPersonId,
-  marker,
   onOpenPerson,
   startIndex = 0,
-  title,
 }: {
-  empty?: string;
+  empty: string;
+  hiddenCount?: number;
   items: CirclePersonItem[];
   latestMeetingDateByPersonId: Map<string, string | null>;
-  marker?: string;
   onOpenPerson: (personId: string) => void;
   startIndex?: number;
-  title: string;
 }) {
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-          {title}
-        </p>
-        <span className="text-xs text-[#77716A]">{items.length}</span>
-      </div>
+    <div className="overflow-hidden rounded-[22px] bg-white shadow-[0_12px_36px_rgba(42,37,29,0.055)]">
       {items.length ? (
-        <div className="grid gap-2">
+        <>
           {items.map(({ person }, index) => (
             <CircleListRow
+              isLast={!hiddenCount && index === items.length - 1}
               index={startIndex + index}
               key={person.id}
               lastMeetingDate={latestMeetingDateByPersonId.get(person.id) ?? null}
-              marker={marker}
               onClick={() => onOpenPerson(person.id)}
               person={person}
             />
           ))}
-        </div>
-      ) : empty ? (
-        <p className="rounded-2xl bg-white px-4 py-3 text-sm text-[#77716A]">{empty}</p>
-      ) : null}
-    </section>
+          {hiddenCount ? (
+            <div className="flex min-h-[56px] items-center gap-3 bg-white px-4 text-sm font-semibold text-[#1E1D1A]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg font-light text-[#77716A]">+</span>
+              <span className="min-w-0 flex-1">{hiddenCount} more people</span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <p className="px-4 py-5 text-center text-sm leading-5 text-[#77716A]">{empty}</p>
+      )}
+    </div>
   );
 }
 
 function CirclesDetailOverlay({
   latestMeetingDateByPersonId,
-  my12,
-  my3,
-  my70,
   onBack,
   onOpenPerson,
+  onSearch,
+  rankedPeople,
 }: {
   latestMeetingDateByPersonId: Map<string, string | null>;
-  my12: CirclePersonItem[];
-  my3: CirclePersonItem[];
-  my70: CirclePersonItem[];
   onBack: () => void;
   onOpenPerson: (personId: string) => void;
+  onSearch: () => void;
+  rankedPeople: CirclePersonItem[];
 }) {
   const [activeCircle, setActiveCircle] = useState<CircleFocusView>("three");
-  const innerPeople = uniqueCircleMembers(my3).slice(0, 3);
-  const innerPersonIds = new Set(innerPeople.map(({ person }) => person.id));
-  const corePeople = uniqueCircleMembers(my12).filter(({ person }) => !innerPersonIds.has(person.id)).slice(0, 9);
-  const corePersonIds = new Set([...Array.from(innerPersonIds), ...corePeople.map(({ person }) => person.id)]);
-  const broaderPeople = uniqueCircleMembers(my70).filter(({ person }) => !corePersonIds.has(person.id)).slice(0, 58);
-  const my12Count = Math.min(innerPeople.length + corePeople.length, 12);
-  const my70Count = Math.min(innerPeople.length + corePeople.length + broaderPeople.length, 70);
-  const tabs: Array<{ count: number; label: string; value: CircleFocusView }> = [
-    { count: innerPeople.length, label: "My 3", value: "three" },
-    { count: my12Count, label: "My 12", value: "twelve" },
-    { count: my70Count, label: "My 70", value: "seventy" },
+  const my3People = rankedPeople.slice(0, 3);
+  const nextNinePeople = rankedPeople.slice(3, 12);
+  const nextFiftyEightPeople = rankedPeople.slice(12, 70);
+  const cumulativeCounts: Record<CircleFocusView, number> = {
+    seventy: Math.min(rankedPeople.length, 70),
+    three: Math.min(rankedPeople.length, 3),
+    twelve: Math.min(rankedPeople.length, 12),
+  };
+  const tabs: Array<{ label: string; value: CircleFocusView }> = [
+    { label: "My 3", value: "three" },
+    { label: "My 12", value: "twelve" },
+    { label: "My 70", value: "seventy" },
   ];
+  const circleContent = {
+    seventy: {
+      capacity: 70,
+      copy: "These are the next 58 people in your broader field. Together with your 12, this makes 70.",
+      empty: "No additional My 70 people yet.",
+      items: nextFiftyEightPeople,
+      sectionLabel: "Next 58 People",
+      startIndex: 12,
+    },
+    three: {
+      capacity: 3,
+      copy: "The people you invest in most deeply.",
+      empty: "No one in My 3 yet.",
+      items: my3People,
+      sectionLabel: "My 3 People",
+      startIndex: 0,
+    },
+    twelve: {
+      capacity: 12,
+      copy: "These are the next 9 people in your core circle. Together with your 3, this makes 12.",
+      empty: "No additional My 12 people yet.",
+      items: nextNinePeople,
+      sectionLabel: "Next 9 People",
+      startIndex: 3,
+    },
+  }[activeCircle];
+  const visiblePeople = activeCircle === "seventy" ? circleContent.items.slice(0, 6) : circleContent.items;
+  const hiddenCount = Math.max(0, circleContent.items.length - visiblePeople.length);
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#F5F3EE] px-4 pb-28 pt-7 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#F5F3EE] px-4 pb-28 pt-6 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#1E1D1A] shadow-[0_8px_20px_rgba(42,37,29,0.06)]" onClick={onBack} type="button" aria-label="Back to home">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#1E1D1A] transition-colors hover:bg-white" onClick={onBack} type="button" aria-label="Back to home">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-          Circle Focus
+        <p className="text-sm font-bold text-[#111111]">
+          Your Circles
         </p>
-        <span className="h-10 w-10" aria-hidden="true" />
+        <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#1E1D1A] transition-colors hover:bg-white" onClick={onSearch} type="button" aria-label="Search people">
+          <Search className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+        </button>
       </header>
-
-      <section className="mt-6">
-        <h2 className="text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
-          Circles
-        </h2>
-        <p className="mt-2 text-sm leading-5 text-[#77716A]">Expanded focus for the people you are actively investing in.</p>
-      </section>
 
       <div className="mt-5 grid grid-cols-3 rounded-full bg-[#EBE7DF] p-1">
         {tabs.map((tab) => (
@@ -2888,75 +2886,33 @@ function CirclesDetailOverlay({
             type="button"
           >
             {tab.label}
-            <span className="ml-1 text-[11px] text-[#8E8880]">{tab.count}</span>
           </button>
         ))}
       </div>
 
-      <div className="mt-6 grid gap-5">
-        {activeCircle === "three" ? (
-          <>
-            <MiniMy3Ring items={innerPeople} />
-            <CirclePeopleGroup
-              empty="No one in My 3 yet."
-              items={innerPeople}
-              latestMeetingDateByPersonId={latestMeetingDateByPersonId}
-              onOpenPerson={onOpenPerson}
-              title="Closest"
-            />
-          </>
-        ) : null}
+      <section className="mx-auto mt-5 max-w-[300px] text-center">
+        <p className="text-sm leading-5 text-[#5F5952]">{circleContent.copy}</p>
+        <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+          {cumulativeCounts[activeCircle]} / {circleContent.capacity} in {circleDisplayName(activeCircle)}
+        </p>
+      </section>
 
-        {activeCircle === "twelve" ? (
-          <>
-            <CirclePeopleGroup
-              empty="No inner circle yet."
-              items={innerPeople}
-              latestMeetingDateByPersonId={latestMeetingDateByPersonId}
-              marker="Closest"
-              onOpenPerson={onOpenPerson}
-              title="Inner 3"
-            />
-            <CirclePeopleGroup
-              empty="No additional My 12 relationships yet."
-              items={corePeople}
-              latestMeetingDateByPersonId={latestMeetingDateByPersonId}
-              onOpenPerson={onOpenPerson}
-              startIndex={innerPeople.length}
-              title="Core 12"
-            />
-          </>
-        ) : null}
-
-        {activeCircle === "seventy" ? (
-          <>
-            <CirclePeopleGroup
-              empty="No inner circle yet."
-              items={innerPeople}
-              latestMeetingDateByPersonId={latestMeetingDateByPersonId}
-              marker="Closest"
-              onOpenPerson={onOpenPerson}
-              title="Inner 3"
-            />
-            <CirclePeopleGroup
-              empty="No core relationships yet."
-              items={corePeople}
-              latestMeetingDateByPersonId={latestMeetingDateByPersonId}
-              onOpenPerson={onOpenPerson}
-              startIndex={innerPeople.length}
-              title="Core 12"
-            />
-            <CirclePeopleGroup
-              empty="No broader relationships yet."
-              items={broaderPeople}
-              latestMeetingDateByPersonId={latestMeetingDateByPersonId}
-              onOpenPerson={onOpenPerson}
-              startIndex={innerPeople.length + corePeople.length}
-              title="Broader 70"
-            />
-          </>
-        ) : null}
-      </div>
+      <section className="mt-5">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+            {circleContent.sectionLabel}
+          </p>
+          <span className="text-xs text-[#77716A]">{circleContent.items.length}</span>
+        </div>
+        <CircleLayerList
+          empty={circleContent.empty}
+          hiddenCount={hiddenCount}
+          items={visiblePeople}
+          latestMeetingDateByPersonId={latestMeetingDateByPersonId}
+          onOpenPerson={onOpenPerson}
+          startIndex={circleContent.startIndex}
+        />
+      </section>
     </div>
   );
 }
@@ -3770,8 +3726,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const my3People = (data.circles?.my3 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my12People = (data.circles?.my12 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my70People = (data.circles?.my70 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
-  const my12CirclePeople = uniqueCircleMembers([...my3People, ...my12People]).slice(0, 12);
-  const my70CirclePeople = uniqueCircleMembers([...my3People, ...my12People, ...my70People]).slice(0, 70);
+  const rankedCirclePeople = rankedCircleMembers([...my3People, ...my12People, ...my70People]).slice(0, 70);
+  const my3CirclePeople = rankedCirclePeople.slice(0, 3);
   const latestMeetingDateByPersonId = useMemo(() => {
     const latestDates = new Map<string, string | null>();
 
@@ -3797,10 +3753,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const todayFocusPeople = useMemo(() => {
     const preferredPeople = attentionPeople.length
       ? attentionPeople
-      : my3People.map((item) => item.person);
+      : my3CirclePeople.map((item) => item.person);
 
     return preferredPeople.slice(0, 3);
-  }, [attentionPeople, my3People]);
+  }, [attentionPeople, my3CirclePeople]);
   const workspaceLabel = data.workspace.isUsamWorkspace ? `${data.workspace.displayName} · USA` : data.workspace.displayName;
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
 
@@ -4427,10 +4383,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             {activeTab === "home" ? (
               <div className="space-y-5">
                 <CircleFocusHero
-                  my12={my12CirclePeople}
-                  my3={my3People}
-                  my70={my70CirclePeople}
                   onViewCircles={() => setIsCirclesOpen(true)}
+                  rankedPeople={rankedCirclePeople}
                 />
 
                 <section className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
@@ -4594,11 +4548,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {isCirclesOpen ? (
           <CirclesDetailOverlay
             latestMeetingDateByPersonId={latestMeetingDateByPersonId}
-            my12={my12CirclePeople}
-            my3={my3People}
-            my70={my70CirclePeople}
             onBack={() => setIsCirclesOpen(false)}
             onOpenPerson={openPersonDetail}
+            onSearch={() => {
+              setIsCirclesOpen(false);
+              setActiveTab("people");
+            }}
+            rankedPeople={rankedCirclePeople}
           />
         ) : null}
 
