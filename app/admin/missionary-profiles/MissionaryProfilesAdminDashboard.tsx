@@ -3,7 +3,7 @@
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Activity, BookOpen, Check, Copy, ExternalLink, Eye, FileText, Globe, Heart, ImageIcon, Link as LinkIcon, Mail, MessageCircle, Printer, RefreshCw, Send, Share2, Smartphone, Sparkles, Upload, Users, Wand2, type LucideIcon } from "lucide-react";
+import { Activity, BookOpen, Check, ChevronRight, Copy, ExternalLink, Eye, FileText, Globe, Heart, ImageIcon, Link as LinkIcon, Mail, MessageCircle, Printer, RefreshCw, Send, Share2, Smartphone, Sparkles, Upload, Users, Wand2, type LucideIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
@@ -3055,11 +3055,14 @@ function tableLinkedPeople(table: AdminMissionaryTable, people: readonly AdminFi
 
 function tableActivityDisplay(table: AdminMissionaryTable, people: readonly AdminFieldPerson[]) {
   const parsedNotes = parseMeetingNotes(table.notes);
+  const dateTimeLabel = parsedNotes.meta.time
+    ? `${formatProfileUpdatedDate(table.table_date)} at ${parsedNotes.meta.time}`
+    : formatProfileUpdatedDate(table.table_date);
 
   return {
     description: parsedNotes.notes.trim(),
     label: formatDosParticipantTitle(tableLinkedPeople(table, people)),
-    meta: formatDosMeetingSecondary(meetingTypeLabel(parsedNotes.meta.meetingType ?? table.table_type), formatProfileUpdatedDate(table.table_date)),
+    meta: formatDosMeetingSecondary(meetingTypeLabel(parsedNotes.meta.meetingType ?? table.table_type), dateTimeLabel),
   };
 }
 
@@ -3814,10 +3817,43 @@ function meetingPeopleLabel(meeting: MeetingListItem, fieldPeople: readonly Admi
   );
 }
 
+function initialsFromName(value: string) {
+  const words = value
+    .replace(/[^a-zA-Z0-9\s&-]/g, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter((word) => word && word.toLowerCase() !== "and" && word !== "&");
+
+  if (words.length === 0) {
+    return "PO";
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function meetingDateTimeParts(meeting: MeetingListItem) {
+  return {
+    date: formatProfileUpdatedDate(meeting.date),
+    time: meeting.time || "Time not set",
+  };
+}
+
 function meetingDateTimeLabel(meeting: MeetingListItem) {
   return meeting.time
     ? `${formatProfileUpdatedDate(meeting.date)} at ${meeting.time}`
     : formatProfileUpdatedDate(meeting.date);
+}
+
+function tableDateTimeLabel(table: AdminMissionaryTable) {
+  const parsedNotes = parseMeetingNotes(table.notes);
+  const time = parsedNotes.meta.time;
+
+  return time
+    ? `${formatProfileUpdatedDate(table.table_date)} at ${time}`
+    : formatProfileUpdatedDate(table.table_date);
 }
 
 function deriveTableMeetingStatus(
@@ -4295,32 +4331,68 @@ function MeetingsManager({
       {meetings.length > 0 ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
           <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-            <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)_118px_88px_112px_minmax(0,1fr)_104px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              <span>People</span>
-              <span>Context</span>
-              <span>Date / Time</span>
+            <div className="overflow-x-auto">
+              <div className="hidden min-w-[760px] grid-cols-[128px_minmax(210px,1fr)_108px_108px_minmax(112px,0.85fr)_72px] gap-4 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-2.5 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <span>Date & Time</span>
+              <span>Person</span>
               <span>Depth</span>
               <span>Status</span>
               <span>Next Step</span>
-              <span className="text-right">Actions</span>
+              <span className="text-right">Action</span>
             </div>
-            <div className="divide-y divide-[#e2ded5]">
+            <div className="divide-y divide-[#e2ded5] lg:min-w-[760px]">
               {meetings.map((meeting) => {
                 const selected = selectedMeeting?.id === meeting.id;
+                const personLabel = meetingPeopleLabel(meeting, fieldPeople);
+                const dateTime = meetingDateTimeParts(meeting);
 
                 return (
-                  <div className={`grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)_118px_88px_112px_minmax(0,1fr)_104px] lg:items-center ${selected ? "bg-[#fff8e8]" : ""}`} key={meeting.id}>
+                  <div
+                    className={`grid min-h-[72px] cursor-pointer gap-3 px-4 py-3.5 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[128px_minmax(210px,1fr)_108px_108px_minmax(112px,0.85fr)_72px] lg:items-center ${selected ? "bg-[#fff8e8]" : ""}`}
+                    key={meeting.id}
+                    onClick={() => setSelectedMeetingId(meeting.id)}
+                  >
+                    <div className="flex items-start justify-between gap-3 lg:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Date & Time
+                      </span>
+                      <div className="min-w-0 text-right lg:text-left">
+                        <span className="block whitespace-nowrap text-sm font-semibold text-[#111111]">
+                          {dateTime.date}
+                        </span>
+                        <span className="mt-1 block whitespace-nowrap text-xs leading-4 text-[#7b746a]">
+                          {dateTime.time}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start justify-between gap-3 lg:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Person
+                      </span>
+                      <div className="flex min-w-0 items-center justify-end gap-3 lg:justify-start">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          {initialsFromName(personLabel)}
+                        </span>
+                        <div className="min-w-0 text-right lg:text-left">
+                          <span className="block truncate text-sm font-semibold text-[#111111]">
+                            {personLabel}
+                          </span>
+                          <span className="mt-1 block truncate text-xs leading-4 text-[#7b746a]">
+                            {meetingTypeLabel(meeting.meetingType)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
                     {[
-                      ["People", meetingPeopleLabel(meeting, fieldPeople), "text-sm font-semibold text-[#111111]"],
-                      ["Context", meetingTypeLabel(meeting.meetingType), "text-sm text-[#4b443b]"],
-                      ["Date / Time", meetingDateTimeLabel(meeting), "text-sm text-[#4b443b]"],
-                      ["Depth", meetingDepthLabel(meeting.depth), "text-sm text-[#4b443b]"],
+                      ["Depth", meetingDepthLabel(meeting.depth), "text-sm leading-5 text-[#4b443b]"],
                     ].map(([label, value, className]) => (
                       <div className="flex items-center justify-between gap-3 lg:block" key={label}>
                         <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                           {label}
                         </span>
-                        <span className={className}>
+                        <span className={`${className} text-right lg:text-left`}>
                           {value}
                         </span>
                       </div>
@@ -4335,19 +4407,38 @@ function MeetingsManager({
                       <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Next Step
                       </span>
-                      <span className="text-sm text-[#4b443b]">{meeting.nextStep}</span>
+                      <span className="block text-right text-sm leading-5 text-[#4b443b] lg:text-left">{meeting.nextStep}</span>
                     </div>
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <button className={lightSecondaryButtonClass} onClick={() => setSelectedMeetingId(meeting.id)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                        View
+                    <div className="flex justify-end gap-2">
+                      <button
+                        aria-label={`View ${personLabel}`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedMeetingId(meeting.id);
+                        }}
+                        title="View"
+                        type="button"
+                      >
+                        <ChevronRight aria-hidden="true" className="h-4 w-4" />
                       </button>
-                      <button className={lightSecondaryButtonClass} onClick={() => setEditingMeeting(meeting)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-                        Edit
+                      <button
+                        aria-label={`Edit ${personLabel}`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setEditingMeeting(meeting);
+                        }}
+                        title="Edit"
+                        type="button"
+                      >
+                        <Eye aria-hidden="true" className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
                 );
               })}
+            </div>
             </div>
           </div>
 
@@ -4707,8 +4798,8 @@ function TableDetailPanel({
         ? "Draft"
         : "Private";
   const summaryItems = [
-    { label: "Meeting", value: meetingTypeLabel(parsedTableNotes.meta.meetingType ?? activeTable.table_type) },
-    { label: "Date", value: formatProfileUpdatedDate(activeTable.table_date) },
+    { label: "Meeting Type", value: meetingTypeLabel(parsedTableNotes.meta.meetingType ?? activeTable.table_type) },
+    { label: "Date & Time", value: tableDateTimeLabel(activeTable) },
     { label: "People", value: peopleLabel },
     { label: "Notes", value: parsedTableNotes.notes || "No notes added." },
     { label: "Responses", value: String(encounters.length) },
