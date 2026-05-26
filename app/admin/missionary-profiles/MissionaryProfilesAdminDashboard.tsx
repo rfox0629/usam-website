@@ -4113,54 +4113,132 @@ function reviewHasContent(review: AdminTableReview | null | undefined) {
   );
 }
 
+function reviewStatusLabel(status: ReviewFilter) {
+  if (status === "draft_fruit") {
+    return "Draft Fruit";
+  }
+
+  if (status === "reviewed") {
+    return "Reviewed";
+  }
+
+  if (status === "pending") {
+    return "Pending";
+  }
+
+  return "All";
+}
+
+function ReviewStatusBadge({ status }: { status: ReviewFilter }) {
+  const className = status === "draft_fruit"
+    ? "border-purple-200 bg-purple-50 text-purple-700"
+    : status === "reviewed"
+      ? "border-green-200 bg-green-50 text-green-800"
+      : "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]";
+
+  return (
+    <span className={`inline-flex min-h-6 w-fit items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      {reviewStatusLabel(status)}
+    </span>
+  );
+}
+
+function ReviewStatCard({ helper, label, value }: { helper: string; label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-[#e2ded5] bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            {label}
+          </p>
+          <p className="mt-2 text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
+            {value}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-[#7b746a]">
+            {helper}
+          </p>
+        </div>
+        <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#D4A63D]" />
+      </div>
+    </div>
+  );
+}
+
 function ReviewsManager({
+  encounters,
   fieldPeople,
   fruitItems,
   onCreateFruit,
+  onUpdateReview,
   tableReviews,
   tables,
 }: {
+  encounters: readonly AdminEncounterSubmission[];
   fieldPeople: readonly AdminFieldPerson[];
   fruitItems: readonly AdminFruitItem[];
   onCreateFruit: (draft: FruitDraft, table?: AdminMissionaryTable | null) => void;
+  onUpdateReview: (tableId: string, patch: Partial<AdminTableReview>) => void;
   tableReviews: readonly AdminTableReview[];
   tables: readonly AdminMissionaryTable[];
 }) {
   const reviewRows = useMemo(
     () => tables.map((table) => {
       const review = tableReviews.find((item) => item.table_id === table.id) ?? null;
-      const fruitCount = fruitItems.filter((fruit) => fruit.table_id === table.id).length;
+      const rowFruitItems = fruitItems.filter((fruit) => fruit.table_id === table.id);
+      const parsedNotes = parseMeetingNotes(table.notes);
+      const isReviewed = reviewHasContent(review);
+      const hasDraftFruit = rowFruitItems.some((fruit) => fruit.status === "draft");
+      const rowEncounters = encounters.filter((encounter) => encounter.table_id === table.id);
 
       return {
-        fruitCount,
-        isReviewed: reviewHasContent(review),
+        dateTime: tableDateTimeParts(table),
+        display: tableActivityDisplay(table, fieldPeople),
+        encounters: rowEncounters,
+        fruitItems: rowFruitItems,
+        isReviewed,
+        keyObservations: review?.key_observations?.trim() || "No observations added.",
+        meetingType: meetingTypeLabel(parsedNotes.meta.meetingType ?? table.table_type),
+        nextStep: review?.movement_step || parsedNotes.meta.movementStep || "Review needed",
+        personLabel: formatDosParticipantTitle(tableLinkedPeople(table, fieldPeople), "People optional"),
         review,
+        status: hasDraftFruit ? "draft_fruit" as const : isReviewed ? "reviewed" as const : "pending" as const,
         table,
       };
     }).sort((first, second) => {
       if (first.isReviewed !== second.isReviewed) {
         return first.isReviewed ? 1 : -1;
       }
-
       return (tableDateValue(second.table.table_date)?.getTime() ?? 0) - (tableDateValue(first.table.table_date)?.getTime() ?? 0);
     }),
-    [fruitItems, tableReviews, tables],
+    [encounters, fieldPeople, fruitItems, tableReviews, tables],
   );
   const pendingRows = reviewRows.filter((row) => !row.isReviewed);
   const reviewedRows = reviewRows.filter((row) => row.isReviewed);
-  const [selectedTableId, setSelectedTableId] = useState(reviewRows[0]?.table.id ?? "");
-  const selectedRow = reviewRows.find((row) => row.table.id === selectedTableId) ?? reviewRows[0] ?? null;
-  const selectedReviewDisplay = selectedRow ? tableActivityDisplay(selectedRow.table, fieldPeople) : null;
+  const fruitFromReviews = reviewRows.filter((row) => row.fruitItems.length > 0).length;
+  const responseRate = reviewRows.length > 0 ? Math.round((reviewedRows.length / reviewRows.length) * 100) : 0;
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
+  const [reviewSearch, setReviewSearch] = useState("");
+  const [selectedTableId, setSelectedTableId] = useState("");
+  const selectedRow = reviewRows.find((row) => row.table.id === selectedTableId) ?? null;
+  const filteredRows = useMemo(
+    () => reviewRows.filter((row) => {
+      const matchesFilter = reviewFilter === "all" || row.status === reviewFilter;
+      const normalizedSearch = reviewSearch.trim().toLowerCase();
+      const matchesSearch = !normalizedSearch || [
+        row.personLabel,
+        row.meetingType,
+        row.nextStep,
+        row.review?.how_meeting_went || "",
+        row.keyObservations,
+        row.display.description,
+      ].some((value) => value.toLowerCase().includes(normalizedSearch));
 
-  useEffect(() => {
-    if (selectedTableId && reviewRows.some((row) => row.table.id === selectedTableId)) {
-      return;
-    }
+      return matchesFilter && matchesSearch;
+    }),
+    [reviewFilter, reviewRows, reviewSearch],
+  );
 
-    setSelectedTableId(reviewRows[0]?.table.id ?? "");
-  }, [reviewRows, selectedTableId]);
-
-  function createFruitDraftFromReview(row: typeof reviewRows[number]) {
+  function createFruitDraftFromReview(row: ReviewListRow) {
     const review = row.review;
     const summary = review?.key_observations?.trim()
       || review?.how_meeting_went?.trim()
@@ -4179,114 +4257,405 @@ function ReviewsManager({
     }, row.table);
   }
 
+  function markReviewed(row: ReviewListRow) {
+    const existingReview = row.review ?? newTableReview(row.table.workspace_id, row.table.id);
+
+    onUpdateReview(row.table.id, {
+      how_meeting_went: existingReview.how_meeting_went?.trim() || "Reviewed.",
+      key_observations: existingReview.key_observations,
+      movement_step: existingReview.movement_step,
+    });
+  }
+
+  const fruitDraftTarget = reviewRows.find((row) => row.status === "reviewed" && row.fruitItems.length === 0)
+    ?? reviewRows.find((row) => row.fruitItems.length === 0)
+    ?? reviewRows[0];
+
   return (
     <div className="space-y-4">
-      <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        Post-meeting review
-      </p>
+      <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Reviews
+            </p>
+            <h3 className="mt-2 text-2xl font-bold leading-tight text-[#111111]">
+              Post-meeting reviews
+            </h3>
+            <p className="mt-1 text-sm leading-5 text-[#4b443b]">
+              Track, review, and act on post-meeting reviews.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className={lightSecondaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Export
+            </button>
+            <button
+              className={lightPrimaryButtonClass}
+              disabled={!fruitDraftTarget}
+              onClick={() => fruitDraftTarget ? createFruitDraftFromReview(fruitDraftTarget) : undefined}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              Create Fruit Draft
+            </button>
+          </div>
+        </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatPreview label="Reviews Pending" tone="light" value={String(pendingRows.length)} />
-        <StatPreview label="Reviewed Meetings" tone="light" value={String(reviewedRows.length)} />
-        <StatPreview label="Fruit From Reviews" tone="light" value={String(fruitItems.filter((fruit) => Boolean(fruit.table_id)).length)} />
-      </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ReviewStatCard helper="Require your review" label="Reviews Pending" value={String(pendingRows.length)} />
+          <ReviewStatCard helper="Reviewed this month" label="Reviewed Meetings" value={String(reviewedRows.length)} />
+          <ReviewStatCard helper="From completed reviews" label="Fruit From Reviews" value={String(fruitFromReviews)} />
+          <ReviewStatCard helper="All logged meetings" label="Review Response Rate" value={`${responseRate}%`} />
+        </div>
 
-      {pendingRows.length === 0 ? (
-        <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-          No reviews
-        </p>
-      ) : null}
-
-      {reviewRows.length > 0 ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(360px,1fr)]">
-          <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-            <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Meeting Reviews
-              </p>
-            </div>
-            <div className="divide-y divide-[#e2ded5]">
-              {reviewRows.map((row) => {
-                const selected = selectedRow?.table.id === row.table.id;
-                const display = tableActivityDisplay(row.table, fieldPeople);
+        <div className="mt-4 overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+          <div className="flex flex-col gap-3 border-b border-[#e2ded5] bg-white px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {reviewFilterOptions.map((option) => {
+                const selected = reviewFilter === option.value;
 
                 return (
                   <button
-                    className={`block w-full px-3 py-2.5 text-left transition-colors hover:bg-[#fbfaf7] ${selected ? "bg-[#fff8e8]" : "bg-white"}`}
-                    key={row.table.id}
-                    onClick={() => setSelectedTableId(row.table.id)}
+                    className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 text-[10px] uppercase tracking-[0.16em] transition-colors ${
+                      selected
+                        ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                        : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                    }`}
+                    key={option.value}
+                    onClick={() => setReviewFilter(option.value)}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                     type="button"
                   >
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm font-semibold text-[#111111]">
-                        {display.label}
-                      </p>
-                      <span className={`w-fit rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${row.isReviewed ? "border-[#D4A63D]/40 bg-[#fff8e8] text-[#8a5a00]" : "border-stone-200 bg-stone-50 text-[#6f6658]"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        {row.isReviewed ? "Reviewed" : "Pending"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                      {display.meta}
-                    </p>
-                    {display.description ? (
-                      <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-[#9a9286]">{display.description}</p>
-                    ) : null}
+                    {option.label}
                   </button>
                 );
               })}
             </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="relative block min-w-0 sm:w-72">
+                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8174]" />
+                <span className="sr-only">Search reviews</span>
+                <input
+                  className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]"
+                  onChange={(event) => setReviewSearch(event.target.value)}
+                  placeholder="Search reviews"
+                  value={reviewSearch}
+                />
+              </label>
+              <button className={lightSecondaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                Filters
+              </button>
+            </div>
           </div>
 
-          {selectedRow ? (
-            <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Selected Review
-                  </p>
-                  <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                    {selectedReviewDisplay?.label ?? tableLabel(selectedRow.table)}
-                  </h3>
-                  {selectedReviewDisplay ? (
-                    <p className="mt-1 text-xs leading-5 text-[#7b746a]">{selectedReviewDisplay.meta}</p>
-                  ) : null}
-                </div>
-                <button
-                  className={lightPrimaryButtonClass}
-                  disabled={selectedRow.fruitCount > 0}
-                  onClick={() => createFruitDraftFromReview(selectedRow)}
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  type="button"
-                >
-                  {selectedRow.fruitCount > 0 ? "Fruit Created" : "Create Fruit Draft"}
-                </button>
-              </div>
+          {reviewRows.length === 0 ? (
+            <p className="p-4 text-sm leading-6 text-[#7b746a]">
+              No reviews
+            </p>
+          ) : null}
 
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {[
-                  { label: "How It Went", value: selectedRow.review?.how_meeting_went || "Not reviewed yet." },
-                  { label: "Key Observations", value: selectedRow.review?.key_observations || "No observations added." },
-                  { label: "Teaching Used", value: selectedRow.review?.teaching_used || "Not selected." },
-                  { label: "Questions Covered", value: selectedRow.review?.questions_covered || "No questions logged." },
-                  { label: "Readiness", value: selectedRow.review?.readiness || "Not selected." },
-                  { label: "Movement Step", value: selectedRow.review?.movement_step || "Not selected." },
-                  { label: "Follow Up Needed", value: selectedRow.review?.follow_up_needed || "No follow-up noted." },
-                  { label: "Fruit Status", value: selectedRow.fruitCount > 0 ? `${selectedRow.fruitCount} fruit item${selectedRow.fruitCount === 1 ? "" : "s"}` : "Not created" },
-                ].map((item) => (
-                  <div className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-2.5" key={item.label}>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      {item.label}
-                    </p>
-                    <p className="mt-1 text-sm leading-5 text-[#111111]">
-                      {truncateText(item.value, 140)}
-                    </p>
+          {reviewRows.length > 0 && filteredRows.length === 0 ? (
+            <p className="p-4 text-sm leading-6 text-[#7b746a]">
+              No reviews match this view.
+            </p>
+          ) : null}
+
+          {filteredRows.length > 0 ? (
+            <div>
+              <div className="hidden grid-cols-[minmax(170px,1.25fr)_112px_118px_minmax(120px,0.9fr)_minmax(130px,1fr)_minmax(112px,0.85fr)_56px] items-center gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] xl:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span>Person / Meeting</span>
+                <span>Review Status</span>
+                <span>Date of Meeting</span>
+                <span>How It Went</span>
+                <span>Key Observations</span>
+                <span>Next Step</span>
+                <span className="text-right">Actions</span>
+              </div>
+              <div className="divide-y divide-[#e2ded5]">
+                {filteredRows.map((row) => (
+                  <div
+                    className="grid min-h-[76px] cursor-pointer gap-3 bg-white px-4 py-4 transition-colors hover:bg-[#fbfaf7] xl:grid-cols-[minmax(170px,1.25fr)_112px_118px_minmax(120px,0.9fr)_minmax(130px,1fr)_minmax(112px,0.85fr)_56px] xl:items-center"
+                    key={row.table.id}
+                    onClick={() => setSelectedTableId(row.table.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedTableId(row.table.id);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className="flex items-center justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Person / Meeting
+                      </span>
+                      <div className="flex min-w-0 items-center justify-end gap-3 xl:justify-start">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          {initialsFromName(row.personLabel)}
+                        </span>
+                        <div className="min-w-0 text-right xl:text-left">
+                          <span className="block truncate text-sm font-semibold leading-5 text-[#111111]">
+                            {row.personLabel}
+                          </span>
+                          <span className="mt-1 block truncate text-xs leading-4 text-[#7b746a]">
+                            {row.meetingType}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Review Status
+                      </span>
+                      <ReviewStatusBadge status={row.status} />
+                    </div>
+                    <div className="flex items-start justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Date of Meeting
+                      </span>
+                      <div className="text-right xl:text-left">
+                        <span className="block whitespace-nowrap text-sm font-semibold leading-5 text-[#111111]">{row.dateTime.date}</span>
+                        <span className="mt-1 block whitespace-nowrap text-xs leading-4 text-[#7b746a]">{row.dateTime.time}</span>
+                      </div>
+                    </div>
+                    <ReviewPreviewCell label="How It Went" value={row.review?.how_meeting_went || "Not reviewed yet."} />
+                    <ReviewPreviewCell label="Key Observations" value={row.keyObservations} />
+                    <div className="flex items-center justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Next Step
+                      </span>
+                      <span className="block max-w-[220px] truncate text-right text-sm leading-5 text-[#4b443b] xl:max-w-full xl:text-left">{row.nextStep}</span>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        aria-label={`Open actions for ${row.personLabel}`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedTableId(row.table.id);
+                        }}
+                        title="Open"
+                        type="button"
+                      >
+                        <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           ) : null}
         </div>
-      ) : null}
+
+        {selectedRow ? (
+          <ReviewDetailModal
+            onClose={() => setSelectedTableId("")}
+            onCreateFruit={() => createFruitDraftFromReview(selectedRow)}
+            onMarkReviewed={() => markReviewed(selectedRow)}
+            onUpdateReview={(patch) => onUpdateReview(selectedRow.table.id, patch)}
+            row={selectedRow}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ReviewPreviewCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 xl:block">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+      </span>
+      <span className="block max-w-[220px] truncate text-right text-sm leading-5 text-[#4b443b] xl:max-w-full xl:text-left">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function ReviewDetailModal({
+  onClose,
+  onCreateFruit,
+  onMarkReviewed,
+  onUpdateReview,
+  row,
+}: {
+  onClose: () => void;
+  onCreateFruit: () => void;
+  onMarkReviewed: () => void;
+  onUpdateReview: (patch: Partial<AdminTableReview>) => void;
+  row: ReviewListRow;
+}) {
+  const [isEditingReview, setIsEditingReview] = useState(false);
+  const [reviewDraft, setReviewDraft] = useState(() => ({
+    howMeetingWent: row.review?.how_meeting_went ?? "",
+    keyObservations: row.review?.key_observations ?? "",
+    movementStep: row.review?.movement_step ?? "",
+    questionsCovered: row.review?.questions_covered ?? "",
+    teachingUsed: row.review?.teaching_used ?? "",
+  }));
+  const fruitStatus = row.fruitItems.length > 0
+    ? row.fruitItems.some((fruit) => fruit.status === "draft")
+      ? "Draft Fruit"
+      : `${row.fruitItems.length} fruit item${row.fruitItems.length === 1 ? "" : "s"}`
+    : "Not created";
+  const detailItems = [
+    { label: "Review Status", value: reviewStatusLabel(row.status) },
+    { label: "How It Went", value: row.review?.how_meeting_went || "Not reviewed yet." },
+    { label: "Key Observations", value: row.review?.key_observations || "No observations added." },
+    { label: "Teaching Used", value: row.review?.teaching_used || "Not selected." },
+    { label: "Questions Covered", value: row.review?.questions_covered || "No questions logged." },
+    { label: "Responses", value: String(row.encounters.length) },
+    { label: "Fruit Status", value: fruitStatus },
+    { label: "Next Step", value: row.nextStep },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm">
+      <div className="ml-auto flex h-full w-full max-w-4xl flex-col border-l border-[#2a241a] bg-[#f8f6f1] text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+        <div className="border-b border-[#e2ded5] bg-white px-4 py-4 md:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Review Details
+              </p>
+              <div className="mt-2 flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {initialsFromName(row.personLabel)}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="truncate text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                    {row.personLabel}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                    {formatDosMeetingSecondary(row.meetingType, dateTimeDetailLabel(row.dateTime))}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+              <X aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className={lightSecondaryButtonClass} onClick={() => setIsEditingReview((current) => !current)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Edit Review
+            </button>
+            {!row.isReviewed ? (
+              <button className={lightSecondaryButtonClass} onClick={onMarkReviewed} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                Mark Reviewed
+              </button>
+            ) : null}
+            <button className={lightPrimaryButtonClass} disabled={row.fruitItems.length > 0} onClick={onCreateFruit} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              {row.fruitItems.length > 0 ? "View Fruit" : "Create Fruit Draft"}
+            </button>
+            <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DetailText label="Person" value={row.personLabel} />
+            <DetailText label="Meeting Type" value={row.meetingType} />
+            <DetailText label="Date & Time" value={dateTimeDetailLabel(row.dateTime)} />
+            {detailItems.map((item) => (
+              <div className="rounded-lg border border-[#e2ded5] bg-white p-3" key={item.label}>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {item.label}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[#111111]">
+                  {item.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {row.encounters.length > 0 ? (
+            <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Responses
+              </p>
+              <div className="mt-3 space-y-3">
+                {row.encounters.map((encounter) => (
+                  <p className="rounded-lg border border-[#e2ded5] bg-[#f8f6f1] p-3 text-sm leading-6 text-[#4b443b]" key={encounter.id}>
+                    {truncateText(encounter.original_testimony || "No response text.", 220)}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {isEditingReview ? (
+            <div className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Edit Review
+              </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <TextArea
+                  label="How It Went"
+                  onChange={(value) => setReviewDraft((current) => ({ ...current, howMeetingWent: value }))}
+                  rows={4}
+                  value={reviewDraft.howMeetingWent}
+                />
+                <TextArea
+                  label="Key Observations"
+                  onChange={(value) => setReviewDraft((current) => ({ ...current, keyObservations: value }))}
+                  rows={4}
+                  value={reviewDraft.keyObservations}
+                />
+                <SelectField
+                  label="Teaching Used"
+                  onChange={(value) => setReviewDraft((current) => ({ ...current, teachingUsed: value }))}
+                  options={teachingUsedOptions}
+                  value={reviewDraft.teachingUsed}
+                />
+                <SelectField
+                  label="Next Step"
+                  onChange={(value) => setReviewDraft((current) => ({ ...current, movementStep: value }))}
+                  options={movementStepSelectOptions}
+                  value={reviewDraft.movementStep}
+                />
+                <div className="md:col-span-2">
+                  <TextArea
+                    label="Questions Covered"
+                    onChange={(value) => setReviewDraft((current) => ({ ...current, questionsCovered: value }))}
+                    rows={3}
+                    value={reviewDraft.questionsCovered}
+                  />
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                <button className={lightSecondaryButtonClass} onClick={() => setIsEditingReview(false)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                  Cancel
+                </button>
+                <button
+                  className={lightPrimaryButtonClass}
+                  onClick={() => {
+                    onUpdateReview({
+                      how_meeting_went: reviewDraft.howMeetingWent,
+                      key_observations: reviewDraft.keyObservations,
+                      movement_step: reviewDraft.movementStep ? reviewDraft.movementStep as AdminMovementStep : null,
+                      questions_covered: reviewDraft.questionsCovered,
+                      teaching_used: reviewDraft.teachingUsed ? reviewDraft.teachingUsed as AdminTeachingUsed : null,
+                    });
+                    setIsEditingReview(false);
+                  }}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  Save Review
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -4986,6 +5355,22 @@ function MeetingEditorModal({
 
 type TableWorkflowSection = "assessment" | "fruit" | "responses" | "review" | "summary";
 type MeetingsFilter = "all" | "completed" | "needs_follow_up" | "upcoming";
+type ReviewFilter = "all" | "draft_fruit" | "pending" | "reviewed";
+
+type ReviewListRow = {
+  dateTime: { date: string; time: string };
+  display: ReturnType<typeof tableActivityDisplay>;
+  encounters: AdminEncounterSubmission[];
+  fruitItems: AdminFruitItem[];
+  isReviewed: boolean;
+  keyObservations: string;
+  meetingType: string;
+  nextStep: string;
+  personLabel: string;
+  review: AdminTableReview | null;
+  status: ReviewFilter;
+  table: AdminMissionaryTable;
+};
 
 const tableWorkflowSections: Array<{ label: string; value: TableWorkflowSection }> = [
   { label: "Summary", value: "summary" },
@@ -5000,6 +5385,13 @@ const meetingsFilterOptions: Array<{ label: string; value: MeetingsFilter }> = [
   { label: "Needs Follow Up", value: "needs_follow_up" },
   { label: "Completed", value: "completed" },
   { label: "Upcoming", value: "upcoming" },
+];
+
+const reviewFilterOptions: Array<{ label: string; value: ReviewFilter }> = [
+  { label: "All", value: "all" },
+  { label: "Pending", value: "pending" },
+  { label: "Reviewed", value: "reviewed" },
+  { label: "Draft Fruit", value: "draft_fruit" },
 ];
 
 function TableDetailPanel({
@@ -10643,13 +11035,16 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
 
           {activeTab === "reviews" ? (
           <SectionIntro
-            description="Post-meeting review"
-            title="Reviews"
+            description="Track, review, and act on post-meeting reviews."
+            title="Post-meeting reviews"
+            wide
           >
             <ReviewsManager
+              encounters={selectedProfile.encounterSubmissions ?? []}
               fieldPeople={selectedProfile.fieldPeople ?? []}
               fruitItems={selectedProfile.fruitItems ?? []}
               onCreateFruit={createFruitSummary}
+              onUpdateReview={updateTableReview}
               tableReviews={selectedProfile.tableReviews ?? []}
               tables={selectedProfile.tables ?? []}
             />
