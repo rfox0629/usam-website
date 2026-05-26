@@ -3,7 +3,7 @@
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Activity, BookOpen, Check, ChevronRight, Copy, ExternalLink, Eye, FileText, Globe, Heart, ImageIcon, Link as LinkIcon, Mail, MessageCircle, Printer, RefreshCw, Send, Share2, Smartphone, Sparkles, Upload, Users, Wand2, type LucideIcon } from "lucide-react";
+import { Activity, BookOpen, Check, Copy, ExternalLink, Eye, FileText, Globe, Heart, ImageIcon, Link as LinkIcon, Mail, MessageCircle, MoreHorizontal, Printer, RefreshCw, Search, Send, Share2, Smartphone, Sparkles, Upload, Users, Wand2, X, type LucideIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
@@ -2933,6 +2933,55 @@ function meetingStatusLabel(value: AdminMeetingStatus) {
   return meetingStatusOptions.find((option) => option.value === value)?.label ?? "Completed";
 }
 
+function meetingDisplayStatusLabel(meeting: MeetingListItem) {
+  if (meeting.status === "scheduled") {
+    return "Upcoming";
+  }
+
+  if (meeting.nextStep && meeting.nextStep !== "Not set") {
+    return "Needs Follow Up";
+  }
+
+  if (meeting.status === "reviewed") {
+    return "In Progress";
+  }
+
+  return meetingStatusLabel(meeting.status);
+}
+
+function meetingMatchesFilter(meeting: MeetingListItem, filter: MeetingsFilter) {
+  if (filter === "all") {
+    return true;
+  }
+
+  if (filter === "upcoming") {
+    return meeting.status === "scheduled";
+  }
+
+  if (filter === "needs_follow_up") {
+    return meeting.nextStep !== "Not set" && meeting.status !== "canceled";
+  }
+
+  return meeting.status === "completed" || meeting.status === "reviewed" || meeting.status === "fruit_created";
+}
+
+function meetingMatchesSearch(meeting: MeetingListItem, fieldPeople: readonly AdminFieldPerson[], searchValue: string) {
+  const normalizedSearch = searchValue.trim().toLowerCase();
+
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  return [
+    meetingPeopleLabel(meeting, fieldPeople),
+    meetingTypeLabel(meeting.meetingType),
+    meetingDepthLabel(meeting.depth),
+    meetingDisplayStatusLabel(meeting),
+    meeting.nextStep,
+    meeting.notes,
+  ].some((value) => value.toLowerCase().includes(normalizedSearch));
+}
+
 function isMeetingType(value: unknown): value is AdminMeetingType {
   return typeof value === "string" && meetingTypeOptions.some((option) => option.value === value);
 }
@@ -4030,6 +4079,25 @@ function MeetingStatusBadge({ status }: { status: AdminMeetingStatus }) {
   );
 }
 
+function MeetingDisplayStatusBadge({ meeting }: { meeting: MeetingListItem }) {
+  const displayStatus = meetingDisplayStatusLabel(meeting);
+  const className = displayStatus === "Upcoming"
+    ? "border-[#d7d2c8] bg-white text-[#6f6658]"
+    : displayStatus === "Needs Follow Up"
+      ? "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]"
+      : displayStatus === "In Progress"
+        ? "border-blue-200 bg-blue-50 text-blue-700"
+        : meeting.status === "canceled"
+          ? "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]"
+          : "border-green-200 bg-green-50 text-green-800";
+
+  return (
+    <span className={`inline-flex min-h-6 w-fit items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      {displayStatus}
+    </span>
+  );
+}
+
 function reviewHasContent(review: AdminTableReview | null | undefined) {
   return Boolean(
     review?.how_meeting_went?.trim()
@@ -4269,20 +4337,26 @@ function MeetingsManager({
     [connections, fruitItems, tableReviews, tables],
   );
   const [editingMeeting, setEditingMeeting] = useState<MeetingListItem | null>(null);
+  const [meetingsFilter, setMeetingsFilter] = useState<MeetingsFilter>("all");
+  const [meetingsSearch, setMeetingsSearch] = useState("");
   const [isLoggingMeeting, setIsLoggingMeeting] = useState(false);
   const [isSchedulingMeeting, setIsSchedulingMeeting] = useState(false);
   const [quickEncounterTable, setQuickEncounterTable] = useState<AdminMissionaryTable | null>(null);
-  const [selectedMeetingId, setSelectedMeetingId] = useState(meetings[0]?.id ?? "");
-  const selectedMeeting = meetings.find((meeting) => meeting.id === selectedMeetingId) ?? meetings[0] ?? null;
+  const [selectedMeetingId, setSelectedMeetingId] = useState("");
+  const selectedMeeting = meetings.find((meeting) => meeting.id === selectedMeetingId) ?? null;
   const selectedTable = selectedMeeting?.table ?? null;
-  const selectedConnection = selectedMeeting?.connection ?? null;
+  const filteredMeetings = useMemo(
+    () => meetings.filter((meeting) => (
+      meetingMatchesFilter(meeting, meetingsFilter)
+        && meetingMatchesSearch(meeting, fieldPeople, meetingsSearch)
+    )),
+    [fieldPeople, meetings, meetingsFilter, meetingsSearch],
+  );
 
   useEffect(() => {
-    if (selectedMeetingId && meetings.some((meeting) => meeting.id === selectedMeetingId)) {
-      return;
+    if (selectedMeetingId && !meetings.some((meeting) => meeting.id === selectedMeetingId)) {
+      setSelectedMeetingId("");
     }
-
-    setSelectedMeetingId(meetings[0]?.id ?? "");
   }, [meetings, selectedMeetingId]);
 
   function saveMeeting(draft: MeetingDraft, existingMeeting?: MeetingListItem | null) {
@@ -4324,168 +4398,210 @@ function MeetingsManager({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Meetings & follow-up
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button className={lightSecondaryButtonClass} onClick={() => setIsSchedulingMeeting(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-            Schedule Meeting
-          </button>
-          <button className={lightPrimaryButtonClass} onClick={() => setIsLoggingMeeting(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
-            Log Meeting
-          </button>
+      <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Meetings & follow-up
+            </p>
+            <h3 className="mt-1 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+              Meetings
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className={lightSecondaryButtonClass} onClick={() => setIsSchedulingMeeting(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Schedule Meeting
+            </button>
+            <button className={lightPrimaryButtonClass} onClick={() => setIsLoggingMeeting(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Log Meeting
+            </button>
+          </div>
         </div>
-      </div>
 
-      {meetings.length === 0 ? (
-        <p className="rounded-xl border border-[#e2ded5] bg-white p-4 text-sm leading-6 text-[#7b746a]">
-          No meetings yet
-        </p>
-      ) : null}
+        <div className="flex flex-col gap-3 border-b border-[#e2ded5] bg-white px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {meetingsFilterOptions.map((option) => {
+              const selected = meetingsFilter === option.value;
 
-      {meetings.length > 0 ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(820px,1fr)_minmax(320px,0.5fr)]">
-          <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
-            <div className="overflow-x-auto">
-              <div className="hidden min-w-[820px] grid-cols-[112px_minmax(180px,1fr)_112px_104px_minmax(120px,0.8fr)_76px] items-center gap-2 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] lg:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                <span>Date & Time</span>
-                <span>Person</span>
-                <span>Depth</span>
-                <span>Status</span>
-                <span>Next Step</span>
-                <span className="text-right">Action</span>
-              </div>
-              <div className="divide-y divide-[#e2ded5] lg:min-w-[820px]">
-                {meetings.map((meeting) => {
-                  const selected = selectedMeeting?.id === meeting.id;
-                  const personLabel = meetingPeopleLabel(meeting, fieldPeople);
-                  const dateTime = meetingDateTimeParts(meeting);
+              return (
+                <button
+                  className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 text-[10px] uppercase tracking-[0.16em] transition-colors ${
+                    selected
+                      ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
+                      : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                  }`}
+                  key={option.value}
+                  onClick={() => setMeetingsFilter(option.value)}
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="relative block min-w-0 sm:w-72">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8174]" />
+              <span className="sr-only">Search meetings</span>
+              <input
+                className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]"
+                onChange={(event) => setMeetingsSearch(event.target.value)}
+                placeholder="Search meetings"
+                value={meetingsSearch}
+              />
+            </label>
+            <button className={lightSecondaryButtonClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Filters
+            </button>
+          </div>
+        </div>
 
-                  return (
-                    <div
-                      className={`grid min-h-[72px] cursor-pointer gap-4 px-4 py-4 transition-colors hover:bg-[#fbfaf7] lg:grid-cols-[112px_minmax(180px,1fr)_112px_104px_minmax(120px,0.8fr)_76px] lg:items-center lg:gap-2 ${selected ? "bg-[#fff8e8] shadow-[inset_3px_0_0_#D4A63D]" : "bg-white"}`}
-                      key={meeting.id}
-                      onClick={() => setSelectedMeetingId(meeting.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setSelectedMeetingId(meeting.id);
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <div className="grid gap-1 lg:block">
-                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Date & Time
+        {meetings.length === 0 ? (
+          <p className="p-4 text-sm leading-6 text-[#7b746a]">
+            No meetings yet
+          </p>
+        ) : null}
+
+        {meetings.length > 0 && filteredMeetings.length === 0 ? (
+          <p className="p-4 text-sm leading-6 text-[#7b746a]">
+            No meetings match this view.
+          </p>
+        ) : null}
+
+        {filteredMeetings.length > 0 ? (
+          <div>
+            <div className="hidden grid-cols-[118px_minmax(180px,1.4fr)_minmax(120px,0.85fr)_126px_126px_minmax(130px,1fr)_56px] items-center gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3 text-[9px] uppercase tracking-[0.16em] text-[#6f6658] xl:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <span>Date & Time</span>
+              <span>Person</span>
+              <span>Meeting Type</span>
+              <span>Depth</span>
+              <span>Status</span>
+              <span>Next Step</span>
+              <span className="text-right">Actions</span>
+            </div>
+            <div className="divide-y divide-[#e2ded5]">
+              {filteredMeetings.map((meeting) => {
+                const personLabel = meetingPeopleLabel(meeting, fieldPeople);
+                const dateTime = meetingDateTimeParts(meeting);
+
+                return (
+                  <div
+                    className="grid min-h-[72px] cursor-pointer gap-3 bg-white px-4 py-4 transition-colors hover:bg-[#fbfaf7] xl:grid-cols-[118px_minmax(180px,1.4fr)_minmax(120px,0.85fr)_126px_126px_minmax(130px,1fr)_56px] xl:items-center"
+                    key={meeting.id}
+                    onClick={() => setSelectedMeetingId(meeting.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedMeetingId(meeting.id);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className="flex items-start justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Date & Time
+                      </span>
+                      <div className="min-w-0 text-right xl:text-left">
+                        <span className="block whitespace-nowrap text-sm font-semibold leading-5 text-[#111111]">
+                          {dateTime.date}
                         </span>
-                        <div className="min-w-0 text-left">
-                          <span className="block whitespace-nowrap text-sm font-semibold leading-5 text-[#111111]">
-                            {dateTime.date}
-                          </span>
-                          <span className="mt-1 block whitespace-nowrap text-xs leading-4 text-[#7b746a]">
-                            {dateTime.time}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-2 lg:block">
-                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Person
+                        <span className="mt-1 block whitespace-nowrap text-xs leading-4 text-[#7b746a]">
+                          {dateTime.time}
                         </span>
-                        <div className="flex min-w-0 items-center justify-start gap-3">
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                            {initialsFromName(personLabel)}
-                          </span>
-                          <div className="min-w-0 text-left">
-                            <span className="block truncate text-sm font-semibold leading-5 text-[#111111]">
-                              {personLabel}
-                            </span>
-                            <span className="mt-1 block truncate text-xs leading-4 text-[#7b746a]">
-                              {meetingTypeLabel(meeting.meetingType)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-1 lg:block">
-                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Depth
-                        </span>
-                        <span className="block text-left text-sm leading-5 text-[#4b443b]">
-                          {meetingDepthLabel(meeting.depth)}
-                        </span>
-                      </div>
-
-                      <div className="grid gap-1 lg:block">
-                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Status
-                        </span>
-                        <MeetingStatusBadge status={meeting.status} />
-                      </div>
-
-                      <div className="grid gap-1 lg:block">
-                        <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[#8a8174] lg:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Next Step
-                        </span>
-                        <span className="block max-w-full truncate text-left text-sm leading-5 text-[#4b443b]">{meeting.nextStep}</span>
-                      </div>
-
-                      <div className="flex justify-start gap-1.5 lg:justify-end">
-                        <button
-                          aria-label={`View ${personLabel}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedMeetingId(meeting.id);
-                          }}
-                          title="View"
-                          type="button"
-                        >
-                          <ChevronRight aria-hidden="true" className="h-4 w-4" />
-                        </button>
-                        <button
-                          aria-label={`Edit ${personLabel}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setEditingMeeting(meeting);
-                          }}
-                          title="Edit"
-                          type="button"
-                        >
-                          <Eye aria-hidden="true" className="h-4 w-4" />
-                        </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div className="flex items-center justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Person
+                      </span>
+                      <div className="flex min-w-0 items-center justify-end gap-3 xl:justify-start">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          {initialsFromName(personLabel)}
+                        </span>
+                        <div className="min-w-0 text-right xl:text-left">
+                          <span className="block truncate text-sm font-semibold leading-5 text-[#111111]">
+                            {personLabel}
+                          </span>
+                          <span className="mt-1 block truncate text-xs leading-4 text-[#7b746a] xl:hidden">
+                            {meetingTypeLabel(meeting.meetingType)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="hidden min-w-0 xl:block">
+                      <span className="block truncate text-sm leading-5 text-[#4b443b]">
+                        {meetingTypeLabel(meeting.meetingType)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Depth
+                      </span>
+                      <span className="block text-right text-sm leading-5 text-[#4b443b] xl:text-left">
+                        {meetingDepthLabel(meeting.depth)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Status
+                      </span>
+                      <MeetingDisplayStatusBadge meeting={meeting} />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-[#8a8174] xl:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        Next Step
+                      </span>
+                      <span className="block max-w-[220px] truncate text-right text-sm leading-5 text-[#4b443b] xl:max-w-full xl:text-left">{meeting.nextStep}</span>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        aria-label={`Open actions for ${personLabel}`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedMeetingId(meeting.id);
+                        }}
+                        title="Open"
+                        type="button"
+                      >
+                        <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
+        ) : null}
+      </div>
 
-          {selectedTable ? (
-            <TableDetailPanel
-              encounters={encounters.filter((encounter) => encounter.table_id === selectedTable.id)}
-              fieldPeople={fieldPeople}
-              fruitItems={fruitItems.filter((fruit) => fruit.table_id === selectedTable.id)}
-              onAddEncounter={(table) => setQuickEncounterTable(table)}
-              onCreateFruit={onCreateFruit}
-              onUpdateFruit={onUpdateFruit}
-              onUpdatePersonProfile={onUpdatePersonProfile}
-              onUpdateReview={onUpdateReview}
-              review={tableReviews.find((item) => item.table_id === selectedTable.id) ?? null}
-              table={selectedTable}
-            />
-          ) : selectedConnection && selectedMeeting ? (
-            <QuickTouchDetailPanel
-              fieldPeople={fieldPeople}
-              meeting={selectedMeeting}
-              onEdit={() => setEditingMeeting(selectedMeeting)}
-            />
-          ) : null}
-        </div>
+      {selectedMeeting ? (
+        <MeetingDetailModal
+          fieldPeople={fieldPeople}
+          meeting={selectedMeeting}
+          onAddEncounter={(table) => setQuickEncounterTable(table)}
+          onClose={() => setSelectedMeetingId("")}
+          onCreateFruit={onCreateFruit}
+          onEdit={() => setEditingMeeting(selectedMeeting)}
+          onLogFollowUp={() => {
+            setSelectedMeetingId("");
+            setIsLoggingMeeting(true);
+          }}
+          onUpdateFruit={onUpdateFruit}
+          onUpdatePersonProfile={onUpdatePersonProfile}
+          onUpdateReview={onUpdateReview}
+          tableEncounters={selectedTable ? encounters.filter((encounter) => encounter.table_id === selectedTable.id) : []}
+          tableFruitItems={selectedTable ? fruitItems.filter((fruit) => fruit.table_id === selectedTable.id) : []}
+          tableReview={selectedTable ? tableReviews.find((item) => item.table_id === selectedTable.id) ?? null : null}
+        />
       ) : null}
 
       {isSchedulingMeeting ? (
@@ -4535,6 +4651,123 @@ function MeetingsManager({
           table={quickEncounterTable}
         />
       ) : null}
+    </div>
+  );
+}
+
+function MeetingDetailModal({
+  fieldPeople,
+  meeting,
+  onAddEncounter,
+  onClose,
+  onCreateFruit,
+  onEdit,
+  onLogFollowUp,
+  onUpdateFruit,
+  onUpdatePersonProfile,
+  onUpdateReview,
+  tableEncounters,
+  tableFruitItems,
+  tableReview,
+}: {
+  fieldPeople: readonly AdminFieldPerson[];
+  meeting: MeetingListItem;
+  onAddEncounter: (table: AdminMissionaryTable) => void;
+  onClose: () => void;
+  onCreateFruit: (draft: FruitDraft, table?: AdminMissionaryTable | null) => void;
+  onEdit: () => void;
+  onLogFollowUp: () => void;
+  onUpdateFruit: (fruitId: string, patch: Partial<AdminFruitItem>) => void;
+  onUpdatePersonProfile: (person: AdminFieldPerson, patch: Partial<Pick<AdminFieldPerson, "church" | "engagement_level" | "relationship_type">>) => void;
+  onUpdateReview: (tableId: string, patch: Partial<AdminTableReview>) => void;
+  tableEncounters: readonly AdminEncounterSubmission[];
+  tableFruitItems: readonly AdminFruitItem[];
+  tableReview: AdminTableReview | null;
+}) {
+  const personLabel = meetingPeopleLabel(meeting, fieldPeople);
+  const dateTime = meetingDateTimeParts(meeting);
+  const [requestedSection, setRequestedSection] = useState<TableWorkflowSection | null>(null);
+
+  function editMeeting() {
+    onClose();
+    onEdit();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm">
+      <div className="ml-auto flex h-full w-full max-w-4xl flex-col border-l border-[#2a241a] bg-[#f8f6f1] text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+        <div className="border-b border-[#e2ded5] bg-white px-4 py-4 md:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Meeting Details
+              </p>
+              <div className="mt-2 flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {initialsFromName(personLabel)}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="truncate text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
+                    {personLabel}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-[#7b746a]">
+                    {formatDosMeetingSecondary(meetingTypeLabel(meeting.meetingType), dateTimeDetailLabel(dateTime))}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+              <X aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className={lightPrimaryButtonClass} onClick={editMeeting} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Edit Meeting
+            </button>
+            <button className={lightSecondaryButtonClass} onClick={onLogFollowUp} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Log Follow Up
+            </button>
+            {meeting.source === "table" ? (
+              <>
+                <button className={lightSecondaryButtonClass} onClick={() => setRequestedSection("review")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                  {reviewHasContent(tableReview) ? "View Review" : "Start Review"}
+                </button>
+                <button className={lightSecondaryButtonClass} onClick={() => setRequestedSection("fruit")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+                  {tableFruitItems.length > 0 ? "View Fruit" : "Create Fruit"}
+                </button>
+              </>
+            ) : null}
+            <button className={lightSecondaryButtonClass} onClick={onClose} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          {meeting.table ? (
+            <TableDetailPanel
+              encounters={tableEncounters}
+              fieldPeople={fieldPeople}
+              fruitItems={tableFruitItems}
+              onAddEncounter={onAddEncounter}
+              onCreateFruit={onCreateFruit}
+              onUpdateFruit={onUpdateFruit}
+              onUpdatePersonProfile={onUpdatePersonProfile}
+              onUpdateReview={onUpdateReview}
+              requestedSection={requestedSection}
+              review={tableReview}
+              table={meeting.table}
+            />
+          ) : meeting.connection ? (
+            <QuickTouchDetailPanel
+              fieldPeople={fieldPeople}
+              meeting={meeting}
+              onEdit={editMeeting}
+            />
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -4752,6 +4985,7 @@ function MeetingEditorModal({
 }
 
 type TableWorkflowSection = "assessment" | "fruit" | "responses" | "review" | "summary";
+type MeetingsFilter = "all" | "completed" | "needs_follow_up" | "upcoming";
 
 const tableWorkflowSections: Array<{ label: string; value: TableWorkflowSection }> = [
   { label: "Summary", value: "summary" },
@@ -4759,6 +4993,13 @@ const tableWorkflowSections: Array<{ label: string; value: TableWorkflowSection 
   { label: "Review", value: "review" },
   { label: "Assessment", value: "assessment" },
   { label: "Fruit", value: "fruit" },
+];
+
+const meetingsFilterOptions: Array<{ label: string; value: MeetingsFilter }> = [
+  { label: "All", value: "all" },
+  { label: "Needs Follow Up", value: "needs_follow_up" },
+  { label: "Completed", value: "completed" },
+  { label: "Upcoming", value: "upcoming" },
 ];
 
 function TableDetailPanel({
@@ -4770,6 +5011,7 @@ function TableDetailPanel({
   onUpdateFruit,
   onUpdatePersonProfile,
   onUpdateReview,
+  requestedSection,
   review,
   table,
 }: {
@@ -4781,6 +5023,7 @@ function TableDetailPanel({
   onUpdateFruit: (fruitId: string, patch: Partial<AdminFruitItem>) => void;
   onUpdatePersonProfile: (person: AdminFieldPerson, patch: Partial<Pick<AdminFieldPerson, "church" | "engagement_level" | "relationship_type">>) => void;
   onUpdateReview: (tableId: string, patch: Partial<AdminTableReview>) => void;
+  requestedSection?: TableWorkflowSection | null;
   review: AdminTableReview | null;
   table: AdminMissionaryTable | null;
 }) {
@@ -4793,6 +5036,12 @@ function TableDetailPanel({
     setEditingFruit(null);
     setIsFruitModalOpen(false);
   }, [table?.id]);
+
+  useEffect(() => {
+    if (requestedSection) {
+      setActiveSection(requestedSection);
+    }
+  }, [requestedSection]);
 
   if (!table) {
     return (
@@ -4874,7 +5123,7 @@ function TableDetailPanel({
     <aside className="self-start rounded-xl border border-[#e2ded5] bg-white p-4">
       <div>
         <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Selected Meeting
+          Meeting Details
         </p>
         <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
           {tableDisplay.label}
