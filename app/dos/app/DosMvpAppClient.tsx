@@ -7,13 +7,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
 import {
   buildMeetingRecommendations,
-  dosKitchenTableQuestions,
+  dosConversationFlowDefinitions,
+  getConversationFlowDefinition,
   relationshipWithJesusTemperature,
+  type DosConversationAnswer,
   type DosConversationFlowKey,
-  type DosKitchenTableAnswer,
-  type DosKitchenTableQuestionId,
+  type DosConversationQuestion,
+  type DosConversationResponses,
+  type DosConversationResponseValue,
   type DosRecommendedResource,
-  type DosKitchenTableResponses,
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
@@ -45,19 +47,23 @@ const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: 
 
 const conversationFlowOptions: ReadonlyArray<{ helper?: string; label: string; value: DosConversationFlowKey }> = [
   { label: "None", value: "none" },
-  { helper: "USAM only", label: "Kitchen Table Gospel", value: "kitchen_table_gospel" },
+  ...dosConversationFlowDefinitions.map((flow) => ({
+    helper: flow.gatedTo === "usam" ? "USAM only" : undefined,
+    label: flow.title,
+    value: flow.id,
+  })),
 ];
 
-const kitchenTableAnswerOptions = [
+const conversationYesNoOptions = [
   { label: "Yes", value: "yes" },
   { label: "No", value: "no" },
-] as const satisfies ReadonlyArray<{ label: string; value: DosKitchenTableAnswer }>;
+] as const satisfies ReadonlyArray<{ label: string; value: DosConversationAnswer }>;
 
-const kitchenTableUnsureAnswerOptions = [
+const conversationUnsureAnswerOptions = [
   { label: "Yes", value: "yes" },
   { label: "No", value: "no" },
   { label: "Unsure", value: "unsure" },
-] as const satisfies ReadonlyArray<{ label: string; value: DosKitchenTableAnswer }>;
+] as const satisfies ReadonlyArray<{ label: string; value: DosConversationAnswer }>;
 
 const outcomeTagOptions = [
   "Salvation",
@@ -84,7 +90,6 @@ type ButtonTone = "black" | "soft" | "white";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
 type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
-type KitchenTableNonRatingQuestionId = Exclude<DosKitchenTableQuestionId, "relationshipWithJesus">;
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
 type MeetingCaptureDraft = {
   file: Blob;
@@ -320,7 +325,7 @@ function conversationFlowLabel(value: DosConversationFlowKey) {
   return conversationFlowOptions.find((option) => option.value === value)?.label ?? "None";
 }
 
-function answerLabel(value: DosKitchenTableAnswer | undefined) {
+function answerLabel(value: DosConversationAnswer | undefined) {
   if (!value) {
     return "Skipped";
   }
@@ -982,11 +987,13 @@ function scoreLabel(value: number) {
 }
 
 function CircleFocusCard({
+  meetingCount,
   onClick,
   onLogMeeting,
   person,
   score,
 }: {
+  meetingCount: number;
   onClick: () => void;
   onLogMeeting: () => void;
   person: DosAppPerson;
@@ -1004,6 +1011,12 @@ function CircleFocusCard({
           <span className="block truncate text-base font-bold text-[#1E1D1A]">{person.name}</span>
           <span className="mt-1 block truncate text-xs text-[#77716A]">{person.relationshipType || "Relationship"} · {lastMeeting}</span>
           <span className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+              {meetingCount} {meetingCount === 1 ? "Meeting" : "Meetings"}
+            </span>
+            <span className="rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+              Score {scoreLabel(score.totalScore)}
+            </span>
             <span className="rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
               Progress {scoreLabel(score.breakdown.discipleshipProgress)}
             </span>
@@ -1190,15 +1203,15 @@ function MeetingContextPicker({
 }
 
 function ConversationFlowPicker({
-  allowKitchenTableGospel,
+  allowConversationFlows,
   onChange,
   value,
 }: {
-  allowKitchenTableGospel: boolean;
+  allowConversationFlows: boolean;
   onChange: (value: DosConversationFlowKey) => void;
   value: DosConversationFlowKey;
 }) {
-  const options = allowKitchenTableGospel
+  const options = allowConversationFlows
     ? conversationFlowOptions
     : conversationFlowOptions.filter((option) => option.value === "none");
 
@@ -1212,21 +1225,60 @@ function ConversationFlowPicker({
   );
 }
 
-function KitchenTableGospelFlow({
-  onAnswer,
-  onRating,
+function responseAsNumber(value: DosConversationResponseValue | undefined) {
+  return typeof value === "number" ? value : undefined;
+}
+
+function responseAsString(value: DosConversationResponseValue | undefined) {
+  return typeof value === "string" ? value : "";
+}
+
+function responseAsStringArray(value: DosConversationResponseValue | undefined) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function questionResponseLabel(question: DosConversationQuestion, value: DosConversationResponseValue | undefined) {
+  if (question.kind === "rating") {
+    const rating = responseAsNumber(value);
+
+    return rating ? `${rating} · ${relationshipWithJesusTemperature(rating)}` : "Skipped";
+  }
+
+  if (question.kind === "text" || question.kind === "notes") {
+    return responseAsString(value) || "No notes";
+  }
+
+  return answerLabel(value as DosConversationAnswer | undefined);
+}
+
+function ConversationFlowExperience({
+  flowKey,
+  onResponseChange,
+  onToggleFollowUpAction,
   responses,
 }: {
-  onAnswer: (questionId: KitchenTableNonRatingQuestionId, answer: DosKitchenTableAnswer) => void;
-  onRating: (rating: number) => void;
-  responses: DosKitchenTableResponses;
+  flowKey: DosConversationFlowKey;
+  onResponseChange: (questionId: string, value: DosConversationResponseValue | undefined) => void;
+  onToggleFollowUpAction: (actionId: string) => void;
+  responses: DosConversationResponses;
 }) {
-  const temperature = relationshipWithJesusTemperature(responses.relationshipWithJesus);
+  const flow = getConversationFlowDefinition(flowKey);
+  const temperature = flowKey === "kitchen_table_gospel"
+    ? relationshipWithJesusTemperature(responseAsNumber(responses.relationshipWithJesus))
+    : null;
+  const selectedFollowUpActions = responseAsStringArray(responses.followUpActions);
+
+  if (!flow) {
+    return null;
+  }
 
   return (
     <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-bold text-[#1E1D1A]">Guided Questions</p>
+        <div>
+          <p className="text-sm font-bold text-[#1E1D1A]">{flow.title}</p>
+          <p className="mt-0.5 text-xs leading-5 text-[#77716A]">{flow.description}</p>
+        </div>
         {temperature ? (
           <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
             {temperature}
@@ -1234,67 +1286,152 @@ function KitchenTableGospelFlow({
         ) : null}
       </div>
 
-      <div className="mt-3 grid gap-2">
-        {dosKitchenTableQuestions.map((question) => {
-          if (question.kind === "rating") {
+      <div className="mt-3 grid gap-3">
+        {flow.sections.map((section) => (
+          <div className="grid gap-2" key={section.id}>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+                {section.title}
+              </p>
+              {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#77716A]">{section.description}</p> : null}
+            </div>
+            {section.questions.map((question) => (
+              <ConversationQuestionCard
+                key={question.id}
+                onResponseChange={onResponseChange}
+                question={question}
+                value={responses[question.id]}
+              />
+            ))}
+          </div>
+        ))}
+
+        {flow.closingPrompt || flow.gospelInvitation ? (
+          <div className="rounded-2xl border border-[#E5D5AD] bg-[#FFF8E7] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+              Gospel Invitation
+            </p>
+            {flow.closingPrompt ? <p className="mt-2 text-sm font-semibold leading-5 text-[#1E1D1A]">{flow.closingPrompt}</p> : null}
+            {flow.gospelInvitation ? <p className="mt-1 text-xs leading-5 text-[#6F6658]">{flow.gospelInvitation}</p> : null}
+          </div>
+        ) : null}
+
+        {flow.followUpActions?.length ? (
+          <div className="rounded-2xl bg-[#F8F7F3] p-2.5">
+            <p className="text-sm font-semibold text-[#1E1D1A]">Follow-up</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {flow.followUpActions.map((action) => {
+                const selected = selectedFollowUpActions.includes(action.id);
+
+                return (
+                  <button
+                    aria-pressed={selected}
+                    className={`min-h-8 rounded-full border px-3 text-xs font-bold ${
+                      selected ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
+                    }`}
+                    key={action.id}
+                    onClick={() => onToggleFollowUpAction(action.id)}
+                    type="button"
+                  >
+                    {action.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function ConversationQuestionCard({
+  onResponseChange,
+  question,
+  value,
+}: {
+  onResponseChange: (questionId: string, value: DosConversationResponseValue | undefined) => void;
+  question: DosConversationQuestion;
+  value: DosConversationResponseValue | undefined;
+}) {
+  if (question.kind === "rating") {
+    const ratingValue = responseAsNumber(value);
+    const scaleMin = question.scale?.min ?? 1;
+    const scaleMax = question.scale?.max ?? 10;
+
+    return (
+      <div className="rounded-2xl bg-[#F8F7F3] p-2.5">
+        <p className="text-sm font-semibold text-[#1E1D1A]">{question.label}</p>
+        <div className="mt-2 grid grid-cols-5 gap-1.5">
+          {Array.from({ length: scaleMax - scaleMin + 1 }, (_, index) => scaleMin + index).map((rating) => {
+            const selected = ratingValue === rating;
+
             return (
-              <div className="rounded-2xl bg-[#F8F7F3] p-2.5" key={question.id}>
-                <p className="text-sm font-semibold text-[#1E1D1A]">{question.label}</p>
-                <div className="mt-2 grid grid-cols-5 gap-1.5">
-                  {Array.from({ length: 10 }, (_, index) => index + 1).map((rating) => {
-                    const selected = responses.relationshipWithJesus === rating;
-
-                    return (
-                      <button
-                        aria-pressed={selected}
-                        className={`min-h-8 rounded-xl border text-xs font-bold ${
-                          selected ? "border-[#D4A63D] bg-[#D4A63D] text-white" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
-                        }`}
-                        key={rating}
-                        onClick={() => onRating(rating)}
-                        type="button"
-                      >
-                        {rating}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 text-[11px] leading-4 text-[#77716A]">1-3 Cold · 4-7 Lukewarm · 8-10 Hot</p>
-              </div>
+              <button
+                aria-pressed={selected}
+                className={`min-h-8 rounded-xl border text-xs font-bold ${
+                  selected ? "border-[#D4A63D] bg-[#D4A63D] text-white" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
+                }`}
+                key={rating}
+                onClick={() => onResponseChange(question.id, selected ? undefined : rating)}
+                type="button"
+              >
+                {rating}
+              </button>
             );
-          }
+          })}
+        </div>
+        <p className="mt-2 text-[11px] leading-4 text-[#77716A]">1-3 Cold · 4-7 Lukewarm · 8-10 Hot</p>
+      </div>
+    );
+  }
 
-          const questionId = question.id as KitchenTableNonRatingQuestionId;
-          const answer = responses[questionId];
-          const options = question.kind === "yes_no_unsure" ? kitchenTableUnsureAnswerOptions : kitchenTableAnswerOptions;
+  if (question.kind === "text" || question.kind === "notes") {
+    return (
+      <label className="block rounded-2xl bg-[#F8F7F3] p-2.5">
+        <span className="text-sm font-semibold text-[#1E1D1A]">{question.label}</span>
+        <textarea
+          className={`${FieldInputClass()} mt-2 min-h-20 bg-white py-3`}
+          onChange={(event) => onResponseChange(question.id, event.target.value)}
+          placeholder={question.placeholder}
+          value={responseAsString(value)}
+        />
+      </label>
+    );
+  }
+
+  const answer = value as DosConversationAnswer | undefined;
+  const options = question.kind === "yes_no_unsure" ? conversationUnsureAnswerOptions : conversationYesNoOptions;
+
+  return (
+    <div className="rounded-2xl bg-[#F8F7F3] p-2.5">
+      <p className="text-sm font-semibold leading-5 text-[#1E1D1A]">{question.label}</p>
+      {question.scriptureRefs?.length ? (
+        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+          {question.scriptureRefs.join(" · ")}
+        </p>
+      ) : null}
+      {question.prompt ? <p className="mt-1 text-xs leading-5 text-[#77716A]">{question.prompt}</p> : null}
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        {options.map((option) => {
+          const selected = answer === option.value;
 
           return (
-            <div className="rounded-2xl bg-[#F8F7F3] p-2.5" key={question.id}>
-              <p className="text-sm font-semibold leading-5 text-[#1E1D1A]">{question.label}</p>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">
-                {options.map((option) => {
-                  const selected = answer === option.value;
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-8 rounded-xl border text-xs font-bold ${
-                        selected ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
-                      }`}
-                      key={option.value}
-                      onClick={() => onAnswer(questionId, option.value)}
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <button
+              aria-pressed={selected}
+              className={`min-h-8 rounded-xl border text-xs font-bold ${
+                selected ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
+              }`}
+              key={option.value}
+              onClick={() => onResponseChange(question.id, selected ? undefined : option.value)}
+              type="button"
+            >
+              {option.label}
+            </button>
           );
         })}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -1880,6 +2017,55 @@ function DetailCard({ children, title }: { children: ReactNode; title: string })
   );
 }
 
+function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
+  const flow = getConversationFlowDefinition(meeting.conversationFlowKey);
+
+  if (!flow) {
+    return null;
+  }
+
+  const selectedActions = responseAsStringArray(meeting.conversationResponses.followUpActions);
+  const selectedActionLabels = (flow.followUpActions ?? [])
+    .filter((action) => selectedActions.includes(action.id))
+    .map((action) => action.label);
+
+  return (
+    <DetailCard title={flow.title}>
+      {flow.sections.map((section) => (
+        <div className="grid gap-2" key={section.id}>
+          {flow.sections.length > 1 ? (
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+              {section.title}
+            </p>
+          ) : null}
+          {section.questions.map((question) => (
+            <div className="flex items-start justify-between gap-3 rounded-2xl bg-[#F8F7F3] p-3" key={question.id}>
+              <p className="text-sm leading-5 text-[#1E1D1A]">{question.label}</p>
+              <span className="max-w-[52%] shrink-0 rounded-full bg-white px-2.5 py-1 text-right text-xs font-semibold text-[#5F5952]">
+                {questionResponseLabel(question, meeting.conversationResponses[question.id])}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+      {selectedActionLabels.length ? (
+        <div className="rounded-2xl bg-[#F8F7F3] p-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+            Follow-up
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {selectedActionLabels.map((label) => (
+              <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-xs font-semibold text-[#8A5A12]" key={label}>
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </DetailCard>
+  );
+}
+
 function DetailRow({
   ariaLabel,
   href,
@@ -2246,8 +2432,11 @@ function PersonDetailOverlay({
                 Relationship Intelligence
               </span>
               <span className="mt-1 block text-sm font-semibold text-[#1E1D1A]">
-                {circleScore ? `${circleDisplayName(circleScore.circle)} · ${scoreLabel(circleScore.totalScore)}` : "Field · Not scored"}
+                My Circle: {circleScore ? `${circleDisplayName(circleScore.circle)} · Score ${scoreLabel(circleScore.totalScore)}` : "Field · Score 0"}
               </span>
+              {personMeetings.length && (!circleScore || circleScore.totalScore === 0) ? (
+                <span className="mt-1 block text-xs text-[#8A5A12]">Meeting activity found. Score will refresh automatically.</span>
+              ) : null}
             </span>
             <ChevronRight className={`h-4 w-4 text-[#A9A29A] transition-transform ${isIntelligenceOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
           </button>
@@ -2444,8 +2633,9 @@ function MeetingDetailOverlay({
   reviewShareMessage?: string;
 }) {
   const isTableMeeting = meeting.source === "table";
-  const temperature = relationshipWithJesusTemperature(meeting.conversationResponses.relationshipWithJesus);
-  const hasKitchenTableFlow = meeting.conversationFlowKey === "kitchen_table_gospel";
+  const temperature = meeting.conversationFlowKey === "kitchen_table_gospel"
+    ? relationshipWithJesusTemperature(responseAsNumber(meeting.conversationResponses.relationshipWithJesus))
+    : null;
   const avatarNames = meetingAvatarNames(meeting, people);
   const title = meetingPeopleTitle(meeting, people);
 
@@ -2555,25 +2745,7 @@ function MeetingDetailOverlay({
           <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Notes" value={meeting.notes || "No summary added yet."} />
         </DetailCard>
 
-        {hasKitchenTableFlow ? (
-          <DetailCard title="Kitchen Table Gospel">
-            {dosKitchenTableQuestions.map((question) => {
-              const value = question.kind === "rating"
-                ? meeting.conversationResponses.relationshipWithJesus
-                : meeting.conversationResponses[question.id as KitchenTableNonRatingQuestionId];
-              const renderedValue = question.kind === "rating"
-                ? value ? `${value} · ${relationshipWithJesusTemperature(value as number)}` : "Skipped"
-                : answerLabel(value as DosKitchenTableAnswer | undefined);
-
-              return (
-                <div className="flex items-start justify-between gap-3 rounded-2xl bg-[#F8F7F3] p-3" key={question.id}>
-                  <p className="text-sm leading-5 text-[#1E1D1A]">{question.label}</p>
-                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[#5F5952]">{renderedValue}</span>
-                </div>
-              );
-            })}
-          </DetailCard>
-        ) : null}
+        <ConversationFlowDetail meeting={meeting} />
 
         {meeting.recommendedResources.length ? (
           <DetailCard title="Recommended Resources">
@@ -2603,7 +2775,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [kitchenTableResponses, setKitchenTableResponses] = useState<DosKitchenTableResponses>({});
+  const [conversationResponses, setConversationResponses] = useState<DosConversationResponses>({});
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
   const [reviewLinksByMeetingId, setReviewLinksByMeetingId] = useState<Record<string, string>>({});
@@ -2628,10 +2800,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [data.circles]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
   const draftRecommendedResources = useMemo(() => (
-    selectedConversationFlow === "kitchen_table_gospel"
-      ? buildMeetingRecommendations(selectedConversationFlow, kitchenTableResponses)
-      : []
-  ), [kitchenTableResponses, selectedConversationFlow]);
+    buildMeetingRecommendations(selectedConversationFlow, conversationResponses)
+  ), [conversationResponses, selectedConversationFlow]);
   const selectedMeeting = useMemo(() => data.meetings.find((meeting) => meeting.id === selectedMeetingId) ?? null, [data.meetings, selectedMeetingId]);
   const selectedMeetingWithReview = useMemo(() => {
     if (!selectedMeeting) {
@@ -2661,11 +2831,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const my3People = (data.circles?.my3 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my12People = (data.circles?.my12 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my70Summary = data.circles?.fieldSummary;
+  const meetingCountByPersonId = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    data.meetings.forEach((meeting) => {
+      meeting.fieldPersonIds.forEach((personId) => {
+        counts.set(personId, (counts.get(personId) ?? 0) + 1);
+      });
+    });
+
+    return counts;
+  }, [data.meetings]);
   const workspaceLabel = data.workspace.isUsamWorkspace ? `${data.workspace.displayName} · USA` : data.workspace.displayName;
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
 
   function resetMeetingDraft(personIds: string[] = []) {
-    setKitchenTableResponses({});
+    setConversationResponses({});
     setMeetingPeopleQuery("");
     setSelectedConversationFlow("none");
     setSelectedMeetingContext("kitchen_table");
@@ -2698,6 +2879,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openConversationFlow(flowKey: DosConversationFlowKey) {
     openForm("meeting");
     setSelectedConversationFlow(data.workspace.isUsamWorkspace ? flowKey : "none");
+  }
+
+  function handleConversationFlowChange(flowKey: DosConversationFlowKey) {
+    setSelectedConversationFlow(flowKey);
+    setConversationResponses({});
   }
 
   function selectTab(tab: ActiveTab) {
@@ -2749,7 +2935,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setFormMode("editMeeting");
     setIsAdditionalPersonInfoOpen(false);
-    setKitchenTableResponses(meeting.conversationFlowKey === "kitchen_table_gospel" ? meeting.conversationResponses : {});
+    setConversationResponses(meeting.conversationFlowKey !== "none" ? meeting.conversationResponses : {});
     setMeetingPeopleQuery("");
     setSelectedConversationFlow(data.workspace.isUsamWorkspace ? meeting.conversationFlowKey : "none");
     setSelectedMeetingContext(meeting.type);
@@ -2835,7 +3021,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     void submitJson("/api/dos/app/meetings", {
       conversationFlowKey,
-      conversationResponses: conversationFlowKey === "kitchen_table_gospel" ? kitchenTableResponses : {},
+      conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
       fieldPersonIds: selectedMeetingPersonIds,
       notes: String(formData.get("notes") ?? ""),
       tableDate: String(formData.get("table_date") ?? todayDateValue()),
@@ -2855,7 +3041,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     void submitJson("/api/dos/app/meetings", {
       conversationFlowKey,
-      conversationResponses: conversationFlowKey === "kitchen_table_gospel" ? kitchenTableResponses : {},
+      conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
       fieldPersonIds: selectedMeetingPersonIds,
       id: selectedMeeting.id,
       notes: String(formData.get("notes") ?? ""),
@@ -3014,9 +3200,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     );
   }
 
-  function handleKitchenTableAnswer(questionId: KitchenTableNonRatingQuestionId, answer: DosKitchenTableAnswer) {
-    setKitchenTableResponses((current) => {
-      if (current[questionId] === answer) {
+  function handleConversationResponse(questionId: string, value: DosConversationResponseValue | undefined) {
+    setConversationResponses((current) => {
+      if (value === undefined || value === "") {
         const { [questionId]: _removed, ...rest } = current;
 
         return rest;
@@ -3024,22 +3210,27 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       return {
         ...current,
-        [questionId]: answer,
+        [questionId]: value,
       };
     });
   }
 
-  function handleKitchenTableRating(rating: number) {
-    setKitchenTableResponses((current) => {
-      if (current.relationshipWithJesus === rating) {
-        const { relationshipWithJesus: _removed, ...rest } = current;
+  function handleConversationFollowUpAction(actionId: string) {
+    setConversationResponses((current) => {
+      const currentActions = responseAsStringArray(current.followUpActions);
+      const nextActions = currentActions.includes(actionId)
+        ? currentActions.filter((currentAction) => currentAction !== actionId)
+        : [...currentActions, actionId];
+
+      if (!nextActions.length) {
+        const { followUpActions: _removed, ...rest } = current;
 
         return rest;
       }
 
       return {
         ...current,
-        relationshipWithJesus: rating,
+        followUpActions: nextActions,
       };
     });
   }
@@ -3056,9 +3247,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <h1 className="mt-1 max-w-[250px] text-4xl font-bold leading-[0.92] tracking-[-0.02em] text-[#111111]" style={{ fontFamily: font.oswald }}>
                 Discipleship on the go.
               </h1>
-              <p className="mt-3 max-w-[260px] text-sm leading-5 text-[#77716A]">
-                Do the work of an Evangelist. One table at a time.
-              </p>
             </div>
             <span className="absolute right-0 top-0 rounded-full border border-[#D9D4CA] bg-[#F8F7F3] px-4 py-1.5 text-xs font-medium text-[#1E1D1A]">
               Field
@@ -3068,77 +3256,117 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <main className="mt-7">
             {activeTab === "home" ? (
               <div className="space-y-5">
-              <section className="rounded-[22px] border border-[#DDD9D0] bg-white p-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+                <section className="rounded-[26px] border border-[#DDD9D0] bg-white p-4 shadow-[0_14px_40px_rgba(42,37,29,0.06)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+                        Your Circles
+                      </p>
+                      <h2 className="mt-1 text-xl font-bold leading-tight text-[#111111]">Focus your closest discipleship investments.</h2>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
                       {workspaceLabel}
-                    </p>
-                    <h2 className="mt-1 text-xl font-bold leading-tight text-[#1E1D1A]">Good morning.</h2>
+                    </span>
                   </div>
-                  <p className="text-xs text-[#77716A]">{data.stats.peopleCount} people</p>
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  <StatTile label="Active Week" value={people.filter((person) => person.lastActivityAt && isWithinLastDays(person.lastActivityAt, 7)).length} />
-                  <StatTile label="My 3" value={my3People.length} />
-                  <StatTile label="Multiplying" value={my70Summary?.multiplying ?? multiplyingCount} />
-                </div>
-              </section>
 
-              <section className="space-y-3">
-                <AppButton icon="add" onClick={() => openForm("person")} tone="black">Add Person</AppButton>
-                <div className="grid grid-cols-3 gap-2">
-                  <AppButton icon="log" onClick={() => openForm("meeting")}>Log</AppButton>
-                  <AppButton icon="search" onClick={() => setActiveTab("people")}>Search</AppButton>
-                  <AppButton icon="calendar" onClick={() => openForm("meeting")}>Meet</AppButton>
-                </div>
-              </section>
+                  <p className="mt-3 text-sm leading-5 text-[#77716A]">
+                    People move closer as you meet, disciple, and see fruit.
+                  </p>
 
-              <section>
-                <SectionHeading title="My 3" />
-                <div className="grid gap-3">
-                  {my3People.length ? my3People.map(({ person, score }) => (
-                    <CircleFocusCard
-                      key={person.id}
-                      onClick={() => openPersonDetail(person.id)}
-                      onLogMeeting={() => openMeetingForPerson(person.id)}
-                      person={person}
-                      score={score}
-                    />
-                  )) : (
-                    <EmptyState text="Recalculate circles after logging meetings to focus your closest investments." title="No My 3 yet." />
-                  )}
-                </div>
-              </section>
+                  <div className="mt-4 grid gap-3">
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-xs font-bold text-[#1E1D1A]">My 3</p>
+                        <span className="text-[11px] text-[#77716A]">{my3People.length}/3</span>
+                      </div>
+                      <div className="grid gap-2">
+                        {my3People.length ? my3People.map(({ person, score }) => (
+                          <CircleFocusCard
+                            key={person.id}
+                            meetingCount={meetingCountByPersonId.get(person.id) ?? 0}
+                            onClick={() => openPersonDetail(person.id)}
+                            onLogMeeting={() => openMeetingForPerson(person.id)}
+                            person={person}
+                            score={score}
+                          />
+                        )) : (
+                          <div className="rounded-[20px] bg-[#F8F7F3] p-4">
+                            <p className="text-sm font-semibold text-[#1E1D1A]">No one in My 3 yet.</p>
+                            <p className="mt-1 text-xs leading-5 text-[#77716A]">Log meetings and discipleship activity to help DOS identify your closest investments.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-              <section>
-                <SectionHeading title="My 12" />
-                {my12People.length ? (
-                  <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-                    {my12People.map(({ person, score }) => (
-                      <CircleCompactCard key={person.id} onClick={() => openPersonDetail(person.id)} person={person} score={score} />
-                    ))}
+                    <div className="rounded-[20px] bg-[#F8F7F3] p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-xs font-bold text-[#1E1D1A]">My 12</p>
+                        <span className="text-[11px] text-[#77716A]">{my12People.length}/9</span>
+                      </div>
+                      {my12People.length ? (
+                        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+                          {my12People.map(({ person, score }) => (
+                            <CircleCompactCard key={person.id} onClick={() => openPersonDetail(person.id)} person={person} score={score} />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs leading-5 text-[#77716A]">The next nine active relationships will appear here.</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-[20px] bg-[#111111] p-3 text-white">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold">My 70</p>
+                          <p className="mt-1 text-[11px] text-white/60">Field rhythm and follow up.</p>
+                        </div>
+                        <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ fontFamily: font.rajdhani }}>
+                          {data.circles?.my70.length ?? 0}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                        <div>
+                          <p className="text-sm font-bold">{my70Summary?.activeThisMonth ?? 0}</p>
+                          <p className="mt-0.5 text-[10px] text-white/55">Active</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold">{my70Summary?.needFollowUp ?? attentionPeople.length}</p>
+                          <p className="mt-0.5 text-[10px] text-white/55">Follow Up</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold">{my70Summary?.multiplying ?? multiplyingCount}</p>
+                          <p className="mt-0.5 text-[10px] text-white/55">Multiply</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <EmptyState text="The next nine active relationships will appear here." title="No My 12 yet." />
-                )}
-              </section>
+                </section>
 
-              <section>
-                <SectionHeading title="My 70" />
-                <div className="rounded-[22px] border border-[#DDD9D0] bg-white p-4">
+                <section className="grid gap-2">
+                  <AppButton icon="add" onClick={() => openForm("person")} tone="black">Add Person</AppButton>
                   <div className="grid grid-cols-2 gap-2">
-                    <StatTile label="Active Month" value={my70Summary?.activeThisMonth ?? 0} />
-                    <StatTile label="Follow Up" value={my70Summary?.needFollowUp ?? attentionPeople.length} />
-                    <StatTile label="New" value={my70Summary?.newContacts ?? 0} />
-                    <StatTile label="Multiplying" value={my70Summary?.multiplying ?? multiplyingCount} />
+                    <AppButton icon="log" onClick={() => openForm("meeting")}>Log Meeting</AppButton>
+                    <AppButton icon="search" onClick={() => setActiveTab("people")}>Search</AppButton>
                   </div>
-                </div>
-              </section>
+                </section>
 
-              {latestMeeting || latestFruit ? (
                 <section>
-                  <SectionHeading title="Latest" />
+                  <SectionHeading title="Needs Attention" />
+                  {attentionPeople.length ? (
+                    <div className="overflow-hidden rounded-[20px] border border-[#E2DED6] bg-white">
+                      {attentionPeople.slice(0, 3).map((person, index) => (
+                        <div className="border-b border-[#ECE8E0] last:border-b-0" key={person.id}>
+                          <PersonCard index={index} onClick={() => openPersonDetail(person.id)} person={person} variant="row" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-[20px] bg-white p-4 text-sm text-[#77716A]">No follow up needs right now.</div>
+                  )}
+                </section>
+
+                <section>
+                  <SectionHeading title="Recent Activity" />
                   <div className="grid gap-3">
                     {latestMeeting ? (
                       <TaskCard
@@ -3158,27 +3386,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         {latestFruit.summary || "Fruit recorded"} · {formatDate(latestFruit.testimonyDate)}
                       </TaskCard>
                     ) : null}
+                    {!latestMeeting && !latestFruit ? (
+                      <div className="rounded-[20px] bg-white p-4 text-sm text-[#77716A]">Log a meeting to begin your activity rhythm.</div>
+                    ) : null}
                   </div>
                 </section>
-              ) : null}
-
-              <section>
-                <SectionHeading
-                  action={<button className="text-xs text-[#77716A]" onClick={() => setActiveTab("people")} type="button">View all</button>}
-                  title="Recent"
-                />
-                {recentPeople.length ? (
-                  <div className="overflow-hidden rounded-[20px] border border-[#E2DED6] bg-white">
-                    {recentPeople.map((person, index) => (
-                      <div className="border-b border-[#ECE8E0] last:border-b-0" key={person.id}>
-                        <PersonCard index={index} onClick={() => openPersonDetail(person.id)} person={person} variant="row" />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState text="Add someone to begin seeing recent field activity here." title="No recent people yet." />
-                )}
-              </section>
               </div>
             ) : null}
 
@@ -3378,15 +3590,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <input className={FieldInputClass()} defaultValue={todayDateValue()} name="table_date" type="date" />
             </label>
             <ConversationFlowPicker
-              allowKitchenTableGospel={data.workspace.isUsamWorkspace}
-              onChange={setSelectedConversationFlow}
+              allowConversationFlows={data.workspace.isUsamWorkspace}
+              onChange={handleConversationFlowChange}
               value={selectedConversationFlow}
             />
-            {selectedConversationFlow === "kitchen_table_gospel" ? (
-              <KitchenTableGospelFlow
-                onAnswer={handleKitchenTableAnswer}
-                onRating={handleKitchenTableRating}
-                responses={kitchenTableResponses}
+            {selectedConversationFlow !== "none" ? (
+              <ConversationFlowExperience
+                flowKey={selectedConversationFlow}
+                onResponseChange={handleConversationResponse}
+                onToggleFollowUpAction={handleConversationFollowUpAction}
+                responses={conversationResponses}
               />
             ) : null}
             <MeetingCaptureNotes />
@@ -3414,15 +3627,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <input className={FieldInputClass()} defaultValue={selectedMeeting.date ?? todayDateValue()} name="table_date" type="date" />
             </label>
             <ConversationFlowPicker
-              allowKitchenTableGospel={data.workspace.isUsamWorkspace}
-              onChange={setSelectedConversationFlow}
+              allowConversationFlows={data.workspace.isUsamWorkspace}
+              onChange={handleConversationFlowChange}
               value={selectedConversationFlow}
             />
-            {selectedConversationFlow === "kitchen_table_gospel" ? (
-              <KitchenTableGospelFlow
-                onAnswer={handleKitchenTableAnswer}
-                onRating={handleKitchenTableRating}
-                responses={kitchenTableResponses}
+            {selectedConversationFlow !== "none" ? (
+              <ConversationFlowExperience
+                flowKey={selectedConversationFlow}
+                onResponseChange={handleConversationResponse}
+                onToggleFollowUpAction={handleConversationFollowUpAction}
+                responses={conversationResponses}
               />
             ) : null}
             <MeetingCaptureNotes defaultValue={selectedMeeting.notes} />

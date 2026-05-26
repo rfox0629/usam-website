@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import {
   buildMeetingRecommendations,
+  getConversationFlowDefinition,
   isUsamKitchenTableGospelWorkspace,
+  normalizeConversationResponses,
   normalizeConversationFlowKey,
-  normalizeKitchenTableResponses,
   type DosConversationFlowKey,
-  type DosKitchenTableResponses,
+  type DosConversationResponses,
 } from "@/src/lib/dos/meeting-engine";
 import { dosAppMeetingTypes, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -56,14 +58,12 @@ async function readPayload(request: Request) {
   }
 }
 
-function meetingEngineData(payload: MeetingPayload, allowKitchenTableGospel: boolean): {
+function meetingEngineData(payload: MeetingPayload, allowGatedConversationFlows: boolean): {
   conversationFlowKey: DosConversationFlowKey;
-  conversationResponses: DosKitchenTableResponses;
+  conversationResponses: DosConversationResponses;
 } {
-  const requestedFlow = normalizeConversationFlowKey(payload.conversationFlowKey, allowKitchenTableGospel);
-  const conversationResponses = requestedFlow === "kitchen_table_gospel"
-    ? normalizeKitchenTableResponses(payload.conversationResponses)
-    : {};
+  const requestedFlow = normalizeConversationFlowKey(payload.conversationFlowKey, allowGatedConversationFlows);
+  const conversationResponses = normalizeConversationResponses(requestedFlow, payload.conversationResponses);
 
   return {
     conversationFlowKey: requestedFlow,
@@ -93,6 +93,22 @@ async function authorizeWrite() {
   return { authorization };
 }
 
+function unavailableConversationFlowResponse(value: unknown, allowGatedConversationFlows: boolean) {
+  if (typeof value !== "string" || value === "none") {
+    return null;
+  }
+
+  const requestedFlow = getConversationFlowDefinition(value as DosConversationFlowKey);
+
+  if (normalizeConversationFlowKey(value, allowGatedConversationFlows) !== "none") {
+    return null;
+  }
+
+  const flowName = requestedFlow?.title ?? "Conversation flow";
+
+  return NextResponse.json({ error: `${flowName} is not available for this workspace.` }, { status: 403 });
+}
+
 export async function POST(request: Request) {
   const authResult = await authorizeWrite();
 
@@ -113,12 +129,14 @@ export async function POST(request: Request) {
   }
 
   const workspaceId = workspace.id;
-  const allowKitchenTableGospel = isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug });
-  const { conversationFlowKey, conversationResponses } = meetingEngineData(payload, allowKitchenTableGospel);
+  const allowGatedConversationFlows = isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug });
+  const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);
 
-  if (payload.conversationFlowKey === "kitchen_table_gospel" && !allowKitchenTableGospel) {
-    return NextResponse.json({ error: "Kitchen Table Gospel is not available for this workspace." }, { status: 403 });
+  if (unavailableFlowResponse) {
+    return unavailableFlowResponse;
   }
+
+  const { conversationFlowKey, conversationResponses } = meetingEngineData(payload, allowGatedConversationFlows);
 
   const fieldPersonIds = asStringArray(payload.fieldPersonIds);
   const supabase = createSupabaseAdminClient();
@@ -187,6 +205,10 @@ export async function POST(request: Request) {
       .in("id", validPersonIds);
   }
 
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after meeting create", scoreError);
+  });
+
   return NextResponse.json({ id: data.id, ok: true });
 }
 
@@ -211,13 +233,14 @@ export async function PATCH(request: Request) {
   }
 
   const workspaceId = workspace.id;
-  const allowKitchenTableGospel = isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug });
+  const allowGatedConversationFlows = isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug });
+  const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);
 
-  if (payload.conversationFlowKey === "kitchen_table_gospel" && !allowKitchenTableGospel) {
-    return NextResponse.json({ error: "Kitchen Table Gospel is not available for this workspace." }, { status: 403 });
+  if (unavailableFlowResponse) {
+    return unavailableFlowResponse;
   }
 
-  const { conversationFlowKey, conversationResponses } = meetingEngineData(payload, allowKitchenTableGospel);
+  const { conversationFlowKey, conversationResponses } = meetingEngineData(payload, allowGatedConversationFlows);
   const fieldPersonIds = asStringArray(payload.fieldPersonIds);
   const supabase = createSupabaseAdminClient();
   const scopedPeopleResult = fieldPersonIds.length
@@ -283,6 +306,10 @@ export async function PATCH(request: Request) {
       .update({ last_activity_at: new Date().toISOString() })
       .in("id", validPersonIds);
   }
+
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after meeting update", scoreError);
+  });
 
   return NextResponse.json({ id: data.id, ok: true });
 }

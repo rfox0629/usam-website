@@ -7,7 +7,7 @@ export type DosGuideResource = {
 export type DosConversationFlowResource = {
   ctaLabel: string;
   description: string;
-  flowKey: "kitchen_table_gospel";
+  flowKey: "four_questions" | "kitchen_table_gospel";
   title: string;
 };
 
@@ -17,6 +17,12 @@ export const dosConversationFlowResources = [
     description: "A guided Gospel conversation for live ministry moments.",
     flowKey: "kitchen_table_gospel",
     title: "Kitchen Table Gospel",
+  },
+  {
+    ctaLabel: "Start Flow",
+    description: "A guided honesty, help, surrender, and obedience conversation.",
+    flowKey: "four_questions",
+    title: "Four Questions",
   },
 ] as const satisfies readonly DosConversationFlowResource[];
 

@@ -2,11 +2,11 @@ import "server-only";
 
 import {
   isUsamKitchenTableGospelWorkspace,
+  normalizeConversationResponses,
   normalizeConversationFlowKey,
-  normalizeKitchenTableResponses,
   normalizeRecommendedResources,
   type DosConversationFlowKey,
-  type DosKitchenTableResponses,
+  type DosConversationResponses,
   type DosRecommendedResource,
 } from "@/src/lib/dos/meeting-engine";
 import { loadCircleData, type DosCircleData } from "@/src/lib/dos/circle-scoring";
@@ -58,7 +58,7 @@ export type DosAppPerson = {
 
 export type DosAppMeeting = {
   conversationFlowKey: DosConversationFlowKey;
-  conversationResponses: DosKitchenTableResponses;
+  conversationResponses: DosConversationResponses;
   date: string | null;
   fieldPersonIds: string[];
   id: string;
@@ -547,21 +547,25 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   })).sort((first, second) => activityDateValue(second.lastActivityAt ?? second.updatedAt) - activityDateValue(first.lastActivityAt ?? first.updatedAt));
   const peopleById = new Map(people.map((person) => [person.id, person.name]));
   const meetings = [
-    ...meetingRows.map((meeting) => ({
-      date: latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at),
-      conversationFlowKey: normalizeConversationFlowKey(meeting.conversation_flow_key),
-      conversationResponses: normalizeKitchenTableResponses(meeting.conversation_responses),
-      fieldPersonIds: meeting.field_person_ids ?? [],
-      id: meeting.id,
-      notes: meeting.notes,
-      participantNames: meeting.participant_names ?? [],
-      recommendedResources: normalizeRecommendedResources(meeting.recommended_resources),
-      review: meetingReviewSummary(meeting.id, reviewLinkByMeetingId, meetingReviewByMeetingId),
-      source: "table" as const,
-      title: "Meeting",
-      type: mapMeetingType(meeting.table_type),
-      updatedAt: meeting.updated_at,
-    })),
+    ...meetingRows.map((meeting) => {
+      const conversationFlowKey = normalizeConversationFlowKey(meeting.conversation_flow_key);
+
+      return {
+        date: latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at),
+        conversationFlowKey,
+        conversationResponses: normalizeConversationResponses(conversationFlowKey, meeting.conversation_responses),
+        fieldPersonIds: meeting.field_person_ids ?? [],
+        id: meeting.id,
+        notes: meeting.notes,
+        participantNames: meeting.participant_names ?? [],
+        recommendedResources: normalizeRecommendedResources(meeting.recommended_resources),
+        review: meetingReviewSummary(meeting.id, reviewLinkByMeetingId, meetingReviewByMeetingId),
+        source: "table" as const,
+        title: "Meeting",
+        type: mapMeetingType(meeting.table_type),
+        updatedAt: meeting.updated_at,
+      };
+    }),
     ...connectionRows.map((connection) => ({
       date: latestActivityDate(connection.connection_date, connection.updated_at, connection.created_at),
       conversationFlowKey: "none" as const,
