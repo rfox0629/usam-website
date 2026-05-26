@@ -6,8 +6,6 @@ export type DosGuideResource = {
 
 export type DosConversationFlowResource = {
   description: string;
-  flowCtaLabel?: string;
-  flowKey?: "four_questions" | "kitchen_table_gospel";
   href: string;
   pdfLabel: string;
   title: string;
@@ -16,16 +14,12 @@ export type DosConversationFlowResource = {
 export const dosTableTeachingResources = [
   {
     description: "A guided Gospel conversation for live ministry moments.",
-    flowCtaLabel: "Start Flow",
-    flowKey: "kitchen_table_gospel",
     href: "/guides/kitchen-table-gospel.pdf",
     pdfLabel: "Open PDF",
     title: "Kitchen Table Gospel",
   },
   {
     description: "A guided honesty, help, surrender, and obedience conversation.",
-    flowCtaLabel: "Start Flow",
-    flowKey: "four_questions",
     href: "/guides/four-questions.pdf",
     pdfLabel: "Open PDF",
     title: "Four Questions",

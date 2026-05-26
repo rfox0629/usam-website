@@ -48,6 +48,7 @@ Do not introduce another people, contact, disciple, or relationship table for th
 - App-startable Conversation Flows are reusable guided discipleship experiences, not passive PDFs.
 - Implemented table conversations: Kitchen Table Gospel and Four Questions.
 - Kitchen Table Gospel and Four Questions are currently gated to USAM Missionary Workspaces.
+- Library is for opening resources. Structured conversation execution belongs inside Log Meeting -> Conversation Flow.
 - Flow responses are stored as flexible private JSONB on the meeting record so new questions can expand without a migration for every prompt.
 - Flows support simple answer types, recommendations, and follow-up actions.
 - Recommended resources are queued on the meeting record. DOS does not automatically send texts, emails, or shared guides yet.

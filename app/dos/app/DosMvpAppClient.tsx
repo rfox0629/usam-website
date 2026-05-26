@@ -762,18 +762,12 @@ function LibrarySection({
 
 function TableTeachingCard({
   description,
-  disabled,
-  flowCtaLabel,
   href,
-  onStart,
   pdfLabel,
   title,
 }: {
   description: string;
-  disabled?: boolean;
-  flowCtaLabel?: string;
   href: string;
-  onStart?: () => void;
   pdfLabel: string;
   title: string;
 }) {
@@ -798,17 +792,6 @@ function TableTeachingCard({
             >
               {pdfLabel}
             </a>
-            {flowCtaLabel && onStart ? (
-              <button
-                className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#1E1D1A] px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:bg-[#C9C3B8] disabled:text-white/80"
-                disabled={disabled}
-                onClick={onStart}
-                style={{ fontFamily: font.rajdhani }}
-                type="button"
-              >
-                {disabled ? "Unavailable" : flowCtaLabel}
-              </button>
-            ) : null}
           </div>
         </div>
       </div>
@@ -3062,11 +3045,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  function openConversationFlow(flowKey: DosConversationFlowKey) {
-    openForm("meeting");
-    setSelectedConversationFlow(data.workspace.isUsamWorkspace ? flowKey : "none");
-  }
-
   function handleConversationFlowChange(flowKey: DosConversationFlowKey) {
     setSelectedConversationFlow(flowKey);
     setConversationResponses({});
@@ -3551,18 +3529,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <p className="-mt-2 mb-5 text-sm leading-5 text-[#77716A]">Resources for conversations and follow up.</p>
               <div className="space-y-6">
                 <LibrarySection
-                  subtext="PDFs and guided teachings to use during a live conversation."
+                  subtext="Teachings to walk through during a live conversation."
                   title="Table Teachings"
                 >
                   <div className="grid gap-3">
                     {dosTableTeachingResources.map((teaching) => (
                       <TableTeachingCard
                         description={teaching.description}
-                        disabled={!data.workspace.isUsamWorkspace}
-                        flowCtaLabel={teaching.flowCtaLabel}
                         href={teaching.href}
                         key={teaching.href}
-                        onStart={teaching.flowKey ? () => openConversationFlow(teaching.flowKey) : undefined}
                         pdfLabel={teaching.pdfLabel}
                         title={teaching.title}
                       />
@@ -3571,7 +3546,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 </LibrarySection>
 
                 <LibrarySection
-                  subtext="Guides to send after a conversation."
+                  subtext="Resources to send after a conversation."
                   title="Follow Up Resources"
                 >
                   <div className="grid gap-2.5">
