@@ -1747,6 +1747,35 @@ function MoreMenuAction({
   );
 }
 
+function BottomNavigation({
+  activeTab,
+  onSelect,
+}: {
+  activeTab: ActiveTab;
+  onSelect: (tab: ActiveTab) => void;
+}) {
+  return (
+    <nav className="absolute inset-x-0 bottom-0 z-[60] border-t border-[#E2DED6] bg-[#F8F7F3]/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-2 backdrop-blur">
+      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+        {tabs.map((tab) => (
+          <button
+            aria-current={activeTab === tab.value ? "page" : undefined}
+            className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-semibold transition-colors ${
+              activeTab === tab.value ? "text-[#111111]" : "text-[#8E8880]"
+            }`}
+            key={tab.value}
+            onClick={() => onSelect(tab.value)}
+            type="button"
+          >
+            <Icon name={tab.icon} size={18} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 function PersonQuickAction({
   children,
   href,
@@ -1850,7 +1879,7 @@ function PersonDetailOverlay({
   };
 
   return (
-    <div className="absolute inset-0 z-[70] overflow-y-auto bg-[#F5F3EE] px-4 pb-24 pt-7 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#F5F3EE] px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#DDD9D0] bg-white text-[#1E1D1A]" onClick={onBack} type="button" aria-label="Back to people">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -2049,7 +2078,7 @@ function MeetingDetailOverlay({
   const title = meetingPeopleTitle(meeting, people);
 
   return (
-    <div className="absolute inset-0 z-[70] overflow-y-auto bg-[#F5F3EE] px-4 pb-24 pt-7 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#F5F3EE] px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#DDD9D0] bg-white text-[#1E1D1A]" onClick={onBack} type="button" aria-label="Back to meetings">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -2286,7 +2315,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  function selectTab(tab: ActiveTab) {
+    setActiveTab(tab);
+    setErrorMessage("");
+    setReviewLinkMeetingId(null);
+    setReviewShareMessage("");
+    setSelectedMeetingId(null);
+    setSelectedPersonId(null);
+  }
+
   function openPersonDetail(personId: string) {
+    setActiveTab("people");
     setErrorMessage("");
     setSelectedMeetingId(null);
     setSelectedPersonId(personId);
@@ -2309,6 +2348,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function openMeetingDetail(meetingId: string) {
+    setActiveTab("meetings");
     setErrorMessage("");
     setReviewLinkMeetingId(null);
     setReviewShareMessage("");
@@ -2851,24 +2891,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
 
-        <nav className="absolute inset-x-0 bottom-0 z-50 border-t border-[#E2DED6] bg-[#F8F7F3]/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-2 backdrop-blur">
-          <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
-          {tabs.map((tab) => (
-            <button
-              aria-current={activeTab === tab.value ? "page" : undefined}
-              className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-semibold transition-colors ${
-                activeTab === tab.value ? "text-[#111111]" : "text-[#8E8880]"
-              }`}
-              key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
-              type="button"
-            >
-              <Icon name={tab.icon} size={18} />
-              {tab.label}
-            </button>
-          ))}
-          </div>
-        </nav>
+        <BottomNavigation activeTab={activeTab} onSelect={selectTab} />
       </div>
 
       {formMode === "person" ? (
