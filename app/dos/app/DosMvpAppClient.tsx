@@ -16,9 +16,10 @@ import {
   type DosKitchenTableResponses,
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
+import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppData, DosAppFruit, DosAppMeeting, DosAppMeetingType, DosAppPerson, DosAppReviewStatus } from "@/src/lib/dos/missionary-app";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
-import { dosGuideResources } from "@/src/lib/dos/guide-resources";
+import { dosConversationFlowResources, dosFollowUpGuideResources } from "@/src/lib/dos/guide-resources";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
@@ -91,6 +92,13 @@ type MeetingCaptureDraft = {
   id: string;
   previewUrl?: string;
   type: MeetingCaptureType;
+};
+type IntelligenceHistoryItem = {
+  calculatedAt: string | null;
+  newCircle: string;
+  newScore: number;
+  previousCircle: string | null;
+  previousScore: number | null;
 };
 type PersonFormDefaults = {
   birthday?: string;
@@ -258,6 +266,16 @@ function formatRelativeDate(value: string | null) {
   }
 
   return `${daysAgo} days ago`;
+}
+
+function isWithinLastDays(value: string | null | undefined, days: number) {
+  const date = value ? parseDisplayDate(value) : null;
+
+  if (!date) {
+    return false;
+  }
+
+  return Date.now() - date.getTime() <= days * 24 * 60 * 60 * 1000;
 }
 
 function formatFileSize(size: number) {
@@ -716,6 +734,118 @@ function SectionHeading({
   );
 }
 
+function LibrarySection({
+  children,
+  subtext,
+  title,
+}: {
+  children: ReactNode;
+  subtext: string;
+  title: string;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+          {title}
+        </h2>
+        <p className="mt-1 text-xs leading-5 text-[#77716A]">{subtext}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ConversationFlowCard({
+  ctaLabel,
+  description,
+  disabled,
+  onStart,
+  title,
+}: {
+  ctaLabel: string;
+  description: string;
+  disabled?: boolean;
+  onStart: () => void;
+  title: string;
+}) {
+  return (
+    <article className="rounded-[22px] border border-[#E2DED6] bg-white p-4 shadow-[0_12px_30px_rgba(42,37,29,0.05)]">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#E5D5AD] bg-[#FFF7E5] text-[#9A6417]">
+          <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-[#1E1D1A]">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-[#77716A]">{description}</p>
+            </div>
+            <span className="rounded-full bg-[#F5EFE1] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+              Flow
+            </span>
+          </div>
+          <button
+            className="mt-3 inline-flex min-h-9 items-center justify-center rounded-full bg-[#1E1D1A] px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:bg-[#C9C3B8] disabled:text-white/80"
+            disabled={disabled}
+            onClick={onStart}
+            style={{ fontFamily: font.rajdhani }}
+            type="button"
+          >
+            {disabled ? "Unavailable" : ctaLabel}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function FutureFlowCard() {
+  // TODO: Wire future flows into the DOS flow engine with structured questions and recommendation triggers.
+  return (
+    <article className="flex min-h-14 items-center justify-between rounded-2xl border border-dashed border-[#DCD5C8] bg-white/70 px-4">
+      <div>
+        <p className="text-sm font-semibold text-[#1E1D1A]">More conversation flows</p>
+        <p className="mt-0.5 text-xs text-[#8E8880]">Structured questions and next-step prompts.</p>
+      </div>
+      <span className="rounded-full bg-[#F1F0EC] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+        Soon
+      </span>
+    </article>
+  );
+}
+
+function FollowUpGuideCard({
+  description,
+  href,
+  title,
+}: {
+  description: string;
+  href: string;
+  title: string;
+}) {
+  return (
+    <article className="rounded-2xl border border-[#E2DED6] bg-white p-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#1E1D1A]">{title}</p>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#77716A]">{description}</p>
+        </div>
+        <a
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#D7C7A4] bg-[#FFF8E8] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12] transition-colors hover:border-[#D4A63D] hover:bg-[#F4E3C8]"
+          href={href}
+          rel="noopener noreferrer"
+          style={{ fontFamily: font.rajdhani }}
+          target="_blank"
+        >
+          Open Guide
+          <ChevronRight className="h-3 w-3" aria-hidden="true" strokeWidth={2} />
+        </a>
+      </div>
+    </article>
+  );
+}
+
 function TaskCard({
   action,
   children,
@@ -832,6 +962,91 @@ function PersonCard({
   }
 
   return <article className={`flex items-center gap-3 bg-white ${isRow ? "px-4 py-3" : "rounded-2xl border border-[#E2DED6] px-4 py-3"}`}>{content}</article>;
+}
+
+function circleDisplayName(circle: string) {
+  switch (circle) {
+    case "three":
+      return "My 3";
+    case "twelve":
+      return "My 12";
+    case "seventy":
+      return "My 70";
+    default:
+      return "Field";
+  }
+}
+
+function scoreLabel(value: number) {
+  return `${Math.round(value)}`;
+}
+
+function CircleFocusCard({
+  onClick,
+  onLogMeeting,
+  person,
+  score,
+}: {
+  onClick: () => void;
+  onLogMeeting: () => void;
+  person: DosAppPerson;
+  score: DosRelationshipScore;
+}) {
+  const lastMeeting = person.lastActivityAt ? formatRelativeDate(person.lastActivityAt) : "No meeting";
+  const hasFruit = score.breakdown.fruit > 0;
+  const multiplying = score.breakdown.multiplication > 0;
+
+  return (
+    <article className="rounded-[22px] border border-[#DDD9D0] bg-white p-4">
+      <button className="flex w-full items-start gap-3 text-left" onClick={onClick} type="button">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#111111] text-xs font-bold text-white">{initials(person.name)}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-base font-bold text-[#1E1D1A]">{person.name}</span>
+          <span className="mt-1 block truncate text-xs text-[#77716A]">{person.relationshipType || "Relationship"} · {lastMeeting}</span>
+          <span className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+              Progress {scoreLabel(score.breakdown.discipleshipProgress)}
+            </span>
+            {hasFruit || multiplying ? (
+              <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+                {multiplying ? "Multiplying" : "Fruit"}
+              </span>
+            ) : null}
+          </span>
+        </span>
+        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+      </button>
+      <button
+        className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-[#111111] px-4 text-xs font-bold text-white"
+        onClick={onLogMeeting}
+        type="button"
+      >
+        <Icon name="log" size={14} />
+        Log Meeting
+      </button>
+    </article>
+  );
+}
+
+function CircleCompactCard({
+  onClick,
+  person,
+  score,
+}: {
+  onClick: () => void;
+  person: DosAppPerson;
+  score: DosRelationshipScore;
+}) {
+  return (
+    <button className="w-[142px] shrink-0 rounded-2xl border border-[#E2DED6] bg-white p-3 text-left" onClick={onClick} type="button">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF8E7] text-[11px] font-bold text-[#8A5A12]">{initials(person.name)}</span>
+      <span className="mt-3 block truncate text-sm font-bold text-[#1E1D1A]">{person.name}</span>
+      <span className="mt-1 block truncate text-[11px] text-[#77716A]">{person.relationshipType || "Relationship"}</span>
+      <span className="mt-3 inline-flex rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+        {scoreLabel(score.totalScore)}
+      </span>
+    </button>
+  );
 }
 
 function MeetingCard({
@@ -1807,6 +2022,7 @@ function PersonQuickAction({
 }
 
 function PersonDetailOverlay({
+  circleScore,
   index,
   meetings,
   onBack,
@@ -1814,7 +2030,9 @@ function PersonDetailOverlay({
   onOpenMeeting,
   onLogMeeting,
   person,
+  workspaceId,
 }: {
+  circleScore?: DosRelationshipScore | null;
   index: number;
   meetings: DosAppMeeting[];
   onBack: () => void;
@@ -1822,10 +2040,14 @@ function PersonDetailOverlay({
   onOpenMeeting: (meetingId: string) => void;
   onLogMeeting: () => void;
   person: DosAppPerson;
+  workspaceId: string;
 }) {
   const meetingsSectionRef = useRef<HTMLDivElement | null>(null);
   const reviewsSectionRef = useRef<HTMLDivElement | null>(null);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [isIntelligenceOpen, setIsIntelligenceOpen] = useState(false);
+  const [intelligenceHistory, setIntelligenceHistory] = useState<IntelligenceHistoryItem[]>([]);
+  const [pinMessage, setPinMessage] = useState("");
   const [moreMessage, setMoreMessage] = useState("");
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
@@ -1876,6 +2098,57 @@ function PersonDetailOverlay({
     }
 
     await copyToClipboard(contactLines, "Contact");
+  };
+  useEffect(() => {
+    if (!isIntelligenceOpen) {
+      return;
+    }
+
+    let ignore = false;
+
+    fetch(`/api/dos/circles/person/${person.id}?workspaceId=${encodeURIComponent(workspaceId)}`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((result) => {
+        if (!ignore && Array.isArray(result?.history)) {
+          setIntelligenceHistory(result.history);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setIntelligenceHistory([]);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [isIntelligenceOpen, person.id, workspaceId]);
+  const pinToCircle = async (circle: "field" | "seventy" | "three" | "twelve", locked = true) => {
+    setPinMessage("Saving...");
+
+    try {
+      const response = await fetch("/api/dos/circles/override", {
+        body: JSON.stringify({
+          circle,
+          locked,
+          personId: person.id,
+          reason: locked ? "Pinned from person profile." : "",
+          workspaceId,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+
+        throw new Error(typeof result.error === "string" ? result.error : "Unable to save pin.");
+      }
+
+      setPinMessage(locked ? `Pinned to ${circleDisplayName(circle)}.` : "Pin removed.");
+    } catch (error) {
+      setPinMessage(error instanceof Error ? error.message : "Unable to save pin.");
+    }
   };
 
   return (
@@ -1960,6 +2233,105 @@ function PersonDetailOverlay({
             <StatTile label="Last Contact" onClick={() => scrollToSection("meetings")} value={lastContact} />
           </div>
         </DetailCard>
+
+        <section className="rounded-[22px] border border-[#E2DED6] bg-white p-4">
+          <button
+            aria-expanded={isIntelligenceOpen}
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() => setIsIntelligenceOpen((current) => !current)}
+            type="button"
+          >
+            <span>
+              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+                Relationship Intelligence
+              </span>
+              <span className="mt-1 block text-sm font-semibold text-[#1E1D1A]">
+                {circleScore ? `${circleDisplayName(circleScore.circle)} · ${scoreLabel(circleScore.totalScore)}` : "Field · Not scored"}
+              </span>
+            </span>
+            <ChevronRight className={`h-4 w-4 text-[#A9A29A] transition-transform ${isIntelligenceOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
+          </button>
+
+          {isIntelligenceOpen ? (
+            <div className="mt-4 border-t border-[#EEEAE2] pt-4">
+              {circleScore ? (
+                <div className="grid gap-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <StatTile label="Score" value={scoreLabel(circleScore.totalScore)} />
+                    <StatTile label="Circle" value={circleDisplayName(circleScore.circle)} />
+                    <StatTile label="Trust" value={scoreLabel(circleScore.confidenceScore)} />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+                      {circleScore.assignmentSource === "manual" ? "Manual" : "Automatic"}
+                    </span>
+                    {Object.entries(circleScore.breakdown).map(([key, value]) => (
+                      <span className="rounded-full border border-[#E2DED6] bg-[#F8F7F3] px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]" key={key}>
+                        {key.replace(/([A-Z])/g, " $1")} {scoreLabel(value)}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="rounded-2xl bg-[#F8F7F3] p-3 text-sm leading-6 text-[#3B3935]">{circleScore.explanation.summary}</p>
+                  {circleScore.explanation.positive_factors.length ? (
+                    <div className="grid gap-1.5">
+                      {circleScore.explanation.positive_factors.map((factor) => (
+                        <p className="text-xs leading-5 text-[#5F5952]" key={factor}>+ {factor}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                  {circleScore.explanation.negative_factors.length ? (
+                    <div className="grid gap-1.5">
+                      {circleScore.explanation.negative_factors.map((factor) => (
+                        <p className="text-xs leading-5 text-[#8A5A12]" key={factor}>Needs focus · {factor}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["three", "twelve", "seventy", "field"] as const).map((circle) => (
+                      <button
+                        className="min-h-10 rounded-full border border-[#DDD9D0] bg-[#F8F7F3] px-3 text-xs font-bold text-[#1E1D1A]"
+                        key={circle}
+                        onClick={() => { void pinToCircle(circle); }}
+                        type="button"
+                      >
+                        Pin {circleDisplayName(circle)}
+                      </button>
+                    ))}
+                    {circleScore.assignmentSource === "manual" ? (
+                      <button
+                        className="col-span-2 min-h-10 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 text-xs font-bold text-[#8A5A12]"
+                        onClick={() => { void pinToCircle(circleScore.circle, false); }}
+                        type="button"
+                      >
+                        Remove Pin
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+                      Movement History
+                    </p>
+                    {intelligenceHistory.length ? intelligenceHistory.slice(0, 4).map((item) => (
+                      <div className="rounded-2xl bg-[#F8F7F3] p-3" key={`${item.calculatedAt}-${item.newScore}`}>
+                        <p className="text-xs font-semibold text-[#1E1D1A]">
+                          {item.previousCircle ? `${circleDisplayName(item.previousCircle)} -> ` : ""}{circleDisplayName(item.newCircle)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-[#77716A]">
+                          {item.previousScore === null ? "New score" : `${scoreLabel(item.previousScore)} -> ${scoreLabel(item.newScore)}`} · {formatDate(item.calculatedAt)}
+                        </p>
+                      </div>
+                    )) : (
+                      <p className="text-xs text-[#77716A]">No movement history yet.</p>
+                    )}
+                  </div>
+                  {pinMessage ? <p className="rounded-2xl bg-[#FFF8E7] px-3 py-2 text-center text-xs font-semibold text-[#8A5A12]">{pinMessage}</p> : null}
+                </div>
+              ) : (
+                <p className="text-sm text-[#77716A]">Recalculate circles to score this relationship.</p>
+              )}
+            </div>
+          ) : null}
+        </section>
 
         <div ref={meetingsSectionRef}>
           <DetailCard title="Meetings">
@@ -2249,6 +2621,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const latestMeeting = data.meetings[0];
   const latestFruit = visibleFruit[0];
   const visiblePeople = useMemo(() => filteredPeople(people, peopleQuery), [people, peopleQuery]);
+  const scoreByPersonId = useMemo(() => {
+    const scores = data.circles ? [...data.circles.my3, ...data.circles.my12, ...data.circles.my70, ...data.circles.field] : [];
+
+    return new Map(scores.map((score) => [score.person.id, score]));
+  }, [data.circles]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
   const draftRecommendedResources = useMemo(() => (
     selectedConversationFlow === "kitchen_table_gospel"
@@ -2281,6 +2658,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const relatingCount = people.filter((person) => normalizeText(person.status).toLowerCase() !== "new").length;
   const multiplyingCount = Math.max(data.stats.approvedFruit, visibleFruit.length);
   const recentPeople = people.slice(0, 3);
+  const my3People = (data.circles?.my3 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
+  const my12People = (data.circles?.my12 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
+  const my70Summary = data.circles?.fieldSummary;
   const workspaceLabel = data.workspace.isUsamWorkspace ? `${data.workspace.displayName} · USA` : data.workspace.displayName;
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
 
@@ -2313,6 +2693,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     if (mode === "person") {
       setSelectedRelationshipType(defaultRelationshipType);
     }
+  }
+
+  function openConversationFlow(flowKey: DosConversationFlowKey) {
+    openForm("meeting");
+    setSelectedConversationFlow(data.workspace.isUsamWorkspace ? flowKey : "none");
   }
 
   function selectTab(tab: ActiveTab) {
@@ -2687,16 +3072,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
-                      Your Field
+                      {workspaceLabel}
                     </p>
-                    <h2 className="mt-1 text-base font-bold leading-tight text-[#1E1D1A]">{workspaceLabel}</h2>
+                    <h2 className="mt-1 text-xl font-bold leading-tight text-[#1E1D1A]">Good morning.</h2>
                   </div>
                   <p className="text-xs text-[#77716A]">{data.stats.peopleCount} people</p>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2">
-                  <StatTile label="People" value={data.stats.peopleCount} />
-                  <StatTile label="Relating" value={relatingCount} />
-                  <StatTile label="Multiply" value={multiplyingCount} />
+                  <StatTile label="Active Week" value={people.filter((person) => person.lastActivityAt && isWithinLastDays(person.lastActivityAt, 7)).length} />
+                  <StatTile label="My 3" value={my3People.length} />
+                  <StatTile label="Multiplying" value={my70Summary?.multiplying ?? multiplyingCount} />
                 </div>
               </section>
 
@@ -2710,25 +3095,44 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               </section>
 
               <section>
-                <SectionHeading title="Today" />
+                <SectionHeading title="My 3" />
                 <div className="grid gap-3">
-                  <TaskCard
-                    action={<button className="rounded-full bg-[#111111] px-4 py-2 text-xs font-bold text-white" onClick={() => setActiveTab("people")} type="button">Start</button>}
-                    title="Pray for 3 people"
-                  >
-                    Daily rhythm · 2 min
-                  </TaskCard>
-                  <TaskCard
-                    action={(
-                      <button className="flex items-center gap-2 rounded-full bg-[#F4E3C8] px-3 py-2 text-xs font-bold text-[#8A5A12]" onClick={() => setActiveTab("people")} type="button">
-                        {attentionPeople.length}
-                        <Icon name="arrow" size={13} />
-                      </button>
-                    )}
-                    title="Needs attention"
-                  >
-                    No contact in 10+ days
-                  </TaskCard>
+                  {my3People.length ? my3People.map(({ person, score }) => (
+                    <CircleFocusCard
+                      key={person.id}
+                      onClick={() => openPersonDetail(person.id)}
+                      onLogMeeting={() => openMeetingForPerson(person.id)}
+                      person={person}
+                      score={score}
+                    />
+                  )) : (
+                    <EmptyState text="Recalculate circles after logging meetings to focus your closest investments." title="No My 3 yet." />
+                  )}
+                </div>
+              </section>
+
+              <section>
+                <SectionHeading title="My 12" />
+                {my12People.length ? (
+                  <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+                    {my12People.map(({ person, score }) => (
+                      <CircleCompactCard key={person.id} onClick={() => openPersonDetail(person.id)} person={person} score={score} />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState text="The next nine active relationships will appear here." title="No My 12 yet." />
+                )}
+              </section>
+
+              <section>
+                <SectionHeading title="My 70" />
+                <div className="rounded-[22px] border border-[#DDD9D0] bg-white p-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <StatTile label="Active Month" value={my70Summary?.activeThisMonth ?? 0} />
+                    <StatTile label="Follow Up" value={my70Summary?.needFollowUp ?? attentionPeople.length} />
+                    <StatTile label="New" value={my70Summary?.newContacts ?? 0} />
+                    <StatTile label="Multiplying" value={my70Summary?.multiplying ?? multiplyingCount} />
+                  </div>
                 </div>
               </section>
 
@@ -2819,31 +3223,43 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             {activeTab === "more" ? (
               <div>
               <SectionHeading title="More" />
-              <div className="mb-5">
-                <SectionHeading title="Library" />
-                <div className="grid gap-3">
-                  {dosGuideResources.map((guide) => (
-                    <article className="rounded-2xl border border-[#E2DED6] bg-white p-4" key={guide.href}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[#1E1D1A]">{guide.title}</p>
-                          <p className="mt-1 text-xs leading-5 text-[#77716A]">{guide.description}</p>
-                        </div>
-                        <a
-                          className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E8] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12] transition-colors hover:border-[#D4A63D] hover:bg-[#F4E3C8]"
-                          href={guide.href}
-                          rel="noopener noreferrer"
-                          style={{ fontFamily: font.rajdhani }}
-                          target="_blank"
-                        >
-                          Open Guide
-                        </a>
-                      </div>
-                    </article>
-                  ))}
-                </div>
+              <div className="space-y-6">
+                <LibrarySection
+                  subtext="Interactive discipleship conversations used during ministry."
+                  title="Conversation Flows"
+                >
+                  <div className="grid gap-3">
+                    {dosConversationFlowResources.map((flow) => (
+                      <ConversationFlowCard
+                        ctaLabel={flow.ctaLabel}
+                        description={flow.description}
+                        disabled={!data.workspace.isUsamWorkspace}
+                        key={flow.flowKey}
+                        onStart={() => openConversationFlow(flow.flowKey)}
+                        title={flow.title}
+                      />
+                    ))}
+                    <FutureFlowCard />
+                  </div>
+                </LibrarySection>
+
+                <LibrarySection
+                  subtext="Resources to help people grow after conversations."
+                  title="Follow-Up Guides"
+                >
+                  <div className="grid gap-2.5">
+                    {dosFollowUpGuideResources.map((guide) => (
+                      <FollowUpGuideCard
+                        description={guide.description}
+                        href={guide.href}
+                        key={guide.href}
+                        title={guide.title}
+                      />
+                    ))}
+                  </div>
+                </LibrarySection>
               </div>
-              <div className="grid gap-3">
+              <div className="mt-6 grid gap-3">
                 {futureTools.map((tool) => (
                   <div className="flex min-h-14 items-center justify-between rounded-2xl border border-[#E2DED6] bg-white px-4" key={tool}>
                     <span className="text-sm font-medium text-[#1E1D1A]">{tool}</span>
@@ -2873,6 +3289,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
             onOpenMeeting={openMeetingDetail}
             person={selectedPerson}
+            circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
+            workspaceId={data.workspace.id}
           />
         ) : null}
 

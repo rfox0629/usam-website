@@ -9,6 +9,7 @@ import {
   type DosKitchenTableResponses,
   type DosRecommendedResource,
 } from "@/src/lib/dos/meeting-engine";
+import { loadCircleData, type DosCircleData } from "@/src/lib/dos/circle-scoring";
 import { dosQuickReviewType } from "@/src/lib/dos/review-types";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -93,6 +94,7 @@ export type DosAppFruit = {
 };
 
 export type DosAppData = {
+  circles: DosCircleData | null;
   fruit: DosAppFruit[];
   meetings: DosAppMeeting[];
   people: DosAppPerson[];
@@ -594,6 +596,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   return {
     data: {
+      circles: await loadCircleData(workspace.id).catch(() => null),
       fruit,
       meetings,
       people,

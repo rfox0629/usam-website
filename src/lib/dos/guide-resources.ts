@@ -4,12 +4,23 @@ export type DosGuideResource = {
   title: string;
 };
 
-export const dosGuideResources = [
+export type DosConversationFlowResource = {
+  ctaLabel: string;
+  description: string;
+  flowKey: "kitchen_table_gospel";
+  title: string;
+};
+
+export const dosConversationFlowResources = [
   {
-    description: "A simple guide for presenting the Gospel around the table.",
-    href: "/guides/kitchen-table-gospel.pdf",
+    ctaLabel: "Start Conversation",
+    description: "A guided Gospel conversation for live ministry moments.",
+    flowKey: "kitchen_table_gospel",
     title: "Kitchen Table Gospel",
   },
+] as const satisfies readonly DosConversationFlowResource[];
+
+export const dosFollowUpGuideResources = [
   {
     description: "Gather, worship, and be formed in the body of Christ.",
     href: "/guides/commands-of-jesus/usam_attending_church_guide.pdf",
@@ -55,6 +66,15 @@ export const dosGuideResources = [
     href: "/guides/commands-of-jesus/usam_spiritual_gifts_guide.pdf",
     title: "Spiritual Gifts",
   },
+] as const satisfies readonly DosGuideResource[];
+
+export const dosGuideResources = [
+  {
+    description: "A simple guide for presenting the Gospel around the table.",
+    href: "/guides/kitchen-table-gospel.pdf",
+    title: "Kitchen Table Gospel",
+  },
+  ...dosFollowUpGuideResources,
 ] as const satisfies readonly DosGuideResource[];
 
 function normalizeGuideTitle(value: string) {

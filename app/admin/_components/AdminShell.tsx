@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Activity, Globe, Heart, MessageSquare, Settings, ShieldCheck, Upload, Users, type LucideIcon } from "lucide-react";
+import { Activity, Globe, Heart, MessageSquare, Network, Settings, ShieldCheck, Upload, Users, type LucideIcon } from "lucide-react";
 import { adminFont } from "./AdminUI";
 
 const adminNavGroups = [
@@ -8,6 +8,7 @@ const adminNavGroups = [
     items: [
       { activeKey: "dashboard", href: "/admin/dashboard", icon: Activity, label: "Command Center" },
       { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", icon: Users, label: "Missionary Workspaces" },
+      { activeKey: "relationship-intelligence", href: "/admin/relationship-intelligence", icon: Network, label: "Circle Engine" },
       { activeKey: "public-experience", href: "/admin/public-experience", icon: Globe, label: "Public Experience" },
       { activeKey: "prayer", href: "/admin/prayer-team", icon: Heart, label: "Prayer Team" },
       { activeKey: "support-team", href: "/admin/support-team", icon: ShieldCheck, label: "Support Team" },
