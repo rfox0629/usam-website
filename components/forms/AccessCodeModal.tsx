@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
 import {
   PublicFieldLabel,
   PublicFormGrid,
@@ -257,7 +256,7 @@ export function AccessCodeModal({
                     <div className="relative mt-2">
                       <input
                         autoComplete="one-time-code"
-                        className={`${fieldClassName()} mt-0 pr-12`}
+                        className={`${fieldClassName()} mt-0 pr-24`}
                         id={`access-code-${type}`}
                         onChange={(event) => setAccessCode(event.target.value)}
                         placeholder="Enter your code"
@@ -267,15 +266,12 @@ export function AccessCodeModal({
                       <button
                         aria-label={isAccessCodeVisible ? "Hide access code" : "Show access code"}
                         aria-pressed={isAccessCodeVisible}
-                        className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-500 transition-colors hover:border-[#D4A63D] hover:text-stone-950 focus:outline-none focus:ring-4 focus:ring-[#D4A63D]/15"
+                        className="absolute right-2 top-1/2 flex h-9 -translate-y-1/2 items-center justify-center rounded-lg border border-[#D4A63D]/45 bg-[#FFF7DD] px-3 text-[10px] uppercase tracking-[0.14em] text-[#8A6200] transition-colors hover:border-[#D4A63D] hover:bg-[#FFE8A3] hover:text-stone-950 focus:outline-none focus:ring-4 focus:ring-[#D4A63D]/15"
                         onClick={() => setIsAccessCodeVisible((current) => !current)}
+                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                         type="button"
                       >
-                        {isAccessCodeVisible ? (
-                          <EyeOff aria-hidden="true" size={18} strokeWidth={1.8} />
-                        ) : (
-                          <Eye aria-hidden="true" size={18} strokeWidth={1.8} />
-                        )}
+                        {isAccessCodeVisible ? "Hide" : "Preview"}
                       </button>
                     </div>
                   </div>

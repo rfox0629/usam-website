@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
 
 type PasswordVisibilityInputProps = {
   autoComplete?: string;
@@ -23,13 +22,12 @@ export function PasswordVisibilityInput({
   required = false,
 }: PasswordVisibilityInputProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const Icon = isVisible ? EyeOff : Eye;
 
   return (
     <div className="relative mt-2">
       <input
         autoComplete={autoComplete}
-        className={`${className} mt-0 pr-12`}
+        className={`${className} mt-0 pr-24`}
         defaultValue={defaultValue}
         id={id}
         name={name}
@@ -40,11 +38,12 @@ export function PasswordVisibilityInput({
       <button
         aria-label={isVisible ? "Hide access code" : "Show access code"}
         aria-pressed={isVisible}
-        className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md border border-stone-800 text-stone-400 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942] focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/35"
+        className="absolute right-2 top-1/2 flex h-8 -translate-y-1/2 items-center justify-center rounded-md border border-[#D4A63D]/45 bg-[#D4A63D]/10 px-3 text-[10px] uppercase tracking-[0.14em] text-[#F5B942] transition-colors hover:border-[#D4A63D] hover:bg-[#D4A63D]/20 focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/35"
         onClick={() => setIsVisible((current) => !current)}
+        style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}
         type="button"
       >
-        <Icon aria-hidden="true" size={16} strokeWidth={1.8} />
+        {isVisible ? "Hide" : "Preview"}
       </button>
     </div>
   );
