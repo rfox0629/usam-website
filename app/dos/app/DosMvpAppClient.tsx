@@ -1079,10 +1079,12 @@ function circleFocusCopy(view: CircleFocusView) {
 
 function CircleAvatar({
   index,
+  layer,
   person,
   size = "md",
 }: {
   index: number;
+  layer?: "center" | "middle" | "outer";
   person?: DosAppPerson;
   size?: "lg" | "md" | "sm" | "xs";
 }) {
@@ -1102,7 +1104,11 @@ function CircleAvatar({
   }
 
   return (
-    <span className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full font-bold ${avatarTone(index)}`}>
+    <span
+      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full font-bold ${avatarTone(index)}`}
+      data-circle-layer={layer}
+      data-person-id={person.id}
+    >
       {initials(person.name)}
     </span>
   );
@@ -1190,14 +1196,50 @@ function CircleFocusHero({
 }) {
   const [activeView, setActiveView] = useState<CircleFocusView>("three");
   const copy = circleFocusCopy(activeView);
-  const my3Slots = [0, 1, 2].map((index) => my3[index]?.person);
-  const activeMembership = activeView === "three" ? my3 : activeView === "twelve" ? my12 : my70;
-  const my12OuterPeople = my12.filter((item) => !my3.some((my3Item) => my3Item.person.id === item.person.id)).slice(0, 12);
-  const my70OuterPeople = my70.filter((item) => !my12.some((my12Item) => my12Item.person.id === item.person.id)).slice(0, 70);
-  const visibleMy70Nodes = my70OuterPeople.length > 14 ? my70OuterPeople.slice(0, 8) : my70OuterPeople.slice(0, 12);
-  const clusterCount = my70OuterPeople.length > visibleMy70Nodes.length ? my70OuterPeople.length - visibleMy70Nodes.length : 0;
-  const my12Active = activeView === "twelve" || activeView === "seventy";
+  const centerPeople = my3.slice(0, 3);
+  const centerIds = new Set(centerPeople.map((item) => item.person.id));
+  const middleLayerPeople = my12.filter((item) => !centerIds.has(item.person.id)).slice(0, 9);
+  const middleAndCenterIds = new Set([...Array.from(centerIds), ...middleLayerPeople.map((item) => item.person.id)]);
+  const outerLayerPeople = my70.filter((item) => !middleAndCenterIds.has(item.person.id)).slice(0, 58);
+  const activeMembershipCount = activeView === "three"
+    ? centerPeople.length
+    : activeView === "twelve"
+      ? centerPeople.length + middleLayerPeople.length
+      : centerPeople.length + middleLayerPeople.length + outerLayerPeople.length;
+  const my3Slots = [0, 1, 2].map((index) => centerPeople[index]?.person);
+  const visibleMy70Nodes = outerLayerPeople.length > 14 ? outerLayerPeople.slice(0, 8) : outerLayerPeople.slice(0, 12);
+  const clusterCount = outerLayerPeople.length > visibleMy70Nodes.length ? outerLayerPeople.length - visibleMy70Nodes.length : 0;
+  const my12Active = activeView === "twelve";
   const my70Active = activeView === "seventy";
+  const showMiddleLayer = activeView === "twelve" || activeView === "seventy";
+  const centerClassName = activeView === "three" ? "scale-110 opacity-100" : activeView === "twelve" ? "scale-100 opacity-95" : "scale-95 opacity-85";
+  const middleRingClassName = my12Active
+    ? "scale-100 border-[#D4A63D]/55 bg-[#FFF8E7]/45"
+    : my70Active
+      ? "scale-95 border-[#D7C7A4]/55 bg-white/35"
+      : "scale-95 border-[#E7E1D7]/80 bg-transparent";
+  const outerRingClassName = my70Active
+    ? "scale-100 border-[#D4A63D]/50 bg-[#FFF8E7]/30"
+    : "scale-95 border-[#E7E1D7]/70 bg-transparent";
+
+  function handleTargetClick(event: MouseEvent<HTMLButtonElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - bounds.left - bounds.width / 2;
+    const y = event.clientY - bounds.top - bounds.height / 2;
+    const distanceFromCenter = Math.sqrt(x * x + y * y);
+
+    if (distanceFromCenter <= 52) {
+      setActiveView("three");
+      return;
+    }
+
+    if (distanceFromCenter <= 88) {
+      setActiveView("twelve");
+      return;
+    }
+
+    setActiveView("seventy");
+  }
 
   return (
     <section className="rounded-[28px] bg-white px-5 py-5 shadow-[0_18px_48px_rgba(42,37,29,0.07)]">
@@ -1212,69 +1254,64 @@ function CircleFocusHero({
         <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#D4A63D]" aria-hidden="true" />
       </div>
 
-      <div className="relative mx-auto mt-5 h-60 w-full max-w-[278px]">
-        <button
-          aria-label="Show My 70"
-          className={`absolute left-1/2 top-1/2 z-[1] h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40 ${
-            my70Active ? "scale-100 border-[#D4A63D]/45 bg-[#FFF8E7]/30" : "scale-95 border-[#E7E1D7]/70 bg-transparent"
-          }`}
-          onClick={() => setActiveView("seventy")}
-          type="button"
+      <button
+        aria-label={`Circle Focus target. ${copy.label} selected.`}
+        className="relative mx-auto mt-5 block h-60 w-full max-w-[278px] cursor-pointer rounded-full text-left focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40"
+        onClick={handleTargetClick}
+        type="button"
+      >
+        <span
+          className={`absolute left-1/2 top-1/2 z-[1] h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${outerRingClassName}`}
+          data-circle-ring="outer"
         />
-        <button
-          aria-label="Show My 12"
-          className={`absolute left-1/2 top-1/2 z-[2] h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40 ${
-            my12Active ? "scale-100 border-[#D4A63D]/55 bg-[#FFF8E7]/45" : "scale-95 border-[#E7E1D7]/80 bg-transparent"
-          }`}
-          onClick={() => setActiveView("twelve")}
-          type="button"
+        <span
+          className={`absolute left-1/2 top-1/2 z-[2] h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${middleRingClassName}`}
+          data-circle-ring="middle"
         />
-        <button
-          aria-label="Show My 3"
-          className={`absolute left-1/2 top-1/2 z-[3] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/40 ${
+        <span
+          className={`absolute left-1/2 top-1/2 z-[3] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-300 ${
             activeView === "three" ? "scale-105 border-[#D4A63D]/70 bg-[#FFF8E7]" : "scale-100 border-[#E8DFCF] bg-white/70"
           }`}
-          onClick={() => setActiveView("three")}
-          type="button"
+          data-circle-ring="center"
         />
 
-        {my12Active ? my12OuterPeople.slice(0, 12).map((item, index) => (
+        {showMiddleLayer ? middleLayerPeople.map((item, index) => (
           <TargetNode
-            className={activeView === "twelve" ? "opacity-100 scale-100" : "opacity-70 scale-90"}
+            className={my12Active ? "opacity-100 scale-100" : "opacity-65 scale-90"}
             key={`twelve-${item.person.id}`}
             left={my12NodePositions[index % my12NodePositions.length][0]}
             top={my12NodePositions[index % my12NodePositions.length][1]}
           >
-            <CircleAvatar index={index + 3} person={item.person} size={activeView === "twelve" ? "sm" : "sm"} />
+            <CircleAvatar index={index + 3} layer="middle" person={item.person} size="sm" />
           </TargetNode>
         )) : null}
 
         {my70Active ? visibleMy70Nodes.map((item, index) => (
           <TargetNode
-            className="opacity-100 scale-100"
+            className="opacity-80 scale-100"
             key={`seventy-${item.person.id}`}
             left={my70NodePositions[index % my70NodePositions.length][0]}
             top={my70NodePositions[index % my70NodePositions.length][1]}
           >
-            <CircleAvatar index={index + 7} person={item.person} size="xs" />
+            <CircleAvatar index={index + 7} layer="outer" person={item.person} size="xs" />
           </TargetNode>
         )) : null}
         {my70Active && clusterCount > 0 ? (
           <CircleClusterNode count={clusterCount} left="82%" top="82%" />
         ) : null}
 
-        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
-          <div className={`flex justify-center gap-2 transition-all duration-300 ${activeView === "three" ? "scale-110" : "scale-95"}`}>
+        <span className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+          <span className={`flex justify-center gap-2 transition-all duration-300 ${centerClassName}`}>
             {my3Slots.map((person, index) => (
-              <CircleAvatar index={index} key={person?.id ?? `empty-${index}`} person={person} size={activeView === "three" ? "lg" : "md"} />
+              <CircleAvatar index={index} key={person?.id ?? `empty-${index}`} layer="center" person={person} size={activeView === "three" ? "lg" : "md"} />
             ))}
-          </div>
-        </div>
+          </span>
+        </span>
 
-        <p className="absolute inset-x-0 bottom-5 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+        <span className="absolute inset-x-0 bottom-5 z-40 block text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
           {copy.label}
-        </p>
-      </div>
+        </span>
+      </button>
 
       <div className="mt-1 grid grid-cols-3 rounded-full bg-[#F6F4EF] p-1">
         {(["three", "twelve", "seventy"] as const).map((view) => {
@@ -1297,7 +1334,7 @@ function CircleFocusHero({
       </div>
 
       <p className="mt-3 text-center text-sm font-semibold text-[#1E1D1A]">
-        {Math.min(activeMembership.length, copy.denominator)} / {copy.denominator} {copy.countLabel}
+        {Math.min(activeMembershipCount, copy.denominator)} / {copy.denominator} {copy.countLabel}
       </p>
 
       <button
