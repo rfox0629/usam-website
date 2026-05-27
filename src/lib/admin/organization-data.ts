@@ -59,6 +59,38 @@ type WorkspaceScopedRow = {
   workspace_id?: string | null;
 };
 
+type WorkspacePreviewPersonRow = {
+  church: string | null;
+  created_at: string | null;
+  email: string | null;
+  id: string;
+  last_activity_at?: string | null;
+  name: string;
+  notes: string | null;
+  phone: string | null;
+  relationship_type: string | null;
+  status: string | null;
+  updated_at: string | null;
+};
+
+type WorkspacePreviewMeetingRow = {
+  conversation_flow_key?: string | null;
+  created_at: string | null;
+  field_person_ids?: string[] | null;
+  id: string;
+  notes: string | null;
+  participant_names: string[] | null;
+  table_date: string | null;
+  table_type: string | null;
+  updated_at: string | null;
+};
+
+type WorkspacePreviewTableReviewRow = {
+  follow_up_needed: string | null;
+  movement_step: string | null;
+  table_id: string;
+};
+
 const householdBaseSelect = "id, slug, display_name, public_visible, updated_at, created_at";
 const householdFeatureSelect = `${householdBaseSelect}, show_household, show_prayer, show_support, show_fruit, show_story, enable_prayer_team`;
 
@@ -413,23 +445,25 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
       reviewMovementStepCountResult,
       connectionMovementStepCountResult,
       collectiveResult,
+      tableReviewsResult,
     ] = await Promise.all([
       supabase
         .from("missionary_field_people")
-        .select("id, name, updated_at, created_at, last_activity_at")
+        .select("id, name, phone, email, church, notes, status, relationship_type, updated_at, created_at, last_activity_at")
         .eq("workspace_id", workspaceId)
+        .order("last_activity_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
-        .limit(6),
+        .limit(80),
       supabase
         .from("missionary_field_people")
         .select("id", { count: "exact", head: true })
         .eq("workspace_id", workspaceId),
       supabase
         .from("missionary_tables")
-        .select("id, table_type, table_date, participant_names, notes, updated_at, created_at")
+        .select("id, table_type, table_date, participant_names, field_person_ids, notes, conversation_flow_key, updated_at, created_at")
         .eq("workspace_id", workspaceId)
         .order("table_date", { ascending: false, nullsFirst: false })
-        .limit(6),
+        .limit(40),
       supabase
         .from("missionary_tables")
         .select("id", { count: "exact", head: true })
@@ -508,6 +542,11 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         .select("owner_organization_id")
         .eq("slug", household.slug)
         .maybeSingle(),
+      supabase
+        .from("missionary_table_reviews")
+        .select("table_id, movement_step, follow_up_needed")
+        .eq("workspace_id", workspaceId)
+        .limit(80),
     ]);
     const organizationResult = !collectiveResult.error && collectiveResult.data?.owner_organization_id
       ? await supabase
@@ -520,10 +559,53 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         .select("name")
         .eq("branding_mode", "usam")
         .maybeSingle();
-    const people = peopleResult.error ? [] : (peopleResult.data ?? []) as Array<{ created_at: string | null; id: string; last_activity_at?: string | null; name: string; updated_at: string | null }>;
-    const meetings = meetingsResult.error ? [] : (meetingsResult.data ?? []) as Array<{ created_at: string | null; id: string; notes: string | null; participant_names: string[] | null; table_date: string | null; table_type: string | null; updated_at: string | null }>;
+    const people = peopleResult.error ? [] : (peopleResult.data ?? []) as WorkspacePreviewPersonRow[];
+    const meetings = meetingsResult.error ? [] : (meetingsResult.data ?? []) as WorkspacePreviewMeetingRow[];
     const prayers = prayerResult.error ? [] : (prayerResult.data ?? []) as Array<{ created_at: string | null; id: string; request: string | null; status: string | null; title: string | null; updated_at: string | null }>;
     const fruit = fruitResult.error ? [] : (fruitResult.data ?? []) as Array<{ body: string | null; cc_status: string | null; created_at: string | null; id: string; source_app: string | null; title: string | null; updated_at: string | null }>;
+    const tableReviews = tableReviewsResult.error ? [] : (tableReviewsResult.data ?? []) as WorkspacePreviewTableReviewRow[];
+    const reviewByTableId = new Map(tableReviews.map((review) => [review.table_id, review]));
+    const meetingCountByPersonId = new Map<string, number>();
+    const lastMeetingAtByPersonId = new Map<string, string | null>();
+
+    meetings.forEach((meeting) => {
+      (meeting.field_person_ids ?? []).forEach((personId) => {
+        meetingCountByPersonId.set(personId, (meetingCountByPersonId.get(personId) ?? 0) + 1);
+        lastMeetingAtByPersonId.set(
+          personId,
+          latestDate([lastMeetingAtByPersonId.get(personId), meeting.table_date, meeting.updated_at, meeting.created_at]),
+        );
+      });
+    });
+
+    const fieldMeetings = meetings.map((meeting) => {
+      const review = reviewByTableId.get(meeting.id);
+
+      return {
+        conversationFlow: meeting.conversation_flow_key ?? null,
+        date: meeting.table_date ?? meeting.updated_at ?? meeting.created_at,
+        followUpNeeded: review?.follow_up_needed ?? null,
+        id: meeting.id,
+        movementStep: review?.movement_step ?? null,
+        notes: meeting.notes,
+        participantNames: (meeting.participant_names ?? []).filter(Boolean),
+        personIds: meeting.field_person_ids ?? [],
+        type: meeting.table_type,
+      };
+    });
+    const fieldPeople = people.map((person) => ({
+      church: person.church,
+      email: person.email,
+      id: person.id,
+      lastActivityAt: latestDate([person.last_activity_at, lastMeetingAtByPersonId.get(person.id), person.updated_at, person.created_at]),
+      lastMeetingAt: lastMeetingAtByPersonId.get(person.id) ?? null,
+      meetingCount: meetingCountByPersonId.get(person.id) ?? 0,
+      name: person.name,
+      notes: person.notes,
+      phone: person.phone,
+      relationshipType: person.relationship_type,
+      status: person.status,
+    }));
     const teamMembers = teamMembersResult.error
       ? []
       : ((teamMembersResult.data ?? []) as Array<{ display_name: string | null; id: string; role_title: string | null }>)
@@ -596,6 +678,10 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
           prayerEnabled: household.show_prayer !== false && household.enable_prayer_team !== false,
           publicProfileEnabled: household.public_visible !== false && household.show_household !== false,
           publishingEnabled: household.show_fruit !== false || household.show_story !== false,
+        },
+        field: {
+          meetings: fieldMeetings,
+          people: fieldPeople,
         },
         members: teamMembers,
         missionFocus: {

@@ -8,6 +8,8 @@ import {
   Heart,
   Home,
   Import,
+  Mail,
+  Phone,
   Plus,
   Search,
   Settings,
@@ -18,6 +20,7 @@ import {
 import { AdminBadge, AdminEmptyState, adminFont } from "../../../_components/AdminUI";
 import { getAdminAuthorization } from "@/src/lib/admin-auth";
 import { loadWorkspacePreviewData } from "@/src/lib/admin/organization-data";
+import type { WorkspacePreviewData } from "@/src/lib/admin/organization-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +44,23 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
+function formatLongDate(value: string | null) {
+  if (!value) {
+    return "No date";
+  }
+
+  const date = new Date(value.includes("T") ? value : `${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return "No date";
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 function initialsFor(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = parts.length > 1
@@ -48,6 +68,73 @@ function initialsFor(name: string) {
     : name.slice(0, 2);
 
   return initials.toUpperCase() || "W";
+}
+
+type WorkspacePreviewSection = "field" | "home" | "more" | "prayer";
+
+function normalizeSection(value: string | undefined): WorkspacePreviewSection {
+  return value === "field" || value === "prayer" || value === "more" ? value : "home";
+}
+
+function formatLabel(value: string | null) {
+  if (!value) {
+    return "Not set";
+  }
+
+  return value
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatConversationFlow(value: string | null) {
+  if (!value || value === "none") {
+    return "No flow";
+  }
+
+  return value === "kitchen_table_gospel" ? "Kitchen Table Gospel" : formatLabel(value);
+}
+
+function participantLine(names: string[]) {
+  if (names.length === 0) {
+    return "No participants";
+  }
+
+  if (names.length === 1) {
+    return names[0];
+  }
+
+  if (names.length === 2) {
+    return `${names[0]} + ${names[1]}`;
+  }
+
+  return `${names[0]} + ${names.length - 1} others`;
+}
+
+function searchText(value: string | null | undefined) {
+  return value?.toLowerCase() ?? "";
+}
+
+function buildSectionHref(
+  basePath: string,
+  section: WorkspacePreviewSection,
+  params: Record<string, string | null | undefined> = {},
+  hash = "",
+) {
+  const searchParams = new URLSearchParams({ viewAs: "workspace_user" });
+
+  if (section !== "home") {
+    searchParams.set("section", section);
+  }
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      searchParams.set(key, value);
+    }
+  });
+
+  return `${basePath}?${searchParams.toString()}${hash}`;
 }
 
 function SignalCard({
@@ -227,25 +314,418 @@ function SecondaryTool({
 
 function BottomNavItem({
   active = false,
+  href,
   icon: Icon,
   label,
 }: {
   active?: boolean;
+  href: string;
   icon: LucideIcon;
   label: string;
 }) {
   return (
-    <span className={`grid justify-items-center gap-1 text-[10px] font-semibold ${active ? "text-[#176BFF]" : "text-[#8E8880]"}`}>
+    <Link className={`grid justify-items-center gap-1 text-[10px] font-semibold ${active ? "text-[#176BFF]" : "text-[#8E8880]"}`} href={href}>
       <Icon className="h-4 w-4" aria-hidden="true" />
       <span>{label}</span>
-    </span>
+    </Link>
   );
 }
 
+function SectionTabs({
+  activeSection,
+  basePath,
+}: {
+  activeSection: WorkspacePreviewSection;
+  basePath: string;
+}) {
+  const tabs: Array<{ icon: LucideIcon; label: string; section: WorkspacePreviewSection }> = [
+    { icon: Home, label: "Home", section: "home" },
+    { icon: Users, label: "Field", section: "field" },
+    { icon: Heart, label: "Prayer", section: "prayer" },
+    { icon: BookOpen, label: "More", section: "more" },
+  ];
+
+  return (
+    <nav className="mb-5 hidden grid-cols-4 gap-1.5 rounded-2xl border border-[#E2DDD3] bg-white/70 p-1.5 lg:grid" aria-label="Workspace sections">
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        const active = activeSection === tab.section;
+
+        return (
+          <Link
+            className={`inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold transition sm:gap-2 sm:text-sm ${
+              active ? "bg-[#176BFF] text-white shadow-[0_10px_24px_rgba(23,107,255,0.2)]" : "text-[#6F675D] hover:bg-[#EAF2FF] hover:text-[#176BFF]"
+            }`}
+            href={buildSectionHref(basePath, tab.section)}
+            key={tab.section}
+          >
+            <Icon className="h-4 w-4" aria-hidden="true" />
+            {tab.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+function FieldPersonCard({
+  href,
+  person,
+  selected,
+}: {
+  href: string;
+  person: WorkspacePreviewData["field"]["people"][number];
+  selected: boolean;
+}) {
+  return (
+    <Link
+      className={`group block rounded-2xl border p-3 transition hover:border-[#75A8FF] ${
+        selected ? "border-[#75A8FF] bg-[#F3F7FF]" : "border-[#ECE7DD] bg-[#FBFAF7]"
+      }`}
+      href={href}
+    >
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#DCEAFF] text-sm font-bold text-[#176BFF]">
+          {initialsFor(person.name)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold text-[#111111]">{person.name}</span>
+          <span className="mt-1 flex flex-wrap gap-1.5">
+            <span className="rounded-full border border-[#D7D0C4] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#6F675D]">
+              {formatLabel(person.relationshipType)}
+            </span>
+            <span className="rounded-full bg-[#EAF2FF] px-2 py-0.5 text-[11px] font-semibold text-[#176BFF]">
+              {formatLabel(person.status)}
+            </span>
+          </span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-[#B6AEA3] transition group-hover:text-[#176BFF]" aria-hidden="true" />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#7B756C]">
+        <span>{person.meetingCount} meetings</span>
+        <span>Last {formatDate(person.lastActivityAt)}</span>
+      </div>
+    </Link>
+  );
+}
+
+function FieldMeetingCard({
+  meeting,
+}: {
+  meeting: WorkspacePreviewData["field"]["meetings"][number];
+}) {
+  return (
+    <article className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-bold text-[#111111]">{participantLine(meeting.participantNames)}</h3>
+          <p className="mt-1 text-xs text-[#7B756C]">
+            {formatLabel(meeting.type)} • {formatLongDate(meeting.date)}
+          </p>
+        </div>
+        <span className="rounded-full bg-[#EAF2FF] px-2.5 py-1 text-[11px] font-semibold text-[#176BFF]">
+          {formatConversationFlow(meeting.conversationFlow)}
+        </span>
+      </div>
+      {meeting.notes ? (
+        <p className="mt-3 line-clamp-2 text-sm leading-5 text-[#746F67]">{meeting.notes}</p>
+      ) : null}
+      {meeting.movementStep || meeting.followUpNeeded ? (
+        <p className="mt-3 rounded-xl border border-[#D6E5FF] bg-white px-3 py-2 text-xs text-[#5F6E88]">
+          {meeting.movementStep ? `Next: ${meeting.movementStep}` : meeting.followUpNeeded}
+        </p>
+      ) : null}
+    </article>
+  );
+}
+
+function PersonQuickView({
+  dosHref,
+  meetings,
+  person,
+  prayerHref,
+  workspaceHref,
+}: {
+  dosHref: string;
+  meetings: WorkspacePreviewData["field"]["meetings"];
+  person: WorkspacePreviewData["field"]["people"][number] | undefined;
+  prayerHref: string;
+  workspaceHref: string;
+}) {
+  if (!person) {
+    return (
+      <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8E8880]" style={{ fontFamily: adminFont.rajdhani }}>
+          Person
+        </p>
+        <p className="mt-3 text-sm text-[#746F67]">Select a person to view details.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="scroll-mt-24 rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5" id="person-detail">
+      <div className="flex items-start gap-3">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#DCEAFF] text-base font-bold text-[#176BFF]">
+          {initialsFor(person.name)}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8E8880]" style={{ fontFamily: adminFont.rajdhani }}>
+            Person
+          </p>
+          <h2 className="mt-1 break-words text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+            {person.name}
+          </h2>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full border border-[#D7D0C4] px-2 py-0.5 text-[11px] font-semibold text-[#6F675D]">
+              {formatLabel(person.relationshipType)}
+            </span>
+            <span className="rounded-full bg-[#EAF2FF] px-2 py-0.5 text-[11px] font-semibold text-[#176BFF]">
+              {formatLabel(person.status)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-2 text-sm text-[#312D27]">
+        {person.phone ? (
+          <p className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-[#176BFF]" aria-hidden="true" />
+            {person.phone}
+          </p>
+        ) : null}
+        {person.email ? (
+          <p className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-[#176BFF]" aria-hidden="true" />
+            {person.email}
+          </p>
+        ) : null}
+        {person.church ? (
+          <p className="flex items-center gap-2">
+            <Home className="h-4 w-4 text-[#176BFF]" aria-hidden="true" />
+            {person.church}
+          </p>
+        ) : null}
+      </div>
+
+      {person.notes ? (
+        <p className="mt-5 rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-3 text-sm leading-5 text-[#746F67]">{person.notes}</p>
+      ) : null}
+
+      <div className="mt-5 grid gap-2 sm:grid-cols-3">
+        <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#176BFF] px-4 text-sm font-semibold text-white" href={`${workspaceHref}&tab=meetings`}>
+          Log Meeting
+        </Link>
+        <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#D7D0C4] bg-white px-4 text-sm font-semibold text-[#111111]" href={prayerHref}>
+          Prayer Request
+        </Link>
+        <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#D7D0C4] bg-white px-4 text-sm font-semibold text-[#111111]" href={dosHref} target="_blank" rel="noreferrer">
+          Open in DOS
+        </Link>
+      </div>
+
+      <div className="mt-6">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8E8880]" style={{ fontFamily: adminFont.rajdhani }}>
+          Recent Meetings
+        </p>
+        <div className="mt-3 space-y-2">
+          {meetings.length > 0 ? meetings.slice(0, 3).map((meeting) => (
+            <FieldMeetingCard key={meeting.id} meeting={meeting} />
+          )) : (
+            <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67]">No meetings yet.</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FieldSection({
+  basePath,
+  dosHref,
+  filteredPeople,
+  preview,
+  searchQuery,
+  selectedPerson,
+  selectedPersonMeetings,
+  statusFilter,
+  workspaceHref,
+}: {
+  basePath: string;
+  dosHref: string;
+  filteredPeople: WorkspacePreviewData["field"]["people"];
+  preview: WorkspacePreviewData;
+  searchQuery: string;
+  selectedPerson: WorkspacePreviewData["field"]["people"][number] | undefined;
+  selectedPersonMeetings: WorkspacePreviewData["field"]["meetings"];
+  statusFilter: string;
+  workspaceHref: string;
+}) {
+  const statusOptions = ["", "new", "active", "follow_up", "discipleship"];
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#176BFF]" style={{ fontFamily: adminFont.rajdhani }}>
+              Field
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+              People
+            </h2>
+          </div>
+          <Link className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#176BFF] px-4 text-sm font-semibold text-white" href={`${workspaceHref}&tab=people`}>
+            Add Person
+          </Link>
+        </div>
+
+        <form action={basePath} className="mt-5" method="get">
+          <input name="viewAs" type="hidden" value="workspace_user" />
+          <input name="section" type="hidden" value="field" />
+          {statusFilter ? <input name="status" type="hidden" value={statusFilter} /> : null}
+          <label className="relative block">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9A9488]" aria-hidden="true" />
+            <input
+              className="min-h-12 w-full rounded-2xl border border-[#E2DDD3] bg-[#FBFAF7] pl-10 pr-4 text-sm text-[#111111] outline-none transition focus:border-[#75A8FF] focus:bg-white"
+              defaultValue={searchQuery}
+              name="q"
+              placeholder="Search people"
+              type="search"
+            />
+          </label>
+        </form>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {statusOptions.map((status) => {
+            const active = statusFilter === status;
+
+            return (
+              <Link
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  active ? "bg-[#176BFF] text-white" : "border border-[#D7D0C4] bg-white text-[#6F675D] hover:border-[#75A8FF] hover:text-[#176BFF]"
+                }`}
+                href={buildSectionHref(basePath, "field", { q: searchQuery, status })}
+                key={status || "all"}
+              >
+                {status ? formatLabel(status) : "All"}
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 space-y-2">
+          {filteredPeople.length > 0 ? filteredPeople.map((person) => (
+            <FieldPersonCard
+              href={buildSectionHref(basePath, "field", { person: person.id, q: searchQuery, status: statusFilter }, "#person-detail")}
+              key={person.id}
+              person={person}
+              selected={selectedPerson?.id === person.id}
+            />
+          )) : (
+            <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67]">
+              No people match this field view.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <PersonQuickView
+        dosHref={dosHref}
+        meetings={selectedPersonMeetings}
+        person={selectedPerson}
+        prayerHref="/admin/prayer-team"
+        workspaceHref={workspaceHref}
+      />
+
+      <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5 lg:col-span-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8E8880]" style={{ fontFamily: adminFont.rajdhani }}>
+              Meetings
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+              Recent meetings
+            </h2>
+          </div>
+          <span className="rounded-full bg-[#EAF2FF] px-3 py-1.5 text-xs font-semibold text-[#176BFF]">
+            {preview.field.meetings.length}
+          </span>
+        </div>
+        <div className="mt-5 grid gap-2 md:grid-cols-2">
+          {preview.field.meetings.length > 0 ? preview.field.meetings.slice(0, 8).map((meeting) => (
+            <FieldMeetingCard key={meeting.id} meeting={meeting} />
+          )) : (
+            <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67] md:col-span-2">
+              No meetings logged yet.
+            </p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PrayerSection({ preview }: { preview: WorkspacePreviewData }) {
+  return (
+    <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#176BFF]" style={{ fontFamily: adminFont.rajdhani }}>
+        Prayer
+      </p>
+      <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+        Prayer requests
+      </h2>
+      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+        <SignalCard detail="Requests connected to this workspace" label="Prayer requests" value={preview.counts.prayerRequests} />
+        <SignalCard detail="Open field priorities" label="Follow ups" value={preview.counts.followUps} />
+      </div>
+      <Link className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[#176BFF] px-5 text-sm font-semibold text-white" href="/admin/prayer-team">
+        Open Prayer
+      </Link>
+    </section>
+  );
+}
+
+function MoreSection({
+  basePath,
+  preview,
+  publicProfileHref,
+  workspaceHref,
+}: {
+  basePath: string;
+  preview: WorkspacePreviewData;
+  publicProfileHref: string;
+  workspaceHref: string;
+}) {
+  return (
+    <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#176BFF]" style={{ fontFamily: adminFont.rajdhani }}>
+        More
+      </p>
+      <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+        Workspace tools
+      </h2>
+      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+        <SecondaryTool href={buildSectionHref(basePath, "field")} icon={Users} label="Field" />
+        <SecondaryTool href="/admin/prayer-team" icon={Heart} label="Prayer" />
+        {preview.features.publicProfileEnabled ? (
+          <SecondaryTool href={publicProfileHref} icon={Home} label="Public Profile" />
+        ) : null}
+        <SecondaryTool disabled href="#" icon={BookOpen} label="Resources" />
+        <SecondaryTool href={`${workspaceHref}&tab=people`} icon={Import} label="Imports" />
+        <SecondaryTool href={`${workspaceHref}&tab=features`} icon={Settings} label="Settings" />
+      </div>
+    </section>
+  );
+}
+
+
 export default async function WorkspacePreviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ person?: string; q?: string; section?: string; status?: string; viewAs?: string }>;
 }) {
   const authorization = await getAdminAuthorization();
 
@@ -254,6 +734,7 @@ export default async function WorkspacePreviewPage({
   }
 
   const { id } = await params;
+  const query = await searchParams;
   const { error, preview } = await loadWorkspacePreviewData(id);
 
   if (!preview && !error) {
@@ -276,11 +757,38 @@ export default async function WorkspacePreviewPage({
   const workspaceHref = `/admin/missionary-profiles?profile=${preview.workspace.slug}`;
   const dosHref = `/dos/app?workspace=${encodeURIComponent(preview.workspace.slug)}`;
   const publicProfileHref = `/missionaries/${preview.workspace.slug}`;
+  const basePath = `/admin/workspaces/${preview.workspace.id}/preview`;
+  const activeSection = normalizeSection(query.section);
+  const searchQuery = query.q?.trim() ?? "";
+  const normalizedSearchQuery = searchQuery.toLowerCase();
+  const statusFilter = query.status?.trim() ?? "";
+  const filteredPeople = preview.field.people.filter((person) => {
+    const matchesSearch = !normalizedSearchQuery || [
+      person.name,
+      person.phone,
+      person.email,
+      person.church,
+      person.relationshipType,
+      person.status,
+    ].some((value) => searchText(value).includes(normalizedSearchQuery));
+    const matchesStatus = !statusFilter || person.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+  const selectedPerson = preview.field.people.find((person) => person.id === query.person)
+    ?? filteredPeople[0]
+    ?? preview.field.people[0];
+  const selectedPersonMeetings = selectedPerson
+    ? preview.field.meetings.filter((meeting) => (
+      meeting.personIds.includes(selectedPerson.id)
+      || meeting.participantNames.some((name) => name.toLowerCase() === selectedPerson.name.toLowerCase())
+    ))
+    : [];
   const quickActions = [
     { href: `${workspaceHref}&tab=people`, icon: UserPlus, label: "Add Person", meta: "Field" },
     { href: `${workspaceHref}&tab=meetings`, icon: Plus, label: "Log Meeting", meta: "Tables" },
-    { href: `${workspaceHref}&tab=people`, icon: Search, label: "Search", meta: "Find someone" },
-    { href: "/admin/prayer-team", icon: Heart, label: "Prayer Request", meta: "Prayer" },
+    { href: buildSectionHref(basePath, "field"), icon: Search, label: "Search", meta: "Find someone" },
+    { href: buildSectionHref(basePath, "prayer"), icon: Heart, label: "Prayer Request", meta: "Prayer" },
   ];
   const visibleMembers = preview.members.slice(0, 4);
 
@@ -364,8 +872,12 @@ export default async function WorkspacePreviewPage({
             </div>
           </header>
 
-          <div className="grid gap-5 px-4 pb-24 pt-5 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_360px] lg:px-7 lg:pb-8 lg:pt-7">
-            <div className="space-y-5">
+          <div className="px-4 pb-24 pt-5 sm:px-6 lg:px-7 lg:pb-8 lg:pt-7">
+            <SectionTabs activeSection={activeSection} basePath={basePath} />
+
+            {activeSection === "home" ? (
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_360px]">
+                <div className="space-y-5">
               <MissionFocusCard
                 my3={preview.missionFocus.my3}
                 my12={preview.missionFocus.my12}
@@ -456,8 +968,8 @@ export default async function WorkspacePreviewPage({
                 Tools
               </p>
               <div className="space-y-2">
-                <SecondaryTool href={`${workspaceHref}&tab=people`} icon={Users} label="Field" />
-                <SecondaryTool href="/admin/prayer-team" icon={Heart} label="Prayer" />
+                <SecondaryTool href={buildSectionHref(basePath, "field")} icon={Users} label="Field" />
+                <SecondaryTool href={buildSectionHref(basePath, "prayer")} icon={Heart} label="Prayer" />
                 {preview.features.publicProfileEnabled ? (
                   <SecondaryTool href={publicProfileHref} icon={Home} label="Public Profile" />
                 ) : null}
@@ -466,13 +978,36 @@ export default async function WorkspacePreviewPage({
                 <SecondaryTool href={`${workspaceHref}&tab=features`} icon={Settings} label="Settings" />
               </div>
             </section>
+              </div>
+            ) : activeSection === "field" ? (
+              <FieldSection
+                basePath={basePath}
+                dosHref={dosHref}
+                filteredPeople={filteredPeople}
+                preview={preview}
+                searchQuery={searchQuery}
+                selectedPerson={selectedPerson}
+                selectedPersonMeetings={selectedPersonMeetings}
+                statusFilter={statusFilter}
+                workspaceHref={workspaceHref}
+              />
+            ) : activeSection === "prayer" ? (
+              <PrayerSection preview={preview} />
+            ) : (
+              <MoreSection
+                basePath={basePath}
+                preview={preview}
+                publicProfileHref={publicProfileHref}
+                workspaceHref={workspaceHref}
+              />
+            )}
           </div>
 
           <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#E2DCCD] bg-[#F9F7F1]/95 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden" aria-label="Workspace preview navigation">
-            <BottomNavItem active icon={Home} label="Home" />
-            <BottomNavItem icon={Users} label="Field" />
-            <BottomNavItem icon={Heart} label="Prayer" />
-            <BottomNavItem icon={BookOpen} label={preview.features.publicProfileEnabled ? "Profile" : "More"} />
+            <BottomNavItem active={activeSection === "home"} href={buildSectionHref(basePath, "home")} icon={Home} label="Home" />
+            <BottomNavItem active={activeSection === "field"} href={buildSectionHref(basePath, "field")} icon={Users} label="Field" />
+            <BottomNavItem active={activeSection === "prayer"} href={buildSectionHref(basePath, "prayer")} icon={Heart} label="Prayer" />
+            <BottomNavItem active={activeSection === "more"} href={buildSectionHref(basePath, "more")} icon={BookOpen} label="More" />
           </nav>
         </div>
       </section>

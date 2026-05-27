@@ -37,6 +37,32 @@ export type WorkspacePreviewData = {
     timestamp: string | null;
     title: string;
   }>;
+  field: {
+    meetings: Array<{
+      conversationFlow: string | null;
+      date: string | null;
+      followUpNeeded: string | null;
+      id: string;
+      movementStep: string | null;
+      notes: string | null;
+      participantNames: string[];
+      personIds: string[];
+      type: string | null;
+    }>;
+    people: Array<{
+      church: string | null;
+      email: string | null;
+      id: string;
+      lastActivityAt: string | null;
+      lastMeetingAt: string | null;
+      meetingCount: number;
+      name: string;
+      notes: string | null;
+      phone: string | null;
+      relationshipType: string | null;
+      status: string | null;
+    }>;
+  };
   counts: {
     fieldPeople: number;
     fruit: number;
