@@ -12,28 +12,36 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 function VideoPlaceholderCard() {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/[0.18] bg-[linear-gradient(rgba(255,255,255,0.02),rgba(255,255,255,0.01))] shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_20px_60px_rgba(0,0,0,0.6)]">
-      <div className="absolute inset-x-0 top-0 h-px bg-white/[0.15]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(212,160,84,0.075),transparent_26%),radial-gradient(ellipse_at_center,transparent_34%,rgba(0,0,0,0.72)_100%),linear-gradient(135deg,rgba(255,255,255,0.045),transparent_42%,rgba(212,160,84,0.02))]" />
+    <div className="group relative overflow-hidden rounded-xl border border-white/[0.16] bg-[#050505] shadow-[0_0_0_1px_rgba(255,255,255,0.045),0_26px_80px_rgba(0,0,0,0.72)]">
+      <div className="absolute inset-x-0 top-0 h-px bg-white/[0.18]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(212,160,84,0.16),transparent_23%),radial-gradient(ellipse_at_center,rgba(255,255,255,0.04),transparent_42%),linear-gradient(180deg,rgba(0,0,0,0.05),rgba(0,0,0,0.76))]" />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:18px_18px] opacity-[0.06]" />
+      <div className="absolute inset-x-0 top-0 h-10 bg-black/35" />
+      <div className="absolute inset-x-0 bottom-0 h-12 bg-black/45" />
 
-      <div className="relative aspect-video p-5 md:p-7">
+      <div className="relative aspect-video min-h-[286px] p-5 md:min-h-0 md:p-7">
         <div className="flex h-full flex-col">
           <div>
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[2px] text-[rgba(212,160,23,0.85)] [text-shadow:0_0_8px_rgba(212,160,23,0.25)]" style={{ fontFamily: font.rajdhani }}>
-              Coming Soon
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[2px] text-[rgba(212,160,23,0.9)] [text-shadow:0_0_8px_rgba(212,160,23,0.28)]" style={{ fontFamily: font.rajdhani }}>
+              Film In Progress
             </p>
             <h2 className="max-w-sm text-2xl font-semibold leading-[1.2] text-white md:text-3xl" style={{ fontFamily: font.oswald }}>
               Kitchen Table Testimony
             </h2>
-            <p className="mt-5 max-w-sm text-sm leading-6 text-white/70">
-              A story from the table.
+            <p className="mt-5 max-w-[17rem] text-sm leading-6 text-white/68 md:max-w-sm">
+              Prayer, surrender, and a home becoming holy ground.
             </p>
           </div>
 
-          <div className="absolute inset-0 flex translate-y-4 items-center justify-center">
-            <div className="flex h-[84px] w-[84px] items-center justify-center rounded-full border-2 border-white/40 bg-black/30 shadow-[0_0_30px_rgba(212,160,23,0.2)] backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-[0_0_36px_rgba(212,160,23,0.3)]">
+          <div className="absolute inset-x-0 bottom-10 flex justify-center md:inset-0 md:translate-y-4 md:items-center">
+            <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-white/50 bg-black/35 shadow-[0_0_0_9px_rgba(255,255,255,0.035),0_0_42px_rgba(212,160,23,0.26)] backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:border-amber-200/70 group-hover:shadow-[0_0_0_11px_rgba(255,255,255,0.04),0_0_52px_rgba(212,160,23,0.34)] md:h-[86px] md:w-[86px]">
               <div className="ml-1 h-0 w-0 border-y-[13px] border-l-[21px] border-y-transparent border-l-stone-100" />
             </div>
+          </div>
+
+          <div className="mt-auto flex items-end justify-between gap-4 text-[10px] uppercase tracking-[0.22em] text-white/38" style={{ fontFamily: font.rajdhani }}>
+            <span>USA Missionaries</span>
+            <span>Preview</span>
           </div>
         </div>
       </div>
@@ -126,9 +134,9 @@ export default async function MissionPage({
       <PrimaryNav active="briefing" />
 
       <section className="relative overflow-hidden px-6 pb-24 pt-24 md:pb-32 md:pt-32">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_28%,rgba(212,160,84,0.12),transparent_24%),linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[length:auto,72px_72px,72px_72px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_34%,#050505_100%)]" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_21%_36%,rgba(212,160,84,0.17),transparent_25%),radial-gradient(circle_at_74%_42%,rgba(255,255,255,0.045),transparent_24%),linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[length:auto,auto,86px_86px,86px_86px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,5,5,0.38),transparent_28%,rgba(5,5,5,0.88)_100%),radial-gradient(ellipse_at_center,transparent_32%,#050505_100%)]" />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[0.92fr_1.08fr]">
           <div>
             <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
               Mission Briefing
@@ -137,7 +145,7 @@ export default async function MissionPage({
               BRIEFING
             </h1>
             <p className="mt-8 max-w-3xl text-base md:text-lg leading-8 text-stone-400">
-              Active field reports, movement metrics, and operational visibility.
+              A quiet look at what God is doing around kitchen tables, in living rooms, and through ordinary obedience across America.
             </p>
             <MissionReviewCTA />
           </div>
