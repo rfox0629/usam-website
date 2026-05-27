@@ -320,6 +320,9 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
 
   try {
     const supabase = createSupabaseAdminClient();
+    const recentMeetingSince = new Date();
+    recentMeetingSince.setDate(recentMeetingSince.getDate() - 7);
+    const recentMeetingSinceDate = recentMeetingSince.toISOString().slice(0, 10);
     const householdResult = await supabase
       .from("missionary_households")
       .select(householdFeatureSelect)
@@ -351,7 +354,14 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
       prayerCountResult,
       fruitResult,
       fruitCountResult,
-      teamResult,
+      teamCountResult,
+      teamMembersResult,
+      peopleFollowUpCountResult,
+      reviewFollowUpCountResult,
+      connectionFollowUpCountResult,
+      recentMeetingsCountResult,
+      reviewMovementStepCountResult,
+      connectionMovementStepCountResult,
       collectiveResult,
     ] = await Promise.all([
       supabase
@@ -399,6 +409,46 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         .select("id", { count: "exact", head: true })
         .eq("household_id", workspaceId),
       supabase
+        .from("missionary_team_members")
+        .select("id, display_name, role_title")
+        .eq("household_id", workspaceId)
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .limit(6),
+      supabase
+        .from("missionary_field_people")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId)
+        .eq("status", "follow_up"),
+      supabase
+        .from("missionary_table_reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("household_id", workspaceId)
+        .not("follow_up_needed", "is", null)
+        .neq("follow_up_needed", ""),
+      supabase
+        .from("missionary_connection_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("household_id", workspaceId)
+        .not("follow_up_needed", "is", null)
+        .neq("follow_up_needed", ""),
+      supabase
+        .from("missionary_tables")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId)
+        .gte("table_date", recentMeetingSinceDate),
+      supabase
+        .from("missionary_table_reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("household_id", workspaceId)
+        .not("movement_step", "is", null)
+        .neq("movement_step", ""),
+      supabase
+        .from("missionary_connection_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("household_id", workspaceId)
+        .not("movement_step", "is", null)
+        .neq("movement_step", ""),
+      supabase
         .from("collectives")
         .select("owner_organization_id")
         .eq("slug", household.slug)
@@ -419,6 +469,19 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
     const meetings = meetingsResult.error ? [] : (meetingsResult.data ?? []) as Array<{ created_at: string | null; id: string; notes: string | null; participant_names: string[] | null; table_date: string | null; table_type: string | null; updated_at: string | null }>;
     const prayers = prayerResult.error ? [] : (prayerResult.data ?? []) as Array<{ created_at: string | null; id: string; request: string | null; status: string | null; title: string | null; updated_at: string | null }>;
     const fruit = fruitResult.error ? [] : (fruitResult.data ?? []) as Array<{ body: string | null; cc_status: string | null; created_at: string | null; id: string; source_app: string | null; title: string | null; updated_at: string | null }>;
+    const teamMembers = teamMembersResult.error
+      ? []
+      : ((teamMembersResult.data ?? []) as Array<{ display_name: string | null; id: string; role_title: string | null }>)
+        .map((member, index) => ({
+          id: member.id,
+          name: member.display_name?.trim() || `Member ${index + 1}`,
+          role: member.role_title?.trim() || null,
+        }));
+    const followUpCount = (peopleFollowUpCountResult.error ? 0 : peopleFollowUpCountResult.count ?? 0)
+      + (reviewFollowUpCountResult.error ? 0 : reviewFollowUpCountResult.count ?? 0)
+      + (connectionFollowUpCountResult.error ? 0 : connectionFollowUpCountResult.count ?? 0);
+    const readyForNextStepCount = (reviewMovementStepCountResult.error ? 0 : reviewMovementStepCountResult.count ?? 0)
+      + (connectionMovementStepCountResult.error ? 0 : connectionMovementStepCountResult.count ?? 0);
     const activity = [
       ...meetings.map((meeting) => ({
         detail: meeting.notes || "Meeting logged",
@@ -463,9 +526,12 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         counts: {
           fieldPeople: peopleCountResult.error ? people.length : peopleCountResult.count ?? 0,
           fruit: fruitCountResult.error ? fruit.length : fruitCountResult.count ?? 0,
+          followUps: followUpCount,
           meetings: meetingsCountResult.error ? meetings.length : meetingsCountResult.count ?? 0,
-          members: teamResult.error ? 0 : teamResult.count ?? 0,
+          members: teamCountResult.error ? teamMembers.length : teamCountResult.count ?? 0,
           prayerRequests: prayerCountResult.error ? prayers.length : prayerCountResult.count ?? 0,
+          readyForNextStep: readyForNextStepCount,
+          recentMeetings: recentMeetingsCountResult.error ? meetings.length : recentMeetingsCountResult.count ?? 0,
         },
         features: {
           dosEnabled: true,
@@ -473,6 +539,7 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
           publicProfileEnabled: household.public_visible !== false && household.show_household !== false,
           publishingEnabled: household.show_fruit !== false || household.show_story !== false,
         },
+        members: teamMembers,
         organizationName: organizationResult.data?.name ?? "USA Missionaries",
         workspace: {
           displayName: household.display_name,

@@ -40,9 +40,12 @@ export type WorkspacePreviewData = {
   counts: {
     fieldPeople: number;
     fruit: number;
+    followUps: number;
     meetings: number;
     members: number;
     prayerRequests: number;
+    readyForNextStep: number;
+    recentMeetings: number;
   };
   features: {
     dosEnabled: boolean;
@@ -50,6 +53,11 @@ export type WorkspacePreviewData = {
     publicProfileEnabled: boolean;
     publishingEnabled: boolean;
   };
+  members: Array<{
+    id: string;
+    name: string;
+    role: string | null;
+  }>;
   organizationName: string;
   workspace: {
     displayName: string;
