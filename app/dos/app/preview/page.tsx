@@ -394,14 +394,17 @@ function buildDosPreviewDemoData(): DosAppData {
       peopleCount: people.length,
     },
     workspace: {
-      displayName: "Ryan & Brooke Fox",
+      displayName: "Fox Family",
+      greetingName: "Ryan",
       id: demoWorkspaceId,
       isPreview: true,
       isUsamWorkspace: true,
+      organizationName: "USA Missionaries",
       profileImageUrl: null,
       publicProfileHref: "/missionaries/ryan-brooke-fox",
       shortMission: "DOS blue mobile demo preview.",
       slug: "dos-preview",
+      stateName: "Minnesota",
     },
   };
 }

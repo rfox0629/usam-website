@@ -19,7 +19,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppReviewStatus } from "@/src/lib/dos/missionary-app";
+import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 
@@ -183,9 +183,10 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
     case "fruit":
       return (
         <svg {...commonProps}>
-          <path d="M12 21c4-3 7-7 7-11a7 7 0 0 0-14 0c0 4 3 8 7 11Z" />
-          <path d="M12 11v4" />
-          <path d="M9.5 8.5c1.2-1 2.8-1 5 0" />
+          <path d="M12 21V10" />
+          <path d="M12 13.5c-3.7 0-6.2-2.3-7-6.6 4 .1 6.5 2.2 7 6.6Z" />
+          <path d="M12 11.5c.9-3.8 3.4-5.8 7.2-5.9-.4 4.3-3 6.4-7.2 5.9Z" />
+          <path d="M12 18c2.3-.4 4-1.7 5.1-3.9" />
         </svg>
       );
     case "home":
@@ -676,6 +677,34 @@ function firstNameFromDisplayName(name: string) {
   const first = cleaned.split(/\s+/)[0]?.trim();
 
   return first || "Ryan";
+}
+
+function cleanIdentitySegment(value: string | null | undefined) {
+  const text = value?.trim();
+
+  return text ? text : null;
+}
+
+function workspaceIdentityLine(workspace: DosAppWorkspace) {
+  return [
+    cleanIdentitySegment(workspace.displayName) ?? "My Field",
+    cleanIdentitySegment(workspace.stateName),
+    cleanIdentitySegment(workspace.organizationName),
+  ].filter(Boolean).join(" · ");
+}
+
+function localTimeGreeting(date = new Date()) {
+  const hour = date.getHours();
+
+  if (hour < 12) {
+    return "Good morning";
+  }
+
+  if (hour < 17) {
+    return "Good afternoon";
+  }
+
+  return "Good evening";
 }
 
 function avatarTone(index: number) {
@@ -1249,23 +1278,6 @@ function SegmentedTabs<T extends string>({
   );
 }
 
-function CompactMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: number | string;
-}) {
-  return (
-    <div className="rounded-[18px] bg-white/70 px-3 py-3 text-center shadow-[0_8px_22px_rgba(42,37,29,0.035)]">
-      <p className="text-lg font-bold leading-none text-[#0F172A]">{value}</p>
-      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-        {label}
-      </p>
-    </div>
-  );
-}
-
 function PersonCard({
   index,
   onClick,
@@ -1487,25 +1499,25 @@ function CircleTarget({
       />
       <button
         aria-label={`Open My 70, ${my70Count} people`}
-        className="absolute left-1/2 top-[7px] z-20 flex h-6 min-w-8 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center transition-colors hover:bg-white/55 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        className="absolute left-1/2 top-[5px] z-20 flex h-8 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center transition-colors hover:bg-white/55 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("seventy");
         }}
         type="button"
       >
-        <span className="text-[9px] font-bold leading-none text-[#2563EB]">70</span>
+        <span className="text-[13px] font-bold leading-none text-[#2563EB]">70</span>
       </button>
       <button
         aria-label={`Open My 12, ${my12Count} people`}
-        className="absolute left-1/2 top-[39px] z-20 flex h-6 min-w-8 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center transition-colors hover:bg-white/55 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        className="absolute left-1/2 top-[29px] z-20 flex h-8 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center transition-colors hover:bg-white/55 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("twelve");
         }}
         type="button"
       >
-        <span className="text-[10px] font-bold leading-none text-[#2563EB]">12</span>
+        <span className="text-[13px] font-bold leading-none text-[#2563EB]">12</span>
       </button>
       <button
         aria-label={`Open My 3, ${my3Count} people`}
@@ -1516,7 +1528,7 @@ function CircleTarget({
         }}
         type="button"
       >
-        <span className="text-[18px] font-bold leading-none text-white">3</span>
+        <span className="text-[13px] font-bold leading-none text-white">3</span>
       </button>
     </div>
   );
@@ -1542,7 +1554,7 @@ function CircleFocusHero({
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
             Circle Focus
           </p>
-          <h2 className="mt-1 max-w-[250px] text-xl font-semibold leading-tight text-[#0F172A]">Your discipleship circles.</h2>
+          <h2 className="mt-1 max-w-[250px] text-xl font-semibold leading-tight text-[#0F172A]">Steward the field you were given.</h2>
           <p className="mt-1 max-w-[220px] text-xs leading-4 text-[#64748B]">Tap a circle to see who's inside.</p>
         </div>
         <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#2563EB]" aria-hidden="true" />
@@ -1550,18 +1562,8 @@ function CircleFocusHero({
 
       <CircleTarget my12Count={my12Count} my3Count={my3Count} my70Count={my70Count} onSelectCircle={onSelectCircle} />
 
-      <p className="mx-auto mt-2 max-w-[250px] text-center text-[10px] leading-4 text-[#64748B]">
-        Your 3 are at the center. Your 12 surround them. Your 70 is your broader field.
-      </p>
-
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <CompactMetric label="My 3" value={my3Count} />
-        <CompactMetric label="My 12" value={my12Count} />
-        <CompactMetric label="My 70" value={my70Count} />
-      </div>
-
       <button
-        className="mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
+        className="mt-5 inline-flex min-h-9 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
         onClick={onViewCircles}
         type="button"
       >
@@ -4146,9 +4148,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return preferredPeople.slice(0, 3);
   }, [attentionPeople, my3CirclePeople]);
-  const workspaceLabel = data.workspace.isUsamWorkspace ? `${data.workspace.displayName} · USA` : data.workspace.displayName;
-  const greetingName = firstNameFromDisplayName(data.workspace.displayName);
+  const workspaceLabel = workspaceIdentityLine(data.workspace);
+  const greetingName = cleanIdentitySegment(data.workspace.greetingName) ?? firstNameFromDisplayName(data.workspace.displayName);
+  const [timeGreeting, setTimeGreeting] = useState("Good morning");
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
+
+  useEffect(() => {
+    const updateGreeting = () => {
+      setTimeGreeting(localTimeGreeting());
+    };
+
+    updateGreeting();
+    const interval = window.setInterval(updateGreeting, 60_000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
 
   function resetMeetingDraft(personIds: string[] = []) {
     setConversationResponses({});
@@ -4789,7 +4805,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     DOS
                   </p>
                   <h1 className="mt-1 max-w-[270px] text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">
-                    Good morning, {greetingName}.
+                    {timeGreeting}, {greetingName}.
                   </h1>
                   <p className="mt-1 truncate text-sm leading-5 text-[#64748B]">{workspaceLabel}</p>
                 </div>

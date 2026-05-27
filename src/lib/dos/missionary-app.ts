@@ -16,6 +16,18 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 type SupabaseQueryError = { message?: string } | null | undefined;
 
+function cleanOptionalText(value: string | null | undefined) {
+  const text = value?.trim();
+
+  return text ? text : null;
+}
+
+function isMissingColumnError(error: SupabaseQueryError) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return message.includes("column") && message.includes("does not exist");
+}
+
 export const dosAppMeetingTypes = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "discipleship", "other"] as const;
 export const dosAppOutcomeTags = [
   "Gospel Conversation",
@@ -43,13 +55,16 @@ export type DosAppReviewStatus = "approved" | "not_sent" | "pending" | "private"
 
 export type DosAppWorkspace = {
   displayName: string;
+  greetingName?: string | null;
   id: string;
   isPreview?: boolean;
   isUsamWorkspace: boolean;
+  organizationName?: string | null;
   profileImageUrl: string | null;
   publicProfileHref: string;
   shortMission: string | null;
   slug: string;
+  stateName?: string | null;
 };
 
 export type DosAppPerson = {
@@ -227,6 +242,8 @@ async function loadFreshCircleData(
 type HouseholdRow = {
   display_name: string;
   id: string;
+  location?: string | null;
+  primary_state?: string | null;
   profile_image_url: string | null;
   short_mission: string | null;
   slug: string;
@@ -725,11 +742,19 @@ async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<
   }
 
   const supabase = createSupabaseAdminClient();
-  const baseSelect = "id, slug, display_name, short_mission, profile_image_url";
-  const query = supabase.from("missionary_households").select(baseSelect);
-  const { data, error } = workspaceSlug
-    ? await query.eq("slug", workspaceSlug).maybeSingle()
-    : await query.order("sort_order", { ascending: true }).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+  const baseSelect = "id, slug, display_name, short_mission, profile_image_url, location";
+  const identitySelect = `${baseSelect}, primary_state`;
+  const runQuery = async (selectColumns: string) => {
+    const query = supabase.from("missionary_households").select(selectColumns);
+
+    return workspaceSlug
+      ? await query.eq("slug", workspaceSlug).maybeSingle()
+      : await query.order("sort_order", { ascending: true }).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+  };
+  const result = await runQuery(identitySelect);
+  const { data, error } = result.error && isMissingColumnError(result.error)
+    ? await runQuery(baseSelect)
+    : result;
 
   if (error) {
     return {
@@ -743,9 +768,39 @@ async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<
   }
 
   return {
-    data: data as HouseholdRow,
+    data: data as unknown as HouseholdRow,
     status: "ready",
   };
+}
+
+async function loadOrganizationNameForWorkspace(supabase: SupabaseAdminClient, workspaceSlug: string) {
+  const collectiveResult = await supabase
+    .from("collectives")
+    .select("owner_organization_id")
+    .eq("slug", workspaceSlug)
+    .maybeSingle();
+
+  if (!collectiveResult.error && collectiveResult.data?.owner_organization_id) {
+    const organizationResult = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", collectiveResult.data.owner_organization_id)
+      .maybeSingle();
+
+    const organizationName = cleanOptionalText(organizationResult.error ? null : organizationResult.data?.name);
+
+    if (organizationName) {
+      return organizationName;
+    }
+  }
+
+  const usamOrganizationResult = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("branding_mode", "usam")
+    .maybeSingle();
+
+  return cleanOptionalText(usamOrganizationResult.error ? null : usamOrganizationResult.data?.name);
 }
 
 export async function loadDosAppData(workspaceSlug?: string | null): Promise<LoadResult<DosAppData>> {
@@ -757,7 +812,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, reviewsFruitResult] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, reviewsFruitResult, organizationName] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -765,6 +820,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadReviewLinksForWorkspace(supabase, workspace.id),
     loadMeetingReviewsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
+    loadOrganizationNameForWorkspace(supabase, workspace.slug),
   ]);
 
   if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || reviewsFruitResult.error) {
@@ -969,12 +1025,15 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       },
       workspace: {
         displayName: workspace.display_name,
+        greetingName: null,
         id: workspace.id,
         isUsamWorkspace: isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug }),
+        organizationName,
         profileImageUrl: workspace.profile_image_url,
         publicProfileHref: `/missionaries/${workspace.slug}`,
         shortMission: workspace.short_mission,
         slug: workspace.slug,
+        stateName: cleanOptionalText(workspace.primary_state ?? workspace.location),
       },
     },
     status: "ready",
