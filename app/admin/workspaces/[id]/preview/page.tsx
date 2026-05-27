@@ -958,36 +958,262 @@ function PrayerSection({
   );
 }
 
+function availabilityToneClass(tone: "admin" | "off" | "ready" | "soon") {
+  if (tone === "ready") {
+    return "bg-[#EAF2FF] text-[#176BFF]";
+  }
+
+  if (tone === "admin") {
+    return "bg-[#FFF4D8] text-[#8A5A00]";
+  }
+
+  if (tone === "off") {
+    return "bg-[#F1EEE7] text-[#746F67]";
+  }
+
+  return "bg-[#F4F8FF] text-[#6E7E96]";
+}
+
+function MoreToolRow({
+  description,
+  disabled = false,
+  href,
+  icon: Icon,
+  label,
+  status,
+  tone = "ready",
+}: {
+  description: string;
+  disabled?: boolean;
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  status: string;
+  tone?: "admin" | "off" | "ready" | "soon";
+}) {
+  const content = (
+    <>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EAF2FF] text-[#176BFF]">
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-[#111111]">{label}</span>
+        <span className="mt-0.5 block text-xs leading-5 text-[#746F67]">{description}</span>
+      </span>
+      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${availabilityToneClass(tone)}`}>
+        {status}
+      </span>
+    </>
+  );
+
+  if (disabled) {
+    return (
+      <span
+        aria-disabled="true"
+        className="flex items-center gap-3 rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-3 opacity-80"
+      >
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      className="group flex items-center gap-3 rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-3 transition hover:border-[#75A8FF] hover:bg-white"
+      href={href}
+    >
+      {content}
+      <ChevronRight className="hidden h-4 w-4 shrink-0 text-[#B6AEA3] transition group-hover:text-[#176BFF] sm:block" aria-hidden="true" />
+    </Link>
+  );
+}
+
+function SettingsRow({
+  label,
+  value,
+  active,
+}: {
+  active?: boolean;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-[#EEE9DF] py-3 last:border-b-0">
+      <span className="text-sm text-[#746F67]">{label}</span>
+      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${active === undefined ? "bg-[#F1EEE7] text-[#4B463F]" : active ? "bg-[#EAF2FF] text-[#176BFF]" : "bg-[#F1EEE7] text-[#746F67]"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function TeamMemberPreview({
+  member,
+}: {
+  member: WorkspacePreviewData["members"][number];
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#DCEAFF] text-sm font-bold text-[#176BFF]">
+        {initialsFor(member.name)}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-bold text-[#111111]">{member.name}</span>
+        <span className="mt-0.5 block truncate text-xs text-[#746F67]">{member.role ?? "Team member"}</span>
+      </span>
+    </div>
+  );
+}
+
 function MoreSection({
-  basePath,
   preview,
   publicProfileHref,
   workspaceHref,
 }: {
-  basePath: string;
   preview: WorkspacePreviewData;
   publicProfileHref: string;
   workspaceHref: string;
 }) {
+  const tools = [
+    ...(preview.features.publicProfileEnabled
+      ? [{
+        description: "Open the public-facing profile.",
+        href: publicProfileHref,
+        icon: Home,
+        label: "Public Profile",
+        status: "Open",
+        tone: "ready" as const,
+      }]
+      : []),
+    {
+      description: "Teaching frameworks and workspace focus.",
+      href: `${workspaceHref}&tab=library`,
+      icon: BookOpen,
+      label: "Resources / Library",
+      status: "Open",
+      tone: "ready" as const,
+    },
+    {
+      description: "Bring contacts into the field list.",
+      href: `${workspaceHref}&tab=people`,
+      icon: Import,
+      label: "Imports / CSV",
+      status: "Open",
+      tone: "ready" as const,
+    },
+    {
+      description: "Review testimonies and fruit drafts.",
+      href: `${workspaceHref}&tab=fruit`,
+      icon: Heart,
+      label: "Reviews / Fruit",
+      status: preview.counts.fruit > 0 ? `${preview.counts.fruit}` : "Open",
+      tone: "ready" as const,
+    },
+    {
+      description: "Profile, publishing, and workspace controls.",
+      href: `${workspaceHref}&tab=features`,
+      icon: Settings,
+      label: "Workspace Settings",
+      status: "Open",
+      tone: "ready" as const,
+    },
+    {
+      description: "Missionary, family, and support team roster.",
+      href: `${workspaceHref}&tab=team`,
+      icon: Users,
+      label: "Team Members",
+      status: preview.members.length > 0 ? `${preview.members.length}` : "Open",
+      tone: "ready" as const,
+    },
+    ...(preview.features.supportEnabled
+      ? [{
+        description: "Giving and support settings.",
+        href: `${workspaceHref}&tab=support`,
+        icon: Heart,
+        label: "Support / Giving",
+        status: "Open",
+        tone: "ready" as const,
+      }]
+      : []),
+    {
+      description: "Return to the operational admin workspace.",
+      href: workspaceHref,
+      icon: ArrowLeft,
+      label: "Command Center",
+      status: "Admin only",
+      tone: "admin" as const,
+    },
+  ];
+
   return (
-    <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#176BFF]" style={{ fontFamily: adminFont.rajdhani }}>
-        More
-      </p>
-      <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
-        Workspace tools
-      </h2>
-      <div className="mt-5 grid gap-2 sm:grid-cols-2">
-        <SecondaryTool href={buildSectionHref(basePath, "field")} icon={Users} label="Field" />
-        <SecondaryTool href="/admin/prayer-team" icon={Heart} label="Prayer" />
-        {preview.features.publicProfileEnabled ? (
-          <SecondaryTool href={publicProfileHref} icon={Home} label="Public Profile" />
-        ) : null}
-        <SecondaryTool disabled href="#" icon={BookOpen} label="Resources" />
-        <SecondaryTool href={`${workspaceHref}&tab=people`} icon={Import} label="Imports" />
-        <SecondaryTool href={`${workspaceHref}&tab=features`} icon={Settings} label="Settings" />
-      </div>
-    </section>
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#176BFF]" style={{ fontFamily: adminFont.rajdhani }}>
+          More
+        </p>
+        <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+          Workspace tools
+        </h2>
+        <div className="mt-5 space-y-2">
+          {tools.map((tool) => (
+            <MoreToolRow
+              description={tool.description}
+              href={tool.href}
+              icon={tool.icon}
+              key={tool.label}
+              label={tool.label}
+              status={tool.status}
+              tone={tool.tone}
+            />
+          ))}
+        </div>
+      </section>
+
+      <aside className="space-y-5">
+        <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8E8880]" style={{ fontFamily: adminFont.rajdhani }}>
+            Settings
+          </p>
+          <h2 className="mt-2 text-xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+            Workspace status
+          </h2>
+          <div className="mt-4">
+            <SettingsRow label="Workspace" value={preview.workspace.displayName} />
+            <SettingsRow label="Organization" value={preview.organizationName} />
+            <SettingsRow active={preview.features.publicProfileEnabled} label="Public profile" value={preview.features.publicProfileEnabled ? "Visible" : "Hidden"} />
+            <SettingsRow active={preview.features.dosEnabled} label="DOS" value={preview.features.dosEnabled ? "Enabled" : "Off"} />
+            <SettingsRow active={preview.features.prayerEnabled} label="Prayer" value={preview.features.prayerEnabled ? "Enabled" : "Off"} />
+            <SettingsRow active={preview.features.publishingEnabled} label="Publishing" value={preview.features.publishingEnabled ? "Enabled" : "Off"} />
+            <SettingsRow active={preview.features.supportEnabled} label="Support" value={preview.features.supportEnabled ? "Enabled" : "Hidden"} />
+          </div>
+        </section>
+
+        <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8E8880]" style={{ fontFamily: adminFont.rajdhani }}>
+                Team
+              </p>
+              <h2 className="mt-2 text-xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+                Team members
+              </h2>
+            </div>
+            <span className="rounded-full bg-[#EAF2FF] px-3 py-1.5 text-xs font-semibold text-[#176BFF]">
+              {preview.members.length}
+            </span>
+          </div>
+          <div className="mt-4 space-y-2">
+            {preview.members.length > 0 ? preview.members.map((member) => (
+              <TeamMemberPreview key={member.id} member={member} />
+            )) : (
+              <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67]">
+                No team members yet.
+              </p>
+            )}
+          </div>
+        </section>
+      </aside>
+    </div>
   );
 }
 
@@ -1267,7 +1493,6 @@ export default async function WorkspacePreviewPage({
               <PrayerSection preview={preview} publicProfileHref={publicProfileHref} />
             ) : (
               <MoreSection
-                basePath={basePath}
                 preview={preview}
                 publicProfileHref={publicProfileHref}
                 workspaceHref={workspaceHref}

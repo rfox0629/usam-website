@@ -801,6 +801,7 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
           prayerEnabled: household.show_prayer !== false && household.enable_prayer_team !== false,
           publicProfileEnabled: household.public_visible !== false && household.show_household !== false,
           publishingEnabled: household.show_fruit !== false || household.show_story !== false,
+          supportEnabled: household.show_support === true,
         },
         field: {
           meetings: fieldMeetings,

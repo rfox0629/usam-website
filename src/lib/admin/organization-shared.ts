@@ -114,6 +114,7 @@ export type WorkspacePreviewData = {
     prayerEnabled: boolean;
     publicProfileEnabled: boolean;
     publishingEnabled: boolean;
+    supportEnabled: boolean;
   };
   members: Array<{
     id: string;
