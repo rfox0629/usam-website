@@ -671,9 +671,20 @@ function cleanIdentitySegment(value: string | null | undefined) {
   return text ? text : null;
 }
 
+function workspaceIdentityName(workspace: DosAppWorkspace) {
+  const displayName = cleanIdentitySegment(workspace.displayName);
+  const normalizedName = displayName?.toLowerCase().replace(/\s+/g, " ");
+
+  if (normalizedName === "ryan & brooke fox" || normalizedName === "ryan and brooke fox") {
+    return "Fox Family";
+  }
+
+  return displayName ?? "My Field";
+}
+
 function workspaceIdentityLine(workspace: DosAppWorkspace) {
   return [
-    cleanIdentitySegment(workspace.displayName) ?? "My Field",
+    workspaceIdentityName(workspace),
     cleanIdentitySegment(workspace.stateName),
     cleanIdentitySegment(workspace.organizationName),
   ].filter(Boolean).join(" · ");
@@ -1435,80 +1446,85 @@ function CircleTarget({
   my70Count: number;
   onSelectCircle: (circle: CircleFocusView) => void;
 }) {
-  const handleTargetClick = (event: MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const distanceFromCenter = Math.hypot(event.clientX - centerX, event.clientY - centerY);
-
-    if (distanceFromCenter <= 30) {
-      onSelectCircle("three");
-      return;
-    }
-
-    if (distanceFromCenter <= 62) {
-      onSelectCircle("twelve");
-      return;
-    }
-
-    onSelectCircle("seventy");
-  };
+  const [focusedCircle, setFocusedCircle] = useState<CircleFocusView | null>(null);
+  const isMy3Focused = focusedCircle === "three";
+  const isMy12Focused = focusedCircle === "twelve";
+  const isMy70Focused = focusedCircle === "seventy";
 
   return (
     <div
       aria-label="Discipleship circle target"
-      className="relative mx-auto mt-5 h-[172px] w-[172px] cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
-      onClick={handleTargetClick}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelectCircle("three");
+      className="relative mx-auto mt-5 h-[172px] w-[172px] rounded-full"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setFocusedCircle(null);
         }
       }}
-      role="button"
-      tabIndex={0}
+      onMouseLeave={() => setFocusedCircle(null)}
     >
       <span
-        className="absolute inset-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF]/45 shadow-[inset_0_6px_26px_rgba(255,255,255,0.72),0_14px_30px_rgba(37,99,235,0.08)]"
+        className={`absolute inset-0 rounded-full border bg-[#EBF2FF]/45 transition-all duration-200 ${
+          isMy70Focused
+            ? "border-[#2563EB]/70 shadow-[0_0_0_5px_rgba(37,99,235,0.08),inset_0_8px_26px_rgba(255,255,255,0.82),0_16px_34px_rgba(37,99,235,0.14)]"
+            : "border-[#BFDBFE] shadow-[inset_0_6px_26px_rgba(255,255,255,0.72),0_14px_30px_rgba(37,99,235,0.08)]"
+        }`}
         aria-hidden="true"
       />
       <span
-        className="absolute left-1/2 top-1/2 h-[122px] w-[122px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF]/78 shadow-[inset_0_8px_24px_rgba(255,255,255,0.62)]"
+        className={`absolute left-1/2 top-1/2 h-[122px] w-[122px] -translate-x-1/2 -translate-y-1/2 rounded-full border bg-[#EBF2FF]/78 transition-all duration-200 ${
+          isMy12Focused
+            ? "border-[#2563EB]/70 shadow-[0_0_0_4px_rgba(37,99,235,0.09),inset_0_8px_24px_rgba(255,255,255,0.78)]"
+            : "border-[#BFDBFE] shadow-[inset_0_8px_24px_rgba(255,255,255,0.62)]"
+        }`}
         aria-hidden="true"
       />
       <span
-        className="absolute left-1/2 top-1/2 h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] shadow-[0_12px_24px_rgba(37,99,235,0.30),inset_0_5px_14px_rgba(255,255,255,0.22)]"
+        className={`absolute left-1/2 top-1/2 h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] transition-all duration-200 ${
+          isMy3Focused
+            ? "scale-[1.03] shadow-[0_14px_28px_rgba(37,99,235,0.36),inset_0_5px_14px_rgba(255,255,255,0.28)]"
+            : "shadow-[0_12px_24px_rgba(37,99,235,0.30),inset_0_5px_14px_rgba(255,255,255,0.22)]"
+        }`}
         aria-hidden="true"
       />
       <button
         aria-label={`Open My 70, ${my70Count} people`}
-        className="absolute left-1/2 top-[5px] z-20 flex h-8 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center transition-colors hover:bg-white/55 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        className="absolute inset-0 z-10 rounded-full text-center text-[#2563EB] transition-transform duration-200 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("seventy");
         }}
+        onFocus={() => setFocusedCircle("seventy")}
+        onMouseEnter={() => setFocusedCircle("seventy")}
         type="button"
       >
-        <span className="text-[13px] font-bold leading-none text-[#2563EB]">70</span>
+        <span className="absolute left-1/2 top-[1px] flex h-7 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-[13px] font-bold leading-none transition-colors duration-200 hover:bg-white/45">
+          70
+        </span>
       </button>
       <button
         aria-label={`Open My 12, ${my12Count} people`}
-        className="absolute left-1/2 top-[29px] z-20 flex h-8 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center transition-colors hover:bg-white/55 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        className="absolute left-1/2 top-1/2 z-20 h-[122px] w-[122px] -translate-x-1/2 -translate-y-1/2 rounded-full text-center text-[#2563EB] transition-transform duration-200 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("twelve");
         }}
+        onFocus={() => setFocusedCircle("twelve")}
+        onMouseEnter={() => setFocusedCircle("twelve")}
         type="button"
       >
-        <span className="text-[13px] font-bold leading-none text-[#2563EB]">12</span>
+        <span className="absolute left-1/2 top-[3px] flex h-7 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-[13px] font-bold leading-none transition-colors duration-200 hover:bg-white/45">
+          12
+        </span>
       </button>
       <button
         aria-label={`Open My 3, ${my3Count} people`}
-        className="absolute left-1/2 top-1/2 z-20 flex h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30"
+        className="absolute left-1/2 top-1/2 z-30 flex h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center transition-colors duration-200 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("three");
         }}
+        onFocus={() => setFocusedCircle("three")}
+        onMouseEnter={() => setFocusedCircle("three")}
         type="button"
       >
         <span className="text-[13px] font-bold leading-none text-white">3</span>
@@ -4781,7 +4797,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <h1 className="mt-1 max-w-[270px] text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">
                     {timeGreeting}, {greetingName}.
                   </h1>
-                  <p className="mt-1 truncate text-sm leading-5 text-[#64748B]">{workspaceLabel}</p>
+                  <p className="mt-1 max-w-[292px] text-[12.5px] font-medium leading-4 text-[#64748B]">{workspaceLabel}</p>
                 </div>
                 <span className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-xs font-bold text-[#1D4ED8] shadow-[0_10px_24px_rgba(37,99,235,0.10)]">
                   {initials(greetingName)}
