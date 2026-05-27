@@ -31,7 +31,7 @@ export function RolePreviewSelect() {
   }
 
   return (
-    <label className="flex min-h-10 items-center gap-2 rounded-lg border border-stone-800 bg-[#080808] px-3 text-xs text-stone-400">
+    <label className="flex min-h-10 flex-wrap items-center gap-2 rounded-lg border border-stone-800 bg-[#080808] px-3 text-xs text-stone-400">
       <span className="whitespace-nowrap text-[10px] uppercase tracking-[0.14em]" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
         Viewing as
       </span>
@@ -45,6 +45,9 @@ export function RolePreviewSelect() {
           <option key={option} value={option}>{option}</option>
         ))}
       </select>
+      <span className="text-[10px] uppercase tracking-[0.14em] text-stone-600" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+        Preview only
+      </span>
     </label>
   );
 }

@@ -100,11 +100,12 @@ function getOrganizationWorkspaces(
   activityByWorkspaceId: Map<string, string | null>,
 ): OrganizationWorkspaceSummary[] {
   const orgCollectives = collectives.filter((collective) => collective.owner_organization_id === organization.id);
+  const allCollectiveSlugs = new Set(collectives.map((collective) => collective.slug));
   const collectiveSlugs = new Set(orgCollectives.map((collective) => collective.slug));
   const activeHouseholds = households.filter((household) => (
-    isUsamOrganization(organization)
-    || household.slug === organization.slug
+    household.slug === organization.slug
     || collectiveSlugs.has(household.slug)
+    || (isUsamOrganization(organization) && !allCollectiveSlugs.has(household.slug))
   ));
   const activeHouseholdSlugs = new Set(activeHouseholds.map((household) => household.slug));
   const activeWorkspaces = activeHouseholds.map((household) => ({
@@ -341,7 +342,18 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
     }
 
     const household = fallbackHouseholdResult.data as HouseholdRow;
-    const [peopleResult, meetingsResult, prayerResult, fruitResult, teamResult, collectiveResult] = await Promise.all([
+    const [
+      peopleResult,
+      peopleCountResult,
+      meetingsResult,
+      meetingsCountResult,
+      prayerResult,
+      prayerCountResult,
+      fruitResult,
+      fruitCountResult,
+      teamResult,
+      collectiveResult,
+    ] = await Promise.all([
       supabase
         .from("missionary_field_people")
         .select("id, name, updated_at, created_at, last_activity_at")
@@ -349,11 +361,19 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         .order("updated_at", { ascending: false })
         .limit(6),
       supabase
+        .from("missionary_field_people")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId),
+      supabase
         .from("missionary_tables")
         .select("id, table_type, table_date, participant_names, notes, updated_at, created_at")
         .eq("workspace_id", workspaceId)
         .order("table_date", { ascending: false, nullsFirst: false })
         .limit(6),
+      supabase
+        .from("missionary_tables")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId),
       supabase
         .from("prayer_requests")
         .select("id, title, request, status, updated_at, created_at")
@@ -361,11 +381,19 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         .order("created_at", { ascending: false })
         .limit(6),
       supabase
+        .from("prayer_requests")
+        .select("id", { count: "exact", head: true })
+        .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId},related_household_id.eq.${workspaceId}`),
+      supabase
         .from("missionary_fruit_items")
         .select("id, title, body, cc_status, source_app, updated_at, created_at")
         .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false })
         .limit(6),
+      supabase
+        .from("missionary_fruit_items")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId),
       supabase
         .from("missionary_team_members")
         .select("id", { count: "exact", head: true })
@@ -433,11 +461,11 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
       preview: {
         activity,
         counts: {
-          fieldPeople: people.length,
-          fruit: fruit.length,
-          meetings: meetings.length,
+          fieldPeople: peopleCountResult.error ? people.length : peopleCountResult.count ?? 0,
+          fruit: fruitCountResult.error ? fruit.length : fruitCountResult.count ?? 0,
+          meetings: meetingsCountResult.error ? meetings.length : meetingsCountResult.count ?? 0,
           members: teamResult.error ? 0 : teamResult.count ?? 0,
-          prayerRequests: prayers.length,
+          prayerRequests: prayerCountResult.error ? prayers.length : prayerCountResult.count ?? 0,
         },
         features: {
           dosEnabled: true,

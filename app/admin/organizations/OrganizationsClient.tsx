@@ -363,6 +363,7 @@ export function OrganizationsClient({
           onCreated={() => {
             setIsAdding(false);
             router.refresh();
+            window.setTimeout(() => window.location.reload(), 250);
           }}
         />
       ) : null}

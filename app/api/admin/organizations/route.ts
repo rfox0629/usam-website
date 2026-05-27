@@ -90,6 +90,60 @@ async function uniqueSlug(
   return `${base}-${Date.now()}`;
 }
 
+async function cleanupCreatedResources({
+  collectiveId,
+  householdId,
+  organizationId,
+  profileIds,
+}: {
+  collectiveId?: string;
+  householdId?: string;
+  organizationId?: string;
+  profileIds?: string[];
+}) {
+  const supabase = createSupabaseAdminClient();
+
+  if (organizationId) {
+    await supabase
+      .from("organization_memberships")
+      .delete()
+      .eq("organization_id", organizationId);
+  }
+
+  if (profileIds?.length) {
+    await supabase
+      .from("profiles")
+      .delete()
+      .in("id", profileIds);
+  }
+
+  if (collectiveId) {
+    await supabase
+      .from("collectives")
+      .delete()
+      .eq("id", collectiveId);
+  } else if (organizationId) {
+    await supabase
+      .from("collectives")
+      .delete()
+      .eq("owner_organization_id", organizationId);
+  }
+
+  if (householdId) {
+    await supabase
+      .from("missionary_households")
+      .delete()
+      .eq("id", householdId);
+  }
+
+  if (organizationId) {
+    await supabase
+      .from("organizations")
+      .delete()
+      .eq("id", organizationId);
+  }
+}
+
 async function authorizeOrganizationWrite() {
   const authorization = await getAdminAuthorization();
 
@@ -179,6 +233,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: organizationError?.message ?? "Unable to create organization." }, { status: 500 });
   }
 
+  const createdProfileIds: string[] = [];
+  let collectiveId = "";
+  let householdId = "";
+
   if (primaryContactName || primaryContactEmail) {
     const contactName = splitContactName(primaryContactName || primaryContactEmail);
     const { data: profile, error: profileError } = await supabase
@@ -192,26 +250,48 @@ export async function POST(request: Request) {
       .select("id")
       .single();
 
-    if (!profileError && profile) {
-      await supabase
-        .from("organization_memberships")
-        .insert({
-          organization_id: organization.id,
-          profile_id: profile.id,
-          role: "leader",
-          status: "active",
-        });
+    if (profileError || !profile) {
+      await cleanupCreatedResources({ organizationId: organization.id });
+
+      return NextResponse.json({ error: profileError?.message ?? "Organization was not created because the primary contact could not be saved." }, { status: 500 });
+    }
+
+    createdProfileIds.push(profile.id);
+
+    const membershipResult = await supabase
+      .from("organization_memberships")
+      .insert({
+        organization_id: organization.id,
+        profile_id: profile.id,
+        role: "leader",
+        status: "active",
+      });
+
+    if (membershipResult.error) {
+      await cleanupCreatedResources({ organizationId: organization.id, profileIds: createdProfileIds });
+
+      return NextResponse.json({ error: membershipResult.error.message }, { status: 500 });
     }
   }
 
-  await supabase
+  const { data: collective, error: collectiveError } = await supabase
     .from("collectives")
     .insert({
       name: defaultWorkspaceName,
       owner_organization_id: organization.id,
       slug: collectiveSlug,
       type: formType === "church" ? "ministry_team" : "team",
-    });
+    })
+    .select("id")
+    .single();
+
+  if (collectiveError || !collective) {
+    await cleanupCreatedResources({ organizationId: organization.id, profileIds: createdProfileIds });
+
+    return NextResponse.json({ error: collectiveError?.message ?? "Organization was not created because the workspace record could not be saved." }, { status: 500 });
+  }
+
+  collectiveId = collective.id;
 
   const householdPayload = {
     display_name: defaultWorkspaceName,
@@ -246,14 +326,22 @@ export async function POST(request: Request) {
     : { data: household, error: householdError };
 
   if (fallbackHouseholdResult.error || !fallbackHouseholdResult.data) {
+    await cleanupCreatedResources({
+      collectiveId,
+      organizationId: organization.id,
+      profileIds: createdProfileIds,
+    });
+
     return NextResponse.json({ error: fallbackHouseholdResult.error?.message ?? "Organization was created, but the workspace could not be created." }, { status: 500 });
   }
+
+  householdId = fallbackHouseholdResult.data.id;
 
   return NextResponse.json({
     organization,
     temporaryCompatibility: {
       note: "Created an organizations row and a DOS-compatible missionary_households workspace until the generic workspace bridge is added.",
-      workspaceId: fallbackHouseholdResult.data.id,
+      workspaceId: householdId,
     },
   }, { status: 201 });
 }
