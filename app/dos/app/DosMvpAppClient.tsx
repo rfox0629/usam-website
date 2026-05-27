@@ -1829,6 +1829,27 @@ function CompactOptionSelect({
   );
 }
 
+function FormOptionSelect({
+  defaultValue = "",
+  label,
+  name,
+  options,
+}: {
+  defaultValue?: string;
+  label: string;
+  name: string;
+  options: ReadonlyArray<{ helper?: string; label: string; value: string }>;
+}) {
+  const [value, setValue] = useState(defaultValue);
+
+  return (
+    <>
+      <input name={name} type="hidden" value={value} />
+      <CompactOptionSelect label={label} onChange={setValue} options={options} value={value} />
+    </>
+  );
+}
+
 function MeetingContextPicker({
   onChange,
   value,
@@ -5199,17 +5220,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       {formMode === "reflection" && selectedMeeting ? (
         <Sheet onClose={closeForm} title="Leader Reflection">
           <form className="space-y-4" onSubmit={handleReflectionSubmit}>
-            <label className="block">
-              <FieldLabel>Spiritual Openness</FieldLabel>
-              <select className={FieldInputClass()} name="spiritual_openness">
-                <option value="">Select</option>
-                <option value="Not ready">Not ready</option>
-                <option value="Curious">Curious</option>
-                <option value="Open">Open</option>
-                <option value="Ready to follow">Ready to follow</option>
-                <option value="Actively following">Actively following</option>
-              </select>
-            </label>
+            <FormOptionSelect
+              label="Spiritual Openness"
+              name="spiritual_openness"
+              options={[
+                { label: "Select", value: "" },
+                { label: "Not ready", value: "Not ready" },
+                { label: "Curious", value: "Curious" },
+                { label: "Open", value: "Open" },
+                { label: "Ready to follow", value: "Ready to follow" },
+                { label: "Actively following", value: "Actively following" },
+              ]}
+            />
             <label className="block">
               <FieldLabel>What Happened</FieldLabel>
               <textarea className={FieldTextareaClass()} name="what_happened" placeholder="Internal observations from the meeting." />
@@ -5222,21 +5244,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <input className="mt-1 h-4 w-4 accent-[#2563EB]" name="follow_up_needed" type="checkbox" />
               <span className="text-sm font-semibold text-[#0F172A]">Follow up needed</span>
             </label>
-            <label className="block">
-              <FieldLabel>Next Step</FieldLabel>
-              <select className={FieldInputClass()} name="next_step">
-                <option value="">Select</option>
-                <option>Continue meeting</option>
-                <option>Begin discipleship</option>
-                <option>Send follow up</option>
-                <option>Invite to group</option>
-                <option>Connect to church</option>
-                <option>Connect to ministry</option>
-                <option>Hand off</option>
-                <option>Pray and wait</option>
-                <option>Other</option>
-              </select>
-            </label>
+            <FormOptionSelect
+              label="Next Step"
+              name="next_step"
+              options={[
+                { label: "Select", value: "" },
+                { label: "Continue meeting", value: "Continue meeting" },
+                { label: "Begin discipleship", value: "Begin discipleship" },
+                { label: "Send follow up", value: "Send follow up" },
+                { label: "Invite to group", value: "Invite to group" },
+                { label: "Connect to church", value: "Connect to church" },
+                { label: "Connect to ministry", value: "Connect to ministry" },
+                { label: "Hand off", value: "Hand off" },
+                { label: "Pray and wait", value: "Pray and wait" },
+                { label: "Other", value: "Other" },
+              ]}
+            />
             <div>
               <FieldLabel>Observed Fruit</FieldLabel>
               <div className="mt-2 grid grid-cols-2 gap-2">
@@ -5280,13 +5303,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <FieldLabel>Date</FieldLabel>
               <input className={FieldInputClass()} defaultValue={todayDateValue()} name="testimony_date" type="date" />
             </label>
-            <label className="block">
-              <FieldLabel>Linked Person</FieldLabel>
-              <select className={FieldInputClass()} name="field_person_id">
-                <option value="">Not linked</option>
-                {people.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-              </select>
-            </label>
+            <FormOptionSelect
+              label="Linked Person"
+              name="field_person_id"
+              options={[
+                { label: "Not linked", value: "" },
+                ...people.map((person) => ({
+                  helper: person.relationshipType ?? undefined,
+                  label: person.name,
+                  value: person.id,
+                })),
+              ]}
+            />
             <div>
               <FieldLabel>Outcome Tags</FieldLabel>
               <div className="mt-2 grid grid-cols-2 gap-2">
