@@ -91,6 +91,32 @@ type WorkspacePreviewTableReviewRow = {
   table_id: string;
 };
 
+type WorkspacePreviewPrayerRequestRow = {
+  created_at: string | null;
+  field_person_id?: string | null;
+  id: string;
+  request: string | null;
+  status: string | null;
+  title: string | null;
+  updated_at: string | null;
+  urgency?: string | null;
+  visibility?: string | null;
+};
+
+type WorkspacePreviewPrayerPartnerRow = {
+  approved_at?: string | null;
+  created_at: string | null;
+  date_joined: string | null;
+  email: string | null;
+  first_name: string | null;
+  id: string;
+  last_name: string | null;
+  name: string | null;
+  source: string | null;
+  status: string | null;
+  updated_at: string | null;
+};
+
 const householdBaseSelect = "id, slug, display_name, public_visible, updated_at, created_at";
 const householdFeatureSelect = `${householdBaseSelect}, show_household, show_prayer, show_support, show_fruit, show_story, enable_prayer_team`;
 
@@ -163,15 +189,42 @@ function formatParticipantNames(names: string[] | null) {
 }
 
 function formatPrayerActivity(status: string | null) {
-  if (status === "approved" || status === "converted") {
-    return "Prayer request approved";
+  if (status === "covered") {
+    return "Shared with prayer team";
   }
 
-  if (status === "needs_follow_up" || status === "follow_up") {
-    return "Prayer request needs follow up";
+  if (status === "answered") {
+    return "Prayer answered";
   }
 
-  return "Prayer request added";
+  if (status === "archived") {
+    return "Prayer request archived";
+  }
+
+  return "Prayer request submitted";
+}
+
+function formatPrayerPartnerActivity(status: string | null) {
+  if (status === "active") {
+    return "Partner approved";
+  }
+
+  if (status === "declined") {
+    return "Prayer partner declined";
+  }
+
+  if (status === "inactive" || status === "archived") {
+    return "Prayer partner paused";
+  }
+
+  return "Waiting for review";
+}
+
+function prayerPartnerName(partner: WorkspacePreviewPrayerPartnerRow) {
+  return partner.name?.trim()
+    || [partner.first_name, partner.last_name].filter(Boolean).join(" ").trim()
+    || partner.email?.trim()
+    || "Prayer partner";
 }
 
 function getOrganizationWorkspaces(
@@ -426,6 +479,8 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
     }
 
     const household = fallbackHouseholdResult.data as HouseholdRow;
+    const prayerRequestScopeFilter = `workspace_id.eq.${workspaceId},household_id.eq.${workspaceId},related_household_id.eq.${workspaceId}`;
+    const prayerPartnerScopeFilter = `workspace_id.eq.${workspaceId},recruited_by_household_id.eq.${workspaceId},missionary_profile_id.eq.${workspaceId},missionary_profile_slug.eq.${household.slug},recruited_by_profile_slug.eq.${household.slug}`;
     const [
       peopleResult,
       peopleCountResult,
@@ -433,6 +488,10 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
       meetingsCountResult,
       prayerResult,
       prayerCountResult,
+      prayerPartnersResult,
+      activePrayerPartnersCountResult,
+      pendingPrayerPartnersCountResult,
+      pendingPrayerRequestsCountResult,
       fruitResult,
       fruitCountResult,
       teamCountResult,
@@ -470,14 +529,35 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         .eq("workspace_id", workspaceId),
       supabase
         .from("prayer_requests")
-        .select("id, title, request, status, updated_at, created_at")
-        .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId},related_household_id.eq.${workspaceId}`)
+        .select("id, field_person_id, title, request, status, visibility, urgency, updated_at, created_at")
+        .or(prayerRequestScopeFilter)
         .order("created_at", { ascending: false })
-        .limit(6),
+        .limit(12),
       supabase
         .from("prayer_requests")
         .select("id", { count: "exact", head: true })
-        .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId},related_household_id.eq.${workspaceId}`),
+        .or(prayerRequestScopeFilter),
+      supabase
+        .from("prayer_partners")
+        .select("id, first_name, last_name, name, email, source, status, approved_at, date_joined, updated_at, created_at")
+        .or(prayerPartnerScopeFilter)
+        .order("created_at", { ascending: false })
+        .limit(12),
+      supabase
+        .from("prayer_partners")
+        .select("id", { count: "exact", head: true })
+        .or(prayerPartnerScopeFilter)
+        .eq("status", "active"),
+      supabase
+        .from("prayer_partners")
+        .select("id", { count: "exact", head: true })
+        .or(prayerPartnerScopeFilter)
+        .eq("status", "pending"),
+      supabase
+        .from("prayer_requests")
+        .select("id", { count: "exact", head: true })
+        .or(prayerRequestScopeFilter)
+        .in("status", ["open", "active"]),
       supabase
         .from("missionary_fruit_items")
         .select("id, title, body, cc_status, source_app, updated_at, created_at")
@@ -561,7 +641,8 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         .maybeSingle();
     const people = peopleResult.error ? [] : (peopleResult.data ?? []) as WorkspacePreviewPersonRow[];
     const meetings = meetingsResult.error ? [] : (meetingsResult.data ?? []) as WorkspacePreviewMeetingRow[];
-    const prayers = prayerResult.error ? [] : (prayerResult.data ?? []) as Array<{ created_at: string | null; id: string; request: string | null; status: string | null; title: string | null; updated_at: string | null }>;
+    const prayers = prayerResult.error ? [] : (prayerResult.data ?? []) as WorkspacePreviewPrayerRequestRow[];
+    const prayerPartners = prayerPartnersResult.error ? [] : (prayerPartnersResult.data ?? []) as WorkspacePreviewPrayerPartnerRow[];
     const fruit = fruitResult.error ? [] : (fruitResult.data ?? []) as Array<{ body: string | null; cc_status: string | null; created_at: string | null; id: string; source_app: string | null; title: string | null; updated_at: string | null }>;
     const tableReviews = tableReviewsResult.error ? [] : (tableReviewsResult.data ?? []) as WorkspacePreviewTableReviewRow[];
     const reviewByTableId = new Map(tableReviews.map((review) => [review.table_id, review]));
@@ -606,6 +687,48 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
       relationshipType: person.relationship_type,
       status: person.status,
     }));
+    const personNameById = new Map(fieldPeople.map((person) => [person.id, person.name]));
+    const prayerRequests = prayers.map((prayer) => ({
+      createdAt: prayer.created_at,
+      id: prayer.id,
+      personId: prayer.field_person_id ?? null,
+      personName: prayer.field_person_id ? personNameById.get(prayer.field_person_id) ?? null : null,
+      status: prayer.status ?? "open",
+      summary: prayer.request?.trim() || "Prayer request submitted.",
+      title: prayer.title?.trim() || "Prayer request",
+      updatedAt: prayer.updated_at,
+      urgency: prayer.urgency ?? null,
+      visibility: prayer.visibility ?? null,
+    }));
+    const prayerPartnerItems = prayerPartners.map((partner) => ({
+      email: partner.email,
+      id: partner.id,
+      name: prayerPartnerName(partner),
+      source: partner.source,
+      status: partner.status ?? "pending",
+      timestamp: partner.status === "active"
+        ? latestDate([partner.approved_at, partner.updated_at, partner.date_joined, partner.created_at])
+        : latestDate([partner.updated_at, partner.created_at, partner.date_joined]),
+    }));
+    const prayerActivity = [
+      ...prayerRequests.map((request) => ({
+        detail: request.summary,
+        id: `prayer-request-${request.id}`,
+        label: request.personName ?? "Prayer request",
+        timestamp: request.updatedAt ?? request.createdAt,
+        title: formatPrayerActivity(request.status),
+      })),
+      ...prayerPartnerItems.map((partner) => ({
+        detail: partner.email ?? "Prayer team member",
+        id: `prayer-partner-${partner.id}`,
+        label: partner.name,
+        timestamp: partner.timestamp,
+        title: formatPrayerPartnerActivity(partner.status),
+      })),
+    ]
+      .filter((item) => item.timestamp)
+      .sort((a, b) => new Date(b.timestamp ?? "").getTime() - new Date(a.timestamp ?? "").getTime())
+      .slice(0, 8);
     const teamMembers = teamMembersResult.error
       ? []
       : ((teamMembersResult.data ?? []) as Array<{ display_name: string | null; id: string; role_title: string | null }>)
@@ -690,6 +813,18 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
           my70: fieldPeopleCount,
         },
         organizationName: organizationResult.data?.name ?? "USA Missionaries",
+        prayer: {
+          activity: prayerActivity,
+          partners: prayerPartnerItems,
+          requests: prayerRequests,
+          stats: {
+            activePartners: activePrayerPartnersCountResult.error ? prayerPartnerItems.filter((partner) => partner.status === "active").length : activePrayerPartnersCountResult.count ?? 0,
+            pendingApplications: pendingPrayerPartnersCountResult.error ? prayerPartnerItems.filter((partner) => partner.status === "pending").length : pendingPrayerPartnersCountResult.count ?? 0,
+            pendingRequests: pendingPrayerRequestsCountResult.error ? prayerRequests.filter((request) => request.status === "open" || request.status === "active").length : pendingPrayerRequestsCountResult.count ?? 0,
+            recentActivity: prayerActivity.length,
+          },
+          teamEnabled: household.show_prayer !== false && household.enable_prayer_team !== false,
+        },
         workspace: {
           displayName: household.display_name,
           id: household.id,

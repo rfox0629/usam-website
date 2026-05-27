@@ -666,23 +666,295 @@ function FieldSection({
   );
 }
 
-function PrayerSection({ preview }: { preview: WorkspacePreviewData }) {
+function prayerRequestStatusLabel(status: string) {
+  if (status === "covered") {
+    return "Shared with prayer team";
+  }
+
+  if (status === "answered") {
+    return "Prayer answered";
+  }
+
+  if (status === "archived") {
+    return "Archived";
+  }
+
+  return "Prayer request submitted";
+}
+
+function prayerPartnerStatusLabel(status: string) {
+  if (status === "active") {
+    return "Partner approved";
+  }
+
+  if (status === "declined") {
+    return "Not approved";
+  }
+
+  if (status === "inactive" || status === "archived") {
+    return "Paused";
+  }
+
+  return "Waiting for review";
+}
+
+function prayerVisibilityLabel(value: string | null) {
+  if (value === "team") {
+    return "Prayer team";
+  }
+
+  if (value === "public") {
+    return "Public";
+  }
+
+  return "Private";
+}
+
+function PrayerAction({
+  disabled = false,
+  href,
+  icon: Icon,
+  label,
+  meta,
+}: {
+  disabled?: boolean;
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  meta: string;
+}) {
+  const content = (
+    <>
+      <Icon className="h-4 w-4 text-[#176BFF]" aria-hidden="true" />
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold text-[#111111]">{label}</span>
+        <span className="mt-0.5 block truncate text-xs text-[#7B756C]">{disabled ? "Unavailable" : meta}</span>
+      </span>
+    </>
+  );
+  const className = "flex min-h-[70px] items-center gap-3 rounded-2xl border border-[#E4DED2] bg-white px-3 py-3 transition hover:border-[#75A8FF]";
+
+  if (disabled) {
+    return (
+      <span aria-disabled="true" className={`${className} opacity-60`}>
+        {content}
+      </span>
+    );
+  }
+
   return (
-    <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#176BFF]" style={{ fontFamily: adminFont.rajdhani }}>
-        Prayer
+    <Link className={className} href={href}>
+      {content}
+    </Link>
+  );
+}
+
+function PrayerStatCard({
+  detail,
+  label,
+  value,
+}: {
+  detail: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D6E5FF] bg-[#F3F7FF] px-4 py-3">
+      <p className="text-3xl font-bold leading-none text-[#176BFF]">{value}</p>
+      <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#706A60]" style={{ fontFamily: adminFont.rajdhani }}>
+        {label}
       </p>
-      <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
-        Prayer requests
-      </h2>
-      <div className="mt-5 grid gap-2 sm:grid-cols-2">
-        <SignalCard detail="Requests connected to this workspace" label="Prayer requests" value={preview.counts.prayerRequests} />
-        <SignalCard detail="Open field priorities" label="Follow ups" value={preview.counts.followUps} />
+      <p className="mt-1 text-sm leading-5 text-[#706A60]">{detail}</p>
+    </div>
+  );
+}
+
+function PrayerRequestCard({
+  request,
+}: {
+  request: WorkspacePreviewData["prayer"]["requests"][number];
+}) {
+  return (
+    <article className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="break-words text-sm font-bold text-[#111111]">{request.title}</h3>
+          <p className="mt-1 line-clamp-2 text-sm leading-5 text-[#746F67]">{request.summary}</p>
+        </div>
+        <span className="w-fit rounded-full bg-[#EAF2FF] px-2.5 py-1 text-[11px] font-semibold text-[#176BFF]">
+          {prayerRequestStatusLabel(request.status)}
+        </span>
       </div>
-      <Link className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[#176BFF] px-5 text-sm font-semibold text-white" href="/admin/prayer-team">
-        Open Prayer
-      </Link>
-    </section>
+      <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-[#6F675D]">
+        <span className="rounded-full border border-[#D7D0C4] bg-white px-2 py-0.5">{prayerVisibilityLabel(request.visibility)}</span>
+        <span className="rounded-full border border-[#D7D0C4] bg-white px-2 py-0.5">{formatLabel(request.urgency)}</span>
+        <span className="rounded-full border border-[#D7D0C4] bg-white px-2 py-0.5">{request.personName ?? "Workspace"}</span>
+        <span className="rounded-full border border-[#D7D0C4] bg-white px-2 py-0.5">{formatLongDate(request.createdAt)}</span>
+      </div>
+    </article>
+  );
+}
+
+function PrayerPartnerCard({
+  partner,
+}: {
+  partner: WorkspacePreviewData["prayer"]["partners"][number];
+}) {
+  return (
+    <article className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-3">
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#DCEAFF] text-sm font-bold text-[#176BFF]">
+          {initialsFor(partner.name)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-sm font-bold text-[#111111]">{partner.name}</h3>
+          <p className="mt-0.5 truncate text-xs text-[#746F67]">{partner.email ?? formatLabel(partner.source)}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-[#6F675D]">
+        <span className="rounded-full bg-[#EAF2FF] px-2 py-0.5 text-[#176BFF]">{prayerPartnerStatusLabel(partner.status)}</span>
+        <span className="rounded-full border border-[#D7D0C4] bg-white px-2 py-0.5">{formatLabel(partner.source)}</span>
+        <span className="rounded-full border border-[#D7D0C4] bg-white px-2 py-0.5">{formatLongDate(partner.timestamp)}</span>
+      </div>
+    </article>
+  );
+}
+
+function PrayerSection({
+  preview,
+  publicProfileHref,
+}: {
+  preview: WorkspacePreviewData;
+  publicProfileHref: string;
+}) {
+  const prayerEnabledLabel = preview.prayer.teamEnabled ? "Prayer team active" : "Prayer team off";
+  const pendingRequestLabel = preview.prayer.stats.pendingRequests === 1 ? "request waiting" : "requests waiting";
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#176BFF]" style={{ fontFamily: adminFont.rajdhani }}>
+              Prayer
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+              Prayer team
+            </h2>
+          </div>
+          <span className={`w-fit rounded-full px-3 py-1.5 text-xs font-semibold ${preview.prayer.teamEnabled ? "bg-[#EAF2FF] text-[#176BFF]" : "bg-[#F1EEE7] text-[#746F67]"}`}>
+            {prayerEnabledLabel}
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <PrayerStatCard detail="Approved partners covering this workspace" label="Active partners" value={preview.prayer.stats.activePartners} />
+          <PrayerStatCard detail={pendingRequestLabel} label="Pending requests" value={preview.prayer.stats.pendingRequests} />
+          <PrayerStatCard detail="Applications waiting for review" label="Pending partners" value={preview.prayer.stats.pendingApplications} />
+          <PrayerStatCard detail="Requests and partner updates" label="Recent activity" value={preview.prayer.stats.recentActivity} />
+        </div>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-3">
+          <PrayerAction href="/admin/prayer-team" icon={Plus} label="Add Prayer Request" meta="Open prayer tools" />
+          <PrayerAction
+            disabled={!preview.features.publicProfileEnabled}
+            href={publicProfileHref}
+            icon={UserPlus}
+            label="Invite Prayer Partner"
+            meta="Use public profile"
+          />
+          {preview.features.publicProfileEnabled ? (
+            <PrayerAction href={publicProfileHref} icon={Home} label="View Public Profile" meta="Open profile" />
+          ) : (
+            <PrayerAction disabled href="#" icon={Home} label="View Public Profile" meta="Profile hidden" />
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8E8880]" style={{ fontFamily: adminFont.rajdhani }}>
+              Activity
+            </p>
+            <h2 className="mt-2 text-xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+              Recent prayer
+            </h2>
+          </div>
+          <span className="rounded-full bg-[#EAF2FF] px-3 py-1.5 text-xs font-semibold text-[#176BFF]">
+            {preview.prayer.activity.length}
+          </span>
+        </div>
+        <div className="mt-4 space-y-2">
+          {preview.prayer.activity.length > 0 ? preview.prayer.activity.map((item) => (
+            <article className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-3" key={item.id}>
+              <div className="flex items-start gap-3">
+                <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#176BFF]" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#111111]">{item.title}</p>
+                  <p className="mt-1 line-clamp-2 text-sm leading-5 text-[#746F67]">{item.detail}</p>
+                  <p className="mt-2 text-xs text-[#8E8880]">{item.label} · {formatDate(item.timestamp)}</p>
+                </div>
+              </div>
+            </article>
+          )) : (
+            <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67]">
+              Prayer activity will appear here.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5 lg:col-span-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8E8880]" style={{ fontFamily: adminFont.rajdhani }}>
+              Requests
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+              Prayer requests
+            </h2>
+          </div>
+          <span className="rounded-full bg-[#EAF2FF] px-3 py-1.5 text-xs font-semibold text-[#176BFF]">
+            {preview.prayer.requests.length}
+          </span>
+        </div>
+        <div className="mt-5 grid gap-2 md:grid-cols-2">
+          {preview.prayer.requests.length > 0 ? preview.prayer.requests.map((request) => (
+            <PrayerRequestCard key={request.id} request={request} />
+          )) : (
+            <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67] md:col-span-2">
+              No prayer requests yet.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(44,39,31,0.06)] sm:p-5 lg:col-span-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8E8880]" style={{ fontFamily: adminFont.rajdhani }}>
+              Partners
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-[#111111]" style={{ fontFamily: adminFont.oswald }}>
+              Prayer partners
+            </h2>
+          </div>
+          <span className="rounded-full bg-[#EAF2FF] px-3 py-1.5 text-xs font-semibold text-[#176BFF]">
+            {preview.prayer.partners.length}
+          </span>
+        </div>
+        <div className="mt-5 grid gap-2 md:grid-cols-2">
+          {preview.prayer.partners.length > 0 ? preview.prayer.partners.map((partner) => (
+            <PrayerPartnerCard key={partner.id} partner={partner} />
+          )) : (
+            <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67] md:col-span-2">
+              Invite your first prayer partner.
+            </p>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -992,7 +1264,7 @@ export default async function WorkspacePreviewPage({
                 workspaceHref={workspaceHref}
               />
             ) : activeSection === "prayer" ? (
-              <PrayerSection preview={preview} />
+              <PrayerSection preview={preview} publicProfileHref={publicProfileHref} />
             ) : (
               <MoreSection
                 basePath={basePath}

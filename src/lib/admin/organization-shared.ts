@@ -63,6 +63,42 @@ export type WorkspacePreviewData = {
       status: string | null;
     }>;
   };
+  prayer: {
+    activity: Array<{
+      detail: string;
+      id: string;
+      label: string;
+      timestamp: string | null;
+      title: string;
+    }>;
+    partners: Array<{
+      email: string | null;
+      id: string;
+      name: string;
+      source: string | null;
+      status: string;
+      timestamp: string | null;
+    }>;
+    requests: Array<{
+      createdAt: string | null;
+      id: string;
+      personId: string | null;
+      personName: string | null;
+      status: string;
+      summary: string;
+      title: string;
+      updatedAt: string | null;
+      urgency: string | null;
+      visibility: string | null;
+    }>;
+    stats: {
+      activePartners: number;
+      pendingApplications: number;
+      pendingRequests: number;
+      recentActivity: number;
+    };
+    teamEnabled: boolean;
+  };
   counts: {
     fieldPeople: number;
     fruit: number;
