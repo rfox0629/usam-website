@@ -9,6 +9,7 @@ import {
   type DosAppParticipantReview,
   type DosAppPerson,
 } from "@/src/lib/dos/missionary-app";
+import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
 import { DosMvpAppClient } from "../DosMvpAppClient";
 
 export const dynamic = "force-dynamic";
@@ -27,36 +28,26 @@ const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
 
 function LockedPreviewScreen() {
   return (
-    <main className="dos-app-route min-h-screen bg-[#FAFBFD] px-5 py-16 text-[#0F172A]">
-      <section className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-sm flex-col justify-center">
-        <div className="rounded-[30px] border border-[#E2E8F0] bg-white p-6 shadow-[0_22px_70px_rgba(15,23,42,0.08)]">
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#2563EB]">
-            DOS Preview
-          </p>
-          <h1 className="mt-3 text-[28px] font-bold leading-tight tracking-tight text-[#0F172A]">
-            Enter demo access code.
-          </h1>
-          <form action="/dos/app/preview" className="mt-6 space-y-3" method="get">
-            <label className="block">
-              <span className="text-xs font-semibold text-[#64748B]">Access code</span>
-              <input
-                autoComplete="off"
-                className="mt-2 min-h-12 w-full rounded-2xl border border-[#E2E8F0] bg-[#F1F5F9] px-4 text-sm font-medium text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
-                name="demo"
-                placeholder="Enter code"
-                type="password"
-              />
-            </label>
-            <button
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
-              type="submit"
-            >
-              Open Preview
-            </button>
-          </form>
-        </div>
-      </section>
-    </main>
+    <DosMobileMessageScreen eyebrow="DOS Preview" title="Enter demo access code.">
+      <form action="/dos/app/preview" className="space-y-3" method="get">
+        <label className="block">
+          <span className="text-xs font-semibold text-[#64748B]">Access code</span>
+          <input
+            autoComplete="off"
+            className="mt-2 min-h-12 w-full rounded-2xl border border-[#E2E8F0] bg-[#F1F5F9] px-4 text-sm font-medium text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+            name="demo"
+            placeholder="Enter code"
+            type="password"
+          />
+        </label>
+        <button
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
+          type="submit"
+        >
+          Open Preview
+        </button>
+      </form>
+    </DosMobileMessageScreen>
   );
 }
 
