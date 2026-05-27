@@ -5,42 +5,10 @@ import { MissionReviewCTA } from "./MissionReviewCTA";
 
 export const metadata: Metadata = {
   title: "Briefing | USA Missionaries",
-  description: "Operational briefing and field dashboard for USA Missionaries.",
+  description: "Kitchen table testimonies and quiet field reports from USA Missionaries.",
 };
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-
-function VideoPlaceholderCard() {
-  return (
-    <div className="group relative overflow-hidden rounded-xl border border-white/25 bg-[#050505] shadow-[0_0_0_1px_rgba(212,160,23,0.08),0_24px_70px_rgba(0,0,0,0.68)]">
-      <div className="absolute inset-x-0 top-0 h-px bg-white/25" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(212,160,84,0.13),transparent_28%),radial-gradient(ellipse_at_center,transparent_38%,rgba(0,0,0,0.78)_100%),linear-gradient(135deg,rgba(255,255,255,0.055),transparent_40%,rgba(212,160,84,0.02))]" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:42px_42px] opacity-[0.08]" />
-
-      <div className="relative aspect-video min-h-[280px] p-5 md:min-h-0 md:p-7">
-        <div className="flex h-full flex-col">
-          <div className="relative z-10">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[2px] text-[#d4a017] [text-shadow:0_0_10px_rgba(212,160,23,0.28)]" style={{ fontFamily: font.rajdhani }}>
-              Coming Soon
-            </p>
-            <h2 className="max-w-sm text-2xl font-semibold leading-[1.2] text-white md:text-3xl" style={{ fontFamily: font.oswald }}>
-              Kitchen Table Testimony
-            </h2>
-            <p className="mt-5 max-w-sm text-sm leading-6 text-white/70">
-              A story from the table.
-            </p>
-          </div>
-
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-white/50 bg-black/40 shadow-[0_0_0_8px_rgba(255,255,255,0.035),0_0_42px_rgba(212,160,23,0.28)] backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:border-amber-200/70 group-hover:shadow-[0_0_0_10px_rgba(255,255,255,0.04),0_0_54px_rgba(212,160,23,0.36)] md:h-[84px] md:w-[84px]">
-              <div className="ml-1 h-0 w-0 border-y-[13px] border-l-[21px] border-y-transparent border-l-stone-100" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const featuredEncounter = {
   quote:
@@ -129,30 +97,14 @@ const fieldReports: readonly FieldReport[] = [
   },
 ] as const;
 
-const fieldReportCardStyles = [
-  "p-6 md:p-7 lg:col-span-7",
-  "p-7 md:p-8 lg:col-span-5",
-  "p-6 md:p-7 lg:col-span-5",
-  "p-7 md:p-8 lg:col-span-7",
-  "p-6 md:p-7 lg:col-span-6",
-  "p-7 md:p-9 lg:col-span-6",
-  "p-6 md:p-7 lg:col-span-5",
-  "p-7 md:p-8 lg:col-span-7",
-  "p-6 md:p-7 lg:col-span-7",
-  "p-7 md:p-8 lg:col-span-5",
-  "p-6 md:p-7 lg:col-span-6",
-  "p-7 md:p-8 lg:col-span-6",
-  "p-7 md:p-9 lg:col-span-12",
-] as const;
-
 function FeaturedEncounterSection() {
   return (
-    <section className="relative overflow-hidden bg-[#050505] px-6 py-16 md:py-24">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_42%,rgba(212,160,84,0.12),transparent_24%),radial-gradient(circle_at_78%_50%,rgba(255,255,255,0.035),transparent_22%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,5,5,0.95),rgba(8,8,8,0.86),rgba(5,5,5,0.98))]" />
+    <section className="relative overflow-hidden bg-[#050505] px-6 pb-16 pt-4 md:pb-24 md:pt-8">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_38%,rgba(212,160,84,0.15),transparent_25%),radial-gradient(circle_at_74%_48%,rgba(255,255,255,0.035),transparent_22%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,5,5,0.72),rgba(8,8,8,0.86),rgba(5,5,5,0.98))]" />
 
-      <div className="relative mx-auto max-w-6xl">
-        <div className="relative overflow-hidden border border-white/[0.1] bg-[linear-gradient(135deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012)_44%,rgba(212,160,23,0.035))] px-6 py-10 shadow-[0_24px_80px_rgba(0,0,0,0.5)] md:px-12 md:py-14">
+      <div className="relative mx-auto max-w-5xl">
+        <div className="relative overflow-hidden border border-white/[0.095] bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012)_42%,rgba(212,160,23,0.04))] px-6 py-12 shadow-[0_24px_90px_rgba(0,0,0,0.52)] md:px-12 md:py-16">
           <div className="absolute inset-y-0 left-0 w-px bg-amber-500/55" />
           <div className="absolute -right-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-amber-500/10 blur-3xl" />
 
@@ -161,7 +113,7 @@ function FeaturedEncounterSection() {
               Featured Encounter
             </p>
             <blockquote className="mt-8 border-l-2 border-amber-500/45 pl-6 md:pl-8">
-              <p className="text-2xl font-normal italic leading-[1.5] text-white/[0.92] md:text-4xl md:leading-[1.35]">
+              <p className="text-[28px] font-normal italic leading-[1.42] text-white/[0.94] md:text-5xl md:leading-[1.22]">
                 &ldquo;{featuredEncounter.quote}&rdquo;
               </p>
             </blockquote>
@@ -180,30 +132,25 @@ function FeaturedEncounterSection() {
 
 function FieldReportCard({
   report,
-  index,
 }: {
   report: FieldReport;
-  index: number;
 }) {
-  const cardStyle = fieldReportCardStyles[index] ?? "p-6 md:p-7 lg:col-span-6";
-
   return (
-    <article className={`border border-white/[0.075] bg-white/[0.018] shadow-[0_18px_54px_rgba(0,0,0,0.22)] transition-colors duration-200 hover:border-amber-500/24 hover:bg-white/[0.026] ${cardStyle}`}>
+    <article className="relative mb-5 break-inside-avoid overflow-hidden border border-white/[0.055] bg-white/[0.014] p-5 shadow-[0_14px_44px_rgba(0,0,0,0.18)] transition-colors duration-200 hover:border-amber-500/22 hover:bg-white/[0.022] md:p-6">
+      <div className="absolute inset-y-5 left-0 w-px bg-amber-500/35" />
       {report.tag ? (
         <p
-          className="mb-5 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-300/56"
+          className="mb-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-300/56"
           style={{ fontFamily: font.rajdhani }}
         >
           {report.tag}
         </p>
       ) : null}
-      <div className="border-l-2 border-amber-500/35 pl-5 md:pl-6">
-        <p className="text-[15.5px] font-normal italic leading-[1.72] text-white/[0.86] md:text-[17px]">
-          &ldquo;{report.quote}&rdquo;
-        </p>
-      </div>
+      <p className="text-base font-normal italic leading-[1.72] text-white/[0.88] md:text-[17px]">
+        &ldquo;{report.quote}&rdquo;
+      </p>
       <p
-        className="mt-[16px] text-[10px] uppercase tracking-[2px] text-white/[0.38]"
+        className="mt-5 text-[10px] uppercase tracking-[2px] text-white/[0.38]"
         style={{ fontFamily: font.rajdhani }}
       >
         {`— ${report.attribution}`}
@@ -228,31 +175,27 @@ export default async function MissionPage({
     <main className="min-h-screen bg-[#050505] text-stone-100">
       <PrimaryNav active="briefing" />
 
-      <section className="relative overflow-hidden px-6 pb-20 pt-24 md:pb-28 md:pt-32">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_34%,rgba(212,160,84,0.14),transparent_25%),radial-gradient(circle_at_78%_42%,rgba(255,255,255,0.04),transparent_24%),linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[length:auto,auto,86px_86px,86px_86px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,5,5,0.38),transparent_28%,rgba(5,5,5,0.9)_100%),radial-gradient(ellipse_at_center,transparent_34%,#050505_100%)]" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
-          <div>
-            <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
-              Mission Briefing
-            </p>
-            <h1 className="mt-6 text-5xl md:text-7xl font-bold tracking-tight leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-              BRIEFING
-            </h1>
-            <p className="mt-8 max-w-3xl text-base md:text-lg leading-8 text-stone-400">
-              Active field reports, movement metrics, and operational visibility.
-            </p>
-            <MissionReviewCTA />
-          </div>
-
-          <VideoPlaceholderCard />
+      <section className="relative overflow-hidden px-6 pb-10 pt-24 md:pb-14 md:pt-32">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_32%,rgba(212,160,84,0.16),transparent_25%),radial-gradient(circle_at_78%_40%,rgba(255,255,255,0.035),transparent_24%),linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[length:auto,auto,96px_96px,96px_96px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,5,5,0.36),transparent_30%,rgba(5,5,5,0.86)_100%),radial-gradient(ellipse_at_center,transparent_34%,#050505_100%)]" />
+        <div className="relative mx-auto max-w-5xl">
+          <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
+            Mission Briefing
+          </p>
+          <h1 className="mt-6 text-5xl font-bold leading-none tracking-tight text-stone-100 md:text-7xl" style={{ fontFamily: font.oswald }}>
+            BRIEFING
+          </h1>
+          <p className="mt-8 max-w-3xl text-lg leading-8 text-stone-300 md:text-xl md:leading-9">
+            Real testimonies from kitchen tables where prayer, surrender, and quiet transformation are taking root across America.
+          </p>
+          <MissionReviewCTA />
         </div>
       </section>
 
       <FeaturedEncounterSection />
 
-      <section className="relative overflow-hidden bg-[#080808] px-6 py-20 md:py-24">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(212,160,84,0.08),transparent_24%),linear-gradient(180deg,rgba(5,5,5,0.2),rgba(8,8,8,1)_24%)]" />
+      <section className="relative overflow-hidden bg-[#080808] px-6 py-16 md:py-24">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(212,160,84,0.08),transparent_24%),radial-gradient(circle_at_76%_38%,rgba(255,255,255,0.025),transparent_25%),linear-gradient(180deg,rgba(5,5,5,0.2),rgba(8,8,8,1)_24%)]" />
         <div className="relative mx-auto max-w-6xl">
           <div className="max-w-3xl">
             <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
@@ -266,9 +209,9 @@ export default async function MissionPage({
             </p>
           </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-12">
+          <div className="mt-10 columns-1 gap-5 md:columns-2">
             {fieldReports.map((report, index) => (
-              <FieldReportCard key={`${report.attribution}-${index}`} report={report} index={index} />
+              <FieldReportCard key={`${report.attribution}-${index}`} report={report} />
             ))}
           </div>
 
@@ -283,7 +226,7 @@ export default async function MissionPage({
                   See the Fruit of the Mission
                 </h3>
                 <p className="mt-4 text-sm leading-7 text-stone-400 md:text-base">
-                  For churches, leaders, and ministry partners, USA Missionaries is building a private reporting environment that provides a high-level view of what God is doing through the movement.
+                  For churches, leaders, and ministry partners, USA Missionaries stewards a private reporting environment that provides a high-level view of what God is doing through the movement.
                 </p>
                 <p className="mt-3 text-sm leading-7 text-stone-400 md:text-base">
                   Individual stories and personal details are never shared publicly and are stewarded with care.
