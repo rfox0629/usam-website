@@ -125,7 +125,7 @@ function MissionFocusCard({
           <div className="absolute inset-[34px] rounded-full border border-[#AFCFFF] bg-[#DFECFF]" />
           <div className="absolute inset-[70px] rounded-full border border-[#77A9FF] bg-[#176BFF] shadow-[0_18px_42px_rgba(23,107,255,0.28)]" />
           <span className="absolute top-5 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-bold text-[#176BFF]">My 70</span>
-          <span className="absolute top-[72px] rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-bold text-[#176BFF]">My 12</span>
+          <span className="absolute right-8 top-[86px] rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-bold text-[#176BFF]">My 12</span>
           <span className="relative z-10 grid justify-items-center leading-none text-white">
             <span className="text-4xl font-bold">{my3}</span>
             <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em]">My 3</span>
@@ -468,7 +468,7 @@ export default async function WorkspacePreviewPage({
             </section>
           </div>
 
-          <nav className="sticky bottom-0 grid grid-cols-4 border-t border-[#E2DCCD] bg-[#F9F7F1]/95 px-5 pb-4 pt-3 backdrop-blur lg:hidden" aria-label="Workspace preview navigation">
+          <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#E2DCCD] bg-[#F9F7F1]/95 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden" aria-label="Workspace preview navigation">
             <BottomNavItem active icon={Home} label="Home" />
             <BottomNavItem icon={Users} label="Field" />
             <BottomNavItem icon={Heart} label="Prayer" />
