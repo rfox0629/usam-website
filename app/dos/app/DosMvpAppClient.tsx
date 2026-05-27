@@ -620,20 +620,6 @@ function statusLabel(value: string | null | undefined) {
   return status ? status.charAt(0).toUpperCase() + status.slice(1) : "New";
 }
 
-function statusTone(value: string | null | undefined) {
-  const status = normalizeText(value).toLowerCase();
-
-  if (status.includes("disciple") || status.includes("active")) {
-    return "bg-[#2563EB]";
-  }
-
-  if (status.includes("follow") || status.includes("new")) {
-    return "bg-[#BFDBFE]";
-  }
-
-  return "bg-[#E2E8F0]";
-}
-
 function relationshipLine(person: DosAppPerson) {
   return person.relationshipType ? `Walking with · ${person.relationshipType}` : "Walking with";
 }
@@ -1296,10 +1282,7 @@ function PersonCard({
         {initials(person.name)}
       </div>
       <div className="min-w-0 flex-1 text-left">
-        <div className="flex items-center justify-between gap-3">
-          <p className="truncate text-sm font-semibold text-[#0F172A]">{person.name}</p>
-          <span className={`h-2 w-2 shrink-0 rounded-full ${statusTone(person.status)}`} />
-        </div>
+        <p className="truncate text-sm font-semibold text-[#0F172A]">{person.name}</p>
         <p className="mt-1 truncate text-xs text-[#64748B]">
           {isRow ? recentActivityLine(person) : `${statusLabel(person.status)} · ${lastActivityLine(person).replace("Last interaction · ", "")}`}
         </p>
@@ -1549,15 +1532,12 @@ function CircleFocusHero({
 
   return (
     <section className="rounded-[30px] bg-white px-5 py-4 shadow-[0_18px_48px_rgba(42,37,29,0.08)]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-            Circle Focus
-          </p>
-          <h2 className="mt-1 max-w-[250px] text-xl font-semibold leading-tight text-[#0F172A]">Steward the field you were given.</h2>
-          <p className="mt-1 max-w-[220px] text-xs leading-4 text-[#64748B]">Tap a circle to see who's inside.</p>
-        </div>
-        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#2563EB]" aria-hidden="true" />
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+          Circle Focus
+        </p>
+        <h2 className="mt-1 max-w-[250px] text-xl font-semibold leading-tight text-[#0F172A]">Steward the field you were given.</h2>
+        <p className="mt-1 max-w-[220px] text-xs leading-4 text-[#64748B]">Tap a circle to see who's inside.</p>
       </div>
 
       <CircleTarget my12Count={my12Count} my3Count={my3Count} my70Count={my70Count} onSelectCircle={onSelectCircle} />
@@ -1667,7 +1647,6 @@ function FocusRow({
         <span className="block truncate text-sm font-semibold text-[#0F172A]">{person.name}</span>
         <span className="mt-0.5 block truncate text-xs text-[#64748B]">{action}</span>
       </span>
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#2563EB]" aria-hidden="true" />
     </button>
   );
 }
@@ -1740,9 +1719,7 @@ function MeetingCard({
               </span>
             ))}
           </div>
-        ) : (
-          <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#BFDBFE]" aria-hidden="true" />
-        )}
+        ) : null}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -2157,7 +2134,6 @@ function MeetingPeopleSelector({
                 {initials(person.name)}
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">{person.name}</span>
-              <span className="h-2 w-2 rounded-full bg-[#BFDBFE]" aria-hidden="true" />
             </button>
           ))}
           {!visiblePeople.length ? <p className="rounded-2xl border border-dashed border-[#E2E8F0] p-3 text-sm text-[#64748B]">No more matching people.</p> : null}
@@ -3422,8 +3398,7 @@ function PersonDetailOverlay({
         <h2 className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
           {person.name}
         </h2>
-        <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" aria-hidden="true" />
+        <span className="mt-3 inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
           {person.relationshipType || "New"}
         </span>
       </section>
@@ -3819,8 +3794,7 @@ function MeetingDetailOverlay({
         </h2>
         <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" aria-hidden="true" />
+          <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
             {conversationFlowLabel(meeting.conversationFlowKey)}
           </span>
           {temperature ? (
