@@ -58,6 +58,11 @@ export type WorkspacePreviewData = {
     name: string;
     role: string | null;
   }>;
+  missionFocus: {
+    my3: number;
+    my12: number;
+    my70: number;
+  };
   organizationName: string;
   workspace: {
     displayName: string;

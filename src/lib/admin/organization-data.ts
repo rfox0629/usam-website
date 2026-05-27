@@ -93,6 +93,55 @@ function activityTimestamp(row: WorkspaceScopedRow) {
   return row.updated_at ?? row.table_date ?? row.created_at ?? null;
 }
 
+function firstNameFromWorkspace(displayName: string) {
+  const primaryName = displayName.split(/[&,+]/)[0]?.trim() ?? "";
+  const firstName = primaryName.split(/\s+/)[0]?.trim();
+
+  return firstName || "Someone";
+}
+
+function formatMeetingContext(value: string | null) {
+  if (!value) {
+    return "Meeting";
+  }
+
+  return value
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatParticipantNames(names: string[] | null) {
+  const cleanNames = (names ?? []).map((name) => name.trim()).filter(Boolean);
+
+  if (cleanNames.length === 0) {
+    return "the field";
+  }
+
+  if (cleanNames.length === 1) {
+    return cleanNames[0];
+  }
+
+  if (cleanNames.length === 2) {
+    return `${cleanNames[0]} + ${cleanNames[1]}`;
+  }
+
+  return `${cleanNames[0]} + ${cleanNames.length - 1} others`;
+}
+
+function formatPrayerActivity(status: string | null) {
+  if (status === "approved" || status === "converted") {
+    return "Prayer request approved";
+  }
+
+  if (status === "needs_follow_up" || status === "follow_up") {
+    return "Prayer request needs follow up";
+  }
+
+  return "Prayer request added";
+}
+
 function getOrganizationWorkspaces(
   organization: OrganizationRow,
   collectives: CollectiveRow[],
@@ -356,6 +405,7 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
       fruitCountResult,
       teamCountResult,
       teamMembersResult,
+      activePeopleCountResult,
       peopleFollowUpCountResult,
       reviewFollowUpCountResult,
       connectionFollowUpCountResult,
@@ -414,6 +464,11 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         .eq("household_id", workspaceId)
         .order("sort_order", { ascending: true, nullsFirst: false })
         .limit(6),
+      supabase
+        .from("missionary_field_people")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId)
+        .in("status", ["active", "follow_up", "discipleship"]),
       supabase
         .from("missionary_field_people")
         .select("id", { count: "exact", head: true })
@@ -482,6 +537,9 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
       + (connectionFollowUpCountResult.error ? 0 : connectionFollowUpCountResult.count ?? 0);
     const readyForNextStepCount = (reviewMovementStepCountResult.error ? 0 : reviewMovementStepCountResult.count ?? 0)
       + (connectionMovementStepCountResult.error ? 0 : connectionMovementStepCountResult.count ?? 0);
+    const fieldPeopleCount = peopleCountResult.error ? people.length : peopleCountResult.count ?? 0;
+    const activePeopleCount = activePeopleCountResult.error ? Math.min(fieldPeopleCount, people.length) : activePeopleCountResult.count ?? 0;
+    const workspaceFirstName = firstNameFromWorkspace(household.display_name);
     const activity = [
       ...meetings.map((meeting) => ({
         detail: meeting.notes || "Meeting logged",
@@ -489,15 +547,15 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         id: `meeting-${meeting.id}`,
         label: "Meeting",
         timestamp: meeting.table_date ?? meeting.updated_at ?? meeting.created_at,
-        title: meeting.participant_names?.length ? meeting.participant_names.join(" + ") : meeting.table_type ?? "Meeting",
+        title: `${formatMeetingContext(meeting.table_type)} logged with ${formatParticipantNames(meeting.participant_names)}`,
       })),
       ...prayers.map((prayer) => ({
-        detail: prayer.request || "Prayer request",
+        detail: prayer.title || prayer.request || "Prayer request",
         href: "/admin/prayer-team",
         id: `prayer-${prayer.id}`,
         label: "Prayer",
         timestamp: prayer.updated_at ?? prayer.created_at,
-        title: prayer.title || "Prayer request",
+        title: formatPrayerActivity(prayer.status),
       })),
       ...fruit.map((item) => ({
         detail: item.body || item.source_app || "Fruit item",
@@ -505,7 +563,7 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         id: `fruit-${item.id}`,
         label: item.cc_status === "pending_review" ? "Review" : "Fruit",
         timestamp: item.updated_at ?? item.created_at,
-        title: item.title || "Review submitted",
+        title: item.source_app === "dos_quick_review" || item.cc_status === "pending_review" ? "Quick Review submitted" : item.title || "Fruit added",
       })),
       ...people.map((person) => ({
         detail: "Person added to the field",
@@ -513,7 +571,7 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         id: `person-${person.id}`,
         label: "Person",
         timestamp: person.last_activity_at ?? person.updated_at ?? person.created_at,
-        title: person.name,
+        title: `${workspaceFirstName} added ${person.name} to the field`,
       })),
     ]
       .filter((item) => item.timestamp)
@@ -524,7 +582,7 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
       preview: {
         activity,
         counts: {
-          fieldPeople: peopleCountResult.error ? people.length : peopleCountResult.count ?? 0,
+          fieldPeople: fieldPeopleCount,
           fruit: fruitCountResult.error ? fruit.length : fruitCountResult.count ?? 0,
           followUps: followUpCount,
           meetings: meetingsCountResult.error ? meetings.length : meetingsCountResult.count ?? 0,
@@ -540,6 +598,11 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
           publishingEnabled: household.show_fruit !== false || household.show_story !== false,
         },
         members: teamMembers,
+        missionFocus: {
+          my3: Math.min(followUpCount, 3),
+          my12: Math.min(activePeopleCount, 12),
+          my70: fieldPeopleCount,
+        },
         organizationName: organizationResult.data?.name ?? "USA Missionaries",
         workspace: {
           displayName: household.display_name,
