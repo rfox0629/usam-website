@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Activity, Globe, Heart, MessageSquare, Network, Settings, ShieldCheck, Upload, Users, type LucideIcon } from "lucide-react";
+import { Activity, Building2, Globe, Heart, MessageSquare, Network, Settings, ShieldCheck, Upload, Users, type LucideIcon } from "lucide-react";
 import { adminFont } from "./AdminUI";
+import { RolePreviewSelect } from "./RolePreviewSelect";
 
 const adminNavGroups = [
   {
     items: [
       { activeKey: "dashboard", href: "/admin/dashboard", icon: Activity, label: "Command Center" },
+      { activeKey: "organizations", href: "/admin/organizations", icon: Building2, label: "Organizations" },
       { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", icon: Users, label: "Missionary Workspaces" },
       { activeKey: "relationship-intelligence", href: "/admin/relationship-intelligence", icon: Network, label: "Circle Engine" },
       { activeKey: "public-experience", href: "/admin/public-experience", icon: Globe, label: "Public Experience" },
@@ -200,7 +202,10 @@ export function AdminShell({
                   </p>
                 ) : null}
               </div>
-              {action ? <div className="shrink-0">{action}</div> : null}
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+                <RolePreviewSelect />
+                {action ? <div>{action}</div> : null}
+              </div>
             </div>
 
             {children}

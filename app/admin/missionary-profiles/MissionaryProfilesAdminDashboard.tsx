@@ -11888,7 +11888,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               </h2>
             </div>
 
-            <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
+            <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">
               <Link
                 aria-label="Open mobile Field App for this workspace"
                 className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_14px_34px_rgba(212,166,61,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#e7b742] hover:shadow-[0_18px_42px_rgba(212,166,61,0.24)] sm:min-h-24 sm:p-4"
@@ -11901,6 +11901,17 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   <Smartphone className="h-5 w-5 shrink-0" aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open DOS</p>
+                  </div>
+                </div>
+              </Link>
+              <Link
+                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
+                href={`/admin/workspaces/${selectedProfile.id}/preview?viewAs=workspace_user`}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <Eye className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>View as User</p>
                   </div>
                 </div>
               </Link>

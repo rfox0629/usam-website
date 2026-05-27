@@ -528,11 +528,11 @@ function ActionButton({
 
 function QuickActionsBar() {
   const actions = [
+    { href: "/admin/organizations", label: "Organizations" },
     { href: "/admin/missionary-profiles", label: "Open Workspaces" },
     { href: "/admin/missionary-profiles?tab=fruit", label: "Review Fruit" },
     { href: "/admin/prayer-team", label: "Prayer Requests" },
     { href: "/admin/support-team", label: "Support" },
-    { href: "/admin/uploads", label: "Uploads" },
   ] as const;
 
   return (
@@ -811,15 +811,15 @@ export default async function AdminDashboardPage() {
           <SectionHeader eyebrow="Operations" title="National Modules" />
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <OperationalModule
-              actionHref="/admin/missionary-profiles"
-              actionLabel="Open Workspaces"
+              actionHref="/admin/organizations"
+              actionLabel="Open Organizations"
               details={[
                 { label: "Published", value: hasDataError ? "-" : formatMetric(data.publishedProfiles) },
                 { label: "Profile Alerts", value: hasDataError ? "-" : formatMetric(data.incompleteProfiles.length) },
                 { label: "Active Users", value: hasDataError ? "-" : formatMetric(data.activeUsers) },
               ]}
               eyebrow="Workspaces"
-              title="Workspace Health"
+              title="Organization Layer"
             />
             <OperationalModule
               actionHref="/admin/prayer-team"
