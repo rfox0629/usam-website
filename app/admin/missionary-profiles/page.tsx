@@ -35,6 +35,7 @@ import {
 } from "./MissionaryProfilesAdminDashboard";
 import { AdminShell } from "../_components/AdminShell";
 import { getAdminAuthorization } from "@/src/lib/admin-auth";
+import { isWorkspaceShellV2Enabled } from "@/src/lib/admin/workspace-feature-flags";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
@@ -1446,6 +1447,7 @@ export default async function MissionaryProfilesAdminPage() {
   }
 
   const { error: loadError, profiles } = await getAdminProfiles();
+  const workspaceShellV2Enabled = isWorkspaceShellV2Enabled();
 
   return (
     <AdminShell
@@ -1457,7 +1459,10 @@ export default async function MissionaryProfilesAdminPage() {
           {loadError}
         </p>
       ) : null}
-      <MissionaryProfilesAdminDashboard initialProfiles={profiles} />
+      <MissionaryProfilesAdminDashboard
+        initialProfiles={profiles}
+        workspaceShellV2Enabled={workspaceShellV2Enabled}
+      />
     </AdminShell>
   );
 }

@@ -452,6 +452,7 @@ export type AdminProfile = AdminHousehold & {
 
 type MissionaryProfilesAdminDashboardProps = {
   initialProfiles: AdminProfile[];
+  workspaceShellV2Enabled?: boolean;
 };
 
 type StatusMessage = {
@@ -9899,7 +9900,10 @@ function ProfileVisibilityBadge({ profile }: { profile: AdminProfile }) {
   );
 }
 
-export function MissionaryProfilesAdminDashboard({ initialProfiles }: MissionaryProfilesAdminDashboardProps) {
+export function MissionaryProfilesAdminDashboard({
+  initialProfiles,
+  workspaceShellV2Enabled = false,
+}: MissionaryProfilesAdminDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
@@ -11729,6 +11733,7 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
   const support = selectedProfile.support ?? emptySupport(selectedProfile.id);
   const supportMode = selectedProfileSupportMode;
   const calculatedMonthlyGoal = calculateMonthlyGoal(support.annual_goal);
+  const workspaceV2Href = `/admin/workspaces/${selectedProfile.id}/preview?viewAs=workspace_user`;
   const publicProfileLink = getPublicMissionaryProfileUrl(selectedProfile.slug);
   const publicSupportLink = `${publicProfileLink}#support`;
   const publicFlyerLink = `${publicProfileLink}/flyer`;
@@ -11886,6 +11891,26 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
               <h2 className="max-w-full break-words text-4xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
                 {selectedProfile.display_name}
               </h2>
+              {workspaceShellV2Enabled ? (
+                <div className="mt-4 inline-flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-stone-800 bg-[#080808] p-1.5">
+                  <span className="px-2 text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Workspace shell
+                  </span>
+                  <span
+                    className="inline-flex min-h-8 items-center rounded-xl bg-[#D4A63D] px-3 text-[10px] uppercase tracking-[0.14em] text-black"
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  >
+                    Classic
+                  </span>
+                  <Link
+                    className="inline-flex min-h-8 items-center rounded-xl border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-[#D4A63D]/70 hover:text-[#F5B942]"
+                    href={workspaceV2Href}
+                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  >
+                    V2 Preview
+                  </Link>
+                </div>
+              ) : null}
             </div>
 
             <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">
@@ -11904,17 +11929,19 @@ export function MissionaryProfilesAdminDashboard({ initialProfiles }: Missionary
                   </div>
                 </div>
               </Link>
-              <Link
-                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
-                href={`/admin/workspaces/${selectedProfile.id}/preview?viewAs=workspace_user`}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <Eye className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>View as User</p>
+              {workspaceShellV2Enabled ? (
+                <Link
+                  className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
+                  href={workspaceV2Href}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Eye className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open Workspace v2</p>
+                    </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
+              ) : null}
               <Link
                 className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
                 href={`/missionaries/${selectedProfile.slug}`}

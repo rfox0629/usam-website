@@ -8,3 +8,12 @@
 - Command Center may read, review, manage, approve, and report on shared Supabase data written by DOS.
 - DOS Core is platform data. USAM-specific profile, fundraising, prayer team, support team, and public publishing features are network-level unlocks, not assumptions every DOS user receives.
 - Activity must not roll up to an organization/church dashboard unless the user or workspace has opted into sharing.
+
+## Workspace Shell v2 Flag
+
+`workspace_shell_v2` is currently controlled by the server environment variable `WORKSPACE_SHELL_V2_ENABLED`.
+
+- Default: off.
+- Enabled values: `1`, `true`, `yes`, or `on`.
+- When enabled, Missionary Workspace admins see the `Workspace shell: Classic / V2 Preview` control and an `Open Workspace v2` action.
+- The classic Missionary Workspace remains available and remains the default until v2 is intentionally promoted.

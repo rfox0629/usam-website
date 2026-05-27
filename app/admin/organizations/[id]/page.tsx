@@ -7,6 +7,7 @@ import { AdminBadge, AdminEmptyState, adminFont } from "../../_components/AdminU
 import { getAdminAuthorization } from "@/src/lib/admin-auth";
 import { loadOrganizationDetail } from "@/src/lib/admin/organization-data";
 import { formatOrganizationType } from "@/src/lib/admin/organization-shared";
+import { isWorkspaceShellV2Enabled } from "@/src/lib/admin/workspace-feature-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ export default async function OrganizationDetailPage({
 
   const { id } = await params;
   const { error, organization } = await loadOrganizationDetail(id);
+  const workspaceShellV2Enabled = isWorkspaceShellV2Enabled();
 
   if (!organization && !error) {
     notFound();
@@ -155,14 +157,22 @@ export default async function OrganizationDetailPage({
                         <p className="mt-1 truncate text-sm text-stone-400">{workspace.slug}</p>
                         <p className="mt-1 text-xs text-stone-500">{formatDate(workspace.lastActivityAt)}</p>
                       </div>
-                      {workspace.previewHref ? (
+                      {workspace.previewHref && workspaceShellV2Enabled ? (
                         <Link
                           className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#D4A63D]/60 px-3 text-[10px] uppercase tracking-[0.14em] text-[#E4C465] transition-colors hover:bg-[#D4A63D]/10"
                           href={workspace.previewHref}
                           style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
                         >
                           <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                          View as User
+                          View V2
+                        </Link>
+                      ) : workspace.kind === "workspace" ? (
+                        <Link
+                          className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-300 transition-colors hover:border-[#D4A63D]/60 hover:text-[#E4C465]"
+                          href={`/admin/missionary-profiles?profile=${workspace.slug}`}
+                          style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+                        >
+                          Classic
                         </Link>
                       ) : (
                         <span className="text-xs text-stone-500">Preview after workspace bridge</span>
