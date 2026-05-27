@@ -9,8 +9,23 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
         dangerouslySetInnerHTML={{
           __html: `
             body:has(.dos-app-route) {
-              background: #EDEAE3 !important;
-              color: #1E1D1A;
+              background: #FAFBFD !important;
+              color: #0F172A;
+              font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            }
+
+            .dos-app-route,
+            .dos-app-route * {
+              font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            }
+
+            .dos-app-route :where(button, a, input, textarea, select):focus {
+              outline: none;
+            }
+
+            .dos-app-route :where(button, a, input, textarea, select):focus-visible {
+              outline: 2px solid rgba(37, 99, 235, 0.34);
+              outline-offset: 2px;
             }
 
             body:has(.dos-app-route) > footer {
@@ -19,6 +34,10 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
 
             body:has(.dos-app-route) > div:first-child {
               min-height: 100dvh;
+            }
+
+            body:has(.dos-app-route) nextjs-portal {
+              display: none !important;
             }
           `,
         }}

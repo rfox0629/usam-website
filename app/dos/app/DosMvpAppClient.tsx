@@ -23,7 +23,7 @@ import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection,
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 
-const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const font = { oswald: "'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 
 const tabs = [
   { icon: "home", label: "Home", value: "home" },
@@ -111,6 +111,10 @@ type MeetingCaptureDraft = {
   id: string;
   previewUrl?: string;
   type: MeetingCaptureType;
+};
+type SegmentedTabOption<T extends string> = {
+  label: string;
+  value: T;
 };
 type IntelligenceHistoryItem = {
   calculatedAt: string | null;
@@ -399,8 +403,8 @@ function reviewStatusLabel(value: DosAppReviewStatus) {
 
 function reviewStatusClass(value: DosAppReviewStatus) {
   return value === "not_sent"
-    ? "border-[#E2DED6] bg-[#F8F7F3] text-[#77716A]"
-    : "border-[#D7C7A4] bg-[#FFF8E7] text-[#8A5A12]";
+    ? "border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]"
+    : "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
 }
 
 function reviewSharePermissionLabel(value: string | null) {
@@ -619,14 +623,14 @@ function statusTone(value: string | null | undefined) {
   const status = normalizeText(value).toLowerCase();
 
   if (status.includes("disciple") || status.includes("active")) {
-    return "bg-[#78A667]";
+    return "bg-[#2563EB]";
   }
 
   if (status.includes("follow") || status.includes("new")) {
-    return "bg-[#D79C37]";
+    return "bg-[#BFDBFE]";
   }
 
-  return "bg-[#9AA288]";
+  return "bg-[#E2E8F0]";
 }
 
 function relationshipLine(person: DosAppPerson) {
@@ -667,8 +671,15 @@ function initials(name: string) {
   return `${first}${second}`.toUpperCase();
 }
 
+function firstNameFromDisplayName(name: string) {
+  const cleaned = name.split(/[,&+]/)[0]?.trim() ?? "";
+  const first = cleaned.split(/\s+/)[0]?.trim();
+
+  return first || "Ryan";
+}
+
 function avatarTone(index: number) {
-  return ["bg-[#CFE6DA] text-[#1C5D4F]", "bg-[#DAD7F6] text-[#4B438B]", "bg-[#F0D6CB] text-[#8A3F2C]", "bg-[#E9DEC8] text-[#735C2C]"][index % 4];
+  return ["bg-[#EBF2FF] text-[#1D4ED8]", "bg-[#EBF2FF] text-[#2563EB]", "bg-[#F1F5F9] text-[#64748B]", "bg-[#E2E8F0] text-[#0F172A]"][index % 4];
 }
 
 function personName(people: DosAppPerson[], id: string | null | undefined) {
@@ -730,9 +741,9 @@ function AppButton({
   type?: "button" | "submit";
 }) {
   const toneClass = {
-    black: "bg-[#111111] text-white shadow-[0_10px_24px_rgba(17,17,17,0.12)] hover:bg-black",
-    soft: "border border-[#E0DED8] bg-[#F8F7F3] text-[#1E1D1A] hover:bg-white",
-    white: "border border-[#DDD9D0] bg-white text-[#1E1D1A] hover:border-[#C9C1B4]",
+    black: "bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)] hover:brightness-[0.98]",
+    soft: "border border-[#E2E8F0] bg-[#F1F5F9] text-[#0F172A] hover:bg-white",
+    white: "border border-[#E2E8F0] bg-white text-[#0F172A] hover:border-[#BFDBFE]",
   }[tone];
   const sizeClass = tone === "black" ? "min-h-[54px] text-[15px]" : "min-h-11 text-xs sm:text-sm";
 
@@ -760,7 +771,7 @@ function CompactButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#DDD9D0] bg-white px-3 text-xs font-semibold text-[#1E1D1A] transition-colors hover:border-[#C9C1B4]"
+      className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#0F172A] transition-colors hover:border-[#BFDBFE]"
       onClick={onClick}
       type="button"
     >
@@ -780,8 +791,8 @@ function EmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-[#E2DED6] bg-white p-5 text-sm leading-6 text-[#77716A]">
-      <p className="font-semibold text-[#1E1D1A]">{title}</p>
+    <div className="rounded-[22px] border border-[#E2E8F0] bg-white p-5 text-sm leading-6 text-[#64748B]">
+      <p className="font-semibold text-[#0F172A]">{title}</p>
       <p className="mt-1">{text}</p>
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
@@ -790,18 +801,18 @@ function EmptyState({
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
       {children}
     </span>
   );
 }
 
 function FieldInputClass() {
-  return "mt-2 min-h-12 w-full rounded-2xl border border-[#DDD9D0] bg-[#F8F7F3] px-4 text-[#1E1D1A] outline-none transition-colors placeholder:text-[#A9A29A] focus:border-[#111111]";
+  return "mt-2 min-h-12 w-full rounded-2xl border border-[#E2E8F0] bg-[#F1F5F9] px-4 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]";
 }
 
 function FieldTextareaClass() {
-  return "mt-2 min-h-24 w-full resize-none rounded-2xl border border-[#DDD9D0] bg-[#F8F7F3] px-4 py-3 text-[#1E1D1A] outline-none transition-colors placeholder:text-[#A9A29A] focus:border-[#111111]";
+  return "mt-2 min-h-24 w-full resize-none rounded-2xl border border-[#E2E8F0] bg-[#F1F5F9] px-4 py-3 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]";
 }
 
 function StatTile({
@@ -813,15 +824,15 @@ function StatTile({
   onClick?: () => void;
   value: number | string;
 }) {
-  const className = "rounded-xl bg-[#F1F0EC] px-3 py-3.5 text-center";
-  const interactiveClassName = `${className} cursor-pointer transition-colors hover:bg-[#E9E4DA] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/35`;
+  const className = "rounded-xl bg-[#F1F5F9] px-3 py-3.5 text-center";
+  const interactiveClassName = `${className} cursor-pointer transition-colors hover:bg-[#EBF2FF] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/35`;
   const valueClassName = typeof value === "number"
-    ? "text-[21px] font-bold leading-none text-[#111111]"
-    : "text-[13px] font-bold leading-tight text-[#111111]";
+    ? "text-[21px] font-bold leading-none text-[#0F172A]"
+    : "text-[13px] font-bold leading-tight text-[#0F172A]";
   const content = (
     <>
       <p className={valueClassName}>{value}</p>
-      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
         {label}
       </p>
     </>
@@ -844,9 +855,9 @@ function StatTile({
 
 function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-[#F1F0EC] px-3 py-3.5">
-      <p className="line-clamp-2 text-sm font-bold leading-tight text-[#111111]">{value}</p>
-      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+    <div className="rounded-xl bg-[#F1F5F9] px-3 py-3.5">
+      <p className="line-clamp-2 text-sm font-bold leading-tight text-[#0F172A]">{value}</p>
+      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
         {label}
       </p>
     </div>
@@ -862,7 +873,7 @@ function SectionHeading({
 }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-4">
-      <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+      <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
         {title}
       </h2>
       {action}
@@ -882,10 +893,10 @@ function LibrarySection({
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
           {title}
         </h2>
-        {subtext ? <p className="mt-1 text-xs leading-5 text-[#77716A]">{subtext}</p> : null}
+        {subtext ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{subtext}</p> : null}
       </div>
       {children}
     </section>
@@ -895,25 +906,25 @@ function LibrarySection({
 function followUpResourceIcon(title: string) {
   switch (title) {
     case "Attending Church":
-      return { className: "bg-[#E6F4ED] text-[#24724D]", IconComponent: Church };
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Church };
     case "Daily Bible Reading":
-      return { className: "bg-[#E8F0FF] text-[#2F5FAF]", IconComponent: BookOpen };
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: BookOpen };
     case "Baptism":
-      return { className: "bg-[#E4F5F8] text-[#227083]", IconComponent: Droplet };
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Droplet };
     case "Biblical Giving":
-      return { className: "bg-[#FFF0D8] text-[#986013]", IconComponent: Gift };
+      return { className: "bg-[#EBF2FF] text-[#1D4ED8]", IconComponent: Gift };
     case "Discipleship":
-      return { className: "bg-[#EAF1E2] text-[#577D31]", IconComponent: Users };
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Users };
     case "Evangelism":
-      return { className: "bg-[#FFF3CF] text-[#9A6417]", IconComponent: Megaphone };
+      return { className: "bg-[#EBF2FF] text-[#1D4ED8]", IconComponent: Megaphone };
     case "Prayer and Fasting":
-      return { className: "bg-[#F4E9FF] text-[#7142A8]", IconComponent: Flame };
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Flame };
     case "Sabbath":
-      return { className: "bg-[#E9ECFF] text-[#4F5FA8]", IconComponent: Moon };
+      return { className: "bg-[#EBF2FF] text-[#1D4ED8]", IconComponent: Moon };
     case "Spiritual Gifts":
-      return { className: "bg-[#F8EAFE] text-[#8A4E9F]", IconComponent: Sparkles };
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Sparkles };
     default:
-      return { className: "bg-[#F1F0EC] text-[#6F6658]", IconComponent: BookOpen };
+      return { className: "bg-[#F1F5F9] text-[#64748B]", IconComponent: BookOpen };
   }
 }
 
@@ -927,22 +938,22 @@ function FeaturedTeachingCard({
   title: string;
 }) {
   return (
-    <article className="overflow-hidden rounded-[24px] border border-[#F0DEB9] bg-[#FFF0D8] shadow-[0_16px_34px_rgba(42,37,29,0.07)]">
+    <article className="overflow-hidden rounded-[24px] border border-[#BFDBFE] bg-[#EBF2FF] shadow-[0_16px_34px_rgba(42,37,29,0.07)]">
       <div className="relative p-4 pb-3">
         <div className="min-w-0">
-          <span className="inline-flex rounded-full bg-white/75 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#9A6417]" style={{ fontFamily: font.rajdhani }}>
+          <span className="inline-flex rounded-full bg-white/75 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Start here
           </span>
-          <h3 className="mt-3 text-lg font-bold leading-tight text-[#1E1D1A]">{title}</h3>
-          <p className="mt-1 text-xs font-medium leading-4 text-[#8A5A12]">{description}</p>
+          <h3 className="mt-3 text-lg font-bold leading-tight text-[#0F172A]">{title}</h3>
+          <p className="mt-1 text-xs font-medium leading-4 text-[#1D4ED8]">{description}</p>
         </div>
-        <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/70 text-[#D9901E]">
+        <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/70 text-[#2563EB]">
           <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
         </div>
       </div>
-      <div className="bg-[#FFF7E8]/80 p-3">
+      <div className="bg-[#EBF2FF]/80 p-3">
         <a
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#111111] px-4 text-[11px] font-bold text-white transition-colors hover:bg-[#2A2722]"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-[11px] font-bold text-white transition-colors hover:brightness-[0.98]"
           href={href}
           rel="noopener noreferrer"
           target="_blank"
@@ -968,19 +979,19 @@ function TableTeachingRow({
 
   return (
     <a
-      className="flex min-h-[72px] items-center gap-2.5 rounded-[20px] border border-[#F0DEB9] bg-[#FFFCF5] px-3 py-2.5 shadow-[0_10px_24px_rgba(42,37,29,0.04)] transition-colors hover:border-[#D7C7A4]"
+      className="flex min-h-[72px] items-center gap-2.5 rounded-[20px] border border-[#BFDBFE] bg-[#FFFFFF] px-3 py-2.5 shadow-[0_10px_24px_rgba(42,37,29,0.04)] transition-colors hover:border-[#BFDBFE]"
       href={href}
       rel="noopener noreferrer"
       target="_blank"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#FFF0D8] text-[#9A6417]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#EBF2FF] text-[#1D4ED8]">
         <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold leading-tight text-[#1E1D1A]">{title}</span>
-        <span className="mt-1 block line-clamp-2 text-xs leading-4 text-[#77716A]">{shortDescription}</span>
+        <span className="block text-sm font-semibold leading-tight text-[#0F172A]">{title}</span>
+        <span className="mt-1 block line-clamp-2 text-xs leading-4 text-[#64748B]">{shortDescription}</span>
       </span>
-      <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9A6417]" style={{ fontFamily: font.rajdhani }}>
+      <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
         Open
         <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
       </span>
@@ -1001,7 +1012,7 @@ function FollowUpGuideRow({
 
   return (
     <a
-      className="group flex min-h-[64px] items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[#FFFCF5]"
+      className="group flex min-h-[64px] items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[#FFFFFF]"
       href={href}
       rel="noopener noreferrer"
       target="_blank"
@@ -1010,18 +1021,18 @@ function FollowUpGuideRow({
         <IconComponent className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold leading-tight text-[#1E1D1A]">{title}</span>
-        <span className="mt-0.5 block line-clamp-1 text-xs leading-4 text-[#77716A]">{description}</span>
+        <span className="block text-sm font-semibold leading-tight text-[#0F172A]">{title}</span>
+        <span className="mt-0.5 block line-clamp-1 text-xs leading-4 text-[#64748B]">{description}</span>
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[#C79A31] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={1.9} />
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={1.9} />
     </a>
   );
 }
 
 function FollowUpGuideList() {
   return (
-    <article className="overflow-hidden rounded-[22px] border border-[#E8E2D8] bg-white shadow-[0_12px_28px_rgba(42,37,29,0.04)]">
-      <div className="divide-y divide-[#EFEAE1]">
+    <article className="overflow-hidden rounded-[22px] border border-[#E2E8F0] bg-white shadow-[0_12px_28px_rgba(42,37,29,0.04)]">
+      <div className="divide-y divide-[#EBF2FF]">
         {dosFollowUpGuideResources.map((guide) => (
           <FollowUpGuideRow
             description={guide.description}
@@ -1047,16 +1058,16 @@ function TaskCard({
   title: string;
 }) {
   return (
-    <article className="flex min-h-[72px] items-center justify-between gap-4 rounded-[18px] border border-[#E2DED6] bg-white px-4 py-3.5">
+    <article className="flex min-h-[72px] items-center justify-between gap-4 rounded-[18px] border border-[#E2E8F0] bg-white px-4 py-3.5">
       <div className="flex min-w-0 items-center gap-3">
         {icon ? (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F1F0EC] text-[#1E1D1A]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#0F172A]">
             <Icon name={icon} size={16} />
           </div>
         ) : null}
         <div className="min-w-0">
-          <p className="font-semibold leading-tight text-[#1E1D1A]">{title}</p>
-          <div className="mt-1 text-xs leading-5 text-[#77716A]">{children}</div>
+          <p className="font-semibold leading-tight text-[#0F172A]">{title}</p>
+          <div className="mt-1 text-xs leading-5 text-[#64748B]">{children}</div>
         </div>
       </div>
       {action}
@@ -1076,25 +1087,26 @@ function Sheet({
   title: string;
 }) {
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/35 px-3 py-5 backdrop-blur-sm" onMouseDown={onClose} role="presentation">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/30 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-md" onMouseDown={onClose} role="presentation">
       <div className="flex min-h-full items-end justify-center">
         <div
           aria-modal="true"
-          className="w-full max-w-lg rounded-[28px] border border-[#E2DED6] bg-[#F6F4EF] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.18)]"
+          className="w-full max-w-lg overflow-hidden rounded-t-[30px] rounded-b-[24px] border border-white/70 bg-[#FAFBFD] p-4 shadow-[0_26px_90px_rgba(0,0,0,0.20)]"
           onMouseDown={(event) => event.stopPropagation()}
           role="dialog"
         >
+          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E2E8F0]" aria-hidden="true" />
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
                 DOS
               </p>
-              <h2 className="mt-2 text-2xl font-bold leading-none text-[#1E1D1A]">{title}</h2>
-              {description ? <p className="mt-3 text-sm leading-6 text-[#77716A]">{description}</p> : null}
+              <h2 className="mt-2 text-2xl font-bold leading-none text-[#0F172A]">{title}</h2>
+              {description ? <p className="mt-3 text-sm leading-6 text-[#64748B]">{description}</p> : null}
             </div>
             <button
               aria-label="Close"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#DDD9D0] bg-white text-xl leading-none text-[#1E1D1A]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-xl leading-none text-[#0F172A]"
               onClick={onClose}
               type="button"
             >
@@ -1104,6 +1116,152 @@ function Sheet({
           <div className="mt-5">{children}</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MobileBottomSheet({
+  badge,
+  children,
+  footer,
+  onClose,
+  subtitle,
+  title,
+}: {
+  badge?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  onClose: () => void;
+  subtitle?: string;
+  title: string;
+}) {
+  return (
+    <div
+      className="absolute inset-0 z-[80] flex items-end bg-[#0F172A]/20 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] backdrop-blur-[3px]"
+      onMouseDown={onClose}
+      role="presentation"
+    >
+      <section
+        aria-modal="true"
+        className="max-h-[calc(100dvh-1.5rem)] w-full overflow-hidden rounded-t-[32px] rounded-b-[24px] border border-white/70 bg-[#FAFBFD] p-3 shadow-[0_28px_85px_rgba(32,27,20,0.24)]"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#E2E8F0]" aria-hidden="true" />
+        <header className="flex items-start gap-3 px-1 pb-3">
+          <button
+            aria-label="Close"
+            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+          {badge ? <div className="shrink-0">{badge}</div> : null}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold leading-tight text-[#0F172A]">{title}</h2>
+            {subtitle ? <p className="mt-0.5 text-[11px] leading-4 text-[#64748B]">{subtitle}</p> : null}
+          </div>
+        </header>
+        <div className="max-h-[calc(100dvh-13rem)] overflow-y-auto px-0.5 [scrollbar-width:none]">
+          {children}
+        </div>
+        {footer ? <div className="mt-3 px-0.5">{footer}</div> : null}
+      </section>
+    </div>
+  );
+}
+
+function ActionList({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-[22px] bg-white shadow-[0_12px_36px_rgba(42,37,29,0.055)]">
+      {children}
+    </div>
+  );
+}
+
+function ActionListRow({
+  children,
+  href,
+  icon,
+  isLast = false,
+  onClick,
+}: {
+  children: ReactNode;
+  href?: string;
+  icon: ReactNode;
+  isLast?: boolean;
+  onClick?: () => void;
+}) {
+  const className = `flex min-h-[54px] w-full items-center gap-3 bg-white px-4 text-left text-sm font-semibold text-[#0F172A] transition-colors hover:bg-[#FFFFFF] ${
+    isLast ? "" : "border-b border-[#E2E8F0]"
+  }`;
+  const content = (
+    <>
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#1D4ED8]">{icon}</span>
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+    </>
+  );
+
+  if (href) {
+    return (
+      <a className={className} href={href}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button className={className} onClick={onClick} type="button">
+      {content}
+    </button>
+  );
+}
+
+function SegmentedTabs<T extends string>({
+  onChange,
+  options,
+  value,
+}: {
+  onChange: (value: T) => void;
+  options: ReadonlyArray<SegmentedTabOption<T>>;
+  value: T;
+}) {
+  return (
+    <div className="grid grid-cols-3 rounded-full bg-[#E2E8F0] p-1 shadow-inner shadow-white/60">
+      {options.map((option) => (
+        <button
+          aria-pressed={value === option.value}
+          className={`min-h-9 rounded-full px-2 text-xs font-bold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 ${
+            value === option.value
+              ? "bg-white text-[#0F172A] shadow-[0_8px_18px_rgba(42,37,29,0.08)]"
+              : "text-[#64748B] hover:text-[#0F172A]"
+          }`}
+          key={option.value}
+          onClick={() => onChange(option.value)}
+          type="button"
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CompactMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | string;
+}) {
+  return (
+    <div className="rounded-[18px] bg-white/70 px-3 py-3 text-center shadow-[0_8px_22px_rgba(42,37,29,0.035)]">
+      <p className="text-lg font-bold leading-none text-[#0F172A]">{value}</p>
+      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </p>
     </div>
   );
 }
@@ -1127,21 +1285,21 @@ function PersonCard({
       </div>
       <div className="min-w-0 flex-1 text-left">
         <div className="flex items-center justify-between gap-3">
-          <p className="truncate text-sm font-semibold text-[#1E1D1A]">{person.name}</p>
+          <p className="truncate text-sm font-semibold text-[#0F172A]">{person.name}</p>
           <span className={`h-2 w-2 shrink-0 rounded-full ${statusTone(person.status)}`} />
         </div>
-        <p className="mt-1 truncate text-xs text-[#77716A]">
+        <p className="mt-1 truncate text-xs text-[#64748B]">
           {isRow ? recentActivityLine(person) : `${statusLabel(person.status)} · ${lastActivityLine(person).replace("Last interaction · ", "")}`}
         </p>
       </div>
-      {onClick ? <ChevronRight className="h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} /> : null}
+      {onClick ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
     </>
   );
 
   if (onClick) {
     return (
       <button
-        className={`flex w-full items-center gap-3 bg-white transition-colors hover:bg-[#FFFDF8] ${isRow ? "px-4 py-3" : "rounded-2xl border border-[#E2DED6] px-4 py-3"}`}
+        className={`flex w-full items-center gap-3 bg-white transition-colors hover:bg-[#FFFFFF] ${isRow ? "px-4 py-3" : "rounded-2xl border border-[#E2E8F0] px-4 py-3"}`}
         onClick={onClick}
         type="button"
       >
@@ -1150,7 +1308,7 @@ function PersonCard({
     );
   }
 
-  return <article className={`flex items-center gap-3 bg-white ${isRow ? "px-4 py-3" : "rounded-2xl border border-[#E2DED6] px-4 py-3"}`}>{content}</article>;
+  return <article className={`flex items-center gap-3 bg-white ${isRow ? "px-4 py-3" : "rounded-2xl border border-[#E2E8F0] px-4 py-3"}`}>{content}</article>;
 }
 
 function circleDisplayName(circle: string) {
@@ -1254,7 +1412,7 @@ function CircleAvatar({
 
   if (!person) {
     return (
-      <span className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-dashed border-[#D8D2C8] bg-[#F8F7F3] text-[#B5AEA3]`}>
+      <span className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-dashed border-[#E2E8F0] bg-[#F1F5F9] text-[#94A3B8]`}>
         +
       </span>
     );
@@ -1271,6 +1429,99 @@ function CircleAvatar({
   );
 }
 
+function CircleTarget({
+  my12Count,
+  my3Count,
+  my70Count,
+  onSelectCircle,
+}: {
+  my12Count: number;
+  my3Count: number;
+  my70Count: number;
+  onSelectCircle: (circle: CircleFocusView) => void;
+}) {
+  const handleTargetClick = (event: MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const distanceFromCenter = Math.hypot(event.clientX - centerX, event.clientY - centerY);
+
+    if (distanceFromCenter <= 30) {
+      onSelectCircle("three");
+      return;
+    }
+
+    if (distanceFromCenter <= 62) {
+      onSelectCircle("twelve");
+      return;
+    }
+
+    onSelectCircle("seventy");
+  };
+
+  return (
+    <div
+      aria-label="Discipleship circle target"
+      className="relative mx-auto mt-5 h-[172px] w-[172px] cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+      onClick={handleTargetClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelectCircle("three");
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      <span
+        className="absolute inset-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF]/45 shadow-[inset_0_6px_26px_rgba(255,255,255,0.72),0_14px_30px_rgba(37,99,235,0.08)]"
+        aria-hidden="true"
+      />
+      <span
+        className="absolute left-1/2 top-1/2 h-[122px] w-[122px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF]/78 shadow-[inset_0_8px_24px_rgba(255,255,255,0.62)]"
+        aria-hidden="true"
+      />
+      <span
+        className="absolute left-1/2 top-1/2 h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] shadow-[0_12px_24px_rgba(37,99,235,0.30),inset_0_5px_14px_rgba(255,255,255,0.22)]"
+        aria-hidden="true"
+      />
+      <button
+        aria-label={`Open My 70, ${my70Count} people`}
+        className="absolute left-1/2 top-[7px] z-20 flex h-6 min-w-8 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center transition-colors hover:bg-white/55 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelectCircle("seventy");
+        }}
+        type="button"
+      >
+        <span className="text-[9px] font-bold leading-none text-[#2563EB]">70</span>
+      </button>
+      <button
+        aria-label={`Open My 12, ${my12Count} people`}
+        className="absolute left-1/2 top-[39px] z-20 flex h-6 min-w-8 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center transition-colors hover:bg-white/55 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelectCircle("twelve");
+        }}
+        type="button"
+      >
+        <span className="text-[10px] font-bold leading-none text-[#2563EB]">12</span>
+      </button>
+      <button
+        aria-label={`Open My 3, ${my3Count} people`}
+        className="absolute left-1/2 top-1/2 z-20 flex h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30"
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelectCircle("three");
+        }}
+        type="button"
+      >
+        <span className="text-[18px] font-bold leading-none text-white">3</span>
+      </button>
+    </div>
+  );
+}
+
 function CircleFocusHero({
   onSelectCircle,
   onViewCircles,
@@ -1283,71 +1534,34 @@ function CircleFocusHero({
   const my3Count = Math.min(rankedPeople.length, 3);
   const my12Count = Math.min(rankedPeople.length, 12);
   const my70Count = Math.min(rankedPeople.length, 70);
-  const circleLabels: Array<{
-    buttonClassName: string;
-    count: number;
-    label: string;
-    value: CircleFocusView;
-  }> = [
-    {
-      buttonClassName: "top-2",
-      count: my70Count,
-      label: "My 70",
-      value: "seventy",
-    },
-    {
-      buttonClassName: "top-[42px]",
-      count: my12Count,
-      label: "My 12",
-      value: "twelve",
-    },
-    {
-      buttonClassName: "top-1/2 -translate-y-1/2",
-      count: my3Count,
-      label: "My 3",
-      value: "three",
-    },
-  ];
 
   return (
-    <section className="rounded-[28px] bg-white px-5 py-4 shadow-[0_18px_48px_rgba(42,37,29,0.07)]">
+    <section className="rounded-[30px] bg-white px-5 py-4 shadow-[0_18px_48px_rgba(42,37,29,0.08)]">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
             Circle Focus
           </p>
-          <h2 className="mt-1 max-w-[240px] text-lg font-bold leading-tight text-[#111111]">Your discipleship circles.</h2>
-          <p className="mt-1 max-w-[220px] text-xs leading-4 text-[#77716A]">Tap a circle to see who's inside.</p>
+          <h2 className="mt-1 max-w-[250px] text-xl font-semibold leading-tight text-[#0F172A]">Your discipleship circles.</h2>
+          <p className="mt-1 max-w-[220px] text-xs leading-4 text-[#64748B]">Tap a circle to see who's inside.</p>
         </div>
-        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#D4A63D]" aria-hidden="true" />
+        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#2563EB]" aria-hidden="true" />
       </div>
 
-      <div className="relative mx-auto mt-4 h-[204px] w-[204px] max-w-full rounded-full" aria-label="Tap a discipleship circle">
-        <span className="absolute inset-0 z-0 rounded-full border border-[#E3D5B9] bg-[#FBFAF7]" aria-hidden="true" />
-        <span className="absolute left-1/2 top-1/2 z-10 h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/35 bg-[#FFF8E7]/70" aria-hidden="true" />
-        <span className="absolute left-1/2 top-1/2 z-20 h-[86px] w-[86px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#D4A63D]/50 bg-[#F8EACB] shadow-[0_10px_26px_rgba(212,166,61,0.12)]" aria-hidden="true" />
-        {circleLabels.map((circle) => (
-          <button
-            aria-label={`Open ${circle.label}, ${circle.count} people`}
-            className={`absolute left-1/2 z-30 flex min-h-8 min-w-12 -translate-x-1/2 flex-col items-center justify-center rounded-full px-2 leading-none text-center transition duration-200 ease-out hover:bg-white/70 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/30 ${circle.buttonClassName}`}
-            key={circle.value}
-            onClick={() => onSelectCircle(circle.value)}
-            type="button"
-          >
-            <span className="text-base font-bold text-[#8A5A12]">{circle.count}</span>
-            <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
-              {circle.label}
-            </span>
-          </button>
-        ))}
-      </div>
+      <CircleTarget my12Count={my12Count} my3Count={my3Count} my70Count={my70Count} onSelectCircle={onSelectCircle} />
 
-      <p className="mx-auto mt-2 max-w-[250px] text-center text-[10px] leading-4 text-[#77716A]">
+      <p className="mx-auto mt-2 max-w-[250px] text-center text-[10px] leading-4 text-[#64748B]">
         Your 3 are at the center. Your 12 surround them. Your 70 is your broader field.
       </p>
 
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <CompactMetric label="My 3" value={my3Count} />
+        <CompactMetric label="My 12" value={my12Count} />
+        <CompactMetric label="My 70" value={my70Count} />
+      </div>
+
       <button
-        className="mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-full bg-[#111111] px-4 text-sm font-bold text-white"
+        className="mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
         onClick={onViewCircles}
         type="button"
       >
@@ -1381,17 +1595,17 @@ function CircleListRow({
 
   return (
     <div
-      className={`flex min-h-[64px] w-full items-center gap-3 bg-white px-3 py-2 text-left transition-colors hover:bg-[#FFFDF8] ${isLast ? "" : "border-b border-[#EEEAE2]"}`}
+      className={`flex min-h-[64px] w-full items-center gap-3 bg-white px-3 py-2 text-left transition-colors hover:bg-[#FFFFFF] ${isLast ? "" : "border-b border-[#E2E8F0]"}`}
     >
       <CircleAvatar index={index} person={person} size="sm" />
       <button className="min-w-0 flex-1 text-left" onClick={onClick} type="button">
-        <span className="block truncate text-sm font-semibold text-[#1E1D1A]">{person.name}</span>
-        <span className={`mt-0.5 block truncate text-xs ${needsFollowUp ? "font-semibold text-[#A87916]" : "text-[#5D786D]"}`}>{activity}</span>
+        <span className="block truncate text-sm font-semibold text-[#0F172A]">{person.name}</span>
+        <span className={`mt-0.5 block truncate text-xs ${needsFollowUp ? "font-semibold text-[#1D4ED8]" : "text-[#2563EB]"}`}>{activity}</span>
       </button>
       {onLogMeeting ? (
         <button
           aria-label={`Log meeting with ${person.name}`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E2D8] bg-[#FFFCF5] text-[#8A5A12] transition-colors hover:border-[#D4A63D]"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-[#FFFFFF] text-[#1D4ED8] transition-colors hover:border-[#2563EB]"
           onClick={onLogMeeting}
           type="button"
         >
@@ -1400,7 +1614,7 @@ function CircleListRow({
       ) : null}
       <button
         aria-label={`Open ${person.name}`}
-        className="flex h-8 w-7 shrink-0 items-center justify-center rounded-full text-[#A9A29A] transition-colors hover:bg-[#F8F7F3] hover:text-[#1E1D1A]"
+        className="flex h-8 w-7 shrink-0 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A]"
         onClick={onClick}
         type="button"
       >
@@ -1421,11 +1635,13 @@ function HomeActionPill({
 }) {
   return (
     <button
-      className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white px-4 text-xs font-bold text-[#1E1D1A] shadow-[0_10px_26px_rgba(42,37,29,0.055)]"
+      className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-2 text-[11px] font-bold text-[#0F172A] shadow-[0_10px_26px_rgba(42,37,29,0.055)]"
       onClick={onClick}
       type="button"
     >
-      <Icon name={icon} size={14} />
+      <span className="text-[#2563EB]">
+        <Icon name={icon} size={14} />
+      </span>
       {children}
     </button>
   );
@@ -1446,10 +1662,10 @@ function FocusRow({
     <button className="flex min-h-12 w-full items-center gap-3 rounded-2xl bg-white px-3 text-left shadow-[0_8px_24px_rgba(42,37,29,0.045)]" onClick={onClick} type="button">
       <CircleAvatar index={index} person={person} size="sm" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-[#1E1D1A]">{person.name}</span>
-        <span className="mt-0.5 block truncate text-xs text-[#77716A]">{action}</span>
+        <span className="block truncate text-sm font-semibold text-[#0F172A]">{person.name}</span>
+        <span className="mt-0.5 block truncate text-xs text-[#64748B]">{action}</span>
       </span>
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#D4A63D]" aria-hidden="true" />
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#2563EB]" aria-hidden="true" />
     </button>
   );
 }
@@ -1467,12 +1683,12 @@ function RecentActivityRow({
 }) {
   return (
     <button className="flex min-h-12 w-full items-center gap-3 rounded-2xl bg-white px-3 text-left" onClick={onClick} type="button">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8F7F3] text-[#8A5A12]">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#1D4ED8]">
         <Icon name={icon} size={14} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-[#1E1D1A]">{title}</span>
-        <span className="mt-0.5 block truncate text-xs text-[#77716A]">{children}</span>
+        <span className="block truncate text-sm font-semibold text-[#0F172A]">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-[#64748B]">{children}</span>
       </span>
     </button>
   );
@@ -1487,8 +1703,8 @@ function WeekStatTile({
 }) {
   return (
     <div className="rounded-2xl bg-white px-3 py-3 text-center shadow-[0_8px_22px_rgba(42,37,29,0.04)]">
-      <p className="text-lg font-bold leading-none text-[#111111]">{value}</p>
-      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+      <p className="text-lg font-bold leading-none text-[#0F172A]">{value}</p>
+      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
         {label}
       </p>
     </div>
@@ -1509,7 +1725,7 @@ function MeetingCard({
   const title = meetingPeopleTitle(meeting, people);
 
   return (
-    <button className="w-full rounded-2xl border border-[#E2DED6] bg-white p-4 text-left transition-colors hover:border-[#D8C8A7] hover:bg-[#FFFDF8]" onClick={onClick} type="button">
+    <button className="w-full rounded-2xl border border-[#E2E8F0] bg-white p-4 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#FFFFFF]" onClick={onClick} type="button">
       <div className="flex items-start gap-3">
         {avatarNames.length ? (
           <div className="mt-0.5 flex shrink-0 -space-x-2">
@@ -1523,27 +1739,27 @@ function MeetingCard({
             ))}
           </div>
         ) : (
-          <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#D79C37]" aria-hidden="true" />
+          <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#BFDBFE]" aria-hidden="true" />
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[#1E1D1A]">{title}</p>
-              <p className="mt-1 truncate text-xs text-[#77716A]">
+              <p className="truncate text-sm font-semibold text-[#0F172A]">{title}</p>
+              <p className="mt-1 truncate text-xs text-[#64748B]">
                 {meetingMetadataLine(meeting)}
               </p>
             </div>
-            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
           </div>
-          <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#3B3935]">{meeting.notes || "No summary added yet."}</p>
+          <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#0F172A]">{meeting.notes || "No summary added yet."}</p>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {hasFlow ? (
-              <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+              <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
                 {conversationFlowLabel(meeting.conversationFlowKey)}
               </span>
             ) : null}
             {meeting.recommendedResources.length ? (
-              <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+              <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
                 {meeting.recommendedResources.length} queued
               </span>
             ) : null}
@@ -1581,16 +1797,16 @@ function CompactOptionSelect({
       <button
         aria-expanded={isOpen}
         className={`mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border bg-white px-4 text-left text-sm transition-colors ${
-          isOpen ? "border-[#D4A63D] shadow-[0_10px_24px_rgba(212,166,61,0.12)]" : "border-[#DDD9D0] hover:border-[#D8C8A7]"
+          isOpen ? "border-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.12)]" : "border-[#E2E8F0] hover:border-[#BFDBFE]"
         }`}
         onClick={() => setIsOpen((current) => !current)}
         type="button"
       >
-        <span className="min-w-0 flex-1 truncate font-semibold text-[#1E1D1A]">{selectedOption?.label ?? "Select"}</span>
-        <ChevronRight className={`h-4 w-4 shrink-0 text-[#8E8880] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`} aria-hidden="true" strokeWidth={1.8} />
+        <span className="min-w-0 flex-1 truncate font-semibold text-[#0F172A]">{selectedOption?.label ?? "Select"}</span>
+        <ChevronRight className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`} aria-hidden="true" strokeWidth={1.8} />
       </button>
       {isOpen ? (
-        <div className="absolute left-0 right-0 z-30 mt-1 overflow-hidden rounded-2xl border border-[#E2DED6] bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]">
+        <div className="absolute left-0 right-0 z-30 mt-1 overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]">
           {options.map((option) => {
             const selected = option.value === selectedOption?.value;
 
@@ -1598,7 +1814,7 @@ function CompactOptionSelect({
               <button
                 aria-pressed={selected}
                 className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm transition-colors ${
-                  selected ? "bg-[#FFF8E7] text-[#8A5A12]" : "text-[#1E1D1A] hover:bg-[#F8F7F3]"
+                  selected ? "bg-[#EBF2FF] text-[#1D4ED8]" : "text-[#0F172A] hover:bg-[#F1F5F9]"
                 }`}
                 key={option.value}
                 onClick={() => {
@@ -1608,7 +1824,7 @@ function CompactOptionSelect({
                 type="button"
               >
                 <span className="min-w-0 flex-1 truncate font-semibold">{option.label}</span>
-                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#8E8880]">{option.helper}</span> : null}
+                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">{option.helper}</span> : null}
               </button>
             );
           })}
@@ -1706,14 +1922,14 @@ function ConversationFlowExperience({
   }
 
   return (
-    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3">
+    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-[#1E1D1A]">{flow.title}</p>
-          <p className="mt-0.5 text-xs leading-5 text-[#77716A]">{flow.description}</p>
+          <p className="text-sm font-bold text-[#0F172A]">{flow.title}</p>
+          <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{flow.description}</p>
         </div>
         {temperature ? (
-          <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+          <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             {temperature}
           </span>
         ) : null}
@@ -1723,10 +1939,10 @@ function ConversationFlowExperience({
         {flow.sections.map((section) => (
           <div className="grid gap-2" key={section.id}>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
                 {section.title}
               </p>
-              {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#77716A]">{section.description}</p> : null}
+              {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
             </div>
             {section.questions.map((question) => (
               <ConversationQuestionCard
@@ -1740,18 +1956,18 @@ function ConversationFlowExperience({
         ))}
 
         {flow.closingPrompt || flow.gospelInvitation ? (
-          <div className="rounded-2xl border border-[#E5D5AD] bg-[#FFF8E7] p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+          <div className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
               Gospel Invitation
             </p>
-            {flow.closingPrompt ? <p className="mt-2 text-sm font-semibold leading-5 text-[#1E1D1A]">{flow.closingPrompt}</p> : null}
-            {flow.gospelInvitation ? <p className="mt-1 text-xs leading-5 text-[#6F6658]">{flow.gospelInvitation}</p> : null}
+            {flow.closingPrompt ? <p className="mt-2 text-sm font-semibold leading-5 text-[#0F172A]">{flow.closingPrompt}</p> : null}
+            {flow.gospelInvitation ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.gospelInvitation}</p> : null}
           </div>
         ) : null}
 
         {flow.followUpActions?.length ? (
-          <div className="rounded-2xl bg-[#F8F7F3] p-2.5">
-            <p className="text-sm font-semibold text-[#1E1D1A]">Follow-up</p>
+          <div className="rounded-2xl bg-[#F1F5F9] p-2.5">
+            <p className="text-sm font-semibold text-[#0F172A]">Follow-up</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {flow.followUpActions.map((action) => {
                 const selected = selectedFollowUpActions.includes(action.id);
@@ -1760,7 +1976,7 @@ function ConversationFlowExperience({
                   <button
                     aria-pressed={selected}
                     className={`min-h-8 rounded-full border px-3 text-xs font-bold ${
-                      selected ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
+                      selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#0F172A]"
                     }`}
                     key={action.id}
                     onClick={() => onToggleFollowUpAction(action.id)}
@@ -1793,8 +2009,8 @@ function ConversationQuestionCard({
     const scaleMax = question.scale?.max ?? 10;
 
     return (
-      <div className="rounded-2xl bg-[#F8F7F3] p-2.5">
-        <p className="text-sm font-semibold text-[#1E1D1A]">{question.label}</p>
+      <div className="rounded-2xl bg-[#F1F5F9] p-2.5">
+        <p className="text-sm font-semibold text-[#0F172A]">{question.label}</p>
         <div className="mt-2 grid grid-cols-5 gap-1.5">
           {Array.from({ length: scaleMax - scaleMin + 1 }, (_, index) => scaleMin + index).map((rating) => {
             const selected = ratingValue === rating;
@@ -1803,7 +2019,7 @@ function ConversationQuestionCard({
               <button
                 aria-pressed={selected}
                 className={`min-h-8 rounded-xl border text-xs font-bold ${
-                  selected ? "border-[#D4A63D] bg-[#D4A63D] text-white" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
+                  selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#E2E8F0] bg-white text-[#0F172A]"
                 }`}
                 key={rating}
                 onClick={() => onResponseChange(question.id, selected ? undefined : rating)}
@@ -1814,15 +2030,15 @@ function ConversationQuestionCard({
             );
           })}
         </div>
-        <p className="mt-2 text-[11px] leading-4 text-[#77716A]">1-3 Cold · 4-7 Lukewarm · 8-10 Hot</p>
+        <p className="mt-2 text-[11px] leading-4 text-[#64748B]">1-3 Cold · 4-7 Lukewarm · 8-10 Hot</p>
       </div>
     );
   }
 
   if (question.kind === "text" || question.kind === "notes") {
     return (
-      <label className="block rounded-2xl bg-[#F8F7F3] p-2.5">
-        <span className="text-sm font-semibold text-[#1E1D1A]">{question.label}</span>
+      <label className="block rounded-2xl bg-[#F1F5F9] p-2.5">
+        <span className="text-sm font-semibold text-[#0F172A]">{question.label}</span>
         <textarea
           className={`${FieldInputClass()} mt-2 min-h-20 bg-white py-3`}
           onChange={(event) => onResponseChange(question.id, event.target.value)}
@@ -1837,14 +2053,14 @@ function ConversationQuestionCard({
   const options = question.kind === "yes_no_unsure" ? conversationUnsureAnswerOptions : conversationYesNoOptions;
 
   return (
-    <div className="rounded-2xl bg-[#F8F7F3] p-2.5">
-      <p className="text-sm font-semibold leading-5 text-[#1E1D1A]">{question.label}</p>
+    <div className="rounded-2xl bg-[#F1F5F9] p-2.5">
+      <p className="text-sm font-semibold leading-5 text-[#0F172A]">{question.label}</p>
       {question.scriptureRefs?.length ? (
-        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
           {question.scriptureRefs.join(" · ")}
         </p>
       ) : null}
-      {question.prompt ? <p className="mt-1 text-xs leading-5 text-[#77716A]">{question.prompt}</p> : null}
+      {question.prompt ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{question.prompt}</p> : null}
       <div className="mt-2 grid grid-cols-3 gap-1.5">
         {options.map((option) => {
           const selected = answer === option.value;
@@ -1853,7 +2069,7 @@ function ConversationQuestionCard({
             <button
               aria-pressed={selected}
               className={`min-h-8 rounded-xl border text-xs font-bold ${
-                selected ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#E2DED6] bg-white text-[#1E1D1A]"
+                selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#0F172A]"
               }`}
               key={option.value}
               onClick={() => onResponseChange(question.id, selected ? undefined : option.value)}
@@ -1889,13 +2105,13 @@ function MeetingPeopleSelector({
   const visiblePeople = people.filter((person) => !selectedPersonIds.includes(person.id));
 
   return (
-    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3">
+    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
       <FieldLabel>People Involved</FieldLabel>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {selectedPeople.length ? selectedPeople.map((person, index) => (
           <button
             aria-label={`Remove ${person.name} from meeting`}
-            className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] pl-1 pr-2 text-[11px] font-semibold text-[#1E1D1A] transition-colors hover:border-[#D4A63D]"
+            className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#2563EB]"
             key={person.id}
             onClick={() => onToggle(person.id)}
             type="button"
@@ -1904,21 +2120,21 @@ function MeetingPeopleSelector({
               {initials(person.name)}
             </span>
             <span className="max-w-[9rem] truncate">{person.name}</span>
-            <span className="ml-0.5 text-[13px] leading-none text-[#8A5A12]" aria-hidden="true">
+            <span className="ml-0.5 text-[13px] leading-none text-[#1D4ED8]" aria-hidden="true">
               &times;
             </span>
           </button>
         )) : (
-          <span className="inline-flex h-7 items-center rounded-full bg-[#F8F7F3] px-2.5 text-[11px] text-[#77716A]">No people selected</span>
+          <span className="inline-flex h-7 items-center rounded-full bg-[#F1F5F9] px-2.5 text-[11px] text-[#64748B]">No people selected</span>
         )}
       </div>
 
       <div className="relative mt-2.5">
-        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8E8880]">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
           <Icon name="search" size={14} />
         </span>
         <input
-          className="min-h-11 w-full rounded-full border border-[#DDD9D0] bg-[#F8F7F3] pl-9 pr-4 text-sm text-[#1E1D1A] outline-none transition-colors placeholder:text-[#A9A29A] focus:border-[#111111]"
+          className="min-h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F1F5F9] pl-9 pr-4 text-sm text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search people in your field"
           type="search"
@@ -1930,7 +2146,7 @@ function MeetingPeopleSelector({
         <div className="mt-2 grid max-h-36 gap-1 overflow-y-auto pr-1">
           {visiblePeople.map((person, index) => (
             <button
-              className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#1E1D1A] transition-colors hover:bg-[#F8F7F3]"
+              className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
               key={person.id}
               onClick={() => onToggle(person.id)}
               type="button"
@@ -1939,13 +2155,13 @@ function MeetingPeopleSelector({
                 {initials(person.name)}
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">{person.name}</span>
-              <span className="h-2 w-2 rounded-full bg-[#D79C37]" aria-hidden="true" />
+              <span className="h-2 w-2 rounded-full bg-[#BFDBFE]" aria-hidden="true" />
             </button>
           ))}
-          {!visiblePeople.length ? <p className="rounded-2xl border border-dashed border-[#DDD9D0] p-3 text-sm text-[#77716A]">No more matching people.</p> : null}
+          {!visiblePeople.length ? <p className="rounded-2xl border border-dashed border-[#E2E8F0] p-3 text-sm text-[#64748B]">No more matching people.</p> : null}
         </div>
       ) : (
-        <p className="mt-2 text-sm text-[#77716A]">No people added yet.</p>
+        <p className="mt-2 text-sm text-[#64748B]">No people added yet.</p>
       )}
     </section>
   );
@@ -2074,11 +2290,11 @@ function MeetingCaptureNotes({
   }
 
   return (
-    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3">
+    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
       <div className="flex items-center justify-between gap-3">
         <FieldLabel>Capture Notes</FieldLabel>
         {captures.length ? (
-          <span className="rounded-full bg-[#F1F0EC] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+          <span className="rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Draft
           </span>
         ) : null}
@@ -2113,27 +2329,27 @@ function MeetingCaptureNotes({
         type="file"
       />
 
-      {captureMessage ? <p className="mt-2 text-xs text-[#8A5A12]">{captureMessage}</p> : null}
+      {captureMessage ? <p className="mt-2 text-xs text-[#1D4ED8]">{captureMessage}</p> : null}
       {captures.length ? (
         <div className="mt-2 grid gap-1.5">
           {/* TODO: Persist captures to a workspace-scoped meeting_attachments table with meeting_id, workspace_id, type, file_name, storage_path/file_url, and created_at once a DOS attachments bucket exists. */}
           {/* TODO: Send voice notes through AI transcription and summary before attaching them to meeting insights. */}
           {captures.map((capture) => (
-            <div className="flex min-h-11 items-center gap-2 rounded-2xl border border-[#E2DED6] bg-[#F8F7F3] p-1.5 pr-2" key={capture.id}>
+            <div className="flex min-h-11 items-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F1F5F9] p-1.5 pr-2" key={capture.id}>
               {capture.type === "voice" ? (
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FFF8E7] text-[#8A5A12]">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#EBF2FF] text-[#1D4ED8]">
                   <Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
                 </span>
               ) : (
                 <img alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover" src={capture.previewUrl} />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-[#1E1D1A]">{capture.fileName}</p>
-                <p className="text-[11px] text-[#77716A]">{captureTypeLabel(capture.type)} · {formatFileSize(capture.file.size)}</p>
+                <p className="truncate text-xs font-semibold text-[#0F172A]">{capture.fileName}</p>
+                <p className="text-[11px] text-[#64748B]">{captureTypeLabel(capture.type)} · {formatFileSize(capture.file.size)}</p>
               </div>
               <button
                 aria-label={`Remove ${captureTypeLabel(capture.type)}`}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#8E8880] transition-colors hover:bg-white hover:text-[#1E1D1A]"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-white hover:text-[#0F172A]"
                 onClick={() => removeCapture(capture.id)}
                 type="button"
               >
@@ -2164,7 +2380,7 @@ function CaptureActionButton({
     <button
       aria-pressed={active}
       className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border px-2 text-[11px] font-bold transition-colors ${
-        active ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#DDD9D0] bg-[#F8F7F3] text-[#1E1D1A] hover:border-[#D8C8A7]"
+        active ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-[#F1F5F9] text-[#0F172A] hover:border-[#BFDBFE]"
       }`}
       onClick={onClick}
       type="button"
@@ -2185,16 +2401,16 @@ function MeetingRecommendationsPreview({
   }
 
   return (
-    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-3.5">
+    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3.5">
       <div className="flex items-center justify-between gap-3">
         <FieldLabel>Recommended Resources</FieldLabel>
-        <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+        <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
           Queued
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         {resources.map((resource) => (
-          <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 py-1.5 text-xs font-semibold text-[#1E1D1A]" key={resource.id}>
+          <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#0F172A]" key={resource.id}>
             {resource.title}
           </span>
         ))}
@@ -2222,16 +2438,16 @@ function fruitStatusLabel(status: string) {
 function fruitStatusBadgeClass(status: string) {
   switch (status) {
     case "approved":
-      return "bg-[#EAF6EA] text-[#2F6B3B]";
+      return "bg-[#EBF2FF] text-[#1D4ED8]";
     case "pending_review":
-      return "bg-[#FFF8E7] text-[#8A5A12]";
+      return "bg-[#EBF2FF] text-[#1D4ED8]";
     case "private":
-      return "bg-[#F1F0EC] text-[#6F6658]";
+      return "bg-[#F1F5F9] text-[#64748B]";
     case "archived":
-      return "bg-[#E7E4DE] text-[#77716A]";
+      return "bg-[#F1F5F9] text-[#64748B]";
     case "draft":
     default:
-      return "bg-[#F1F0EC] text-[#8A5A12]";
+      return "bg-[#F1F5F9] text-[#1D4ED8]";
   }
 }
 
@@ -2252,32 +2468,32 @@ function FruitCard({
     : null;
 
   return (
-    <article className="rounded-2xl border border-[#E2DED6] bg-white p-4">
+    <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#1E1D1A]">{isQuickReview ? "Quick Review" : statusLabel}</p>
-          <p className="mt-1 text-xs text-[#8E8880]">{formatDate(fruit.testimonyDate)}</p>
+          <p className="text-sm font-semibold text-[#0F172A]">{isQuickReview ? "Quick Review" : statusLabel}</p>
+          <p className="mt-1 text-xs text-[#94A3B8]">{formatDate(fruit.testimonyDate)}</p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
           <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${fruitStatusBadgeClass(fruit.status)}`} style={{ fontFamily: font.rajdhani }}>
             {statusLabel}
           </span>
           {quickReviewPermission ? (
-            <span className="rounded-full border border-[#E2DED6] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
               {quickReviewPermission}
             </span>
           ) : null}
         </div>
       </div>
-      <p className="mt-3 text-sm leading-6 text-[#3B3935]">{fruit.summary}</p>
-      <div className="mt-3 grid gap-1 text-xs leading-5 text-[#77716A]">
+      <p className="mt-3 text-sm leading-6 text-[#0F172A]">{fruit.summary}</p>
+      <div className="mt-3 grid gap-1 text-xs leading-5 text-[#64748B]">
         {isQuickReview && fruit.submittedByName ? <span>Submitted by {fruit.submittedByName}</span> : null}
         {linkedPerson ? <span>Linked to {linkedPerson}</span> : null}
       </div>
       {fruit.outcomeTags.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {fruit.outcomeTags.map((tag) => (
-            <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]" key={tag}>
+            <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={tag}>
               {tag}
             </span>
           ))}
@@ -2302,11 +2518,11 @@ function SearchField({
     <label className="block">
       <FieldLabel>{label}</FieldLabel>
       <div className="relative mt-2">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8E8880]">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]">
           <Icon name="search" size={15} />
         </span>
         <input
-          className="min-h-12 w-full rounded-full border border-[#DDD9D0] bg-white pl-10 pr-4 text-sm text-[#1E1D1A] outline-none transition-colors placeholder:text-[#A9A29A] focus:border-[#111111]"
+          className="min-h-12 w-full rounded-full border border-[#E2E8F0] bg-white pl-10 pr-4 text-sm text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           type="search"
@@ -2335,8 +2551,8 @@ function RelationshipTypePicker({
             <label
               className={`relative flex min-h-[70px] cursor-pointer flex-col justify-between rounded-2xl border p-3 transition-colors ${
                 selected
-                  ? "border-[#D4A63D] bg-[#FFF8E7] shadow-[0_10px_24px_rgba(212,166,61,0.12)]"
-                  : "border-[#E2DED6] bg-white hover:border-[#D8C8A7]"
+                  ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_10px_24px_rgba(37,99,235,0.12)]"
+                  : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE]"
               }`}
               key={option.value}
             >
@@ -2349,11 +2565,11 @@ function RelationshipTypePicker({
                 type="radio"
                 value={option.value}
               />
-              <span className="pr-5 text-sm font-bold leading-tight text-[#1E1D1A]">{option.label}</span>
-              <span className="mt-1 text-[11px] leading-4 text-[#77716A]">{option.helper}</span>
+              <span className="pr-5 text-sm font-bold leading-tight text-[#0F172A]">{option.label}</span>
+              <span className="mt-1 text-[11px] leading-4 text-[#64748B]">{option.helper}</span>
               <span
                 className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border ${
-                  selected ? "border-[#D4A63D] bg-[#D4A63D]" : "border-[#DDD9D0] bg-[#F8F7F3]"
+                  selected ? "border-[#2563EB] bg-[#2563EB]" : "border-[#E2E8F0] bg-[#F1F5F9]"
                 }`}
                 aria-hidden="true"
               >
@@ -2377,7 +2593,7 @@ function AdditionalPersonInformation({
   onToggle: () => void;
 }) {
   return (
-    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-4">
+    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
       <button
         aria-expanded={isOpen}
         className="flex w-full items-center justify-between gap-3 text-left"
@@ -2385,16 +2601,16 @@ function AdditionalPersonInformation({
         type="button"
       >
         <span>
-          <span className="block text-sm font-bold text-[#1E1D1A]">Additional Information</span>
-          <span className="mt-1 block text-xs leading-5 text-[#77716A]">Add details now or fill them in later.</span>
+          <span className="block text-sm font-bold text-[#0F172A]">Additional Information</span>
+          <span className="mt-1 block text-xs leading-5 text-[#64748B]">Add details now or fill them in later.</span>
         </span>
-        <span className={`text-lg leading-none text-[#8E8880] transition-transform ${isOpen ? "rotate-45" : ""}`} aria-hidden="true">
+        <span className={`text-lg leading-none text-[#94A3B8] transition-transform ${isOpen ? "rotate-45" : ""}`} aria-hidden="true">
           +
         </span>
       </button>
 
       {isOpen ? (
-        <div className="mt-4 grid gap-3 border-t border-[#EEEAE2] pt-4">
+        <div className="mt-4 grid gap-3 border-t border-[#E2E8F0] pt-4">
           <label className="block">
             <FieldLabel>Email</FieldLabel>
             <input className={FieldInputClass()} defaultValue={defaults.email} name="email" placeholder="email@example.com" type="email" />
@@ -2441,8 +2657,8 @@ function AdditionalPersonInformation({
 
 function DetailCard({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <section className="rounded-[22px] border border-[#E2DED6] bg-white p-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
+      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
         {title}
       </p>
       <div className="mt-3 grid gap-3">{children}</div>
@@ -2460,9 +2676,9 @@ function SectionEmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-[20px] border border-dashed border-[#DDD9D0] bg-[#FBFAF7] p-4">
-      <p className="text-sm font-semibold text-[#1E1D1A]">{title}</p>
-      {text ? <p className="mt-1 text-sm leading-6 text-[#77716A]">{text}</p> : null}
+    <div className="rounded-[20px] border border-dashed border-[#E2E8F0] bg-[#F1F5F9] p-4">
+      <p className="text-sm font-semibold text-[#0F172A]">{title}</p>
+      {text ? <p className="mt-1 text-sm leading-6 text-[#64748B]">{text}</p> : null}
       {action ? <div className="mt-3">{action}</div> : null}
     </div>
   );
@@ -2508,38 +2724,38 @@ function FruitEventRow({
   ];
 
   return (
-    <article className="relative rounded-[22px] border border-[#E7E2D9] bg-[#FBFAF7] p-3.5">
+    <article className="relative rounded-[22px] border border-[#E2E8F0] bg-white p-3.5">
       <div className="flex gap-3">
-        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E7D3A4] bg-[#FFF8E7] text-[#8A5A12]">
+        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]">
           <FruitEventIcon event={event} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+            <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
               {sourceTransparencyLabel(event)}
             </span>
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{confidenceLabel(event.confidenceLevel)}</span>
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{formatDate(event.date)}</span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{confidenceLabel(event.confidenceLevel)}</span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(event.date)}</span>
           </div>
-          <h3 className="mt-2 text-lg font-bold leading-6 text-[#1E1D1A]">{event.title || event.fruitType}</h3>
-          <p className="mt-1 text-sm leading-6 text-[#5F5952]">{fruitNarrative(event)}</p>
-          <p className="mt-2 text-xs leading-5 text-[#8E8880]">{fruitSourceLine(event)}</p>
+          <h3 className="mt-2 text-lg font-bold leading-6 text-[#0F172A]">{event.title || event.fruitType}</h3>
+          <p className="mt-1 text-sm leading-6 text-[#64748B]">{fruitNarrative(event)}</p>
+          <p className="mt-2 text-xs leading-5 text-[#94A3B8]">{fruitSourceLine(event)}</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{event.fruitType}</span>
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{visibilityLabel(event.visibility)}</span>
-            {event.status === "hidden" ? <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#8A5A12]">Hidden</span> : null}
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{event.fruitType}</span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{visibilityLabel(event.visibility)}</span>
+            {event.status === "hidden" ? <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#1D4ED8]">Hidden</span> : null}
           </div>
           {onUpdate ? (
-            <details className="mt-2 rounded-2xl border border-[#E7E2D9] bg-white px-3 py-2">
-              <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.14em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+            <details className="mt-2 rounded-2xl border border-[#E2E8F0] bg-white px-3 py-2">
+              <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
                 Adjust
               </summary>
               <div className="mt-3 grid gap-2">
                 <div className="grid grid-cols-2 gap-2">
-                  <button className="min-h-9 rounded-full bg-[#111111] px-3 text-xs font-bold text-white" onClick={() => onUpdate(event, { confidenceLevel: "confirmed", status: "reviewed" })} type="button">
+                  <button className="min-h-9 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-3 text-xs font-bold text-white" onClick={() => onUpdate(event, { confidenceLevel: "confirmed", status: "reviewed" })} type="button">
                     Confirm Fruit
                   </button>
-                  <button className="min-h-9 rounded-full border border-[#DDD9D0] bg-[#F8F7F3] px-3 text-xs font-bold text-[#1E1D1A]" onClick={() => onUpdate(event, { status: "hidden", visibility: "private" })} type="button">
+                  <button className="min-h-9 rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-3 text-xs font-bold text-[#0F172A]" onClick={() => onUpdate(event, { status: "hidden", visibility: "private" })} type="button">
                     Hide Fruit
                   </button>
                 </div>
@@ -2547,7 +2763,7 @@ function FruitEventRow({
                   {(["private", "internal", "public"] as const).map((visibility) => (
                     <button
                       className={`min-h-8 rounded-full border px-2 text-[11px] font-semibold ${
-                        event.visibility === visibility ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#E2DED6] bg-[#F8F7F3] text-[#5F5952]"
+                        event.visibility === visibility ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]"
                       }`}
                       key={visibility}
                       onClick={() => onUpdate(event, { visibility })}
@@ -2571,7 +2787,7 @@ function FruitEventRow({
                 >
                   <input className={`${FieldInputClass()} min-h-10 rounded-xl text-sm`} defaultValue={event.title ?? event.fruitType} name="title" placeholder="Title" />
                   <textarea className={`${FieldTextareaClass()} min-h-20 rounded-xl text-sm`} defaultValue={event.description ?? ""} name="description" placeholder="Description" />
-                  <button className="min-h-9 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 text-xs font-bold text-[#8A5A12]" type="submit">
+                  <button className="min-h-9 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" type="submit">
                     Save Fruit
                   </button>
                 </form>
@@ -2583,19 +2799,19 @@ function FruitEventRow({
               </div>
             </details>
           ) : null}
-          <details className="mt-2 rounded-2xl border border-[#E7E2D9] bg-white px-3 py-2">
-            <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.14em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+          <details className="mt-2 rounded-2xl border border-[#E2E8F0] bg-white px-3 py-2">
+            <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
               Source Details
             </summary>
-            <div className="mt-2 grid gap-1.5 text-xs text-[#5F5952]">
+            <div className="mt-2 grid gap-1.5 text-xs text-[#64748B]">
               {debugEntries.map(([label, value]) => (
                 <p className="flex justify-between gap-3" key={label}>
-                  <span className="text-[#8E8880]">{label}</span>
+                  <span className="text-[#94A3B8]">{label}</span>
                   <span className="truncate text-right font-semibold">{value}</span>
                 </p>
               ))}
               {Object.keys(event.debugContext).length ? (
-                <p className="break-words rounded-xl bg-[#F8F7F3] p-2 text-[11px] leading-5 text-[#5F5952]">
+                <p className="break-words rounded-xl bg-[#F1F5F9] p-2 text-[11px] leading-5 text-[#64748B]">
                   {Object.entries(event.debugContext).map(([key, value]) => `${key}: ${String(value)}`).join(" · ")}
                 </p>
               ) : null}
@@ -2609,21 +2825,21 @@ function FruitEventRow({
 
 function LeaderReflectionRow({ reflection }: { reflection: DosAppLeaderReflection }) {
   return (
-    <div className="rounded-2xl bg-[#F8F7F3] p-3">
+    <div className="rounded-2xl bg-[#F1F5F9] p-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 text-sm font-semibold text-[#1E1D1A]">{reflection.whatHappened || reflection.privateNotes || "Leader Reflection"}</p>
+        <p className="min-w-0 text-sm font-semibold text-[#0F172A]">{reflection.whatHappened || reflection.privateNotes || "Leader Reflection"}</p>
         {reflection.followUpNeeded ? (
-          <span className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+          <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Follow Up
           </span>
         ) : null}
       </div>
-      <p className="mt-2 text-xs text-[#77716A]">{formatDate(reflection.createdAt)}</p>
-      {reflection.prayerNeeds ? <p className="mt-2 text-sm leading-6 text-[#3B3935]">Prayer: {reflection.prayerNeeds}</p> : null}
+      <p className="mt-2 text-xs text-[#64748B]">{formatDate(reflection.createdAt)}</p>
+      {reflection.prayerNeeds ? <p className="mt-2 text-sm leading-6 text-[#0F172A]">Prayer: {reflection.prayerNeeds}</p> : null}
       {reflection.observedFruit.length ? (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {reflection.observedFruit.map((fruit) => (
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]" key={fruit}>{fruit}</span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={fruit}>{fruit}</span>
           ))}
         </div>
       ) : null}
@@ -2633,15 +2849,15 @@ function LeaderReflectionRow({ reflection }: { reflection: DosAppLeaderReflectio
 
 function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
   return (
-    <div className="rounded-2xl bg-[#F8F7F3] p-3">
+    <div className="rounded-2xl bg-[#F1F5F9] p-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-[#1E1D1A]">Review</p>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{formatDate(review.submittedAt)}</span>
+        <p className="text-sm font-semibold text-[#0F172A]">Review</p>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(review.submittedAt)}</span>
       </div>
-      <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3B3935]">{review.comments || "Participant review submitted."}</p>
+      <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{review.comments || "Participant review submitted."}</p>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">Heard: {review.feltHeard ?? "Skipped"}</span>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">Meet Again: {review.wouldMeetAgain === null ? "Skipped" : review.wouldMeetAgain ? "Yes" : "No"}</span>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Heard: {review.feltHeard ?? "Skipped"}</span>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Meet Again: {review.wouldMeetAgain === null ? "Skipped" : review.wouldMeetAgain ? "Yes" : "No"}</span>
       </div>
     </div>
   );
@@ -2649,15 +2865,15 @@ function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
 
 function ParticipantTestimonyRow({ testimony }: { testimony: DosAppParticipantTestimony }) {
   return (
-    <div className="rounded-2xl bg-[#F8F7F3] p-3">
+    <div className="rounded-2xl bg-[#F1F5F9] p-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-[#1E1D1A]">Testimony</p>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{formatDate(testimony.submittedAt)}</span>
+        <p className="text-sm font-semibold text-[#0F172A]">Testimony</p>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(testimony.submittedAt)}</span>
       </div>
-      <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3B3935]">{testimony.whatChanged || testimony.story}</p>
+      <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{testimony.whatChanged || testimony.story}</p>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{testimony.permissionToShare ? "Share OK" : "Private"}</span>
-        {testimony.publicDisplayName ? <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]">{testimony.publicDisplayName}</span> : null}
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{testimony.permissionToShare ? "Share OK" : "Private"}</span>
+        {testimony.publicDisplayName ? <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{testimony.publicDisplayName}</span> : null}
       </div>
     </div>
   );
@@ -2680,14 +2896,14 @@ function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
       {flow.sections.map((section) => (
         <div className="grid gap-2" key={section.id}>
           {flow.sections.length > 1 ? (
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
               {section.title}
             </p>
           ) : null}
           {section.questions.map((question) => (
-            <div className="flex items-start justify-between gap-3 rounded-2xl bg-[#F8F7F3] p-3" key={question.id}>
-              <p className="text-sm leading-5 text-[#1E1D1A]">{question.label}</p>
-              <span className="max-w-[52%] shrink-0 rounded-full bg-white px-2.5 py-1 text-right text-xs font-semibold text-[#5F5952]">
+            <div className="flex items-start justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={question.id}>
+              <p className="text-sm leading-5 text-[#0F172A]">{question.label}</p>
+              <span className="max-w-[52%] shrink-0 rounded-full bg-white px-2.5 py-1 text-right text-xs font-semibold text-[#64748B]">
                 {questionResponseLabel(question, meeting.conversationResponses[question.id])}
               </span>
             </div>
@@ -2695,13 +2911,13 @@ function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
         </div>
       ))}
       {selectedActionLabels.length ? (
-        <div className="rounded-2xl bg-[#F8F7F3] p-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+        <div className="rounded-2xl bg-[#F1F5F9] p-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             Follow-up
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {selectedActionLabels.map((label) => (
-              <span className="rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-xs font-semibold text-[#8A5A12]" key={label}>
+              <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-xs font-semibold text-[#1D4ED8]" key={label}>
                 {label}
               </span>
             ))}
@@ -2729,12 +2945,12 @@ function DetailRow({
 }) {
   const content = (
     <>
-      {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8F7F3] text-[#8A5A12]">{icon}</span> : null}
+      {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#1D4ED8]">{icon}</span> : null}
       <div className="min-w-0 flex-1">
-        {label ? <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>{label}</p> : null}
-        <div className="mt-0.5 break-words leading-5 text-[#1E1D1A]">{value}</div>
+        {label ? <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p> : null}
+        <div className="mt-0.5 break-words leading-5 text-[#0F172A]">{value}</div>
       </div>
-      {href ? <ChevronRight className="h-4 w-4 shrink-0 text-[#B4ADA3]" aria-hidden="true" strokeWidth={1.8} /> : null}
+      {href ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
     </>
   );
 
@@ -2742,7 +2958,7 @@ function DetailRow({
     return (
       <a
         aria-label={ariaLabel}
-        className="-mx-1 flex items-center gap-3 rounded-2xl px-1 py-1 text-sm text-[#1E1D1A] transition-colors hover:bg-[#FFF8E7] active:scale-[0.99]"
+        className="-mx-1 flex items-center gap-3 rounded-2xl px-1 py-1 text-sm text-[#0F172A] transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]"
         href={href}
         onClick={onClick}
       >
@@ -2752,45 +2968,9 @@ function DetailRow({
   }
 
   return (
-    <div className="flex items-center gap-3 text-sm text-[#1E1D1A]">
+    <div className="flex items-center gap-3 text-sm text-[#0F172A]">
       {content}
     </div>
-  );
-}
-
-function MoreMenuAction({
-  children,
-  disabled,
-  href,
-  icon,
-  onClick,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  href?: string;
-  icon: ReactNode;
-  onClick?: () => void;
-}) {
-  const className = "flex min-h-12 w-full items-center gap-3 rounded-2xl border border-[#E2DED6] bg-white px-4 text-left text-sm font-semibold text-[#1E1D1A] transition-colors hover:border-[#D4A63D] hover:bg-[#FFF8E7] disabled:cursor-not-allowed disabled:opacity-45";
-  const content = (
-    <>
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8F7F3] text-[#8A5A12]">{icon}</span>
-      <span>{children}</span>
-    </>
-  );
-
-  if (href && !disabled) {
-    return (
-      <a className={className} href={href}>
-        {content}
-      </a>
-    );
-  }
-
-  return (
-    <button className={className} disabled={disabled} onClick={onClick} type="button">
-      {content}
-    </button>
   );
 }
 
@@ -2802,13 +2982,13 @@ function BottomNavigation({
   onSelect: (tab: ActiveTab) => void;
 }) {
   return (
-    <nav className="absolute inset-x-0 bottom-0 z-[60] border-t border-[#E2DED6] bg-[#F8F7F3]/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-2 backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+    <nav className="absolute inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)]">
+      <div className="mx-auto grid max-w-md grid-cols-5 gap-1 rounded-full border border-white/75 bg-white/82 p-1.5 shadow-[0_18px_48px_rgba(42,37,29,0.16)] backdrop-blur-xl">
         {tabs.map((tab) => (
           <button
             aria-current={activeTab === tab.value ? "page" : undefined}
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-semibold transition-colors ${
-              activeTab === tab.value ? "text-[#111111]" : "text-[#8E8880]"
+              activeTab === tab.value ? "bg-[#EBF2FF] text-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]" : "text-[#94A3B8]"
             }`}
             key={tab.value}
             onClick={() => onSelect(tab.value)}
@@ -2834,7 +3014,7 @@ function PersonQuickAction({
   icon: ReactNode;
   onClick?: () => void;
 }) {
-  const className = "flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-[#E2DED6] bg-white px-2 text-[10px] font-bold uppercase tracking-[0.11em] text-[#1E1D1A] transition-colors hover:border-[#D4A63D] hover:bg-[#FFF8E7]";
+  const className = "flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-[#E2E8F0] bg-white px-2 text-[10px] font-bold uppercase tracking-[0.11em] text-[#0F172A] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]";
 
   if (href) {
     return (
@@ -2886,15 +3066,15 @@ function CircleLayerList({
             />
           ))}
           {hiddenCount ? (
-            <div className="flex min-h-[56px] items-center gap-3 bg-white px-4 text-sm font-semibold text-[#1E1D1A]">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg font-light text-[#77716A]">+</span>
+            <div className="flex min-h-[56px] items-center gap-3 bg-white px-4 text-sm font-semibold text-[#0F172A]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg font-light text-[#64748B]">+</span>
               <span className="min-w-0 flex-1">{hiddenCount} more people</span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+              <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
             </div>
           ) : null}
         </>
       ) : (
-        <p className="px-4 py-5 text-center text-sm leading-5 text-[#77716A]">{empty}</p>
+        <p className="px-4 py-5 text-center text-sm leading-5 text-[#64748B]">{empty}</p>
       )}
     </div>
   );
@@ -2920,37 +3100,25 @@ function CircleLayerSheet({
   const details = circleLayerDetails(activeCircle, rankedPeople);
   const visiblePeople = previewCircleLayerItems(activeCircle, details.items);
   const hiddenCount = Math.max(0, details.items.length - visiblePeople.length);
-  const badgeClassName = activeCircle === "three"
-    ? "bg-[#E8F4EE] text-[#2F765F]"
-    : "bg-[#FFF3D8] text-[#9A6417]";
+  const badgeClassName = "bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_10px_22px_rgba(37,99,235,0.22)]";
 
   return (
-    <div className="absolute inset-0 z-[70] flex items-end bg-black/10 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]" onMouseDown={onClose} role="presentation">
-      <section
-        aria-modal="true"
-        className="max-h-[calc(100dvh-1.5rem)] w-full overflow-y-auto rounded-t-[30px] rounded-b-[24px] bg-[#F6F4EF] p-3 shadow-[0_24px_70px_rgba(42,37,29,0.2)] [scrollbar-width:none]"
-        onMouseDown={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#D8D2C8]" aria-hidden="true" />
-        <header className="flex items-start gap-3 px-1 pb-3">
-          <button
-            aria-label="Close circles"
-            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#1E1D1A] transition-colors hover:bg-white"
-            onClick={onClose}
-            type="button"
-          >
-            <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-          </button>
-          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${badgeClassName}`}>
-            {details.value}
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold leading-tight text-[#111111]">{details.title}</h2>
-            <p className="mt-0.5 text-[11px] leading-4 text-[#5F5952]">{details.subtitle}</p>
-          </div>
-        </header>
-
+    <MobileBottomSheet
+      badge={<span className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${badgeClassName}`}>{details.value}</span>}
+      footer={(
+        <button
+          className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
+          onClick={onLogMeeting}
+          type="button"
+        >
+          <Icon name="add" size={14} />
+          Log Meeting
+        </button>
+      )}
+      onClose={onClose}
+      subtitle={details.subtitle}
+      title={details.title}
+    >
         <CircleLayerList
           empty={details.empty}
           hiddenCount={hiddenCount}
@@ -2960,23 +3128,14 @@ function CircleLayerSheet({
           onOpenPerson={onOpenPerson}
           startIndex={details.startIndex}
         />
-
-        <button
-          className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-bold text-[#1E1D1A] shadow-[0_10px_24px_rgba(42,37,29,0.055)]"
-          onClick={onLogMeeting}
-          type="button"
-        >
-          <Icon name="add" size={14} />
-          Log Meeting
-        </button>
-      </section>
-    </div>
+    </MobileBottomSheet>
   );
 }
 
 function CirclesDetailOverlay({
   latestMeetingDateByPersonId,
   onBack,
+  onLogMeeting,
   onLogMeetingForPerson,
   onOpenPerson,
   onSearch,
@@ -2984,13 +3143,14 @@ function CirclesDetailOverlay({
 }: {
   latestMeetingDateByPersonId: Map<string, string | null>;
   onBack: () => void;
+  onLogMeeting: () => void;
   onLogMeetingForPerson: (personId: string) => void;
   onOpenPerson: (personId: string) => void;
   onSearch: () => void;
   rankedPeople: CirclePersonItem[];
 }) {
   const [activeCircle, setActiveCircle] = useState<CircleFocusView>("three");
-  const tabs: Array<{ label: string; value: CircleFocusView }> = [
+  const circleTabs: Array<SegmentedTabOption<CircleFocusView>> = [
     { label: "My 3", value: "three" },
     { label: "My 12", value: "twelve" },
     { label: "My 70", value: "seventy" },
@@ -3000,47 +3160,36 @@ function CirclesDetailOverlay({
   const hiddenCount = Math.max(0, circleContent.items.length - visiblePeople.length);
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#F5F3EE] px-4 pb-28 pt-6 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-6 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#1E1D1A] transition-colors hover:bg-white" onClick={onBack} type="button" aria-label="Back to home">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white" onClick={onBack} type="button" aria-label="Back to home">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
-        <p className="text-sm font-bold text-[#111111]">
+        <p className="text-sm font-bold text-[#0F172A]">
           Your Circles
         </p>
-        <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#1E1D1A] transition-colors hover:bg-white" onClick={onSearch} type="button" aria-label="Search people">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white" onClick={onSearch} type="button" aria-label="Search people">
           <Search className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
         </button>
       </header>
 
-      <div className="mt-5 grid grid-cols-3 rounded-full bg-[#EBE7DF] p-1">
-        {tabs.map((tab) => (
-          <button
-            className={`min-h-10 rounded-full px-2 text-xs font-bold transition-colors ${
-              activeCircle === tab.value ? "bg-white text-[#111111] shadow-[0_8px_18px_rgba(42,37,29,0.08)]" : "text-[#77716A]"
-            }`}
-            key={tab.value}
-            onClick={() => setActiveCircle(tab.value)}
-            type="button"
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="mt-5">
+        <SegmentedTabs onChange={setActiveCircle} options={circleTabs} value={activeCircle} />
       </div>
 
       <section className="mx-auto mt-5 max-w-[300px] text-center">
-        <p className="text-sm leading-5 text-[#5F5952]">{circleContent.subtitle}</p>
-        <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+        <p className="text-sm leading-5 text-[#64748B]">{circleContent.subtitle}</p>
+        <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
           {circleContent.cumulativeCount} / {circleContent.capacity} in {circleDisplayName(activeCircle)}
         </p>
       </section>
 
       <section className="mt-5">
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             {circleContent.sectionLabel}
           </p>
-          <span className="text-xs text-[#77716A]">{circleContent.items.length}</span>
+          <span className="text-xs text-[#64748B]">{circleContent.items.length}</span>
         </div>
         <CircleLayerList
           empty={circleContent.empty}
@@ -3051,6 +3200,14 @@ function CirclesDetailOverlay({
           onOpenPerson={onOpenPerson}
           startIndex={circleContent.startIndex}
         />
+        <button
+          className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
+          onClick={onLogMeeting}
+          type="button"
+        >
+          <Icon name="log" size={14} />
+          Log Meeting
+        </button>
       </section>
     </div>
   );
@@ -3060,6 +3217,7 @@ function PersonDetailOverlay({
   circleScore,
   fruitEvents,
   index,
+  isPreview = false,
   leaderReflections,
   meetings,
   onBack,
@@ -3076,6 +3234,7 @@ function PersonDetailOverlay({
   circleScore?: DosRelationshipScore | null;
   fruitEvents: DosAppFruitEvent[];
   index: number;
+  isPreview?: boolean;
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
   onBack: () => void;
@@ -3160,8 +3319,30 @@ function PersonDetailOverlay({
 
     await copyToClipboard(contactLines, "Contact");
   };
+  const moreActions: Array<{ icon: ReactNode; label: string; onClick: () => void }> = [
+    {
+      icon: <Share2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />,
+      label: "Share Contact",
+      onClick: () => { void shareContact(); },
+    },
+    ...(person.phone ? [{
+      icon: <Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />,
+      label: "Copy Phone",
+      onClick: () => { void copyToClipboard(person.phone, "Phone"); },
+    }] : []),
+    ...(person.email ? [{
+      icon: <Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />,
+      label: "Copy Email",
+      onClick: () => { void copyToClipboard(person.email ?? "", "Email"); },
+    }] : []),
+    ...(address ? [{
+      icon: <MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />,
+      label: "Open in Maps",
+      onClick: () => openAddressInMaps(address),
+    }] : []),
+  ];
   useEffect(() => {
-    if (!isIntelligenceOpen) {
+    if (!isIntelligenceOpen || isPreview) {
       return;
     }
 
@@ -3183,8 +3364,13 @@ function PersonDetailOverlay({
     return () => {
       ignore = true;
     };
-  }, [isIntelligenceOpen, person.id, workspaceId]);
+  }, [isIntelligenceOpen, isPreview, person.id, workspaceId]);
   const pinToCircle = async (circle: "field" | "seventy" | "three" | "twelve", locked = true) => {
+    if (isPreview) {
+      setPinMessage("Preview mode is read-only. Pins are not saved.");
+      return;
+    }
+
     setPinMessage("Saving...");
 
     try {
@@ -3213,15 +3399,15 @@ function PersonDetailOverlay({
   };
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#F5F3EE] px-4 pb-28 pt-7 [scrollbar-width:none]">
+    <div className="absolute inset-0 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#DDD9D0] bg-white text-[#1E1D1A]" onClick={onBack} type="button" aria-label="Back to people">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to people">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
           Person
         </p>
-        <button className="inline-flex items-center gap-1.5 rounded-full border border-[#DDD9D0] bg-white px-4 py-2 text-xs font-bold text-[#1E1D1A]" onClick={onEdit} type="button">
+        <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
           <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
           Edit
         </button>
@@ -3231,11 +3417,11 @@ function PersonDetailOverlay({
         <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-base font-bold ${avatarTone(index)}`}>
           {initials(person.name)}
         </div>
-        <h2 className="mt-3 text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
+        <h2 className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
           {person.name}
         </h2>
-        <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 py-1.5 text-xs font-semibold text-[#8A5A12]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#D4A63D]" aria-hidden="true" />
+        <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" aria-hidden="true" />
           {person.relationshipType || "New"}
         </span>
       </section>
@@ -3255,12 +3441,14 @@ function PersonDetailOverlay({
 
       <div className="mt-5 grid gap-3">
         <DetailCard title="Contact Information">
-          <DetailRow
-            ariaLabel={person.phone ? `Call ${person.name}` : undefined}
-            href={person.phone ? `tel:${person.phone}` : undefined}
-            icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-            value={person.phone}
-          />
+          {person.phone ? (
+            <DetailRow
+              ariaLabel={`Call ${person.name}`}
+              href={`tel:${person.phone}`}
+              icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+              value={person.phone}
+            />
+          ) : null}
           {person.email ? (
             <DetailRow
               ariaLabel={`Email ${person.name}`}
@@ -3278,13 +3466,14 @@ function PersonDetailOverlay({
               value={address}
             />
           ) : null}
+          {!person.phone && !person.email && !address ? <p className="text-sm text-[#64748B]">No contact details yet.</p> : null}
         </DetailCard>
 
         <DetailCard title="About">
           {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
           {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
           {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
-          {!person.church && !defaults.occupation && !defaults.birthday ? <p className="text-sm text-[#77716A]">No details yet.</p> : null}
+          {!person.church && !defaults.occupation && !defaults.birthday ? <p className="text-sm text-[#64748B]">No details yet.</p> : null}
         </DetailCard>
 
         <DetailCard title="Activity">
@@ -3304,7 +3493,7 @@ function PersonDetailOverlay({
           </div>
         </DetailCard>
 
-        <section className="rounded-[22px] border border-[#E2DED6] bg-white p-4">
+        <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
           <button
             aria-expanded={isIntelligenceOpen}
             className="flex w-full items-center justify-between gap-3 text-left"
@@ -3312,21 +3501,21 @@ function PersonDetailOverlay({
             type="button"
           >
             <span>
-              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
                 Relationship Intelligence
               </span>
-              <span className="mt-1 block text-sm font-semibold text-[#1E1D1A]">
+              <span className="mt-1 block text-sm font-semibold text-[#0F172A]">
                 My Circle: {circleScore ? `${circleDisplayName(circleScore.circle)} · Score ${scoreLabel(circleScore.totalScore)}` : "Field · Score 0"}
               </span>
               {personMeetings.length && (!circleScore || circleScore.totalScore === 0) ? (
-                <span className="mt-1 block text-xs text-[#8A5A12]">Meeting activity found. Score will refresh automatically.</span>
+                <span className="mt-1 block text-xs text-[#1D4ED8]">Meeting activity found. Score will refresh automatically.</span>
               ) : null}
             </span>
-            <ChevronRight className={`h-4 w-4 text-[#A9A29A] transition-transform ${isIntelligenceOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
+            <ChevronRight className={`h-4 w-4 text-[#94A3B8] transition-transform ${isIntelligenceOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
           </button>
 
           {isIntelligenceOpen ? (
-            <div className="mt-4 border-t border-[#EEEAE2] pt-4">
+            <div className="mt-4 border-t border-[#E2E8F0] pt-4">
               {circleScore ? (
                 <div className="grid gap-3">
                   <div className="grid grid-cols-3 gap-2">
@@ -3335,34 +3524,34 @@ function PersonDetailOverlay({
                     <StatTile label="Trust" value={scoreLabel(circleScore.confidenceScore)} />
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <span className="rounded-full bg-[#F1F0EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+                    <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
                       {circleScore.assignmentSource === "manual" ? "Manual" : "Automatic"}
                     </span>
                     {Object.entries(circleScore.breakdown).map(([key, value]) => (
-                      <span className="rounded-full border border-[#E2DED6] bg-[#F8F7F3] px-2.5 py-1 text-[10px] font-semibold text-[#5F5952]" key={key}>
+                      <span className="rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={key}>
                         {key.replace(/([A-Z])/g, " $1")} {scoreLabel(value)}
                       </span>
                     ))}
                   </div>
-                  <p className="rounded-2xl bg-[#F8F7F3] p-3 text-sm leading-6 text-[#3B3935]">{circleScore.explanation.summary}</p>
+                  <p className="rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{circleScore.explanation.summary}</p>
                   {circleScore.explanation.positive_factors.length ? (
                     <div className="grid gap-1.5">
                       {circleScore.explanation.positive_factors.map((factor) => (
-                        <p className="text-xs leading-5 text-[#5F5952]" key={factor}>+ {factor}</p>
+                        <p className="text-xs leading-5 text-[#64748B]" key={factor}>+ {factor}</p>
                       ))}
                     </div>
                   ) : null}
                   {circleScore.explanation.negative_factors.length ? (
                     <div className="grid gap-1.5">
                       {circleScore.explanation.negative_factors.map((factor) => (
-                        <p className="text-xs leading-5 text-[#8A5A12]" key={factor}>Needs focus · {factor}</p>
+                        <p className="text-xs leading-5 text-[#1D4ED8]" key={factor}>Needs focus · {factor}</p>
                       ))}
                     </div>
                   ) : null}
                   <div className="grid grid-cols-2 gap-2">
                     {(["three", "twelve", "seventy", "field"] as const).map((circle) => (
                       <button
-                        className="min-h-10 rounded-full border border-[#DDD9D0] bg-[#F8F7F3] px-3 text-xs font-bold text-[#1E1D1A]"
+                        className="min-h-10 rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-3 text-xs font-bold text-[#0F172A]"
                         key={circle}
                         onClick={() => { void pinToCircle(circle); }}
                         type="button"
@@ -3372,7 +3561,7 @@ function PersonDetailOverlay({
                     ))}
                     {circleScore.assignmentSource === "manual" ? (
                       <button
-                        className="col-span-2 min-h-10 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 text-xs font-bold text-[#8A5A12]"
+                        className="col-span-2 min-h-10 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]"
                         onClick={() => { void pinToCircle(circleScore.circle, false); }}
                         type="button"
                       >
@@ -3381,26 +3570,26 @@ function PersonDetailOverlay({
                     ) : null}
                   </div>
                   <div className="grid gap-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#9A9389]" style={{ fontFamily: font.rajdhani }}>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
                       Movement History
                     </p>
                     {intelligenceHistory.length ? intelligenceHistory.slice(0, 4).map((item) => (
-                      <div className="rounded-2xl bg-[#F8F7F3] p-3" key={`${item.calculatedAt}-${item.newScore}`}>
-                        <p className="text-xs font-semibold text-[#1E1D1A]">
+                      <div className="rounded-2xl bg-[#F1F5F9] p-3" key={`${item.calculatedAt}-${item.newScore}`}>
+                        <p className="text-xs font-semibold text-[#0F172A]">
                           {item.previousCircle ? `${circleDisplayName(item.previousCircle)} -> ` : ""}{circleDisplayName(item.newCircle)}
                         </p>
-                        <p className="mt-1 text-[11px] text-[#77716A]">
+                        <p className="mt-1 text-[11px] text-[#64748B]">
                           {item.previousScore === null ? "New score" : `${scoreLabel(item.previousScore)} -> ${scoreLabel(item.newScore)}`} · {formatDate(item.calculatedAt)}
                         </p>
                       </div>
                     )) : (
-                      <p className="text-xs text-[#77716A]">No movement history yet.</p>
+                      <p className="text-xs text-[#64748B]">No movement history yet.</p>
                     )}
                   </div>
-                  {pinMessage ? <p className="rounded-2xl bg-[#FFF8E7] px-3 py-2 text-center text-xs font-semibold text-[#8A5A12]">{pinMessage}</p> : null}
+                  {pinMessage ? <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{pinMessage}</p> : null}
                 </div>
               ) : (
-                <p className="text-sm text-[#77716A]">Recalculate circles to score this relationship.</p>
+                <p className="text-sm text-[#64748B]">Recalculate circles to score this relationship.</p>
               )}
             </div>
           ) : null}
@@ -3422,14 +3611,14 @@ function PersonDetailOverlay({
         <div ref={meetingsSectionRef}>
           <DetailCard title="Meetings">
             {recentMeetings.length ? recentMeetings.map((meeting) => (
-              <button className="flex items-center gap-3 rounded-2xl bg-[#F8F7F3] p-3 text-left transition-colors hover:bg-[#EFEAE1] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
-                <CalendarDays className="h-4 w-4 shrink-0 text-[#8A5A12]" aria-hidden="true" strokeWidth={1.8} />
+              <button className="flex items-center gap-3 rounded-2xl bg-[#F1F5F9] p-3 text-left transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
+                <CalendarDays className="h-4 w-4 shrink-0 text-[#1D4ED8]" aria-hidden="true" strokeWidth={1.8} />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-[#1E1D1A]">{meetingActivityTitle(meeting)}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[#77716A]">{formatDate(meeting.date)}</span>
-                  <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#3B3935]">{meeting.notes || "No summary added yet."}</span>
+                  <span className="block text-sm font-semibold text-[#0F172A]">{meetingActivityTitle(meeting)}</span>
+                  <span className="mt-1 block text-xs leading-5 text-[#64748B]">{formatDate(meeting.date)}</span>
+                  <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{meeting.notes || "No summary added yet."}</span>
                 </span>
-                <ChevronRight className="h-4 w-4 text-[#A9A29A]" aria-hidden="true" strokeWidth={1.8} />
+                <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
               </button>
             )) : <SectionEmptyState text="Log the next conversation when it happens." title="No meetings yet." />}
           </DetailCard>
@@ -3441,15 +3630,15 @@ function PersonDetailOverlay({
               <ParticipantReviewRow key={review.id} review={review} />
             )) : null}
             {personReviews.length ? personReviews.slice(0, 3).map((meeting) => (
-              <button className="rounded-2xl bg-[#F8F7F3] p-3 text-left transition-colors hover:bg-[#EFEAE1] active:scale-[0.99]" key={meeting.id} onClick={() => onOpenMeeting(meeting.id)} type="button">
+              <button className="rounded-2xl bg-[#F1F5F9] p-3 text-left transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} onClick={() => onOpenMeeting(meeting.id)} type="button">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-[#1E1D1A]">Quick Review</p>
+                  <p className="text-sm font-semibold text-[#0F172A]">Quick Review</p>
                   <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${reviewStatusClass(meeting.review.status)}`} style={{ fontFamily: font.rajdhani }}>
                     {reviewStatusLabel(meeting.review.status)}
                   </span>
                 </div>
-                <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3B3935]">{meeting.review.stoodOut || "Review submitted."}</p>
-                <p className="mt-2 text-xs text-[#8E8880]">
+                <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut || "Review submitted."}</p>
+                <p className="mt-2 text-xs text-[#94A3B8]">
                   {meeting.review.submittedName ? `${meeting.review.submittedName} · ` : ""}
                   {meetingActivityTitle(meeting)} · {formatDate(meeting.review.submittedAt ?? meeting.date)}
                 </p>
@@ -3483,26 +3672,23 @@ function PersonDetailOverlay({
       </div>
 
       {isMoreOpen ? (
-        <Sheet onClose={() => setIsMoreOpen(false)} title="More">
-          <div className="grid gap-2">
-            <MoreMenuAction icon={<Share2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => { void shareContact(); }}>
-              Share Contact
-            </MoreMenuAction>
-            <MoreMenuAction disabled={!person.phone} icon={<Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => { void copyToClipboard(person.phone, "Phone"); }}>
-              Copy Phone
-            </MoreMenuAction>
-            <MoreMenuAction disabled={!person.email} icon={<Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => { void copyToClipboard(person.email ?? "", "Email"); }}>
-              Copy Email
-            </MoreMenuAction>
-            <MoreMenuAction disabled={!address} icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => openAddressInMaps(address)}>
-              Open in Maps
-            </MoreMenuAction>
-            <MoreMenuAction icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => { setIsMoreOpen(false); onEdit(); }}>
-              Edit Details
-            </MoreMenuAction>
-            {moreMessage ? <p className="rounded-2xl bg-[#FFF8E7] px-3 py-2 text-center text-xs font-semibold text-[#8A5A12]">{moreMessage}</p> : null}
+        <MobileBottomSheet onClose={() => setIsMoreOpen(false)} subtitle={person.name} title="More">
+          <div className="grid gap-3">
+            <ActionList>
+              {moreActions.map((action, actionIndex) => (
+                <ActionListRow
+                  icon={action.icon}
+                  isLast={actionIndex === moreActions.length - 1}
+                  key={action.label}
+                  onClick={action.onClick}
+                >
+                  {action.label}
+                </ActionListRow>
+              ))}
+            </ActionList>
+            {moreMessage ? <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{moreMessage}</p> : null}
           </div>
-        </Sheet>
+        </MobileBottomSheet>
       ) : null}
     </div>
   );
@@ -3521,7 +3707,7 @@ function ReviewActionButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-10 items-center justify-center gap-1 rounded-2xl border border-[#D7C7A4] bg-[#FFF8E7] px-1.5 text-[11px] font-bold text-[#8A5A12] transition-colors hover:border-[#D4A63D] disabled:cursor-not-allowed disabled:opacity-55"
+      className="inline-flex min-h-10 items-center justify-center gap-1 rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] px-1.5 text-[11px] font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] disabled:cursor-not-allowed disabled:opacity-55"
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -3593,16 +3779,16 @@ function MeetingDetailOverlay({
   const meetingFruitEvents = fruitEvents.filter((event) => event.meetingId === meeting.id);
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#F5F3EE] px-4 pb-28 pt-7 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#DDD9D0] bg-white text-[#1E1D1A]" onClick={onBack} type="button" aria-label="Back to meetings">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to meetings">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8E8880]" style={{ fontFamily: font.rajdhani }}>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
           Meeting
         </p>
         {isTableMeeting ? (
-          <button className="inline-flex items-center gap-1.5 rounded-full border border-[#DDD9D0] bg-white px-4 py-2 text-xs font-bold text-[#1E1D1A]" onClick={onEdit} type="button">
+          <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
             <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
             Edit
           </button>
@@ -3614,7 +3800,7 @@ function MeetingDetailOverlay({
           <div className="mx-auto flex justify-center -space-x-2">
             {avatarNames.map((name, index) => (
               <span
-                className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#F5F3EE] text-sm font-bold ${avatarTone(index)}`}
+                className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#FAFBFD] text-sm font-bold ${avatarTone(index)}`}
                 key={`${meeting.id}-detail-${name}`}
               >
                 {initials(name)}
@@ -3622,21 +3808,21 @@ function MeetingDetailOverlay({
             ))}
           </div>
         ) : (
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#FFF8E7] text-[#8A5A12]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
             <CalendarDays className="h-6 w-6" aria-hidden="true" strokeWidth={1.6} />
           </div>
         )}
-        <h2 className="mx-auto mt-3 max-w-[320px] text-3xl font-bold leading-none text-[#111111]" style={{ fontFamily: font.oswald }}>
+        <h2 className="mx-auto mt-3 max-w-[320px] text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
           {title}
         </h2>
-        <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#77716A]">{meetingMetadataLine(meeting)}</p>
+        <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-3 py-1.5 text-xs font-semibold text-[#8A5A12]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#D4A63D]" aria-hidden="true" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" aria-hidden="true" />
             {conversationFlowLabel(meeting.conversationFlowKey)}
           </span>
           {temperature ? (
-            <span className="inline-flex items-center rounded-full bg-[#F1F0EC] px-3 py-1.5 text-xs font-semibold text-[#5F5952]">
+            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
               {temperature}
             </span>
           ) : null}
@@ -3650,13 +3836,13 @@ function MeetingDetailOverlay({
 
       <div className="mt-5 grid gap-3">
         {showPostMeetingFollowUp && isTableMeeting ? (
-          <section className="rounded-[24px] border border-[#D7C7A4] bg-[#FFF8E7] p-4 shadow-[0_18px_45px_rgba(138,90,18,0.10)]">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+          <section className="rounded-[24px] border border-[#BFDBFE] bg-[#EBF2FF] p-4 shadow-[0_18px_45px_rgba(37,99,235,0.10)]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
               Next
             </p>
-            <h3 className="mt-1 text-xl font-bold text-[#1E1D1A]">Follow up while it is fresh.</h3>
+            <h3 className="mt-1 text-xl font-bold text-[#0F172A]">Follow up while it is fresh.</h3>
             <div className="mt-3 grid gap-2">
-              <button className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-[#111111] px-4 text-left text-sm font-bold text-white" onClick={onLogReflection} type="button">
+              <button className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-left text-sm font-bold text-white" onClick={onLogReflection} type="button">
                 <span>Capture what happened</span>
                 <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
               </button>
@@ -3682,8 +3868,8 @@ function MeetingDetailOverlay({
           <DetailCard title="Review Status">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-[#1E1D1A]">{reviewStatusLabel(meeting.review.status)}</p>
-                <p className="mt-1 text-xs leading-5 text-[#77716A]">
+                <p className="text-sm font-semibold text-[#0F172A]">{reviewStatusLabel(meeting.review.status)}</p>
+                <p className="mt-1 text-xs leading-5 text-[#64748B]">
                   {meeting.review.status === "not_sent"
                     ? "Create a quick check-in link."
                     : meeting.review.status === "pending"
@@ -3698,12 +3884,12 @@ function MeetingDetailOverlay({
               </span>
             </div>
             {meeting.review.status !== "not_sent" && meeting.review.sharePermission ? (
-              <span className="mt-3 inline-flex rounded-full border border-[#E2DED6] bg-[#F8F7F3] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6F6658]" style={{ fontFamily: font.rajdhani }}>
+              <span className="mt-3 inline-flex rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
                 {reviewSharePermissionLabel(meeting.review.sharePermission)}
               </span>
             ) : null}
             {meeting.review.stoodOut ? (
-              <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F8F7F3] p-3 text-sm leading-6 text-[#3B3935]">{meeting.review.stoodOut}</p>
+              <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
             ) : null}
             {meeting.review.status === "not_sent" || meeting.review.status === "pending" ? (
               <div className="mt-3 grid grid-cols-3 gap-2">
@@ -3719,14 +3905,14 @@ function MeetingDetailOverlay({
               </div>
             ) : null}
             {reviewShareMessage ? (
-              <p className="mt-3 rounded-2xl border border-[#E2DED6] bg-[#FFF8E7] px-3 py-2 text-center text-xs font-semibold text-[#8A5A12]">{reviewShareMessage}</p>
+              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p>
             ) : null}
           </DetailCard>
         ) : null}
 
         {isTableMeeting ? (
           <DetailCard title="Share Your Story">
-            <p className="text-sm leading-6 text-[#3B3935]">Invite them to share a transformation story.</p>
+            <p className="text-sm leading-6 text-[#0F172A]">Invite them to share a transformation story.</p>
             <div className="grid grid-cols-3 gap-2">
               <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
                 Send Story
@@ -3739,7 +3925,7 @@ function MeetingDetailOverlay({
               </ReviewActionButton>
             </div>
             {testimonyShareMessage ? (
-              <p className="rounded-2xl border border-[#E2DED6] bg-[#FFF8E7] px-3 py-2 text-center text-xs font-semibold text-[#8A5A12]">{testimonyShareMessage}</p>
+              <p className="rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p>
             ) : null}
           </DetailCard>
         ) : null}
@@ -3778,12 +3964,12 @@ function MeetingDetailOverlay({
           <DetailCard title="Recommended Resources">
             {/* TODO: Add SMS/email/share actions for queued resources after DOS messaging workflows exist. */}
             {meeting.recommendedResources.map((resource) => (
-              <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F8F7F3] p-3" key={resource.id}>
+              <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={resource.id}>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#1E1D1A]">{resource.title}</p>
-                  {resource.reason ? <p className="mt-1 text-xs text-[#77716A]">{resource.reason}</p> : null}
+                  <p className="text-sm font-semibold text-[#0F172A]">{resource.title}</p>
+                  {resource.reason ? <p className="mt-1 text-xs text-[#64748B]">{resource.reason}</p> : null}
                 </div>
-                <span className="shrink-0 rounded-full border border-[#D7C7A4] bg-[#FFF8E7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5A12]" style={{ fontFamily: font.rajdhani }}>
+                <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
                   Queued
                 </span>
               </div>
@@ -3797,6 +3983,7 @@ function MeetingDetailOverlay({
 
 export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const router = useRouter();
+  const isPreview = data.workspace.isPreview === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
@@ -3960,6 +4147,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return preferredPeople.slice(0, 3);
   }, [attentionPeople, my3CirclePeople]);
   const workspaceLabel = data.workspace.isUsamWorkspace ? `${data.workspace.displayName} · USA` : data.workspace.displayName;
+  const greetingName = firstNameFromDisplayName(data.workspace.displayName);
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
 
   function resetMeetingDraft(personIds: string[] = []) {
@@ -4090,6 +4278,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   async function submitJson(endpoint: string, payload: Record<string, unknown>, method: "PATCH" | "POST" = "POST", closeAfterSave = true) {
     setErrorMessage("");
+
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. Demo changes are not saved.");
+      return null;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -4251,6 +4445,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return null;
     }
 
+    if (isPreview) {
+      throw new Error("Preview mode is read-only. Review links are not created.");
+    }
+
     const existingUrl = existingReviewUrl(meeting);
 
     if (existingUrl) {
@@ -4286,6 +4484,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   async function ensureTestimonyLink(meeting: DosAppMeeting) {
     if (meeting.source !== "table") {
       return null;
+    }
+
+    if (isPreview) {
+      throw new Error("Preview mode is read-only. Story links are not created.");
     }
 
     const existingUrl = existingTestimonyUrl(meeting);
@@ -4453,6 +4655,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   async function handleUpdateFruitEvent(event: DosAppFruitEvent, updates: Record<string, unknown>) {
     setErrorMessage("");
 
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. Fruit changes are not saved.");
+      return;
+    }
+
     try {
       const response = await fetch(`/api/dos/app/fruit-events/${event.id}`, {
         body: JSON.stringify({
@@ -4477,6 +4684,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   async function handleDeleteFruitEvent(event: DosAppFruitEvent) {
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. Fruit changes are not saved.");
+      return;
+    }
+
     if (typeof window !== "undefined" && !window.confirm("Delete this mistaken Fruit event?")) {
       return;
     }
@@ -4551,20 +4763,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#EDEAE3] text-[#1E1D1A] sm:flex sm:items-center sm:justify-center sm:p-6">
-      <div className="relative h-[100dvh] w-full overflow-hidden bg-[#F5F3EE] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[860px] sm:max-w-[390px] sm:rounded-[34px] sm:border sm:border-[#DED9CF]">
+    <div className="min-h-[100dvh] bg-[#FAFBFD] text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:p-6">
+      <div className="relative h-[100dvh] w-full overflow-hidden bg-[#FAFBFD] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[860px] sm:max-w-[390px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]">
         <div className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none]">
           <header className="relative">
             {activeTab === "more" ? (
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9A6417]" style={{ fontFamily: font.rajdhani }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
                   Library
                 </p>
-                <h1 className="mt-1 text-[30px] font-bold leading-none text-[#1E1D1A]">Resources</h1>
-                <p className="mt-1 text-[13px] leading-5 text-[#77716A]">For conversations and follow up.</p>
+                <h1 className="mt-1 text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">Resources</h1>
+                <p className="mt-1 text-[13px] leading-5 text-[#64748B]">For conversations and follow up.</p>
                 <button
                   aria-label="Search library"
-                  className="absolute right-0 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-[#1E1D1A] transition-colors hover:border-[#E2DED6] hover:bg-white"
+                  className="absolute right-0 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-[#0F172A] transition-colors hover:border-[#E2E8F0] hover:bg-white"
                   type="button"
                 >
                   <Search className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
@@ -4572,16 +4784,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               </div>
             ) : (
               <>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E1D1A]" style={{ fontFamily: font.rajdhani }}>
+                <div className="min-w-0 pr-16">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
                     DOS
                   </p>
-                  <h1 className="mt-1 max-w-[250px] text-4xl font-bold leading-[0.92] tracking-[-0.02em] text-[#111111]" style={{ fontFamily: font.oswald }}>
-                    Discipleship on the go.
+                  <h1 className="mt-1 max-w-[270px] text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">
+                    Good morning, {greetingName}.
                   </h1>
+                  <p className="mt-1 truncate text-sm leading-5 text-[#64748B]">{workspaceLabel}</p>
                 </div>
-                <span className="absolute right-0 top-0 rounded-full border border-[#D9D4CA] bg-[#F8F7F3] px-4 py-1.5 text-xs font-medium text-[#1E1D1A]">
-                  Field
+                <span className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-xs font-bold text-[#1D4ED8] shadow-[0_10px_24px_rgba(37,99,235,0.10)]">
+                  {initials(greetingName)}
                 </span>
               </>
             )}
@@ -4596,7 +4809,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   rankedPeople={rankedCirclePeople}
                 />
 
-                <section className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+                <section className="grid grid-cols-3 gap-2">
                   <HomeActionPill icon="add" onClick={() => openForm("person")}>Add Person</HomeActionPill>
                   <HomeActionPill icon="log" onClick={() => openForm("meeting")}>Log Meeting</HomeActionPill>
                   <HomeActionPill icon="search" onClick={() => setActiveTab("people")}>Search</HomeActionPill>
@@ -4617,12 +4830,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-2xl bg-white px-4 py-3 text-sm text-[#77716A]">No focus items right now.</div>
+                    <div className="rounded-[22px] bg-white px-4 py-4 text-sm font-medium text-[#64748B] shadow-[0_8px_24px_rgba(42,37,29,0.04)]">All caught up for now.</div>
                   )}
                 </section>
 
                 <section>
-                  <SectionHeading action={<span className="text-xs text-[#77716A]">{thisWeekStats.label}</span>} title="This Week" />
+                  <SectionHeading action={<span className="text-xs text-[#64748B]">{thisWeekStats.label}</span>} title="This Week" />
                   <div className="grid grid-cols-3 gap-2">
                     <WeekStatTile label="Meetings" value={thisWeekStats.meetings} />
                     <WeekStatTile label="Prayed" value={thisWeekStats.prayed} />
@@ -4661,7 +4874,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       </RecentActivityRow>
                     ) : null}
                     {!latestMeeting && !latestPrayerActivity && !latestFruitActivity ? (
-                      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-[#77716A]">Log a meeting to begin your activity rhythm.</div>
+                      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-[#64748B]">Log a meeting to begin your activity rhythm.</div>
                     ) : null}
                   </div>
                 </section>
@@ -4716,8 +4929,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     <button
                       className={`min-h-8 rounded-full border px-3 text-[11px] font-semibold transition-colors ${
                         isActive
-                          ? "border-[#111111] bg-[#111111] text-white"
-                          : "border-[#DDD5C9] bg-white text-[#5E584F] hover:border-[#C99A2F]"
+                          ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white"
+                          : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#2563EB]"
                       }`}
                       key={filter.value}
                       onClick={() => setLibraryFilter(filter.value)}
@@ -4762,7 +4975,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 ) : null}
               </div>
               <Link
-                className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#DDD9D0] bg-white px-4 text-sm font-bold text-[#1E1D1A]"
+                className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A]"
                 href={data.workspace.publicProfileHref}
               >
                 View Public Profile
@@ -4776,6 +4989,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <CirclesDetailOverlay
             latestMeetingDateByPersonId={latestMeetingDateByPersonId}
             onBack={() => setIsCirclesOpen(false)}
+            onLogMeeting={() => openForm("meeting")}
             onLogMeetingForPerson={openMeetingForPerson}
             onOpenPerson={openPersonDetail}
             onSearch={() => {
@@ -4802,6 +5016,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <PersonDetailOverlay
             fruitEvents={data.fruitEvents}
             index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
+            isPreview={isPreview}
             leaderReflections={data.leaderReflections}
             meetings={data.meetings}
             onBack={() => setSelectedPersonId(null)}
@@ -4997,9 +5212,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <FieldLabel>Prayer Needs</FieldLabel>
               <textarea className={FieldTextareaClass()} name="prayer_needs" placeholder="Prayer needs or sensitive context." />
             </label>
-            <label className="flex items-start gap-3 rounded-[20px] border border-[#E2DED6] bg-white p-3">
-              <input className="mt-1 h-4 w-4 accent-[#D4A63D]" name="follow_up_needed" type="checkbox" />
-              <span className="text-sm font-semibold text-[#1E1D1A]">Follow up needed</span>
+            <label className="flex items-start gap-3 rounded-[20px] border border-[#E2E8F0] bg-white p-3">
+              <input className="mt-1 h-4 w-4 accent-[#2563EB]" name="follow_up_needed" type="checkbox" />
+              <span className="text-sm font-semibold text-[#0F172A]">Follow up needed</span>
             </label>
             <label className="block">
               <FieldLabel>Next Step</FieldLabel>
@@ -5026,7 +5241,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     <button
                       aria-pressed={selected}
                       className={`min-h-11 rounded-2xl border px-3 text-left text-xs font-semibold ${
-                        selected ? "border-[#111111] bg-[#111111] text-white" : "border-[#DDD9D0] bg-white text-[#1E1D1A]"
+                        selected ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white" : "border-[#E2E8F0] bg-white text-[#0F172A]"
                       }`}
                       key={tag}
                       onClick={() => toggleOutcomeTag(tag)}
@@ -5076,7 +5291,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     <button
                       aria-pressed={selected}
                       className={`min-h-11 rounded-2xl border px-3 text-left text-xs font-semibold ${
-                        selected ? "border-[#111111] bg-[#111111] text-white" : "border-[#DDD9D0] bg-white text-[#1E1D1A]"
+                        selected ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white" : "border-[#E2E8F0] bg-white text-[#0F172A]"
                       }`}
                       key={tag}
                       onClick={() => toggleOutcomeTag(tag)}

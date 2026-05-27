@@ -44,6 +44,7 @@ export type DosAppReviewStatus = "approved" | "not_sent" | "pending" | "private"
 export type DosAppWorkspace = {
   displayName: string;
   id: string;
+  isPreview?: boolean;
   isUsamWorkspace: boolean;
   profileImageUrl: string | null;
   publicProfileHref: string;
