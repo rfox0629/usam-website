@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requestMagicLink, requestPasswordReset, signInAdmin } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Admin Login | USA Missionaries",
+  title: "Sign In | USA Missionaries",
   robots: {
     follow: false,
     index: false,
