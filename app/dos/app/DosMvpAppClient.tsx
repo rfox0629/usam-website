@@ -3819,7 +3819,7 @@ function BottomNavigation({
 }) {
   return (
     <nav className="absolute inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)]">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-1 rounded-full border border-white/75 bg-white/82 p-1.5 shadow-[0_18px_48px_rgba(42,37,29,0.16)] backdrop-blur-xl">
+      <div className="mx-auto grid w-full grid-cols-5 gap-1 rounded-full border border-white/75 bg-white/82 p-1.5 shadow-[0_18px_48px_rgba(42,37,29,0.16)] backdrop-blur-xl">
         {tabs.map((tab) => (
           <button
             aria-current={activeTab === tab.value ? "page" : undefined}
@@ -5679,7 +5679,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#FAFBFD] text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:py-6">
+    <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#FAFBFD] text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:py-6">
       <div className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-[#FAFBFD] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]">
         <div className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none]">
           <header className="relative">

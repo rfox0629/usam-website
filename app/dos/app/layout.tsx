@@ -12,6 +12,7 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
               background: #FAFBFD !important;
               color: #0F172A;
               font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+              overflow-x: hidden;
             }
 
             .dos-app-route,
@@ -23,6 +24,9 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
               width: 100%;
               max-width: 430px;
               margin: 0 auto;
+              min-height: 100dvh;
+              flex: 0 1 430px;
+              background: #FAFBFD;
             }
 
             .dos-app-route :where(button, a, input, textarea, select):focus {
@@ -38,8 +42,20 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
               display: none !important;
             }
 
-            body:has(.dos-app-route) > div:first-child {
+            body:has(.dos-app-route) > div.flex-1 {
               min-height: 100dvh;
+              width: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: stretch;
+              background: #FAFBFD;
+            }
+
+            @media (max-width: 430px) {
+              .dos-app-route {
+                max-width: 100%;
+                flex-basis: 100%;
+              }
             }
 
             body:has(.dos-app-route) nextjs-portal {
