@@ -142,7 +142,7 @@ export function DosPortalClient() {
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-semibold text-white" href={workspaceHref}>
-                  Open Workspace
+                  Open DOS
                 </Link>
                 <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-semibold text-[#0F172A]" href={`/login?next=${encodeURIComponent(workspaceHref)}`}>
                   Sign In

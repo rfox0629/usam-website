@@ -398,7 +398,7 @@ export async function POST(request: Request) {
         note: "Created a DOS workspace using the current missionary_households compatibility layer.",
         workspaceId: householdId,
       },
-      workspaceHref: `/dos/workspaces/${fallbackHouseholdResult.data.slug}`,
+      workspaceHref: `/dos/app?workspace=${fallbackHouseholdResult.data.slug}`,
       workspaceSlug: fallbackHouseholdResult.data.slug,
     }, { status: 201 });
   } catch (error) {

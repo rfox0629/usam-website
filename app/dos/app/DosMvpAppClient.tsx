@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, User, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, Upload, User, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -144,6 +144,29 @@ type PersonFormDefaults = {
   phone?: string;
   state?: string;
   zip?: string;
+};
+type PeopleImportRow = {
+  church: string;
+  city: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  notes: string;
+  phone: string;
+  sourceRowNumber: number;
+  state: string;
+};
+type PeopleImportAnalysis = {
+  duplicateRows: PeopleImportRow[];
+  invalidRows: PeopleImportRow[];
+  readyRows: PeopleImportRow[];
+};
+type PeopleImportResult = {
+  duplicateCount: number;
+  importedCount: number;
+  invalidCount: number;
+  skippedCount: number;
 };
 
 function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
@@ -801,6 +824,146 @@ function filteredPeople(people: DosAppPerson[], query: string) {
     || relationshipLine(person).toLowerCase().includes(search)
     || normalizeText(person.status).toLowerCase().includes(search)
   ));
+}
+
+function normalizeCsvHeader(header: string) {
+  return header
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseCsvText(text: string) {
+  const rows: string[][] = [];
+  let currentField = "";
+  let currentRow: string[] = [];
+  let isQuoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const nextCharacter = text[index + 1];
+
+    if (character === "\"") {
+      if (isQuoted && nextCharacter === "\"") {
+        currentField += "\"";
+        index += 1;
+      } else {
+        isQuoted = !isQuoted;
+      }
+      continue;
+    }
+
+    if (character === "," && !isQuoted) {
+      currentRow.push(currentField);
+      currentField = "";
+      continue;
+    }
+
+    if ((character === "\n" || character === "\r") && !isQuoted) {
+      if (character === "\r" && nextCharacter === "\n") {
+        index += 1;
+      }
+      currentRow.push(currentField);
+      rows.push(currentRow);
+      currentRow = [];
+      currentField = "";
+      continue;
+    }
+
+    currentField += character;
+  }
+
+  currentRow.push(currentField);
+  rows.push(currentRow);
+
+  const cleanedRows = rows
+    .map((row) => row.map((field) => field.trim()))
+    .filter((row) => row.some((field) => field.trim()));
+  const headers = cleanedRows[0] ?? [];
+
+  return {
+    headers,
+    rows: cleanedRows.slice(1),
+  };
+}
+
+function csvValue(headers: readonly string[], row: readonly string[], aliases: readonly string[]) {
+  const normalizedAliases = aliases.map(normalizeCsvHeader);
+  const index = headers.findIndex((header) => normalizedAliases.includes(normalizeCsvHeader(header)));
+
+  return index >= 0 ? row[index]?.trim() ?? "" : "";
+}
+
+function mapDosPeopleCsvRow(headers: readonly string[], row: readonly string[], rowIndex: number): PeopleImportRow {
+  const firstName = csvValue(headers, row, ["first_name", "first name", "firstname"]);
+  const lastName = csvValue(headers, row, ["last_name", "last name", "lastname"]);
+  const fallbackName = csvValue(headers, row, ["name", "full_name", "full name", "display_name", "display name"]);
+
+  return {
+    church: csvValue(headers, row, ["church", "church_attending", "church attending", "spiritual community", "community"]),
+    city: csvValue(headers, row, ["city"]),
+    email: csvValue(headers, row, ["email", "home email", "email address"]),
+    firstName,
+    lastName,
+    name: [firstName, lastName].filter(Boolean).join(" ").trim() || fallbackName,
+    notes: csvValue(headers, row, ["notes", "note", "comments", "comment"]),
+    phone: csvValue(headers, row, ["phone", "phone number", "mobile phone", "mobile phone number", "cell", "cell phone"]),
+    sourceRowNumber: rowIndex + 2,
+    state: csvValue(headers, row, ["state", "province"]),
+  };
+}
+
+function peopleImportPhoneKey(value: string | null | undefined) {
+  return value?.replace(/\D/g, "") ?? "";
+}
+
+function peopleImportEmailKey(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function peopleImportNameKey(value: string | null | undefined) {
+  return value?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
+}
+
+function peopleImportKeys(person: Pick<PeopleImportRow, "email" | "name" | "phone"> | Pick<DosAppPerson, "email" | "name" | "phone">) {
+  return [
+    peopleImportPhoneKey(person.phone) ? `phone:${peopleImportPhoneKey(person.phone)}` : "",
+    peopleImportEmailKey(person.email) ? `email:${peopleImportEmailKey(person.email)}` : "",
+    peopleImportNameKey(person.name) ? `name:${peopleImportNameKey(person.name)}` : "",
+  ].filter(Boolean);
+}
+
+function analyzePeopleImportRows(rows: PeopleImportRow[], existingPeople: DosAppPerson[]): PeopleImportAnalysis {
+  const duplicateKeySet = new Set<string>();
+  const duplicateRows: PeopleImportRow[] = [];
+  const invalidRows: PeopleImportRow[] = [];
+  const readyRows: PeopleImportRow[] = [];
+
+  existingPeople.forEach((person) => {
+    peopleImportKeys(person).forEach((key) => duplicateKeySet.add(key));
+  });
+
+  rows.forEach((row) => {
+    if (!row.name.trim()) {
+      invalidRows.push(row);
+      return;
+    }
+
+    const keys = peopleImportKeys(row);
+
+    if (keys.some((key) => duplicateKeySet.has(key))) {
+      duplicateRows.push(row);
+      return;
+    }
+
+    keys.forEach((key) => duplicateKeySet.add(key));
+    readyRows.push(row);
+  });
+
+  return { duplicateRows, invalidRows, readyRows };
 }
 
 function isNeedsAttention(person: DosAppPerson) {
@@ -2879,6 +3042,128 @@ function SearchField({
   );
 }
 
+function PeopleImportSheet({
+  existingPeople,
+  onClose,
+  onImport,
+}: {
+  existingPeople: DosAppPerson[];
+  onClose: () => void;
+  onImport: (rows: PeopleImportRow[]) => Promise<PeopleImportResult>;
+}) {
+  const [fileName, setFileName] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importResult, setImportResult] = useState<PeopleImportResult | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [parseError, setParseError] = useState("");
+  const [rows, setRows] = useState<PeopleImportRow[]>([]);
+  const analysis = useMemo(() => analyzePeopleImportRows(rows, existingPeople), [existingPeople, rows]);
+  const previewRows = rows.slice(0, 5);
+  const canImport = analysis.readyRows.length > 0 && !isImporting;
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    setFileName(file?.name ?? "");
+    setImportError("");
+    setImportResult(null);
+    setParseError("");
+    setRows([]);
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setParseError("Choose a CSV file.");
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const parsedCsv = parseCsvText(text);
+
+      if (!parsedCsv.headers.length || !parsedCsv.rows.length) {
+        setParseError("This CSV needs a header row and at least one contact.");
+        return;
+      }
+
+      setRows(parsedCsv.rows.map((row, index) => mapDosPeopleCsvRow(parsedCsv.headers, row, index)));
+    } catch (error) {
+      setParseError(error instanceof Error ? error.message : "Unable to read this CSV.");
+    }
+  }
+
+  async function handleImport() {
+    if (!canImport) {
+      return;
+    }
+
+    setImportError("");
+    setImportResult(null);
+    setIsImporting(true);
+
+    try {
+      const result = await onImport(analysis.readyRows);
+
+      setImportResult(result);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Unable to import contacts.");
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
+  return (
+    <Sheet description="Upload a CSV to add people to your field." onClose={onClose} title="Import Contacts">
+      <div className="space-y-4">
+        <label className="block rounded-[22px] border border-dashed border-[#BFDBFE] bg-white p-4">
+          <FieldLabel>CSV File</FieldLabel>
+          <input
+            accept=".csv,text/csv"
+            className="mt-3 block w-full text-sm text-[#64748B] file:mr-4 file:rounded-full file:border-0 file:bg-[#2563EB] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+            onChange={handleFileChange}
+            type="file"
+          />
+          {fileName ? <p className="mt-3 text-xs text-[#64748B]">Loaded {fileName}</p> : null}
+        </label>
+
+        {parseError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{parseError}</p> : null}
+        {importError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{importError}</p> : null}
+        {importResult ? (
+          <p className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] p-3 text-sm text-[#1D4ED8]">
+            Imported {importResult.importedCount}. Skipped {importResult.skippedCount}.
+          </p>
+        ) : null}
+
+        {rows.length ? (
+          <div className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <SummaryTile label="Ready" value={String(analysis.readyRows.length)} />
+              <SummaryTile label="Duplicates" value={String(analysis.duplicateRows.length)} />
+              <SummaryTile label="Needs Name" value={String(analysis.invalidRows.length)} />
+            </div>
+            <div className="mt-4 space-y-2">
+              {previewRows.map((row) => (
+                <div className="rounded-2xl bg-[#F1F5F9] p-3" key={`${row.sourceRowNumber}-${row.name}-${row.phone}`}>
+                  <p className="text-sm font-bold text-[#0F172A]">{row.name || "Missing name"}</p>
+                  <p className="mt-1 text-xs leading-5 text-[#64748B]">
+                    {[row.phone, row.email, row.church].filter(Boolean).join(" · ") || `Row ${row.sourceRowNumber}`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <AppButton disabled={!canImport} icon="add" onClick={handleImport} tone="black">
+          {isImporting ? "Importing..." : analysis.readyRows.length ? `Import ${analysis.readyRows.length} Contacts` : "Import Contacts"}
+        </AppButton>
+      </div>
+    </Sheet>
+  );
+}
+
 function RelationshipStewardshipGroup<T extends string>({
   helper,
   label,
@@ -4490,12 +4775,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
+  const [isPeopleImportOpen, setIsPeopleImportOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("all");
   const [conversationResponses, setConversationResponses] = useState<DosConversationResponses>({});
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
+  const [peopleImportMessage, setPeopleImportMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [reviewLinksByMeetingId, setReviewLinksByMeetingId] = useState<Record<string, string>>({});
   const [reviewLinkMeetingId, setReviewLinkMeetingId] = useState<string | null>(null);
   const [reviewShareMessage, setReviewShareMessage] = useState("");
@@ -4727,6 +5014,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingId(null);
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
+    setPeopleImportMessage(null);
   }
 
   function openPersonDetail(personId: string) {
@@ -4843,6 +5131,45 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  async function handlePeopleImport(rows: PeopleImportRow[]) {
+    setPeopleImportMessage(null);
+
+    if (isPreview) {
+      throw new Error("Preview mode is read-only. Contacts are not imported.");
+    }
+
+    const response = await fetch("/api/dos/app/people/import", {
+      body: JSON.stringify({
+        rows,
+        workspaceId: data.workspace.id,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    const result = await response.json().catch(() => ({})) as Partial<PeopleImportResult> & { error?: string };
+
+    if (!response.ok) {
+      throw new Error(result.error ?? "Unable to import contacts.");
+    }
+
+    const importResult: PeopleImportResult = {
+      duplicateCount: result.duplicateCount ?? 0,
+      importedCount: result.importedCount ?? 0,
+      invalidCount: result.invalidCount ?? 0,
+      skippedCount: result.skippedCount ?? 0,
+    };
+
+    setPeopleImportMessage({
+      text: `Imported ${importResult.importedCount}. Skipped ${importResult.skippedCount}.`,
+      tone: "success",
+    });
+    router.refresh();
+
+    return importResult;
   }
 
   function handlePersonSubmit(event: FormEvent<HTMLFormElement>) {
@@ -5418,6 +5745,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <div>
               <SectionHeading action={<CompactButton icon="add" onClick={() => openForm("person")}>Add</CompactButton>} title="People" />
               <SearchField label="Find Person" onChange={setPeopleQuery} placeholder="Search by name, phone, or relationship" value={peopleQuery} />
+              {peopleImportMessage ? (
+                <p className={`mt-3 rounded-2xl border p-3 text-sm ${
+                  peopleImportMessage.tone === "success"
+                    ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
+                    : "border-red-200 bg-red-50 text-red-700"
+                }`}>
+                  {peopleImportMessage.text}
+                </p>
+              ) : null}
               <div className="mt-4">
                 {visiblePeople.length ? (
                   <div className="grid gap-3">{visiblePeople.map((person, index) => <PersonCard index={index} key={person.id} onClick={() => openPersonDetail(person.id)} person={person} />)}</div>
@@ -5427,6 +5763,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No people added yet." />
                 )}
                 </div>
+                <section className="mt-4 rounded-[22px] border border-[#E2E8F0] bg-white p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+                        Advanced Settings
+                      </p>
+                      <h3 className="mt-1 text-sm font-bold text-[#0F172A]">Import Contacts</h3>
+                      <p className="mt-1 text-xs leading-5 text-[#64748B]">Upload a CSV to add people to your field.</p>
+                    </div>
+                    <button
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-[#2563EB] transition-colors hover:bg-white"
+                      onClick={() => setIsPeopleImportOpen(true)}
+                      type="button"
+                      aria-label="Import contacts"
+                    >
+                      <Upload className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                    </button>
+                  </div>
+                </section>
               </div>
             ) : null}
 
@@ -5624,6 +5979,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             name={profileName}
             onClose={() => setIsEditProfileOpen(false)}
             phone={profilePhone}
+          />
+        ) : null}
+
+        {isPeopleImportOpen ? (
+          <PeopleImportSheet
+            existingPeople={people}
+            onClose={() => setIsPeopleImportOpen(false)}
+            onImport={handlePeopleImport}
           />
         ) : null}
 

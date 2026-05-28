@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getDosAuthorization, getDosWorkspaceAccess } from "@/src/lib/dos/auth";
 import { loadWorkspacePreviewDataBySlug } from "@/src/lib/admin/organization-data";
+import { isWorkspaceShellV2Enabled } from "@/src/lib/admin/workspace-feature-flags";
 import { WorkspaceV2Shell, type WorkspaceV2Query } from "@/src/components/dos/WorkspaceV2Shell";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +57,12 @@ export default async function DosWorkspacePage({
 }) {
   const { slug } = await params;
   const query = await searchParams;
+  const dosAppPath = `/dos/app?workspace=${encodeURIComponent(slug)}`;
+
+  if (!isWorkspaceShellV2Enabled()) {
+    redirect(dosAppPath);
+  }
+
   const nextPath = `/dos/workspaces/${encodeURIComponent(slug)}`;
   const authorization = await getDosAuthorization();
 
