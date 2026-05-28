@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { dosAppOutcomeTags, isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId, type DosAppOutcomeTag } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -71,6 +72,12 @@ export async function POST(request: Request) {
 
   if (!workspaceId || !summary) {
     return NextResponse.json({ error: "Summary is required." }, { status: 400 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
   }
 
   const fieldPersonId = asString(payload.fieldPersonId);

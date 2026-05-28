@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
+import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { dosExperienceReviewTypes, dosQuickReviewType } from "@/src/lib/dos/reviews";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
@@ -71,6 +72,12 @@ export async function POST(request: Request) {
 
   if (!workspaceId || !isUuid(meetingId)) {
     return NextResponse.json({ error: "Meeting not found." }, { status: 404 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
   }
 
   const supabase = createSupabaseAdminClient();

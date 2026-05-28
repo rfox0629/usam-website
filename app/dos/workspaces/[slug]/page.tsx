@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { getDosAuthorization } from "@/src/lib/dos/auth";
+import { getDosAuthorization, getDosWorkspaceAccess } from "@/src/lib/dos/auth";
 import { loadWorkspacePreviewDataBySlug } from "@/src/lib/admin/organization-data";
 import { WorkspaceV2Shell, type WorkspaceV2Query } from "@/src/components/dos/WorkspaceV2Shell";
 
@@ -69,6 +69,20 @@ export default async function DosWorkspacePage({
 
   if (authorization.status === "unauthorized") {
     return <WorkspaceMessage detail="This account is not approved for DOS workspace access yet." title="Access pending" />;
+  }
+
+  const workspaceAccess = await getDosWorkspaceAccess(authorization, slug);
+
+  if (workspaceAccess.status === "configuration_error") {
+    return <WorkspaceMessage detail={workspaceAccess.message} title="Workspace unavailable" />;
+  }
+
+  if (workspaceAccess.status === "not_found") {
+    notFound();
+  }
+
+  if (workspaceAccess.status === "forbidden") {
+    return <WorkspaceMessage detail="You do not have access to this workspace." title="Workspace unavailable" />;
   }
 
   const { error, preview } = await loadWorkspacePreviewDataBySlug(slug);

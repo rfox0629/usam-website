@@ -1054,11 +1054,12 @@ export async function resolveDosAppWorkspaceId(workspaceId: string) {
 
 export async function resolveDosAppWorkspace(workspaceId: string) {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  const query = supabase
     .from("missionary_households")
-    .select("id, slug, display_name")
-    .eq("id", workspaceId)
-    .maybeSingle();
+    .select("id, slug, display_name");
+  const { data, error } = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(workspaceId)
+    ? await query.eq("id", workspaceId).maybeSingle()
+    : await query.eq("slug", workspaceId).maybeSingle();
 
   if (error || !data) {
     return null;

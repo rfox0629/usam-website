@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { getDosAuthorization } from "@/src/lib/dos/auth";
 import { loadPersonRelationshipIntelligence } from "@/src/lib/dos/circle-scoring";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
@@ -45,6 +46,12 @@ export async function GET(
 
   if (!workspaceId || !isUuid(personId)) {
     return NextResponse.json({ error: "Person not found." }, { status: 404 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
   }
 
   try {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { inferFruitEventsFromEngagement } from "@/src/lib/dos/fruit-intelligence";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
@@ -109,6 +110,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
   }
 
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
+  }
+
   const supabase = createSupabaseAdminClient();
   const personInsert: Record<string, unknown> = {
     church: asNullableString(payload.church),
@@ -175,6 +182,12 @@ export async function PATCH(request: Request) {
 
   if (!workspaceId || !isUuid(id) || !name || !phone) {
     return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
   }
 
   const supabase = createSupabaseAdminClient();

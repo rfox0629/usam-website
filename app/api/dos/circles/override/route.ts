@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { updateCircleOverride } from "@/src/lib/dos/circle-scoring";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
@@ -59,6 +60,12 @@ export async function PATCH(request: Request) {
 
   if (!workspaceId || !isUuid(personId) || !circle) {
     return NextResponse.json({ error: "Person and circle are required." }, { status: 400 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
   }
 
   try {

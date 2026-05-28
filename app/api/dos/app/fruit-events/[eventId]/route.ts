@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -111,6 +112,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Fruit not found." }, { status: 404 });
   }
 
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
+  }
+
   const ownership = await eventBelongsToWorkspace(eventId, workspaceId);
 
   if (!ownership.ok) {
@@ -177,6 +184,12 @@ export async function DELETE(
 
   if (!isUuid(eventId) || !isUuid(workspaceId)) {
     return NextResponse.json({ error: "Fruit not found." }, { status: 404 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
   }
 
   const ownership = await eventBelongsToWorkspace(eventId, workspaceId);

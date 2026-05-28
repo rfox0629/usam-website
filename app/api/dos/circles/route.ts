@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { getDosAuthorization } from "@/src/lib/dos/auth";
 import { loadCircleData, recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
@@ -37,6 +38,12 @@ export async function GET(request: Request) {
 
   if (!workspaceId) {
     return NextResponse.json({ error: "Missionary workspace not found." }, { status: 404 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
   }
 
   try {

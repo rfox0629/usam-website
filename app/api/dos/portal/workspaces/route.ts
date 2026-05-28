@@ -314,7 +314,7 @@ export async function POST(request: Request) {
       throw new Error(membershipResult.error.message);
     }
 
-    await supabase
+    const collectiveMembershipResult = await supabase
       .from("collective_memberships")
       .insert({
         collective_id: collectiveId,
@@ -322,6 +322,10 @@ export async function POST(request: Request) {
         role: setupType === "personal" ? "owner" : "leader",
         status: "pending",
       });
+
+    if (collectiveMembershipResult.error) {
+      throw new Error(collectiveMembershipResult.error.message);
+    }
 
     const location = [city, state].filter(Boolean).join(", ");
     const householdPayload = {
@@ -364,16 +368,28 @@ export async function POST(request: Request) {
 
     householdId = fallbackHouseholdResult.data.id;
 
-    await supabase
+    const teamMemberPayload = {
+      display_name: personName,
+      dos_user_id: email,
+      household_id: householdId,
+      is_public: false,
+      role_title: roleLabel(roleCalling),
+      source: "dos",
+      status: "active",
+    };
+    const teamMemberResult = await supabase
       .from("missionary_team_members")
-      .insert({
-        display_name: personName,
-        household_id: householdId,
-        is_public: false,
-        role_title: roleLabel(roleCalling),
-        source: "dos",
-        status: "active",
-      });
+      .insert(teamMemberPayload);
+    const { dos_user_id: _dosUserId, ...legacyTeamMemberPayload } = teamMemberPayload;
+    const fallbackTeamMemberResult = teamMemberResult.error && isMissingFeatureColumn(teamMemberResult.error)
+      ? await supabase
+        .from("missionary_team_members")
+        .insert(legacyTeamMemberPayload)
+      : teamMemberResult;
+
+    if (fallbackTeamMemberResult.error) {
+      throw new Error(fallbackTeamMemberResult.error.message);
+    }
 
     return NextResponse.json({
       organizationId: organization.id,

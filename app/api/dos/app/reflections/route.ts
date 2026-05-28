@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { inferFruitEventsFromReflection } from "@/src/lib/dos/fruit-intelligence";
 import { dosAppFruitTypeOptions, isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
@@ -72,6 +73,12 @@ export async function POST(request: Request) {
 
   if (!workspaceId || !isUuid(meetingId)) {
     return NextResponse.json({ error: "Meeting not found." }, { status: 404 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
   }
 
   const supabase = createSupabaseAdminClient();

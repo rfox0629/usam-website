@@ -856,8 +856,8 @@ function SettingsRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] py-3 last:border-b-0">
-      <span className="text-sm text-[#64748B]">{label}</span>
-      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${active === undefined ? "bg-[#F1F5F9] text-[#475569]" : active ? "bg-[#EBF2FF] text-[#2563EB]" : "bg-[#F1F5F9] text-[#64748B]"}`}>
+      <span className="min-w-0 text-sm text-[#64748B]">{label}</span>
+      <span className={`min-w-0 max-w-[58%] truncate rounded-full px-2.5 py-1 text-right text-xs font-semibold ${active === undefined ? "bg-[#F1F5F9] text-[#475569]" : active ? "bg-[#EBF2FF] text-[#2563EB]" : "bg-[#F1F5F9] text-[#64748B]"}`}>
         {value}
       </span>
     </div>
@@ -1006,8 +1006,8 @@ function MoreSection({
   const tools = mode === "portal" ? portalTools : adminTools;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] sm:p-5">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="min-w-0 rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] sm:p-5">
         <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#2563EB]" style={{ fontFamily: workspaceFont.ui }}>
           More
         </p>
@@ -1030,8 +1030,8 @@ function MoreSection({
         </div>
       </section>
 
-      <aside className="space-y-5">
-        <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] sm:p-5">
+      <aside className="min-w-0 space-y-5">
+        <section className="min-w-0 rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] sm:p-5">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#94A3B8]" style={{ fontFamily: workspaceFont.ui }}>
             Settings
           </p>
@@ -1049,7 +1049,7 @@ function MoreSection({
           </div>
         </section>
 
-        <section className="rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] sm:p-5">
+        <section className="min-w-0 rounded-[26px] bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#94A3B8]" style={{ fontFamily: workspaceFont.ui }}>
