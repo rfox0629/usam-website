@@ -1,660 +1,264 @@
-# Typography Rules
+# AGENTS.md v2
 
-Do not introduce new fonts unless explicitly requested.
+These instructions are the working contract for this repo. Follow them before making product, UI, data, auth, or deployment decisions.
 
-Use the existing site font system only:
-- Display/headline font for major page titles only
-- Body/UI font for paragraphs, buttons, cards, forms, and testimonials
-- Uppercase tracking is allowed for labels, metadata, and small section tags
+## Product Structure
 
-Testimonials should NOT use serif fonts or decorative fonts.
-Make testimonials stand out through layout, spacing, line-height, quote styling, and amber accents instead of adding another font.
+This repo contains three active surfaces:
 
-Before changing typography, preserve the existing brand system.
+- USA Missionaries public website: public nonprofit and training movement pages.
+- DOS mobile app: active launch priority for everyday discipleship.
+- DOS Command Center/admin: internal leadership, operations, review, publishing, and workspace management.
 
-# Project Context
+Current product meaning:
 
-This is the USAM website (not the DOS app).
+- USA Missionaries = public nonprofit / training movement.
+- Kitchen Table Gospel = discipleship methodology and teaching flow.
+- DOS = mobile discipleship app.
+- Command Center = admin / leadership / operations layer.
 
-The website is the public front door to:
-- Mission and vision
-- Financial Freedom intake
-- Missionary support pages
-- Profiles (PF) public-facing missionary pages
+DOS is not limited to USA Missionaries. USA Missionaries is the first major implementation built on top of DOS.
 
-Admin functionality exists under /admin.
-Command Center (CC) functionality lives under /admin.
+## Current Priority
 
-Do NOT build app-style dashboards on public pages.
-Keep the website simple, clear, and invitational.
+DOS mobile app is the active launch priority.
 
----
+For now:
 
-# System Architecture
+- Build and polish the DOS mobile experience.
+- Keep DOS fast, simple, and field-first.
+- Do not build a desktop DOS app yet.
+- Desktop work belongs in Command Center unless Ryan explicitly asks for otherwise.
+- Workspace v2 is parked; do not work on it unless explicitly requested.
 
-This project is built on three layers:
+## Route Boundaries
 
-### Command Center (CC)
-- Admin and operational system
-- Source of truth interface for all data
-- Used for creating, editing, reviewing, and approving data
-- Used by leadership, admins, and operators
-- Current development focus
+Launch routes:
 
-### Profiles (PF)
-- Public-facing missionary profile pages
-- Displays only approved and curated data
-- Used by donors, partners, and visitors
-- Never exposes raw, reviewed, private, or sensitive data
-- Do not modify public Profiles display beyond data wiring unless explicitly requested
+- `/dos` = user entry, login, onboarding, and workspace selection.
+- `/dos/app?workspace=<slug>` = primary DOS mobile app.
+- `/dos/workspaces/[slug]` = parked Workspace v2 route unless the existing feature flag enables it.
+- `/admin/*` = Command Center / internal admin.
 
-### Field (FD)
-- Daily-use application for missionaries
-- Primary entry point for new data such as People, Tables, and notes
-- Must remain simple, fast, and minimal
-- Do not build Field UI yet
+Internal routes:
 
----
+- `/admin/dashboard` = Command Center.
+- `/admin/missionary-profiles` = classic Missionary Workspace / admin workspace.
+- `/admin/workspaces/[id]/preview` = admin-only Workspace v2 preview when needed.
 
-# Core Principle
+Do not send normal external users into `/admin` routes.
 
-There is ONE shared database: Supabase.
+## DOS UI Rules
 
-Do NOT:
-- create duplicate data models
-- create separate systems for CC, PF, or FD
-- sync between multiple versions of the same data
+DOS is mobile-first only for now.
 
-Instead:
-- use one shared model
-- build different interfaces for CC, PF, and FD
-- keep Supabase as the single source of truth
+- Entire DOS app shell should stay centered on desktop.
+- DOS app shell max width should stay around `430px` to `480px`.
+- Do not expand DOS into a desktop dashboard.
+- Use the DOS blue/white visual system.
+- Use Inter for DOS UI.
+- Keep it Planning Center inspired: clean, calm, simple, useful.
+- Prefer bottom sheets, compact cards, rounded controls, segmented choices, and low-copy flows.
+- Avoid CRM language, CRM density, and admin-style dashboards.
+- Keep the bottom nav visible across authenticated DOS app screens unless a temporary modal/sheet intentionally overlays it.
+- Use progressive disclosure for optional details.
+- Every DOS flow should feel usable on a phone in seconds.
 
----
+DOS language:
 
-# Data Flow
+- People, not contacts as the primary product word.
+- Meetings, not Tables, in user-facing DOS UI.
+- Reviews are verification/testimony input from people ministered to.
+- Fruit is curated/moderated output, not a raw activity label.
+- Follow Ups are action-oriented next steps.
 
-Field (FD)
--> creates People, Tables, Encounters, notes, and future Connection Logs
+## Command Center UI Rules
 
-Database (Supabase)
--> stores all records
+Command Center is internal operations software.
 
-Command Center (CC)
--> edits, enriches, categorizes, reviews, assesses, approves, and plans next steps
+- Dark/gold brand system.
+- Desktop optimized, but still responsive.
+- Admin only.
+- Use compact operational layouts.
+- Prioritize review queues, publishing, leadership visibility, metrics, workspace management, and exceptions.
+- Do not make Command Center look like DOS.
+- Do not leak DOS blue into Command Center chrome unless explicitly requested.
+- Admin pages must stay protected by Supabase auth and admin access checks.
 
-Profiles (PF)
--> displays approved and curated data only
+Command Center language:
 
----
+- Command Center = internal/admin operating layer.
+- Missionary Workspace = classic admin workspace for USAM missionary operations.
+- Profiles = public missionary profile publishing layer.
+- Publishing = curated public output only.
 
-# Ministry Data Layers
+## Public Website Rules
 
-Keep ministry data separated by purpose:
+Public pages are invitational, not app dashboards.
 
-- People / Your Field = WHO the person is; persistent relationship profile
-- Tables = WHEN and HOW the meeting happened; event record
-- Encounters = WHAT the person said; raw response only
-- Review = missionary interpretation of the meeting
-- Discipleship Assessment = structured spiritual diagnostic for that meeting
-- Fruit = approved outcome derived from Encounter + Review + Assessment
-- Movement Step = what happens next
-- Connection Logs = ongoing discipleship interactions outside formal Tables
+- Keep public pages simple, clear, and mission-forward.
+- Do not expose raw, reviewed, private, admin-only, or unapproved data.
+- Public Profiles show approved and curated data only.
+- Do not add app-style dashboards to public pages.
 
-Do NOT mix these layers. Do NOT store disciples or relationship data in Team.
+Typography:
 
-Core workflow:
+- Do not introduce new fonts unless explicitly requested.
+- Preserve the existing public site font system.
+- Display/headline font is for major public page titles only.
+- Body/UI font is for paragraphs, buttons, cards, forms, and testimonials.
+- Testimonials should not use new serif or decorative fonts.
 
-Your Field (People)
--> Table
--> Encounter
--> Review
--> Discipleship Assessment
--> Profile Update Prompt
--> Fruit
--> Movement Step
--> Continued discipleship
+## Data Rules
 
----
+Supabase is the single source of truth.
 
-# Data States
+Do not:
 
-All structured outputs, especially Fruit, follow:
+- Create duplicate data models.
+- Create separate people/contact systems.
+- Sync between parallel copies of the same data.
+- Store disciples or ministry relationships in public Team records.
+- Expose service-role data or private records to client components.
 
-RAW -> REVIEWED -> APPROVED
+People:
 
-- RAW: created and unprocessed; not visible publicly
-- REVIEWED: cleaned and summarized for internal use only
-- APPROVED: published to Profiles (PF) and later usable in Field (FD) as encouragement or insight
+- `missionary_field_people` is the canonical people table.
+- `workspace_id` is the primary workspace scope.
+- `household_id` fallback exists only for backward compatibility with older/local schemas.
+- Do not create `people`, `dos_people`, `workspace_people`, or another duplicate table.
+- Mobile quick add, mobile people read/edit, desktop Add/Edit Person, and CSV import should all use `missionary_field_people`.
 
-Never expose RAW or REVIEWED data publicly.
+Meetings:
 
----
+- Use `Meetings` in user-facing DOS UI.
+- Backend may still use table-oriented names such as `missionary_tables`; do not rename schema casually.
+- Meeting Context = how we met, such as Kitchen Table, Coffee, Phone, Zoom, Text, Prayer, Group, Discipleship, Other.
+- Conversation Flow = what spiritual discussion happened, such as None or Kitchen Table Gospel.
+- Kitchen Table Gospel is USAM-gated unless product direction changes.
+- Notes belong primarily inside meetings, not as a standalone person activity stream.
 
-# Core Modules (Command Center)
+Reviews and Fruit:
 
-Build and maintain these Command Center modules:
+- Quick Reviews and Fruit are separate by purpose.
+- Quick Reviews are external verification/testimony input.
+- Quick Reviews should default to pending/private review states.
+- Fruit is moderated, curated, and approved output.
+- Approved Fruit may later feed public Profiles; raw reviews should not publish automatically.
 
-1. Your Field (People)
-2. Tables
-3. Connections
-4. Fruit
-5. Library
-6. In Season
-7. Profiles (publishing layer)
+Workspace scope:
 
-Tables contain the nested workflow:
-- Table details
-- Encounters
-- Review
-- Discipleship Assessment
+- Preserve `workspace_id` on new records where supported.
+- Keep multi-tenant assumptions intact.
+- Ryan & Brooke may be the primary test workspace, but code must not hardcode to that workspace.
 
-Do NOT make Encounters a top-level Command Center tab. Encounters are nested under Tables.
+## Circle Rules
 
-Each module must:
-- be clearly separated
-- connect through shared data models
-- avoid duplicated logic or storage
-- prepare data for public display and future field use
+My 3 / My 12 / My 70 are active MVP features.
 
----
+- Circle Engine exists.
+- Engagement scoring exists.
+- Engagement score range is `-3` to `+3`.
+- Use the existing `engagement_level` field for the engagement score.
+- Do not create duplicate scoring fields.
+- Do not create parallel circle tables or competing score systems unless explicitly requested.
+- Circle logic should remain explainable and easy to override later.
 
-# Missionary Workspaces Roles
+Circle language:
 
-Missionary Workspaces in Command Center organize all three product layers, but each layer has a distinct job.
+- My 3 = highest-focus people.
+- My 12 = active discipleship relationships.
+- My 70 = broader field.
 
-### Profiles (PF)
-Public-facing content only:
-- Profile
-- Features
-- Team (public roster only)
-- Media
-- Story
-- Support
-- Prayer
+## Auth Rules
 
-Profiles must display only approved and curated content.
+- `/admin/*` requires admin access.
+- `/dos/app` requires authenticated DOS workspace access.
+- Admin users may access admin tools and may inspect workspaces.
+- Non-admin DOS users may access only their own DOS workspace.
+- If a user is authenticated but not connected to a workspace, show a clear access state.
+- If a user is unauthenticated, route to login with the intended DOS destination preserved.
+- Do not send normal DOS users to an admin login wall.
 
-### Command Center (CC)
-Operational data:
-- Tables: meeting events that contain details, Encounters, Review, and Discipleship Assessment
-- Connections: ongoing interactions outside formal Tables such as calls, texts, Zoom, prayer, and discipleship
-- Encounters: raw submissions nested under Tables
-- Review: missionary interpretation of a meeting
-- Discipleship Assessment: structured spiritual insights tied to a meeting
-- Fruit: approved outcomes derived from Encounters + Review + Assessment
-- Movement Step: next action after an interaction
-- Connection Logs: ongoing discipleship interactions outside formal Tables
+## Workflow Rules To Save Time
 
-Command Center owns review, cleanup, structuring, and publishing decisions.
+Localhost first.
 
-### Field (FD)
-Future daily-use behavior:
-- creates Encounters
-- displays Fruit summaries
+- Work locally before thinking about deployment.
+- Do not deploy until Ryan approves.
+- Do not work on preview/demo routes unless explicitly requested.
+- Use the Ryan & Brooke workspace as the primary test environment.
+- Keep code multi-tenant even when testing with Ryan & Brooke.
+- Batch related UI changes instead of tiny scattered edits.
+- Avoid overbuilding.
+- Prefer the smallest change that preserves the architecture.
+- Do not touch unrelated local files.
+- Do not commit generated or unrelated artifacts.
 
-Do not build Field UI yet.
+Report back using only:
 
-Missionary Workspace rules:
-- Do NOT use Team to store disciples or ministry relationships
-- Team is public-facing roster content only
-- Encounters is the intake layer for testimonies, forms, reviews, and raw story material
-- Review, Assessment, and Movement Step belong to interactions, not public Team records
-- Fruit is derived from approved Encounter + Review + Assessment data
-- Fruit is the only structured output shown across CC, PF, and future FD
+```text
+Changed:
+Tested:
+Local URL:
+Risks:
+```
 
----
+## Validation
 
-# Your Field (People)
+Before committing code changes, run:
 
-Your Field is the relational map of everyone in a missionary's life.
+- `npx tsc --noEmit`
+- `npm run lint --if-present`
+- `npm run build` when appropriate
 
-No artificial limit. Do NOT use "100 people" language.
+For documentation-only changes, build is usually not required. Say clearly when validation is skipped because the change is docs-only.
 
-Use a single shared People table across CC and FD.
+## Deployment Workflow
 
-Required fields:
-- name
-- phone
+- Do not deploy to production unless Ryan explicitly asks.
+- Pushing to GitHub is allowed when Ryan requests a commit/push.
+- Vercel production deployment should happen only after Ryan approval.
+- For production auth or routing fixes, verify the exact production URL after deployment.
+- Never assume production is fixed just because local build passed.
 
-Optional collapsed fields:
-- email
-- address
-- church
-- family info
-- notes
+## Coding Standards
 
-Always editable in the interface:
-- relationship type
-- engagement level
-- church / spiritual community
+- Read existing code before changing it.
+- Reuse existing helpers, route patterns, auth checks, and Supabase clients.
+- Keep server-only Supabase service-role usage on the server.
+- Keep client components free of private credentials.
+- Use TypeScript types where they clarify behavior.
+- Keep comments rare and useful.
+- Use TODO comments only for real deferred work.
+- Keep changes scoped to the request.
+- Do not refactor unrelated modules while shipping a launch fix.
 
-Post-interaction fields:
-- status
-- relationship type
-- engagement level
-- church
+## Git Rules
 
-These should be updated after meetings, not required upfront.
+- Commit only intentional files.
+- Do not commit `.agents/`, generated lock files, temp files, local SQL scratch files, or unrelated work.
+- Do not revert user changes unless explicitly asked.
+- If unrelated dirty files exist, leave them alone and mention them.
 
-Source fields:
-- source: 'field' | 'command_center'
-- created_by
-- created_at
+## Anti-Bloat Rules
 
-People are created primarily in FD and managed/refined in CC.
-Command Center must allow full editing and enrichment.
-
-People insights should be prepared for:
-- total time spent
-- number of interactions
-- last interaction
-- table count
-
-Discipleship Circles are plan-only for now:
-- Closest 3
-- Core 12
-- Broader 70
-
-These will later be based on time spent, frequency, and recency. Do NOT automate yet.
-
----
-
-# Tables
-
-Tables are meeting events.
-
-Tables own the first working workflow:
-
-People
--> Table
--> Encounter
--> later Review + Fruit
-
-Fields:
-- date, default today
-- type: Kitchen Table, Coffee, Phone, Zoom, Group, Other
-- people linked to Your Field
-- notes
-- teaching used, future Library link
-
-UX:
-- modal or slide-over
-- fast entry under 30 seconds
-- default values
-- buttons: Save Table, Save + Add Encounter
-- detail view contains nested Encounters, Review placeholder, and Discipleship Assessment placeholder
-
-Movement Step is selectable from Tables.
-
----
-
-# Encounters
-
-Encounters capture raw participant response.
-
-Sources:
-- short form
-- long testimony
-- manual entry
-
-Fields:
-- name
-- email optional
-- raw response text
-- linked table
-- status: RAW
-
-Do NOT store church, relationship type, or engagement level in Encounters.
-
----
-
-# Review
-
-Review is the missionary interpretation layer.
-
-Fields:
-- how the meeting went
-- key observations
-- breakthroughs or concerns
-- movement step
-- follow up needed
-
-Review data stays internal unless it is explicitly transformed into approved Fruit.
-
----
-
-# Discipleship Assessment
-
-Discipleship Assessment is nested under Review and belongs to the meeting, not People.
-
-Fields:
-- teaching used: Kitchen Table Gospel, Are You Really a Disciple, Commands of Jesus
-- questions covered
-- responses / notes
-- readiness: Not ready, Curious, Open, Ready to follow, Actively following
-- areas needing follow up: Repentance, Baptism, Scripture, Prayer, Community, Obedience
-
-Do NOT store assessment diagnostics in People.
-
----
-
-# Profile Update Prompt
-
-After completing Review, prompt:
-
-"What did you learn about this person?"
-
-Allow updating only missing or incomplete Person fields:
-- relationship type
-- engagement level
-- church
-
-Save updates to the Person record. Do NOT duplicate data.
-
----
-
-# Connection Logs
-
-Connection Logs track ongoing discipleship outside formal Tables.
-
-Examples:
-- phone call
-- Zoom
-- text
-- coffee
-- prayer
-- discipleship meeting
-
-Fields:
-- person
-- date
-- duration
-- interaction type
-- notes
-- movement step
-- follow up
-
-Connection Logs must be extremely fast to log and feed People insights and future Discipleship Circles.
-
----
-
-# Fruit
-
-Fruit is approved output derived from Encounter + Review + Assessment.
-
-Fields:
-- summary
-- outcome tags: Salvation, Baptism, Healing, Deliverance, Church Connection, Discipleship, Prayer Answered, Other
-- linked person
-- linked table
-- status: APPROVED
-
-Rules:
-- only APPROVED Fruit goes to Profiles (PF)
-- raw data remains internal
-- approved Fruit is the only thing that later feeds Profile and Field
-
----
-
-# Movement Step
-
-Every interaction should lead to a next step.
-
-Options:
-- Continue meeting
-- Begin discipleship
-- Send follow up
-- Invite to group
-- Connect to church
-- Connect to ministry
-- Hand off
-- Pray and wait
-- Other
-
-Movement Step is selectable in Tables, Review, and Connection Logs.
-
----
-
-# Library
-
-Library is a light teaching-framework store.
-
-Examples:
-- Kitchen Table Gospel
-- Commands of Jesus
-
-Tables can reference Library items in the future.
-
----
-
-# In Season
-
-In Season tracks current focus.
-
-Fields:
-- current focus
-- prayer emphasis
-- active people
-- active tables
-
-Keep it simple.
-
----
-
-# Routing Rules
-
-Public pages:
-- /
-- /financialfreedom
-- /give/[userId]
-- /missionaries
-
-Admin pages:
-- /admin/dashboard
-- /admin/missionary-profiles
-- /admin/financial-freedom
-- /admin/*
-
-All /admin routes must be protected using Supabase auth + admin_users table.
-
----
-
-# Missionary Workspace and Command Center UI Rules
-
-These rules are canonical for all future Missionary Workspace and Command Center development.
-
-Product philosophy:
-- Build operational software, not a brochure and not an enterprise CRM.
-- The interface should feel minimal, premium, fast, calm, and purposeful.
-- Use inspiration from Linear, Vercel, Apple, Stripe, and Notion: clear hierarchy, restrained surfaces, compact controls, excellent spacing, and no clutter.
-- Missionary Workspace is the expanded operational workspace. DOS/Field is the mobile daily-use app. Do not blur the product roles in UI copy.
-- Every screen should answer: what matters now, what changed, what needs action, and where do I go next?
-
-UI/UX standards:
-- Default to fewer visible controls and fewer words.
-- Prioritize scan speed over explanation.
-- Use clear section hierarchy: primary nav -> secondary nav -> content.
-- Keep the current section/state visually obvious.
-- Prefer compact rows, badges, pills, tabs, segmented controls, and drawers over large explanatory cards.
-- Do not stack multiple explanation cards to teach the architecture. The product should feel self-evident.
-- Avoid dashboard clutter, spreadsheet dumps, and enterprise CRM density that makes the page feel heavy.
-
-Copywriting rules:
-- Use short labels and direct nouns: `Support`, `Commitments`, `Settings`, `Public Links`, `Status`.
-- Remove obvious helper copy. Buttons and fields that are self-explanatory do not need paragraphs.
-- Keep helper text only when it prevents a real mistake or explains a non-obvious consequence.
-- Avoid implementation language in normal UI: no schema, routing internals, fallback behavior, migration talk, or system plumbing unless the screen is explicitly admin diagnostics.
-- Do not repeat the same idea in a heading, paragraph, and card.
-- Prefer calm operational copy over motivational or marketing copy inside admin/workspace tools.
-- Titles should do most of the communication; avoid repeating the title with a paragraph below it.
-- Prefer status pills over explanatory status paragraphs.
-- Avoid enterprise/table-heavy wording such as verbose statuses, redundant toggle labels, or long row descriptions.
-- Keep workflows scannable within seconds.
-- Default to minimal copy unless operational clarity truly requires more.
-- Missionary Workspace UI should feel premium, lightweight, and fast.
-
-Spacing and layout standards:
-- Use compact vertical rhythm in admin/workspace surfaces.
-- Keep content width constrained for readability.
-- Reduce nested cards. One container surface is usually enough.
-- Use whitespace to separate groups, not repeated bordered boxes.
-- Keep page headers short. Remove redundant labels, slugs, and internal URLs unless they are directly actionable.
-- Form sections should be tight and scannable: label, control, optional short helper.
-- Avoid oversized hero-style typography inside admin cards and tool surfaces.
-
-Table and list responsiveness:
-- No horizontal scrolling in Missionary Workspace or Command Center operational views.
-- Do not ship tables with `min-width` that force sideways scrolling.
-- Default table/list views should show only essential columns.
-- Move secondary details into a modal, drawer, expandable row, or detail panel.
-- Mobile behavior should become stacked cards or compact responsive rows.
-- Keep status values as compact pills.
-- Donor/support tables should show scan fields first, such as `Donor`, `Amount`, `Type`, `Status`, `Actions`.
-- Person/activity tables should prioritize name, status, last activity, next action, and a compact view/edit action.
-
-Button hierarchy:
-- Primary actions: solid gold, dark text, clear label, used sparingly.
-- Secondary actions: dark or white surface with border, lower visual weight.
-- Tertiary/copy actions: small, icon-first where possible, subtle outline or text treatment.
-- Navigation tabs are not action buttons. Keep tab styling visually distinct from save, preview, copy, and launch actions.
-- Disabled actions should be muted and should not compete visually.
-- One primary CTA per section whenever possible.
-
-Settings philosophy:
-- Settings screens are operational controls, not documentation.
-- Show current state as compact metadata or pills.
-- Keep only controls that can be changed on that screen.
-- Remove large explanation cards from settings.
-- Avoid describing backend behavior unless it changes the user's decision.
-- Advanced settings should be collapsed or visually quiet unless needed for the current workflow.
-
-Operational density standards:
-- Missionary Workspace and Command Center should feel efficient and ready for repeated daily use.
-- Prefer compact cards, rows, and pills over large panels.
-- Reduce row height and padding when the user is scanning records.
-- Use hover states, detail drawers, and view buttons for secondary information.
-- Keep dashboards executive and awareness-focused: metrics, pending items, recent activity, status, and exceptions.
-- Do not turn dashboards into launchpads full of redundant buttons.
-- Operational tables should default to minimal copy, rely on hierarchy and labels, and avoid explanatory paragraphs.
-- Remove repeated explanations users already understand from section context.
-- Table rows should feel operational, premium, lightweight, and scannable within seconds.
-- Remove instructional copy users already intuitively understand.
-- Prefer labels over paragraphs in operational screens.
-- Upload interfaces should feel lightweight, modern, and calm.
-- Avoid explaining standard UI behavior.
-- Keep operational screens visually fast.
-- Avoid repeating the same information in banners, cards, labels, and footnotes.
-- If a title already communicates intent, do not restate it underneath.
-- Operational editing screens should prioritize clarity through hierarchy, not paragraphs.
-- Default to minimal instructional copy.
-- Eliminate repetitive instructional copy.
-- Interfaces should communicate primarily through hierarchy and labels.
-- Avoid explaining obvious UI behavior.
-- Prefer compact operational layouts.
-- Default to one-line descriptions maximum.
-- Status pills are preferred over paragraphs.
-- Reduce enterprise software feel.
-- Prioritize calm, premium, lightweight UX.
-- Optimize screens for scanning within seconds.
-- Operational sections should communicate in seconds.
-- Avoid describing obvious workflows.
-- Avoid duplicate explanations across headers and cards.
-- Empty states should be extremely concise.
-- Prefer compact operational terminology.
-- Keep missionary workflows visually calm and lightweight.
-- Remove enterprise-style instructional language.
-
-Mobile-first requirements:
-- Every admin/workspace surface must remain usable on mobile.
-- No control should require horizontal dragging to read or act.
-- Tap targets must remain comfortable, but layouts should stay compact.
-- Multi-column desktop layouts should collapse into stacked mobile cards cleanly.
-- Modals/drawers must fit within the viewport and scroll internally when needed.
-
-Anti-bloat rules:
 - Do not add features because there is empty space.
-- Do not add tutorial copy to compensate for unclear IA; simplify the IA instead.
+- Do not add tutorial copy to compensate for unclear UX.
+- Simplify the UX instead.
 - Do not create duplicate UI paths for the same workflow.
-- Do not create separate data models for separate interfaces.
+- Do not create duplicate data models for separate interfaces.
 - Do not expose raw/private data publicly.
-- Do not use public profile pages as admin dashboards.
-- Do not add new design systems, fonts, decorative effects, or visual themes unless explicitly requested.
+- Do not build desktop DOS until requested.
+- Do not revive legacy DOS collective prototype routes/helpers unless explicitly requested.
 
-Preferred UX patterns:
-- Compact status header: `Public Visible` `Support Enabled` `$8,333/mo`.
-- Operational row with detail modal: default row shows key fields; `View` opens email, phone, notes, dates, and metadata.
-- Section cards for major areas; small tabs for subsections.
-- Sticky or contextual save bar only when edits are dirty.
-- Copy utilities as small `Copy` icon buttons, not large CTAs.
-- Settings row: `Giving System: Active` `Destination: Ryan & Brooke Fox` instead of multiple explanatory cards.
-- Empty states should be short: one sentence and one action when action is useful.
+## Current Launch Bias
 
-Public page UI principles:
-- Keep public pages simple, clear, and invitational.
-- Avoid dashboard-style layouts on public pages.
-- Public Profiles must display only approved and curated content.
-- Do not expose internal state, raw submissions, admin notes, or reviewed-but-unapproved content.
+When unsure, bias toward:
 
----
-
-# Component Rules
-
-- Reuse existing components whenever possible
-- Do not duplicate UI patterns
-- Keep components small and focused
-- Follow existing spacing and card patterns
-
----
-
-# Supabase Rules
-
-- Use Supabase for all structured data
-- Never hardcode credentials
-- Do not expose private data publicly
-- Use RLS for all tables
-
-Public pages:
-- can INSERT only (forms)
-
-Admin pages:
-- can SELECT / UPDATE based on admin access
-
----
-
-# Admin Rules
-
-- All admin pages must use the shared AdminShell
-- Sidebar navigation must remain consistent
-- Admin pages are tools, not marketing pages
-
----
-
-# Form Rules
-
-- Forms must feel safe and voluntary
-- Avoid overwhelming inputs
-- Always include privacy language
-- Do not require more than necessary
-
----
-
-# Development Flow
-
-Always build in this order:
-
-1. Data model (Supabase)
-2. Basic UI
-3. UX refinement
-4. Add intelligence
-
----
-
-# DO NOT
-
-- introduce new design systems
-- add unnecessary complexity
-- break existing layout patterns
-- expose sensitive financial data
-- expose RAW or REVIEWED data publicly
-- duplicate CC, PF, or FD data models
+- DOS mobile app over Workspace v2.
+- People and Meetings over dashboards.
+- Fast capture over full CRM detail.
+- Local validation over premature deploys.
+- Canonical tables over compatibility duplication.
+- Clean access paths over clever route architecture.
