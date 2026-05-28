@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, FileImage, Flame, Gift, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Pencil, Phone, Search, Send, Share2, Sparkles, Square, StickyNote, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, User, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -682,12 +682,36 @@ function workspaceIdentityName(workspace: DosAppWorkspace) {
   return displayName ?? "My Field";
 }
 
-function workspaceIdentityLine(workspace: DosAppWorkspace) {
+function workspaceFieldSublabel(workspace: DosAppWorkspace) {
   return [
-    workspaceIdentityName(workspace),
     cleanIdentitySegment(workspace.stateName),
     cleanIdentitySegment(workspace.organizationName),
   ].filter(Boolean).join(" · ");
+}
+
+function workspaceProfileName(workspace: DosAppWorkspace, fallbackFirstName: string) {
+  const providedName = cleanIdentitySegment(workspace.userFullName);
+
+  if (providedName) {
+    return providedName;
+  }
+
+  const displayName = cleanIdentitySegment(workspace.displayName);
+  const normalizedName = displayName?.toLowerCase().replace(/\s+/g, " ");
+
+  if (normalizedName === "fox family" || normalizedName === "ryan & brooke fox" || normalizedName === "ryan and brooke fox") {
+    return "Ryan Fox";
+  }
+
+  return fallbackFirstName;
+}
+
+function workspaceProfileEmail(workspace: DosAppWorkspace) {
+  return cleanIdentitySegment(workspace.userEmail) ?? (workspace.isPreview ? "ryan@foxfamily.org" : "");
+}
+
+function workspaceProfilePhone(workspace: DosAppWorkspace) {
+  return cleanIdentitySegment(workspace.userPhone) ?? "";
 }
 
 function localTimeGreeting(date = new Date()) {
@@ -702,6 +726,39 @@ function localTimeGreeting(date = new Date()) {
   }
 
   return "Good evening";
+}
+
+const circleFocusHeadlines = [
+  "Tend your three.",
+  "Stay close to your people.",
+  "Steward your field.",
+  "Faithful with a few.",
+  "Who's on your heart?",
+  "One conversation at a time.",
+  "Start with prayer.",
+] as const;
+
+const currentRhythmDay = 14;
+
+function getDayOfYear(date = new Date()) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+
+  return Math.floor(diff / 86400000);
+}
+
+function circleFocusHeadline(date = new Date()) {
+  return circleFocusHeadlines[getDayOfYear(date) % circleFocusHeadlines.length];
+}
+
+function homeDateSubtitle(date = new Date(), rhythmDay = currentRhythmDay) {
+  const formattedDate = new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "long",
+    weekday: "long",
+  }).format(date);
+
+  return `${formattedDate} · Day ${rhythmDay}`;
 }
 
 function avatarTone(index: number) {
@@ -1245,6 +1302,287 @@ function ActionListRow({
   );
 }
 
+function UserProfileAvatar({
+  imageUrl,
+  name,
+  size = "sm",
+}: {
+  imageUrl?: string | null;
+  name: string;
+  size?: "lg" | "sm";
+}) {
+  const dimension = size === "lg" ? "h-20 w-20 text-2xl" : "h-11 w-11 text-sm";
+  const initial = name.trim().charAt(0).toUpperCase() || "R";
+
+  if (imageUrl) {
+    return (
+      <span className={`${dimension} flex shrink-0 overflow-hidden rounded-full border border-[#BFDBFE] bg-[#EBF2FF] shadow-[0_10px_24px_rgba(37,99,235,0.10)]`}>
+        <img alt="" className="h-full w-full object-cover" src={imageUrl} />
+      </span>
+    );
+  }
+
+  return (
+    <span className={`${dimension} flex shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] font-bold text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)]`}>
+      {initial}
+    </span>
+  );
+}
+
+function ProfileSheetFrame({
+  children,
+  onClose,
+  rightAction,
+  title,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  rightAction?: ReactNode;
+  title: string;
+}) {
+  return (
+    <div
+      className="absolute inset-0 z-[90] flex items-end bg-[#0F172A]/18 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-3 backdrop-blur-[3px]"
+      onMouseDown={onClose}
+      role="presentation"
+    >
+      <section
+        aria-modal="true"
+        className="max-h-[calc(100dvh-1.2rem)] w-full overflow-hidden rounded-[30px] border border-white/70 bg-[#F4F6FB] p-3 shadow-[0_28px_85px_rgba(32,27,20,0.22)]"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <header className="relative flex h-10 items-center justify-center">
+          <button
+            aria-label="Close"
+            className="absolute left-0 flex h-9 w-9 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+          <h2 className="text-sm font-bold text-[#0F172A]">{title}</h2>
+          <div className="absolute right-0 flex h-9 min-w-9 items-center justify-center">{rightAction}</div>
+        </header>
+        <div className="max-h-[calc(100dvh-6.75rem)] overflow-y-auto px-0.5 pb-2 pt-2 [scrollbar-width:none]">
+          {children}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ProfileGroup({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section>
+      <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#94A3B8]">{title}</p>
+      <div className="overflow-hidden rounded-[18px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">{children}</div>
+    </section>
+  );
+}
+
+function ProfileRow({
+  children,
+  icon,
+  isLast = false,
+  meta,
+  onClick,
+  sublabel,
+}: {
+  children: ReactNode;
+  icon: ReactNode;
+  isLast?: boolean;
+  meta?: ReactNode;
+  onClick?: () => void;
+  sublabel?: string;
+}) {
+  return (
+    <button
+      className={`flex min-h-[58px] w-full items-center gap-3 bg-white px-3 text-left transition-colors hover:bg-[#F8FAFC] ${isLast ? "" : "border-b border-[#E2E8F0]"}`}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#EBF2FF] text-[#2563EB]">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-[#0F172A]">{children}</span>
+        {sublabel ? <span className="mt-0.5 block truncate text-xs font-medium text-[#64748B]">{sublabel}</span> : null}
+      </span>
+      {meta ? <span className="shrink-0 text-xs font-semibold text-[#64748B]">{meta}</span> : <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />}
+    </button>
+  );
+}
+
+function RhythmBars() {
+  return (
+    <div className="flex items-end gap-1.5" aria-label="Seven day rhythm preview">
+      {[0, 1, 2, 3, 4, 5, 6].map((bar) => (
+        <span
+          aria-hidden="true"
+          className="w-1.5 rounded-full bg-[#2563EB]"
+          key={bar}
+          style={{ height: `${14 + (bar % 3) * 3}px` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ProfileSheet({
+  email,
+  fieldName,
+  fieldSublabel,
+  name,
+  onClose,
+  onEditProfile,
+  onOpenCircles,
+  photoUrl,
+}: {
+  email: string;
+  fieldName: string;
+  fieldSublabel: string;
+  name: string;
+  onClose: () => void;
+  onEditProfile: () => void;
+  onOpenCircles: () => void;
+  photoUrl?: string | null;
+}) {
+  return (
+    <ProfileSheetFrame
+      onClose={onClose}
+      rightAction={(
+        <button
+          aria-label="Profile settings"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white"
+          type="button"
+        >
+          <Settings className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </button>
+      )}
+      title="Profile"
+    >
+      <div className="flex flex-col items-center px-2 pt-2 text-center">
+        <UserProfileAvatar imageUrl={photoUrl} name={name} size="lg" />
+        <h3 className="mt-3 text-lg font-bold leading-tight text-[#0F172A]">{name}</h3>
+        <p className="mt-0.5 text-xs font-medium text-[#64748B]">{email || "No email added"}</p>
+      </div>
+
+      <div className="mt-5 grid gap-4">
+        <section className="rounded-[18px] bg-white px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]">Current Rhythm</p>
+              <p className="mt-1 text-base font-bold leading-none text-[#0F172A]">Day {currentRhythmDay}</p>
+            </div>
+            <RhythmBars />
+          </div>
+        </section>
+
+        <ProfileGroup title="Your Field">
+          <ProfileRow icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} meta={<span className="text-[#2563EB]">Switch</span>} sublabel={fieldSublabel}>
+            {fieldName}
+          </ProfileRow>
+          <ProfileRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} isLast onClick={onOpenCircles}>
+            People & circles
+          </ProfileRow>
+        </ProfileGroup>
+
+        <ProfileGroup title="Account">
+          <ProfileRow icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} onClick={onEditProfile}>
+            Edit profile
+          </ProfileRow>
+          <ProfileRow icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} meta="On">
+            Notifications
+          </ProfileRow>
+          <ProfileRow icon={<Palette className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} isLast meta="System">
+            Appearance
+          </ProfileRow>
+        </ProfileGroup>
+
+        <ProfileGroup title="Support">
+          <ProfileRow icon={<HelpCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} meta={<ExternalLink className="h-3.5 w-3.5 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />}>
+            Get help
+          </ProfileRow>
+          <ProfileRow icon={<Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} isLast meta={<ExternalLink className="h-3.5 w-3.5 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />}>
+            Privacy & terms
+          </ProfileRow>
+        </ProfileGroup>
+
+        <footer className="pb-1 pt-1 text-center">
+          <Link className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-[#64748B] transition-colors hover:bg-white" href="/api/access/logout">
+            <LogOut className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+            Sign out
+          </Link>
+          <p className="mt-1 text-[10px] font-semibold text-[#94A3B8]">DOS v0.4.2</p>
+        </footer>
+      </div>
+    </ProfileSheetFrame>
+  );
+}
+
+function EditProfileSheet({
+  email,
+  fieldName,
+  fieldSublabel,
+  name,
+  onClose,
+  phone,
+}: {
+  email: string;
+  fieldName: string;
+  fieldSublabel: string;
+  name: string;
+  onClose: () => void;
+  phone: string;
+}) {
+  const [stateName, organizationName] = fieldSublabel.split(" · ");
+
+  return (
+    <ProfileSheetFrame onClose={onClose} title="Edit profile">
+      <div className="px-1">
+        <button
+          className="mb-4 flex min-h-[52px] w-full items-center justify-center rounded-[16px] border border-dashed border-[#BFDBFE] bg-white text-sm font-bold text-[#2563EB]"
+          type="button"
+        >
+          Change photo
+        </button>
+
+        <div className="grid gap-3">
+          {[
+            ["Name", name],
+            ["Email", email],
+            ["Phone", phone],
+            ["Field name", fieldName],
+            ["State", stateName ?? ""],
+            ["Organization", organizationName ?? ""],
+          ].map(([label, value]) => (
+            <label className="grid gap-1.5" key={label}>
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#64748B]">{label}</span>
+              <input
+                className="min-h-11 rounded-[14px] border border-[#E2E8F0] bg-white px-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                defaultValue={value}
+              />
+            </label>
+          ))}
+        </div>
+
+        <button
+          className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
+          onClick={onClose}
+          type="button"
+        >
+          Done
+        </button>
+      </div>
+    </ProfileSheetFrame>
+  );
+}
+
 function SegmentedTabs<T extends string>({
   onChange,
   options,
@@ -1534,10 +1872,12 @@ function CircleTarget({
 }
 
 function CircleFocusHero({
+  headline,
   onSelectCircle,
   onViewCircles,
   rankedPeople,
 }: {
+  headline: string;
   onSelectCircle: (circle: CircleFocusView) => void;
   onViewCircles: () => void;
   rankedPeople: CirclePersonItem[];
@@ -1547,14 +1887,8 @@ function CircleFocusHero({
   const my70Count = Math.min(rankedPeople.length, 70);
 
   return (
-    <section className="rounded-[30px] bg-white px-5 py-4 shadow-[0_18px_48px_rgba(42,37,29,0.08)]">
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          Circle Focus
-        </p>
-        <h2 className="mt-1 max-w-[250px] text-xl font-semibold leading-tight text-[#0F172A]">Steward the field you were given.</h2>
-        <p className="mt-1 max-w-[220px] text-xs leading-4 text-[#64748B]">Tap a circle to see who's inside.</p>
-      </div>
+    <section className="rounded-[30px] bg-white px-5 py-5 shadow-[0_18px_48px_rgba(42,37,29,0.08)]">
+      <h2 className="max-w-[260px] text-[21px] font-bold leading-tight text-[#0F172A]">{headline}</h2>
 
       <CircleTarget my12Count={my12Count} my3Count={my3Count} my70Count={my70Count} onSelectCircle={onSelectCircle} />
 
@@ -1563,7 +1897,7 @@ function CircleFocusHero({
         onClick={onViewCircles}
         type="button"
       >
-        View All Circles
+        See who's inside
       </button>
     </section>
   );
@@ -4002,7 +4336,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [circleSheetView, setCircleSheetView] = useState<CircleFocusView | null>(null);
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("all");
   const [conversationResponses, setConversationResponses] = useState<DosConversationResponses>({});
@@ -4159,18 +4495,28 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return preferredPeople.slice(0, 3);
   }, [attentionPeople, my3CirclePeople]);
-  const workspaceLabel = workspaceIdentityLine(data.workspace);
   const greetingName = cleanIdentitySegment(data.workspace.greetingName) ?? firstNameFromDisplayName(data.workspace.displayName);
   const [timeGreeting, setTimeGreeting] = useState("Good morning");
+  const [homeSubtitle, setHomeSubtitle] = useState(() => homeDateSubtitle());
+  const [circleHeadline, setCircleHeadline] = useState(() => circleFocusHeadline());
+  const profileName = workspaceProfileName(data.workspace, greetingName);
+  const profileEmail = workspaceProfileEmail(data.workspace);
+  const profilePhone = workspaceProfilePhone(data.workspace);
+  const fieldName = workspaceIdentityName(data.workspace);
+  const fieldSublabel = workspaceFieldSublabel(data.workspace);
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
 
   useEffect(() => {
-    const updateGreeting = () => {
-      setTimeGreeting(localTimeGreeting());
+    const updateHomeTime = () => {
+      const now = new Date();
+
+      setTimeGreeting(localTimeGreeting(now));
+      setHomeSubtitle(homeDateSubtitle(now));
+      setCircleHeadline(circleFocusHeadline(now));
     };
 
-    updateGreeting();
-    const interval = window.setInterval(updateGreeting, 60_000);
+    updateHomeTime();
+    const interval = window.setInterval(updateHomeTime, 60_000);
 
     return () => {
       window.clearInterval(interval);
@@ -4818,11 +5164,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <h1 className="mt-1 max-w-[270px] text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">
                     {timeGreeting}, {greetingName}.
                   </h1>
-                  <p className="mt-1 max-w-[292px] text-[12.5px] font-medium leading-4 text-[#64748B]">{workspaceLabel}</p>
+                  <p className="mt-1 max-w-[292px] text-[12.5px] font-medium leading-4 text-[#64748B]">{homeSubtitle}</p>
                 </div>
-                <span className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-xs font-bold text-[#1D4ED8] shadow-[0_10px_24px_rgba(37,99,235,0.10)]">
-                  {initials(greetingName)}
-                </span>
+                <button
+                  aria-label="Open profile"
+                  className="absolute right-0 top-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/35"
+                  onClick={() => setIsProfileOpen(true)}
+                  type="button"
+                >
+                  <UserProfileAvatar imageUrl={data.workspace.profileImageUrl} name={profileName} />
+                </button>
               </>
             )}
           </header>
@@ -4831,6 +5182,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             {activeTab === "home" ? (
               <div className="space-y-5">
                 <CircleFocusHero
+                  headline={circleHeadline}
                   onSelectCircle={setCircleSheetView}
                   onViewCircles={() => setIsCirclesOpen(true)}
                   rankedPeople={rankedCirclePeople}
@@ -5088,6 +5440,36 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             reviewShareMessage={reviewShareMessage}
             showPostMeetingFollowUp={postMeetingFollowUpId === selectedMeetingWithReview.id}
             testimonyShareMessage={testimonyShareMessage}
+          />
+        ) : null}
+
+        {isProfileOpen ? (
+          <ProfileSheet
+            email={profileEmail}
+            fieldName={fieldName}
+            fieldSublabel={fieldSublabel}
+            name={profileName}
+            onClose={() => setIsProfileOpen(false)}
+            onEditProfile={() => {
+              setIsProfileOpen(false);
+              setIsEditProfileOpen(true);
+            }}
+            onOpenCircles={() => {
+              setIsProfileOpen(false);
+              setIsCirclesOpen(true);
+            }}
+            photoUrl={data.workspace.profileImageUrl}
+          />
+        ) : null}
+
+        {isEditProfileOpen ? (
+          <EditProfileSheet
+            email={profileEmail}
+            fieldName={fieldName}
+            fieldSublabel={fieldSublabel}
+            name={profileName}
+            onClose={() => setIsEditProfileOpen(false)}
+            phone={profilePhone}
           />
         ) : null}
 

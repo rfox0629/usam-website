@@ -65,6 +65,9 @@ export type DosAppWorkspace = {
   shortMission: string | null;
   slug: string;
   stateName?: string | null;
+  userEmail?: string | null;
+  userFullName?: string | null;
+  userPhone?: string | null;
 };
 
 export type DosAppPerson = {
@@ -1034,6 +1037,9 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         shortMission: workspace.short_mission,
         slug: workspace.slug,
         stateName: cleanOptionalText(workspace.primary_state ?? workspace.location),
+        userEmail: null,
+        userFullName: null,
+        userPhone: null,
       },
     },
     status: "ready",

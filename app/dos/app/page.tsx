@@ -64,5 +64,15 @@ export default async function DosAppPage({
     return <BlockedState detail={result.message} title="DOS unavailable" />;
   }
 
-  return <DosMvpAppClient data={result.data} />;
+  return (
+    <DosMvpAppClient
+      data={{
+        ...result.data,
+        workspace: {
+          ...result.data.workspace,
+          userEmail: authorization.status === "authorized" ? authorization.email : result.data.workspace.userEmail,
+        },
+      }}
+    />
+  );
 }

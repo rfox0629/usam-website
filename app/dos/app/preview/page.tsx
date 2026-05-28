@@ -405,6 +405,9 @@ function buildDosPreviewDemoData(): DosAppData {
       shortMission: "DOS blue mobile demo preview.",
       slug: "dos-preview",
       stateName: "Minnesota",
+      userEmail: "ryan@foxfamily.org",
+      userFullName: "Ryan Fox",
+      userPhone: "(555) 013-1420",
     },
   };
 }
