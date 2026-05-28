@@ -24,9 +24,17 @@ export const discipleshipStageOptions = [
   { label: "Disciple Maker", value: "disciple_maker" },
 ] as const;
 
+export const relationshipTypeOptions = [
+  { helper: "Just getting started", label: "New", value: "new" },
+  { helper: "Staying close", label: "Walking With", value: "walking_with" },
+  { helper: "Intentional investment", label: "Discipling", value: "discipling" },
+  { helper: "They invest in me", label: "Mentor", value: "mentor" },
+] as const;
+
 export type RelationshipContextValue = typeof relationshipContextOptions[number]["value"];
 export type RoleInMyLifeValue = typeof roleInMyLifeOptions[number]["value"];
 export type DiscipleshipStageValue = typeof discipleshipStageOptions[number]["value"];
+export type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
 
 export type DosRelationshipModel = {
   discipleshipStage: DiscipleshipStageValue;
@@ -70,6 +78,55 @@ export function roleInMyLifeLabel(value: RoleInMyLifeValue) {
 
 export function discipleshipStageLabel(value: DiscipleshipStageValue) {
   return discipleshipStageOptions.find((option) => option.value === value)?.label ?? "Not Started";
+}
+
+export function relationshipTypeFromModel(model: DosRelationshipModel): RelationshipTypeValue {
+  if (model.roleInMyLife === "mentoring_me") {
+    return "mentor";
+  }
+
+  if (model.roleInMyLife === "discipling_them" || model.discipleshipStage === "discipling" || model.discipleshipStage === "disciple_maker") {
+    return "discipling";
+  }
+
+  if (model.roleInMyLife === "walking_with_them" || model.discipleshipStage === "walking_with" || model.discipleshipStage === "exploring") {
+    return "walking_with";
+  }
+
+  return "new";
+}
+
+export function relationshipModelFromRelationshipType(
+  relationshipType: RelationshipTypeValue,
+  current: DosRelationshipModel = defaultRelationshipModel,
+): DosRelationshipModel {
+  switch (relationshipType) {
+    case "discipling":
+      return {
+        ...current,
+        discipleshipStage: "discipling",
+        roleInMyLife: "discipling_them",
+      };
+    case "mentor":
+      return {
+        ...current,
+        discipleshipStage: "walking_with",
+        roleInMyLife: "mentoring_me",
+      };
+    case "walking_with":
+      return {
+        ...current,
+        discipleshipStage: "walking_with",
+        roleInMyLife: "walking_with_them",
+      };
+    case "new":
+    default:
+      return {
+        ...current,
+        discipleshipStage: "not_started",
+        roleInMyLife: "not_active",
+      };
+  }
 }
 
 export function normalizeRelationshipContext(value: string | null | undefined, legacyRelationshipType?: string | null) {

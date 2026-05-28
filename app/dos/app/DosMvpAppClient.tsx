@@ -27,12 +27,16 @@ import {
   discipleshipStageOptions,
   relationshipContextLabel,
   relationshipContextOptions,
+  relationshipModelFromRelationshipType,
   relationshipModelSummary,
+  relationshipTypeFromModel,
+  relationshipTypeOptions,
   roleInMyLifeLabel,
   roleInMyLifeOptions,
   type DiscipleshipStageValue,
   type DosRelationshipModel,
   type RelationshipContextValue,
+  type RelationshipTypeValue,
   type RoleInMyLifeValue,
 } from "@/src/lib/dos/relationship-model";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
@@ -2902,7 +2906,7 @@ function RelationshipStewardshipGroup<T extends string>({
             <label
               className={`relative flex min-h-[70px] cursor-pointer flex-col justify-between rounded-2xl border p-3 transition-colors ${
                 selected
-                  ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_10px_24px_rgba(37,99,235,0.12)]"
+                  ? "border-[#93C5FD] bg-[#EBF2FF]"
                   : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE]"
               }`}
               key={option.value}
@@ -2925,6 +2929,58 @@ function RelationshipStewardshipGroup<T extends string>({
                 aria-hidden="true"
               >
                 {selected ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function RelationshipTypePicker({
+  onChange,
+  value,
+}: {
+  onChange: (value: DosRelationshipModel) => void;
+  value: DosRelationshipModel;
+}) {
+  const selectedValue = relationshipTypeFromModel(value);
+
+  return (
+    <fieldset>
+      <FieldLabel>Relationship Type</FieldLabel>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        {relationshipTypeOptions.map((option) => {
+          const selected = selectedValue === option.value;
+
+          return (
+            <label
+              className={`relative flex min-h-[76px] cursor-pointer flex-col justify-between rounded-[18px] border p-3 transition-colors ${
+                selected
+                  ? "border-[#93C5FD] bg-[#EBF2FF] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
+                  : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE]"
+              }`}
+              key={option.value}
+            >
+              <input
+                checked={selected}
+                className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                name="relationship_type"
+                onChange={() => onChange(relationshipModelFromRelationshipType(option.value as RelationshipTypeValue, value))}
+                required
+                type="radio"
+                value={option.value}
+              />
+              <span className="pr-6 text-sm font-bold leading-tight text-[#0F172A]">{option.label}</span>
+              <span className="mt-1 text-[11px] leading-4 text-[#64748B]">{option.helper}</span>
+              <span
+                className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${
+                  selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
+                }`}
+                aria-hidden="true"
+              >
+                {selected ? <span className="h-2 w-2 rounded-full bg-[#2563EB]" /> : null}
               </span>
             </label>
           );
@@ -2975,11 +3031,68 @@ function AdditionalPersonInformation({
   defaults = {},
   isOpen,
   onToggle,
+  showToggle = true,
 }: {
   defaults?: PersonFormDefaults;
   isOpen: boolean;
   onToggle: () => void;
+  showToggle?: boolean;
 }) {
+  const fields = (
+    <div className={showToggle ? "mt-4 grid gap-3 border-t border-[#E2E8F0] pt-4" : "grid gap-3"}>
+      <label className="block">
+        <FieldLabel>Email</FieldLabel>
+        <input className={FieldInputClass()} defaultValue={defaults.email} name="email" placeholder="email@example.com" type="email" />
+      </label>
+      <label className="block">
+        <FieldLabel>Home Address</FieldLabel>
+        <input className={FieldInputClass()} defaultValue={defaults.homeAddress} name="home_address" placeholder="Street address" />
+      </label>
+      <div className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2">
+        <label className="block min-w-0">
+          <FieldLabel>City</FieldLabel>
+          <input className={FieldInputClass()} defaultValue={defaults.city} name="city" placeholder="City" />
+        </label>
+        <label className="block min-w-0">
+          <FieldLabel>State</FieldLabel>
+          <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" placeholder="ST" />
+        </label>
+        <label className="block min-w-0">
+          <FieldLabel>ZIP</FieldLabel>
+          <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" placeholder="ZIP" />
+        </label>
+      </div>
+      <label className="block">
+        <FieldLabel>Church</FieldLabel>
+        <input className={FieldInputClass()} defaultValue={defaults.church} name="church" placeholder="Church / community" />
+      </label>
+      <label className="block">
+        <FieldLabel>Occupation</FieldLabel>
+        <input className={FieldInputClass()} defaultValue={defaults.occupation} name="occupation" placeholder="What do they do?" />
+      </label>
+      <label className="block">
+        <FieldLabel>Birthday</FieldLabel>
+        <input className={FieldInputClass()} defaultValue={defaults.birthday} name="birthday" type="date" />
+      </label>
+      <label className="block">
+        <FieldLabel>Notes</FieldLabel>
+        <textarea className={FieldTextareaClass()} defaultValue={defaults.notes} name="notes" placeholder="Private notes..." />
+      </label>
+    </div>
+  );
+
+  if (!showToggle) {
+    return (
+      <section className="grid gap-2">
+        <div>
+          <FieldLabel>Additional Information</FieldLabel>
+          <p className="mt-1 text-xs leading-5 text-[#64748B]">Add details now or fill them in later.</p>
+        </div>
+        {fields}
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
       <button
@@ -2997,46 +3110,42 @@ function AdditionalPersonInformation({
         </span>
       </button>
 
-      {isOpen ? (
-        <div className="mt-4 grid gap-3 border-t border-[#E2E8F0] pt-4">
-          <label className="block">
-            <FieldLabel>Email</FieldLabel>
-            <input className={FieldInputClass()} defaultValue={defaults.email} name="email" placeholder="email@example.com" type="email" />
-          </label>
-          <label className="block">
-            <FieldLabel>Home Address</FieldLabel>
-            <input className={FieldInputClass()} defaultValue={defaults.homeAddress} name="home_address" placeholder="Street address" />
-          </label>
-          <div className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2">
-            <label className="block min-w-0">
-              <FieldLabel>City</FieldLabel>
-              <input className={FieldInputClass()} defaultValue={defaults.city} name="city" placeholder="City" />
-            </label>
-            <label className="block min-w-0">
-              <FieldLabel>State</FieldLabel>
-              <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" placeholder="ST" />
-            </label>
-            <label className="block min-w-0">
-              <FieldLabel>ZIP</FieldLabel>
-              <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" placeholder="ZIP" />
-            </label>
-          </div>
-          <label className="block">
-            <FieldLabel>Church</FieldLabel>
-            <input className={FieldInputClass()} defaultValue={defaults.church} name="church" placeholder="Church / community" />
-          </label>
-          <label className="block">
-            <FieldLabel>Occupation</FieldLabel>
-            <input className={FieldInputClass()} defaultValue={defaults.occupation} name="occupation" placeholder="What do they do?" />
-          </label>
-          <label className="block">
-            <FieldLabel>Birthday</FieldLabel>
-            <input className={FieldInputClass()} defaultValue={defaults.birthday} name="birthday" type="date" />
-          </label>
-          <label className="block">
-            <FieldLabel>Notes</FieldLabel>
-            <textarea className={FieldTextareaClass()} defaultValue={defaults.notes} name="notes" placeholder="Private notes..." />
-          </label>
+      {isOpen ? fields : null}
+    </section>
+  );
+}
+
+function PersonRelationshipSetup({
+  additionalDefaults,
+  detailsOpen,
+  onChange,
+  onToggleDetails,
+  value,
+}: {
+  additionalDefaults?: PersonFormDefaults;
+  detailsOpen: boolean;
+  onChange: (value: DosRelationshipModel) => void;
+  onToggleDetails: () => void;
+  value: DosRelationshipModel;
+}) {
+  return (
+    <section className="space-y-3">
+      <RelationshipTypePicker onChange={onChange} value={value} />
+      <button
+        aria-expanded={detailsOpen}
+        className="flex w-full items-center justify-between rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left text-sm font-semibold text-[#2563EB] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
+        onClick={onToggleDetails}
+        type="button"
+      >
+        <span>{detailsOpen ? "Hide extra details" : "Add more detail"}</span>
+        <span className={`text-lg leading-none text-[#94A3B8] transition-transform ${detailsOpen ? "rotate-45" : ""}`} aria-hidden="true">
+          +
+        </span>
+      </button>
+      {detailsOpen ? (
+        <div className="space-y-4 rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+          <RelationshipStewardshipPicker onChange={onChange} value={value} />
+          <AdditionalPersonInformation defaults={additionalDefaults} isOpen onToggle={onToggleDetails} showToggle={false} />
         </div>
       ) : null}
     </section>
@@ -4632,7 +4741,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openPersonEdit(person: DosAppPerson) {
     setErrorMessage("");
     setFormMode("editPerson");
-    setIsAdditionalPersonInfoOpen(true);
+    setIsAdditionalPersonInfoOpen(false);
     setSelectedRelationshipModel(relationshipModelForPerson(person));
   }
 
@@ -5534,10 +5643,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <input className={FieldInputClass()} inputMode="tel" name="phone" placeholder="Phone number" required />
               </label>
             </div>
-            <RelationshipStewardshipPicker onChange={setSelectedRelationshipModel} value={selectedRelationshipModel} />
-            <AdditionalPersonInformation
-              isOpen={isAdditionalPersonInfoOpen}
-              onToggle={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+            <PersonRelationshipSetup
+              detailsOpen={isAdditionalPersonInfoOpen}
+              onChange={setSelectedRelationshipModel}
+              onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+              value={selectedRelationshipModel}
             />
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
             <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Person"}</AppButton>
@@ -5558,11 +5668,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <input className={FieldInputClass()} defaultValue={selectedPerson.phone} inputMode="tel" name="phone" placeholder="Phone number" required />
               </label>
             </div>
-            <RelationshipStewardshipPicker onChange={setSelectedRelationshipModel} value={selectedRelationshipModel} />
-            <AdditionalPersonInformation
-              defaults={selectedPersonDefaults}
-              isOpen={isAdditionalPersonInfoOpen}
-              onToggle={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+            <PersonRelationshipSetup
+              additionalDefaults={selectedPersonDefaults}
+              detailsOpen={isAdditionalPersonInfoOpen}
+              onChange={setSelectedRelationshipModel}
+              onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+              value={selectedRelationshipModel}
             />
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
             <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Person"}</AppButton>
