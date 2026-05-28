@@ -5679,8 +5679,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#FAFBFD] text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:p-6">
-      <div className="relative h-[100dvh] w-full overflow-hidden bg-[#FAFBFD] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:max-w-[430px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]">
+    <div className="min-h-[100dvh] w-full bg-[#FAFBFD] text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:py-6">
+      <div className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-[#FAFBFD] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]">
         <div className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none]">
           <header className="relative">
             {activeTab === "more" ? (

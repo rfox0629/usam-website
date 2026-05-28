@@ -51,6 +51,12 @@ function DosAppRouteFrame({ children }: { children: ReactNode }) {
               font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
             }
 
+            .dos-app-route {
+              width: 100%;
+              max-width: 430px;
+              margin: 0 auto;
+            }
+
             .dos-app-route :where(button, a, input, textarea, select):focus {
               outline: none;
             }
