@@ -27,6 +27,10 @@ const errors: Record<string, string> = {
   "reset-missing": "Enter the email address for your admin account.",
 };
 
+function isDosPath(path: string) {
+  return path === "/dos" || path.startsWith("/dos/");
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -36,6 +40,7 @@ export default async function LoginPage({
   const nextPath = params.next?.startsWith("/") && !params.next.startsWith("//")
     ? params.next
     : "/admin/dashboard";
+  const isDosLogin = isDosPath(nextPath);
   const error = params.error
     ? errors[params.error] ?? "We could not complete that sign-in link. Request a new link and try again."
     : undefined;
@@ -48,16 +53,26 @@ export default async function LoginPage({
         : undefined;
 
   return (
-    <main className="min-h-screen bg-[#050505] px-6 py-24 text-stone-100">
-      <section className="mx-auto max-w-xl border border-stone-800 bg-stone-950/70 p-7 md:p-9">
-        <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
-          Internal Access
+    <main className={`min-h-screen px-6 py-16 ${
+      isDosLogin ? "bg-[#FAFBFD] text-[#0F172A]" : "bg-[#050505] text-stone-100"
+    }`}>
+      <section className={`mx-auto max-w-xl p-7 md:p-9 ${
+        isDosLogin
+          ? "rounded-[28px] border border-[#E2E8F0] bg-white shadow-[0_20px_56px_rgba(15,23,42,0.08)]"
+          : "border border-stone-800 bg-stone-950/70"
+      }`}>
+        <p className="tactical-label uppercase" style={{ color: isDosLogin ? "#2563EB" : undefined, fontFamily: font.rajdhani }}>
+          {isDosLogin ? "DOS" : "Internal Access"}
         </p>
-        <h1 className="mt-5 text-4xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
-          Admin Login
+        <h1 className={`mt-5 text-4xl font-bold uppercase leading-none md:text-5xl ${
+          isDosLogin ? "text-[#0F172A]" : "text-stone-100"
+        }`} style={{ fontFamily: font.oswald }}>
+          {isDosLogin ? "DOS Sign In" : "Admin Login"}
         </h1>
-        <p className="mt-5 text-sm leading-7 text-stone-400">
-          Sign in with your approved Supabase account. Access is limited to emails listed in the admin allowlist.
+        <p className={`mt-5 text-sm leading-7 ${isDosLogin ? "text-[#64748B]" : "text-stone-400"}`}>
+          {isDosLogin
+            ? "Sign in to open your DOS workspace."
+            : "Sign in with your approved Supabase account. Access is limited to emails listed in the admin allowlist."}
         </p>
         {error ? (
           <p className="mt-5 border border-red-500/30 bg-red-950/20 p-4 text-sm text-red-200">
@@ -65,7 +80,11 @@ export default async function LoginPage({
           </p>
         ) : null}
         {success ? (
-          <p className="mt-5 border border-[#D4A63D]/30 bg-[#D4A63D]/10 p-4 text-sm text-stone-100">
+          <p className={`mt-5 border p-4 text-sm ${
+            isDosLogin
+              ? "rounded-2xl border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
+              : "border-[#D4A63D]/30 bg-[#D4A63D]/10 text-stone-100"
+          }`}>
             {success}
           </p>
         ) : null}
@@ -77,7 +96,11 @@ export default async function LoginPage({
             </span>
             <input
               autoComplete="email"
-              className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+              className={`mt-2 min-h-12 w-full border px-4 outline-none transition-colors ${
+                isDosLogin
+                  ? "rounded-2xl border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A] focus:border-[#2563EB] focus:bg-white"
+                  : "border-stone-800 bg-[#050505] text-stone-100 focus:border-[#D4A63D]"
+              }`}
               name="email"
               required
               type="email"
@@ -89,14 +112,22 @@ export default async function LoginPage({
             </span>
             <input
               autoComplete="current-password"
-              className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+              className={`mt-2 min-h-12 w-full border px-4 outline-none transition-colors ${
+                isDosLogin
+                  ? "rounded-2xl border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A] focus:border-[#2563EB] focus:bg-white"
+                  : "border-stone-800 bg-[#050505] text-stone-100 focus:border-[#D4A63D]"
+              }`}
               name="password"
               required
               type="password"
             />
           </label>
           <button
-            className="inline-flex min-h-12 w-full items-center justify-center bg-[#D4A63D] px-6 py-3 text-xs uppercase tracking-[0.24em] text-black transition-all hover:bg-[#F5B942]"
+            className={`inline-flex min-h-12 w-full items-center justify-center px-6 py-3 text-xs uppercase tracking-[0.24em] transition-all ${
+              isDosLogin
+                ? "rounded-full bg-[#2563EB] text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] hover:bg-[#1D4ED8]"
+                : "bg-[#D4A63D] text-black hover:bg-[#F5B942]"
+            }`}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="submit"
           >
@@ -104,6 +135,8 @@ export default async function LoginPage({
           </button>
         </form>
 
+        {!isDosLogin ? (
+          <>
         <div className="mt-8 border-t border-stone-800 pt-6">
           <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-200" style={{ fontFamily: font.rajdhani }}>
             Email Magic Link
@@ -164,6 +197,8 @@ export default async function LoginPage({
             </button>
           </form>
         </div>
+          </>
+        ) : null}
       </section>
     </main>
   );

@@ -12,6 +12,10 @@ function safeNextPath(value: string) {
   return value.startsWith("/") && !value.startsWith("//") ? value : "/admin/dashboard";
 }
 
+function requiresAdminAccess(path: string) {
+  return path === "/admin" || path.startsWith("/admin/");
+}
+
 async function requestOrigin() {
   const headersList = await headers();
   const origin = headersList.get("origin");
@@ -34,6 +38,7 @@ export async function signInAdmin(formData: FormData) {
   const email = getString(formData, "email").toLowerCase();
   const password = getString(formData, "password");
   const nextPath = safeNextPath(getString(formData, "next") || "/admin/dashboard");
+  const isAdminRoute = requiresAdminAccess(nextPath);
 
   if (!email || !password) {
     redirect(`/login?error=missing&next=${encodeURIComponent(nextPath)}`);
@@ -51,6 +56,10 @@ export async function signInAdmin(formData: FormData) {
 
   if (error) {
     redirect(`/login?error=invalid&next=${encodeURIComponent(nextPath)}`);
+  }
+
+  if (!isAdminRoute) {
+    redirect(nextPath);
   }
 
   const { data: adminUserWithActive, error: adminUserWithActiveError } = await supabase
