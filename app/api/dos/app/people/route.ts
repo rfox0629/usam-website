@@ -4,6 +4,7 @@ import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { inferFruitEventsFromEngagement } from "@/src/lib/dos/fruit-intelligence";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { joinPersonNotesValue } from "@/src/lib/dos/person-notes";
+import { relationshipModelFromFields, relationshipModelSummary } from "@/src/lib/dos/relationship-model";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type PersonPayload = {
@@ -18,7 +19,10 @@ type PersonPayload = {
   notes?: unknown;
   occupation?: unknown;
   phone?: unknown;
+  discipleshipStage?: unknown;
+  relationshipContext?: unknown;
   relationshipType?: unknown;
+  roleInMyLife?: unknown;
   state?: unknown;
   workspaceId?: unknown;
   zip?: unknown;
@@ -36,6 +40,49 @@ function asNullableString(value: unknown) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isMissingRelationshipModelColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return ["relationship_context", "role_in_my_life", "discipleship_stage"].some((column) => message.includes(column));
+}
+
+function isRecoverablePersonSchemaError(error: { message?: string } | null | undefined) {
+  return isMissingWorkspaceScopeColumn(error) || isMissingRelationshipModelColumn(error);
+}
+
+function omitKeys(record: Record<string, unknown>, keys: string[]) {
+  return Object.fromEntries(Object.entries(record).filter(([key]) => !keys.includes(key)));
+}
+
+function personRecordCandidates(record: Record<string, unknown>) {
+  const relationshipKeys = ["relationship_context", "role_in_my_life", "discipleship_stage"];
+  const noRelationshipModel = omitKeys(record, relationshipKeys);
+  const noWorkspaceScope = omitKeys(record, ["workspace_id"]);
+
+  return [
+    record,
+    noRelationshipModel,
+    noWorkspaceScope,
+    omitKeys(noWorkspaceScope, relationshipKeys),
+  ];
+}
+
+function relationshipFieldsFromPayload(payload: PersonPayload) {
+  const model = relationshipModelFromFields({
+    discipleshipStage: asString(payload.discipleshipStage),
+    relationshipContext: asString(payload.relationshipContext),
+    relationshipType: asString(payload.relationshipType),
+    roleInMyLife: asString(payload.roleInMyLife),
+  });
+
+  return {
+    discipleship_stage: model.discipleshipStage,
+    relationship_context: model.relationshipContext,
+    relationship_type: relationshipModelSummary(model),
+    role_in_my_life: model.roleInMyLife,
+  };
 }
 
 function buildPersonNotes(payload: PersonPayload) {
@@ -125,29 +172,33 @@ export async function POST(request: Request) {
     name,
     notes: buildPersonNotes(payload),
     phone,
-    relationship_type: asString(payload.relationshipType) || null,
+    ...relationshipFieldsFromPayload(payload),
     source: "field",
     status: "new",
     workspace_id: workspaceId,
   };
-  const insertResult = await supabase
-    .from("missionary_field_people")
-    .insert(personInsert)
-    .select("id")
-    .single();
-  // TODO: Remove the household_id-only fallback after all Supabase environments
-  // have the Command Center workspace_id migration applied.
-  const { workspace_id: _workspaceId, ...legacyPersonInsert } = personInsert;
-  const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
-    ? await supabase
+  let insertResult: { data: { id: unknown } | null; error: { message: string } | null } | null = null;
+
+  for (const candidate of personRecordCandidates(personInsert)) {
+    insertResult = await supabase
       .from("missionary_field_people")
-      .insert(legacyPersonInsert)
+      .insert(candidate)
       .select("id")
-      .single()
-    : insertResult;
+      .single();
+
+    if (!insertResult.error || !isRecoverablePersonSchemaError(insertResult.error)) {
+      break;
+    }
+  }
+
+  const { data, error } = insertResult ?? { data: null, error: { message: "Unable to create person." } };
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Unable to create person." }, { status: 500 });
   }
 
   await inferFruitEventsFromEngagement({
@@ -197,29 +248,48 @@ export async function PATCH(request: Request) {
     name,
     notes: buildPersonNotes(payload),
     phone,
-    relationship_type: asString(payload.relationshipType) || null,
+    ...relationshipFieldsFromPayload(payload),
   };
-  const updateResult = await supabase
-    .from("missionary_field_people")
-    .update(personUpdate)
-    .eq("id", id)
-    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-    .select("id")
-    .single();
-  // TODO: Remove the household_id-only fallback after all Supabase environments
-  // have the Command Center workspace_id migration applied.
-  const { data, error } = updateResult.error && isMissingWorkspaceScopeColumn(updateResult.error)
-    ? await supabase
+  let updateResult: { data: { id: unknown } | null; error: { message: string } | null } | null = null;
+
+  for (const candidate of personRecordCandidates(personUpdate)) {
+    updateResult = await supabase
       .from("missionary_field_people")
-      .update(personUpdate)
+      .update(candidate)
       .eq("id", id)
-      .eq("household_id", workspaceId)
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
       .select("id")
-      .single()
-    : updateResult;
+      .single();
+
+    if (!updateResult.error || !isRecoverablePersonSchemaError(updateResult.error)) {
+      break;
+    }
+  }
+
+  if (updateResult?.error && isMissingWorkspaceScopeColumn(updateResult.error)) {
+    for (const candidate of personRecordCandidates(personUpdate)) {
+      updateResult = await supabase
+        .from("missionary_field_people")
+        .update(candidate)
+        .eq("id", id)
+        .eq("household_id", workspaceId)
+        .select("id")
+        .single();
+
+      if (!updateResult.error || !isRecoverablePersonSchemaError(updateResult.error)) {
+        break;
+      }
+    }
+  }
+
+  const { data, error } = updateResult ?? { data: null, error: { message: "Unable to update person." } };
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Unable to update person." }, { status: 500 });
   }
 
   await inferFruitEventsFromEngagement({

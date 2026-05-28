@@ -21,6 +21,20 @@ import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipa
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
+import {
+  defaultRelationshipModel,
+  discipleshipStageLabel,
+  discipleshipStageOptions,
+  relationshipContextLabel,
+  relationshipContextOptions,
+  relationshipModelSummary,
+  roleInMyLifeLabel,
+  roleInMyLifeOptions,
+  type DiscipleshipStageValue,
+  type DosRelationshipModel,
+  type RelationshipContextValue,
+  type RoleInMyLifeValue,
+} from "@/src/lib/dos/relationship-model";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 
 const font = { oswald: "'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
@@ -83,14 +97,6 @@ const outcomeTagOptions = [
   "Ongoing Accountability",
 ] as const;
 
-const relationshipTypeOptions = [
-  { helper: "Just met / early contact", label: "New", value: "New" },
-  { helper: "Building relationship", label: "Walking With", value: "Walking With" },
-  { helper: "Regular discipleship", label: "Discipling", value: "Discipling" },
-  { helper: "Pouring into leaders", label: "Mentor", value: "Mentor" },
-] as const;
-const defaultRelationshipType = relationshipTypeOptions[0].value;
-
 const libraryFilters = [
   { label: "All", value: "all" },
   { label: "Teachings", value: "teachings" },
@@ -103,7 +109,6 @@ type CircleFocusView = "seventy" | "three" | "twelve";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | "reflection" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
 type LibraryFilter = typeof libraryFilters[number]["value"];
-type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
 type MeetingCaptureDraft = {
   file: Blob;
@@ -494,27 +499,16 @@ function normalizeText(value: string | null | undefined) {
   return value?.trim() || "";
 }
 
-function toRelationshipTypeValue(value: string | null | undefined): RelationshipTypeValue {
-  const normalized = normalizeText(value).toLowerCase();
-  const exactValue = relationshipTypeOptions.find((option) => option.value.toLowerCase() === normalized)?.value;
+function personRelationshipModel(person: DosAppPerson): DosRelationshipModel {
+  return {
+    discipleshipStage: person.discipleshipStage,
+    relationshipContext: person.relationshipContext,
+    roleInMyLife: person.roleInMyLife,
+  };
+}
 
-  if (exactValue) {
-    return exactValue;
-  }
-
-  if (normalized.includes("mentor")) {
-    return "Mentor";
-  }
-
-  if (normalized.includes("disciple")) {
-    return "Discipling";
-  }
-
-  if (normalized && !normalized.includes("new")) {
-    return "Walking With";
-  }
-
-  return defaultRelationshipType;
+function relationshipModelForPerson(person: DosAppPerson): DosRelationshipModel {
+  return personRelationshipModel(person);
 }
 
 function splitAdditionalInfo(notes: string | null | undefined) {
@@ -621,7 +615,7 @@ function statusLabel(value: string | null | undefined) {
 }
 
 function relationshipLine(person: DosAppPerson) {
-  return person.relationshipType ? `Walking with · ${person.relationshipType}` : "Walking with";
+  return relationshipModelSummary(personRelationshipModel(person));
 }
 
 function relationshipStatusLabel(person: DosAppPerson) {
@@ -800,6 +794,7 @@ function filteredPeople(people: DosAppPerson[], query: string) {
     person.name.toLowerCase().includes(search)
     || normalizeText(person.phone).toLowerCase().includes(search)
     || normalizeText(person.relationshipType).toLowerCase().includes(search)
+    || relationshipLine(person).toLowerCase().includes(search)
     || normalizeText(person.status).toLowerCase().includes(search)
   ));
 }
@@ -1632,9 +1627,7 @@ function PersonCard({
       </div>
       <div className="min-w-0 flex-1 text-left">
         <p className="truncate text-sm font-semibold text-[#0F172A]">{person.name}</p>
-        <p className="mt-1 truncate text-xs text-[#64748B]">
-          {isRow ? recentActivityLine(person) : `${statusLabel(person.status)} · ${lastActivityLine(person).replace("Last interaction · ", "")}`}
-        </p>
+        <p className="mt-1 truncate text-xs text-[#64748B]">{relationshipLine(person)}</p>
       </div>
       {onClick ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
     </>
@@ -2882,18 +2875,27 @@ function SearchField({
   );
 }
 
-function RelationshipTypePicker({
+function RelationshipStewardshipGroup<T extends string>({
+  helper,
+  label,
+  name,
   onChange,
+  options,
   value,
 }: {
-  onChange: (value: RelationshipTypeValue) => void;
-  value: RelationshipTypeValue;
+  helper: string;
+  label: string;
+  name: string;
+  onChange: (value: T) => void;
+  options: ReadonlyArray<{ helper?: string; label: string; value: T }>;
+  value: T;
 }) {
   return (
     <fieldset>
-      <FieldLabel>Relationship Type</FieldLabel>
+      <FieldLabel>{label}</FieldLabel>
+      <p className="mt-1 text-xs leading-5 text-[#64748B]">{helper}</p>
       <div className="mt-2 grid grid-cols-2 gap-2">
-        {relationshipTypeOptions.map((option) => {
+        {options.map((option) => {
           const selected = value === option.value;
 
           return (
@@ -2908,14 +2910,14 @@ function RelationshipTypePicker({
               <input
                 checked={selected}
                 className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                name="relationship_type"
+                name={name}
                 onChange={() => onChange(option.value)}
                 required
                 type="radio"
                 value={option.value}
               />
               <span className="pr-5 text-sm font-bold leading-tight text-[#0F172A]">{option.label}</span>
-              <span className="mt-1 text-[11px] leading-4 text-[#64748B]">{option.helper}</span>
+              {option.helper ? <span className="mt-1 text-[11px] leading-4 text-[#64748B]">{option.helper}</span> : null}
               <span
                 className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border ${
                   selected ? "border-[#2563EB] bg-[#2563EB]" : "border-[#E2E8F0] bg-[#F1F5F9]"
@@ -2929,6 +2931,43 @@ function RelationshipTypePicker({
         })}
       </div>
     </fieldset>
+  );
+}
+
+function RelationshipStewardshipPicker({
+  onChange,
+  value,
+}: {
+  onChange: (value: DosRelationshipModel) => void;
+  value: DosRelationshipModel;
+}) {
+  return (
+    <div className="space-y-4">
+      <RelationshipStewardshipGroup<RelationshipContextValue>
+        helper="Where does this relationship exist?"
+        label="Relationship Context"
+        name="relationship_context"
+        onChange={(relationshipContext) => onChange({ ...value, relationshipContext })}
+        options={relationshipContextOptions}
+        value={value.relationshipContext}
+      />
+      <RelationshipStewardshipGroup<RoleInMyLifeValue>
+        helper="What role does this person currently play?"
+        label="Role in My Life"
+        name="role_in_my_life"
+        onChange={(roleInMyLife) => onChange({ ...value, roleInMyLife })}
+        options={roleInMyLifeOptions}
+        value={value.roleInMyLife}
+      />
+      <RelationshipStewardshipGroup<DiscipleshipStageValue>
+        helper="Where are they spiritually right now?"
+        label="Discipleship Movement"
+        name="discipleship_stage"
+        onChange={(discipleshipStage) => onChange({ ...value, discipleshipStage })}
+        options={discipleshipStageOptions}
+        value={value.discipleshipStage}
+      />
+    </div>
   );
 }
 
@@ -3769,8 +3808,8 @@ function PersonDetailOverlay({
         <h2 className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
           {person.name}
         </h2>
-        <span className="mt-3 inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-          {person.relationshipType || "New"}
+        <span className="mt-3 inline-flex max-w-[320px] items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-center text-xs font-semibold leading-5 text-[#1D4ED8]">
+          {relationshipLine(person)}
         </span>
       </section>
 
@@ -3818,6 +3857,10 @@ function PersonDetailOverlay({
         </DetailCard>
 
         <DetailCard title="About">
+          <DetailRow label="Stewardship" value={relationshipLine(person)} />
+          <DetailRow label="Context" value={relationshipContextLabel(person.relationshipContext)} />
+          <DetailRow label="Role" value={roleInMyLifeLabel(person.roleInMyLife)} />
+          <DetailRow label="Movement" value={discipleshipStageLabel(person.discipleshipStage)} />
           {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
           {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
           {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
@@ -4356,7 +4399,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
-  const [selectedRelationshipType, setSelectedRelationshipType] = useState<RelationshipTypeValue>(defaultRelationshipType);
+  const [selectedRelationshipModel, setSelectedRelationshipModel] = useState<DosRelationshipModel>(defaultRelationshipModel);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const people = data.people;
@@ -4539,7 +4582,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewShareMessage("");
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
-    setSelectedRelationshipType(defaultRelationshipType);
+    setSelectedRelationshipModel(defaultRelationshipModel);
     resetMeetingDraft();
   }
 
@@ -4554,7 +4597,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       resetMeetingDraft();
     }
     if (mode === "person") {
-      setSelectedRelationshipType(defaultRelationshipType);
+      setSelectedRelationshipModel(defaultRelationshipModel);
     }
   }
 
@@ -4590,7 +4633,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setFormMode("editPerson");
     setIsAdditionalPersonInfoOpen(true);
-    setSelectedRelationshipType(toRelationshipTypeValue(person.relationshipType));
+    setSelectedRelationshipModel(relationshipModelForPerson(person));
   }
 
   function openMeetingForPerson(personId: string) {
@@ -4631,10 +4674,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
   }
 
-  function personPayloadFromForm(formData: FormData, relationshipType: RelationshipTypeValue, id?: string) {
+  function personPayloadFromForm(formData: FormData, relationshipModel: DosRelationshipModel, id?: string) {
     return {
       birthday: String(formData.get("birthday") ?? ""),
       church: String(formData.get("church") ?? ""),
+      discipleshipStage: relationshipModel.discipleshipStage,
       city: String(formData.get("city") ?? ""),
       email: String(formData.get("email") ?? ""),
       homeAddress: String(formData.get("home_address") ?? ""),
@@ -4643,7 +4687,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       notes: String(formData.get("notes") ?? ""),
       occupation: String(formData.get("occupation") ?? ""),
       phone: String(formData.get("phone") ?? ""),
-      relationshipType,
+      relationshipContext: relationshipModel.relationshipContext,
+      roleInMyLife: relationshipModel.roleInMyLife,
       state: String(formData.get("state") ?? ""),
       zip: String(formData.get("zip") ?? ""),
     };
@@ -4696,7 +4741,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const formData = new FormData(event.currentTarget);
 
     void submitJson("/api/dos/app/people", {
-      ...personPayloadFromForm(formData, selectedRelationshipType),
+      ...personPayloadFromForm(formData, selectedRelationshipModel),
     });
   }
 
@@ -4709,7 +4754,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     void submitJson("/api/dos/app/people", {
-      ...personPayloadFromForm(formData, selectedRelationshipType, selectedPerson.id),
+      ...personPayloadFromForm(formData, selectedRelationshipModel, selectedPerson.id),
     }, "PATCH");
   }
 
@@ -5489,7 +5534,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <input className={FieldInputClass()} inputMode="tel" name="phone" placeholder="Phone number" required />
               </label>
             </div>
-            <RelationshipTypePicker onChange={setSelectedRelationshipType} value={selectedRelationshipType} />
+            <RelationshipStewardshipPicker onChange={setSelectedRelationshipModel} value={selectedRelationshipModel} />
             <AdditionalPersonInformation
               isOpen={isAdditionalPersonInfoOpen}
               onToggle={() => setIsAdditionalPersonInfoOpen((current) => !current)}
@@ -5513,7 +5558,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <input className={FieldInputClass()} defaultValue={selectedPerson.phone} inputMode="tel" name="phone" placeholder="Phone number" required />
               </label>
             </div>
-            <RelationshipTypePicker onChange={setSelectedRelationshipType} value={selectedRelationshipType} />
+            <RelationshipStewardshipPicker onChange={setSelectedRelationshipModel} value={selectedRelationshipModel} />
             <AdditionalPersonInformation
               defaults={selectedPersonDefaults}
               isOpen={isAdditionalPersonInfoOpen}
@@ -5691,7 +5736,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               options={[
                 { label: "Not linked", value: "" },
                 ...people.map((person) => ({
-                  helper: person.relationshipType ?? undefined,
+                  helper: relationshipLine(person),
                   label: person.name,
                   value: person.id,
                 })),

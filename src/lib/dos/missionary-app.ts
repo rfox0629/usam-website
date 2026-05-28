@@ -10,6 +10,14 @@ import {
   type DosRecommendedResource,
 } from "@/src/lib/dos/meeting-engine";
 import { buildFallbackCircleDataFromActivity, loadCircleData, recalculateCircleScores, type DosCircleData } from "@/src/lib/dos/circle-scoring";
+import {
+  relationshipModelCounts,
+  relationshipModelFromFields,
+  type DiscipleshipStageValue,
+  type DosRelationshipModelCounts,
+  type RelationshipContextValue,
+  type RoleInMyLifeValue,
+} from "@/src/lib/dos/relationship-model";
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -73,6 +81,7 @@ export type DosAppWorkspace = {
 export type DosAppPerson = {
   church: string | null;
   createdAt: string | null;
+  discipleshipStage: DiscipleshipStageValue;
   email: string | null;
   engagementLevel: string | null;
   id: string;
@@ -80,7 +89,9 @@ export type DosAppPerson = {
   name: string;
   notes: string | null;
   phone: string;
+  relationshipContext: RelationshipContextValue;
   relationshipType: string | null;
+  roleInMyLife: RoleInMyLifeValue;
   status: string;
   updatedAt: string | null;
 };
@@ -196,6 +207,7 @@ export type DosAppData = {
     fruitCount: number;
     meetingsCount: number;
     peopleCount: number;
+    relationshipStewardship: DosRelationshipModelCounts;
   };
   workspace: DosAppWorkspace;
 };
@@ -255,6 +267,7 @@ type HouseholdRow = {
 type FieldPersonRow = {
   church: string | null;
   created_at: string | null;
+  discipleship_stage?: string | null;
   email: string | null;
   engagement_level: string | null;
   id: string;
@@ -262,7 +275,9 @@ type FieldPersonRow = {
   name: string;
   notes: string | null;
   phone: string;
+  relationship_context?: string | null;
   relationship_type: string | null;
+  role_in_my_life?: string | null;
   status: string | null;
   updated_at: string | null;
 };
@@ -540,23 +555,27 @@ function latestActivityDate(...values: Array<string | null | undefined>) {
 }
 
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, last_activity_at, created_at, updated_at";
+  const legacyPersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at";
   const scopedResult = await supabase
     .from("missionary_field_people")
-    .select("id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at")
+    .select(personSelect)
     .or(workspaceScopeFilter(workspaceId))
     .order("last_activity_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false });
 
   // TODO: Remove the household_id-only fallback after all Supabase environments
   // have the Command Center workspace_id migration applied.
-  return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
-    ? supabase
+  if (scopedResult.error && (isMissingWorkspaceScopeColumn(scopedResult.error) || isMissingColumnError(scopedResult.error))) {
+    return supabase
       .from("missionary_field_people")
-      .select("id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at")
+      .select(legacyPersonSelect)
       .eq("household_id", workspaceId)
       .order("last_activity_at", { ascending: false, nullsFirst: false })
-      .order("updated_at", { ascending: false })
-    : scopedResult;
+      .order("updated_at", { ascending: false });
+  }
+
+  return scopedResult;
 }
 
 async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
@@ -887,20 +906,34 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     }
   });
 
-  const people = ((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => ({
-    church: person.church,
-    createdAt: person.created_at,
-    email: person.email,
-    engagementLevel: person.engagement_level,
-    id: person.id,
-    lastActivityAt: latestActivityDate(person.last_activity_at, latestActivityByPersonId.get(person.id)),
-    name: person.name,
-    notes: person.notes,
-    phone: person.phone,
-    relationshipType: person.relationship_type,
-    status: person.status ?? "new",
-    updatedAt: person.updated_at,
-  })).sort((first, second) => activityDateValue(second.lastActivityAt ?? second.updatedAt) - activityDateValue(first.lastActivityAt ?? first.updatedAt));
+  const people = ((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => {
+    const relationshipModel = relationshipModelFromFields({
+      discipleshipStage: person.discipleship_stage,
+      engagementLevel: person.engagement_level,
+      relationshipContext: person.relationship_context,
+      relationshipType: person.relationship_type,
+      roleInMyLife: person.role_in_my_life,
+      status: person.status,
+    });
+
+    return {
+      church: person.church,
+      createdAt: person.created_at,
+      discipleshipStage: relationshipModel.discipleshipStage,
+      email: person.email,
+      engagementLevel: person.engagement_level,
+      id: person.id,
+      lastActivityAt: latestActivityDate(person.last_activity_at, latestActivityByPersonId.get(person.id)),
+      name: person.name,
+      notes: person.notes,
+      phone: person.phone,
+      relationshipContext: relationshipModel.relationshipContext,
+      relationshipType: person.relationship_type,
+      roleInMyLife: relationshipModel.roleInMyLife,
+      status: person.status ?? "new",
+      updatedAt: person.updated_at,
+    };
+  }).sort((first, second) => activityDateValue(second.lastActivityAt ?? second.updatedAt) - activityDateValue(first.lastActivityAt ?? first.updatedAt));
   const peopleById = new Map(people.map((person) => [person.id, person.name]));
   const meetings = [
     ...meetingRows.map((meeting) => {
@@ -1025,6 +1058,11 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         fruitCount: fruit.length,
         meetingsCount: meetings.length,
         peopleCount: people.length,
+        relationshipStewardship: relationshipModelCounts(people.map((person) => ({
+          discipleshipStage: person.discipleshipStage,
+          relationshipContext: person.relationshipContext,
+          roleInMyLife: person.roleInMyLife,
+        }))),
       },
       workspace: {
         displayName: workspace.display_name,
