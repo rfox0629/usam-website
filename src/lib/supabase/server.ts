@@ -19,7 +19,7 @@ export async function createSupabaseServerClient() {
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-      flowType: "implicit",
+      flowType: "pkce",
     },
     cookies: {
       getAll() {

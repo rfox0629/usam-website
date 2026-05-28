@@ -20,7 +20,7 @@ async function requestOrigin() {
     return origin;
   }
 
-  const host = headersList.get("host") ?? "localhost:3000";
+  const host = headersList.get("x-forwarded-host") ?? headersList.get("host") ?? "localhost:3000";
   const protocol = headersList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
 
   return `${protocol}://${host}`;
@@ -104,6 +104,35 @@ export async function requestPasswordReset(formData: FormData) {
   }
 
   redirect("/login?reset=email-sent");
+}
+
+export async function requestMagicLink(formData: FormData) {
+  const email = getString(formData, "magic_email").toLowerCase();
+  const nextPath = safeNextPath(getString(formData, "next") || "/admin/dashboard");
+
+  if (!email || !email.includes("@")) {
+    redirect(`/login?error=magic-missing&next=${encodeURIComponent(nextPath)}`);
+  }
+
+  if (!isSupabaseServerConfigured()) {
+    redirect(`/login?error=config&next=${encodeURIComponent(nextPath)}`);
+  }
+
+  const origin = await requestOrigin();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${origin}/auth/session?next=${encodeURIComponent(nextPath)}`,
+      shouldCreateUser: false,
+    },
+  });
+
+  if (error) {
+    redirect(`/login?error=${encodeURIComponent("magic-failed")}&next=${encodeURIComponent(nextPath)}`);
+  }
+
+  redirect(`/login?magic=email-sent&next=${encodeURIComponent(nextPath)}`);
 }
 
 export async function signOutAdmin() {

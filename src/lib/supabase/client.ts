@@ -16,7 +16,10 @@ export function createSupabaseBrowserClient() {
 
   return createBrowserClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-      flowType: "implicit",
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      flowType: "pkce",
+      persistSession: true,
     },
   });
 }

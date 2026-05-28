@@ -597,8 +597,13 @@ export default function Home() {
     const isRecoveryLink = hashParams.get("type") === "recovery"
       || Boolean(hashParams.get("access_token") && hashParams.get("refresh_token"));
 
-    if (isRecoveryLink) {
+    if (hashParams.get("type") === "recovery") {
       window.location.replace(`/update-password${hash}`);
+      return;
+    }
+
+    if (isRecoveryLink) {
+      window.location.replace(`/auth/session${hash}`);
     }
   }, []);
   useEffect(() => {

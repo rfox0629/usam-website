@@ -1,5 +1,6 @@
 "use client";
 
+import { type EmailOtpType } from "@supabase/supabase-js";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient, isSupabaseBrowserConfigured } from "@/src/lib/supabase/client";
@@ -45,6 +46,15 @@ function cleanRecoveryUrl() {
   window.history.replaceState({}, document.title, `${origin}${pathname}`);
 }
 
+function isEmailOtpType(value: string | null): value is EmailOtpType {
+  return value === "signup"
+    || value === "invite"
+    || value === "magiclink"
+    || value === "recovery"
+    || value === "email_change"
+    || value === "email";
+}
+
 export function UpdatePasswordForm() {
   const router = useRouter();
   const supabase = useMemo(() => (
@@ -65,6 +75,15 @@ export function UpdatePasswordForm() {
 
     const client = supabase;
     let isMounted = true;
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session && isMounted) {
+        cleanRecoveryUrl();
+        setErrorMessage("");
+        setStatus("ready");
+      }
+    });
 
     async function initializeRecoverySession() {
       const searchParams = new URLSearchParams(window.location.search);
@@ -83,8 +102,44 @@ export function UpdatePasswordForm() {
       const accessToken = hashParams.get("access_token");
       const refreshToken = hashParams.get("refresh_token");
       const recoveryType = hashParams.get("type");
+      const code = searchParams.get("code");
+      const tokenHash = searchParams.get("token_hash");
+      const tokenType = searchParams.get("type");
 
       try {
+        if (code) {
+          const { error } = await client.auth.exchangeCodeForSession(code);
+
+          if (error) {
+            throw error;
+          }
+
+          if (isMounted) {
+            cleanRecoveryUrl();
+            setErrorMessage("");
+            setStatus("ready");
+          }
+          return;
+        }
+
+        if (tokenHash && isEmailOtpType(tokenType)) {
+          const { error } = await client.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: tokenType,
+          });
+
+          if (error) {
+            throw error;
+          }
+
+          if (isMounted) {
+            cleanRecoveryUrl();
+            setErrorMessage("");
+            setStatus("ready");
+          }
+          return;
+        }
+
         if (accessToken && refreshToken && (!recoveryType || recoveryType === "recovery")) {
           const { error } = await client.auth.setSession({
             access_token: accessToken,
@@ -136,6 +191,7 @@ export function UpdatePasswordForm() {
 
     return () => {
       isMounted = false;
+      subscription.unsubscribe();
     };
   }, [supabase]);
 

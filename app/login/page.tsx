@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requestPasswordReset, signInAdmin } from "./actions";
+import { requestMagicLink, requestPasswordReset, signInAdmin } from "./actions";
 
 export const metadata: Metadata = {
   title: "Admin Login | USA Missionaries",
@@ -16,6 +16,11 @@ const errors: Record<string, string> = {
   config: "Supabase Auth is not configured for this environment.",
   inactive: "This admin user is inactive. Contact a master admin to restore access.",
   invalid: "Unable to sign in with those credentials.",
+  "auth-link": "We could not complete that sign-in link. Request a new link and try again.",
+  "magic-failed": "We could not send a magic link. Try again in a moment.",
+  "magic-missing": "Enter the email address for your admin account.",
+  "missing-auth-code": "That sign-in link is missing a valid auth code. Request a new link and try again.",
+  "missing-auth-token": "That sign-in link is missing a valid session token. Request a new link and try again.",
   missing: "Enter an email and password to continue.",
   "not-admin": "This email is not approved for admin access.",
   "reset-failed": "We could not send a password reset email. Try again in a moment.",
@@ -25,18 +30,22 @@ const errors: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string; reset?: string }>;
+  searchParams: Promise<{ error?: string; magic?: string; next?: string; reset?: string }>;
 }) {
   const params = await searchParams;
   const nextPath = params.next?.startsWith("/") && !params.next.startsWith("//")
     ? params.next
     : "/admin/dashboard";
-  const error = params.error ? errors[params.error] : undefined;
+  const error = params.error
+    ? errors[params.error] ?? "We could not complete that sign-in link. Request a new link and try again."
+    : undefined;
   const success = params.reset === "success"
     ? "Your password has been updated. Sign in with your new password."
     : params.reset === "email-sent"
       ? "If that account exists, a password reset email is on the way."
-      : undefined;
+      : params.magic === "email-sent"
+        ? "If that account exists, a magic sign-in link is on the way."
+        : undefined;
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-24 text-stone-100">
@@ -94,6 +103,37 @@ export default async function LoginPage({
             Sign In
           </button>
         </form>
+
+        <div className="mt-8 border-t border-stone-800 pt-6">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-200" style={{ fontFamily: font.rajdhani }}>
+            Email Magic Link
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-stone-500">
+            Open the link on this device to sign in without typing your password.
+          </p>
+          <form action={requestMagicLink} className="mt-5 space-y-4">
+            <input name="next" type="hidden" value={nextPath} />
+            <label className="block">
+              <span className="text-[11px] uppercase tracking-[0.2em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Admin Email
+              </span>
+              <input
+                autoComplete="email"
+                className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+                name="magic_email"
+                required
+                type="email"
+              />
+            </label>
+            <button
+              className="inline-flex min-h-11 w-full items-center justify-center border border-stone-700 px-6 py-3 text-xs uppercase tracking-[0.22em] text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="submit"
+            >
+              Send Magic Link
+            </button>
+          </form>
+        </div>
 
         <div className="mt-8 border-t border-stone-800 pt-6">
           <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-200" style={{ fontFamily: font.rajdhani }}>
