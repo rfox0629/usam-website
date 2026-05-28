@@ -5679,10 +5679,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#FAFBFD] text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:p-6 lg:p-8">
-      <div className="relative h-[100dvh] w-full overflow-hidden bg-[#FAFBFD] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:max-w-[430px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0] md:max-w-[760px] lg:max-w-[960px]">
-        <div className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none] md:px-8">
-          <header className="relative md:mx-auto md:max-w-[560px]">
+    <div className="min-h-[100dvh] bg-[#FAFBFD] text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:p-6">
+      <div className="relative h-[100dvh] w-full overflow-hidden bg-[#FAFBFD] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:max-w-[430px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]">
+        <div className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none]">
+          <header className="relative">
             {activeTab === "more" ? (
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
@@ -5721,7 +5721,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             )}
           </header>
 
-          <main className={`${activeTab === "more" ? "mt-5" : "mt-7"} md:mx-auto md:max-w-[560px]`}>
+          <main className={activeTab === "more" ? "mt-5" : "mt-7"}>
             {activeTab === "home" ? (
               <div className="space-y-5">
                 <CircleFocusHero
