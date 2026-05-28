@@ -31,10 +31,21 @@ export const relationshipTypeOptions = [
   { helper: "They invest in me", label: "Mentor", value: "mentor" },
 ] as const;
 
+export const relationshipScoreOptions = [
+  { label: "-3", value: -3, helper: "Hostile / resistant" },
+  { label: "-2", value: -2, helper: "Closed" },
+  { label: "-1", value: -1, helper: "Cautious" },
+  { label: "0", value: 0, helper: "Unknown / neutral" },
+  { label: "+1", value: 1, helper: "Open" },
+  { label: "+2", value: 2, helper: "Interested" },
+  { label: "+3", value: 3, helper: "Highly engaged" },
+] as const;
+
 export type RelationshipContextValue = typeof relationshipContextOptions[number]["value"];
 export type RoleInMyLifeValue = typeof roleInMyLifeOptions[number]["value"];
 export type DiscipleshipStageValue = typeof discipleshipStageOptions[number]["value"];
 export type RelationshipTypeValue = typeof relationshipTypeOptions[number]["value"];
+export type RelationshipScoreValue = typeof relationshipScoreOptions[number]["value"];
 
 export type DosRelationshipModel = {
   discipleshipStage: DiscipleshipStageValue;
@@ -78,6 +89,59 @@ export function roleInMyLifeLabel(value: RoleInMyLifeValue) {
 
 export function discipleshipStageLabel(value: DiscipleshipStageValue) {
   return discipleshipStageOptions.find((option) => option.value === value)?.label ?? "Not Started";
+}
+
+function isRelationshipScoreValue(value: number): value is RelationshipScoreValue {
+  return relationshipScoreOptions.some((option) => option.value === value);
+}
+
+export function relationshipScoreLabel(value: RelationshipScoreValue) {
+  return relationshipScoreOptions.find((option) => option.value === value)?.label ?? "0";
+}
+
+export function relationshipScoreText(value: RelationshipScoreValue) {
+  const option = relationshipScoreOptions.find((item) => item.value === value);
+
+  return option ? `${option.label} ${option.helper}` : "0 Unknown / neutral";
+}
+
+export function relationshipScoreFromEngagementLevel(value: unknown): RelationshipScoreValue {
+  if (typeof value === "number" && isRelationshipScoreValue(value)) {
+    return value;
+  }
+
+  const text = String(value ?? "").trim().toLowerCase();
+  const numericValue = Number(text.replace(/^\+/, ""));
+
+  if (Number.isInteger(numericValue) && isRelationshipScoreValue(numericValue)) {
+    return numericValue;
+  }
+
+  if (text.includes("highly") || text.includes("high") || text.includes("engaged")) {
+    return 3;
+  }
+
+  if (text.includes("interested")) {
+    return 2;
+  }
+
+  if (text.includes("open") || text.includes("curious") || text.includes("exploring")) {
+    return 1;
+  }
+
+  if (text.includes("cautious") || text.includes("low")) {
+    return -1;
+  }
+
+  if (text.includes("closed")) {
+    return -2;
+  }
+
+  if (text.includes("hostile") || text.includes("resistant")) {
+    return -3;
+  }
+
+  return 0;
 }
 
 export function relationshipTypeFromModel(model: DosRelationshipModel): RelationshipTypeValue {

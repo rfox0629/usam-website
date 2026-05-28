@@ -1,5 +1,6 @@
 import "server-only";
 
+import { relationshipScoreFromEngagementLevel, relationshipScoreLabel } from "@/src/lib/dos/relationship-model";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -191,6 +192,10 @@ function latestDate(...values: Array<string | null | undefined>) {
 
 function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value * 100) / 100));
+}
+
+function engagementComponentScore(value: number) {
+  return value > 0 ? clampScore(value * 28) : 0;
 }
 
 function circleLabel(circle: CircleAssignment) {
@@ -601,6 +606,8 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
         default: return 15;
       }
     }), 0);
+    const engagementScore = relationshipScoreFromEngagementLevel(person.engagement_level);
+    const engagementContribution = engagementComponentScore(engagementScore);
     const multiplicationSignals = [
       person.relationship_type?.toLowerCase().includes("mentor") ? 1 : 0,
       person.engagement_level?.toLowerCase().includes("multip") ? 1 : 0,
@@ -610,7 +617,7 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     const followUpNeeded = personConnections.some((connection) => Boolean(connection.follow_up_needed?.trim()));
     const daysSinceLastActivity = dayDiff(latestDate(...allActivityDates));
     const breakdown = {
-      discipleshipProgress: clampScore(Math.max(readinessScore, completedFlows * 30, personReviews.length * 25, personQuickReviews.length * 18)),
+      discipleshipProgress: clampScore(Math.max(readinessScore, completedFlows * 30, personReviews.length * 25, personQuickReviews.length * 18, engagementContribution)),
       fruit: clampScore(personFruit.length * 50),
       meetingFrequency: clampScore(recentMeetings.length * 25 + recentConnections.length * 15),
       momentum: clampScore(daysSinceLastActivity <= 7 ? 100 : daysSinceLastActivity <= 14 ? 70 : daysSinceLastActivity <= 30 ? 35 : 0),
@@ -623,11 +630,13 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
       recentConnections.length ? `${recentConnections.length} connection logs in the last 30 days` : "",
       completedFlows ? `Completed ${completedFlows} discipleship ${completedFlows === 1 ? "flow" : "flows"}` : "",
       personFruit.length ? `${personFruit.length} approved fruit ${personFruit.length === 1 ? "review" : "reviews"}` : "",
+      engagementScore > 0 ? `Engagement marked ${relationshipScoreLabel(engagementScore)}` : "",
       multiplicationSignals ? "Shows multiplication or discipling activity" : "",
     ].filter(Boolean);
     const negativeFactors = [
       daysSinceLastActivity > 10 ? "No recent follow up in the last 10 days" : "",
       followUpNeeded ? "Follow up is still open" : "",
+      engagementScore < 0 ? `Engagement marked ${relationshipScoreLabel(engagementScore)}` : "",
       !personMeetings.length && !personConnections.length ? "No logged discipleship activity yet" : "",
     ].filter(Boolean);
 

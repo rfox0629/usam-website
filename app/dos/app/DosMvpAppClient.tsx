@@ -29,6 +29,10 @@ import {
   relationshipContextOptions,
   relationshipModelFromRelationshipType,
   relationshipModelSummary,
+  relationshipScoreFromEngagementLevel,
+  relationshipScoreLabel,
+  relationshipScoreOptions,
+  relationshipScoreText,
   relationshipTypeFromModel,
   relationshipTypeOptions,
   roleInMyLifeLabel,
@@ -36,6 +40,7 @@ import {
   type DiscipleshipStageValue,
   type DosRelationshipModel,
   type RelationshipContextValue,
+  type RelationshipScoreValue,
   type RelationshipTypeValue,
   type RoleInMyLifeValue,
 } from "@/src/lib/dos/relationship-model";
@@ -137,6 +142,7 @@ type PersonFormDefaults = {
   church?: string;
   city?: string;
   email?: string;
+  engagementScore?: RelationshipScoreValue;
   homeAddress?: string;
   name?: string;
   notes?: string;
@@ -568,6 +574,7 @@ function personFormDefaults(person?: DosAppPerson | null): PersonFormDefaults {
   const defaults: PersonFormDefaults = {
     church: person.church ?? "",
     email: person.email ?? "",
+    engagementScore: relationshipScoreFromEngagementLevel(person.engagementLevel),
     name: person.name,
     notes,
     phone: person.phone,
@@ -3312,6 +3319,48 @@ function RelationshipStewardshipPicker({
   );
 }
 
+function RelationshipScorePicker({
+  onChange,
+  value,
+}: {
+  onChange: (value: RelationshipScoreValue) => void;
+  value: RelationshipScoreValue;
+}) {
+  return (
+    <fieldset>
+      <FieldLabel>Relationship Score</FieldLabel>
+      <p className="mt-1 text-xs leading-5 text-[#64748B]">How spiritually engaged or open is this person right now?</p>
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+        {relationshipScoreOptions.map((option) => {
+          const selected = value === option.value;
+
+          return (
+            <label
+              className={`relative flex min-h-[64px] min-w-[86px] cursor-pointer flex-col items-center justify-center rounded-2xl border px-2 text-center transition-colors ${
+                selected
+                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#0F172A] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
+                  : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#BFDBFE]"
+              }`}
+              key={option.value}
+            >
+              <input
+                checked={selected}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                name="engagement_score"
+                onChange={() => onChange(option.value)}
+                type="radio"
+                value={option.value}
+              />
+              <span className={`text-sm font-bold ${selected ? "text-[#2563EB]" : "text-[#0F172A]"}`}>{option.label}</span>
+              <span className="mt-1 text-[10px] font-medium leading-3">{option.helper}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 function AdditionalPersonInformation({
   defaults = {},
   isOpen,
@@ -3404,13 +3453,17 @@ function PersonRelationshipSetup({
   additionalDefaults,
   detailsOpen,
   onChange,
+  onScoreChange,
   onToggleDetails,
+  scoreValue,
   value,
 }: {
   additionalDefaults?: PersonFormDefaults;
   detailsOpen: boolean;
   onChange: (value: DosRelationshipModel) => void;
+  onScoreChange: (value: RelationshipScoreValue) => void;
   onToggleDetails: () => void;
+  scoreValue: RelationshipScoreValue;
   value: DosRelationshipModel;
 }) {
   return (
@@ -3429,6 +3482,7 @@ function PersonRelationshipSetup({
       </button>
       {detailsOpen ? (
         <div className="space-y-4 rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+          <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
           <RelationshipStewardshipPicker onChange={onChange} value={value} />
           <AdditionalPersonInformation defaults={additionalDefaults} isOpen onToggle={onToggleDetails} showToggle={false} />
         </div>
@@ -4043,6 +4097,8 @@ function PersonDetailOverlay({
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
   const mapHref = address ? mapsHrefForAddress(address) : "";
+  const relationshipScore = relationshipScoreFromEngagementLevel(person.engagementLevel);
+  const relationshipScoreDisplay = relationshipScoreLabel(relationshipScore);
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
   const personReviews = personMeetings.filter((meeting) => meeting.review.status !== "not_sent" && meeting.review.status !== "pending");
   const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || personMeetings.some((meeting) => meeting.id === review.meetingId));
@@ -4255,6 +4311,7 @@ function PersonDetailOverlay({
           <DetailRow label="Context" value={relationshipContextLabel(person.relationshipContext)} />
           <DetailRow label="Role" value={roleInMyLifeLabel(person.roleInMyLife)} />
           <DetailRow label="Movement" value={discipleshipStageLabel(person.discipleshipStage)} />
+          <DetailRow label="Engagement" value={relationshipScoreText(relationshipScore)} />
           {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
           {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
           {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
@@ -4290,7 +4347,7 @@ function PersonDetailOverlay({
                 Relationship Intelligence
               </span>
               <span className="mt-1 block text-sm font-semibold text-[#0F172A]">
-                My Circle: {circleScore ? `${circleDisplayName(circleScore.circle)} · Score ${scoreLabel(circleScore.totalScore)}` : "Field · Score 0"}
+                Engagement: {relationshipScoreDisplay} · My Circle: {circleScore ? circleDisplayName(circleScore.circle) : "Field"}
               </span>
               {personMeetings.length && (!circleScore || circleScore.totalScore === 0) ? (
                 <span className="mt-1 block text-xs text-[#1D4ED8]">Meeting activity found. Score will refresh automatically.</span>
@@ -4796,6 +4853,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [selectedRelationshipModel, setSelectedRelationshipModel] = useState<DosRelationshipModel>(defaultRelationshipModel);
+  const [selectedRelationshipScore, setSelectedRelationshipScore] = useState<RelationshipScoreValue>(0);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const people = data.people;
@@ -4979,6 +5037,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
     setSelectedRelationshipModel(defaultRelationshipModel);
+    setSelectedRelationshipScore(0);
     resetMeetingDraft();
   }
 
@@ -4994,6 +5053,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
     if (mode === "person") {
       setSelectedRelationshipModel(defaultRelationshipModel);
+      setSelectedRelationshipScore(0);
     }
   }
 
@@ -5031,6 +5091,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setFormMode("editPerson");
     setIsAdditionalPersonInfoOpen(false);
     setSelectedRelationshipModel(relationshipModelForPerson(person));
+    setSelectedRelationshipScore(relationshipScoreFromEngagementLevel(person.engagementLevel));
   }
 
   function openMeetingForPerson(personId: string) {
@@ -5071,13 +5132,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
   }
 
-  function personPayloadFromForm(formData: FormData, relationshipModel: DosRelationshipModel, id?: string) {
+  function personPayloadFromForm(formData: FormData, relationshipModel: DosRelationshipModel, relationshipScore: RelationshipScoreValue, id?: string) {
     return {
       birthday: String(formData.get("birthday") ?? ""),
       church: String(formData.get("church") ?? ""),
       discipleshipStage: relationshipModel.discipleshipStage,
       city: String(formData.get("city") ?? ""),
       email: String(formData.get("email") ?? ""),
+      engagementScore: relationshipScoreLabel(relationshipScore),
       homeAddress: String(formData.get("home_address") ?? ""),
       id,
       name: String(formData.get("name") ?? ""),
@@ -5177,7 +5239,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const formData = new FormData(event.currentTarget);
 
     void submitJson("/api/dos/app/people", {
-      ...personPayloadFromForm(formData, selectedRelationshipModel),
+      ...personPayloadFromForm(formData, selectedRelationshipModel, selectedRelationshipScore),
     });
   }
 
@@ -5190,7 +5252,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     void submitJson("/api/dos/app/people", {
-      ...personPayloadFromForm(formData, selectedRelationshipModel, selectedPerson.id),
+      ...personPayloadFromForm(formData, selectedRelationshipModel, selectedRelationshipScore, selectedPerson.id),
     }, "PATCH");
   }
 
@@ -6011,7 +6073,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             <PersonRelationshipSetup
               detailsOpen={isAdditionalPersonInfoOpen}
               onChange={setSelectedRelationshipModel}
+              onScoreChange={setSelectedRelationshipScore}
               onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+              scoreValue={selectedRelationshipScore}
               value={selectedRelationshipModel}
             />
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
@@ -6037,7 +6101,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               additionalDefaults={selectedPersonDefaults}
               detailsOpen={isAdditionalPersonInfoOpen}
               onChange={setSelectedRelationshipModel}
+              onScoreChange={setSelectedRelationshipScore}
               onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+              scoreValue={selectedRelationshipScore}
               value={selectedRelationshipModel}
             />
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}

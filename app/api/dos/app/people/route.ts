@@ -4,7 +4,7 @@ import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { inferFruitEventsFromEngagement } from "@/src/lib/dos/fruit-intelligence";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { joinPersonNotesValue } from "@/src/lib/dos/person-notes";
-import { relationshipModelFromFields, relationshipModelSummary } from "@/src/lib/dos/relationship-model";
+import { relationshipModelFromFields, relationshipModelSummary, relationshipScoreFromEngagementLevel, relationshipScoreLabel } from "@/src/lib/dos/relationship-model";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type PersonPayload = {
@@ -12,6 +12,7 @@ type PersonPayload = {
   church?: unknown;
   city?: unknown;
   email?: unknown;
+  engagementScore?: unknown;
   homeAddress?: unknown;
   home_address?: unknown;
   id?: unknown;
@@ -69,20 +70,25 @@ function personRecordCandidates(record: Record<string, unknown>) {
   ];
 }
 
-function relationshipFieldsFromPayload(payload: PersonPayload) {
+function relationshipFieldsFromPayload(payload: PersonPayload, includeDefaultScore = false) {
   const model = relationshipModelFromFields({
     discipleshipStage: asString(payload.discipleshipStage),
     relationshipContext: asString(payload.relationshipContext),
     relationshipType: asString(payload.relationshipType),
     roleInMyLife: asString(payload.roleInMyLife),
   });
-
-  return {
+  const fields: Record<string, string> = {
     discipleship_stage: model.discipleshipStage,
     relationship_context: model.relationshipContext,
     relationship_type: relationshipModelSummary(model),
     role_in_my_life: model.roleInMyLife,
   };
+
+  if (includeDefaultScore || payload.engagementScore !== undefined) {
+    fields.engagement_level = relationshipScoreLabel(relationshipScoreFromEngagementLevel(payload.engagementScore));
+  }
+
+  return fields;
 }
 
 function buildPersonNotes(payload: PersonPayload) {
@@ -172,7 +178,7 @@ export async function POST(request: Request) {
     name,
     notes: buildPersonNotes(payload),
     phone,
-    ...relationshipFieldsFromPayload(payload),
+    ...relationshipFieldsFromPayload(payload, true),
     source: "field",
     status: "new",
     workspace_id: workspaceId,
