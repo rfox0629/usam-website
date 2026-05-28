@@ -202,7 +202,7 @@ function MissionFocusCard({
           </h2>
         </div>
         <span className="rounded-full bg-[#EAF2FF] px-3 py-1.5 text-xs font-semibold text-[#176BFF]">
-          Workspace view
+          User view
         </span>
       </div>
 
@@ -624,7 +624,9 @@ function FieldSection({
             />
           )) : (
             <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67]">
-              No people match this field view.
+              {preview.field.people.length === 0
+                ? "Your field is empty. Add the first person you're walking with."
+                : "No people match this search."}
             </p>
           )}
         </div>
@@ -657,7 +659,7 @@ function FieldSection({
             <FieldMeetingCard key={meeting.id} meeting={meeting} />
           )) : (
             <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67] md:col-span-2">
-              No meetings logged yet.
+              Log a meeting to begin building this workspace history.
             </p>
           )}
         </div>
@@ -899,7 +901,7 @@ function PrayerSection({
             </article>
           )) : (
             <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67]">
-              Prayer activity will appear here.
+              Invite prayer partners and begin sharing requests.
             </p>
           )}
         </div>
@@ -924,7 +926,7 @@ function PrayerSection({
             <PrayerRequestCard key={request.id} request={request} />
           )) : (
             <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67] md:col-span-2">
-              No prayer requests yet.
+              Share the first prayer request with this team.
             </p>
           )}
         </div>
@@ -949,7 +951,7 @@ function PrayerSection({
             <PrayerPartnerCard key={partner.id} partner={partner} />
           )) : (
             <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67] md:col-span-2">
-              Invite your first prayer partner.
+              Invite prayer partners to begin covering this workspace.
             </p>
           )}
         </div>
@@ -1000,7 +1002,7 @@ function MoreToolRow({
         <span className="block text-sm font-bold text-[#111111]">{label}</span>
         <span className="mt-0.5 block text-xs leading-5 text-[#746F67]">{description}</span>
       </span>
-      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${availabilityToneClass(tone)}`}>
+      <span className={`max-w-[9.5rem] shrink-0 rounded-full px-2.5 py-1 text-center text-[11px] font-semibold leading-tight ${availabilityToneClass(tone)}`}>
         {status}
       </span>
     </>
@@ -1077,7 +1079,7 @@ function MoreSection({
   const tools = [
     ...(preview.features.publicProfileEnabled
       ? [{
-        description: "Open the public-facing profile.",
+        description: "Visible public page for partners and visitors.",
         href: publicProfileHref,
         icon: Home,
         label: "Public Profile",
@@ -1086,44 +1088,44 @@ function MoreSection({
       }]
       : []),
     {
-      description: "Teaching frameworks and workspace focus.",
+      description: "Teaching frameworks and current focus.",
       href: `${workspaceHref}&tab=library`,
       icon: BookOpen,
       label: "Resources / Library",
-      status: "Open",
-      tone: "ready" as const,
+      status: "Opens in Command Center",
+      tone: "admin" as const,
     },
     {
       description: "Bring contacts into the field list.",
       href: `${workspaceHref}&tab=people`,
       icon: Import,
       label: "Imports / CSV",
-      status: "Open",
-      tone: "ready" as const,
+      status: "Opens in Command Center",
+      tone: "admin" as const,
     },
     {
       description: "Review testimonies and fruit drafts.",
       href: `${workspaceHref}&tab=fruit`,
       icon: Heart,
       label: "Reviews / Fruit",
-      status: preview.counts.fruit > 0 ? `${preview.counts.fruit}` : "Open",
-      tone: "ready" as const,
+      status: "Opens in Command Center",
+      tone: "admin" as const,
     },
     {
       description: "Profile, publishing, and workspace controls.",
       href: `${workspaceHref}&tab=features`,
       icon: Settings,
       label: "Workspace Settings",
-      status: "Open",
-      tone: "ready" as const,
+      status: "Opens in Command Center",
+      tone: "admin" as const,
     },
     {
       description: "Missionary, family, and support team roster.",
       href: `${workspaceHref}&tab=team`,
       icon: Users,
       label: "Team Members",
-      status: preview.members.length > 0 ? `${preview.members.length}` : "Open",
-      tone: "ready" as const,
+      status: "Opens in Command Center",
+      tone: "admin" as const,
     },
     ...(preview.features.supportEnabled
       ? [{
@@ -1131,8 +1133,8 @@ function MoreSection({
         href: `${workspaceHref}&tab=support`,
         icon: Heart,
         label: "Support / Giving",
-        status: "Open",
-        tone: "ready" as const,
+        status: "Opens in Command Center",
+        tone: "admin" as const,
       }]
       : []),
     {
@@ -1207,7 +1209,7 @@ function MoreSection({
               <TeamMemberPreview key={member.id} member={member} />
             )) : (
               <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67]">
-                No team members yet.
+                Team members will appear here when added.
               </p>
             )}
           </div>
@@ -1303,8 +1305,9 @@ export default async function WorkspacePreviewPage({
             Command Center
           </Link>
           <div className="flex flex-wrap gap-2">
-            <AdminBadge tone="amber">Preview only</AdminBadge>
-            <AdminBadge tone="muted">Viewing as workspace user</AdminBadge>
+            <AdminBadge tone="amber">Workspace v2</AdminBadge>
+            <AdminBadge tone="muted">User view</AdminBadge>
+            <AdminBadge tone="muted">Preview mode</AdminBadge>
           </div>
         </div>
       </section>
@@ -1316,10 +1319,10 @@ export default async function WorkspacePreviewPage({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#176BFF]" style={{ fontFamily: adminFont.rajdhani }}>
-                    Workspace
+                    Workspace v2
                   </p>
                   <span className="rounded-full border border-[#DED5C6] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#6F675D]">
-                    Preview only
+                    Preview mode
                   </span>
                 </div>
                 <h1 className="mt-2 max-w-3xl break-words text-[2.35rem] font-bold leading-none text-[#111111] sm:text-5xl" style={{ fontFamily: adminFont.oswald }}>
@@ -1393,7 +1396,7 @@ export default async function WorkspacePreviewPage({
                     </h2>
                   </div>
                   <span className="rounded-full bg-[#EAF2FF] px-3 py-1.5 text-xs font-semibold text-[#176BFF]">
-                    Live preview
+                    Preview mode
                   </span>
                 </div>
                 <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -1455,7 +1458,7 @@ export default async function WorkspacePreviewPage({
                   ))
                 ) : (
                   <p className="rounded-2xl border border-[#ECE7DD] bg-[#FBFAF7] p-4 text-sm text-[#746F67]">
-                    No mission activity yet.
+                    Start by adding your first person to the field.
                   </p>
                 )}
               </div>
