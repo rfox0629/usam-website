@@ -631,14 +631,16 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
     const organizationResult = !collectiveResult.error && collectiveResult.data?.owner_organization_id
       ? await supabase
         .from("organizations")
-        .select("name")
+        .select("name, slug, branding_mode")
         .eq("id", collectiveResult.data.owner_organization_id)
         .maybeSingle()
       : await supabase
         .from("organizations")
-        .select("name")
+        .select("name, slug, branding_mode")
         .eq("branding_mode", "usam")
         .maybeSingle();
+    const organization = organizationResult.data as Pick<OrganizationRow, "branding_mode" | "name" | "slug"> | null;
+    const isUsamWorkspace = organization ? isUsamOrganization(organization) : false;
     const people = peopleResult.error ? [] : (peopleResult.data ?? []) as WorkspacePreviewPersonRow[];
     const meetings = meetingsResult.error ? [] : (meetingsResult.data ?? []) as WorkspacePreviewMeetingRow[];
     const prayers = prayerResult.error ? [] : (prayerResult.data ?? []) as WorkspacePreviewPrayerRequestRow[];
@@ -799,9 +801,9 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
         features: {
           dosEnabled: true,
           prayerEnabled: household.show_prayer !== false && household.enable_prayer_team !== false,
-          publicProfileEnabled: household.public_visible !== false && household.show_household !== false,
-          publishingEnabled: household.show_fruit !== false || household.show_story !== false,
-          supportEnabled: household.show_support === true,
+          publicProfileEnabled: isUsamWorkspace && household.public_visible !== false && household.show_household !== false,
+          publishingEnabled: isUsamWorkspace && (household.show_fruit !== false || household.show_story !== false),
+          supportEnabled: isUsamWorkspace && household.show_support === true,
         },
         field: {
           meetings: fieldMeetings,
@@ -813,7 +815,7 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
           my12: Math.min(activePeopleCount, 12),
           my70: fieldPeopleCount,
         },
-        organizationName: organizationResult.data?.name ?? "USA Missionaries",
+        organizationName: organization?.name ?? "USA Missionaries",
         prayer: {
           activity: prayerActivity,
           partners: prayerPartnerItems,
@@ -836,6 +838,39 @@ export async function loadWorkspacePreviewData(workspaceId: string): Promise<{ e
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Unable to load workspace preview.",
+      preview: null,
+    };
+  }
+}
+
+export async function loadWorkspacePreviewDataBySlug(slug: string): Promise<{ error?: string; preview: WorkspacePreviewData | null }> {
+  if (!isSupabaseAdminConfigured()) {
+    return {
+      error: "Supabase admin environment variables are not configured.",
+      preview: null,
+    };
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("missionary_households")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (error) {
+      return { error: error.message, preview: null };
+    }
+
+    if (!data) {
+      return { preview: null };
+    }
+
+    return loadWorkspacePreviewData(data.id);
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Unable to load workspace.",
       preview: null,
     };
   }
