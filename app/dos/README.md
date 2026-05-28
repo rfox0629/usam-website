@@ -72,11 +72,15 @@ DOS Reviews are external fruit verification from the person ministered to.
 ## Active Route Boundary
 
 - Canonical DOS route: `/dos/app?workspace=<slug>`.
+- Primary live test/demo route: `https://new.usamissionaries.org/dos/app?workspace=ryan-brooke-fox`.
 - Canonical Missionary Workspace route: `/admin/missionary-profiles`.
 - Canonical DOS data helper: `src/lib/dos/missionary-app.ts`.
 - Canonical workspace identity: `missionary_households.id`, resolved from the workspace slug.
 - Canonical activity tables: `missionary_field_people`, `missionary_tables`, `missionary_connection_logs`, `missionary_fruit_items`, and shared workspace tables used by Missionary Workspace.
 - Keep DOS-specific UI under `app/dos/app`.
+- Shared production UI in `app/dos/app/DosMvpAppClient.tsx` powers both `/dos/app` and `/dos/app/preview`; make new UI fixes there first.
+- `/dos/app/preview?demo=dos2026` can remain as an optional gated smoke-test route, but do not add demo-only UI unless the live app cannot be used for a specific test.
+- Preview data must stay synthetic and isolated. The live Ryan & Brooke workspace is the source of truth for product testing and deployment checks.
 - Do not import Command Center shells, admin navigation, profile management tools, or analytics panels into the mobile DOS route.
 - Shared backend/data helpers are allowed when they remain UI-neutral.
 

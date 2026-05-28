@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   },
 };
 
+// Optional smoke-test route only. The live `/dos/app?workspace=ryan-brooke-fox`
+// workspace is the primary DOS testing and demo surface; keep this data
+// synthetic and keep UI changes in the shared DosMvpAppClient.
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";

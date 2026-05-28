@@ -1342,17 +1342,17 @@ function ProfileSheetFrame({
 }) {
   return (
     <div
-      className="absolute inset-0 z-[90] flex items-end bg-[#0F172A]/18 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-3 backdrop-blur-[3px]"
+      className="absolute inset-0 z-[90] box-border flex items-end bg-[#0F172A]/18 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-[calc(env(safe-area-inset-top)+0.85rem)] backdrop-blur-[3px]"
       onMouseDown={onClose}
       role="presentation"
     >
       <section
         aria-modal="true"
-        className="max-h-[calc(100dvh-1.2rem)] w-full overflow-hidden rounded-[30px] border border-white/70 bg-[#F4F6FB] p-3 shadow-[0_28px_85px_rgba(32,27,20,0.22)]"
+        className="flex max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_1.7rem)] min-h-0 w-full flex-col overflow-hidden rounded-[30px] border border-white/70 bg-[#F4F6FB] p-3 shadow-[0_28px_85px_rgba(32,27,20,0.22)]"
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <header className="relative flex h-10 items-center justify-center">
+        <header className="relative flex h-10 shrink-0 items-center justify-center">
           <button
             aria-label="Close"
             className="absolute left-0 flex h-9 w-9 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white"
@@ -1364,7 +1364,7 @@ function ProfileSheetFrame({
           <h2 className="text-sm font-bold text-[#0F172A]">{title}</h2>
           <div className="absolute right-0 flex h-9 min-w-9 items-center justify-center">{rightAction}</div>
         </header>
-        <div className="max-h-[calc(100dvh-6.75rem)] overflow-y-auto px-0.5 pb-2 pt-2 [scrollbar-width:none]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-0.5 pb-2 pt-2 [scrollbar-width:none]">
           {children}
         </div>
       </section>
