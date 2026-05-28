@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 type SetupType = "church" | "ministry_team" | "personal" | "usa_missionaries";
+type TeamStatus = "individual" | "married_team";
 type RoleCalling = "church_leader" | "disciple_maker" | "ministry_partner" | "prayer_partner" | "usa_missionary";
 
 type PortalForm = {
@@ -15,15 +16,16 @@ type PortalForm = {
   phone: string;
   roleCalling: RoleCalling;
   setupType: SetupType;
+  spouseEmail: string;
+  spouseName: string;
   state: string;
-  workspaceName: string;
+  teamStatus: TeamStatus;
 };
 
 const setupOptions: Array<{ description: string; label: string; value: SetupType }> = [
-  { description: "Connect with the national launch workspace.", label: "USA Missionaries", value: "usa_missionaries" },
-  { description: "Join a local church discipleship workspace.", label: "Through my church", value: "church" },
-  { description: "Start a team for a church or ministry.", label: "Church/ministry team", value: "ministry_team" },
-  { description: "Use DOS for your everyday field.", label: "Personal", value: "personal" },
+  { description: "Joining the national missionary network.", label: "Joining USA Missionaries", value: "usa_missionaries" },
+  { description: "Using DOS through a church or local ministry.", label: "Joining through church", value: "church" },
+  { description: "Starting with your own field.", label: "Personal DOS use", value: "personal" },
 ];
 
 const roleOptions: Array<{ label: string; value: RoleCalling }> = [
@@ -43,8 +45,10 @@ const initialForm: PortalForm = {
   phone: "",
   roleCalling: "disciple_maker",
   setupType: "usa_missionaries",
+  spouseEmail: "",
+  spouseName: "",
   state: "",
-  workspaceName: "",
+  teamStatus: "individual",
 };
 
 export function DosPortalClient() {
@@ -53,6 +57,7 @@ export function DosPortalClient() {
   const [isSaving, setIsSaving] = useState(false);
   const [workspaceHref, setWorkspaceHref] = useState("");
   const needsOrganization = form.setupType === "church" || form.setupType === "ministry_team";
+  const showTeamFields = form.teamStatus === "married_team";
 
   function update<K extends keyof PortalForm>(key: K, value: PortalForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -110,10 +115,10 @@ export function DosPortalClient() {
         <section>
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#2563EB]">DOS</p>
           <h1 className="mt-4 max-w-xl text-5xl font-bold leading-[0.95] tracking-[-0.055em] text-[#0F172A] sm:text-6xl">
-            Welcome to DOS
+            Start your DOS field
           </h1>
           <p className="mt-5 max-w-md text-base leading-7 text-[#64748B]">
-            Set up your workspace and begin walking with people.
+            Create your personal workspace and begin walking with people.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#2563EB] px-6 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:bg-[#1D4ED8]" href="#get-started">
@@ -129,7 +134,7 @@ export function DosPortalClient() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#2563EB]">Start</p>
-              <h2 className="mt-2 text-2xl font-bold tracking-[-0.03em]">Create your workspace</h2>
+              <h2 className="mt-2 text-2xl font-bold tracking-[-0.03em]">Create your personal workspace</h2>
             </div>
             <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#2563EB]">MVP</span>
           </div>
@@ -138,7 +143,7 @@ export function DosPortalClient() {
             <div className="mt-5 rounded-[24px] border border-[#BFDBFE] bg-[#EBF2FF] p-4">
               <h3 className="text-base font-bold text-[#0F172A]">Workspace ready</h3>
               <p className="mt-2 text-sm leading-6 text-[#475569]">
-                Your DOS workspace has been created. Sign in to continue.
+                Your personal DOS workspace has been created. Sign in to continue.
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-semibold text-white" href={workspaceHref}>
@@ -184,9 +189,38 @@ export function DosPortalClient() {
               </div>
 
               {needsOrganization ? (
-                <Input label="Organization/church name" onChange={(value) => update("organizationName", value)} required value={form.organizationName} />
+                <Input label="Church / organization name" onChange={(value) => update("organizationName", value)} required value={form.organizationName} />
               ) : null}
-              <Input label="Workspace name" onChange={(value) => update("workspaceName", value)} required value={form.workspaceName} />
+
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#64748B]">Marital / team status</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Individual", value: "individual" },
+                    { label: "Married / team", value: "married_team" },
+                  ].map((option) => (
+                    <button
+                      className={`rounded-2xl border px-3 py-3 text-left text-sm font-bold transition ${
+                        form.teamStatus === option.value
+                          ? "border-[#2563EB] bg-[#EBF2FF] text-[#0F172A]"
+                          : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] hover:border-[#BFDBFE]"
+                      }`}
+                      key={option.value}
+                      onClick={() => update("teamStatus", option.value as TeamStatus)}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {showTeamFields ? (
+                <div className="grid gap-3 rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <Input label="Spouse / team member name" onChange={(value) => update("spouseName", value)} value={form.spouseName} />
+                  <Input label="Spouse / team member email" onChange={(value) => update("spouseEmail", value)} type="email" value={form.spouseEmail} />
+                </div>
+              ) : null}
 
               <div>
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#64748B]">Role / calling</p>

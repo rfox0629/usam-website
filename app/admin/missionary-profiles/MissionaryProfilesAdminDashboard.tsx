@@ -11917,7 +11917,7 @@ export function MissionaryProfilesAdminDashboard({
               <Link
                 aria-label="Open mobile Field App for this workspace"
                 className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_14px_34px_rgba(212,166,61,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#e7b742] hover:shadow-[0_18px_42px_rgba(212,166,61,0.24)] sm:min-h-24 sm:p-4"
-                href={`/dos/app?workspace=${encodeURIComponent(selectedProfile.slug)}`}
+                href={`/dos/${encodeURIComponent(selectedProfile.slug)}`}
                 rel="noopener noreferrer"
                 target="_blank"
                 title="Open mobile Field App for this workspace"

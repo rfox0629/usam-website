@@ -39,7 +39,7 @@ export default async function LoginPage({
   const params = await searchParams;
   const nextPath = params.next?.startsWith("/") && !params.next.startsWith("//")
     ? params.next
-    : "/admin/dashboard";
+    : "/admin";
   const isDosLogin = isDosPath(nextPath);
   const error = params.error
     ? errors[params.error] ?? "We could not complete that sign-in link. Request a new link and try again."

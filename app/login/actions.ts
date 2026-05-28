@@ -9,7 +9,7 @@ function getString(formData: FormData, name: string) {
 }
 
 function safeNextPath(value: string) {
-  return value.startsWith("/") && !value.startsWith("//") ? value : "/admin/dashboard";
+  return value.startsWith("/") && !value.startsWith("//") ? value : "/admin";
 }
 
 function requiresAdminAccess(path: string) {
@@ -37,7 +37,7 @@ function isMissingIsActiveColumn(error: { message?: string } | null) {
 export async function signInAdmin(formData: FormData) {
   const email = getString(formData, "email").toLowerCase();
   const password = getString(formData, "password");
-  const nextPath = safeNextPath(getString(formData, "next") || "/admin/dashboard");
+  const nextPath = safeNextPath(getString(formData, "next") || "/admin");
   const isAdminRoute = requiresAdminAccess(nextPath);
 
   if (!email || !password) {
@@ -117,7 +117,7 @@ export async function requestPasswordReset(formData: FormData) {
 
 export async function requestMagicLink(formData: FormData) {
   const email = getString(formData, "magic_email").toLowerCase();
-  const nextPath = safeNextPath(getString(formData, "next") || "/admin/dashboard");
+  const nextPath = safeNextPath(getString(formData, "next") || "/admin");
 
   if (!email || !email.includes("@")) {
     redirect(`/login?error=magic-missing&next=${encodeURIComponent(nextPath)}`);
@@ -150,5 +150,5 @@ export async function signOutAdmin() {
     await supabase.auth.signOut();
   }
 
-  redirect("/login?next=/admin/dashboard");
+  redirect("/login?next=/admin");
 }

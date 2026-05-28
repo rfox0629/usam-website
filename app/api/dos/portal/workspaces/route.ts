@@ -11,7 +11,10 @@ type DosPortalPayload = {
   phone?: unknown;
   roleCalling?: unknown;
   setupType?: unknown;
+  spouseEmail?: unknown;
+  spouseName?: unknown;
   state?: unknown;
+  teamStatus?: unknown;
   workspaceName?: unknown;
 };
 
@@ -71,6 +74,10 @@ function roleLabel(value: string) {
     prayer_partner: "Prayer Partner",
     usa_missionary: "USA Missionary",
   }[value] ?? "Disciple Maker";
+}
+
+function personalWorkspaceName(firstName: string, lastName: string) {
+  return [firstName, lastName].filter(Boolean).join(" ").trim();
 }
 
 async function readPayload(request: Request) {
@@ -234,17 +241,20 @@ export async function POST(request: Request) {
   const city = asString(payload.city);
   const state = asString(payload.state).toUpperCase().slice(0, 2);
   const roleCalling = asString(payload.roleCalling) || "disciple_maker";
-  const workspaceName = asString(payload.workspaceName);
+  const spouseEmail = asString(payload.spouseEmail).toLowerCase();
+  const spouseName = asString(payload.spouseName);
+  const teamStatus = asString(payload.teamStatus) === "married_team" ? "married_team" : "individual";
   const providedOrganizationName = asString(payload.organizationName);
   const personName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const workspaceName = personalWorkspaceName(firstName, lastName);
   const organizationName = setupType === "usa_missionaries"
     ? "USA Missionaries"
     : setupType === "personal"
-      ? `${personName || workspaceName} DOS`
+      ? `${personName} DOS`
       : providedOrganizationName;
 
-  if (!firstName || !lastName || !email || !workspaceName) {
-    return NextResponse.json({ error: "First name, last name, email, and workspace name are required." }, { status: 400 });
+  if (!firstName || !lastName || !email) {
+    return NextResponse.json({ error: "First name, last name, and email are required." }, { status: 400 });
   }
 
   if ((setupType === "church" || setupType === "ministry_team") && !providedOrganizationName) {
@@ -263,7 +273,7 @@ export async function POST(request: Request) {
     if (wasCreated) {
       createdOrganizationId = organization.id;
     }
-    const workspaceSlug = await uniqueSlug("missionary_households", workspaceName);
+    const workspaceSlug = await uniqueSlug("missionary_households", personName);
     const collectiveSlug = await uniqueSlug("collectives", workspaceSlug);
     const { data: collective, error: collectiveError } = await supabase
       .from("collectives")
@@ -391,14 +401,39 @@ export async function POST(request: Request) {
       throw new Error(fallbackTeamMemberResult.error.message);
     }
 
+    if (teamStatus === "married_team" && spouseName) {
+      const spouseTeamMemberPayload = {
+        display_name: spouseName,
+        dos_user_id: spouseEmail || null,
+        household_id: householdId,
+        is_public: false,
+        role_title: "Team Member",
+        source: "dos",
+        status: "pending",
+      };
+      const spouseTeamMemberResult = await supabase
+        .from("missionary_team_members")
+        .insert(spouseTeamMemberPayload);
+      const { dos_user_id: _spouseDosUserId, ...legacySpouseTeamMemberPayload } = spouseTeamMemberPayload;
+      const fallbackSpouseTeamMemberResult = spouseTeamMemberResult.error && isMissingFeatureColumn(spouseTeamMemberResult.error)
+        ? await supabase
+          .from("missionary_team_members")
+          .insert(legacySpouseTeamMemberPayload)
+        : spouseTeamMemberResult;
+
+      if (fallbackSpouseTeamMemberResult.error) {
+        throw new Error(fallbackSpouseTeamMemberResult.error.message);
+      }
+    }
+
     return NextResponse.json({
       organizationId: organization.id,
       profileId,
       temporaryCompatibility: {
-        note: "Created a DOS workspace using the current missionary_households compatibility layer.",
+        note: "Created a personal DOS workspace using the current missionary_households compatibility layer. Household/team rollups remain linked through non-public team member metadata until a dedicated rollup relation is added.",
         workspaceId: householdId,
       },
-      workspaceHref: `/dos/app?workspace=${fallbackHouseholdResult.data.slug}`,
+      workspaceHref: `/dos/${fallbackHouseholdResult.data.slug}`,
       workspaceSlug: fallbackHouseholdResult.data.slug,
     }, { status: 201 });
   } catch (error) {

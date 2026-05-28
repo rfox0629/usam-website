@@ -13,7 +13,7 @@ function parseHashParams() {
 }
 
 function safeNextPath(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/admin/dashboard";
+  return value?.startsWith("/") && !value.startsWith("//") ? value : "/admin";
 }
 
 function redirectWithError(message = "auth-link") {

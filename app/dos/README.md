@@ -1,6 +1,6 @@
 # DOS MVP Architecture
 
-`/dos/app?workspace=...` is the mobile-first Field app for fast discipleship activity. DOS is the platform; USA Missionaries is the first major network running on DOS.
+`/dos` is the user-facing DOS entry point for login, onboarding, and workspace selection. `/dos/[workspace-slug]` is the launch DOS app route for fast discipleship activity. DOS is the platform; USA Missionaries is the first major network running on DOS.
 
 ## DOS Core And USAM
 
@@ -71,24 +71,36 @@ DOS Reviews are external fruit verification from the person ministered to.
 
 ## Active Route Boundary
 
-- Canonical DOS route: `/dos/app?workspace=<slug>`.
-- Primary live test/demo route: `https://new.usamissionaries.org/dos/app?workspace=ryan-brooke-fox`.
+- Canonical DOS entry route: `/dos`.
+- Canonical personal DOS app route: `/dos/<personal-workspace-slug>`, for example `/dos/ryan-fox`.
+- `/dos/app?workspace=<slug>` remains only as a compatibility redirect to `/dos/<slug>`.
+- `/dos/workspaces/[slug]` remains only as a compatibility redirect to `/dos/[slug]`; do not promote the Workspace v2 portal for launch.
+- Primary live test/demo route: `https://new.usamissionaries.org/dos/ryan-fox` once the personal workspace exists. `/dos/ryan-brooke-fox` is a household/team rollup, not Ryan's personal default.
 - Canonical Missionary Workspace route: `/admin/missionary-profiles`.
+- Canonical admin Command Center route: `/admin`; `/admin/dashboard` may remain as a compatibility alias.
 - Canonical DOS data helper: `src/lib/dos/missionary-app.ts`.
 - Canonical workspace identity: `missionary_households.id`, resolved from the workspace slug.
 - Canonical activity tables: `missionary_field_people`, `missionary_tables`, `missionary_connection_logs`, `missionary_fruit_items`, and shared workspace tables used by Missionary Workspace.
 - Keep DOS-specific UI under `app/dos/app`.
-- Shared production UI in `app/dos/app/DosMvpAppClient.tsx` powers both `/dos/app` and `/dos/app/preview`; make new UI fixes there first.
+- Shared production UI in `app/dos/app/DosMvpAppClient.tsx` powers both `/dos/[slug]` and `/dos/app/preview`; make new UI fixes there first.
 - `/dos/app/preview?demo=dos2026` can remain as an optional gated smoke-test route, but do not add demo-only UI unless the live app cannot be used for a specific test.
 - Preview data must stay synthetic and isolated. The live Ryan & Brooke workspace is the source of truth for product testing and deployment checks.
 - Do not import Command Center shells, admin navigation, profile management tools, or analytics panels into the mobile DOS route.
 - Shared backend/data helpers are allowed when they remain UI-neutral.
 
+## Personal Workspace Slugs And Rollups
+
+- Onboarding creates an individual personal DOS workspace first.
+- Personal workspace slugs are generated from the user's first and last name, such as `ryan-fox`, with safe numeric suffixes for duplicates.
+- Shared family/team workspaces such as `ryan-brooke-fox` are rollups, not the default launch route.
+- Spouse/team information collected during onboarding is stored as non-public team metadata on the personal workspace when possible. A dedicated household/team rollup relationship is still pending; do not overbuild it until the schema has a clear rollup relation.
+- Public Profile links are shown only for USA Missionaries workspaces. Church and personal DOS users should stay in the DOS app and should not see public-profile controls by default.
+
 ## Legacy Guardrails
 
 - Do not revive old legacy people/contact models.
 - Do not introduce duplicate people tables.
-- Legacy `/dos/[collectiveSlug]` prototype routes redirect to `/dos/app?workspace=[collectiveSlug]`.
+- Legacy `/dos/[collectiveSlug]` prototype child routes redirect to `/dos/[collectiveSlug]`.
 - Legacy collective helpers (`src/lib/dos/workspace.ts`, `src/lib/dos/people.ts`, `src/lib/dos/meetings.ts`) remain only for reference until fully removed.
 - Do not build new features on the collective `organizations` / `collectives` / `people` / `meetings` prototype model.
 - Active `/dos/app` and Missionary Workspace should stay aligned on the same canonical DOS models.

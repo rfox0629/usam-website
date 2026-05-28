@@ -7,7 +7,7 @@ import { RolePreviewSelect } from "./RolePreviewSelect";
 const adminNavGroups = [
   {
     items: [
-      { activeKey: "dashboard", href: "/admin/dashboard", icon: Activity, label: "Command Center" },
+      { activeKey: "dashboard", href: "/admin", icon: Activity, label: "Command Center" },
       { activeKey: "organizations", href: "/admin/organizations", icon: Building2, label: "Organizations" },
       { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", icon: Users, label: "Missionary Workspaces" },
       { activeKey: "relationship-intelligence", href: "/admin/relationship-intelligence", icon: Network, label: "Circle Engine" },
@@ -73,7 +73,7 @@ function AdminNavLink({
 function AdminBrandLockup({ compact = false }: { compact?: boolean }) {
   return (
     <Link
-      href="/admin/dashboard"
+      href="/admin"
       className={`flex min-w-0 items-start gap-3 ${compact ? "" : "min-h-12 border-b border-stone-800/70 pb-5"}`}
     >
       <span className="mt-1.5 h-2 w-2 shrink-0 rotate-45 bg-[#C9A24A]" />

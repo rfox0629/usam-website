@@ -63,7 +63,7 @@ export default async function AdminLayout({
   const authorization = await getAdminAuthorization();
 
   if (authorization.status === "unauthenticated") {
-    redirect("/login?next=/admin/dashboard");
+    redirect("/login?next=/admin");
   }
 
   if (authorization.status === "configuration_error") {

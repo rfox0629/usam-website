@@ -71,7 +71,7 @@ export default async function WorkspacePreviewPage({
       <section className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
         <WorkspaceV2Shell
           basePath={`/admin/workspaces/${preview.workspace.id}/preview`}
-          dosHref={`/dos/app?workspace=${encodeURIComponent(preview.workspace.slug)}`}
+          dosHref={`/dos/${encodeURIComponent(preview.workspace.slug)}`}
           mode="admin-preview"
           preview={preview}
           publicProfileHref={`/missionaries/${preview.workspace.slug}`}

@@ -17,7 +17,7 @@ export default async function DosPortalPage() {
     const workspaceAccess = await getDefaultDosWorkspaceAccess(authorization);
 
     if (workspaceAccess.status === "allowed") {
-      redirect(`/dos/app?workspace=${encodeURIComponent(workspaceAccess.workspace.slug)}`);
+      redirect(`/dos/${encodeURIComponent(workspaceAccess.workspace.slug)}`);
     }
   }
 

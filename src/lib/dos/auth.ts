@@ -46,7 +46,10 @@ export type DosWorkspaceAccess =
     };
 
 type ProfileRow = {
+  email: string | null;
+  first_name: string | null;
   id: string;
+  last_name: string | null;
   primary_collective_id: string | null;
 };
 
@@ -134,6 +137,26 @@ function uniqueStrings(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
 
+function workspaceSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
+function personalSlugCandidates(
+  authorization: Extract<DosAuthorization, { access: "member"; status: "authorized" }>,
+  profiles: ProfileRow[],
+) {
+  const profileSlugs = profiles.map((profile) => workspaceSlug([profile.first_name, profile.last_name].filter(Boolean).join(" ")));
+  const emailLocalPart = workspaceSlug(authorization.email.split("@")[0]?.replace(/[._]+/g, " ") ?? "");
+
+  return uniqueStrings([...profileSlugs, emailLocalPart]);
+}
+
 async function loadWorkspaceByRef(workspaceRef: string | null | undefined) {
   if (!workspaceRef) {
     return null;
@@ -159,11 +182,11 @@ async function loadMemberProfileIds(authorization: Extract<DosAuthorization, { a
   const [userProfilesResult, emailProfilesResult] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, primary_collective_id")
+      .select("id, first_name, last_name, email, primary_collective_id")
       .eq("user_id", authorization.userId),
     supabase
       .from("profiles")
-      .select("id, primary_collective_id")
+      .select("id, first_name, last_name, email, primary_collective_id")
       .ilike("email", authorization.email),
   ]);
 
@@ -249,6 +272,7 @@ async function loadMemberWorkspaceScope(authorization: Extract<DosAuthorization,
 
   return {
     collectiveSlugs: new Set(((collectiveResult.data ?? []) as CollectiveRow[]).map((collective) => collective.slug)),
+    personalSlugs: personalSlugCandidates(authorization, profiles),
     workspaceIds: new Set(workspaceIdsFromTeam),
   };
 }
@@ -353,7 +377,24 @@ export async function getDefaultDosWorkspaceAccess(
 
     const memberScope = await loadMemberWorkspaceScope(authorization);
     const collectiveSlugs = Array.from(memberScope.collectiveSlugs);
+    const personalSlugs = memberScope.personalSlugs.filter((slug) => memberScope.collectiveSlugs.has(slug));
     const workspaceIds = Array.from(memberScope.workspaceIds);
+
+    for (const personalSlug of personalSlugs) {
+      const personalWorkspace = await loadWorkspaceByRef(personalSlug);
+
+      if (personalWorkspace) {
+        return {
+          status: "allowed",
+          workspace: {
+            displayName: personalWorkspace.display_name,
+            id: personalWorkspace.id,
+            slug: personalWorkspace.slug,
+          },
+        };
+      }
+    }
+
     const slugResult = collectiveSlugs.length
       ? await supabase
         .from("missionary_households")

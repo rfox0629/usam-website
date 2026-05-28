@@ -795,7 +795,7 @@ async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<
   };
 }
 
-async function loadOrganizationNameForWorkspace(supabase: SupabaseAdminClient, workspaceSlug: string) {
+async function loadOrganizationForWorkspace(supabase: SupabaseAdminClient, workspaceSlug: string) {
   const collectiveResult = await supabase
     .from("collectives")
     .select("owner_organization_id")
@@ -805,14 +805,18 @@ async function loadOrganizationNameForWorkspace(supabase: SupabaseAdminClient, w
   if (!collectiveResult.error && collectiveResult.data?.owner_organization_id) {
     const organizationResult = await supabase
       .from("organizations")
-      .select("name")
+      .select("branding_mode, name, slug")
       .eq("id", collectiveResult.data.owner_organization_id)
       .maybeSingle();
 
     const organizationName = cleanOptionalText(organizationResult.error ? null : organizationResult.data?.name);
 
     if (organizationName) {
-      return organizationName;
+      return {
+        brandingMode: organizationResult.data?.branding_mode ?? null,
+        name: organizationName,
+        slug: organizationResult.data?.slug ?? null,
+      };
     }
   }
 
@@ -822,7 +826,15 @@ async function loadOrganizationNameForWorkspace(supabase: SupabaseAdminClient, w
     .eq("branding_mode", "usam")
     .maybeSingle();
 
-  return cleanOptionalText(usamOrganizationResult.error ? null : usamOrganizationResult.data?.name);
+  const fallbackName = cleanOptionalText(usamOrganizationResult.error ? null : usamOrganizationResult.data?.name);
+
+  return fallbackName
+    ? {
+      brandingMode: "usam",
+      name: fallbackName,
+      slug: "usa-missionaries",
+    }
+    : null;
 }
 
 export async function loadDosAppData(workspaceSlug?: string | null): Promise<LoadResult<DosAppData>> {
@@ -834,7 +846,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, reviewsFruitResult, organizationName] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, reviewsFruitResult, organization] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -842,7 +854,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadReviewLinksForWorkspace(supabase, workspace.id),
     loadMeetingReviewsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
-    loadOrganizationNameForWorkspace(supabase, workspace.slug),
+    loadOrganizationForWorkspace(supabase, workspace.slug),
   ]);
 
   if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || reviewsFruitResult.error) {
@@ -1068,8 +1080,8 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         displayName: workspace.display_name,
         greetingName: null,
         id: workspace.id,
-        isUsamWorkspace: isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug }),
-        organizationName,
+        isUsamWorkspace: organization?.brandingMode === "usam" || organization?.slug === "usa-missionaries" || isUsamKitchenTableGospelWorkspace({ publicProfileHref: organization?.brandingMode === "usam" ? `/missionaries/${workspace.slug}` : null, slug: workspace.slug }),
+        organizationName: organization?.name ?? null,
         profileImageUrl: workspace.profile_image_url,
         publicProfileHref: `/missionaries/${workspace.slug}`,
         shortMission: workspace.short_mission,
