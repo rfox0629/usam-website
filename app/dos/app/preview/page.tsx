@@ -9,7 +9,7 @@ import {
   type DosAppParticipantReview,
   type DosAppPerson,
 } from "@/src/lib/dos/missionary-app";
-import { relationshipModelCounts } from "@/src/lib/dos/relationship-model";
+import { normalizeRelationshipType, relationshipModelCounts } from "@/src/lib/dos/relationship-model";
 import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
 import { DosMvpAppClient } from "../DosMvpAppClient";
 
@@ -417,6 +417,7 @@ function buildDosPreviewDemoData(): DosAppData {
       relationshipStewardship: relationshipModelCounts(people.map((person) => ({
         discipleshipStage: person.discipleshipStage,
         relationshipContext: person.relationshipContext,
+        relationshipType: normalizeRelationshipType(person.relationshipType, person.roleInMyLife, person.status),
         roleInMyLife: person.roleInMyLife,
       }))),
     },

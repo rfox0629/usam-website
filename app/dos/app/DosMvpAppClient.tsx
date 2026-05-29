@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, User, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, User, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -20,7 +20,7 @@ import {
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
-import { selectPersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
+import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import {
   defaultRelationshipModel,
@@ -28,9 +28,9 @@ import {
   relationshipContextLabel,
   relationshipContextOptions,
   relationshipModelFromRelationshipType,
+  normalizeRelationshipType,
   relationshipScoreFromEngagementLevel,
   relationshipScoreLabel,
-  relationshipScoreText,
   relationshipTypeFromModel,
   relationshipTypeOptions,
   type DosRelationshipModel,
@@ -76,13 +76,33 @@ const commitmentLevelOptions: ReadonlyArray<{
   value: RelationshipScoreValue;
 }> = [
   { helper: "All in. No reservations. Has counted the cost.", label: "+3 Fully Committed", value: 3 },
-  { helper: "Following Jesus with some reservations. Currently counting the cost.", label: "+2 Committed", value: 2 },
+  { helper: "Committed with some reservations. Currently counting the cost.", label: "+2 Committed", value: 2 },
   { helper: "Desires to follow Jesus but struggles with competing priorities and distractions.", label: "+1 Seeking Commitment", value: 1 },
   { helper: "Interested in spiritual things but not currently taking action.", label: "0 Interested", value: 0 },
   { helper: "Often seeks God's help during difficulties but repeatedly encounters roadblocks.", label: "-1 Crisis Driven", value: -1 },
   { helper: "Consumed by personal issues and rarely receptive to counsel or guidance.", label: "-2 Resistant", value: -2 },
   { helper: "Refuses counsel. Refuses responsibility. Unwilling to consider change.", label: "-3 Hardened", value: -3 },
 ];
+
+function overviewEngagementLabel(value: RelationshipScoreValue) {
+  switch (value) {
+    case 3:
+      return "Fully Committed";
+    case 2:
+      return "Committed";
+    case 1:
+      return "Seeking";
+    case -1:
+      return "Crisis Driven";
+    case -2:
+      return "Resistant";
+    case -3:
+      return "Hardened";
+    case 0:
+    default:
+      return "Neutral";
+  }
+}
 
 const conversationYesNoOptions = [
   { label: "Yes", value: "yes" },
@@ -122,7 +142,7 @@ const libraryFilters = [
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "seventy" | "three" | "twelve";
-type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | "reflection" | null;
+type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | "reflection" | "scheduleMeeting" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search" | "upload";
 type LibraryFilter = typeof libraryFilters[number]["value"];
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
@@ -549,6 +569,7 @@ function normalizeText(value: string | null | undefined) {
 function personRelationshipModel(person: DosAppPerson): DosRelationshipModel {
   return {
     discipleshipStage: person.discipleshipStage,
+    relationshipType: normalizeRelationshipType(person.relationshipType, person.roleInMyLife, person.status),
     relationshipContext: person.relationshipContext,
     roleInMyLife: person.roleInMyLife,
   };
@@ -683,6 +704,105 @@ function relationshipTypePillLabel(person: DosAppPerson) {
   const relationshipType = relationshipTypeFromModel(personRelationshipModel(person));
 
   return relationshipTypeOptions.find((option) => option.value === relationshipType)?.label ?? statusLabel(person.relationshipType);
+}
+
+function normalizedSignalText(...values: Array<null | string | string[] | undefined>) {
+  return values
+    .flatMap((value) => Array.isArray(value) ? value : [value])
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join(" ")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasSignal(value: string, signals: string[]) {
+  return signals.some((signal) => value.includes(signal));
+}
+
+const multiplicationJourneySignals = [
+  "disciple maker",
+  "discipling others",
+  "started discipling others",
+  "multiplication",
+  "multiplying",
+  "reproducing",
+  "reproduction",
+];
+
+const disciplingJourneySignals = [
+  "discipling",
+  "disciple",
+  "testimony",
+  "training",
+  "leadership",
+  "leader",
+  "leading",
+  "teaching",
+  "helping others",
+  "walking with another",
+];
+
+function isSubmittedStatus(status: string) {
+  return ["approved", "reviewed", "submitted"].includes(status.toLowerCase());
+}
+
+function deriveSpiritualJourney({
+  fruitEvents,
+  fruitSummary,
+  meetings,
+  participantReviews,
+  participantTestimonies,
+  person,
+  reflections,
+}: {
+  fruitEvents: DosAppFruitEvent[];
+  fruitSummary: PersonDetailFruitSummary;
+  meetings: DosAppMeeting[];
+  participantReviews: DosAppParticipantReview[];
+  participantTestimonies: DosAppParticipantTestimony[];
+  person: DosAppPerson;
+  reflections: DosAppLeaderReflection[];
+}) {
+  const personFlags = person as DosAppPerson & { disciple_maker?: boolean; discipleMaker?: boolean };
+  const approvedFruitText = fruitEvents
+    .filter((event) => event.status === "approved")
+    .map((event) => normalizedSignalText(event.fruitType, event.title, event.description))
+    .join(" ");
+  const reflectionText = reflections
+    .map((reflection) => normalizedSignalText(reflection.observedFruit, reflection.whatHappened, reflection.nextStep))
+    .join(" ");
+  const testimonyText = participantTestimonies
+    .filter((testimony) => isSubmittedStatus(testimony.status))
+    .map((testimony) => normalizedSignalText(testimony.story, testimony.whatChanged, testimony.decisionMade, testimony.nextStep))
+    .join(" ");
+  const hasApprovedMultiplicationFruit = fruitSummary.multiplicationStatus !== "Not yet"
+    || hasSignal(approvedFruitText, multiplicationJourneySignals);
+  const hasDiscipleMakerSignal = Boolean(personFlags.disciple_maker || personFlags.discipleMaker)
+    || person.discipleshipStage === "disciple_maker"
+    || hasApprovedMultiplicationFruit;
+
+  if (hasDiscipleMakerSignal) {
+    return "Disciple Maker";
+  }
+
+  const disciplingText = [approvedFruitText, reflectionText, testimonyText].join(" ");
+  const hasDisciplingSignal = person.discipleshipStage === "discipling"
+    || hasSignal(disciplingText, disciplingJourneySignals)
+    || participantTestimonies.some((testimony) => isSubmittedStatus(testimony.status) && Boolean(testimony.story?.trim() || testimony.whatChanged?.trim()));
+
+  if (hasDisciplingSignal) {
+    return "Discipling";
+  }
+
+  const hasMeaningfulGrowthSignal = person.discipleshipStage === "walking_with"
+    || meetings.length >= 2
+    || reflections.length > 0
+    || participantReviews.some((review) => isSubmittedStatus(review.status))
+    || fruitEvents.some((event) => isSubmittedStatus(event.status));
+
+  return hasMeaningfulGrowthSignal ? "Growing" : "Exploring";
 }
 
 function relationshipStatusLabel(person: DosAppPerson) {
@@ -1048,6 +1168,35 @@ function AppButton({
   );
 }
 
+function MeetingActionRow({
+  onLogMeeting,
+  onScheduleMeeting,
+}: {
+  onLogMeeting: () => void;
+  onScheduleMeeting: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <button
+        className="inline-flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-3 text-[12px] font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] transition-transform active:scale-[0.99] max-[350px]:text-[11px]"
+        onClick={onLogMeeting}
+        type="button"
+      >
+        <Icon name="log" size={14} />
+        <span className="truncate">Log Meeting</span>
+      </button>
+      <button
+        className="inline-flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-[12px] font-bold text-[#0F172A] shadow-[0_8px_22px_rgba(37,99,235,0.05)] transition-colors hover:border-[#BFDBFE] active:scale-[0.99] max-[350px]:text-[11px]"
+        onClick={onScheduleMeeting}
+        type="button"
+      >
+        <CalendarDays className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+        <span className="truncate">Schedule Meeting</span>
+      </button>
+    </div>
+  );
+}
+
 function CompactButton({
   children,
   icon,
@@ -1141,6 +1290,48 @@ function StatTile({
   );
 }
 
+type PersonActivitySection = "meetings" | "reflections" | "reviews";
+
+function ActivityFilterCard({
+  active,
+  helper,
+  icon,
+  label,
+  onClick,
+  value,
+}: {
+  active: boolean;
+  helper: string;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  value: number;
+}) {
+  return (
+    <button
+      aria-pressed={active}
+      className={`min-w-0 overflow-hidden rounded-[18px] border px-2.5 py-3 text-left transition-all active:scale-[0.98] max-[350px]:rounded-[16px] max-[350px]:px-2 ${
+        active
+          ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_14px_30px_rgba(37,99,235,0.26)]"
+          : "border-[#E2E8F0] bg-white text-[#0F172A] shadow-[0_8px_22px_rgba(37,99,235,0.045)] hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex items-center justify-between gap-1.5">
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${active ? "bg-white/18 text-white ring-1 ring-white/30" : "bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]"} max-[350px]:h-7 max-[350px]:w-7`}>
+          {icon}
+        </span>
+        <span className={`text-[24px] font-bold leading-none max-[350px]:text-[21px] ${active ? "text-white" : "text-[#0F172A]"}`}>{value}</span>
+      </span>
+      <span className={`mt-3 block truncate text-[8px] font-bold uppercase tracking-[0.1em] max-[350px]:tracking-[0.06em] ${active ? "text-white/82" : "text-[#64748B]"}`} style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </span>
+      <span className={`mt-0.5 line-clamp-2 block text-[10px] font-semibold leading-3 ${active ? "text-white/72" : "text-[#94A3B8]"}`}>{helper}</span>
+    </button>
+  );
+}
+
 function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-[#F1F5F9] px-3 py-3.5">
@@ -1148,6 +1339,103 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
         {label}
       </p>
+    </div>
+  );
+}
+
+function PersonSummaryTile({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-h-[86px] min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[78px] max-[350px]:gap-1.5 max-[350px]:rounded-[16px] max-[350px]:px-2">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-8 max-[350px]:w-8">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-words text-[8px] font-bold uppercase leading-3 tracking-[0.13em] text-[#94A3B8] max-[350px]:text-[7px] max-[350px]:leading-[0.8rem] max-[350px]:tracking-[0.08em]" style={{ fontFamily: font.rajdhani }}>
+          {label}
+        </span>
+        <span className="mt-1 line-clamp-2 block break-words text-[13px] font-bold leading-[1.15] text-[#0F172A] max-[350px]:text-[12px]">{value}</span>
+      </span>
+    </div>
+  );
+}
+
+function SnapshotMetricTile({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-h-[86px] min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[78px] max-[350px]:gap-1.5 max-[350px]:rounded-[16px] max-[350px]:px-2">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-8 max-[350px]:w-8">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-words text-[8px] font-bold uppercase leading-3 tracking-[0.13em] text-[#94A3B8] max-[350px]:text-[7px] max-[350px]:leading-[0.8rem] max-[350px]:tracking-[0.08em]" style={{ fontFamily: font.rajdhani }}>
+          {label}
+        </span>
+        <span className="mt-1 line-clamp-2 block break-words text-[13px] font-bold leading-[1.15] text-[#0F172A] max-[350px]:text-[12px]">{value}</span>
+      </span>
+    </div>
+  );
+}
+
+function EngagementSnapshotTile({
+  label,
+  score,
+}: {
+  label: string;
+  score: string;
+}) {
+  return (
+    <div className="flex min-h-[86px] min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[78px] max-[350px]:gap-1.5 max-[350px]:rounded-[16px] max-[350px]:px-2">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-8 max-[350px]:w-8">
+        <Droplet className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-words text-[8px] font-bold uppercase leading-3 tracking-[0.13em] text-[#94A3B8] max-[350px]:text-[7px] max-[350px]:leading-[0.8rem] max-[350px]:tracking-[0.08em]" style={{ fontFamily: font.rajdhani }}>
+          Engagement
+        </span>
+        <span className="mt-1 flex min-w-0 items-center gap-1.5 max-[350px]:gap-1">
+          <span className="shrink-0 text-[18px] font-bold leading-none text-[#0F172A] max-[350px]:text-[16px]">{score}</span>
+          <span className="min-w-0 break-words text-[10px] font-bold leading-[1.05] text-[#64748B] min-[351px]:whitespace-nowrap max-[350px]:text-[8.5px]">{label}</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function DetailResultTile({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-h-[78px] min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-[18px] border border-[#D7F3DD] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(22,163,74,0.05)] max-[350px]:gap-1.5 max-[350px]:rounded-[16px] max-[350px]:px-2">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ECFDF3] text-[#16A34A] ring-1 ring-[#BBF7D0] max-[350px]:h-8 max-[350px]:w-8">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-words text-[8px] font-bold uppercase leading-3 tracking-[0.13em] text-[#94A3B8] max-[350px]:text-[7px] max-[350px]:leading-[0.8rem] max-[350px]:tracking-[0.08em]" style={{ fontFamily: font.rajdhani }}>
+          {label}
+        </span>
+        <span className="mt-1 line-clamp-2 block break-words text-[13px] font-bold leading-[1.15] text-[#15803D] max-[350px]:text-[12px]">{value}</span>
+      </span>
     </div>
   );
 }
@@ -3023,6 +3311,128 @@ function MeetingRecommendationsPreview({
   );
 }
 
+function MeetingFormContent({
+  allPeople,
+  allowConversationFlows,
+  buttonText,
+  conversationResponses,
+  dateDefault,
+  errorMessage,
+  isSubmitting,
+  meetingPeopleOptions,
+  meetingPeopleQuery,
+  notesDefault,
+  onContextChange,
+  onConversationFlowChange,
+  onConversationResponse,
+  onSubmit,
+  onToggleFollowUpAction,
+  onTogglePerson,
+  onPeopleQueryChange,
+  recommendedResources,
+  selectedConversationFlow,
+  selectedMeetingContext,
+  selectedPersonIds,
+  submittingText,
+}: {
+  allPeople: DosAppPerson[];
+  allowConversationFlows: boolean;
+  buttonText: string;
+  conversationResponses: DosConversationResponses;
+  dateDefault: string;
+  errorMessage?: string;
+  isSubmitting: boolean;
+  meetingPeopleOptions: DosAppPerson[];
+  meetingPeopleQuery: string;
+  notesDefault?: string | null;
+  onContextChange: (value: DosAppMeetingType) => void;
+  onConversationFlowChange: (value: DosConversationFlowKey) => void;
+  onConversationResponse: (questionId: string, value: DosConversationResponseValue | undefined) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onToggleFollowUpAction: (actionId: string) => void;
+  onTogglePerson: (personId: string) => void;
+  onPeopleQueryChange: (value: string) => void;
+  recommendedResources: DosRecommendedResource[];
+  selectedConversationFlow: DosConversationFlowKey;
+  selectedMeetingContext: DosAppMeetingType;
+  selectedPersonIds: string[];
+  submittingText: string;
+}) {
+  return (
+    <form className="space-y-3" onSubmit={onSubmit}>
+      <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
+      <MeetingPeopleSelector
+        allPeople={allPeople}
+        onQueryChange={onPeopleQueryChange}
+        onToggle={onTogglePerson}
+        people={meetingPeopleOptions}
+        query={meetingPeopleQuery}
+        selectedPersonIds={selectedPersonIds}
+      />
+      <label className="block">
+        <FieldLabel>Date</FieldLabel>
+        <input className={FieldInputClass()} defaultValue={dateDefault} name="table_date" type="date" />
+      </label>
+      <ConversationFlowPicker
+        allowConversationFlows={allowConversationFlows}
+        onChange={onConversationFlowChange}
+        value={selectedConversationFlow}
+      />
+      {selectedConversationFlow !== "none" ? (
+        <ConversationFlowExperience
+          flowKey={selectedConversationFlow}
+          onResponseChange={onConversationResponse}
+          onToggleFollowUpAction={onToggleFollowUpAction}
+          responses={conversationResponses}
+        />
+      ) : null}
+      <MeetingCaptureNotes defaultValue={notesDefault} />
+      <MeetingRecommendationsPreview resources={recommendedResources} />
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+    </form>
+  );
+}
+
+function ScheduleMeetingPlaceholder({
+  allPeople,
+  meetingPeopleOptions,
+  meetingPeopleQuery,
+  onPeopleQueryChange,
+  onStartLogMeeting,
+  onTogglePerson,
+  selectedPersonIds,
+}: {
+  allPeople: DosAppPerson[];
+  meetingPeopleOptions: DosAppPerson[];
+  meetingPeopleQuery: string;
+  onPeopleQueryChange: (value: string) => void;
+  onStartLogMeeting: () => void;
+  onTogglePerson: (personId: string) => void;
+  selectedPersonIds: string[];
+}) {
+  return (
+    <div className="space-y-3">
+      <section className="rounded-[24px] border border-[#DCEBFF] bg-[#EBF2FF] p-4">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+          Coming Soon
+        </p>
+        <p className="mt-1 text-sm font-semibold leading-5 text-[#0F172A]">Scheduling will create future follow-ups from DOS.</p>
+        <p className="mt-1 text-xs leading-5 text-[#64748B]">For now, pick who this is for and log the meeting after it happens.</p>
+      </section>
+      <MeetingPeopleSelector
+        allPeople={allPeople}
+        onQueryChange={onPeopleQueryChange}
+        onToggle={onTogglePerson}
+        people={meetingPeopleOptions}
+        query={meetingPeopleQuery}
+        selectedPersonIds={selectedPersonIds}
+      />
+      <AppButton icon="log" onClick={onStartLogMeeting} tone="black">Log Meeting Instead</AppButton>
+    </div>
+  );
+}
+
 const fruitThemeDefinitions = [
   { keywords: ["joy", "rejoic", "glad", "delight"], label: "Joy" },
   { keywords: ["encourag", "heard", "cared", "comfort", "peace"], label: "Encouragement" },
@@ -3759,13 +4169,87 @@ function PersonExtraDetails({
   );
 }
 
-function DetailCard({ children, title }: { children: ReactNode; title: string }) {
+function PersonFormContent({
+  additionalDefaults,
+  buttonText,
+  detailsOpen,
+  errorMessage,
+  isSubmitting,
+  nameDefault,
+  onRelationshipChange,
+  onScoreChange,
+  onSubmit,
+  onToggleDetails,
+  phoneDefault,
+  relationshipModel,
+  scoreValue,
+  submittingText,
+}: {
+  additionalDefaults?: PersonFormDefaults;
+  buttonText: string;
+  detailsOpen: boolean;
+  errorMessage: string;
+  isSubmitting: boolean;
+  nameDefault?: string | null;
+  onRelationshipChange: (value: DosRelationshipModel) => void;
+  onScoreChange: (value: RelationshipScoreValue) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onToggleDetails: () => void;
+  phoneDefault?: string | null;
+  relationshipModel: DosRelationshipModel;
+  scoreValue: RelationshipScoreValue;
+  submittingText: string;
+}) {
   return (
-    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-        {title}
-      </p>
-      <div className="mt-3 grid gap-3">{children}</div>
+    <form className="space-y-4" onSubmit={onSubmit}>
+      <div className="grid gap-3">
+        <label className="block">
+          <FieldLabel>Name</FieldLabel>
+          <input className={FieldInputClass()} defaultValue={nameDefault ?? ""} name="name" placeholder="Full name" required />
+        </label>
+        <label className="block">
+          <FieldLabel>Phone</FieldLabel>
+          <input className={FieldInputClass()} defaultValue={phoneDefault ?? ""} inputMode="tel" name="phone" placeholder="Phone number" required />
+        </label>
+      </div>
+      <RelationshipTypePicker onChange={onRelationshipChange} value={relationshipModel} />
+      <PersonExtraDetails
+        additionalDefaults={additionalDefaults}
+        detailsOpen={detailsOpen}
+        onChange={onRelationshipChange}
+        onScoreChange={onScoreChange}
+        onToggleDetails={onToggleDetails}
+        scoreValue={scoreValue}
+        value={relationshipModel}
+      />
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+    </form>
+  );
+}
+
+function DetailCard({
+  children,
+  icon,
+  title,
+}: {
+  children: ReactNode;
+  icon?: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="min-w-0 overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
+      <div className="flex items-center gap-2">
+        {icon ? (
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
+            {icon}
+          </span>
+        ) : null}
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          {title}
+        </p>
+      </div>
+      <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">{children}</div>
     </section>
   );
 }
@@ -3780,10 +4264,15 @@ function SectionEmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-[20px] border border-dashed border-[#E2E8F0] bg-[#F1F5F9] p-4">
-      <p className="text-sm font-semibold text-[#0F172A]">{title}</p>
-      {text ? <p className="mt-1 text-sm leading-6 text-[#64748B]">{text}</p> : null}
-      {action ? <div className="mt-3">{action}</div> : null}
+    <div className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.035)]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold leading-5 text-[#0F172A]">{title}</span>
+        {text ? <span className="mt-1 block text-sm leading-6 text-[#64748B]">{text}</span> : null}
+        {action ? <span className="mt-3 block">{action}</span> : null}
+      </span>
     </div>
   );
 }
@@ -3828,7 +4317,7 @@ function FruitEventRow({
   ];
 
   return (
-    <article className="relative rounded-[22px] border border-[#E2E8F0] bg-white p-3.5">
+    <article className="relative min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
       <div className="flex gap-3">
         <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]">
           <FruitEventIcon event={event} />
@@ -3838,16 +4327,16 @@ function FruitEventRow({
             <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
               {sourceTransparencyLabel(event)}
             </span>
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{confidenceLabel(event.confidenceLevel)}</span>
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(event.date)}</span>
+            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{confidenceLabel(event.confidenceLevel)}</span>
+            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(event.date)}</span>
           </div>
           <h3 className="mt-2 text-lg font-bold leading-6 text-[#0F172A]">{event.title || event.fruitType}</h3>
           <p className="mt-1 text-sm leading-6 text-[#64748B]">{fruitNarrative(event)}</p>
           <p className="mt-2 text-xs leading-5 text-[#94A3B8]">{fruitSourceLine(event)}</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{event.fruitType}</span>
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{visibilityLabel(event.visibility)}</span>
-            {event.status === "hidden" ? <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#1D4ED8]">Hidden</span> : null}
+            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{event.fruitType}</span>
+            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{visibilityLabel(event.visibility)}</span>
+            {event.status === "hidden" ? <span className="rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#1D4ED8]">Hidden</span> : null}
           </div>
           {onUpdate ? (
             <details className="mt-2 rounded-2xl border border-[#E2E8F0] bg-white px-3 py-2">
@@ -3929,57 +4418,72 @@ function FruitEventRow({
 
 function LeaderReflectionRow({ reflection }: { reflection: DosAppLeaderReflection }) {
   return (
-    <div className="rounded-2xl bg-[#F1F5F9] p-3">
-      <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 text-sm font-semibold text-[#0F172A]">{reflection.whatHappened || reflection.privateNotes || "Leader Reflection"}</p>
-        {reflection.followUpNeeded ? (
-          <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-            Follow Up
-          </span>
+    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 text-sm font-bold leading-5 text-[#0F172A]">{reflection.whatHappened || reflection.privateNotes || "Leader Reflection"}</p>
+          {reflection.followUpNeeded ? (
+            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              Follow Up
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-1 text-xs text-[#64748B]">{formatDate(reflection.createdAt)}</p>
+        {reflection.prayerNeeds ? <p className="mt-2 text-sm leading-6 text-[#0F172A]">Prayer: {reflection.prayerNeeds}</p> : null}
+        {reflection.observedFruit.length ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {reflection.observedFruit.map((fruit) => (
+              <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={fruit}>{fruit}</span>
+            ))}
+          </div>
         ) : null}
       </div>
-      <p className="mt-2 text-xs text-[#64748B]">{formatDate(reflection.createdAt)}</p>
-      {reflection.prayerNeeds ? <p className="mt-2 text-sm leading-6 text-[#0F172A]">Prayer: {reflection.prayerNeeds}</p> : null}
-      {reflection.observedFruit.length ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {reflection.observedFruit.map((fruit) => (
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={fruit}>{fruit}</span>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    </article>
   );
 }
 
 function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
   return (
-    <div className="rounded-2xl bg-[#F1F5F9] p-3">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-[#0F172A]">Review</p>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(review.submittedAt)}</span>
+    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm font-bold text-[#0F172A]">Review</p>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(review.submittedAt)}</span>
+        </div>
+        <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{review.comments || "Participant review submitted."}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Heard: {review.feltHeard ?? "Skipped"}</span>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Meet Again: {review.wouldMeetAgain === null ? "Skipped" : review.wouldMeetAgain ? "Yes" : "No"}</span>
+        </div>
       </div>
-      <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{review.comments || "Participant review submitted."}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Heard: {review.feltHeard ?? "Skipped"}</span>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Meet Again: {review.wouldMeetAgain === null ? "Skipped" : review.wouldMeetAgain ? "Yes" : "No"}</span>
-      </div>
-    </div>
+    </article>
   );
 }
 
 function ParticipantTestimonyRow({ testimony }: { testimony: DosAppParticipantTestimony }) {
   return (
-    <div className="rounded-2xl bg-[#F1F5F9] p-3">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-[#0F172A]">Testimony</p>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(testimony.submittedAt)}</span>
+    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm font-bold text-[#0F172A]">Testimony</p>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(testimony.submittedAt)}</span>
+        </div>
+        <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{testimony.whatChanged || testimony.story}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{testimony.permissionToShare ? "Share OK" : "Private"}</span>
+          {testimony.publicDisplayName ? <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{testimony.publicDisplayName}</span> : null}
+        </div>
       </div>
-      <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{testimony.whatChanged || testimony.story}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{testimony.permissionToShare ? "Share OK" : "Private"}</span>
-        {testimony.publicDisplayName ? <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{testimony.publicDisplayName}</span> : null}
-      </div>
-    </div>
+    </article>
   );
 }
 
@@ -4049,7 +4553,7 @@ function DetailRow({
 }) {
   const content = (
     <>
-      {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#1D4ED8]">{icon}</span> : null}
+      {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]">{icon}</span> : null}
       <div className="min-w-0 flex-1">
         {label ? <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p> : null}
         <div className="mt-0.5 break-words leading-5 text-[#0F172A]">{value}</div>
@@ -4062,7 +4566,7 @@ function DetailRow({
     return (
       <a
         aria-label={ariaLabel}
-        className="-mx-1 flex items-center gap-3 rounded-2xl px-1 py-1 text-sm text-[#0F172A] transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]"
+        className="flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-sm text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]"
         href={href}
         onClick={onClick}
       >
@@ -4072,7 +4576,7 @@ function DetailRow({
   }
 
   return (
-    <div className="flex items-center gap-3 text-sm text-[#0F172A]">
+    <div className="flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-sm text-[#0F172A]">
       {content}
     </div>
   );
@@ -4121,17 +4625,17 @@ function ContactActionRow({
   value: string;
 }) {
   return (
-    <div className="-mx-1 flex items-center gap-3 rounded-2xl px-1 py-1.5 text-sm text-[#0F172A]">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">{icon}</span>
+    <div className="flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-sm text-[#0F172A]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]">{icon}</span>
       <a className="min-w-0 flex-1 transition-colors hover:text-[#1D4ED8]" href={primaryHref}>
         <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
         <span className="mt-0.5 block truncate font-semibold leading-5 text-[#0F172A]">{value}</span>
       </a>
       {actions?.length ? (
-        <span className="flex shrink-0 gap-1.5">
+        <span className="flex shrink-0 gap-1.5 max-[350px]:gap-1">
           {actions.map((action) => (
             <a
-              className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#F1F5F9] px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+              className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE] max-[350px]:px-2.5"
               href={action.href}
               key={action.label}
             >
@@ -4335,6 +4839,7 @@ function PersonDetailOverlay({
   onEdit,
   onOpenMeeting,
   onLogMeeting,
+  onScheduleMeeting,
   participantReviews,
   participantTestimonies,
   onDeleteFruitEvent,
@@ -4351,25 +4856,23 @@ function PersonDetailOverlay({
   onEdit: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onLogMeeting: () => void;
+  onScheduleMeeting: () => void;
   onDeleteFruitEvent: (event: DosAppFruitEvent) => void;
   onUpdateFruitEvent: (event: DosAppFruitEvent, updates: Record<string, unknown>) => void;
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
 }) {
-  const meetingsSectionRef = useRef<HTMLDivElement | null>(null);
-  const reviewsSectionRef = useRef<HTMLDivElement | null>(null);
-  const testimoniesSectionRef = useRef<HTMLDivElement | null>(null);
-  const fruitSectionRef = useRef<HTMLDivElement | null>(null);
-  const reflectionsSectionRef = useRef<HTMLDivElement | null>(null);
   const [activeDetailTab, setActiveDetailTab] = useState<"activity" | "fruit" | "household" | "overview">("overview");
+  const [activeActivitySection, setActiveActivitySection] = useState<PersonActivitySection>("meetings");
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
   const mapHref = address ? mapsHrefForAddress(address) : "";
   const hasHouseholdContext = hasHouseholdDetails(person);
   const relationshipScore = relationshipScoreFromEngagementLevel(person.engagementLevel);
-  const engagementLevelLabel = commitmentLevelOptions.find((option) => option.value === relationshipScore)?.label ?? relationshipScoreText(relationshipScore);
+  const engagementOverviewScore = relationshipScoreLabel(relationshipScore);
+  const engagementOverviewLabel = overviewEngagementLabel(relationshipScore);
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
   const personReviews = personMeetings.filter((meeting) => meeting.review.status !== "not_sent" && meeting.review.status !== "pending");
   const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || personMeetings.some((meeting) => meeting.id === review.meetingId));
@@ -4384,12 +4887,17 @@ function PersonDetailOverlay({
   const personFruitEvents = personFruitSummary.fruitEvents;
   const personReflections = leaderReflections.filter((reflection) => reflection.personId === person.id || personMeetings.some((meeting) => meeting.id === reflection.meetingId));
   const recentMeetings = personMeetings.slice(0, 3);
-  const circlePill = circleScore && circleScore.circle !== "field" ? circleDisplayName(circleScore.circle) : null;
   const relationshipTypePill = relationshipTypePillLabel(person);
-  const spiritualJourneyPill = discipleshipStageLabel(person.discipleshipStage);
-  const headerPills = Array.from(new Set([circlePill, relationshipTypePill, spiritualJourneyPill].filter((pill): pill is string => Boolean(pill))));
+  const spiritualJourneyPill = deriveSpiritualJourney({
+    fruitEvents: personFruitEvents,
+    fruitSummary: personFruitSummary,
+    meetings: personMeetings,
+    participantReviews: personParticipantReviews,
+    participantTestimonies: personTestimonies,
+    person,
+    reflections: personReflections,
+  });
   const lastMeetingDate = personMeetings[0]?.date ?? person.lastActivityAt;
-  const lastMeetingLine = lastMeetingDate ? `Last met ${formatRelativeDate(lastMeetingDate)}` : "No meetings yet";
   const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
   const reflectionNextStep = personReflections.find((reflection) => reflection.nextStep?.trim())?.nextStep?.trim();
   const snapshotNextStep = reflectionNextStep
@@ -4400,25 +4908,14 @@ function PersonDetailOverlay({
     personMeetings.length ? `${personMeetings.length} meeting${personMeetings.length === 1 ? "" : "s"} logged` : "",
     completedGuidedMeetings ? `${completedGuidedMeetings} guided conversation${completedGuidedMeetings === 1 ? "" : "s"} completed` : "",
     relationshipTypePill !== "New" ? "Active discipleship relationship" : "",
-    person.discipleshipStage !== "not_started" ? `${spiritualJourneyPill} journey stage` : "",
-    relationshipScore !== 0 ? `Engagement marked ${engagementLevelLabel}` : "",
     personFruitEvents.length ? `${personFruitEvents.length} fruit event${personFruitEvents.length === 1 ? "" : "s"} recorded` : "",
   ].filter((reason): reason is string => Boolean(reason)))).slice(0, 3);
-  const scrollToSection = (section: "fruit" | "meetings" | "reflections" | "reviews" | "testimonies") => {
-    const sectionRef = {
-      fruit: fruitSectionRef,
-      meetings: meetingsSectionRef,
-      reflections: reflectionsSectionRef,
-      reviews: reviewsSectionRef,
-      testimonies: testimoniesSectionRef,
-    }[section];
-    const tab = section === "fruit" || section === "testimonies" ? "fruit" : "activity";
+  useEffect(() => {
+    setActiveDetailTab("overview");
+    setActiveActivitySection("meetings");
+    setIsSnapshotOpen(false);
+  }, [person.id]);
 
-    setActiveDetailTab(tab);
-    window.setTimeout(() => {
-      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
   return (
     <div className="absolute inset-0 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
@@ -4441,21 +4938,10 @@ function PersonDetailOverlay({
         <h2 className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
           {person.name}
         </h2>
-        <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-          {headerPills.map((pill) => (
-            <span
-              className="inline-flex min-h-7 items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[11px] font-bold text-[#1D4ED8]"
-              key={pill}
-            >
-              {pill}
-            </span>
-          ))}
-        </div>
-        <p className="mt-2 text-xs font-medium text-[#64748B]">{lastMeetingLine}</p>
       </section>
 
       <div className="mt-5">
-        <AppButton icon="log" onClick={onLogMeeting} tone="black">Log Meeting</AppButton>
+        <MeetingActionRow onLogMeeting={onLogMeeting} onScheduleMeeting={onScheduleMeeting} />
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-4 bg-[#FAFBFD]/95 px-4 py-2 backdrop-blur">
@@ -4472,7 +4958,13 @@ function PersonDetailOverlay({
                 activeDetailTab === tab.value ? "bg-[#2563EB] text-white shadow-[0_8px_20px_rgba(37,99,235,0.24)]" : "text-[#64748B] hover:bg-[#F8FAFC]"
               }`}
               key={tab.value}
-              onClick={() => setActiveDetailTab(tab.value as typeof activeDetailTab)}
+              onClick={() => {
+                const nextTab = tab.value as typeof activeDetailTab;
+                setActiveDetailTab(nextTab);
+                if (nextTab === "activity") {
+                  setActiveActivitySection("meetings");
+                }
+              }}
               type="button"
             >
               {tab.label}
@@ -4481,51 +4973,57 @@ function PersonDetailOverlay({
         </div>
       </div>
 
-      <div className="mt-3 grid gap-3">
+      <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
         {activeDetailTab === "overview" ? (
           <>
-            <DetailCard title="Relationship Snapshot">
-              <div className="grid grid-cols-2 gap-2">
-                <SummaryTile label="Relationship Type" value={relationshipTypePill} />
-                <SummaryTile label="Spiritual Journey" value={spiritualJourneyPill} />
-                <SummaryTile label="Engagement Level" value={engagementLevelLabel} />
-                <SummaryTile label="Current Circle" value={currentCircleLabel} />
-                <SummaryTile label="Last Meeting" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
-                <SummaryTile label="Next Step" value={snapshotNextStep} />
-              </div>
+            <div className="grid min-w-0 grid-cols-2 gap-2 max-[350px]:gap-1.5">
+              <SnapshotMetricTile icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Relationship" value={relationshipTypePill} />
+              <EngagementSnapshotTile label={engagementOverviewLabel} score={engagementOverviewScore} />
+              <SnapshotMetricTile icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Meeting" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
+              <SnapshotMetricTile icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Next Step" value={snapshotNextStep} />
+            </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[11px] font-bold text-[#1D4ED8]">
-                  {relationshipContextLabel(person.relationshipContext)}
-                </span>
-              </div>
+            <section className="rounded-[24px] border border-[#D7F3DD] bg-[#F7FEFA] p-4 shadow-[0_14px_34px_rgba(22,163,74,0.055)]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
+                Details
+              </p>
 
-              {personMeetings.length > 0 && (!circleScore || circleScore.totalScore === 0) ? (
-                <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">Meeting activity found. Circle placement will refresh automatically.</p>
-              ) : null}
+              <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 max-[350px]:gap-1.5">
+                <DetailResultTile icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Spiritual Journey" value={spiritualJourneyPill} />
+                <DetailResultTile icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Current Circle" value={currentCircleLabel} />
+              </div>
 
               <button
                 aria-expanded={isSnapshotOpen}
-                className="flex min-h-10 items-center justify-between rounded-full bg-[#F1F5F9] px-3 text-left text-xs font-bold text-[#0F172A]"
+                className="mt-3 flex min-h-10 w-full items-center justify-between rounded-2xl bg-white px-3 text-left text-xs font-bold text-[#0F172A] ring-1 ring-[#D7F3DD] transition-colors hover:bg-[#ECFDF3]"
                 onClick={() => setIsSnapshotOpen((current) => !current)}
                 type="button"
               >
-                Why this circle?
-                <ChevronRight className={`h-4 w-4 text-[#94A3B8] transition-transform ${isSnapshotOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
+                More Details
+                <ChevronRight className={`h-4 w-4 text-[#16A34A] transition-transform ${isSnapshotOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
               </button>
 
               {isSnapshotOpen ? (
-                <div className="grid gap-2 rounded-2xl bg-[#F8FAFC] p-3">
-                  {relationshipSnapshotReasons.length ? relationshipSnapshotReasons.map((reason) => (
-                    <p className="text-xs leading-5 text-[#64748B]" key={reason}>+ {reason}</p>
-                  )) : (
-                    <p className="text-xs leading-5 text-[#64748B]">Log meetings and discipleship activity to help DOS place this relationship.</p>
-                  )}
+                <div className="mt-3 grid gap-3 rounded-2xl bg-white p-3 ring-1 ring-[#D7F3DD]">
+                  <p className="text-xs leading-5 text-[#475569]">Spiritual Journey and Current Circle are based on the activity and fruit recorded with this person.</p>
+                  <div className="grid gap-2">
+                    {relationshipSnapshotReasons.length ? relationshipSnapshotReasons.map((reason) => (
+                      <p className="flex items-start gap-2 text-xs leading-5 text-[#475569]" key={reason}>
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#16A34A]" aria-hidden="true" strokeWidth={1.9} />
+                        <span>{reason}</span>
+                      </p>
+                    )) : (
+                      <p className="flex items-start gap-2 text-xs leading-5 text-[#475569]">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#16A34A]" aria-hidden="true" strokeWidth={1.9} />
+                        <span>Log meetings and discipleship activity to help DOS place this relationship.</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
               ) : null}
-            </DetailCard>
+            </section>
 
-            <DetailCard title="Contact Information">
+            <DetailCard icon={<Phone className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Contact Information">
               {person.phone ? (
                 <ContactActionRow
                   actions={[
@@ -4540,6 +5038,9 @@ function PersonDetailOverlay({
               ) : null}
               {person.email ? (
                 <ContactActionRow
+                  actions={[
+                    { href: `mailto:${person.email}`, label: "Email" },
+                  ]}
                   icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
                   label="Email"
                   primaryHref={`mailto:${person.email}`}
@@ -4551,6 +5052,7 @@ function PersonDetailOverlay({
                   ariaLabel={`Open map for ${address}`}
                   href={mapHref}
                   icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                  label="Address"
                   onClick={(event) => handleAddressMapClick(event, address)}
                   value={address}
                 />
@@ -4562,8 +5064,16 @@ function PersonDetailOverlay({
             </DetailCard>
 
             {overviewNotes ? (
-              <DetailCard title="Notes">
-                <p className="whitespace-pre-line text-sm leading-6 text-[#0F172A]">{overviewNotes}</p>
+              <DetailCard icon={<StickyNote className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Notes">
+                <div className="flex min-w-0 gap-3 rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm text-[#0F172A]">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]">
+                    <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Note</span>
+                    <span className="mt-1 block whitespace-pre-line leading-6 text-[#0F172A]">{overviewNotes}</span>
+                  </span>
+                </div>
               </DetailCard>
             ) : null}
           </>
@@ -4571,21 +5081,44 @@ function PersonDetailOverlay({
 
         {activeDetailTab === "activity" ? (
           <>
-            <DetailCard title="Activity">
-              <div className="grid grid-cols-3 gap-2">
-                <StatTile label="Meetings" onClick={() => scrollToSection("meetings")} value={personMeetings.length} />
-                <StatTile label="Reviews" onClick={() => scrollToSection("reviews")} value={personParticipantReviews.length + personReviews.length} />
-                <StatTile label="Reflections" onClick={() => scrollToSection("reflections")} value={personReflections.length} />
+            <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Activity">
+              <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
+                <ActivityFilterCard
+                  active={activeActivitySection === "meetings"}
+                  helper="History"
+                  icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Meetings"
+                  onClick={() => setActiveActivitySection("meetings")}
+                  value={personMeetings.length}
+                />
+                <ActivityFilterCard
+                  active={activeActivitySection === "reviews"}
+                  helper="Shared"
+                  icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Reviews"
+                  onClick={() => setActiveActivitySection("reviews")}
+                  value={personParticipantReviews.length + personReviews.length}
+                />
+                <ActivityFilterCard
+                  active={activeActivitySection === "reflections"}
+                  helper="Leader notes"
+                  icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Reflections"
+                  onClick={() => setActiveActivitySection("reflections")}
+                  value={personReflections.length}
+                />
               </div>
             </DetailCard>
 
-            <div ref={meetingsSectionRef}>
-              <DetailCard title="Meetings">
+            {activeActivitySection === "meetings" ? (
+              <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Meetings">
                 {recentMeetings.length ? recentMeetings.map((meeting) => (
-                  <button className="flex items-center gap-3 rounded-2xl bg-[#F1F5F9] p-3 text-left transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
-                    <CalendarDays className="h-4 w-4 shrink-0 text-[#1D4ED8]" aria-hidden="true" strokeWidth={1.8} />
+                  <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+                      <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                    </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-[#0F172A]">{meetingActivityTitle(meeting)}</span>
+                      <span className="block text-sm font-bold leading-5 text-[#0F172A]">{meetingActivityTitle(meeting)}</span>
                       <span className="mt-1 block text-xs leading-5 text-[#64748B]">{formatDate(meeting.date)}</span>
                       <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{meeting.notes || "No summary added yet."}</span>
                     </span>
@@ -4593,60 +5126,63 @@ function PersonDetailOverlay({
                   </button>
                 )) : <SectionEmptyState text="Log the next conversation when it happens." title="No meetings yet." />}
               </DetailCard>
-            </div>
+            ) : null}
 
-            <div ref={reviewsSectionRef}>
-              <DetailCard title="Reviews">
+            {activeActivitySection === "reviews" ? (
+              <DetailCard icon={<MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Reviews">
                 {personParticipantReviews.length ? personParticipantReviews.slice(0, 3).map((review) => (
                   <ParticipantReviewRow key={review.id} review={review} />
                 )) : null}
                 {personReviews.length ? personReviews.slice(0, 3).map((meeting) => (
-                  <button className="rounded-2xl bg-[#F1F5F9] p-3 text-left transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} onClick={() => onOpenMeeting(meeting.id)} type="button">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-[#0F172A]">Quick Review</p>
-                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${reviewStatusClass(meeting.review.status)}`} style={{ fontFamily: font.rajdhani }}>
-                        {reviewStatusLabel(meeting.review.status)}
+                  <button className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} onClick={() => onOpenMeeting(meeting.id)} type="button">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+                      <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-bold text-[#0F172A]">Quick Review</span>
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${reviewStatusClass(meeting.review.status)}`} style={{ fontFamily: font.rajdhani }}>
+                          {reviewStatusLabel(meeting.review.status)}
+                        </span>
                       </span>
-                    </div>
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut || "Review submitted."}</p>
-                    <p className="mt-2 text-xs text-[#94A3B8]">
-                      {meeting.review.submittedName ? `${meeting.review.submittedName} · ` : ""}
-                      {meetingActivityTitle(meeting)} · {formatDate(meeting.review.submittedAt ?? meeting.date)}
-                    </p>
+                      <span className="mt-2 line-clamp-3 block text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut || "Review submitted."}</span>
+                      <span className="mt-2 block text-xs text-[#94A3B8]">
+                        {meeting.review.submittedName ? `${meeting.review.submittedName} · ` : ""}
+                        {meetingActivityTitle(meeting)} · {formatDate(meeting.review.submittedAt ?? meeting.date)}
+                      </span>
+                    </span>
                   </button>
                 )) : null}
                 {!personParticipantReviews.length && !personReviews.length ? (
                   <SectionEmptyState text="Send a review link after your next meeting." title="No reviews yet." />
                 ) : null}
               </DetailCard>
-            </div>
+            ) : null}
 
-            <div ref={reflectionsSectionRef}>
-              <DetailCard title="Leader Reflections">
+            {activeActivitySection === "reflections" ? (
+              <DetailCard icon={<StickyNote className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Reflections">
                 {personReflections.length ? personReflections.slice(0, 4).map((reflection) => (
                   <LeaderReflectionRow key={reflection.id} reflection={reflection} />
                 )) : (
                   <SectionEmptyState text="After a meeting, capture what happened while it is fresh." title="No reflections yet." />
                 )}
               </DetailCard>
-            </div>
+            ) : null}
           </>
         ) : null}
 
         {activeDetailTab === "fruit" ? (
           <>
-            <div ref={fruitSectionRef}>
-              <DetailCard title="Fruit Summary">
-                <div className="grid grid-cols-2 gap-2">
-                  <SummaryTile label="Latest Fruit" value={personFruitSummary.latestFruit} />
-                  <SummaryTile label="Follow Up Needed" value={personFruitSummary.followUpNeeded} />
-                  <SummaryTile label="Discipleship Status" value={personFruitSummary.discipleshipStatus} />
-                  <SummaryTile label="Multiplication Status" value={personFruitSummary.multiplicationStatus} />
-                </div>
-              </DetailCard>
-            </div>
+            <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Summary">
+              <div className="grid min-w-0 grid-cols-2 gap-2 max-[350px]:gap-1.5">
+                <PersonSummaryTile icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Fruit" value={personFruitSummary.latestFruit} />
+                <PersonSummaryTile icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Follow Up Needed" value={personFruitSummary.followUpNeeded} />
+                <PersonSummaryTile icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Discipleship Status" value={personFruitSummary.discipleshipStatus} />
+                <PersonSummaryTile icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication Status" value={personFruitSummary.multiplicationStatus} />
+              </div>
+            </DetailCard>
 
-            <DetailCard title="Fruit Timeline">
+            <DetailCard icon={<Gift className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Timeline">
               {personFruitEvents.length ? personFruitEvents.map((event) => (
                 <FruitEventRow event={event} key={event.id} onDelete={onDeleteFruitEvent} onUpdate={onUpdateFruitEvent} />
               )) : (
@@ -4657,25 +5193,23 @@ function PersonDetailOverlay({
               )}
             </DetailCard>
 
-            <div ref={testimoniesSectionRef}>
-              <DetailCard title="Testimonies">
-                {personTestimonies.length ? personTestimonies.slice(0, 3).map((testimony) => (
-                  <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
-                )) : (
-                  <SectionEmptyState text="Invite them to share their story after a meaningful conversation." title="No stories yet." />
-                )}
-              </DetailCard>
-            </div>
+            <DetailCard icon={<Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Testimonies">
+              {personTestimonies.length ? personTestimonies.slice(0, 3).map((testimony) => (
+                <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
+              )) : (
+                <SectionEmptyState text="Invite them to share their story after a meaningful conversation." title="No stories yet." />
+              )}
+            </DetailCard>
           </>
         ) : null}
 
         {activeDetailTab === "household" ? (
-          <DetailCard title="Household">
+          <DetailCard icon={<Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Household">
             {hasHouseholdContext ? (
               <>
                 {person.spouseName ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Spouse" value={person.spouseName} /> : null}
                 {person.childrenNames ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Children" value={person.childrenNames} /> : null}
-                {person.householdNotes ? <DetailRow label="Household Notes" value={person.householdNotes} /> : null}
+                {person.householdNotes ? <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Household Notes" value={person.householdNotes} /> : null}
               </>
             ) : (
               <SectionEmptyState text="Add spouse, children, or household context in Extra Details." title="No household details yet." />
@@ -4721,7 +5255,6 @@ function MeetingDetailOverlay({
   onCopyTestimony,
   onBack,
   onEdit,
-  onLogMeeting,
   onLogReflection,
   onDeleteFruitEvent,
   onSendReview,
@@ -4745,7 +5278,6 @@ function MeetingDetailOverlay({
   onCopyTestimony: () => void;
   onBack: () => void;
   onEdit: () => void;
-  onLogMeeting: () => void;
   onLogReflection: () => void;
   onDeleteFruitEvent: (event: DosAppFruitEvent) => void;
   onSendReview: () => void;
@@ -4821,10 +5353,11 @@ function MeetingDetailOverlay({
         </div>
       </section>
 
-      <div className="mt-5 grid gap-2">
-        <AppButton icon="log" onClick={onLogMeeting} tone="black">Log Meeting</AppButton>
-        {isTableMeeting ? <AppButton onClick={onLogReflection} tone="white">Leader Reflection</AppButton> : null}
-      </div>
+      {isTableMeeting ? (
+        <div className="mt-5">
+          <AppButton onClick={onLogReflection} tone="white">Leader Reflection</AppButton>
+        </div>
+      ) : null}
 
       <div className="mt-5 grid gap-3">
         {showPostMeetingFollowUp && isTableMeeting ? (
@@ -4832,10 +5365,10 @@ function MeetingDetailOverlay({
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
               Next
             </p>
-            <h3 className="mt-1 text-xl font-bold text-[#0F172A]">Follow up while it is fresh.</h3>
+            <h3 className="mt-1 text-xl font-bold text-[#0F172A]">Add a leader reflection.</h3>
             <div className="mt-3 grid gap-2">
               <button className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-left text-sm font-bold text-white" onClick={onLogReflection} type="button">
-                <span>Capture what happened</span>
+                <span>Add Leader Reflection</span>
                 <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
               </button>
               <div className="grid grid-cols-2 gap-2">
@@ -5251,12 +5784,27 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openMeetingForPerson(personId: string) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
-    setSelectedPersonId(null);
     setSelectedMeetingId(null);
     setErrorMessage("");
     setFormMode("meeting");
     setIsAdditionalPersonInfoOpen(false);
     resetMeetingDraft([personId]);
+  }
+
+  function openScheduleMeeting(personId?: string) {
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
+    setSelectedMeetingId(null);
+    setErrorMessage("");
+    setFormMode("scheduleMeeting");
+    setIsAdditionalPersonInfoOpen(false);
+    resetMeetingDraft(personId ? [personId] : []);
+  }
+
+  function openScheduledDraftAsMeeting() {
+    setErrorMessage("");
+    setSelectedMeetingId(null);
+    setFormMode("meeting");
   }
 
   function openMeetingDetail(meetingId: string) {
@@ -5303,6 +5851,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       occupation: String(formData.get("occupation") ?? ""),
       phone: String(formData.get("phone") ?? ""),
       relationshipContext: relationshipModel.relationshipContext,
+      relationshipType: relationshipModel.relationshipType,
       roleInMyLife: relationshipModel.roleInMyLife,
       spouseName: String(formData.get("spouse_name") ?? ""),
       state: String(formData.get("state") ?? ""),
@@ -5990,7 +6539,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "meetings" ? (
               <div>
-                <TabPageHeader action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log</CompactButton>} title="Meetings" />
+                <TabPageHeader title="Meetings" />
+                <div className="mt-3">
+                  <MeetingActionRow onLogMeeting={() => openForm("meeting")} onScheduleMeeting={() => openScheduleMeeting()} />
+                </div>
                 <div className="mt-4">
                   {data.meetings.length ? (
                     <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
@@ -6153,6 +6705,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onEdit={() => openPersonEdit(selectedPerson)}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
             onOpenMeeting={openMeetingDetail}
+            onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             onUpdateFruitEvent={handleUpdateFruitEvent}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -6173,7 +6726,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onCopyTestimony={() => handleCopyTestimony(selectedMeetingWithReview)}
             onDeleteFruitEvent={handleDeleteFruitEvent}
             onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
-            onLogMeeting={() => openForm("meeting")}
             onLogReflection={() => {
               setSelectedOutcomeTags([]);
               setFormMode("reflection");
@@ -6235,132 +6787,111 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       {formMode === "person" ? (
         <Sheet description="Add someone to your field. Keep the first pass fast." onClose={closeForm} title="Add Person">
-          <form className="space-y-4" onSubmit={handlePersonSubmit}>
-            <div className="grid gap-3">
-              <label className="block">
-                <FieldLabel>Name</FieldLabel>
-                <input className={FieldInputClass()} name="name" placeholder="Full name" required />
-              </label>
-              <label className="block">
-                <FieldLabel>Phone</FieldLabel>
-                <input className={FieldInputClass()} inputMode="tel" name="phone" placeholder="Phone number" required />
-              </label>
-            </div>
-            <RelationshipTypePicker onChange={setSelectedRelationshipModel} value={selectedRelationshipModel} />
-            <PersonExtraDetails
-              detailsOpen={isAdditionalPersonInfoOpen}
-              onChange={setSelectedRelationshipModel}
-              onScoreChange={setSelectedRelationshipScore}
-              onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
-              scoreValue={selectedRelationshipScore}
-              value={selectedRelationshipModel}
-            />
-            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Person"}</AppButton>
-          </form>
+          <PersonFormContent
+            buttonText="Add Person"
+            detailsOpen={isAdditionalPersonInfoOpen}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onRelationshipChange={setSelectedRelationshipModel}
+            onScoreChange={setSelectedRelationshipScore}
+            onSubmit={handlePersonSubmit}
+            onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+            relationshipModel={selectedRelationshipModel}
+            scoreValue={selectedRelationshipScore}
+            submittingText="Saving..."
+          />
         </Sheet>
       ) : null}
 
       {formMode === "editPerson" && selectedPerson ? (
         <Sheet description="Update the details you know. Keep the field record useful." onClose={closeForm} title="Edit Person">
-          <form className="space-y-4" onSubmit={handleEditPersonSubmit}>
-            <div className="grid gap-3">
-              <label className="block">
-                <FieldLabel>Name</FieldLabel>
-                <input className={FieldInputClass()} defaultValue={selectedPerson.name} name="name" placeholder="Full name" required />
-              </label>
-              <label className="block">
-                <FieldLabel>Phone</FieldLabel>
-                <input className={FieldInputClass()} defaultValue={selectedPerson.phone} inputMode="tel" name="phone" placeholder="Phone number" required />
-              </label>
-            </div>
-            <RelationshipTypePicker onChange={setSelectedRelationshipModel} value={selectedRelationshipModel} />
-            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Person"}</AppButton>
-            <PersonExtraDetails
-              additionalDefaults={selectedPersonDefaults}
-              detailsOpen={isAdditionalPersonInfoOpen}
-              onChange={setSelectedRelationshipModel}
-              onScoreChange={setSelectedRelationshipScore}
-              onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
-              scoreValue={selectedRelationshipScore}
-              value={selectedRelationshipModel}
-            />
-          </form>
+          <PersonFormContent
+            additionalDefaults={selectedPersonDefaults}
+            buttonText="Save Person"
+            detailsOpen={isAdditionalPersonInfoOpen}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            nameDefault={selectedPerson.name}
+            onRelationshipChange={setSelectedRelationshipModel}
+            onScoreChange={setSelectedRelationshipScore}
+            onSubmit={handleEditPersonSubmit}
+            onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+            phoneDefault={selectedPerson.phone}
+            relationshipModel={selectedRelationshipModel}
+            scoreValue={selectedRelationshipScore}
+            submittingText="Saving..."
+          />
         </Sheet>
       ) : null}
 
       {formMode === "meeting" ? (
         <Sheet onClose={closeForm} title="Log Meeting">
-          <form className="space-y-3" onSubmit={handleMeetingSubmit}>
-            <MeetingContextPicker onChange={setSelectedMeetingContext} value={selectedMeetingContext} />
-            <MeetingPeopleSelector
-              allPeople={people}
-              onQueryChange={setMeetingPeopleQuery}
-              onToggle={toggleMeetingPersonId}
-              people={meetingPeopleOptions}
-              query={meetingPeopleQuery}
-              selectedPersonIds={selectedMeetingPersonIds}
-            />
-            <label className="block">
-              <FieldLabel>Date</FieldLabel>
-              <input className={FieldInputClass()} defaultValue={todayDateValue()} name="table_date" type="date" />
-            </label>
-            <ConversationFlowPicker
-              allowConversationFlows={data.workspace.isUsamWorkspace}
-              onChange={handleConversationFlowChange}
-              value={selectedConversationFlow}
-            />
-            {selectedConversationFlow !== "none" ? (
-              <ConversationFlowExperience
-                flowKey={selectedConversationFlow}
-                onResponseChange={handleConversationResponse}
-                onToggleFollowUpAction={handleConversationFollowUpAction}
-                responses={conversationResponses}
-              />
-            ) : null}
-            <MeetingCaptureNotes />
-            <MeetingRecommendationsPreview resources={draftRecommendedResources} />
-            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Log Meeting"}</AppButton>
-          </form>
+          <MeetingFormContent
+            allPeople={people}
+            allowConversationFlows={data.workspace.isUsamWorkspace}
+            buttonText="Log Meeting"
+            conversationResponses={conversationResponses}
+            dateDefault={todayDateValue()}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            meetingPeopleOptions={meetingPeopleOptions}
+            meetingPeopleQuery={meetingPeopleQuery}
+            onContextChange={setSelectedMeetingContext}
+            onConversationFlowChange={handleConversationFlowChange}
+            onConversationResponse={handleConversationResponse}
+            onPeopleQueryChange={setMeetingPeopleQuery}
+            onSubmit={handleMeetingSubmit}
+            onToggleFollowUpAction={handleConversationFollowUpAction}
+            onTogglePerson={toggleMeetingPersonId}
+            recommendedResources={draftRecommendedResources}
+            selectedConversationFlow={selectedConversationFlow}
+            selectedMeetingContext={selectedMeetingContext}
+            selectedPersonIds={selectedMeetingPersonIds}
+            submittingText="Saving..."
+          />
+        </Sheet>
+      ) : null}
+
+      {formMode === "scheduleMeeting" ? (
+        <Sheet description="Create the follow-up rhythm without turning DOS into a calendar." onClose={closeForm} title="Schedule Meeting">
+          <ScheduleMeetingPlaceholder
+            allPeople={people}
+            meetingPeopleOptions={meetingPeopleOptions}
+            meetingPeopleQuery={meetingPeopleQuery}
+            onPeopleQueryChange={setMeetingPeopleQuery}
+            onStartLogMeeting={openScheduledDraftAsMeeting}
+            onTogglePerson={toggleMeetingPersonId}
+            selectedPersonIds={selectedMeetingPersonIds}
+          />
         </Sheet>
       ) : null}
 
       {formMode === "editMeeting" && selectedMeeting ? (
         <Sheet onClose={closeForm} title="Edit Meeting">
-          <form className="space-y-3" onSubmit={handleEditMeetingSubmit}>
-            <MeetingContextPicker onChange={setSelectedMeetingContext} value={selectedMeetingContext} />
-            <MeetingPeopleSelector
-              allPeople={people}
-              onQueryChange={setMeetingPeopleQuery}
-              onToggle={toggleMeetingPersonId}
-              people={meetingPeopleOptions}
-              query={meetingPeopleQuery}
-              selectedPersonIds={selectedMeetingPersonIds}
-            />
-            <label className="block">
-              <FieldLabel>Date</FieldLabel>
-              <input className={FieldInputClass()} defaultValue={selectedMeeting.date ?? todayDateValue()} name="table_date" type="date" />
-            </label>
-            <ConversationFlowPicker
-              allowConversationFlows={data.workspace.isUsamWorkspace}
-              onChange={handleConversationFlowChange}
-              value={selectedConversationFlow}
-            />
-            {selectedConversationFlow !== "none" ? (
-              <ConversationFlowExperience
-                flowKey={selectedConversationFlow}
-                onResponseChange={handleConversationResponse}
-                onToggleFollowUpAction={handleConversationFollowUpAction}
-                responses={conversationResponses}
-              />
-            ) : null}
-            <MeetingCaptureNotes defaultValue={selectedMeeting.notes} />
-            <MeetingRecommendationsPreview resources={draftRecommendedResources} />
-            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Meeting"}</AppButton>
-          </form>
+          <MeetingFormContent
+            allPeople={people}
+            allowConversationFlows={data.workspace.isUsamWorkspace}
+            buttonText="Save Meeting"
+            conversationResponses={conversationResponses}
+            dateDefault={selectedMeeting.date ?? todayDateValue()}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            meetingPeopleOptions={meetingPeopleOptions}
+            meetingPeopleQuery={meetingPeopleQuery}
+            notesDefault={selectedMeeting.notes}
+            onContextChange={setSelectedMeetingContext}
+            onConversationFlowChange={handleConversationFlowChange}
+            onConversationResponse={handleConversationResponse}
+            onPeopleQueryChange={setMeetingPeopleQuery}
+            onSubmit={handleEditMeetingSubmit}
+            onToggleFollowUpAction={handleConversationFollowUpAction}
+            onTogglePerson={toggleMeetingPersonId}
+            recommendedResources={draftRecommendedResources}
+            selectedConversationFlow={selectedConversationFlow}
+            selectedMeetingContext={selectedMeetingContext}
+            selectedPersonIds={selectedMeetingPersonIds}
+            submittingText="Saving..."
+          />
         </Sheet>
       ) : null}
 

@@ -11,6 +11,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { buildFallbackCircleDataFromActivity, loadCircleData, recalculateCircleScores, type DosCircleData } from "@/src/lib/dos/circle-scoring";
 import {
+  normalizeRelationshipType,
   relationshipModelCounts,
   relationshipModelFromFields,
   type DiscipleshipStageValue,
@@ -1132,6 +1133,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         relationshipStewardship: relationshipModelCounts(people.map((person) => ({
           discipleshipStage: person.discipleshipStage,
           relationshipContext: person.relationshipContext,
+          relationshipType: normalizeRelationshipType(person.relationshipType, person.roleInMyLife, person.status),
           roleInMyLife: person.roleInMyLife,
         }))),
       },

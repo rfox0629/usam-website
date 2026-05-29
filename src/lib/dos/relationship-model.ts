@@ -17,9 +17,9 @@ export const roleInMyLifeOptions = [
 ] as const;
 
 export const discipleshipStageOptions = [
-  { label: "Not Started", value: "not_started" },
+  { label: "Exploring", value: "not_started" },
   { label: "Exploring", value: "exploring" },
-  { label: "Walking With Jesus", value: "walking_with" },
+  { label: "Growing", value: "walking_with" },
   { label: "Discipling", value: "discipling" },
   { label: "Disciple Maker", value: "disciple_maker" },
 ] as const;
@@ -49,6 +49,7 @@ export type RelationshipScoreValue = typeof relationshipScoreOptions[number]["va
 
 export type DosRelationshipModel = {
   discipleshipStage: DiscipleshipStageValue;
+  relationshipType: RelationshipTypeValue;
   relationshipContext: RelationshipContextValue;
   roleInMyLife: RoleInMyLifeValue;
 };
@@ -61,6 +62,7 @@ export type DosRelationshipModelCounts = {
 
 export const defaultRelationshipModel: DosRelationshipModel = {
   discipleshipStage: "not_started",
+  relationshipType: "new",
   relationshipContext: "other",
   roleInMyLife: "not_active",
 };
@@ -88,7 +90,7 @@ export function roleInMyLifeLabel(value: RoleInMyLifeValue) {
 }
 
 export function discipleshipStageLabel(value: DiscipleshipStageValue) {
-  return discipleshipStageOptions.find((option) => option.value === value)?.label ?? "Not Started";
+  return discipleshipStageOptions.find((option) => option.value === value)?.label ?? "Exploring";
 }
 
 function isRelationshipScoreValue(value: number): value is RelationshipScoreValue {
@@ -145,6 +147,10 @@ export function relationshipScoreFromEngagementLevel(value: unknown): Relationsh
 }
 
 export function relationshipTypeFromModel(model: DosRelationshipModel): RelationshipTypeValue {
+  if (model.relationshipType) {
+    return model.relationshipType;
+  }
+
   if (model.roleInMyLife === "mentoring_me") {
     return "mentor";
   }
@@ -168,29 +174,61 @@ export function relationshipModelFromRelationshipType(
     case "discipling":
       return {
         ...current,
-        discipleshipStage: "discipling",
+        relationshipType,
         roleInMyLife: "discipling_them",
       };
     case "mentor":
       return {
         ...current,
-        discipleshipStage: "walking_with",
+        relationshipType,
         roleInMyLife: "mentoring_me",
       };
     case "walking_with":
       return {
         ...current,
-        discipleshipStage: "walking_with",
+        relationshipType,
         roleInMyLife: "walking_with_them",
       };
     case "new":
     default:
       return {
         ...current,
-        discipleshipStage: "not_started",
+        relationshipType: "new",
         roleInMyLife: "not_active",
       };
   }
+}
+
+export function normalizeRelationshipType(
+  value: string | null | undefined,
+  roleInMyLife?: string | null,
+  legacyStatus?: string | null,
+) {
+  const exactValue = optionValue(value, relationshipTypeOptions);
+
+  if (exactValue) {
+    return exactValue;
+  }
+
+  const legacyText = normalizeText(value, roleInMyLife, legacyStatus);
+
+  if (legacyText.includes("mentor") || legacyText.includes("mentoring me")) {
+    return "mentor";
+  }
+
+  if (legacyText.includes("discipling") || legacyText.includes("discipling them") || legacyText.includes("i am discipling")) {
+    return "discipling";
+  }
+
+  if (legacyText.includes("walking with") || legacyText.includes("walk with") || legacyText.includes("active") || legacyText.includes("follow up")) {
+    return "walking_with";
+  }
+
+  if (legacyText.includes("new")) {
+    return "new";
+  }
+
+  return defaultRelationshipModel.relationshipType;
 }
 
 export function normalizeRelationshipContext(value: string | null | undefined, legacyRelationshipType?: string | null) {
@@ -275,16 +313,20 @@ export function normalizeDiscipleshipStage(
     return "disciple_maker";
   }
 
-  if (legacyText.includes("discipling") || legacyText.includes("discipleship") || legacyText.includes("disciple")) {
+  if (legacyText.includes("serving") || legacyText.includes("discipling") || legacyText.includes("discipleship") || legacyText.includes("disciple")) {
     return "discipling";
   }
 
-  if (legacyText.includes("walking with") || legacyText.includes("walking") || legacyText.includes("growing") || legacyText.includes("active") || legacyText.includes("follow up")) {
+  if (legacyText.includes("following jesus") || legacyText.includes("walking with jesus") || legacyText.includes("walking with") || legacyText.includes("walking") || legacyText.includes("active") || legacyText.includes("follow up")) {
     return "walking_with";
   }
 
-  if (legacyText.includes("exploring") || legacyText.includes("curious") || legacyText.includes("open")) {
-    return "exploring";
+  if (legacyText.includes("growing")) {
+    return "walking_with";
+  }
+
+  if (legacyText.includes("exploring") || legacyText.includes("not started") || legacyText.includes("curious") || legacyText.includes("open")) {
+    return "not_started";
   }
 
   return defaultRelationshipModel.discipleshipStage;
@@ -293,20 +335,23 @@ export function normalizeDiscipleshipStage(
 export function relationshipModelFromFields(fields: {
   discipleshipStage?: string | null;
   engagementLevel?: string | null;
-  relationshipContext?: string | null;
-  relationshipType?: string | null;
-  roleInMyLife?: string | null;
-  status?: string | null;
+    relationshipContext?: string | null;
+    relationshipType?: string | null;
+    roleInMyLife?: string | null;
+    status?: string | null;
 }) {
+  const roleInMyLife = normalizeRoleInMyLife(fields.roleInMyLife, fields.relationshipType, fields.status);
+
   return {
     discipleshipStage: normalizeDiscipleshipStage(
       fields.discipleshipStage,
-      fields.relationshipType,
       fields.status,
+      undefined,
       fields.engagementLevel,
     ),
     relationshipContext: normalizeRelationshipContext(fields.relationshipContext, fields.relationshipType),
-    roleInMyLife: normalizeRoleInMyLife(fields.roleInMyLife, fields.relationshipType, fields.status),
+    relationshipType: normalizeRelationshipType(fields.relationshipType, roleInMyLife, fields.status),
+    roleInMyLife,
   } satisfies DosRelationshipModel;
 }
 
