@@ -6111,8 +6111,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               </label>
             </div>
             <RelationshipTypePicker onChange={setSelectedRelationshipModel} value={selectedRelationshipModel} />
-            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Person"}</AppButton>
             <PersonExtraDetails
               detailsOpen={isAdditionalPersonInfoOpen}
               onChange={setSelectedRelationshipModel}
@@ -6121,6 +6119,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               scoreValue={selectedRelationshipScore}
               value={selectedRelationshipModel}
             />
+            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Person"}</AppButton>
           </form>
         </Sheet>
       ) : null}
