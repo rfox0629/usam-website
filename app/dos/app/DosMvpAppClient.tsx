@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, Upload, User, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, Upload, User, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -20,6 +20,7 @@ import {
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
+import { selectPersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import {
   defaultRelationshipModel,
@@ -28,21 +29,17 @@ import {
   relationshipContextLabel,
   relationshipContextOptions,
   relationshipModelFromRelationshipType,
-  relationshipModelSummary,
   relationshipScoreFromEngagementLevel,
   relationshipScoreLabel,
   relationshipScoreOptions,
   relationshipScoreText,
   relationshipTypeFromModel,
   relationshipTypeOptions,
-  roleInMyLifeLabel,
-  roleInMyLifeOptions,
   type DiscipleshipStageValue,
   type DosRelationshipModel,
   type RelationshipContextValue,
   type RelationshipScoreValue,
   type RelationshipTypeValue,
-  type RoleInMyLifeValue,
 } from "@/src/lib/dos/relationship-model";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 
@@ -129,13 +126,6 @@ type MeetingCaptureDraft = {
 type SegmentedTabOption<T extends string> = {
   label: string;
   value: T;
-};
-type IntelligenceHistoryItem = {
-  calculatedAt: string | null;
-  newCircle: string;
-  newScore: number;
-  previousCircle: string | null;
-  previousScore: number | null;
 };
 type PersonFormDefaults = {
   birthday?: string;
@@ -649,7 +639,19 @@ function statusLabel(value: string | null | undefined) {
 }
 
 function relationshipLine(person: DosAppPerson) {
-  return relationshipModelSummary(personRelationshipModel(person));
+  const model = personRelationshipModel(person);
+
+  return [
+    relationshipTypePillLabel(person),
+    relationshipContextLabel(model.relationshipContext),
+    discipleshipStageLabel(model.discipleshipStage),
+  ].join(" · ");
+}
+
+function relationshipTypePillLabel(person: DosAppPerson) {
+  const relationshipType = relationshipTypeFromModel(personRelationshipModel(person));
+
+  return relationshipTypeOptions.find((option) => option.value === relationshipType)?.label ?? statusLabel(person.relationshipType);
 }
 
 function relationshipStatusLabel(person: DosAppPerson) {
@@ -2935,80 +2937,240 @@ function MeetingRecommendationsPreview({
   );
 }
 
-function fruitStatusLabel(status: string) {
-  switch (status) {
-    case "approved":
-      return "Approved";
-    case "archived":
-      return "Archived";
-    case "pending_review":
-      return "Pending Review";
-    case "private":
-      return "Private";
-    case "draft":
-    default:
-      return "Private Draft";
-  }
+const fruitThemeDefinitions = [
+  { keywords: ["joy", "rejoic", "glad", "delight"], label: "Joy" },
+  { keywords: ["encourag", "heard", "cared", "comfort", "peace"], label: "Encouragement" },
+  { keywords: ["faithful", "steady", "weekly", "committed", "follow-through", "follow through"], label: "Faithfulness" },
+  { keywords: ["bold", "gospel", "evangel", "shared", "preach", "testimony"], label: "Boldness" },
+  { keywords: ["hospital", "table", "home", "meal", "welcome"], label: "Hospitality" },
+  { keywords: ["generous", "giving", "tithe", "serve", "support"], label: "Generosity" },
+] as const;
+
+const demoFruitThemeChips = ["Joy", "Encouragement", "Faithfulness", "Boldness", "Hospitality", "Generosity"];
+
+type FruitDashboardStory = {
+  date: string | null;
+  id: string;
+  personId: string | null;
+  personName: string | null;
+  tags: string[];
+  text: string;
+  title: string;
+};
+
+function fruitSearchText(...values: Array<null | string | string[] | undefined>) {
+  return values
+    .flatMap((value) => Array.isArray(value) ? value : [value])
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join(" ")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function fruitStatusBadgeClass(status: string) {
-  switch (status) {
-    case "approved":
-      return "bg-[#EBF2FF] text-[#1D4ED8]";
-    case "pending_review":
-      return "bg-[#EBF2FF] text-[#1D4ED8]";
-    case "private":
-      return "bg-[#F1F5F9] text-[#64748B]";
-    case "archived":
-      return "bg-[#F1F5F9] text-[#64748B]";
-    case "draft":
-    default:
-      return "bg-[#F1F5F9] text-[#1D4ED8]";
-  }
+function hasFruitKeyword(story: FruitDashboardStory, keywords: ReadonlyArray<string>) {
+  const text = fruitSearchText(story.title, story.text, story.tags);
+
+  return keywords.some((keyword) => text.includes(keyword));
 }
 
-function FruitCard({
-  fruit,
-  people,
+function uniqueFruitTags(tags: string[]) {
+  return Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean)));
+}
+
+function fruitStoryTitle(value: string | null | undefined) {
+  const text = value?.trim();
+
+  if (!text) {
+    return "Fruit recorded";
+  }
+
+  const firstSentence = text.split(/[.!?]/)[0]?.trim() || text;
+
+  return firstSentence.length > 82 ? `${firstSentence.slice(0, 79).trim()}...` : firstSentence;
+}
+
+function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFruitEvent[], people: DosAppPerson[]) {
+  return [
+    ...fruitItems
+      .filter((fruit) => fruit.status === "approved")
+      .map((fruit) => ({
+        date: fruit.testimonyDate,
+        id: `fruit-${fruit.id}`,
+        personId: fruit.fieldPersonId,
+        personName: fruit.fieldPersonId ? personName(people, fruit.fieldPersonId) : fruit.submittedByName,
+        tags: uniqueFruitTags(fruit.outcomeTags),
+        text: fruit.summary,
+        title: fruitStoryTitle(fruit.summary),
+      } satisfies FruitDashboardStory)),
+    ...fruitEvents
+      .filter((event) => event.status === "approved")
+      .map((event) => ({
+        date: event.date,
+        id: `fruit-event-${event.id}`,
+        personId: event.personId,
+        personName: event.personId ? personName(people, event.personId) : null,
+        tags: uniqueFruitTags([event.fruitType]),
+        text: event.description ?? event.title ?? event.fruitType,
+        title: event.title?.trim() || event.fruitType || "Fruit recorded",
+      } satisfies FruitDashboardStory)),
+  ].sort((first, second) => {
+    const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
+    const secondTime = parseDisplayDate(second.date)?.getTime() ?? 0;
+
+    return secondTime - firstTime;
+  });
+}
+
+function fruitThemeChips(stories: FruitDashboardStory[], isPreview: boolean) {
+  const derivedThemes = fruitThemeDefinitions
+    .filter((theme) => stories.some((story) => hasFruitKeyword(story, theme.keywords)))
+    .map((theme) => theme.label);
+
+  if (derivedThemes.length) {
+    return derivedThemes;
+  }
+
+  return isPreview ? demoFruitThemeChips : [];
+}
+
+function distinctFruitPeopleCount(stories: FruitDashboardStory[], keywords: string[]) {
+  const matches = stories.filter((story) => hasFruitKeyword(story, keywords));
+  const peopleWithFruit = new Set(matches.map((story) => story.personId).filter((personId): personId is string => Boolean(personId)));
+
+  return peopleWithFruit.size || matches.length;
+}
+
+function kingdomFruitMetrics(people: DosAppPerson[], stories: FruitDashboardStory[]) {
+  return [
+    {
+      label: "People Walking With",
+      value: people.filter((person) => person.discipleshipStage === "walking_with").length,
+    },
+    {
+      label: "Being Discipled",
+      value: people.filter((person) => person.discipleshipStage === "discipling").length,
+    },
+    {
+      label: "Started Discipling Others",
+      value: Math.max(
+        people.filter((person) => person.discipleshipStage === "disciple_maker").length,
+        distinctFruitPeopleCount(stories, ["started discipling others", "disciple maker", "multiplying", "multiplication"]),
+      ),
+    },
+    {
+      label: "Baptized",
+      value: distinctFruitPeopleCount(stories, ["baptism", "baptized"]),
+    },
+    {
+      label: "New Believers",
+      value: distinctFruitPeopleCount(stories, ["salvation", "new believer", "gave their life", "born again", "follow jesus"]),
+    },
+  ];
+}
+
+function FruitTreeCard({
+  storyCount,
+  themes,
 }: {
-  fruit: DosAppFruit;
-  people: DosAppPerson[];
+  storyCount: number;
+  themes: string[];
 }) {
-  const isQuickReview = fruit.sourceApp === "dos_quick_review";
-  const linkedPerson = fruit.fieldPersonId ? personName(people, fruit.fieldPersonId) : null;
-  const statusLabel = fruitStatusLabel(fruit.status);
-  const quickReviewPermission = isQuickReview
-    ? fruit.permissionToShare
-      ? fruit.submittedByName ? "Name OK" : "Anonymous OK"
-      : "Private"
-    : null;
-
   return (
-    <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
+    <section className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_16px_36px_rgba(37,99,235,0.08)]">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#0F172A]">{isQuickReview ? "Quick Review" : statusLabel}</p>
-          <p className="mt-1 text-xs text-[#94A3B8]">{formatDate(fruit.testimonyDate)}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+            Fruit Tree
+          </p>
+          <h2 className="mt-1 text-xl font-bold leading-tight text-[#0F172A]">What God is growing</h2>
         </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
-          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${fruitStatusBadgeClass(fruit.status)}`} style={{ fontFamily: font.rajdhani }}>
-            {statusLabel}
-          </span>
-          {quickReviewPermission ? (
-            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              {quickReviewPermission}
+        <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1 text-[11px] font-bold text-[#1D4ED8]">
+          {storyCount} {storyCount === 1 ? "story" : "stories"}
+        </span>
+      </div>
+
+      <div className="relative mx-auto mt-5 flex h-40 max-w-[300px] items-center justify-center">
+        <div className="absolute h-32 w-32 rounded-full border border-[#BFDBFE] bg-[#F8FBFF]" />
+        <div className="absolute h-24 w-24 rounded-full border border-[#93C5FD] bg-[#EBF2FF]" />
+        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_18px_34px_rgba(37,99,235,0.28)]">
+          <Icon name="fruit" size={24} />
+        </div>
+        {themes.slice(0, 6).map((theme, index) => {
+          const positions = [
+            "left-[16%] top-[18%]",
+            "right-[18%] top-[14%]",
+            "left-[12%] bottom-[22%]",
+            "right-[13%] bottom-[24%]",
+            "left-[43%] top-[2%]",
+            "left-[45%] bottom-[4%]",
+          ];
+
+          return (
+            <span
+              aria-hidden="true"
+              className={`absolute h-3 w-3 rounded-full bg-[#2563EB] shadow-[0_0_0_5px_rgba(37,99,235,0.12)] ${positions[index]}`}
+              key={theme}
+            />
+          );
+        })}
+      </div>
+
+      {themes.length ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {themes.map((theme) => (
+            <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-bold text-[#1D4ED8]" key={theme}>
+              {theme}
             </span>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 rounded-2xl bg-[#F8FAFC] px-4 py-3 text-sm leading-6 text-[#64748B]">
+          Fruit themes will appear as approved stories and reviews come in.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function KingdomFruitMetricTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#E2E8F0] bg-white px-3 py-4 text-center shadow-[0_8px_22px_rgba(15,23,42,0.04)]">
+      <p className="text-2xl font-bold leading-none text-[#0F172A]">{value}</p>
+      <p className="mx-auto mt-2 max-w-[110px] text-[10px] font-bold uppercase tracking-[0.11em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function RecentFruitStoryCard({ story }: { story: FruitDashboardStory }) {
+  return (
+    <article className="rounded-[22px] border border-[#E2E8F0] bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,0.04)]">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
+          <Icon name="fruit" size={15} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-5 text-[#0F172A]">{story.title}</p>
+          <p className="mt-1 text-xs leading-5 text-[#64748B]">
+            {[story.personName, formatDate(story.date)].filter(Boolean).join(" · ")}
+          </p>
+          {story.text && story.text !== story.title ? (
+            <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#64748B]">{story.text}</p>
           ) : null}
         </div>
       </div>
-      <p className="mt-3 text-sm leading-6 text-[#0F172A]">{fruit.summary}</p>
-      <div className="mt-3 grid gap-1 text-xs leading-5 text-[#64748B]">
-        {isQuickReview && fruit.submittedByName ? <span>Submitted by {fruit.submittedByName}</span> : null}
-        {linkedPerson ? <span>Linked to {linkedPerson}</span> : null}
-      </div>
-      {fruit.outcomeTags.length ? (
+      {story.tags.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
-          {fruit.outcomeTags.map((tag) => (
+          {story.tags.slice(0, 4).map((tag) => (
             <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={tag}>
               {tag}
             </span>
@@ -3196,9 +3358,9 @@ function RelationshipStewardshipGroup<T extends string>({
 
           return (
             <label
-              className={`relative flex min-h-[70px] cursor-pointer flex-col justify-between rounded-2xl border p-3 transition-colors ${
+              className={`relative flex min-h-[76px] cursor-pointer flex-col justify-between rounded-[18px] border p-3 transition-colors ${
                 selected
-                  ? "border-[#93C5FD] bg-[#EBF2FF]"
+                  ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
                   : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE]"
               }`}
               key={option.value}
@@ -3212,15 +3374,15 @@ function RelationshipStewardshipGroup<T extends string>({
                 type="radio"
                 value={option.value}
               />
-              <span className="pr-5 text-sm font-bold leading-tight text-[#0F172A]">{option.label}</span>
+              <span className="pr-6 text-[13px] font-bold leading-tight text-[#0F172A] sm:text-sm">{option.label}</span>
               {option.helper ? <span className="mt-1 text-[11px] leading-4 text-[#64748B]">{option.helper}</span> : null}
               <span
-                className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border ${
-                  selected ? "border-[#2563EB] bg-[#2563EB]" : "border-[#E2E8F0] bg-[#F1F5F9]"
+                className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${
+                  selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
                 }`}
                 aria-hidden="true"
               >
-                {selected ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+                {selected ? <span className="h-2 w-2 rounded-full bg-[#2563EB]" /> : null}
               </span>
             </label>
           );
@@ -3250,7 +3412,7 @@ function RelationshipTypePicker({
             <label
               className={`relative flex min-h-[76px] cursor-pointer flex-col justify-between rounded-[18px] border p-3 transition-colors ${
                 selected
-                  ? "border-[#93C5FD] bg-[#EBF2FF] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
+                  ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
                   : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE]"
               }`}
               key={option.value}
@@ -3282,7 +3444,7 @@ function RelationshipTypePicker({
   );
 }
 
-function RelationshipStewardshipPicker({
+function RelationshipContextPicker({
   onChange,
   value,
 }: {
@@ -3290,32 +3452,33 @@ function RelationshipStewardshipPicker({
   value: DosRelationshipModel;
 }) {
   return (
-    <div className="space-y-4">
-      <RelationshipStewardshipGroup<RelationshipContextValue>
-        helper="Where does this relationship exist?"
-        label="Relationship Context"
-        name="relationship_context"
-        onChange={(relationshipContext) => onChange({ ...value, relationshipContext })}
-        options={relationshipContextOptions}
-        value={value.relationshipContext}
-      />
-      <RelationshipStewardshipGroup<RoleInMyLifeValue>
-        helper="What role does this person currently play?"
-        label="Role in My Life"
-        name="role_in_my_life"
-        onChange={(roleInMyLife) => onChange({ ...value, roleInMyLife })}
-        options={roleInMyLifeOptions}
-        value={value.roleInMyLife}
-      />
-      <RelationshipStewardshipGroup<DiscipleshipStageValue>
-        helper="Where are they spiritually right now?"
-        label="Discipleship Movement"
-        name="discipleship_stage"
-        onChange={(discipleshipStage) => onChange({ ...value, discipleshipStage })}
-        options={discipleshipStageOptions}
-        value={value.discipleshipStage}
-      />
-    </div>
+    <RelationshipStewardshipGroup<RelationshipContextValue>
+      helper="How do I know this person?"
+      label="Relationship Context"
+      name="relationship_context"
+      onChange={(relationshipContext) => onChange({ ...value, relationshipContext })}
+      options={relationshipContextOptions}
+      value={value.relationshipContext}
+    />
+  );
+}
+
+function SpiritualJourneyPicker({
+  onChange,
+  value,
+}: {
+  onChange: (value: DosRelationshipModel) => void;
+  value: DosRelationshipModel;
+}) {
+  return (
+    <RelationshipStewardshipGroup<DiscipleshipStageValue>
+      helper="Where are they spiritually right now?"
+      label="Spiritual Journey"
+      name="discipleship_stage"
+      onChange={(discipleshipStage) => onChange({ ...value, discipleshipStage })}
+      options={discipleshipStageOptions}
+      value={value.discipleshipStage}
+    />
   );
 }
 
@@ -3330,13 +3493,13 @@ function RelationshipScorePicker({
     <fieldset>
       <FieldLabel>Relationship Score</FieldLabel>
       <p className="mt-1 text-xs leading-5 text-[#64748B]">How spiritually engaged or open is this person right now?</p>
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+      <div className="mt-3 grid grid-cols-2 gap-2">
         {relationshipScoreOptions.map((option) => {
           const selected = value === option.value;
 
           return (
             <label
-              className={`relative flex min-h-[64px] min-w-[86px] cursor-pointer flex-col items-center justify-center rounded-2xl border px-2 text-center transition-colors ${
+              className={`relative flex min-h-[76px] cursor-pointer flex-col justify-between rounded-[18px] border p-3 transition-colors ${
                 selected
                   ? "border-[#2563EB] bg-[#EBF2FF] text-[#0F172A] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
                   : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#BFDBFE]"
@@ -3351,8 +3514,16 @@ function RelationshipScorePicker({
                 type="radio"
                 value={option.value}
               />
-              <span className={`text-sm font-bold ${selected ? "text-[#2563EB]" : "text-[#0F172A]"}`}>{option.label}</span>
-              <span className="mt-1 text-[10px] font-medium leading-3">{option.helper}</span>
+              <span className={`pr-6 text-sm font-bold leading-tight ${selected ? "text-[#2563EB]" : "text-[#0F172A]"}`}>{option.label}</span>
+              <span className="mt-1 pr-1 text-[11px] font-medium leading-4 text-[#64748B]">{option.helper}</span>
+              <span
+                className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${
+                  selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
+                }`}
+                aria-hidden="true"
+              >
+                {selected ? <span className="h-2 w-2 rounded-full bg-[#2563EB]" /> : null}
+              </span>
             </label>
           );
         })}
@@ -3469,6 +3640,7 @@ function PersonRelationshipSetup({
   return (
     <section className="space-y-3">
       <RelationshipTypePicker onChange={onChange} value={value} />
+      <RelationshipContextPicker onChange={onChange} value={value} />
       <button
         aria-expanded={detailsOpen}
         className="flex w-full items-center justify-between rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left text-sm font-semibold text-[#2563EB] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
@@ -3482,9 +3654,9 @@ function PersonRelationshipSetup({
       </button>
       {detailsOpen ? (
         <div className="space-y-4 rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-          <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
-          <RelationshipStewardshipPicker onChange={onChange} value={value} />
+          <SpiritualJourneyPicker onChange={onChange} value={value} />
           <AdditionalPersonInformation defaults={additionalDefaults} isOpen onToggle={onToggleDetails} showToggle={false} />
+          <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
         </div>
       ) : null}
     </section>
@@ -3839,33 +4011,40 @@ function BottomNavigation({
   );
 }
 
-function PersonQuickAction({
-  children,
-  href,
+function ContactActionRow({
+  actions,
   icon,
-  onClick,
+  label,
+  primaryHref,
+  value,
 }: {
-  children: ReactNode;
-  href?: string;
+  actions?: Array<{ href: string; label: string }>;
   icon: ReactNode;
-  onClick?: () => void;
+  label: string;
+  primaryHref: string;
+  value: string;
 }) {
-  const className = "flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-[#E2E8F0] bg-white px-2 text-[10px] font-bold uppercase tracking-[0.11em] text-[#0F172A] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]";
-
-  if (href) {
-    return (
-      <a className={className} href={href} style={{ fontFamily: font.rajdhani }}>
-        {icon}
-        {children}
-      </a>
-    );
-  }
-
   return (
-    <button className={className} onClick={onClick} style={{ fontFamily: font.rajdhani }} type="button">
-      {icon}
-      {children}
-    </button>
+    <div className="-mx-1 flex items-center gap-3 rounded-2xl px-1 py-1.5 text-sm text-[#0F172A]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">{icon}</span>
+      <a className="min-w-0 flex-1 transition-colors hover:text-[#1D4ED8]" href={primaryHref}>
+        <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+        <span className="mt-0.5 block truncate font-semibold leading-5 text-[#0F172A]">{value}</span>
+      </a>
+      {actions?.length ? (
+        <span className="flex shrink-0 gap-1.5">
+          {actions.map((action) => (
+            <a
+              className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#F1F5F9] px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+              href={action.href}
+              key={action.label}
+            >
+              {action.label}
+            </a>
+          ))}
+        </span>
+      ) : <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />}
+    </div>
   );
 }
 
@@ -4052,8 +4231,8 @@ function CirclesDetailOverlay({
 function PersonDetailOverlay({
   circleScore,
   fruitEvents,
+  fruitItems,
   index,
-  isPreview = false,
   leaderReflections,
   meetings,
   onBack,
@@ -4065,12 +4244,11 @@ function PersonDetailOverlay({
   onDeleteFruitEvent,
   onUpdateFruitEvent,
   person,
-  workspaceId,
 }: {
   circleScore?: DosRelationshipScore | null;
   fruitEvents: DosAppFruitEvent[];
+  fruitItems: DosAppFruit[];
   index: number;
-  isPreview?: boolean;
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
   onBack: () => void;
@@ -4082,35 +4260,48 @@ function PersonDetailOverlay({
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
-  workspaceId: string;
 }) {
   const meetingsSectionRef = useRef<HTMLDivElement | null>(null);
   const reviewsSectionRef = useRef<HTMLDivElement | null>(null);
   const testimoniesSectionRef = useRef<HTMLDivElement | null>(null);
   const fruitSectionRef = useRef<HTMLDivElement | null>(null);
   const reflectionsSectionRef = useRef<HTMLDivElement | null>(null);
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
-  const [isIntelligenceOpen, setIsIntelligenceOpen] = useState(false);
-  const [intelligenceHistory, setIntelligenceHistory] = useState<IntelligenceHistoryItem[]>([]);
-  const [pinMessage, setPinMessage] = useState("");
-  const [moreMessage, setMoreMessage] = useState("");
+  const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
   const mapHref = address ? mapsHrefForAddress(address) : "";
   const relationshipScore = relationshipScoreFromEngagementLevel(person.engagementLevel);
-  const relationshipScoreDisplay = relationshipScoreLabel(relationshipScore);
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
   const personReviews = personMeetings.filter((meeting) => meeting.review.status !== "not_sent" && meeting.review.status !== "pending");
   const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || personMeetings.some((meeting) => meeting.id === review.meetingId));
   const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || personMeetings.some((meeting) => meeting.id === testimony.meetingId));
-  const personFruitEvents = fruitEvents.filter((event) => event.personId === person.id || personMeetings.some((meeting) => meeting.id === event.meetingId));
+  const personFruitSummary = selectPersonDetailFruitSummary({
+    fruitEvents,
+    fruitItems,
+    leaderReflections,
+    meetings,
+    person,
+  });
+  const personFruitEvents = personFruitSummary.fruitEvents;
   const personReflections = leaderReflections.filter((reflection) => reflection.personId === person.id || personMeetings.some((meeting) => meeting.id === reflection.meetingId));
-  const latestFruitEvent = personFruitEvents[0];
-  const hasDiscipleship = personFruitEvents.some((event) => event.fruitType.includes("Discipleship") || event.title?.includes("Discipleship"));
-  const hasFollowUpNeeded = personReflections.some((reflection) => reflection.followUpNeeded);
-  const hasMultiplication = personFruitEvents.some((event) => event.fruitType === "Started Discipling Others");
   const recentMeetings = personMeetings.slice(0, 3);
-  const lastContact = person.lastActivityAt ? formatRelativeDate(person.lastActivityAt) : "None";
+  const circlePill = circleScore && circleScore.circle !== "field" ? circleDisplayName(circleScore.circle) : null;
+  const relationshipTypePill = relationshipTypePillLabel(person);
+  const spiritualJourneyPill = discipleshipStageLabel(person.discipleshipStage);
+  const headerPills = Array.from(new Set([circlePill, relationshipTypePill, spiritualJourneyPill].filter((pill): pill is string => Boolean(pill))));
+  const lastMeetingDate = personMeetings[0]?.date ?? person.lastActivityAt;
+  const lastMeetingLine = lastMeetingDate ? `Last met ${formatRelativeDate(lastMeetingDate)}` : "No meetings yet";
+  const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
+  const reflectionNextStep = personReflections.find((reflection) => reflection.nextStep?.trim())?.nextStep?.trim();
+  const snapshotNextStep = reflectionNextStep
+    ?? (personFruitSummary.followUpNeeded === "Yes" ? "Send follow up" : personMeetings.length ? "Schedule another meeting" : "Log the first meeting");
+  const relationshipSnapshotReasons = Array.from(new Set([
+    ...(circleScore?.explanation.positive_factors ?? []),
+    personMeetings.length >= 3 ? `${personMeetings.length} meetings logged recently` : "",
+    relationshipScore > 0 ? `${relationshipScoreText(relationshipScore)} engagement` : "",
+    person.discipleshipStage !== "not_started" ? `${spiritualJourneyPill} discipleship movement` : "",
+    personFruitEvents.length ? `${personFruitEvents.length} fruit signal${personFruitEvents.length === 1 ? "" : "s"} logged` : "",
+  ].filter((reason): reason is string => Boolean(reason)))).slice(0, 3);
   const scrollToSection = (section: "fruit" | "meetings" | "reflections" | "reviews" | "testimonies") => {
     const sectionRef = {
       fruit: fruitSectionRef,
@@ -4122,120 +4313,6 @@ function PersonDetailOverlay({
 
     sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-  const copyToClipboard = async (value: string, label: string) => {
-    if (!value || typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
-      setMoreMessage("Copy unavailable.");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(value);
-      setMoreMessage(`${label} copied.`);
-    } catch {
-      setMoreMessage("Copy failed.");
-    }
-  };
-  const shareContact = async () => {
-    const contactLines = [
-      person.name,
-      person.phone ? `Phone: ${person.phone}` : "",
-      person.email ? `Email: ${person.email}` : "",
-      address ? `Address: ${address}` : "",
-    ].filter(Boolean).join("\n");
-
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ text: contactLines, title: person.name });
-        setMoreMessage("Contact shared.");
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-      }
-    }
-
-    await copyToClipboard(contactLines, "Contact");
-  };
-  const moreActions: Array<{ icon: ReactNode; label: string; onClick: () => void }> = [
-    {
-      icon: <Share2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />,
-      label: "Share Contact",
-      onClick: () => { void shareContact(); },
-    },
-    ...(person.phone ? [{
-      icon: <Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />,
-      label: "Copy Phone",
-      onClick: () => { void copyToClipboard(person.phone, "Phone"); },
-    }] : []),
-    ...(person.email ? [{
-      icon: <Copy className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />,
-      label: "Copy Email",
-      onClick: () => { void copyToClipboard(person.email ?? "", "Email"); },
-    }] : []),
-    ...(address ? [{
-      icon: <MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />,
-      label: "Open in Maps",
-      onClick: () => openAddressInMaps(address),
-    }] : []),
-  ];
-  useEffect(() => {
-    if (!isIntelligenceOpen || isPreview) {
-      return;
-    }
-
-    let ignore = false;
-
-    fetch(`/api/dos/circles/person/${person.id}?workspaceId=${encodeURIComponent(workspaceId)}`)
-      .then((response) => response.ok ? response.json() : null)
-      .then((result) => {
-        if (!ignore && Array.isArray(result?.history)) {
-          setIntelligenceHistory(result.history);
-        }
-      })
-      .catch(() => {
-        if (!ignore) {
-          setIntelligenceHistory([]);
-        }
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [isIntelligenceOpen, isPreview, person.id, workspaceId]);
-  const pinToCircle = async (circle: "field" | "seventy" | "three" | "twelve", locked = true) => {
-    if (isPreview) {
-      setPinMessage("Preview mode is read-only. Pins are not saved.");
-      return;
-    }
-
-    setPinMessage("Saving...");
-
-    try {
-      const response = await fetch("/api/dos/circles/override", {
-        body: JSON.stringify({
-          circle,
-          locked,
-          personId: person.id,
-          reason: locked ? "Pinned from person profile." : "",
-          workspaceId,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "PATCH",
-      });
-
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
-
-        throw new Error(typeof result.error === "string" ? result.error : "Unable to save pin.");
-      }
-
-      setPinMessage(locked ? `Pinned to ${circleDisplayName(circle)}.` : "Pin removed.");
-    } catch (error) {
-      setPinMessage(error instanceof Error ? error.message : "Unable to save pin.");
-    }
-  };
-
   return (
     <div className="absolute inset-0 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
@@ -4258,18 +4335,17 @@ function PersonDetailOverlay({
         <h2 className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
           {person.name}
         </h2>
-        <span className="mt-3 inline-flex max-w-[320px] items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-center text-xs font-semibold leading-5 text-[#1D4ED8]">
-          {relationshipLine(person)}
-        </span>
-      </section>
-
-      <section className="mx-auto mt-5 grid w-full max-w-[280px] grid-cols-2 gap-2">
-        <PersonQuickAction icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} href={person.phone ? `sms:${person.phone}` : undefined} onClick={person.phone ? undefined : onEdit}>
-          Text
-        </PersonQuickAction>
-        <PersonQuickAction icon={<MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} onClick={() => setIsMoreOpen(true)}>
-          More
-        </PersonQuickAction>
+        <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+          {headerPills.map((pill) => (
+            <span
+              className="inline-flex min-h-7 items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[11px] font-bold text-[#1D4ED8]"
+              key={pill}
+            >
+              {pill}
+            </span>
+          ))}
+        </div>
+        <p className="mt-2 text-xs font-medium text-[#64748B]">{lastMeetingLine}</p>
       </section>
 
       <div className="mt-5">
@@ -4279,18 +4355,22 @@ function PersonDetailOverlay({
       <div className="mt-5 grid gap-3">
         <DetailCard title="Contact Information">
           {person.phone ? (
-            <DetailRow
-              ariaLabel={`Call ${person.name}`}
-              href={`tel:${person.phone}`}
+            <ContactActionRow
+              actions={[
+                { href: `tel:${person.phone}`, label: "Call" },
+                { href: `sms:${person.phone}`, label: "Text" },
+              ]}
               icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+              label="Phone"
+              primaryHref={`tel:${person.phone}`}
               value={person.phone}
             />
           ) : null}
           {person.email ? (
-            <DetailRow
-              ariaLabel={`Email ${person.name}`}
-              href={`mailto:${person.email}`}
+            <ContactActionRow
               icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+              label="Email"
+              primaryHref={`mailto:${person.email}`}
               value={person.email}
             />
           ) : null}
@@ -4307,15 +4387,13 @@ function PersonDetailOverlay({
         </DetailCard>
 
         <DetailCard title="About">
-          <DetailRow label="Stewardship" value={relationshipLine(person)} />
+          <DetailRow label="Relationship Type" value={relationshipTypePill} />
+          <DetailRow label="Spiritual Journey" value={spiritualJourneyPill} />
           <DetailRow label="Context" value={relationshipContextLabel(person.relationshipContext)} />
-          <DetailRow label="Role" value={roleInMyLifeLabel(person.roleInMyLife)} />
-          <DetailRow label="Movement" value={discipleshipStageLabel(person.discipleshipStage)} />
           <DetailRow label="Engagement" value={relationshipScoreText(relationshipScore)} />
           {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
           {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
           {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
-          {!person.church && !defaults.occupation && !defaults.birthday ? <p className="text-sm text-[#64748B]">No details yet.</p> : null}
         </DetailCard>
 
         <DetailCard title="Activity">
@@ -4328,114 +4406,47 @@ function PersonDetailOverlay({
 
         <DetailCard title="Fruit Summary">
           <div className="grid grid-cols-2 gap-2">
-            <SummaryTile label="Latest Fruit" value={latestFruitEvent?.title || latestFruitEvent?.fruitType || "None yet"} />
-            <SummaryTile label="Follow Up Needed" value={hasFollowUpNeeded ? "Yes" : "No"} />
-            <SummaryTile label="Discipleship Status" value={hasDiscipleship ? "Active" : personMeetings.length >= 3 ? "Growing" : "Not yet"} />
-            <SummaryTile label="Multiplication Status" value={hasMultiplication ? "Started" : "Not yet"} />
+            <SummaryTile label="Latest Fruit" value={personFruitSummary.latestFruit} />
+            <SummaryTile label="Follow Up Needed" value={personFruitSummary.followUpNeeded} />
+            <SummaryTile label="Discipleship Status" value={personFruitSummary.discipleshipStatus} />
+            <SummaryTile label="Multiplication Status" value={personFruitSummary.multiplicationStatus} />
           </div>
         </DetailCard>
 
-        <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
-          <button
-            aria-expanded={isIntelligenceOpen}
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() => setIsIntelligenceOpen((current) => !current)}
-            type="button"
-          >
-            <span>
-              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-                Relationship Intelligence
-              </span>
-              <span className="mt-1 block text-sm font-semibold text-[#0F172A]">
-                Engagement: {relationshipScoreDisplay} · My Circle: {circleScore ? circleDisplayName(circleScore.circle) : "Field"}
-              </span>
-              {personMeetings.length && (!circleScore || circleScore.totalScore === 0) ? (
-                <span className="mt-1 block text-xs text-[#1D4ED8]">Meeting activity found. Score will refresh automatically.</span>
-              ) : null}
-            </span>
-            <ChevronRight className={`h-4 w-4 text-[#94A3B8] transition-transform ${isIntelligenceOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
-          </button>
-
-          {isIntelligenceOpen ? (
-            <div className="mt-4 border-t border-[#E2E8F0] pt-4">
-              {circleScore ? (
-                <div className="grid gap-3">
-                  <div className="grid grid-cols-3 gap-2">
-                    <StatTile label="Score" value={scoreLabel(circleScore.totalScore)} />
-                    <StatTile label="Circle" value={circleDisplayName(circleScore.circle)} />
-                    <StatTile label="Trust" value={scoreLabel(circleScore.confidenceScore)} />
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                      {circleScore.assignmentSource === "manual" ? "Manual" : "Automatic"}
-                    </span>
-                    {Object.entries(circleScore.breakdown).map(([key, value]) => (
-                      <span className="rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={key}>
-                        {key.replace(/([A-Z])/g, " $1")} {scoreLabel(value)}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{circleScore.explanation.summary}</p>
-                  {circleScore.explanation.positive_factors.length ? (
-                    <div className="grid gap-1.5">
-                      {circleScore.explanation.positive_factors.map((factor) => (
-                        <p className="text-xs leading-5 text-[#64748B]" key={factor}>+ {factor}</p>
-                      ))}
-                    </div>
-                  ) : null}
-                  {circleScore.explanation.negative_factors.length ? (
-                    <div className="grid gap-1.5">
-                      {circleScore.explanation.negative_factors.map((factor) => (
-                        <p className="text-xs leading-5 text-[#1D4ED8]" key={factor}>Needs focus · {factor}</p>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="grid grid-cols-2 gap-2">
-                    {(["three", "twelve", "seventy", "field"] as const).map((circle) => (
-                      <button
-                        className="min-h-10 rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-3 text-xs font-bold text-[#0F172A]"
-                        key={circle}
-                        onClick={() => { void pinToCircle(circle); }}
-                        type="button"
-                      >
-                        Pin {circleDisplayName(circle)}
-                      </button>
-                    ))}
-                    {circleScore.assignmentSource === "manual" ? (
-                      <button
-                        className="col-span-2 min-h-10 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]"
-                        onClick={() => { void pinToCircle(circleScore.circle, false); }}
-                        type="button"
-                      >
-                        Remove Pin
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="grid gap-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-                      Movement History
-                    </p>
-                    {intelligenceHistory.length ? intelligenceHistory.slice(0, 4).map((item) => (
-                      <div className="rounded-2xl bg-[#F1F5F9] p-3" key={`${item.calculatedAt}-${item.newScore}`}>
-                        <p className="text-xs font-semibold text-[#0F172A]">
-                          {item.previousCircle ? `${circleDisplayName(item.previousCircle)} -> ` : ""}{circleDisplayName(item.newCircle)}
-                        </p>
-                        <p className="mt-1 text-[11px] text-[#64748B]">
-                          {item.previousScore === null ? "New score" : `${scoreLabel(item.previousScore)} -> ${scoreLabel(item.newScore)}`} · {formatDate(item.calculatedAt)}
-                        </p>
-                      </div>
-                    )) : (
-                      <p className="text-xs text-[#64748B]">No movement history yet.</p>
-                    )}
-                  </div>
-                  {pinMessage ? <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{pinMessage}</p> : null}
-                </div>
-              ) : (
-                <p className="text-sm text-[#64748B]">Recalculate circles to score this relationship.</p>
-              )}
+        <DetailCard title="Relationship Snapshot">
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              <SummaryTile label="Current Circle" value={currentCircleLabel} />
+              <SummaryTile label="Engagement" value={relationshipScoreText(relationshipScore)} />
+              <SummaryTile label="Last Meeting" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
+              <SummaryTile label="Next Step" value={snapshotNextStep} />
             </div>
-          ) : null}
-        </section>
+
+            {personMeetings.length > 0 && (!circleScore || circleScore.totalScore === 0) ? (
+              <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">Meeting activity found. Circle placement will refresh automatically.</p>
+            ) : null}
+
+            <button
+              aria-expanded={isSnapshotOpen}
+              className="flex min-h-10 items-center justify-between rounded-full bg-[#F1F5F9] px-3 text-left text-xs font-bold text-[#0F172A]"
+              onClick={() => setIsSnapshotOpen((current) => !current)}
+              type="button"
+            >
+              Why this circle?
+              <ChevronRight className={`h-4 w-4 text-[#94A3B8] transition-transform ${isSnapshotOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
+            </button>
+
+            {isSnapshotOpen ? (
+              <div className="grid gap-2 rounded-2xl bg-[#F8FAFC] p-3">
+                {relationshipSnapshotReasons.length ? relationshipSnapshotReasons.map((reason) => (
+                  <p className="text-xs leading-5 text-[#64748B]" key={reason}>+ {reason}</p>
+                )) : (
+                  <p className="text-xs leading-5 text-[#64748B]">Log meetings and discipleship activity to help DOS place this relationship.</p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </DetailCard>
 
         <div ref={fruitSectionRef}>
           <DetailCard title="Fruit Timeline">
@@ -4512,26 +4523,6 @@ function PersonDetailOverlay({
           </DetailCard>
         </div>
       </div>
-
-      {isMoreOpen ? (
-        <MobileBottomSheet onClose={() => setIsMoreOpen(false)} subtitle={person.name} title="More">
-          <div className="grid gap-3">
-            <ActionList>
-              {moreActions.map((action, actionIndex) => (
-                <ActionListRow
-                  icon={action.icon}
-                  isLast={actionIndex === moreActions.length - 1}
-                  key={action.label}
-                  onClick={action.onClick}
-                >
-                  {action.label}
-                </ActionListRow>
-              ))}
-            </ActionList>
-            {moreMessage ? <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{moreMessage}</p> : null}
-          </div>
-        </MobileBottomSheet>
-      ) : null}
     </div>
   );
 }
@@ -4857,6 +4848,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const people = data.people;
+  const fruitDashboardStories = useMemo(() => approvedFruitStories(data.fruit, data.fruitEvents, people), [data.fruit, data.fruitEvents, people]);
+  const fruitThemes = useMemo(() => fruitThemeChips(fruitDashboardStories, isPreview), [fruitDashboardStories, isPreview]);
+  const fruitMetrics = useMemo(() => kingdomFruitMetrics(people, fruitDashboardStories), [fruitDashboardStories, people]);
   const latestMeeting = data.meetings[0];
   const latestFruitActivity = useMemo(() => {
     const fruitItems = [
@@ -5698,6 +5692,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <Search className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
                 </button>
               </div>
+            ) : activeTab === "fruit" ? (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                  Matthew 7:16
+                </p>
+                <h1 className="mt-1 text-[34px] font-bold leading-tight tracking-tight text-[#0F172A]">My Fruit</h1>
+                <p className="mt-1 max-w-[292px] text-[13px] leading-5 text-[#64748B]">By their fruit you will recognize them.</p>
+              </div>
             ) : (
               <>
                 <div className="min-w-0 pr-16">
@@ -5859,13 +5861,33 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             ) : null}
 
             {activeTab === "fruit" ? (
-              <div>
-              <SectionHeading action={<CompactButton icon="fruit" onClick={() => openForm("fruit")}>Record</CompactButton>} title="Fruit" />
-              {visibleFruit.length ? (
-                <div className="grid gap-3">{visibleFruit.map((fruit) => <FruitCard fruit={fruit} key={fruit.id} people={people} />)}</div>
-              ) : (
-                <EmptyState action={<CompactButton icon="fruit" onClick={() => openForm("fruit")}>Record Fruit</CompactButton>} text="Record what changed when you see spiritual movement." title="No fruit recorded yet." />
-              )}
+              <div className="space-y-5">
+                <FruitTreeCard storyCount={fruitDashboardStories.length} themes={fruitThemes} />
+
+                <section>
+                  <SectionHeading title="Kingdom Fruit" />
+                  <div className="grid grid-cols-2 gap-2">
+                    {fruitMetrics.map((metric) => (
+                      <KingdomFruitMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <SectionHeading title="Recent Fruit" />
+                  {fruitDashboardStories.length ? (
+                    <div className="grid gap-3">
+                      {fruitDashboardStories.slice(0, 6).map((story) => (
+                        <RecentFruitStoryCard key={story.id} story={story} />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState
+                      text="Approved fruit from meetings, reviews, and stories will appear here."
+                      title="No fruit visible yet."
+                    />
+                  )}
+                </section>
               </div>
             ) : null}
 
@@ -5965,12 +5987,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         ) : null}
 
         {selectedPerson ? (
-          <PersonDetailOverlay
-            fruitEvents={data.fruitEvents}
-            index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
-            isPreview={isPreview}
-            leaderReflections={data.leaderReflections}
-            meetings={data.meetings}
+            <PersonDetailOverlay
+              fruitEvents={data.fruitEvents}
+              fruitItems={data.fruit}
+              index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
+              leaderReflections={data.leaderReflections}
+              meetings={data.meetings}
             onBack={() => setSelectedPersonId(null)}
             onDeleteFruitEvent={handleDeleteFruitEvent}
             onEdit={() => openPersonEdit(selectedPerson)}
@@ -5978,11 +6000,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onOpenMeeting={openMeetingDetail}
             onUpdateFruitEvent={handleUpdateFruitEvent}
             participantReviews={data.participantReviews}
-            participantTestimonies={data.participantTestimonies}
-            person={selectedPerson}
-            circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
-            workspaceId={data.workspace.id}
-          />
+              participantTestimonies={data.participantTestimonies}
+              person={selectedPerson}
+              circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
+            />
         ) : null}
 
         {selectedMeetingWithReview ? (

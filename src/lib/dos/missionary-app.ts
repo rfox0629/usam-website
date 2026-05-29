@@ -82,6 +82,7 @@ export type DosAppPerson = {
   church: string | null;
   createdAt: string | null;
   discipleshipStage: DiscipleshipStageValue;
+  rawDiscipleshipStage?: string | null;
   email: string | null;
   engagementLevel: string | null;
   id: string;
@@ -101,7 +102,9 @@ export type DosAppMeeting = {
   conversationResponses: DosConversationResponses;
   date: string | null;
   fieldPersonIds: string[];
+  followUpNeeded?: boolean | string | null;
   id: string;
+  movementStep?: string | null;
   notes: string | null;
   participantNames: string[];
   recommendedResources: DosRecommendedResource[];
@@ -300,9 +303,10 @@ type ConnectionLogRow = {
   connection_date: string | null;
   created_at?: string | null;
   field_person_id: string | null;
-  follow_up_needed: string | null;
+  follow_up_needed: boolean | string | null;
   id: string;
   interaction_type: string | null;
+  movement_step?: string | null;
   notes: string | null;
   updated_at: string | null;
 };
@@ -597,21 +601,50 @@ async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspace
 }
 
 async function loadConnectionLogsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const connectionSelect = "id, field_person_id, connection_date, interaction_type, notes, follow_up_needed, movement_step, created_at, updated_at";
+  const legacyConnectionSelect = "id, field_person_id, connection_date, interaction_type, notes, follow_up_needed, created_at, updated_at";
   const scopedResult = await supabase
     .from("missionary_connection_logs")
-    .select("id, field_person_id, connection_date, interaction_type, notes, follow_up_needed, created_at, updated_at")
+    .select(connectionSelect)
     .or(workspaceScopeFilter(workspaceId))
     .order("connection_date", { ascending: false })
     .order("created_at", { ascending: false });
 
+  if (scopedResult.error && isMissingColumnError(scopedResult.error) && !isMissingWorkspaceScopeColumn(scopedResult.error)) {
+    const legacyScopedResult = await supabase
+      .from("missionary_connection_logs")
+      .select(legacyConnectionSelect)
+      .or(workspaceScopeFilter(workspaceId))
+      .order("connection_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    return legacyScopedResult.error && isMissingWorkspaceScopeColumn(legacyScopedResult.error)
+      ? supabase
+        .from("missionary_connection_logs")
+        .select(legacyConnectionSelect)
+        .eq("household_id", workspaceId)
+        .order("connection_date", { ascending: false })
+        .order("created_at", { ascending: false })
+      : legacyScopedResult;
+  }
+
   const result = scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
     ? await supabase
       .from("missionary_connection_logs")
-      .select("id, field_person_id, connection_date, interaction_type, notes, follow_up_needed, created_at, updated_at")
+      .select(connectionSelect)
       .eq("household_id", workspaceId)
       .order("connection_date", { ascending: false })
       .order("created_at", { ascending: false })
     : scopedResult;
+
+  if (result.error && isMissingColumnError(result.error)) {
+    return supabase
+      .from("missionary_connection_logs")
+      .select(legacyConnectionSelect)
+      .eq("household_id", workspaceId)
+      .order("connection_date", { ascending: false })
+      .order("created_at", { ascending: false });
+  }
 
   return result.error && isMissingWorkflowTable(result.error, "missionary_connection_logs")
     ? { data: [], error: null }
@@ -939,6 +972,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       name: person.name,
       notes: person.notes,
       phone: person.phone,
+      rawDiscipleshipStage: person.discipleship_stage,
       relationshipContext: relationshipModel.relationshipContext,
       relationshipType: person.relationship_type,
       roleInMyLife: relationshipModel.roleInMyLife,
@@ -972,7 +1006,9 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       conversationFlowKey: "none" as const,
       conversationResponses: {},
       fieldPersonIds: connection.field_person_id ? [connection.field_person_id] : [],
+      followUpNeeded: connection.follow_up_needed,
       id: `connection-${connection.id}`,
+      movementStep: connection.movement_step ?? null,
       notes: connection.notes,
       participantNames: connection.field_person_id && peopleById.has(connection.field_person_id)
         ? [peopleById.get(connection.field_person_id) as string]

@@ -1,10 +1,10 @@
 export const relationshipContextOptions = [
   { label: "Family", value: "family" },
+  { label: "Friend", value: "friend" },
   { label: "Work", value: "work" },
   { label: "Church", value: "church" },
-  { label: "Friend", value: "friend" },
-  { label: "Outreach", value: "outreach" },
   { label: "Community", value: "community" },
+  { label: "Outreach", value: "outreach" },
   { label: "Other", value: "other" },
 ] as const;
 
@@ -19,7 +19,7 @@ export const roleInMyLifeOptions = [
 export const discipleshipStageOptions = [
   { label: "Not Started", value: "not_started" },
   { label: "Exploring", value: "exploring" },
-  { label: "Walking With", value: "walking_with" },
+  { label: "Walking With Jesus", value: "walking_with" },
   { label: "Discipling", value: "discipling" },
   { label: "Disciple Maker", value: "disciple_maker" },
 ] as const;
@@ -311,9 +311,12 @@ export function relationshipModelFromFields(fields: {
 }
 
 export function relationshipModelSummary(model: DosRelationshipModel) {
+  const relationshipType = relationshipTypeFromModel(model);
+  const relationshipTypeLabel = relationshipTypeOptions.find((option) => option.value === relationshipType)?.label ?? "New";
+
   return [
+    relationshipTypeLabel,
     relationshipContextLabel(model.relationshipContext),
-    roleInMyLifeLabel(model.roleInMyLife),
     discipleshipStageLabel(model.discipleshipStage),
   ].join(" · ");
 }
