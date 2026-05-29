@@ -3444,35 +3444,60 @@ function RelationshipContextPicker({
   onChange: (value: DosRelationshipModel) => void;
   value: DosRelationshipModel;
 }) {
-  return (
-    <fieldset>
-      <FieldLabel>Relationship Context</FieldLabel>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {relationshipContextOptions.map((option) => {
-          const selected = value.relationshipContext === option.value;
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = relationshipContextOptions.find((option) => option.value === value.relationshipContext) ?? relationshipContextOptions[relationshipContextOptions.length - 1];
 
-          return (
-            <label
-              className={`relative inline-flex min-h-10 cursor-pointer items-center rounded-full border px-3 text-xs font-bold transition-colors ${
-                selected
-                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                  : "border-[#E2E8F0] bg-white text-[#475569] hover:border-[#BFDBFE]"
-              }`}
-              key={option.value}
-            >
-              <input
-                checked={selected}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                name="relationship_context"
-                onChange={() => onChange({ ...value, relationshipContext: option.value })}
-                type="radio"
-                value={option.value}
-              />
-              {option.label}
-            </label>
-          );
-        })}
-      </div>
+  return (
+    <fieldset className="overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white">
+      <button
+        aria-expanded={isOpen}
+        className="flex min-h-[56px] w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25"
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span className="min-w-0">
+          <FieldLabel>Relationship Context</FieldLabel>
+          <span className="mt-1 block truncate text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
+        </span>
+        <ChevronRight
+          className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`}
+          aria-hidden="true"
+          strokeWidth={1.9}
+        />
+      </button>
+      {isOpen ? (
+        <div className="grid grid-cols-2 gap-2 border-t border-[#E2E8F0] bg-[#F8FAFC] p-2">
+          {relationshipContextOptions.map((option) => {
+            const selected = value.relationshipContext === option.value;
+
+            return (
+              <button
+                className={`relative flex min-h-10 items-center justify-between gap-2 rounded-2xl border px-3 text-left text-xs font-bold transition-colors ${
+                  selected
+                    ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                    : "border-[#E2E8F0] bg-white text-[#475569] hover:border-[#BFDBFE]"
+                }`}
+                key={option.value}
+                onClick={() => {
+                  onChange({ ...value, relationshipContext: option.value });
+                  setIsOpen(false);
+                }}
+                type="button"
+              >
+                <span className="min-w-0 truncate">{option.label}</span>
+                <span
+                  className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                    selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {selected ? <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" /> : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </fieldset>
   );
 }
@@ -3489,18 +3514,17 @@ function RelationshipScorePicker({
 
   return (
     <fieldset>
-      <FieldLabel>Commitment Level</FieldLabel>
       <input name="engagement_score" type="hidden" value={relationshipScoreLabel(value)} />
-      <div className="relative mt-2">
+      <div className="relative">
         <button
           aria-expanded={isOpen}
-          className="flex min-h-[64px] w-full items-center justify-between gap-3 rounded-[18px] border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:border-[#BFDBFE] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25"
+          className="flex min-h-[56px] w-full items-center justify-between gap-3 rounded-[18px] border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25"
           onClick={() => setIsOpen((current) => !current)}
           type="button"
         >
           <span className="min-w-0">
-            <span className="block text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
-            <span className="mt-1 block text-xs leading-5 text-[#64748B]">{selectedOption.helper}</span>
+            <FieldLabel>Commitment Level</FieldLabel>
+            <span className="mt-1 block truncate text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
           </span>
           <ChevronRight
             className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`}
@@ -3609,7 +3633,6 @@ function AdditionalPersonInformation({
       <section className="grid gap-2">
         <div>
           <FieldLabel>Extra Details</FieldLabel>
-          <p className="mt-1 text-xs leading-5 text-[#64748B]">Add details now or fill them in later.</p>
         </div>
         {fields}
       </section>
@@ -3626,7 +3649,6 @@ function AdditionalPersonInformation({
       >
         <span>
           <span className="block text-sm font-bold text-[#0F172A]">Additional Information</span>
-          <span className="mt-1 block text-xs leading-5 text-[#64748B]">Add details now or fill them in later.</span>
         </span>
         <span className={`text-lg leading-none text-[#94A3B8] transition-transform ${isOpen ? "rotate-45" : ""}`} aria-hidden="true">
           +
