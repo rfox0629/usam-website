@@ -5825,27 +5825,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "people" ? (
               <div>
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+                <div className="flex items-center gap-2">
+                  <h2 className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
                     People
                   </h2>
                   <button
-                    className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-2.5 text-[11px] font-semibold text-[#475569] transition-colors hover:border-[#BFDBFE] hover:text-[#2563EB]"
+                    className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-3 text-xs font-bold text-white shadow-[0_8px_18px_rgba(37,99,235,0.2)] transition-colors hover:brightness-[0.98]"
+                    onClick={() => openForm("person")}
+                    type="button"
+                  >
+                    + Add Person
+                  </button>
+                  <button
+                    className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-2.5 text-[11px] font-semibold text-[#475569] transition-colors hover:border-[#BFDBFE] hover:text-[#2563EB]"
                     onClick={() => setIsPeopleImportOpen(true)}
                     type="button"
                   >
-                    <Icon name="upload" size={12} />
-                    Import
+                    + Import CSV
                   </button>
                 </div>
-                <button
-                  className="mx-auto mt-2 flex min-h-11 w-[76%] max-w-[250px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_10px_22px_rgba(37,99,235,0.2)] transition-colors hover:brightness-[0.98]"
-                  onClick={() => openForm("person")}
-                  type="button"
-                >
-                  <Icon name="add" size={14} />
-                  Add Person
-                </button>
                 <div className="mt-3">
                   <SearchField label="Find Person" onChange={setPeopleQuery} placeholder="Search by name, phone, or relationship" value={peopleQuery} />
                 </div>
