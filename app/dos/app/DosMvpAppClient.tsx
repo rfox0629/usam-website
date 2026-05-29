@@ -3556,7 +3556,7 @@ function RelationshipScorePicker({
           type="button"
         >
           <span className="min-w-0">
-            <FieldLabel>Commitment Level</FieldLabel>
+            <FieldLabel>Engagement Level</FieldLabel>
             <span className="mt-1 block truncate text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
           </span>
           <ChevronRight
@@ -4369,6 +4369,7 @@ function PersonDetailOverlay({
   const mapHref = address ? mapsHrefForAddress(address) : "";
   const hasHouseholdContext = hasHouseholdDetails(person);
   const relationshipScore = relationshipScoreFromEngagementLevel(person.engagementLevel);
+  const engagementLevelLabel = commitmentLevelOptions.find((option) => option.value === relationshipScore)?.label ?? relationshipScoreText(relationshipScore);
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
   const personReviews = personMeetings.filter((meeting) => meeting.review.status !== "not_sent" && meeting.review.status !== "pending");
   const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || personMeetings.some((meeting) => meeting.id === review.meetingId));
@@ -4392,15 +4393,16 @@ function PersonDetailOverlay({
   const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
   const reflectionNextStep = personReflections.find((reflection) => reflection.nextStep?.trim())?.nextStep?.trim();
   const snapshotNextStep = reflectionNextStep
-    ?? (personFruitSummary.followUpNeeded === "Yes" ? "Send follow up" : personMeetings.length ? "Schedule another meeting" : "Log the first meeting");
-  const explanationPositiveFactors = circleScore?.explanation.positive_factors ?? [];
-  const hasMeetingSnapshotReason = explanationPositiveFactors.some((reason) => /meeting/i.test(reason));
+    ?? (personFruitSummary.followUpNeeded === "Yes" ? "Send follow up" : personMeetings.length ? "Schedule meeting" : "Log first meeting");
+  const overviewNotes = defaults.notes?.trim() ?? "";
+  const completedGuidedMeetings = personMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
   const relationshipSnapshotReasons = Array.from(new Set([
-    ...explanationPositiveFactors,
-    !hasMeetingSnapshotReason && personMeetings.length >= 3 ? `${personMeetings.length} meetings logged recently` : "",
-    relationshipScore > 0 ? `${relationshipScoreText(relationshipScore)} engagement` : "",
-    person.discipleshipStage !== "not_started" ? `${spiritualJourneyPill} discipleship movement` : "",
-    personFruitEvents.length ? `${personFruitEvents.length} fruit signal${personFruitEvents.length === 1 ? "" : "s"} logged` : "",
+    personMeetings.length ? `${personMeetings.length} meeting${personMeetings.length === 1 ? "" : "s"} logged` : "",
+    completedGuidedMeetings ? `${completedGuidedMeetings} guided conversation${completedGuidedMeetings === 1 ? "" : "s"} completed` : "",
+    relationshipTypePill !== "New" ? "Active discipleship relationship" : "",
+    person.discipleshipStage !== "not_started" ? `${spiritualJourneyPill} journey stage` : "",
+    relationshipScore !== 0 ? `Engagement marked ${engagementLevelLabel}` : "",
+    personFruitEvents.length ? `${personFruitEvents.length} fruit event${personFruitEvents.length === 1 ? "" : "s"} recorded` : "",
   ].filter((reason): reason is string => Boolean(reason)))).slice(0, 3);
   const scrollToSection = (section: "fruit" | "meetings" | "reflections" | "reviews" | "testimonies") => {
     const sectionRef = {
@@ -4482,6 +4484,47 @@ function PersonDetailOverlay({
       <div className="mt-3 grid gap-3">
         {activeDetailTab === "overview" ? (
           <>
+            <DetailCard title="Relationship Snapshot">
+              <div className="grid grid-cols-2 gap-2">
+                <SummaryTile label="Relationship Type" value={relationshipTypePill} />
+                <SummaryTile label="Spiritual Journey" value={spiritualJourneyPill} />
+                <SummaryTile label="Engagement Level" value={engagementLevelLabel} />
+                <SummaryTile label="Current Circle" value={currentCircleLabel} />
+                <SummaryTile label="Last Meeting" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
+                <SummaryTile label="Next Step" value={snapshotNextStep} />
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[11px] font-bold text-[#1D4ED8]">
+                  {relationshipContextLabel(person.relationshipContext)}
+                </span>
+              </div>
+
+              {personMeetings.length > 0 && (!circleScore || circleScore.totalScore === 0) ? (
+                <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">Meeting activity found. Circle placement will refresh automatically.</p>
+              ) : null}
+
+              <button
+                aria-expanded={isSnapshotOpen}
+                className="flex min-h-10 items-center justify-between rounded-full bg-[#F1F5F9] px-3 text-left text-xs font-bold text-[#0F172A]"
+                onClick={() => setIsSnapshotOpen((current) => !current)}
+                type="button"
+              >
+                Why this circle?
+                <ChevronRight className={`h-4 w-4 text-[#94A3B8] transition-transform ${isSnapshotOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
+              </button>
+
+              {isSnapshotOpen ? (
+                <div className="grid gap-2 rounded-2xl bg-[#F8FAFC] p-3">
+                  {relationshipSnapshotReasons.length ? relationshipSnapshotReasons.map((reason) => (
+                    <p className="text-xs leading-5 text-[#64748B]" key={reason}>+ {reason}</p>
+                  )) : (
+                    <p className="text-xs leading-5 text-[#64748B]">Log meetings and discipleship activity to help DOS place this relationship.</p>
+                  )}
+                </div>
+              ) : null}
+            </DetailCard>
+
             <DetailCard title="Contact Information">
               {person.phone ? (
                 <ContactActionRow
@@ -4512,66 +4555,15 @@ function PersonDetailOverlay({
                   value={address}
                 />
               ) : null}
-              {!person.phone && !person.email && !address ? <p className="text-sm text-[#64748B]">No contact details yet.</p> : null}
-            </DetailCard>
-
-            <DetailCard title="About">
-              <DetailRow label="Relationship Type" value={relationshipTypePill} />
-              <DetailRow label="Spiritual Journey" value={spiritualJourneyPill} />
-              <DetailRow label="Context" value={relationshipContextLabel(person.relationshipContext)} />
-              <DetailRow label="Commitment" value={relationshipScoreText(relationshipScore)} />
               {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
               {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
               {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
+              {!person.phone && !person.email && !address && !person.church && !defaults.occupation && !defaults.birthday ? <p className="text-sm text-[#64748B]">No contact details yet.</p> : null}
             </DetailCard>
 
-            <DetailCard title="Latest Snapshot">
-              <div className="grid gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <SummaryTile label="Current Circle" value={currentCircleLabel} />
-                  <SummaryTile label="Commitment" value={relationshipScoreText(relationshipScore)} />
-                  <SummaryTile label="Last Meeting" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
-                  <SummaryTile label="Next Step" value={snapshotNextStep} />
-                </div>
-
-                {personMeetings.length > 0 && (!circleScore || circleScore.totalScore === 0) ? (
-                  <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">Meeting activity found. Circle placement will refresh automatically.</p>
-                ) : null}
-
-                <button
-                  aria-expanded={isSnapshotOpen}
-                  className="flex min-h-10 items-center justify-between rounded-full bg-[#F1F5F9] px-3 text-left text-xs font-bold text-[#0F172A]"
-                  onClick={() => setIsSnapshotOpen((current) => !current)}
-                  type="button"
-                >
-                  Why this circle?
-                  <ChevronRight className={`h-4 w-4 text-[#94A3B8] transition-transform ${isSnapshotOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
-                </button>
-
-                {isSnapshotOpen ? (
-                  <div className="grid gap-2 rounded-2xl bg-[#F8FAFC] p-3">
-                    {relationshipSnapshotReasons.length ? relationshipSnapshotReasons.map((reason) => (
-                      <p className="text-xs leading-5 text-[#64748B]" key={reason}>+ {reason}</p>
-                    )) : (
-                      <p className="text-xs leading-5 text-[#64748B]">Log meetings and discipleship activity to help DOS place this relationship.</p>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            </DetailCard>
-
-            <DetailCard title="Latest Fruit">
-              <div className="grid grid-cols-2 gap-2">
-                <SummaryTile label="Latest Fruit" value={personFruitSummary.latestFruit} />
-                <SummaryTile label="Follow Up Needed" value={personFruitSummary.followUpNeeded} />
-              </div>
-            </DetailCard>
-
-            {hasHouseholdContext ? (
-              <DetailCard title="Household Summary">
-                {person.spouseName ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Spouse" value={person.spouseName} /> : null}
-                {person.childrenNames ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Children" value={person.childrenNames} /> : null}
-                {person.householdNotes ? <DetailRow label="Notes" value={person.householdNotes} /> : null}
+            {overviewNotes ? (
+              <DetailCard title="Notes">
+                <p className="whitespace-pre-line text-sm leading-6 text-[#0F172A]">{overviewNotes}</p>
               </DetailCard>
             ) : null}
           </>
