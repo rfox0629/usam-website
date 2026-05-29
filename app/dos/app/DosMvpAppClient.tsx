@@ -1169,6 +1169,23 @@ function SectionHeading({
   );
 }
 
+function TabPageHeader({
+  action,
+  title,
+}: {
+  action?: ReactNode;
+  title: string;
+}) {
+  return (
+    <header className="flex min-h-10 items-center justify-between gap-3">
+      <h1 className="text-[18px] font-black uppercase tracking-[0.14em] text-[#0F172A]" style={{ fontFamily: font.rajdhani }}>
+        {title}
+      </h1>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </header>
+  );
+}
+
 function LibrarySection({
   children,
   subtext,
@@ -5830,54 +5847,29 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#FAFBFD] text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:py-6">
       <div className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-[#FAFBFD] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]">
         <div className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none]">
-          <header className="relative">
-            {activeTab === "more" ? (
-              <div>
+          {activeTab === "home" ? (
+            <header className="relative">
+              <div className="min-w-0 pr-16">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                  Library
+                  DOS
                 </p>
-                <h1 className="mt-1 text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">Resources</h1>
-                <p className="mt-1 text-[13px] leading-5 text-[#64748B]">For conversations and follow up.</p>
-                <button
-                  aria-label="Search library"
-                  className="absolute right-0 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-[#0F172A] transition-colors hover:border-[#E2E8F0] hover:bg-white"
-                  type="button"
-                >
-                  <Search className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
-                </button>
+                <h1 className="mt-1 max-w-[270px] text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">
+                  {timeGreeting}, {greetingName}.
+                </h1>
+                <p className="mt-1 max-w-[292px] text-[12.5px] font-medium leading-4 text-[#64748B]">{homeSubtitle}</p>
               </div>
-            ) : activeTab === "fruit" ? (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                  Matthew 7:16
-                </p>
-                <h1 className="mt-1 text-[34px] font-bold leading-tight tracking-tight text-[#0F172A]">My Fruit</h1>
-                <p className="mt-1 max-w-[292px] text-[13px] leading-5 text-[#64748B]">By their fruit you will recognize them.</p>
-              </div>
-            ) : (
-              <>
-                <div className="min-w-0 pr-16">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                    DOS
-                  </p>
-                  <h1 className="mt-1 max-w-[270px] text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">
-                    {timeGreeting}, {greetingName}.
-                  </h1>
-                  <p className="mt-1 max-w-[292px] text-[12.5px] font-medium leading-4 text-[#64748B]">{homeSubtitle}</p>
-                </div>
-                <button
-                  aria-label="Open profile"
-                  className="absolute right-0 top-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/35"
-                  onClick={() => setIsProfileOpen(true)}
-                  type="button"
-                >
-                  <UserProfileAvatar imageUrl={data.workspace.profileImageUrl} name={profileName} />
-                </button>
-              </>
-            )}
-          </header>
+              <button
+                aria-label="Open profile"
+                className="absolute right-0 top-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/35"
+                onClick={() => setIsProfileOpen(true)}
+                type="button"
+              >
+                <UserProfileAvatar imageUrl={data.workspace.profileImageUrl} name={profileName} />
+              </button>
+            </header>
+          ) : null}
 
-          <main className={activeTab === "more" ? "mt-5" : "mt-7"}>
+          <main className={activeTab === "home" ? "mt-7" : undefined}>
             {activeTab === "home" ? (
               <div className="space-y-5">
                 <CircleFocusHero
@@ -5961,12 +5953,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "people" ? (
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-                    People
-                  </h2>
+                <TabPageHeader title="People" />
+                <div className="mt-3 flex items-center gap-2">
                   <button
-                    className="inline-flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-xs font-bold text-white shadow-[0_8px_18px_rgba(37,99,235,0.2)] transition-colors hover:brightness-[0.98]"
+                    className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_rgba(37,99,235,0.22)] transition-colors hover:brightness-[0.98]"
                     onClick={() => openForm("person")}
                     type="button"
                   >
@@ -5974,12 +5964,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </button>
                   <button
                     aria-label="Import CSV"
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D7E3F8] bg-white text-[#2563EB] shadow-[0_6px_14px_rgba(15,23,42,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#D7E3F8] bg-white text-[#2563EB] shadow-[0_6px_14px_rgba(15,23,42,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
                     onClick={() => setIsPeopleImportOpen(true)}
                     title="Import CSV"
                     type="button"
                   >
-                    <Icon name="add" size={15} />
+                    <Icon name="add" size={16} />
                   </button>
                 </div>
                 <div className="mt-3">
@@ -6008,17 +5998,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "meetings" ? (
               <div>
-              <SectionHeading action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log</CompactButton>} title="Meetings" />
-              {data.meetings.length ? (
-                <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
-              ) : (
-                <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Meeting</CompactButton>} text="Capture the next conversation, table, call, or prayer moment." title="No meetings logged yet." />
-              )}
+                <TabPageHeader action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log</CompactButton>} title="Meetings" />
+                <div className="mt-4">
+                  {data.meetings.length ? (
+                    <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                  ) : (
+                    <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Meeting</CompactButton>} text="Capture the next conversation, table, call, or prayer moment." title="No meetings logged yet." />
+                  )}
+                </div>
               </div>
             ) : null}
 
             {activeTab === "fruit" ? (
               <div className="space-y-5">
+                <TabPageHeader title="Fruit" />
+                <section className="rounded-[24px] border border-[#DCEBFF] bg-white px-4 py-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.06)]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                    Matthew 7:16
+                  </p>
+                  <p className="mt-1 text-[13px] font-semibold leading-5 text-[#0F172A]">By their fruit you will recognize them.</p>
+                </section>
                 <FruitTreeCard storyCount={fruitDashboardStories.length} themes={fruitThemes} />
 
                 <section>
@@ -6050,67 +6049,74 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "more" ? (
               <div>
-              <div className="mb-6 flex flex-wrap gap-1.5">
-                {libraryFilters.map((filter) => {
-                  const isActive = libraryFilter === filter.value;
+                <TabPageHeader title="More" />
+                <section className="mt-4 rounded-[24px] border border-[#DCEBFF] bg-white px-4 py-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.06)]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                    Resources / Library
+                  </p>
+                  <p className="mt-1 text-[13px] leading-5 text-[#64748B]">For conversations and follow up.</p>
+                </section>
+                <div className="mb-6 mt-4 flex flex-wrap gap-1.5">
+                  {libraryFilters.map((filter) => {
+                    const isActive = libraryFilter === filter.value;
 
-                  return (
-                    <button
-                      className={`min-h-8 rounded-full border px-3 text-[11px] font-semibold transition-colors ${
-                        isActive
-                          ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white"
-                          : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#2563EB]"
-                      }`}
-                      key={filter.value}
-                      onClick={() => setLibraryFilter(filter.value)}
-                      type="button"
+                    return (
+                      <button
+                        className={`min-h-8 rounded-full border px-3 text-[11px] font-semibold transition-colors ${
+                          isActive
+                            ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white"
+                            : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#2563EB]"
+                        }`}
+                        key={filter.value}
+                        onClick={() => setLibraryFilter(filter.value)}
+                        type="button"
+                      >
+                        {filter.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-6">
+                  {showTableTeachings ? (
+                    <LibrarySection
+                      title="Table Teachings"
                     >
-                      {filter.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="space-y-6">
-                {showTableTeachings ? (
-                  <LibrarySection
-                    title="Table Teachings"
-                  >
-                    <div className="grid gap-3">
-                      <FeaturedTeachingCard
-                        description={featuredTableTeaching.description}
-                        href={featuredTableTeaching.href}
-                        title={featuredTableTeaching.title}
-                      />
-                      {secondaryTableTeachings.map((teaching) => (
-                        <TableTeachingRow
-                          description={teaching.description}
-                          href={teaching.href}
-                          key={teaching.href}
-                          title={teaching.title}
+                      <div className="grid gap-3">
+                        <FeaturedTeachingCard
+                          description={featuredTableTeaching.description}
+                          href={featuredTableTeaching.href}
+                          title={featuredTableTeaching.title}
                         />
-                      ))}
-                    </div>
-                  </LibrarySection>
-                ) : null}
+                        {secondaryTableTeachings.map((teaching) => (
+                          <TableTeachingRow
+                            description={teaching.description}
+                            href={teaching.href}
+                            key={teaching.href}
+                            title={teaching.title}
+                          />
+                        ))}
+                      </div>
+                    </LibrarySection>
+                  ) : null}
 
-                {showFollowUpResources ? (
-                  <LibrarySection
-                    subtext="To send after a conversation."
-                    title="Follow Up Resources"
+                  {showFollowUpResources ? (
+                    <LibrarySection
+                      subtext="To send after a conversation."
+                      title="Follow Up Resources"
+                    >
+                      <FollowUpGuideList />
+                    </LibrarySection>
+                  ) : null}
+                </div>
+                {data.workspace.isUsamWorkspace ? (
+                  <Link
+                    className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A]"
+                    href={data.workspace.publicProfileHref}
                   >
-                    <FollowUpGuideList />
-                  </LibrarySection>
+                    View Public Profile
+                  </Link>
                 ) : null}
-              </div>
-              {data.workspace.isUsamWorkspace ? (
-                <Link
-                  className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A]"
-                  href={data.workspace.publicProfileHref}
-                >
-                  View Public Profile
-                </Link>
-              ) : null}
               </div>
             ) : null}
           </main>
