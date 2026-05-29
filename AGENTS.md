@@ -222,6 +222,37 @@ For documentation-only changes, build is usually not required. Say clearly when 
 - For production auth or routing fixes, verify the exact production URL after deployment.
 - Never assume production is fixed just because local build passed.
 
+## Protected Preview Smoke Tests
+
+Vercel preview deployments may be protected by SSO or Deployment Protection.
+
+- Use the local-only `VERCEL_AUTOMATION_BYPASS_SECRET` in `.env.local` when smoke testing protected preview URLs.
+- Never commit, paste, log, screenshot, or expose the bypass secret.
+- If the secret is missing, generate or retrieve the project Protection Bypass for Automation token and add it to `.env.local`; do not deploy to production just to get around preview protection.
+- Prefer the HTTP header for scripts and CLI checks:
+
+```bash
+SECRET="$(awk -F= '/^VERCEL_AUTOMATION_BYPASS_SECRET=/{print substr($0,index($0,"=")+1)}' .env.local)"
+curl -I -H "x-vercel-protection-bypass: $SECRET" "$PREVIEW_URL/dos/app/preview?demo=dos2026"
+```
+
+- For browser smoke where custom headers are awkward, open the preview once with the bypass query and cookie setter:
+
+```text
+$PREVIEW_URL/dos/app/preview?demo=dos2026&x-vercel-protection-bypass=<secret>&x-vercel-set-bypass-cookie=true
+```
+
+- Do not print `Set-Cookie` headers while testing bypass cookies; the cookie is sensitive.
+- After the bypass cookie is set, smoke test the expected routes without fighting the SSO wall:
+  - `/dos/app/preview?demo=dos2026`
+  - `/dos/app?workspace=ryan-brooke-fox`
+  - `/admin/circle-engine`
+  - `/admin/relationship-intelligence`
+  - `/admin/login`
+- Prefer one automated Chrome smoke test across the critical routes above instead of repeatedly clicking through protected preview pages manually.
+- For DOS launch checks, also run a 390px mobile smoke and verify the Fruit tab, bottom nav, and horizontal overflow.
+- If a preview still returns `401` with the bypass header, treat the bypass setup as the blocker and fix that before testing app behavior.
+
 ## Coding Standards
 
 - Read existing code before changing it.
