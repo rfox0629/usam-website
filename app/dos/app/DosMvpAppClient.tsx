@@ -1993,9 +1993,48 @@ function CircleTarget({
         }`}
         aria-hidden="true"
       />
+      <svg
+        aria-hidden="true"
+        className="absolute inset-0 z-10 h-full w-full"
+        viewBox="0 0 172 172"
+      >
+        <circle
+          className="cursor-pointer"
+          cx="86"
+          cy="86"
+          fill="none"
+          onClick={() => onSelectCircle("seventy")}
+          onMouseEnter={() => setFocusedCircle("seventy")}
+          pointerEvents="stroke"
+          r="74"
+          stroke="transparent"
+          strokeWidth="24"
+        />
+        <circle
+          className="cursor-pointer"
+          cx="86"
+          cy="86"
+          fill="none"
+          onClick={() => onSelectCircle("twelve")}
+          onMouseEnter={() => setFocusedCircle("twelve")}
+          pointerEvents="stroke"
+          r="48"
+          stroke="transparent"
+          strokeWidth="34"
+        />
+        <circle
+          className="cursor-pointer"
+          cx="86"
+          cy="86"
+          fill="transparent"
+          onClick={() => onSelectCircle("three")}
+          onMouseEnter={() => setFocusedCircle("three")}
+          r="28"
+        />
+      </svg>
       <button
         aria-label={`Open My 70, ${my70Count} people`}
-        className="absolute inset-0 z-10 rounded-full text-center text-[#2563EB] transition-transform duration-200 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        className="absolute left-1/2 top-[1px] z-20 flex h-7 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[13px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/45 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("seventy");
@@ -2004,13 +2043,11 @@ function CircleTarget({
         onMouseEnter={() => setFocusedCircle("seventy")}
         type="button"
       >
-        <span className="absolute left-1/2 top-[1px] flex h-7 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-[13px] font-bold leading-none transition-colors duration-200 hover:bg-white/45">
-          70
-        </span>
+        70
       </button>
       <button
         aria-label={`Open My 12, ${my12Count} people`}
-        className="absolute left-1/2 top-1/2 z-20 h-[122px] w-[122px] -translate-x-1/2 -translate-y-1/2 rounded-full text-center text-[#2563EB] transition-transform duration-200 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        className="absolute left-1/2 top-[31px] z-20 flex h-7 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[13px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/45 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("twelve");
@@ -2019,9 +2056,7 @@ function CircleTarget({
         onMouseEnter={() => setFocusedCircle("twelve")}
         type="button"
       >
-        <span className="absolute left-1/2 top-[3px] flex h-7 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-[13px] font-bold leading-none transition-colors duration-200 hover:bg-white/45">
-          12
-        </span>
+        12
       </button>
       <button
         aria-label={`Open My 3, ${my3Count} people`}
@@ -4295,9 +4330,11 @@ function PersonDetailOverlay({
   const reflectionNextStep = personReflections.find((reflection) => reflection.nextStep?.trim())?.nextStep?.trim();
   const snapshotNextStep = reflectionNextStep
     ?? (personFruitSummary.followUpNeeded === "Yes" ? "Send follow up" : personMeetings.length ? "Schedule another meeting" : "Log the first meeting");
+  const explanationPositiveFactors = circleScore?.explanation.positive_factors ?? [];
+  const hasMeetingSnapshotReason = explanationPositiveFactors.some((reason) => /meeting/i.test(reason));
   const relationshipSnapshotReasons = Array.from(new Set([
-    ...(circleScore?.explanation.positive_factors ?? []),
-    personMeetings.length >= 3 ? `${personMeetings.length} meetings logged recently` : "",
+    ...explanationPositiveFactors,
+    !hasMeetingSnapshotReason && personMeetings.length >= 3 ? `${personMeetings.length} meetings logged recently` : "",
     relationshipScore > 0 ? `${relationshipScoreText(relationshipScore)} engagement` : "",
     person.discipleshipStage !== "not_started" ? `${spiritualJourneyPill} discipleship movement` : "",
     personFruitEvents.length ? `${personFruitEvents.length} fruit signal${personFruitEvents.length === 1 ? "" : "s"} logged` : "",

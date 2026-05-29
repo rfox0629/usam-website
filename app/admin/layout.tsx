@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAdminAuthorization } from "@/src/lib/admin-auth";
 import { signOutAdmin } from "../login/actions";
@@ -6,6 +7,18 @@ import { signOutAdmin } from "../login/actions";
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 export const dynamic = "force-dynamic";
+
+function adminLoginNextPath(pathname: string | null, search: string | null) {
+  if (!pathname?.startsWith("/admin")) {
+    return "/admin";
+  }
+
+  if (pathname === "/admin/login") {
+    return "/admin";
+  }
+
+  return `${pathname}${search?.startsWith("?") ? search : ""}`;
+}
 
 // /admin is the Command Center. Keep DOS mobile app layouts and route-specific
 // field workflow components out of this route; share only neutral primitives.
@@ -61,9 +74,14 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const authorization = await getAdminAuthorization();
+  const headersList = await headers();
+  const nextPath = adminLoginNextPath(
+    headersList.get("x-usam-pathname"),
+    headersList.get("x-usam-search"),
+  );
 
   if (authorization.status === "unauthenticated") {
-    redirect("/login?next=/admin");
+    redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
 
   if (authorization.status === "configuration_error") {

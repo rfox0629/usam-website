@@ -10,7 +10,7 @@ const adminNavGroups = [
       { activeKey: "dashboard", href: "/admin", icon: Activity, label: "Command Center" },
       { activeKey: "organizations", href: "/admin/organizations", icon: Building2, label: "Organizations" },
       { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", icon: Users, label: "Missionary Workspaces" },
-      { activeKey: "relationship-intelligence", href: "/admin/relationship-intelligence", icon: Network, label: "Circle Engine" },
+      { activeKey: "circle-engine", href: "/admin/circle-engine", icon: Network, label: "Circle Engine" },
       { activeKey: "public-experience", href: "/admin/public-experience", icon: Globe, label: "Public Experience" },
       { activeKey: "prayer", href: "/admin/prayer-team", icon: Heart, label: "Prayer Team" },
       { activeKey: "support-team", href: "/admin/support-team", icon: ShieldCheck, label: "Support Team" },
@@ -28,7 +28,7 @@ const adminNavGroups = [
 ] as const;
 
 type VisibleAdminNavKey = (typeof adminNavGroups)[number]["items"][number]["activeKey"];
-type HiddenAdminNavKey = "financial-freedom" | "forms-pages" | "inquiries" | "pages" | "stewardship" | "support";
+type HiddenAdminNavKey = "financial-freedom" | "forms-pages" | "inquiries" | "pages" | "relationship-intelligence" | "stewardship" | "support";
 
 export type AdminNavKey = VisibleAdminNavKey | HiddenAdminNavKey;
 
