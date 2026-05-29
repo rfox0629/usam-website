@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, Upload, User, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, User, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -25,19 +25,15 @@ import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/per
 import {
   defaultRelationshipModel,
   discipleshipStageLabel,
-  discipleshipStageOptions,
   relationshipContextLabel,
   relationshipContextOptions,
   relationshipModelFromRelationshipType,
   relationshipScoreFromEngagementLevel,
   relationshipScoreLabel,
-  relationshipScoreOptions,
   relationshipScoreText,
   relationshipTypeFromModel,
   relationshipTypeOptions,
-  type DiscipleshipStageValue,
   type DosRelationshipModel,
-  type RelationshipContextValue,
   type RelationshipScoreValue,
   type RelationshipTypeValue,
 } from "@/src/lib/dos/relationship-model";
@@ -72,6 +68,20 @@ const conversationFlowOptions: ReadonlyArray<{ helper?: string; label: string; v
     label: flow.title,
     value: flow.id,
   })),
+];
+
+const commitmentLevelOptions: ReadonlyArray<{
+  helper: string;
+  label: string;
+  value: RelationshipScoreValue;
+}> = [
+  { helper: "All in. No reservations. Has counted the cost.", label: "+3 Fully Committed", value: 3 },
+  { helper: "Following Jesus with some reservations. Currently counting the cost.", label: "+2 Committed", value: 2 },
+  { helper: "Desires to follow Jesus but struggles with competing priorities and distractions.", label: "+1 Seeking Commitment", value: 1 },
+  { helper: "Interested in spiritual things but not currently taking action.", label: "0 Interested", value: 0 },
+  { helper: "Often seeks God's help during difficulties but repeatedly encounters roadblocks.", label: "-1 Crisis Driven", value: -1 },
+  { helper: "Consumed by personal issues and rarely receptive to counsel or guidance.", label: "-2 Resistant", value: -2 },
+  { helper: "Refuses counsel. Refuses responsibility. Unwilling to consider change.", label: "-3 Hardened", value: -3 },
 ];
 
 const conversationYesNoOptions = [
@@ -113,7 +123,7 @@ type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "seventy" | "three" | "twelve";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | "reflection" | null;
-type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search";
+type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search" | "upload";
 type LibraryFilter = typeof libraryFilters[number]["value"];
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
 type MeetingCaptureDraft = {
@@ -265,6 +275,14 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
         <svg {...commonProps}>
           <circle cx="11" cy="11" r="6" />
           <path d="m16 16 4 4" />
+        </svg>
+      );
+    case "upload":
+      return (
+        <svg {...commonProps}>
+          <path d="M12 16V5" />
+          <path d="m8 9 4-4 4 4" />
+          <path d="M5 19h14" />
         </svg>
       );
     default:
@@ -2092,7 +2110,7 @@ function CircleFocusHero({
 
   return (
     <section className="rounded-[30px] bg-white px-5 py-5 shadow-[0_18px_48px_rgba(42,37,29,0.08)]">
-      <h2 className="max-w-[260px] text-[21px] font-bold leading-tight text-[#0F172A]">{headline}</h2>
+      <h2 className="mx-auto max-w-[260px] text-center text-[21px] font-bold leading-tight text-[#0F172A]">{headline}</h2>
 
       <CircleTarget my12Count={my12Count} my3Count={my3Count} my70Count={my70Count} onSelectCircle={onSelectCircle} />
 
@@ -3368,65 +3386,6 @@ function PeopleImportSheet({
   );
 }
 
-function RelationshipStewardshipGroup<T extends string>({
-  helper,
-  label,
-  name,
-  onChange,
-  options,
-  value,
-}: {
-  helper: string;
-  label: string;
-  name: string;
-  onChange: (value: T) => void;
-  options: ReadonlyArray<{ helper?: string; label: string; value: T }>;
-  value: T;
-}) {
-  return (
-    <fieldset>
-      <FieldLabel>{label}</FieldLabel>
-      <p className="mt-1 text-xs leading-5 text-[#64748B]">{helper}</p>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        {options.map((option) => {
-          const selected = value === option.value;
-
-          return (
-            <label
-              className={`relative flex min-h-[76px] cursor-pointer flex-col justify-between rounded-[18px] border p-3 transition-colors ${
-                selected
-                  ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
-                  : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE]"
-              }`}
-              key={option.value}
-            >
-              <input
-                checked={selected}
-                className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                name={name}
-                onChange={() => onChange(option.value)}
-                required
-                type="radio"
-                value={option.value}
-              />
-              <span className="pr-6 text-[13px] font-bold leading-tight text-[#0F172A] sm:text-sm">{option.label}</span>
-              {option.helper ? <span className="mt-1 text-[11px] leading-4 text-[#64748B]">{option.helper}</span> : null}
-              <span
-                className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${
-                  selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
-                }`}
-                aria-hidden="true"
-              >
-                {selected ? <span className="h-2 w-2 rounded-full bg-[#2563EB]" /> : null}
-              </span>
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
 function RelationshipTypePicker({
   onChange,
   value,
@@ -3487,33 +3446,35 @@ function RelationshipContextPicker({
   value: DosRelationshipModel;
 }) {
   return (
-    <RelationshipStewardshipGroup<RelationshipContextValue>
-      helper="How do I know this person?"
-      label="Relationship Context"
-      name="relationship_context"
-      onChange={(relationshipContext) => onChange({ ...value, relationshipContext })}
-      options={relationshipContextOptions}
-      value={value.relationshipContext}
-    />
-  );
-}
+    <fieldset>
+      <FieldLabel>Relationship Context</FieldLabel>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {relationshipContextOptions.map((option) => {
+          const selected = value.relationshipContext === option.value;
 
-function SpiritualJourneyPicker({
-  onChange,
-  value,
-}: {
-  onChange: (value: DosRelationshipModel) => void;
-  value: DosRelationshipModel;
-}) {
-  return (
-    <RelationshipStewardshipGroup<DiscipleshipStageValue>
-      helper="Where are they spiritually right now?"
-      label="Spiritual Journey"
-      name="discipleship_stage"
-      onChange={(discipleshipStage) => onChange({ ...value, discipleshipStage })}
-      options={discipleshipStageOptions}
-      value={value.discipleshipStage}
-    />
+          return (
+            <label
+              className={`relative inline-flex min-h-10 cursor-pointer items-center rounded-full border px-3 text-xs font-bold transition-colors ${
+                selected
+                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                  : "border-[#E2E8F0] bg-white text-[#475569] hover:border-[#BFDBFE]"
+              }`}
+              key={option.value}
+            >
+              <input
+                checked={selected}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                name="relationship_context"
+                onChange={() => onChange({ ...value, relationshipContext: option.value })}
+                type="radio"
+                value={option.value}
+              />
+              {option.label}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 
@@ -3524,44 +3485,67 @@ function RelationshipScorePicker({
   onChange: (value: RelationshipScoreValue) => void;
   value: RelationshipScoreValue;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = commitmentLevelOptions.find((option) => option.value === value) ?? commitmentLevelOptions.find((option) => option.value === 0)!;
+
   return (
     <fieldset>
-      <FieldLabel>Relationship Score</FieldLabel>
-      <p className="mt-1 text-xs leading-5 text-[#64748B]">How spiritually engaged or open is this person right now?</p>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        {relationshipScoreOptions.map((option) => {
-          const selected = value === option.value;
+      <FieldLabel>Commitment Level</FieldLabel>
+      <input name="engagement_score" type="hidden" value={relationshipScoreLabel(value)} />
+      <div className="relative mt-2">
+        <button
+          aria-expanded={isOpen}
+          className="flex min-h-[64px] w-full items-center justify-between gap-3 rounded-[18px] border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:border-[#BFDBFE] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25"
+          onClick={() => setIsOpen((current) => !current)}
+          type="button"
+        >
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
+            <span className="mt-1 block text-xs leading-5 text-[#64748B]">{selectedOption.helper}</span>
+          </span>
+          <ChevronRight
+            className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`}
+            aria-hidden="true"
+            strokeWidth={1.9}
+          />
+        </button>
 
-          return (
-            <label
-              className={`relative flex min-h-[76px] cursor-pointer flex-col justify-between rounded-[18px] border p-3 transition-colors ${
-                selected
-                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#0F172A] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
-                  : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#BFDBFE]"
-              }`}
-              key={option.value}
-            >
-              <input
-                checked={selected}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                name="engagement_score"
-                onChange={() => onChange(option.value)}
-                type="radio"
-                value={option.value}
-              />
-              <span className={`pr-6 text-sm font-bold leading-tight ${selected ? "text-[#2563EB]" : "text-[#0F172A]"}`}>{option.label}</span>
-              <span className="mt-1 pr-1 text-[11px] font-medium leading-4 text-[#64748B]">{option.helper}</span>
-              <span
-                className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${
-                  selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
-                }`}
-                aria-hidden="true"
-              >
-                {selected ? <span className="h-2 w-2 rounded-full bg-[#2563EB]" /> : null}
-              </span>
-            </label>
-          );
-        })}
+        {isOpen ? (
+          <div className="absolute left-0 right-0 z-30 mt-2 max-h-[280px] overflow-y-auto rounded-[20px] border border-[#E2E8F0] bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
+            {commitmentLevelOptions.map((option) => {
+              const selected = value === option.value;
+
+              return (
+                <button
+                  className={`flex w-full items-start gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors ${
+                    selected
+                      ? "bg-[#EBF2FF] text-[#0F172A]"
+                      : "text-[#475569] hover:bg-[#F8FAFC]"
+                  }`}
+                  key={option.value}
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                  type="button"
+                >
+                  <span
+                    className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                      selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {selected ? <span className="h-2 w-2 rounded-full bg-[#2563EB]" /> : null}
+                  </span>
+                  <span className="min-w-0">
+                    <span className={`block text-sm font-bold leading-tight ${selected ? "text-[#1D4ED8]" : "text-[#0F172A]"}`}>{option.label}</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-[#64748B]">{option.helper}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </fieldset>
   );
@@ -3625,7 +3609,7 @@ function AdditionalPersonInformation({
     return (
       <section className="grid gap-2">
         <div>
-          <FieldLabel>Additional Information</FieldLabel>
+          <FieldLabel>Extra Details</FieldLabel>
           <p className="mt-1 text-xs leading-5 text-[#64748B]">Add details now or fill them in later.</p>
         </div>
         {fields}
@@ -3682,16 +3666,15 @@ function PersonRelationshipSetup({
         onClick={onToggleDetails}
         type="button"
       >
-        <span>{detailsOpen ? "Hide extra details" : "Add more detail"}</span>
+        <span>{detailsOpen ? "Hide extra details" : "Show extra details"}</span>
         <span className={`text-lg leading-none text-[#94A3B8] transition-transform ${detailsOpen ? "rotate-45" : ""}`} aria-hidden="true">
           +
         </span>
       </button>
       {detailsOpen ? (
         <div className="space-y-4 rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-          <SpiritualJourneyPicker onChange={onChange} value={value} />
-          <AdditionalPersonInformation defaults={additionalDefaults} isOpen onToggle={onToggleDetails} showToggle={false} />
           <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
+          <AdditionalPersonInformation defaults={additionalDefaults} isOpen onToggle={onToggleDetails} showToggle={false} />
         </div>
       ) : null}
     </section>
@@ -5844,45 +5827,31 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "people" ? (
               <div>
-              <SectionHeading action={<CompactButton icon="add" onClick={() => openForm("person")}>Add</CompactButton>} title="People" />
-              <SearchField label="Find Person" onChange={setPeopleQuery} placeholder="Search by name, phone, or relationship" value={peopleQuery} />
-              {peopleImportMessage ? (
-                <p className={`mt-3 rounded-2xl border p-3 text-sm ${
-                  peopleImportMessage.tone === "success"
-                    ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
-                    : "border-red-200 bg-red-50 text-red-700"
-                }`}>
-                  {peopleImportMessage.text}
-                </p>
-              ) : null}
-              <div className="mt-4">
-                {visiblePeople.length ? (
-                  <div className="grid gap-3">{visiblePeople.map((person, index) => <PersonCard index={index} key={person.id} onClick={() => openPersonDetail(person.id)} person={person} />)}</div>
-                ) : people.length ? (
-                  <EmptyState text="Try a different name or relationship." title="No matching people." />
-                ) : (
-                  <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No people added yet." />
-                )}
+                <SectionHeading action={<CompactButton icon="upload" onClick={() => setIsPeopleImportOpen(true)}>Import</CompactButton>} title="People" />
+                <div className="mx-auto mt-3 w-full max-w-[280px]">
+                  <AppButton icon="add" onClick={() => openForm("person")} tone="black">Add Person</AppButton>
                 </div>
-                <section className="mt-4 rounded-[22px] border border-[#E2E8F0] bg-white p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-                        Advanced Settings
-                      </p>
-                      <h3 className="mt-1 text-sm font-bold text-[#0F172A]">Import Contacts</h3>
-                      <p className="mt-1 text-xs leading-5 text-[#64748B]">Upload a CSV to add people to your field.</p>
-                    </div>
-                    <button
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-[#2563EB] transition-colors hover:bg-white"
-                      onClick={() => setIsPeopleImportOpen(true)}
-                      type="button"
-                      aria-label="Import contacts"
-                    >
-                      <Upload className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-                    </button>
-                  </div>
-                </section>
+                <div className="mt-5">
+                  <SearchField label="Find Person" onChange={setPeopleQuery} placeholder="Search by name, phone, or relationship" value={peopleQuery} />
+                </div>
+                {peopleImportMessage ? (
+                  <p className={`mt-3 rounded-2xl border p-3 text-sm ${
+                    peopleImportMessage.tone === "success"
+                      ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}>
+                    {peopleImportMessage.text}
+                  </p>
+                ) : null}
+                <div className="mt-4">
+                  {visiblePeople.length ? (
+                    <div className="grid gap-3">{visiblePeople.map((person, index) => <PersonCard index={index} key={person.id} onClick={() => openPersonDetail(person.id)} person={person} />)}</div>
+                  ) : people.length ? (
+                    <EmptyState text="Try a different name or relationship." title="No matching people." />
+                  ) : (
+                    <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No people added yet." />
+                  )}
+                </div>
               </div>
             ) : null}
 
