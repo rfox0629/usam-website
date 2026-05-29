@@ -2,15 +2,19 @@ import { NextResponse } from "next/server";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
-const personSelect = "id, workspace_id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, updated_at, created_at";
+const personSelect = "id, workspace_id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, spouse_name, children_names, household_notes, source, created_by, last_activity_at, updated_at, created_at";
 const legacyPersonSelect = "id, household_id, name, phone, email, church, notes, status, relationship_type, engagement_level, source, created_by, last_activity_at, updated_at, created_at";
+const householdMvpKeys = ["spouse_name", "children_names", "household_notes"];
 
 type CsvPersonRow = {
+  childrenNames?: unknown;
   church?: unknown;
   email?: unknown;
+  householdNotes?: unknown;
   name?: unknown;
   phone?: unknown;
   sourceRowNumber?: unknown;
+  spouseName?: unknown;
 };
 
 type ImportPayload = {
@@ -56,12 +60,30 @@ function isMissingWorkspaceScopeColumn(error: { message?: string } | null | unde
   return Boolean(error?.message?.includes("workspace_id"));
 }
 
+function isMissingHouseholdMvpColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return householdMvpKeys.some((column) => message.includes(column));
+}
+
+function omitKeys(record: Record<string, unknown>, keys: string[]) {
+  return Object.fromEntries(Object.entries(record).filter(([key]) => !keys.includes(key)));
+}
+
 function withWorkspaceId<T extends { household_id?: string | null; workspace_id?: string | null }>(person: T, workspaceId: string) {
   return {
     ...person,
     household_id: person.household_id ?? workspaceId,
     workspace_id: person.workspace_id ?? person.household_id ?? workspaceId,
   };
+}
+
+function personRecordCandidates(record: Record<string, unknown>) {
+  const { workspace_id: _workspaceId, ...legacyRecord } = record;
+
+  // TODO: Remove the household_id-compatible candidate after all local and
+  // remote environments are migrated to missionary_field_people.workspace_id.
+  return [record, omitKeys(record, householdMvpKeys), legacyRecord, omitKeys(legacyRecord, householdMvpKeys)];
 }
 
 async function authorizeImport() {
@@ -140,17 +162,7 @@ export async function POST(request: Request) {
   }
 
   const existingPhones = new Set((existingPeople ?? []).map((person) => normalizePhone(person.phone ?? "")).filter(Boolean));
-  const rowsToInsert: Array<{
-    church: string | null;
-    created_by: string;
-    email: string | null;
-    household_id: string;
-    name: string;
-    phone: string;
-    source: "command_center";
-    status: "new";
-    workspace_id: string;
-  }> = [];
+  const rowsToInsert: Record<string, unknown>[] = [];
   let skippedCount = 0;
 
   rows.forEach((row) => {
@@ -165,13 +177,16 @@ export async function POST(request: Request) {
 
     existingPhones.add(phoneKey);
     rowsToInsert.push({
+      children_names: asNullableString(row.childrenNames),
       church: asNullableString(row.church),
       created_by: authResult.authorization.userId,
       email: asNullableString(row.email),
       household_id: workspaceId,
+      household_notes: asNullableString(row.householdNotes),
       name,
       phone,
       source: "command_center",
+      spouse_name: asNullableString(row.spouseName),
       status: "new",
       workspace_id: workspaceId,
     });
@@ -185,19 +200,22 @@ export async function POST(request: Request) {
     });
   }
 
-  const insertResult = await supabase
-    .from("missionary_field_people")
-    .insert(rowsToInsert)
-    .select(personSelect);
-  // TODO: Remove the household_id-only fallback after all Supabase environments
-  // have the Command Center workspace_id migration applied.
-  const legacyRowsToInsert = rowsToInsert.map(({ workspace_id: _workspaceId, ...row }) => row);
-  const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
-    ? await supabase
+  let importResult: { data: Array<Record<string, unknown>> | null; error: { message: string } | null } | null = null;
+
+  for (const candidateRecords of personRecordCandidates(rowsToInsert[0]).map((_, index) => (
+    rowsToInsert.map((row) => personRecordCandidates(row)[index])
+  ))) {
+    importResult = await supabase
       .from("missionary_field_people")
-      .insert(legacyRowsToInsert)
-      .select(legacyPersonSelect)
-    : insertResult;
+      .insert(candidateRecords)
+      .select(candidateRecords.some((row) => "workspace_id" in row) ? personSelect : legacyPersonSelect);
+
+    if (!importResult.error || (!isMissingWorkspaceScopeColumn(importResult.error) && !isMissingHouseholdMvpColumn(importResult.error))) {
+      break;
+    }
+  }
+
+  const { data, error } = importResult ?? { data: null, error: { message: "Unable to import CSV." } };
 
   if (error) {
     return NextResponse.json({ error: fieldPeopleImportErrorMessage(error) }, { status: 500 });

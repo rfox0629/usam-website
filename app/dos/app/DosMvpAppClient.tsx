@@ -139,28 +139,34 @@ type SegmentedTabOption<T extends string> = {
 };
 type PersonFormDefaults = {
   birthday?: string;
+  childrenNames?: string;
   church?: string;
   city?: string;
   email?: string;
   engagementScore?: RelationshipScoreValue;
   homeAddress?: string;
+  householdNotes?: string;
   name?: string;
   notes?: string;
   occupation?: string;
   phone?: string;
+  spouseName?: string;
   state?: string;
   zip?: string;
 };
 type PeopleImportRow = {
+  childrenNames: string;
   church: string;
   city: string;
   email: string;
   firstName: string;
+  householdNotes: string;
   lastName: string;
   name: string;
   notes: string;
   phone: string;
   sourceRowNumber: number;
+  spouseName: string;
   state: string;
 };
 type PeopleImportAnalysis = {
@@ -580,12 +586,15 @@ function personFormDefaults(person?: DosAppPerson | null): PersonFormDefaults {
 
   const { additional, notes } = splitAdditionalInfo(person.notes);
   const defaults: PersonFormDefaults = {
+    childrenNames: person.childrenNames ?? "",
     church: person.church ?? "",
     email: person.email ?? "",
     engagementScore: relationshipScoreFromEngagementLevel(person.engagementLevel),
     name: person.name,
+    householdNotes: person.householdNotes ?? "",
     notes,
     phone: person.phone,
+    spouseName: person.spouseName ?? "",
   };
 
   additional.split("\n").forEach((line) => {
@@ -616,6 +625,10 @@ function personAddressLine(defaults: PersonFormDefaults) {
   const cityStateZip = [defaults.city, [defaults.state, defaults.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
 
   return [defaults.homeAddress, cityStateZip].filter(Boolean).join(", ");
+}
+
+function hasHouseholdDetails(person: DosAppPerson | PersonFormDefaults) {
+  return Boolean(person.spouseName?.trim() || person.childrenNames?.trim() || person.householdNotes?.trim());
 }
 
 function mapsHrefForAddress(address: string) {
@@ -930,15 +943,18 @@ function mapDosPeopleCsvRow(headers: readonly string[], row: readonly string[], 
   const fallbackName = csvValue(headers, row, ["name", "full_name", "full name", "display_name", "display name"]);
 
   return {
+    childrenNames: csvValue(headers, row, ["children", "kids", "children_names", "children names"]),
     church: csvValue(headers, row, ["church", "church_attending", "church attending", "spiritual community", "community"]),
     city: csvValue(headers, row, ["city"]),
     email: csvValue(headers, row, ["email", "home email", "email address"]),
     firstName,
+    householdNotes: csvValue(headers, row, ["household_notes", "household notes", "family_notes", "family notes"]),
     lastName,
     name: [firstName, lastName].filter(Boolean).join(" ").trim() || fallbackName,
     notes: csvValue(headers, row, ["notes", "note", "comments", "comment"]),
     phone: csvValue(headers, row, ["phone", "phone number", "mobile phone", "mobile phone number", "cell", "cell phone"]),
     sourceRowNumber: rowIndex + 2,
+    spouseName: csvValue(headers, row, ["spouse", "spouse_name", "spouse name", "wife", "husband"]),
     state: csvValue(headers, row, ["state", "province"]),
   };
 }
@@ -3370,7 +3386,7 @@ function PeopleImportSheet({
                 <div className="rounded-2xl bg-[#F1F5F9] p-3" key={`${row.sourceRowNumber}-${row.name}-${row.phone}`}>
                   <p className="text-sm font-bold text-[#0F172A]">{row.name || "Missing name"}</p>
                   <p className="mt-1 text-xs leading-5 text-[#64748B]">
-                    {[row.phone, row.email, row.church].filter(Boolean).join(" · ") || `Row ${row.sourceRowNumber}`}
+                    {[row.phone, row.email, row.church, row.spouseName ? `Spouse: ${row.spouseName}` : ""].filter(Boolean).join(" · ") || `Row ${row.sourceRowNumber}`}
                   </p>
                 </div>
               ))}
@@ -3587,6 +3603,31 @@ function AdditionalPersonInformation({
 }) {
   const fields = (
     <div className={showToggle ? "mt-4 grid gap-3 border-t border-[#E2E8F0] pt-4" : "grid gap-3"}>
+      <details className="group overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white">
+        <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0">
+            <FieldLabel>Household</FieldLabel>
+            <span className="mt-1 block truncate text-sm font-bold text-[#0F172A]">
+              {hasHouseholdDetails(defaults) ? [defaults.spouseName, defaults.childrenNames].filter(Boolean).join(" · ") || "Household notes" : "Optional family context"}
+            </span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
+        </summary>
+        <div className="grid gap-3 border-t border-[#E2E8F0] bg-[#F8FAFC] p-3">
+          <label className="block">
+            <FieldLabel>Spouse Name</FieldLabel>
+            <input className={FieldInputClass()} defaultValue={defaults.spouseName} name="spouse_name" placeholder="Spouse name" />
+          </label>
+          <label className="block">
+            <FieldLabel>Children Names</FieldLabel>
+            <input className={FieldInputClass()} defaultValue={defaults.childrenNames} name="children_names" placeholder="Names or simple note" />
+          </label>
+          <label className="block">
+            <FieldLabel>Household Notes</FieldLabel>
+            <textarea className={FieldTextareaClass()} defaultValue={defaults.householdNotes} name="household_notes" placeholder="Family context, rhythms, or care notes..." />
+          </label>
+        </div>
+      </details>
       <label className="block">
         <FieldLabel>Email</FieldLabel>
         <input className={FieldInputClass()} defaultValue={defaults.email} name="email" placeholder="email@example.com" type="email" />
@@ -4304,10 +4345,12 @@ function PersonDetailOverlay({
   const testimoniesSectionRef = useRef<HTMLDivElement | null>(null);
   const fruitSectionRef = useRef<HTMLDivElement | null>(null);
   const reflectionsSectionRef = useRef<HTMLDivElement | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<"activity" | "fruit" | "household" | "overview">("overview");
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
   const mapHref = address ? mapsHrefForAddress(address) : "";
+  const hasHouseholdContext = hasHouseholdDetails(person);
   const relationshipScore = relationshipScoreFromEngagementLevel(person.engagementLevel);
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
   const personReviews = personMeetings.filter((meeting) => meeting.review.status !== "not_sent" && meeting.review.status !== "pending");
@@ -4350,8 +4393,12 @@ function PersonDetailOverlay({
       reviews: reviewsSectionRef,
       testimonies: testimoniesSectionRef,
     }[section];
+    const tab = section === "fruit" || section === "testimonies" ? "fruit" : "activity";
 
-    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveDetailTab(tab);
+    window.setTimeout(() => {
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   };
   return (
     <div className="absolute inset-0 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
@@ -4392,176 +4439,240 @@ function PersonDetailOverlay({
         <AppButton icon="log" onClick={onLogMeeting} tone="black">Log Meeting</AppButton>
       </div>
 
-      <div className="mt-5 grid gap-3">
-        <DetailCard title="Contact Information">
-          {person.phone ? (
-            <ContactActionRow
-              actions={[
-                { href: `tel:${person.phone}`, label: "Call" },
-                { href: `sms:${person.phone}`, label: "Text" },
-              ]}
-              icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-              label="Phone"
-              primaryHref={`tel:${person.phone}`}
-              value={person.phone}
-            />
-          ) : null}
-          {person.email ? (
-            <ContactActionRow
-              icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-              label="Email"
-              primaryHref={`mailto:${person.email}`}
-              value={person.email}
-            />
-          ) : null}
-          {address ? (
-            <DetailRow
-              ariaLabel={`Open map for ${address}`}
-              href={mapHref}
-              icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-              onClick={(event) => handleAddressMapClick(event, address)}
-              value={address}
-            />
-          ) : null}
-          {!person.phone && !person.email && !address ? <p className="text-sm text-[#64748B]">No contact details yet.</p> : null}
-        </DetailCard>
-
-        <DetailCard title="About">
-          <DetailRow label="Relationship Type" value={relationshipTypePill} />
-          <DetailRow label="Spiritual Journey" value={spiritualJourneyPill} />
-          <DetailRow label="Context" value={relationshipContextLabel(person.relationshipContext)} />
-          <DetailRow label="Engagement" value={relationshipScoreText(relationshipScore)} />
-          {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
-          {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
-          {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
-        </DetailCard>
-
-        <DetailCard title="Activity">
-          <div className="grid grid-cols-3 gap-2">
-            <StatTile label="Meetings" onClick={() => scrollToSection("meetings")} value={personMeetings.length} />
-            <StatTile label="Reviews" onClick={() => scrollToSection("reviews")} value={personParticipantReviews.length + personReviews.length} />
-            <StatTile label="Fruit" onClick={() => scrollToSection("fruit")} value={personFruitEvents.length} />
-          </div>
-        </DetailCard>
-
-        <DetailCard title="Fruit Summary">
-          <div className="grid grid-cols-2 gap-2">
-            <SummaryTile label="Latest Fruit" value={personFruitSummary.latestFruit} />
-            <SummaryTile label="Follow Up Needed" value={personFruitSummary.followUpNeeded} />
-            <SummaryTile label="Discipleship Status" value={personFruitSummary.discipleshipStatus} />
-            <SummaryTile label="Multiplication Status" value={personFruitSummary.multiplicationStatus} />
-          </div>
-        </DetailCard>
-
-        <DetailCard title="Relationship Snapshot">
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <SummaryTile label="Current Circle" value={currentCircleLabel} />
-              <SummaryTile label="Engagement" value={relationshipScoreText(relationshipScore)} />
-              <SummaryTile label="Last Meeting" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
-              <SummaryTile label="Next Step" value={snapshotNextStep} />
-            </div>
-
-            {personMeetings.length > 0 && (!circleScore || circleScore.totalScore === 0) ? (
-              <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">Meeting activity found. Circle placement will refresh automatically.</p>
-            ) : null}
-
+      <div className="sticky top-0 z-20 -mx-4 mt-4 bg-[#FAFBFD]/95 px-4 py-2 backdrop-blur">
+        <div className="grid grid-cols-4 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
+          {[
+            { label: "Overview", value: "overview" },
+            { label: "Activity", value: "activity" },
+            { label: "Fruit", value: "fruit" },
+            { label: "Household", value: "household" },
+          ].map((tab) => (
             <button
-              aria-expanded={isSnapshotOpen}
-              className="flex min-h-10 items-center justify-between rounded-full bg-[#F1F5F9] px-3 text-left text-xs font-bold text-[#0F172A]"
-              onClick={() => setIsSnapshotOpen((current) => !current)}
+              aria-current={activeDetailTab === tab.value ? "page" : undefined}
+              className={`min-h-9 rounded-full px-2 text-[11px] font-bold transition-colors ${
+                activeDetailTab === tab.value ? "bg-[#2563EB] text-white shadow-[0_8px_20px_rgba(37,99,235,0.24)]" : "text-[#64748B] hover:bg-[#F8FAFC]"
+              }`}
+              key={tab.value}
+              onClick={() => setActiveDetailTab(tab.value as typeof activeDetailTab)}
               type="button"
             >
-              Why this circle?
-              <ChevronRight className={`h-4 w-4 text-[#94A3B8] transition-transform ${isSnapshotOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
+              {tab.label}
             </button>
-
-            {isSnapshotOpen ? (
-              <div className="grid gap-2 rounded-2xl bg-[#F8FAFC] p-3">
-                {relationshipSnapshotReasons.length ? relationshipSnapshotReasons.map((reason) => (
-                  <p className="text-xs leading-5 text-[#64748B]" key={reason}>+ {reason}</p>
-                )) : (
-                  <p className="text-xs leading-5 text-[#64748B]">Log meetings and discipleship activity to help DOS place this relationship.</p>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </DetailCard>
-
-        <div ref={fruitSectionRef}>
-          <DetailCard title="Fruit Timeline">
-            {personFruitEvents.length ? personFruitEvents.map((event) => (
-              <FruitEventRow event={event} key={event.id} onDelete={onDeleteFruitEvent} onUpdate={onUpdateFruitEvent} />
-            )) : (
-              <SectionEmptyState
-                text="After a meeting, capture what happened or invite them to share their story."
-                title="No fruit has been logged yet."
-              />
-            )}
-          </DetailCard>
+          ))}
         </div>
+      </div>
 
-        <div ref={meetingsSectionRef}>
-          <DetailCard title="Meetings">
-            {recentMeetings.length ? recentMeetings.map((meeting) => (
-              <button className="flex items-center gap-3 rounded-2xl bg-[#F1F5F9] p-3 text-left transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
-                <CalendarDays className="h-4 w-4 shrink-0 text-[#1D4ED8]" aria-hidden="true" strokeWidth={1.8} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-[#0F172A]">{meetingActivityTitle(meeting)}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[#64748B]">{formatDate(meeting.date)}</span>
-                  <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{meeting.notes || "No summary added yet."}</span>
-                </span>
-                <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
-              </button>
-            )) : <SectionEmptyState text="Log the next conversation when it happens." title="No meetings yet." />}
-          </DetailCard>
-        </div>
+      <div className="mt-3 grid gap-3">
+        {activeDetailTab === "overview" ? (
+          <>
+            <DetailCard title="Contact Information">
+              {person.phone ? (
+                <ContactActionRow
+                  actions={[
+                    { href: `tel:${person.phone}`, label: "Call" },
+                    { href: `sms:${person.phone}`, label: "Text" },
+                  ]}
+                  icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                  label="Phone"
+                  primaryHref={`tel:${person.phone}`}
+                  value={person.phone}
+                />
+              ) : null}
+              {person.email ? (
+                <ContactActionRow
+                  icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                  label="Email"
+                  primaryHref={`mailto:${person.email}`}
+                  value={person.email}
+                />
+              ) : null}
+              {address ? (
+                <DetailRow
+                  ariaLabel={`Open map for ${address}`}
+                  href={mapHref}
+                  icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                  onClick={(event) => handleAddressMapClick(event, address)}
+                  value={address}
+                />
+              ) : null}
+              {!person.phone && !person.email && !address ? <p className="text-sm text-[#64748B]">No contact details yet.</p> : null}
+            </DetailCard>
 
-        <div ref={reviewsSectionRef}>
-          <DetailCard title="Reviews">
-            {personParticipantReviews.length ? personParticipantReviews.slice(0, 3).map((review) => (
-              <ParticipantReviewRow key={review.id} review={review} />
-            )) : null}
-            {personReviews.length ? personReviews.slice(0, 3).map((meeting) => (
-              <button className="rounded-2xl bg-[#F1F5F9] p-3 text-left transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} onClick={() => onOpenMeeting(meeting.id)} type="button">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-[#0F172A]">Quick Review</p>
-                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${reviewStatusClass(meeting.review.status)}`} style={{ fontFamily: font.rajdhani }}>
-                    {reviewStatusLabel(meeting.review.status)}
-                  </span>
+            <DetailCard title="About">
+              <DetailRow label="Relationship Type" value={relationshipTypePill} />
+              <DetailRow label="Spiritual Journey" value={spiritualJourneyPill} />
+              <DetailRow label="Context" value={relationshipContextLabel(person.relationshipContext)} />
+              <DetailRow label="Commitment" value={relationshipScoreText(relationshipScore)} />
+              {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
+              {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
+              {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
+            </DetailCard>
+
+            <DetailCard title="Latest Snapshot">
+              <div className="grid gap-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <SummaryTile label="Current Circle" value={currentCircleLabel} />
+                  <SummaryTile label="Commitment" value={relationshipScoreText(relationshipScore)} />
+                  <SummaryTile label="Last Meeting" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
+                  <SummaryTile label="Next Step" value={snapshotNextStep} />
                 </div>
-                <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut || "Review submitted."}</p>
-                <p className="mt-2 text-xs text-[#94A3B8]">
-                  {meeting.review.submittedName ? `${meeting.review.submittedName} · ` : ""}
-                  {meetingActivityTitle(meeting)} · {formatDate(meeting.review.submittedAt ?? meeting.date)}
-                </p>
-              </button>
-            )) : null}
-            {!personParticipantReviews.length && !personReviews.length ? (
-              <SectionEmptyState text="Send a review link after your next meeting." title="No reviews yet." />
+
+                {personMeetings.length > 0 && (!circleScore || circleScore.totalScore === 0) ? (
+                  <p className="rounded-2xl bg-[#EBF2FF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">Meeting activity found. Circle placement will refresh automatically.</p>
+                ) : null}
+
+                <button
+                  aria-expanded={isSnapshotOpen}
+                  className="flex min-h-10 items-center justify-between rounded-full bg-[#F1F5F9] px-3 text-left text-xs font-bold text-[#0F172A]"
+                  onClick={() => setIsSnapshotOpen((current) => !current)}
+                  type="button"
+                >
+                  Why this circle?
+                  <ChevronRight className={`h-4 w-4 text-[#94A3B8] transition-transform ${isSnapshotOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
+                </button>
+
+                {isSnapshotOpen ? (
+                  <div className="grid gap-2 rounded-2xl bg-[#F8FAFC] p-3">
+                    {relationshipSnapshotReasons.length ? relationshipSnapshotReasons.map((reason) => (
+                      <p className="text-xs leading-5 text-[#64748B]" key={reason}>+ {reason}</p>
+                    )) : (
+                      <p className="text-xs leading-5 text-[#64748B]">Log meetings and discipleship activity to help DOS place this relationship.</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            </DetailCard>
+
+            <DetailCard title="Latest Fruit">
+              <div className="grid grid-cols-2 gap-2">
+                <SummaryTile label="Latest Fruit" value={personFruitSummary.latestFruit} />
+                <SummaryTile label="Follow Up Needed" value={personFruitSummary.followUpNeeded} />
+              </div>
+            </DetailCard>
+
+            {hasHouseholdContext ? (
+              <DetailCard title="Household Summary">
+                {person.spouseName ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Spouse" value={person.spouseName} /> : null}
+                {person.childrenNames ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Children" value={person.childrenNames} /> : null}
+                {person.householdNotes ? <DetailRow label="Notes" value={person.householdNotes} /> : null}
+              </DetailCard>
             ) : null}
-          </DetailCard>
-        </div>
+          </>
+        ) : null}
 
-        <div ref={testimoniesSectionRef}>
-          <DetailCard title="Testimonies">
-            {personTestimonies.length ? personTestimonies.slice(0, 3).map((testimony) => (
-              <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
-            )) : (
-              <SectionEmptyState text="Invite them to share their story after a meaningful conversation." title="No stories yet." />
+        {activeDetailTab === "activity" ? (
+          <>
+            <DetailCard title="Activity">
+              <div className="grid grid-cols-3 gap-2">
+                <StatTile label="Meetings" onClick={() => scrollToSection("meetings")} value={personMeetings.length} />
+                <StatTile label="Reviews" onClick={() => scrollToSection("reviews")} value={personParticipantReviews.length + personReviews.length} />
+                <StatTile label="Reflections" onClick={() => scrollToSection("reflections")} value={personReflections.length} />
+              </div>
+            </DetailCard>
+
+            <div ref={meetingsSectionRef}>
+              <DetailCard title="Meetings">
+                {recentMeetings.length ? recentMeetings.map((meeting) => (
+                  <button className="flex items-center gap-3 rounded-2xl bg-[#F1F5F9] p-3 text-left transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
+                    <CalendarDays className="h-4 w-4 shrink-0 text-[#1D4ED8]" aria-hidden="true" strokeWidth={1.8} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-[#0F172A]">{meetingActivityTitle(meeting)}</span>
+                      <span className="mt-1 block text-xs leading-5 text-[#64748B]">{formatDate(meeting.date)}</span>
+                      <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{meeting.notes || "No summary added yet."}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+                  </button>
+                )) : <SectionEmptyState text="Log the next conversation when it happens." title="No meetings yet." />}
+              </DetailCard>
+            </div>
+
+            <div ref={reviewsSectionRef}>
+              <DetailCard title="Reviews">
+                {personParticipantReviews.length ? personParticipantReviews.slice(0, 3).map((review) => (
+                  <ParticipantReviewRow key={review.id} review={review} />
+                )) : null}
+                {personReviews.length ? personReviews.slice(0, 3).map((meeting) => (
+                  <button className="rounded-2xl bg-[#F1F5F9] p-3 text-left transition-colors hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} onClick={() => onOpenMeeting(meeting.id)} type="button">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-[#0F172A]">Quick Review</p>
+                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${reviewStatusClass(meeting.review.status)}`} style={{ fontFamily: font.rajdhani }}>
+                        {reviewStatusLabel(meeting.review.status)}
+                      </span>
+                    </div>
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut || "Review submitted."}</p>
+                    <p className="mt-2 text-xs text-[#94A3B8]">
+                      {meeting.review.submittedName ? `${meeting.review.submittedName} · ` : ""}
+                      {meetingActivityTitle(meeting)} · {formatDate(meeting.review.submittedAt ?? meeting.date)}
+                    </p>
+                  </button>
+                )) : null}
+                {!personParticipantReviews.length && !personReviews.length ? (
+                  <SectionEmptyState text="Send a review link after your next meeting." title="No reviews yet." />
+                ) : null}
+              </DetailCard>
+            </div>
+
+            <div ref={reflectionsSectionRef}>
+              <DetailCard title="Leader Reflections">
+                {personReflections.length ? personReflections.slice(0, 4).map((reflection) => (
+                  <LeaderReflectionRow key={reflection.id} reflection={reflection} />
+                )) : (
+                  <SectionEmptyState text="After a meeting, capture what happened while it is fresh." title="No reflections yet." />
+                )}
+              </DetailCard>
+            </div>
+          </>
+        ) : null}
+
+        {activeDetailTab === "fruit" ? (
+          <>
+            <div ref={fruitSectionRef}>
+              <DetailCard title="Fruit Summary">
+                <div className="grid grid-cols-2 gap-2">
+                  <SummaryTile label="Latest Fruit" value={personFruitSummary.latestFruit} />
+                  <SummaryTile label="Follow Up Needed" value={personFruitSummary.followUpNeeded} />
+                  <SummaryTile label="Discipleship Status" value={personFruitSummary.discipleshipStatus} />
+                  <SummaryTile label="Multiplication Status" value={personFruitSummary.multiplicationStatus} />
+                </div>
+              </DetailCard>
+            </div>
+
+            <DetailCard title="Fruit Timeline">
+              {personFruitEvents.length ? personFruitEvents.map((event) => (
+                <FruitEventRow event={event} key={event.id} onDelete={onDeleteFruitEvent} onUpdate={onUpdateFruitEvent} />
+              )) : (
+                <SectionEmptyState
+                  text="After a meeting, capture what happened or invite them to share their story."
+                  title="No fruit has been logged yet."
+                />
+              )}
+            </DetailCard>
+
+            <div ref={testimoniesSectionRef}>
+              <DetailCard title="Testimonies">
+                {personTestimonies.length ? personTestimonies.slice(0, 3).map((testimony) => (
+                  <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
+                )) : (
+                  <SectionEmptyState text="Invite them to share their story after a meaningful conversation." title="No stories yet." />
+                )}
+              </DetailCard>
+            </div>
+          </>
+        ) : null}
+
+        {activeDetailTab === "household" ? (
+          <DetailCard title="Household">
+            {hasHouseholdContext ? (
+              <>
+                {person.spouseName ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Spouse" value={person.spouseName} /> : null}
+                {person.childrenNames ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Children" value={person.childrenNames} /> : null}
+                {person.householdNotes ? <DetailRow label="Household Notes" value={person.householdNotes} /> : null}
+              </>
+            ) : (
+              <SectionEmptyState text="Add spouse, children, or household context in Extra Details." title="No household details yet." />
             )}
           </DetailCard>
-        </div>
-
-        <div ref={reflectionsSectionRef}>
-          <DetailCard title="Leader Reflections">
-            {personReflections.length ? personReflections.slice(0, 4).map((reflection) => (
-              <LeaderReflectionRow key={reflection.id} reflection={reflection} />
-            )) : (
-              <SectionEmptyState text="After a meeting, capture what happened while it is fresh." title="No reflections yet." />
-            )}
-          </DetailCard>
-        </div>
+        ) : null}
       </div>
     </div>
   );
@@ -5169,12 +5280,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function personPayloadFromForm(formData: FormData, relationshipModel: DosRelationshipModel, relationshipScore: RelationshipScoreValue, id?: string) {
     return {
       birthday: String(formData.get("birthday") ?? ""),
+      childrenNames: String(formData.get("children_names") ?? ""),
       church: String(formData.get("church") ?? ""),
       discipleshipStage: relationshipModel.discipleshipStage,
       city: String(formData.get("city") ?? ""),
       email: String(formData.get("email") ?? ""),
       engagementScore: relationshipScoreLabel(relationshipScore),
       homeAddress: String(formData.get("home_address") ?? ""),
+      householdNotes: String(formData.get("household_notes") ?? ""),
       id,
       name: String(formData.get("name") ?? ""),
       notes: String(formData.get("notes") ?? ""),
@@ -5182,6 +5295,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       phone: String(formData.get("phone") ?? ""),
       relationshipContext: relationshipModel.relationshipContext,
       roleInMyLife: relationshipModel.roleInMyLife,
+      spouseName: String(formData.get("spouse_name") ?? ""),
       state: String(formData.get("state") ?? ""),
       zip: String(formData.get("zip") ?? ""),
     };

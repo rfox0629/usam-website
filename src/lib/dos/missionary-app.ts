@@ -79,12 +79,14 @@ export type DosAppWorkspace = {
 };
 
 export type DosAppPerson = {
+  childrenNames?: string | null;
   church: string | null;
   createdAt: string | null;
   discipleshipStage: DiscipleshipStageValue;
   rawDiscipleshipStage?: string | null;
   email: string | null;
   engagementLevel: string | null;
+  householdNotes?: string | null;
   id: string;
   lastActivityAt: string | null;
   name: string;
@@ -93,6 +95,7 @@ export type DosAppPerson = {
   relationshipContext: RelationshipContextValue;
   relationshipType: string | null;
   roleInMyLife: RoleInMyLifeValue;
+  spouseName?: string | null;
   status: string;
   updatedAt: string | null;
 };
@@ -268,11 +271,13 @@ type HouseholdRow = {
 };
 
 type FieldPersonRow = {
+  children_names?: string | null;
   church: string | null;
   created_at: string | null;
   discipleship_stage?: string | null;
   email: string | null;
   engagement_level: string | null;
+  household_notes?: string | null;
   id: string;
   last_activity_at: string | null;
   name: string;
@@ -281,6 +286,7 @@ type FieldPersonRow = {
   relationship_context?: string | null;
   relationship_type: string | null;
   role_in_my_life?: string | null;
+  spouse_name?: string | null;
   status: string | null;
   updated_at: string | null;
 };
@@ -559,7 +565,8 @@ function latestActivityDate(...values: Array<string | null | undefined>) {
 }
 
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
-  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, last_activity_at, created_at, updated_at";
+  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
+  const householdCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, last_activity_at, created_at, updated_at";
   const legacyPersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at";
   const scopedResult = await supabase
     .from("missionary_field_people")
@@ -567,6 +574,19 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
     .or(workspaceScopeFilter(workspaceId))
     .order("last_activity_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false });
+
+  if (scopedResult.error && isMissingColumnError(scopedResult.error) && !isMissingWorkspaceScopeColumn(scopedResult.error)) {
+    const householdCompatibleResult = await supabase
+      .from("missionary_field_people")
+      .select(householdCompatiblePersonSelect)
+      .or(workspaceScopeFilter(workspaceId))
+      .order("last_activity_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false });
+
+    if (!householdCompatibleResult.error) {
+      return householdCompatibleResult;
+    }
+  }
 
   // TODO: Remove the household_id-only fallback after all Supabase environments
   // have the Command Center workspace_id migration applied.
@@ -962,11 +982,13 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     });
 
     return {
+      childrenNames: person.children_names ?? null,
       church: person.church,
       createdAt: person.created_at,
       discipleshipStage: relationshipModel.discipleshipStage,
       email: person.email,
       engagementLevel: person.engagement_level,
+      householdNotes: person.household_notes ?? null,
       id: person.id,
       lastActivityAt: latestActivityDate(person.last_activity_at, latestActivityByPersonId.get(person.id)),
       name: person.name,
@@ -976,6 +998,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       relationshipContext: relationshipModel.relationshipContext,
       relationshipType: person.relationship_type,
       roleInMyLife: relationshipModel.roleInMyLife,
+      spouseName: person.spouse_name ?? null,
       status: person.status ?? "new",
       updatedAt: person.updated_at,
     };

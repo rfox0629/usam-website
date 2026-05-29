@@ -528,13 +528,16 @@ type PersonSaveResult = {
 };
 
 type PeopleCsvImportRow = {
+  childrenNames: string;
   church: string;
   email: string;
   firstName: string;
+  householdNotes: string;
   lastName: string;
   name: string;
   phone: string;
   sourceRowNumber: number;
+  spouseName: string;
 };
 
 type PeopleCsvImportResult = {
@@ -3310,13 +3313,16 @@ function mapPeopleCsvRow(headers: readonly string[], row: readonly string[], row
   const fallbackName = csvValue(headers, row, ["Name", "Full Name"]);
 
   return {
+    childrenNames: csvValue(headers, row, ["Children", "Kids", "Children Names", "children", "kids", "children_names"]),
     church: csvValue(headers, row, ["Church Attending", "Church"]),
     email: csvValue(headers, row, ["Home Email", "Email"]),
     firstName,
+    householdNotes: csvValue(headers, row, ["Household Notes", "Family Notes", "household_notes", "family_notes"]),
     lastName,
     name: [firstName, lastName].filter(Boolean).join(" ").trim() || fallbackName,
     phone: csvValue(headers, row, ["Mobile Phone Number", "Mobile Phone", "Phone"]),
     sourceRowNumber: rowIndex + 2,
+    spouseName: csvValue(headers, row, ["Spouse", "Spouse Name", "Wife", "Husband", "spouse", "spouse_name", "wife", "husband"]),
   };
 }
 
@@ -3659,21 +3665,21 @@ function PeopleCsvImportModal({
                   Preview First 10 Rows
                 </p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-[760px] w-full border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
-                      {["Name", "Phone", "Email", "Church"].map((heading) => (
-                        <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0" key={heading} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          {heading}
-                        </th>
-                      ))}
+	              <div className="overflow-x-auto">
+	                <table className="min-w-[860px] w-full border-collapse text-left">
+	                  <thead>
+	                    <tr className="border-b border-[#e2ded5] bg-[#fbfaf7]">
+	                      {["Name", "Phone", "Email", "Church", "Household"].map((heading) => (
+	                        <th className="border-r border-[#e2ded5] px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658] last:border-r-0" key={heading} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+	                          {heading}
+	                        </th>
+	                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {previewRows.length === 0 ? (
                       <tr>
-                        <td className="px-4 py-6 text-sm leading-6 text-[#7b746a]" colSpan={4}>
+	                        <td className="px-4 py-6 text-sm leading-6 text-[#7b746a]" colSpan={5}>
                           Upload a CSV to preview mapped People rows.
                         </td>
                       </tr>
@@ -3689,8 +3695,11 @@ function PeopleCsvImportModal({
                         <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">
                           {row.email || "Not provided"}
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#4b443b]">
+                        <td className="border-r border-[#e2ded5] px-4 py-3 text-sm text-[#4b443b]">
                           {row.church || "Not provided"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#4b443b]">
+                          {[row.spouseName ? `Spouse: ${row.spouseName}` : "", row.childrenNames ? `Children: ${row.childrenNames}` : ""].filter(Boolean).join(" · ") || "Not provided"}
                         </td>
                       </tr>
                     ))}
@@ -3708,9 +3717,10 @@ function PeopleCsvImportModal({
               <ul className="mt-3 space-y-2 text-sm leading-5 text-[#4b443b]">
                 <li>First + Last Name → name</li>
                 <li>Mobile Phone Number → phone</li>
-                <li>Home Email → email</li>
-                <li>Church Attending → church</li>
-              </ul>
+	                <li>Home Email → email</li>
+	                <li>Church Attending → church</li>
+	                <li>Spouse / Children / Household Notes → household fields</li>
+	              </ul>
             </div>
 
             <div className="rounded-xl border border-[#e2ded5] bg-[#fbfaf7] p-3 text-sm leading-6 text-[#4b443b]">
