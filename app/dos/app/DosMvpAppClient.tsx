@@ -3404,7 +3404,7 @@ function RelationshipTypePicker({
 
           return (
             <label
-              className={`relative flex min-h-[76px] cursor-pointer flex-col justify-between rounded-[18px] border p-3 transition-colors ${
+              className={`relative flex min-h-12 cursor-pointer items-center rounded-2xl border px-3 py-2 transition-colors ${
                 selected
                   ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
                   : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE]"
@@ -3420,10 +3420,9 @@ function RelationshipTypePicker({
                 type="radio"
                 value={option.value}
               />
-              <span className="pr-6 text-sm font-bold leading-tight text-[#0F172A]">{option.label}</span>
-              <span className="mt-1 text-[11px] leading-4 text-[#64748B]">{option.helper}</span>
+              <span className="pr-6 text-[13px] font-bold leading-tight text-[#0F172A]">{option.label}</span>
               <span
-                className={`absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${
+                className={`absolute right-3 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
                   selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
                 }`}
                 aria-hidden="true"
@@ -3639,7 +3638,7 @@ function AdditionalPersonInformation({
   );
 }
 
-function PersonRelationshipSetup({
+function PersonExtraDetails({
   additionalDefaults,
   detailsOpen,
   onChange,
@@ -3658,8 +3657,6 @@ function PersonRelationshipSetup({
 }) {
   return (
     <section className="space-y-3">
-      <RelationshipTypePicker onChange={onChange} value={value} />
-      <RelationshipContextPicker onChange={onChange} value={value} />
       <button
         aria-expanded={detailsOpen}
         className="flex w-full items-center justify-between rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left text-sm font-semibold text-[#2563EB] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
@@ -3673,6 +3670,7 @@ function PersonRelationshipSetup({
       </button>
       {detailsOpen ? (
         <div className="space-y-4 rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+          <RelationshipContextPicker onChange={onChange} value={value} />
           <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
           <AdditionalPersonInformation defaults={additionalDefaults} isOpen onToggle={onToggleDetails} showToggle={false} />
         </div>
@@ -6114,7 +6112,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <input className={FieldInputClass()} inputMode="tel" name="phone" placeholder="Phone number" required />
               </label>
             </div>
-            <PersonRelationshipSetup
+            <RelationshipTypePicker onChange={setSelectedRelationshipModel} value={selectedRelationshipModel} />
+            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Person"}</AppButton>
+            <PersonExtraDetails
               detailsOpen={isAdditionalPersonInfoOpen}
               onChange={setSelectedRelationshipModel}
               onScoreChange={setSelectedRelationshipScore}
@@ -6122,8 +6123,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               scoreValue={selectedRelationshipScore}
               value={selectedRelationshipModel}
             />
-            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Person"}</AppButton>
           </form>
         </Sheet>
       ) : null}
@@ -6141,7 +6140,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <input className={FieldInputClass()} defaultValue={selectedPerson.phone} inputMode="tel" name="phone" placeholder="Phone number" required />
               </label>
             </div>
-            <PersonRelationshipSetup
+            <RelationshipTypePicker onChange={setSelectedRelationshipModel} value={selectedRelationshipModel} />
+            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Person"}</AppButton>
+            <PersonExtraDetails
               additionalDefaults={selectedPersonDefaults}
               detailsOpen={isAdditionalPersonInfoOpen}
               onChange={setSelectedRelationshipModel}
@@ -6150,8 +6152,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               scoreValue={selectedRelationshipScore}
               value={selectedRelationshipModel}
             />
-            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Person"}</AppButton>
           </form>
         </Sheet>
       ) : null}
