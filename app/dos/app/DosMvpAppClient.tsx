@@ -5830,18 +5830,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     People
                   </h2>
                   <button
-                    className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-3 text-xs font-bold text-white shadow-[0_8px_18px_rgba(37,99,235,0.2)] transition-colors hover:brightness-[0.98]"
+                    className="inline-flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-xs font-bold text-white shadow-[0_8px_18px_rgba(37,99,235,0.2)] transition-colors hover:brightness-[0.98]"
                     onClick={() => openForm("person")}
                     type="button"
                   >
                     + Add Person
                   </button>
                   <button
-                    className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-2.5 text-[11px] font-semibold text-[#475569] transition-colors hover:border-[#BFDBFE] hover:text-[#2563EB]"
+                    aria-label="Import CSV"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D7E3F8] bg-white text-[#2563EB] shadow-[0_6px_14px_rgba(15,23,42,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
                     onClick={() => setIsPeopleImportOpen(true)}
+                    title="Import CSV"
                     type="button"
                   >
-                    + Import CSV
+                    <Icon name="add" size={15} />
                   </button>
                 </div>
                 <div className="mt-3">
