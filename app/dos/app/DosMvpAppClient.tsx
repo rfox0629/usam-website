@@ -5827,11 +5827,28 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "people" ? (
               <div>
-                <SectionHeading action={<CompactButton icon="upload" onClick={() => setIsPeopleImportOpen(true)}>Import</CompactButton>} title="People" />
-                <div className="mx-auto mt-3 w-full max-w-[280px]">
-                  <AppButton icon="add" onClick={() => openForm("person")} tone="black">Add Person</AppButton>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+                    People
+                  </h2>
+                  <button
+                    className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-2.5 text-[11px] font-semibold text-[#475569] transition-colors hover:border-[#BFDBFE] hover:text-[#2563EB]"
+                    onClick={() => setIsPeopleImportOpen(true)}
+                    type="button"
+                  >
+                    <Icon name="upload" size={12} />
+                    Import
+                  </button>
                 </div>
-                <div className="mt-5">
+                <button
+                  className="mx-auto mt-2 flex min-h-11 w-[76%] max-w-[250px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_10px_22px_rgba(37,99,235,0.2)] transition-colors hover:brightness-[0.98]"
+                  onClick={() => openForm("person")}
+                  type="button"
+                >
+                  <Icon name="add" size={14} />
+                  Add Person
+                </button>
+                <div className="mt-3">
                   <SearchField label="Find Person" onChange={setPeopleQuery} placeholder="Search by name, phone, or relationship" value={peopleQuery} />
                 </div>
                 {peopleImportMessage ? (
