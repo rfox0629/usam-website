@@ -492,28 +492,6 @@ function reviewSharePermissionLabel(value: string | null) {
   return "Private";
 }
 
-function fruitSourceLabel(value: DosAppFruitEvent["sourceType"]) {
-  return {
-    leader_reflection: "Leader Reflection",
-    manual: "Manual",
-    participant_review: "Review",
-    system: "System",
-    testimony: "Testimony",
-  }[value];
-}
-
-function confidenceLabel(value: DosAppFruitEvent["confidenceLevel"]) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function visibilityLabel(value: DosAppFruitEvent["visibility"]) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function shortId(value: string | null | undefined) {
-  return value ? value.slice(0, 8) : "None";
-}
-
 function fruitNarrative(event: DosAppFruitEvent) {
   if (event.description) {
     return event.description;
@@ -538,28 +516,16 @@ function fruitNarrative(event: DosAppFruitEvent) {
   return "Recorded as structured Fruit.";
 }
 
-function sourceTransparencyLabel(event: DosAppFruitEvent) {
-  if (event.confidenceLevel === "observed" || event.sourceType === "leader_reflection") {
-    return "Observed by leader";
+function fruitMultiplicationLabel(value: PersonDetailFruitSummary["multiplicationStatus"]) {
+  if (value === "Not yet") {
+    return "None Yet";
   }
 
-  if (event.confidenceLevel === "confirmed" || event.sourceType === "participant_review" || event.sourceType === "testimony") {
-    return "Confirmed by participant";
+  if (value === "Started") {
+    return "Discipling Others";
   }
 
-  return "Verified by behavior";
-}
-
-function fruitSourceLine(event: DosAppFruitEvent) {
-  const source = {
-    leader_reflection: "From a Leader Reflection",
-    manual: "Added manually",
-    participant_review: "From a participant review",
-    system: "From engagement patterns",
-    testimony: "From a shared story",
-  }[event.sourceType];
-
-  return event.meetingId ? `${source} after a meeting` : source;
+  return value;
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -3541,19 +3507,16 @@ function distinctFruitPeopleCount(stories: FruitDashboardStory[], keywords: stri
 function kingdomFruitMetrics(people: DosAppPerson[], stories: FruitDashboardStory[]) {
   return [
     {
-      label: "People Walking With",
-      value: people.filter((person) => person.discipleshipStage === "walking_with").length,
+      label: "Gospel Conversations",
+      value: distinctFruitPeopleCount(stories, ["gospel conversation", "gospel", "good news", "evangel", "preach"]),
     },
     {
-      label: "Being Discipled",
-      value: people.filter((person) => person.discipleshipStage === "discipling").length,
+      label: "Prayer Received",
+      value: distinctFruitPeopleCount(stories, ["prayer received", "requested prayer", "prayer", "pray"]),
     },
     {
-      label: "Started Discipling Others",
-      value: Math.max(
-        people.filter((person) => person.discipleshipStage === "disciple_maker").length,
-        distinctFruitPeopleCount(stories, ["started discipling others", "disciple maker", "multiplying", "multiplication"]),
-      ),
+      label: "Church Engagement",
+      value: distinctFruitPeopleCount(stories, ["church engagement", "church", "attending church", "joined church"]),
     },
     {
       label: "Baptized",
@@ -3562,6 +3525,13 @@ function kingdomFruitMetrics(people: DosAppPerson[], stories: FruitDashboardStor
     {
       label: "New Believers",
       value: distinctFruitPeopleCount(stories, ["salvation", "new believer", "gave their life", "born again", "follow jesus"]),
+    },
+    {
+      label: "Started Discipling Others",
+      value: Math.max(
+        people.filter((person) => person.discipleshipStage === "disciple_maker").length,
+        distinctFruitPeopleCount(stories, ["started discipling others", "disciple maker", "multiplying", "multiplication"]),
+      ),
     },
   ];
 }
@@ -3623,7 +3593,7 @@ function FruitTreeCard({
         </div>
       ) : (
         <p className="mt-4 rounded-2xl bg-[#F8FAFC] px-4 py-3 text-sm leading-6 text-[#64748B]">
-          Fruit themes will appear as approved stories and reviews come in.
+          Fruit themes will appear as recorded stories and reviews come in.
         </p>
       )}
     </section>
@@ -4299,23 +4269,7 @@ function FruitEventIcon({ event }: { event: DosAppFruitEvent }) {
   return <Flame className={iconClass} aria-hidden="true" strokeWidth={1.8} />;
 }
 
-function FruitEventRow({
-  event,
-  onDelete,
-  onUpdate,
-}: {
-  event: DosAppFruitEvent;
-  onDelete?: (event: DosAppFruitEvent) => void;
-  onUpdate?: (event: DosAppFruitEvent, updates: Record<string, unknown>) => void;
-}) {
-  const debugEntries = [
-    ["Source", fruitSourceLabel(event.sourceType)],
-    ["Generated From", event.generatedBy ?? "Manual"],
-    ["Meeting", shortId(event.meetingId)],
-    ["Source ID", shortId(event.sourceId)],
-    ["Key", event.generationKey ?? "None"],
-  ];
-
+function FruitEventRow({ event }: { event: DosAppFruitEvent }) {
   return (
     <article className="relative min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
       <div className="flex gap-3">
@@ -4323,93 +4277,9 @@ function FruitEventRow({
           <FruitEventIcon event={event} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {sourceTransparencyLabel(event)}
-            </span>
-            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{confidenceLabel(event.confidenceLevel)}</span>
-            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(event.date)}</span>
-          </div>
-          <h3 className="mt-2 text-lg font-bold leading-6 text-[#0F172A]">{event.title || event.fruitType}</h3>
+          <h3 className="text-base font-bold leading-6 text-[#0F172A]">{event.title || event.fruitType}</h3>
+          <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B]">{formatDate(event.date)}</p>
           <p className="mt-1 text-sm leading-6 text-[#64748B]">{fruitNarrative(event)}</p>
-          <p className="mt-2 text-xs leading-5 text-[#94A3B8]">{fruitSourceLine(event)}</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{event.fruitType}</span>
-            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{visibilityLabel(event.visibility)}</span>
-            {event.status === "hidden" ? <span className="rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#1D4ED8]">Hidden</span> : null}
-          </div>
-          {onUpdate ? (
-            <details className="mt-2 rounded-2xl border border-[#E2E8F0] bg-white px-3 py-2">
-              <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-                Adjust
-              </summary>
-              <div className="mt-3 grid gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <button className="min-h-9 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-3 text-xs font-bold text-white" onClick={() => onUpdate(event, { confidenceLevel: "confirmed", status: "reviewed" })} type="button">
-                    Confirm Fruit
-                  </button>
-                  <button className="min-h-9 rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-3 text-xs font-bold text-[#0F172A]" onClick={() => onUpdate(event, { status: "hidden", visibility: "private" })} type="button">
-                    Hide Fruit
-                  </button>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(["private", "internal", "public"] as const).map((visibility) => (
-                    <button
-                      className={`min-h-8 rounded-full border px-2 text-[11px] font-semibold ${
-                        event.visibility === visibility ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]"
-                      }`}
-                      key={visibility}
-                      onClick={() => onUpdate(event, { visibility })}
-                      type="button"
-                    >
-                      {visibilityLabel(visibility)}
-                    </button>
-                  ))}
-                </div>
-                <form
-                  className="grid gap-2"
-                  onSubmit={(submitEvent) => {
-                    submitEvent.preventDefault();
-                    const formData = new FormData(submitEvent.currentTarget);
-
-                    onUpdate(event, {
-                      description: String(formData.get("description") ?? ""),
-                      title: String(formData.get("title") ?? ""),
-                    });
-                  }}
-                >
-                  <input className={`${FieldInputClass()} min-h-10 rounded-xl text-sm`} defaultValue={event.title ?? event.fruitType} name="title" placeholder="Title" />
-                  <textarea className={`${FieldTextareaClass()} min-h-20 rounded-xl text-sm`} defaultValue={event.description ?? ""} name="description" placeholder="Description" />
-                  <button className="min-h-9 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" type="submit">
-                    Save Fruit
-                  </button>
-                </form>
-                {onDelete ? (
-                  <button className="min-h-9 rounded-full border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700" onClick={() => onDelete(event)} type="button">
-                    Delete Mistake
-                  </button>
-                ) : null}
-              </div>
-            </details>
-          ) : null}
-          <details className="mt-2 rounded-2xl border border-[#E2E8F0] bg-white px-3 py-2">
-            <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-              Source Details
-            </summary>
-            <div className="mt-2 grid gap-1.5 text-xs text-[#64748B]">
-              {debugEntries.map(([label, value]) => (
-                <p className="flex justify-between gap-3" key={label}>
-                  <span className="text-[#94A3B8]">{label}</span>
-                  <span className="truncate text-right font-semibold">{value}</span>
-                </p>
-              ))}
-              {Object.keys(event.debugContext).length ? (
-                <p className="break-words rounded-xl bg-[#F1F5F9] p-2 text-[11px] leading-5 text-[#64748B]">
-                  {Object.entries(event.debugContext).map(([key, value]) => `${key}: ${String(value)}`).join(" · ")}
-                </p>
-              ) : null}
-            </div>
-          </details>
         </div>
       </div>
     </article>
@@ -4478,10 +4348,9 @@ function ParticipantTestimonyRow({ testimony }: { testimony: DosAppParticipantTe
           <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(testimony.submittedAt)}</span>
         </div>
         <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{testimony.whatChanged || testimony.story}</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{testimony.permissionToShare ? "Share OK" : "Private"}</span>
-          {testimony.publicDisplayName ? <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{testimony.publicDisplayName}</span> : null}
-        </div>
+        {testimony.publicDisplayName ? (
+          <p className="mt-2 text-xs font-semibold leading-5 text-[#64748B]">{testimony.publicDisplayName}</p>
+        ) : null}
       </div>
     </article>
   );
@@ -4629,7 +4498,7 @@ function ContactActionRow({
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]">{icon}</span>
       <a className="min-w-0 flex-1 transition-colors hover:text-[#1D4ED8]" href={primaryHref}>
         <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
-        <span className="mt-0.5 block truncate font-semibold leading-5 text-[#0F172A]">{value}</span>
+        <span className="mt-0.5 block truncate leading-5 text-[#0F172A]">{value}</span>
       </a>
       {actions?.length ? (
         <span className="flex shrink-0 gap-1.5 max-[350px]:gap-1">
@@ -4842,8 +4711,6 @@ function PersonDetailOverlay({
   onScheduleMeeting,
   participantReviews,
   participantTestimonies,
-  onDeleteFruitEvent,
-  onUpdateFruitEvent,
   person,
 }: {
   circleScore?: DosRelationshipScore | null;
@@ -4857,8 +4724,6 @@ function PersonDetailOverlay({
   onOpenMeeting: (meetingId: string) => void;
   onLogMeeting: () => void;
   onScheduleMeeting: () => void;
-  onDeleteFruitEvent: (event: DosAppFruitEvent) => void;
-  onUpdateFruitEvent: (event: DosAppFruitEvent, updates: Record<string, unknown>) => void;
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
@@ -5176,15 +5041,14 @@ function PersonDetailOverlay({
             <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Summary">
               <div className="grid min-w-0 grid-cols-2 gap-2 max-[350px]:gap-1.5">
                 <PersonSummaryTile icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Fruit" value={personFruitSummary.latestFruit} />
-                <PersonSummaryTile icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Follow Up Needed" value={personFruitSummary.followUpNeeded} />
-                <PersonSummaryTile icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Discipleship Status" value={personFruitSummary.discipleshipStatus} />
-                <PersonSummaryTile icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication Status" value={personFruitSummary.multiplicationStatus} />
+                <PersonSummaryTile icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personFruitEvents.length)} />
               </div>
+              <PersonSummaryTile icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication Status" value={fruitMultiplicationLabel(personFruitSummary.multiplicationStatus)} />
             </DetailCard>
 
-            <DetailCard icon={<Gift className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Timeline">
+            <DetailCard icon={<Gift className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Feed">
               {personFruitEvents.length ? personFruitEvents.map((event) => (
-                <FruitEventRow event={event} key={event.id} onDelete={onDeleteFruitEvent} onUpdate={onUpdateFruitEvent} />
+                <FruitEventRow event={event} key={event.id} />
               )) : (
                 <SectionEmptyState
                   text="After a meeting, capture what happened or invite them to share their story."
@@ -5256,12 +5120,10 @@ function MeetingDetailOverlay({
   onBack,
   onEdit,
   onLogReflection,
-  onDeleteFruitEvent,
   onSendReview,
   onSendTestimony,
   onShareReview,
   onShareTestimony,
-  onUpdateFruitEvent,
   participantReviews,
   participantTestimonies,
   people,
@@ -5279,12 +5141,10 @@ function MeetingDetailOverlay({
   onBack: () => void;
   onEdit: () => void;
   onLogReflection: () => void;
-  onDeleteFruitEvent: (event: DosAppFruitEvent) => void;
   onSendReview: () => void;
   onSendTestimony: () => void;
   onShareReview: () => void;
   onShareTestimony: () => void;
-  onUpdateFruitEvent: (event: DosAppFruitEvent, updates: Record<string, unknown>) => void;
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
@@ -5479,9 +5339,9 @@ function MeetingDetailOverlay({
           )) : <SectionEmptyState text="Invite them to share their story if something changed." title="No stories yet." />}
         </DetailCard>
 
-        <DetailCard title="Fruit Timeline">
+        <DetailCard title="Fruit Feed">
           {meetingFruitEvents.length ? meetingFruitEvents.map((event) => (
-            <FruitEventRow event={event} key={event.id} onDelete={onDeleteFruitEvent} onUpdate={onUpdateFruitEvent} />
+            <FruitEventRow event={event} key={event.id} />
           )) : <SectionEmptyState text="After a meeting, capture what happened or invite them to share their story." title="No fruit has been logged yet." />}
         </DetailCard>
 
@@ -6274,65 +6134,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  async function handleUpdateFruitEvent(event: DosAppFruitEvent, updates: Record<string, unknown>) {
-    setErrorMessage("");
-
-    if (isPreview) {
-      setErrorMessage("Preview mode is read-only. Fruit changes are not saved.");
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/dos/app/fruit-events/${event.id}`, {
-        body: JSON.stringify({
-          ...updates,
-          workspaceId: data.workspace.id,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "PATCH",
-      });
-      const result = await response.json().catch(() => ({})) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(result.error ?? "Unable to update fruit.");
-      }
-
-      router.refresh();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to update fruit.");
-    }
-  }
-
-  async function handleDeleteFruitEvent(event: DosAppFruitEvent) {
-    if (isPreview) {
-      setErrorMessage("Preview mode is read-only. Fruit changes are not saved.");
-      return;
-    }
-
-    if (typeof window !== "undefined" && !window.confirm("Delete this mistaken Fruit event?")) {
-      return;
-    }
-
-    setErrorMessage("");
-
-    try {
-      const response = await fetch(`/api/dos/app/fruit-events/${event.id}?workspaceId=${encodeURIComponent(data.workspace.id)}`, {
-        method: "DELETE",
-      });
-      const result = await response.json().catch(() => ({})) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(result.error ?? "Unable to delete fruit.");
-      }
-
-      router.refresh();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to delete fruit.");
-    }
-  }
-
   function toggleOutcomeTag(tag: string) {
     setSelectedOutcomeTags((current) =>
       current.includes(tag)
@@ -6583,7 +6384,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     </div>
                   ) : (
                     <EmptyState
-                      text="Approved fruit from meetings, reviews, and stories will appear here."
+                      text="Fruit from meetings, reviews, and stories will appear here."
                       title="No fruit visible yet."
                     />
                   )}
@@ -6701,12 +6502,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               leaderReflections={data.leaderReflections}
               meetings={data.meetings}
             onBack={() => setSelectedPersonId(null)}
-            onDeleteFruitEvent={handleDeleteFruitEvent}
             onEdit={() => openPersonEdit(selectedPerson)}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
             onOpenMeeting={openMeetingDetail}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
-            onUpdateFruitEvent={handleUpdateFruitEvent}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
               person={selectedPerson}
@@ -6724,7 +6523,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onBack={() => setSelectedMeetingId(null)}
             onCopyReview={() => handleCopyReview(selectedMeetingWithReview)}
             onCopyTestimony={() => handleCopyTestimony(selectedMeetingWithReview)}
-            onDeleteFruitEvent={handleDeleteFruitEvent}
             onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
             onLogReflection={() => {
               setSelectedOutcomeTags([]);
@@ -6734,7 +6532,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onSendTestimony={() => handleShareTestimony(selectedMeetingWithReview)}
             onShareReview={() => handleShareReview(selectedMeetingWithReview)}
             onShareTestimony={() => handleShareTestimony(selectedMeetingWithReview)}
-            onUpdateFruitEvent={handleUpdateFruitEvent}
             participantReviews={data.participantReviews}
             participantTestimonies={data.participantTestimonies}
             people={people}
