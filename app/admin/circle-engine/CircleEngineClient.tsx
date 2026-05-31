@@ -37,6 +37,49 @@ const overrideOptions: Array<{ label: string; value: CircleOverrideSelection }> 
   { label: "Field", value: "field" },
 ];
 
+const circleDefinitions: Array<{
+  circle: DosRelationshipScore["circle"];
+  description: string;
+  emptyText: string;
+  label: string;
+}> = [
+  {
+    circle: "three",
+    description: "Highest-focus people who need close, consistent attention right now.",
+    emptyText: "No one is in My 3 yet. The engine will only place people here when scoring or a manual pin warrants it.",
+    label: "My 3",
+  },
+  {
+    circle: "twelve",
+    description: "Active discipleship relationships with meaningful ongoing activity.",
+    emptyText: "No one is in My 12 yet. That is okay for an early or quiet workspace.",
+    label: "My 12",
+  },
+  {
+    circle: "seventy",
+    description: "Broader field relationships that still have enough activity to stay visible.",
+    emptyText: "No one is in My 70 yet. People will appear here after the focused circles and activity support it.",
+    label: "My 70",
+  },
+  {
+    circle: "field",
+    description: "Everyone outside the current focused circles. Field means not neglected, simply outside the current focus.",
+    emptyText: "Field is empty because everyone with a score is currently in a focused circle.",
+    label: "Field",
+  },
+];
+
+type CircleHistoryItem = {
+  calculatedAt: string | null;
+  movementReason: DosRelationshipScore["explanation"] | null;
+  newCircle: DosRelationshipScore["circle"];
+  newScore: number;
+  previousCircle: DosRelationshipScore["circle"] | null;
+  previousScore: number | null;
+};
+
+type HistoryStatus = "error" | "idle" | "loading" | "ready";
+
 function circleLabel(circle: string) {
   return {
     field: "Field",
@@ -104,23 +147,101 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
   );
 }
 
-function DistributionCard({ label, value }: { label: string; value: number }) {
+function DistributionCard({
+  description,
+  emptyText,
+  label,
+  value,
+}: {
+  description: string;
+  emptyText: string;
+  label: string;
+  value: number;
+}) {
   return (
     <div className="rounded-lg border border-stone-800 bg-[#080808] p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-stone-100">{label}</p>
         <span className="rounded-full bg-[#C9A24A]/10 px-2.5 py-1 text-xs font-semibold text-[#E4C465]">{value}</span>
       </div>
+      <p className="mt-3 text-xs leading-5 text-stone-400">{value === 0 ? emptyText : description}</p>
+    </div>
+  );
+}
+
+function AssignmentBadge({ source }: { source: DosRelationshipScore["assignmentSource"] }) {
+  const isManual = source === "manual";
+
+  return (
+    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${
+      isManual
+        ? "border-[#C9A24A]/40 bg-[#C9A24A]/10 text-[#E4C465]"
+        : "border-stone-700 bg-[#050505] text-stone-300"
+    }`}>
+      {isManual ? "Manual Pin" : "Auto Assigned"}
+    </span>
+  );
+}
+
+function ScoreHistory({
+  error,
+  history,
+  status,
+}: {
+  error: string;
+  history: CircleHistoryItem[] | null;
+  status: HistoryStatus;
+}) {
+  return (
+    <div className="mt-4 rounded-lg border border-stone-800 bg-[#050505] p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Score history</p>
+      {status === "loading" ? (
+        <p className="mt-3 rounded-md border border-stone-800 bg-[#080808] px-3 py-2 text-sm text-stone-400">Loading score history...</p>
+      ) : null}
+      {status === "error" ? (
+        <p className="mt-3 rounded-md border border-red-900/50 bg-red-950/20 px-3 py-2 text-sm text-red-200">{error}</p>
+      ) : null}
+      {status === "ready" && history?.length ? (
+        <div className="mt-3 grid gap-2">
+          {history.slice(0, 5).map((item, index) => (
+            <div className="rounded-md border border-stone-800 bg-[#080808] px-3 py-2" key={`${item.calculatedAt}-${item.newCircle}-${item.newScore}-${index}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-stone-200">
+                  {item.previousCircle ? circleLabel(item.previousCircle) : "New"} to {circleLabel(item.newCircle)}
+                </p>
+                <span className="text-xs text-stone-500">{formatDateTime(item.calculatedAt)}</span>
+              </div>
+              <p className="mt-1 text-xs text-stone-500">
+                Score {item.previousScore === null ? "new" : score(item.previousScore)} to {score(item.newScore)}
+              </p>
+              {item.movementReason?.summary ? (
+                <p className="mt-2 text-xs leading-5 text-stone-400">{item.movementReason.summary}</p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {status === "ready" && !history?.length ? (
+        <p className="mt-3 rounded-md border border-stone-800 bg-[#080808] px-3 py-2 text-sm leading-6 text-stone-400">
+          No score history yet. History appears after the engine recalculates and detects a score or circle movement.
+        </p>
+      ) : null}
     </div>
   );
 }
 
 function PersonDiagnostic({
   disabled,
+  history,
+  historyError,
+  historyStatus,
   onSaveOverride,
   score: item,
 }: {
   disabled: boolean;
+  history: CircleHistoryItem[] | null;
+  historyError: string;
+  historyStatus: HistoryStatus;
   onSaveOverride: (personId: string, circle: CircleOverrideSelection, reason: string, currentCircle: DosRelationshipScore["circle"]) => Promise<void>;
   score: DosRelationshipScore;
 }) {
@@ -130,7 +251,7 @@ function PersonDiagnostic({
   const strongestSignals = Object.entries(item.breakdown)
     .sort(([, first], [, second]) => second - first)
     .slice(0, 3) as Array<[keyof DosRelationshipScore["breakdown"], number]>;
-  const assignmentMode = item.assignmentSource === "manual" ? "Manually pinned" : "Automatic";
+  const assignmentMode = item.assignmentSource === "manual" ? "Manual Pin" : "Auto Assigned";
 
   useEffect(() => {
     setOverrideCircle(item.assignmentSource === "manual" ? item.circle : "auto");
@@ -160,9 +281,7 @@ function PersonDiagnostic({
           <span className="rounded-full bg-[#C9A24A]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#E4C465]">
             {circleLabel(item.circle)}
           </span>
-          <span className="rounded-full border border-stone-800 bg-[#050505] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
-            {item.assignmentSource === "manual" ? "Manual" : "Automatic"}
-          </span>
+          <AssignmentBadge source={item.assignmentSource} />
         </div>
       </div>
       <p className="mt-2 text-xs text-stone-500">
@@ -198,6 +317,9 @@ function PersonDiagnostic({
 
       <div className="mt-4 rounded-lg border border-stone-800 bg-[#050505] p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Manual override</p>
+        <p className="mt-2 text-xs leading-5 text-stone-400">
+          Auto Assigned follows the scoring model. Manual Pin locks this person into the selected circle until an admin returns them to Auto.
+        </p>
         <div className="mt-3 grid gap-3 md:grid-cols-[160px_minmax(0,1fr)_auto] md:items-end">
           <label className="grid gap-2">
             <span className="text-xs font-medium text-stone-400">Assignment</span>
@@ -232,6 +354,8 @@ function PersonDiagnostic({
           </button>
         </div>
       </div>
+
+      <ScoreHistory error={historyError} history={history} status={historyStatus} />
     </article>
   );
 }
@@ -250,6 +374,10 @@ export function CircleEngineClient({
   const [isWorking, setIsWorking] = useState(false);
   const [personQuery, setPersonQuery] = useState("");
   const [selectedPersonId, setSelectedPersonId] = useState("");
+  const [history, setHistory] = useState<CircleHistoryItem[] | null>(null);
+  const [historyError, setHistoryError] = useState("");
+  const [historyStatus, setHistoryStatus] = useState<HistoryStatus>("idle");
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const ranked = useMemo(() => data ? [...data.my3, ...data.my12, ...data.my70, ...data.field] : [], [data]);
   const matchingPeople = useMemo(() => {
     const query = personQuery.trim().toLowerCase();
@@ -261,6 +389,52 @@ export function CircleEngineClient({
   const selectedPerson = ranked.find((item) => item.person.id === selectedPersonId) ?? null;
   const autoAssignedCount = ranked.filter((item) => item.assignmentSource === "automatic").length;
   const manuallyPinnedCount = data?.metadata.lockedCount ?? ranked.filter((item) => item.assignmentSource === "manual").length;
+
+  useEffect(() => {
+    if (!selectedWorkspaceId || !selectedPersonId) {
+      setHistory(null);
+      setHistoryError("");
+      setHistoryStatus("idle");
+      return;
+    }
+
+    let isCurrent = true;
+
+    setHistoryStatus("loading");
+    setHistoryError("");
+
+    fetch(`/api/dos/circles/person/${encodeURIComponent(selectedPersonId)}?workspaceId=${encodeURIComponent(selectedWorkspaceId)}`)
+      .then(async (response) => {
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "Unable to load score history.");
+        }
+
+        return result as { history?: CircleHistoryItem[] };
+      })
+      .then((result) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setHistory(result.history ?? []);
+        setHistoryStatus("ready");
+      })
+      .catch((error) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setHistory([]);
+        setHistoryError(error instanceof Error ? error.message : "Unable to load score history.");
+        setHistoryStatus("error");
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [historyRefreshKey, selectedPersonId, selectedWorkspaceId]);
 
   async function fetchRecalculatedData() {
     const response = await fetch("/api/dos/circles/recalculate", {
@@ -281,6 +455,9 @@ export function CircleEngineClient({
     setSelectedWorkspaceId(workspaceId);
     setSelectedPersonId("");
     setPersonQuery("");
+    setHistory(null);
+    setHistoryError("");
+    setHistoryStatus("idle");
     setMessage("");
     const response = await fetch(`/api/dos/circles?workspaceId=${encodeURIComponent(workspaceId)}`);
     const result = await response.json();
@@ -319,7 +496,8 @@ export function CircleEngineClient({
 
         setData(recalculatedData);
         setConfig(recalculatedData.config);
-        setMessage("Config saved and scores recalculated.");
+        setHistoryRefreshKey((current) => current + 1);
+        setMessage("Config saved. Scores were recalculated with the latest weights.");
       } catch (recalculateError) {
         setMessage(recalculateError instanceof Error
           ? `Config saved, but recalculation failed: ${recalculateError.message}`
@@ -341,6 +519,7 @@ export function CircleEngineClient({
 
       setData(result);
       setConfig(result.config);
+      setHistoryRefreshKey((current) => current + 1);
       setMessage("Scores recalculated.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to recalculate.");
@@ -378,6 +557,7 @@ export function CircleEngineClient({
 
       setData(result);
       setConfig(result.config);
+      setHistoryRefreshKey((current) => current + 1);
       setMessage(circle === "auto" ? "Manual pin removed and scores recalculated." : "Circle pin saved and scores recalculated.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to update circle pin.");
@@ -415,24 +595,62 @@ export function CircleEngineClient({
 
       {message ? <p className="rounded-lg border border-[#C9A24A]/30 bg-[#C9A24A]/10 px-3 py-2 text-sm text-[#E4C465]">{message}</p> : null}
 
+      <section className="rounded-lg border border-stone-800 bg-[#070707] p-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-stone-100">Circle Guide</h2>
+            <p className="mt-1 text-sm leading-6 text-stone-400">
+              The engine ranks real relationship activity, then keeps the focused circles explainable and easy to override.
+            </p>
+          </div>
+          <span className="w-fit rounded-full border border-[#C9A24A]/30 bg-[#C9A24A]/10 px-3 py-1 text-xs font-semibold text-[#E4C465]">
+            Field is still cared for
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          {circleDefinitions.map((circle) => (
+            <div className="rounded-lg border border-stone-800 bg-[#080808] p-3" key={circle.circle}>
+              <p className="text-sm font-semibold text-stone-100">{circle.label}</p>
+              <p className="mt-2 text-xs leading-5 text-stone-400">{circle.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section>
         <h2 className="mb-3 text-lg font-semibold text-stone-100">Engine Summary</h2>
         <div className="grid gap-3 md:grid-cols-4">
           <SummaryCard label="Total people scored" value={data?.metadata.peopleScored ?? 0} />
           <SummaryCard label="Last recalculated" value={formatDateTime(data?.metadata.calculatedAt)} />
-          <SummaryCard label="Auto assigned" value={autoAssignedCount} />
-          <SummaryCard label="Manually pinned" value={manuallyPinnedCount} />
+          <SummaryCard label="Auto Assigned" value={autoAssignedCount} />
+          <SummaryCard label="Manual Pins" value={manuallyPinnedCount} />
         </div>
       </section>
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-stone-100">Circle Distribution</h2>
         <div className="grid gap-3 md:grid-cols-4">
-          <DistributionCard label="My 3" value={data?.my3.length ?? 0} />
-          <DistributionCard label="My 12" value={data?.my12.length ?? 0} />
-          <DistributionCard label="My 70" value={data?.my70.length ?? 0} />
-          <DistributionCard label="Field" value={data?.field.length ?? 0} />
+          {circleDefinitions.map((circle) => (
+            <DistributionCard
+              description={circle.description}
+              emptyText={circle.emptyText}
+              key={circle.circle}
+              label={circle.label}
+              value={
+                circle.circle === "three"
+                  ? data?.my3.length ?? 0
+                  : circle.circle === "twelve"
+                    ? data?.my12.length ?? 0
+                    : circle.circle === "seventy"
+                      ? data?.my70.length ?? 0
+                      : data?.field.length ?? 0
+              }
+            />
+          ))}
         </div>
+        <p className="mt-3 rounded-lg border border-stone-800 bg-[#070707] px-3 py-2 text-sm leading-6 text-stone-400">
+          Field means not neglected, simply outside the current focused circles. These people remain visible for follow up and future activity.
+        </p>
       </section>
 
       {config ? (
@@ -485,7 +703,14 @@ export function CircleEngineClient({
 
           <div className="mt-4">
             {selectedPerson ? (
-              <PersonDiagnostic disabled={isWorking} onSaveOverride={saveOverride} score={selectedPerson} />
+              <PersonDiagnostic
+                disabled={isWorking}
+                history={history}
+                historyError={historyError}
+                historyStatus={historyStatus}
+                onSaveOverride={saveOverride}
+                score={selectedPerson}
+              />
             ) : (
               <div className="rounded-lg border border-stone-800 bg-[#080808] p-5 text-sm text-stone-400">
                 Choose a person to inspect why the engine assigned their circle.
@@ -499,7 +724,7 @@ export function CircleEngineClient({
         <summary className="cursor-pointer text-lg font-semibold text-stone-100">Preview ranked people</summary>
         <div className="mt-4 grid gap-2">
           {ranked.length ? ranked.slice(0, 10).map((item, index) => (
-            <div className="grid gap-2 rounded-lg border border-stone-800 bg-[#080808] p-3 sm:grid-cols-[56px_minmax(0,1fr)_90px_70px] sm:items-center" key={item.person.id}>
+            <div className="grid gap-2 rounded-lg border border-stone-800 bg-[#080808] p-3 sm:grid-cols-[56px_minmax(0,1fr)_90px_112px_70px] sm:items-center" key={item.person.id}>
               <span className="text-xs text-stone-500">#{index + 1}</span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-stone-100">{item.person.name}</span>
@@ -508,11 +733,12 @@ export function CircleEngineClient({
               <span className="w-fit rounded-full bg-[#C9A24A]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#E4C465]">
                 {circleLabel(item.circle)}
               </span>
+              <AssignmentBadge source={item.assignmentSource} />
               <span className="text-sm font-semibold text-stone-200">{score(item.totalScore)}</span>
             </div>
           )) : (
             <div className="rounded-lg border border-stone-800 bg-[#080808] p-5 text-sm text-stone-400">
-              Recalculate to preview ranked people.
+              No ranked people yet. Recalculate after relationship activity is logged, or use manual pins when you need a demo-safe focused circle.
             </div>
           )}
         </div>
