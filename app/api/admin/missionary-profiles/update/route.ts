@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import {
   normalizeLocationVisibility,
   normalizeMinistryRegion,
@@ -1637,6 +1638,18 @@ export async function POST(request: Request) {
     return NextResponse.json({
       error: "In Season focus was not saved because the missionary_in_season_focus table is missing. Apply the latest Command Center workflow migration to the connected Supabase project.",
     }, { status: 500 });
+  }
+
+  const shouldRefreshCircleScores = Array.isArray(payload.tables)
+    || Array.isArray(payload.tableReviews)
+    || Array.isArray(payload.fruitItems)
+    || Array.isArray(payload.connectionLogs)
+    || Array.isArray(payload.encounterSubmissions);
+
+  if (shouldRefreshCircleScores) {
+    await recalculateCircleScores(workspaceId).catch((scoreError) => {
+      console.warn("[DOS circles] Unable to recalculate after Command Center activity save", scoreError);
+    });
   }
 
   return NextResponse.json({

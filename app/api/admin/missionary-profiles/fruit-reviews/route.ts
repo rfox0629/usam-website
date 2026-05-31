@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 const reviewActions = ["approve", "private", "archive"] as const;
@@ -189,6 +190,10 @@ export async function POST(request: Request) {
 
   revalidatePath("/admin/missionary-profiles");
   revalidatePath("/dos/app");
+
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after Fruit review status change", scoreError);
+  });
 
   return NextResponse.json({
     fruit: {

@@ -2563,6 +2563,11 @@ function scoreLabel(value: number) {
 
 type CircleListItem = { person: DosAppPerson };
 type CirclePersonItem = CircleListItem & { score: DosRelationshipScore };
+type CircleLayerGroups = {
+  seventy: CirclePersonItem[];
+  three: CirclePersonItem[];
+  twelve: CirclePersonItem[];
+};
 
 function uniqueCircleMembers(items: CirclePersonItem[]) {
   const seen = new Set<string>();
@@ -2577,18 +2582,14 @@ function uniqueCircleMembers(items: CirclePersonItem[]) {
   });
 }
 
-function rankedCircleMembers(items: CirclePersonItem[]) {
-  return uniqueCircleMembers(items).sort((first, second) => second.score.totalScore - first.score.totalScore);
-}
-
-function circleLayerDetails(activeCircle: CircleFocusView, rankedPeople: CirclePersonItem[]) {
+function circleLayerDetails(activeCircle: CircleFocusView, circleGroups: CircleLayerGroups) {
   switch (activeCircle) {
     case "three":
       return {
         capacity: 3,
-        cumulativeCount: Math.min(rankedPeople.length, 3),
+        cumulativeCount: circleGroups.three.length,
         empty: "No one in My 3 yet.",
-        items: rankedPeople.slice(0, 3),
+        items: circleGroups.three,
         sectionLabel: "Top 3",
         startIndex: 0,
         subtitle: "The people you invest in most deeply.",
@@ -2598,9 +2599,9 @@ function circleLayerDetails(activeCircle: CircleFocusView, rankedPeople: CircleP
     case "twelve":
       return {
         capacity: 12,
-        cumulativeCount: Math.min(rankedPeople.length, 12),
+        cumulativeCount: circleGroups.three.length + circleGroups.twelve.length,
         empty: "No additional people in your 12 yet.",
-        items: rankedPeople.slice(3, 12),
+        items: circleGroups.twelve,
         sectionLabel: "Next 9 People",
         startIndex: 3,
         subtitle: "These are the next 9 people in your core circle. Together with your 3, this makes 12.",
@@ -2610,9 +2611,9 @@ function circleLayerDetails(activeCircle: CircleFocusView, rankedPeople: CircleP
     case "seventy":
       return {
         capacity: 70,
-        cumulativeCount: Math.min(rankedPeople.length, 70),
+        cumulativeCount: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length,
         empty: "No additional people in your 70 yet.",
-        items: rankedPeople.slice(12, 70),
+        items: circleGroups.seventy,
         sectionLabel: "Next 58 People",
         startIndex: 12,
         subtitle: "These are the next 58 people in your broader field. Together with your 12, this makes 70.",
@@ -2626,9 +2627,9 @@ function previewCircleLayerItems(activeCircle: CircleFocusView, items: CirclePer
   return activeCircle === "seventy" ? items.slice(0, 6) : items;
 }
 
-function peopleCircleDetails(activeCircle: PeopleCircleView, rankedPeople: CirclePersonItem[], people: DosAppPerson[]) {
+function peopleCircleDetails(activeCircle: PeopleCircleView, circleGroups: CircleLayerGroups, people: DosAppPerson[]) {
   if (activeCircle !== "other") {
-    const details = circleLayerDetails(activeCircle, rankedPeople);
+    const details = circleLayerDetails(activeCircle, circleGroups);
 
     return {
       empty: details.empty,
@@ -2640,11 +2641,15 @@ function peopleCircleDetails(activeCircle: PeopleCircleView, rankedPeople: Circl
     };
   }
 
-  const rankedIds = new Set(rankedPeople.slice(0, 70).map(({ person }) => person.id));
+  const assignedIds = new Set([
+    ...circleGroups.three,
+    ...circleGroups.twelve,
+    ...circleGroups.seventy,
+  ].map(({ person }) => person.id));
 
   return {
     empty: "No one outside your circles yet.",
-    items: people.filter((person) => !rankedIds.has(person.id)).map((person) => ({ person })),
+    items: people.filter((person) => !assignedIds.has(person.id)).map((person) => ({ person })),
     sectionLabel: "Everyone Else",
     startIndex: 70,
     subtitle: "People in your field who are not currently in My 3, My 12, or My 70.",
@@ -2830,19 +2835,19 @@ function CircleTarget({
 }
 
 function CircleFocusHero({
+  circleGroups,
   headline,
   onSelectCircle,
   onViewCircles,
-  rankedPeople,
 }: {
+  circleGroups: CircleLayerGroups;
   headline: string;
   onSelectCircle: (circle: CircleFocusView) => void;
   onViewCircles: () => void;
-  rankedPeople: CirclePersonItem[];
 }) {
-  const my3Count = Math.min(rankedPeople.length, 3);
-  const my12Count = Math.min(rankedPeople.length, 12);
-  const my70Count = Math.min(rankedPeople.length, 70);
+  const my3Count = circleGroups.three.length;
+  const my12Count = circleGroups.three.length + circleGroups.twelve.length;
+  const my70Count = circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length;
 
   return (
     <section className="rounded-[30px] bg-white px-5 py-5 shadow-[0_18px_48px_rgba(42,37,29,0.08)]">
@@ -5485,22 +5490,22 @@ function CircleLayerList({
 
 function CircleLayerSheet({
   activeCircle,
+  circleGroups,
   latestMeetingDateByPersonId,
   onClose,
   onLogMeeting,
   onLogMeetingForPerson,
   onOpenPerson,
-  rankedPeople,
 }: {
   activeCircle: CircleFocusView;
+  circleGroups: CircleLayerGroups;
   latestMeetingDateByPersonId: Map<string, string | null>;
   onClose: () => void;
   onLogMeeting: () => void;
   onLogMeetingForPerson: (personId: string) => void;
   onOpenPerson: (personId: string) => void;
-  rankedPeople: CirclePersonItem[];
 }) {
-  const details = circleLayerDetails(activeCircle, rankedPeople);
+  const details = circleLayerDetails(activeCircle, circleGroups);
   const visiblePeople = previewCircleLayerItems(activeCircle, details.items);
   const hiddenCount = Math.max(0, details.items.length - visiblePeople.length);
   const badgeClassName = "bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_10px_22px_rgba(37,99,235,0.22)]";
@@ -5536,21 +5541,21 @@ function CircleLayerSheet({
 }
 
 function CirclesDetailOverlay({
+  circleGroups,
   latestMeetingDateByPersonId,
   onBack,
   onLogMeeting,
   onLogMeetingForPerson,
   onOpenPerson,
   onSearch,
-  rankedPeople,
 }: {
+  circleGroups: CircleLayerGroups;
   latestMeetingDateByPersonId: Map<string, string | null>;
   onBack: () => void;
   onLogMeeting: () => void;
   onLogMeetingForPerson: (personId: string) => void;
   onOpenPerson: (personId: string) => void;
   onSearch: () => void;
-  rankedPeople: CirclePersonItem[];
 }) {
   const [activeCircle, setActiveCircle] = useState<CircleFocusView>("three");
   const circleTabs: Array<SegmentedTabOption<CircleFocusView>> = [
@@ -5558,7 +5563,7 @@ function CirclesDetailOverlay({
     { label: "My 12", value: "twelve" },
     { label: "My 70", value: "seventy" },
   ];
-  const circleContent = circleLayerDetails(activeCircle, rankedPeople);
+  const circleContent = circleLayerDetails(activeCircle, circleGroups);
   const visiblePeople = previewCircleLayerItems(activeCircle, circleContent.items);
   const hiddenCount = Math.max(0, circleContent.items.length - visiblePeople.length);
 
@@ -6608,11 +6613,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, [reviewLinksByMeetingId, selectedMeeting]);
   const selectedPerson = useMemo(() => people.find((person) => person.id === selectedPersonId) ?? null, [people, selectedPersonId]);
-  const my3People = (data.circles?.my3 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
-  const my12People = (data.circles?.my12 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
-  const my70People = (data.circles?.my70 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
-  const rankedCirclePeople = rankedCircleMembers([...my3People, ...my12People, ...my70People]).slice(0, 70);
-  const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, rankedCirclePeople, people), [people, peopleCircleView, rankedCirclePeople]);
+  const circlePeopleByLayer = useMemo<CircleLayerGroups>(() => {
+    const peopleById = new Map(people.map((person) => [person.id, person]));
+    const mapScores = (scores: DosRelationshipScore[]) => uniqueCircleMembers(scores
+      .map((score) => ({ person: peopleById.get(score.person.id), score }))
+      .filter((item): item is CirclePersonItem => Boolean(item.person)));
+
+    return {
+      seventy: mapScores(data.circles?.my70 ?? []),
+      three: mapScores(data.circles?.my3 ?? []),
+      twelve: mapScores(data.circles?.my12 ?? []),
+    };
+  }, [data.circles, people]);
+  const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, people), [circlePeopleByLayer, people, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
   const latestMeetingDateByPersonId = useMemo(() => {
     const latestDates = new Map<string, string | null>();
@@ -7583,10 +7596,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             {activeTab === "home" ? (
               <div className="space-y-5">
                 <CircleFocusHero
+                  circleGroups={circlePeopleByLayer}
                   headline={circleHeadline}
                   onSelectCircle={openPeopleCircle}
                   onViewCircles={() => openPeopleCircle("three")}
-                  rankedPeople={rankedCirclePeople}
                 />
 
                 <section className="grid grid-cols-3 gap-2">
@@ -7837,6 +7850,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {isCirclesOpen ? (
           <CirclesDetailOverlay
+            circleGroups={circlePeopleByLayer}
             latestMeetingDateByPersonId={latestMeetingDateByPersonId}
             onBack={() => setIsCirclesOpen(false)}
             onLogMeeting={() => openForm("meeting")}
@@ -7846,19 +7860,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setIsCirclesOpen(false);
               setActiveTab("people");
             }}
-            rankedPeople={rankedCirclePeople}
           />
         ) : null}
 
         {circleSheetView ? (
           <CircleLayerSheet
             activeCircle={circleSheetView}
+            circleGroups={circlePeopleByLayer}
             latestMeetingDateByPersonId={latestMeetingDateByPersonId}
             onClose={() => setCircleSheetView(null)}
             onLogMeeting={() => openForm("meeting")}
             onLogMeetingForPerson={openMeetingForPerson}
             onOpenPerson={openPersonDetail}
-            rankedPeople={rankedCirclePeople}
           />
         ) : null}
 

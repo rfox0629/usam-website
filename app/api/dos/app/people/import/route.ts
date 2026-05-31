@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -272,6 +273,12 @@ export async function POST(request: Request) {
   }
 
   const importedCount = data?.length ?? 0;
+
+  if (importedCount > 0) {
+    await recalculateCircleScores(workspaceId).catch((scoreError) => {
+      console.warn("[DOS circles] Unable to recalculate after person import", scoreError);
+    });
+  }
 
   return NextResponse.json({
     duplicateCount,

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { inferFruitEventsFromReview } from "@/src/lib/dos/fruit-intelligence";
 import {
   dosQuickReviewType,
@@ -310,6 +311,10 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
       .update({ used_at: new Date().toISOString() })
       .eq("id", typedLink.id),
   ]);
+
+  await recalculateCircleScores(typedLink.workspace_id).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after quick review submit", scoreError);
+  });
 
   return { id: String(review.id), ok: true as const };
 }

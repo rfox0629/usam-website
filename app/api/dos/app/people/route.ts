@@ -238,6 +238,10 @@ export async function POST(request: Request) {
     console.warn("[Fruit Intelligence] Unable to infer engagement fruit after person create", fruitError);
   });
 
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after person create", scoreError);
+  });
+
   return NextResponse.json({ id: data.id, ok: true });
 }
 
@@ -330,6 +334,10 @@ export async function PATCH(request: Request) {
     workspaceId,
   }, supabase).catch((fruitError) => {
     console.warn("[Fruit Intelligence] Unable to infer engagement fruit after person update", fruitError);
+  });
+
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after person update", scoreError);
   });
 
   return NextResponse.json({ id: data.id, ok: true });

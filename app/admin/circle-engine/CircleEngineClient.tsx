@@ -1,7 +1,7 @@
 "use client";
 
 import { RefreshCw, Save, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DosCircleConfig, DosCircleData, DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 
 type WorkspaceOption = {
@@ -26,6 +26,16 @@ const breakdownLabels: Record<keyof DosRelationshipScore["breakdown"], string> =
   multiplication: "Multiplication",
   timeInvested: "Time invested",
 };
+
+type CircleOverrideSelection = "auto" | DosRelationshipScore["circle"];
+
+const overrideOptions: Array<{ label: string; value: CircleOverrideSelection }> = [
+  { label: "Auto", value: "auto" },
+  { label: "My 3", value: "three" },
+  { label: "My 12", value: "twelve" },
+  { label: "My 70", value: "seventy" },
+  { label: "Field", value: "field" },
+];
 
 function circleLabel(circle: string) {
   return {
@@ -105,10 +115,37 @@ function DistributionCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function PersonDiagnostic({ score: item }: { score: DosRelationshipScore }) {
+function PersonDiagnostic({
+  disabled,
+  onSaveOverride,
+  score: item,
+}: {
+  disabled: boolean;
+  onSaveOverride: (personId: string, circle: CircleOverrideSelection, reason: string, currentCircle: DosRelationshipScore["circle"]) => Promise<void>;
+  score: DosRelationshipScore;
+}) {
+  const [overrideCircle, setOverrideCircle] = useState<CircleOverrideSelection>(item.assignmentSource === "manual" ? item.circle : "auto");
+  const [overrideReason, setOverrideReason] = useState("");
+  const [isSavingOverride, setIsSavingOverride] = useState(false);
   const strongestSignals = Object.entries(item.breakdown)
     .sort(([, first], [, second]) => second - first)
     .slice(0, 3) as Array<[keyof DosRelationshipScore["breakdown"], number]>;
+  const assignmentMode = item.assignmentSource === "manual" ? "Manually pinned" : "Automatic";
+
+  useEffect(() => {
+    setOverrideCircle(item.assignmentSource === "manual" ? item.circle : "auto");
+    setOverrideReason("");
+  }, [item.assignmentSource, item.circle, item.person.id]);
+
+  async function saveOverride() {
+    setIsSavingOverride(true);
+
+    try {
+      await onSaveOverride(item.person.id, overrideCircle, overrideReason, item.circle);
+    } finally {
+      setIsSavingOverride(false);
+    }
+  }
 
   return (
     <article className="rounded-lg border border-stone-800 bg-[#080808] p-4">
@@ -128,6 +165,9 @@ function PersonDiagnostic({ score: item }: { score: DosRelationshipScore }) {
           </span>
         </div>
       </div>
+      <p className="mt-2 text-xs text-stone-500">
+        Current assignment: {circleLabel(item.circle)} · {assignmentMode}
+      </p>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         <SummaryCard label="Score" value={score(item.totalScore)} />
@@ -154,6 +194,43 @@ function PersonDiagnostic({ score: item }: { score: DosRelationshipScore }) {
             <p className="mt-1 text-lg font-semibold text-stone-100">{score(value)}</p>
           </div>
         ))}
+      </div>
+
+      <div className="mt-4 rounded-lg border border-stone-800 bg-[#050505] p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Manual override</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-[160px_minmax(0,1fr)_auto] md:items-end">
+          <label className="grid gap-2">
+            <span className="text-xs font-medium text-stone-400">Assignment</span>
+            <select
+              className="h-10 rounded-md border border-stone-700 bg-[#080808] px-3 text-sm text-stone-100 outline-none focus:border-[#C9A24A]"
+              disabled={disabled || isSavingOverride}
+              onChange={(event) => setOverrideCircle(event.target.value as CircleOverrideSelection)}
+              value={overrideCircle}
+            >
+              {overrideOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2">
+            <span className="text-xs font-medium text-stone-400">Reason</span>
+            <input
+              className="h-10 rounded-md border border-stone-700 bg-[#080808] px-3 text-sm text-stone-100 outline-none placeholder:text-stone-600 focus:border-[#C9A24A]"
+              disabled={disabled || isSavingOverride || overrideCircle === "auto"}
+              onChange={(event) => setOverrideReason(event.target.value)}
+              placeholder={overrideCircle === "auto" ? "Auto uses scoring" : "Optional note"}
+              value={overrideReason}
+            />
+          </label>
+          <button
+            className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#C9A24A] px-4 text-sm font-semibold text-[#111111] disabled:opacity-50"
+            disabled={disabled || isSavingOverride}
+            onClick={() => { void saveOverride(); }}
+            type="button"
+          >
+            {overrideCircle === "auto" ? "Use Auto" : "Save Pin"}
+          </button>
+        </div>
       </div>
     </article>
   );
@@ -184,6 +261,21 @@ export function CircleEngineClient({
   const selectedPerson = ranked.find((item) => item.person.id === selectedPersonId) ?? null;
   const autoAssignedCount = ranked.filter((item) => item.assignmentSource === "automatic").length;
   const manuallyPinnedCount = data?.metadata.lockedCount ?? ranked.filter((item) => item.assignmentSource === "manual").length;
+
+  async function fetchRecalculatedData() {
+    const response = await fetch("/api/dos/circles/recalculate", {
+      body: JSON.stringify({ workspaceId: selectedWorkspaceId }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error ?? "Unable to recalculate.");
+    }
+
+    return result as DosCircleData;
+  }
 
   async function loadWorkspace(workspaceId: string) {
     setSelectedWorkspaceId(workspaceId);
@@ -222,7 +314,17 @@ export function CircleEngineClient({
       }
 
       setConfig(result.config);
-      setMessage("Config saved.");
+      try {
+        const recalculatedData = await fetchRecalculatedData();
+
+        setData(recalculatedData);
+        setConfig(recalculatedData.config);
+        setMessage("Config saved and scores recalculated.");
+      } catch (recalculateError) {
+        setMessage(recalculateError instanceof Error
+          ? `Config saved, but recalculation failed: ${recalculateError.message}`
+          : "Config saved, but recalculation failed.");
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to save config.");
     } finally {
@@ -235,22 +337,50 @@ export function CircleEngineClient({
     setMessage("Recalculating...");
 
     try {
-      const response = await fetch("/api/dos/circles/recalculate", {
-        body: JSON.stringify({ workspaceId: selectedWorkspaceId }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error ?? "Unable to recalculate.");
-      }
+      const result = await fetchRecalculatedData();
 
       setData(result);
       setConfig(result.config);
       setMessage("Scores recalculated.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to recalculate.");
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function saveOverride(
+    personId: string,
+    circle: CircleOverrideSelection,
+    reason: string,
+    currentCircle: DosRelationshipScore["circle"],
+  ) {
+    setIsWorking(true);
+    setMessage(circle === "auto" ? "Removing manual pin..." : "Saving circle pin...");
+
+    try {
+      const response = await fetch("/api/dos/circles/override", {
+        body: JSON.stringify({
+          circle: circle === "auto" ? currentCircle : circle,
+          locked: circle !== "auto",
+          personId,
+          reason,
+          workspaceId: selectedWorkspaceId,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Unable to update circle pin.");
+      }
+
+      setData(result);
+      setConfig(result.config);
+      setMessage(circle === "auto" ? "Manual pin removed and scores recalculated." : "Circle pin saved and scores recalculated.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to update circle pin.");
     } finally {
       setIsWorking(false);
     }
@@ -355,7 +485,7 @@ export function CircleEngineClient({
 
           <div className="mt-4">
             {selectedPerson ? (
-              <PersonDiagnostic score={selectedPerson} />
+              <PersonDiagnostic disabled={isWorking} onSaveOverride={saveOverride} score={selectedPerson} />
             ) : (
               <div className="rounded-lg border border-stone-800 bg-[#080808] p-5 text-sm text-stone-400">
                 Choose a person to inspect why the engine assigned their circle.
