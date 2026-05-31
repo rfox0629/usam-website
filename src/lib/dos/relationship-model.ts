@@ -5,6 +5,7 @@ export const relationshipContextOptions = [
   { label: "Church", value: "church" },
   { label: "Community", value: "community" },
   { label: "Outreach", value: "outreach" },
+  { label: "Neighbor", value: "neighbor" },
   { label: "Other", value: "other" },
 ] as const;
 

@@ -39,18 +39,30 @@ function isMissingColumnError(error: SupabaseQueryError) {
 
 export const dosAppMeetingTypes = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "discipleship", "other"] as const;
 export const dosAppOutcomeTags = [
+  "Reconciliation",
+  "New Believers",
+  "Marriage Restoration",
+  "Baptized",
+  "Discipling",
+  "Started Discipling Others",
   "Gospel Conversation",
   "Prayer Received",
+  "Church Connection",
+  "Testimony Shared",
+  "Joined Discipleship",
+  "Bible Study Started",
+  "Prayer Request",
+  "Church Visit",
+  "Serving",
+  "Disciple Maker",
   "Salvation",
   "Re Dedication",
+  "Rededication",
   "Baptism",
-  "Joined Discipleship",
-  "Church Visit",
   "Joined Church",
   "Shared Testimony",
-  "Started Discipling Others",
+  "New Believer",
   "Marketplace Ministry",
-  "Prayer Request",
   "Freedom / Deliverance",
   "Repentance",
   "Ongoing Accountability",
@@ -199,6 +211,17 @@ export type DosAppFruit = {
   updatedAt: string | null;
 };
 
+export type DosAppPrayerLog = {
+  createdAt: string | null;
+  fieldPersonId: string | null;
+  id: string;
+  note: string | null;
+  prayedAt: string | null;
+  prayedByUserId: string | null;
+  prayerRequestId: string | null;
+  workspaceId: string;
+};
+
 export type DosAppData = {
   circles: DosCircleData | null;
   fruit: DosAppFruit[];
@@ -208,6 +231,7 @@ export type DosAppData = {
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
+  prayerLogs: DosAppPrayerLog[];
   stats: {
     approvedFruit: number;
     connectionsCount: number;
@@ -346,6 +370,17 @@ type MeetingReviewRow = {
   status: string | null;
   stood_out: string | null;
   submitted_name: string | null;
+};
+
+type PrayerLogRow = {
+  created_at: string | null;
+  field_person_id: string | null;
+  id: string;
+  note: string | null;
+  prayed_at: string | null;
+  prayed_by_user_id: string | null;
+  prayer_request_id: string | null;
+  workspace_id: string;
 };
 
 type LeaderReflectionRow = {
@@ -567,6 +602,7 @@ function latestActivityDate(...values: Array<string | null | undefined>) {
 
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
+  const relationshipCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
   const householdCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, last_activity_at, created_at, updated_at";
   const legacyPersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at";
   const scopedResult = await supabase
@@ -577,6 +613,17 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
     .order("updated_at", { ascending: false });
 
   if (scopedResult.error && isMissingColumnError(scopedResult.error) && !isMissingWorkspaceScopeColumn(scopedResult.error)) {
+    const relationshipCompatibleResult = await supabase
+      .from("missionary_field_people")
+      .select(relationshipCompatiblePersonSelect)
+      .or(workspaceScopeFilter(workspaceId))
+      .order("last_activity_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false });
+
+    if (!relationshipCompatibleResult.error) {
+      return relationshipCompatibleResult;
+    }
+
     const householdCompatibleResult = await supabase
       .from("missionary_field_people")
       .select(householdCompatiblePersonSelect)
@@ -586,6 +633,17 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
 
     if (!householdCompatibleResult.error) {
       return householdCompatibleResult;
+    }
+
+    const legacyScopedResult = await supabase
+      .from("missionary_field_people")
+      .select(legacyPersonSelect)
+      .or(workspaceScopeFilter(workspaceId))
+      .order("last_activity_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false });
+
+    if (!legacyScopedResult.error) {
+      return legacyScopedResult;
     }
   }
 
@@ -712,6 +770,18 @@ async function loadMeetingReviewsForWorkspace(supabase: SupabaseAdminClient, wor
     .order("created_at", { ascending: false });
 
   return result.error && isMissingWorkflowTable(result.error, "dos_meeting_reviews")
+    ? { data: [], error: null }
+    : result;
+}
+
+async function loadPrayerLogsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("prayer_logs")
+    .select("id, workspace_id, prayer_request_id, field_person_id, prayed_at, note, prayed_by_user_id, created_at")
+    .eq("workspace_id", workspaceId)
+    .order("prayed_at", { ascending: false });
+
+  return result.error && isMissingWorkflowTable(result.error, "prayer_logs")
     ? { data: [], error: null }
     : result;
 }
@@ -900,18 +970,19 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, reviewsFruitResult, organization] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, reviewsFruitResult, organization] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
     loadFruitForWorkspace(supabase, workspace.id),
     loadReviewLinksForWorkspace(supabase, workspace.id),
     loadMeetingReviewsForWorkspace(supabase, workspace.id),
+    loadPrayerLogsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadOrganizationForWorkspace(supabase, workspace.slug),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || reviewsFruitResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -919,6 +990,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         ?? fruitResult.error?.message
         ?? reviewLinksResult.error?.message
         ?? meetingReviewsResult.error?.message
+        ?? prayerLogsResult.error?.message
         ?? reviewsFruitResult.error?.message
         ?? "Unable to load DOS app data.",
       status: "error",
@@ -929,6 +1001,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const connectionRows = (connectionLogsResult.data ?? []) as ConnectionLogRow[];
   const reviewLinkRows = (reviewLinksResult.data ?? []) as ReviewLinkRow[];
   const meetingReviewRows = (meetingReviewsResult.data ?? []) as MeetingReviewRow[];
+  const prayerLogRows = (prayerLogsResult.data ?? []) as PrayerLogRow[];
   const reviewLinkByMeetingId = new Map<string, ReviewLinkRow>();
   const meetingReviewByMeetingId = new Map<string, MeetingReviewRow>();
   const latestActivityByPersonId = new Map<string, string>();
@@ -1003,7 +1076,8 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       status: person.status ?? "new",
       updatedAt: person.updated_at,
     };
-  }).sort((first, second) => activityDateValue(second.lastActivityAt ?? second.updatedAt) - activityDateValue(first.lastActivityAt ?? first.updatedAt));
+  }).filter((person) => !["archived", "deleted"].includes((person.status ?? "").toLowerCase()))
+    .sort((first, second) => activityDateValue(second.lastActivityAt ?? second.updatedAt) - activityDateValue(first.lastActivityAt ?? first.updatedAt));
   const peopleById = new Map(people.map((person) => [person.id, person.name]));
   const meetings = [
     ...meetingRows.map((meeting) => {
@@ -1113,6 +1187,16 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     title: fruitEvent.title,
     visibility: mapVisibility(fruitEvent.visibility),
   })).sort((first, second) => activityDateValue(second.date) - activityDateValue(first.date));
+  const prayerLogs = prayerLogRows.map((log) => ({
+    createdAt: log.created_at,
+    fieldPersonId: log.field_person_id,
+    id: log.id,
+    note: log.note,
+    prayedAt: log.prayed_at,
+    prayedByUserId: log.prayed_by_user_id,
+    prayerRequestId: log.prayer_request_id,
+    workspaceId: log.workspace_id,
+  }));
 
   return {
     data: {
@@ -1124,6 +1208,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       participantReviews,
       participantTestimonies,
       people,
+      prayerLogs,
       stats: {
         approvedFruit: fruit.filter((item) => item.status === "approved").length,
         connectionsCount: connectionRows.length,

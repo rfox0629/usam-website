@@ -21,6 +21,7 @@ type MeetingPayload = {
   fieldPersonIds?: unknown;
   id?: unknown;
   notes?: unknown;
+  notesOnly?: unknown;
   tableDate?: unknown;
   tableType?: unknown;
   workspaceId?: unknown;
@@ -138,6 +139,7 @@ export async function POST(request: Request) {
   }
 
   const allowGatedConversationFlows = isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug });
+
   const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);
 
   if (unavailableFlowResponse) {
@@ -255,6 +257,38 @@ export async function PATCH(request: Request) {
     return workspaceAccess.response;
   }
 
+  const supabase = createSupabaseAdminClient();
+
+  if (payload.notesOnly === true) {
+    const notesOnlyUpdate = {
+      notes: asString(payload.notes) || null,
+    };
+    const notesOnlyResult = await supabase
+      .from("missionary_tables")
+      .update(notesOnlyUpdate)
+      .eq("id", id)
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+      .select("id")
+      .single();
+    // TODO: Remove the household_id-only fallback after all Supabase environments
+    // have the Command Center workspace_id migration applied.
+    const { data, error } = notesOnlyResult.error && isMissingWorkspaceScopeColumn(notesOnlyResult.error)
+      ? await supabase
+        .from("missionary_tables")
+        .update(notesOnlyUpdate)
+        .eq("id", id)
+        .eq("household_id", workspaceId)
+        .select("id")
+        .single()
+      : notesOnlyResult;
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ id: data.id, ok: true });
+  }
+
   const allowGatedConversationFlows = isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug });
   const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);
 
@@ -264,7 +298,6 @@ export async function PATCH(request: Request) {
 
   const { conversationFlowKey, conversationResponses } = meetingEngineData(payload, allowGatedConversationFlows);
   const fieldPersonIds = asStringArray(payload.fieldPersonIds);
-  const supabase = createSupabaseAdminClient();
   const scopedPeopleResult = fieldPersonIds.length
     ? await supabase
       .from("missionary_field_people")
@@ -342,4 +375,64 @@ export async function PATCH(request: Request) {
   });
 
   return NextResponse.json({ id: data.id, ok: true });
+}
+
+export async function DELETE(request: Request) {
+  const authResult = await authorizeWrite();
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  const payload = await readPayload(request);
+
+  if (!payload) {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const workspace = await resolveDosAppWorkspace(asString(payload.workspaceId));
+  const id = asString(payload.id);
+
+  if (!workspace || !isUuid(id)) {
+    return NextResponse.json({ error: "Missionary meeting not found." }, { status: 404 });
+  }
+
+  const workspaceId = workspace.id;
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const scopedResult = await supabase
+    .from("missionary_tables")
+    .delete()
+    .eq("id", id)
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+    .select("id")
+    .single();
+  const { data, error } = scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
+    ? await supabase
+      .from("missionary_tables")
+      .delete()
+      .eq("id", id)
+      .eq("household_id", workspaceId)
+      .select("id")
+      .single()
+    : scopedResult;
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Unable to delete meeting." }, { status: 500 });
+  }
+
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after meeting delete", scoreError);
+  });
+
+  return NextResponse.json({ id: data.id, deleted: true, ok: true });
 }

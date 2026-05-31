@@ -408,6 +408,7 @@ function buildDosPreviewDemoData(): DosAppData {
     participantReviews,
     participantTestimonies: [],
     people,
+    prayerLogs: [],
     stats: {
       approvedFruit: fruit.filter((item) => item.status === "approved").length,
       connectionsCount: meetings.filter((meeting) => meeting.source === "connection").length,

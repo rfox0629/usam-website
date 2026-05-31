@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Copy, Droplet, ExternalLink, FileImage, Flame, Gift, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, Search, Send, Settings, Share2, Shield, Sparkles, Square, StickyNote, User, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -19,7 +19,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
+import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import {
@@ -46,7 +46,7 @@ const tabs = [
   { icon: "people", label: "People", value: "people" },
   { icon: "meetings", label: "Meetings", value: "meetings" },
   { icon: "fruit", label: "Fruit", value: "fruit" },
-  { icon: "more", label: "More", value: "more" },
+  { icon: "library", label: "Library", value: "more" },
 ] as const;
 
 const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppMeetingType }> = [
@@ -115,37 +115,62 @@ const conversationUnsureAnswerOptions = [
   { label: "Unsure", value: "unsure" },
 ] as const satisfies ReadonlyArray<{ label: string; value: DosConversationAnswer }>;
 
-const outcomeTagOptions = [
+const fruitOutcomeOptions = [
+  "Reconciliation",
+  "New Believers",
+  "Marriage Restoration",
+  "Baptized",
+  "Discipling",
+  "Started Discipling Others",
   "Gospel Conversation",
   "Prayer Received",
-  "Salvation",
-  "Re Dedication",
-  "Baptism",
+  "Church Connection",
+  "Testimony Shared",
   "Joined Discipleship",
-  "Church Visit",
-  "Joined Church",
-  "Shared Testimony",
-  "Started Discipling Others",
-  "Marketplace Ministry",
+  "Bible Study Started",
   "Prayer Request",
-  "Freedom / Deliverance",
-  "Repentance",
-  "Ongoing Accountability",
+  "Church Visit",
+  "Serving",
+  "Disciple Maker",
 ] as const;
 
-const libraryFilters = [
-  { label: "All", value: "all" },
-  { label: "Teachings", value: "teachings" },
-  { label: "Follow up", value: "follow_up" },
-] as const;
+const outcomeTagOptions = fruitOutcomeOptions;
+const meetingObservedFruitOptions = fruitOutcomeOptions.map((label) => ({ label, value: label }));
 
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "seventy" | "three" | "twelve";
-type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "person" | "reflection" | "scheduleMeeting" | null;
-type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "search" | "upload";
-type LibraryFilter = typeof libraryFilters[number]["value"];
+type PeopleCircleView = CircleFocusView | "other";
+type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "scheduleMeeting" | null;
+type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "prayer" | "search" | "upload";
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
+type MeetingReviewFollowUp = "none" | "quick_review" | "testimony_request";
+type PendingMeetingSendAction = {
+  meeting: DosAppMeeting;
+  type: Exclude<MeetingReviewFollowUp, "none">;
+};
+const quickReviewQuestionPreview = [
+  "I felt heard",
+  "I felt cared for",
+  "This conversation helped me",
+  "I would meet again",
+  "Optional note",
+] as const;
+const testimonyQuestionPreview = [
+  "What happened?",
+  "What changed?",
+  "Did you take a next step?",
+  "May we share this story publicly?",
+  "Public display name, if sharing publicly",
+] as const;
+type ScriptureReference = {
+  reference: string;
+  text: string;
+};
+type ScriptureQuickViewState = {
+  scripture: ScriptureReference;
+  top: number;
+};
 type MeetingCaptureDraft = {
   file: Blob;
   fileName: string;
@@ -153,6 +178,25 @@ type MeetingCaptureDraft = {
   previewUrl?: string;
   type: MeetingCaptureType;
 };
+
+const scriptureReferences = {
+  hebrews1025: {
+    reference: "Hebrews 10:25",
+    text: "Not forsaking the assembling of ourselves together, as the manner of some is; but exhorting one another: and so much the more, as ye see the day approaching.",
+  },
+  luke1610: {
+    reference: "Luke 16:10",
+    text: "He that is faithful in that which is least is faithful also in much: and he that is unjust in the least is unjust also in much.",
+  },
+  matthew716: {
+    reference: "Matthew 7:16",
+    text: "Ye shall know them by their fruits. Do men gather grapes of thorns, or figs of thistles?",
+  },
+  secondPeter318: {
+    reference: "2 Peter 3:18",
+    text: "But grow in grace, and in the knowledge of our Lord and Saviour Jesus Christ. To him be glory both now and for ever. Amen.",
+  },
+} as const satisfies Record<string, ScriptureReference>;
 type SegmentedTabOption<T extends string> = {
   label: string;
   value: T;
@@ -173,6 +217,16 @@ type PersonFormDefaults = {
   spouseName?: string;
   state?: string;
   zip?: string;
+};
+type PersonChildDraft = {
+  firstName: string;
+  id: string;
+  lastName: string;
+};
+type PersonHouseholdDraft = {
+  children: PersonChildDraft[];
+  spouseFirstName: string;
+  spouseLastName: string;
 };
 type PeopleImportRow = {
   childrenNames: string;
@@ -281,10 +335,13 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
           <rect height="6" rx="1.5" width="6" x="14" y="14" />
         </svg>
       );
-    case "more":
+    case "library":
       return (
         <svg {...commonProps}>
-          <path d="M12 4 5 7v5c0 4.5 3 7 7 8 4-1 7-3.5 7-8V7l-7-3Z" />
+          <path d="M4.5 5.5A2.5 2.5 0 0 1 7 3h12v16H7a2.5 2.5 0 0 0-2.5 2.5v-16Z" />
+          <path d="M7 3v16" />
+          <path d="M10 7h5.5" />
+          <path d="M10 10h4" />
         </svg>
       );
     case "people":
@@ -395,13 +452,13 @@ function isDateWithinRange(value: string | null | undefined, start: Date, end: D
   return Boolean(date && date.getTime() >= start.getTime() && date.getTime() <= end.getTime());
 }
 
-function formatWeekRange(start: Date, end: Date) {
+function formatWeekRangeCompact(start: Date, end: Date) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
   });
 
-  return `${formatter.format(start)} - ${formatter.format(end)}`;
+  return `${formatter.format(start)} · ${formatter.format(end)}`;
 }
 
 function formatFileSize(size: number) {
@@ -528,8 +585,87 @@ function fruitMultiplicationLabel(value: PersonDetailFruitSummary["multiplicatio
   return value;
 }
 
+const observableFruitOutcomeKeywords = [
+  "gospel conversation",
+  "good news",
+  "prayer received",
+  "requested prayer",
+  "salvation",
+  "new believer",
+  "baptism",
+  "baptized",
+  "church connection",
+  "church engagement",
+  "joined discipleship",
+  "began discipling others",
+  "started discipling others",
+  "disciple maker",
+  "testimony shared",
+] as const;
+
+const signalStyleFruitKeywords = [
+  "follow up engagement",
+  "ongoing discipleship",
+  "relationship signal",
+  "circle signal",
+  "engagement signal",
+] as const;
+
+function isObservableFruitOutcome(event: DosAppFruitEvent) {
+  const titleAndType = fruitSearchText(event.title, event.fruitType);
+  const text = fruitSearchText(event.title, event.fruitType, event.description);
+
+  if (signalStyleFruitKeywords.some((keyword) => titleAndType.includes(keyword))) {
+    return false;
+  }
+
+  return observableFruitOutcomeKeywords.some((keyword) => text.includes(keyword));
+}
+
+function fruitOutcomeLabel(event: DosAppFruitEvent | undefined) {
+  if (!event) {
+    return "None yet";
+  }
+
+  return event.title?.trim() || event.fruitType || "Fruit recorded";
+}
+
 function normalizeText(value: string | null | undefined) {
   return value?.trim() || "";
+}
+
+function phoneDigitsOnly(value: string | null | undefined) {
+  const digits = (value ?? "").replace(/\D/g, "").slice(0, 11);
+
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return digits.slice(1);
+  }
+
+  return digits.slice(0, 10);
+}
+
+function formatPhoneNumber(value: string | null | undefined) {
+  const digits = phoneDigitsOnly(value);
+
+  if (!digits) {
+    return "";
+  }
+
+  if (digits.length < 4) {
+    return `(${digits}`;
+  }
+
+  if (digits.length < 7) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  }
+
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function phoneActionHref(action: "sms" | "tel", value: string | null | undefined) {
+  const digits = phoneDigitsOnly(value);
+
+  return `${action}:${digits || normalizeText(value)}`;
 }
 
 function personRelationshipModel(person: DosAppPerson): DosRelationshipModel {
@@ -616,6 +752,75 @@ function personAddressLine(defaults: PersonFormDefaults) {
 
 function hasHouseholdDetails(person: DosAppPerson | PersonFormDefaults) {
   return Boolean(person.spouseName?.trim() || person.childrenNames?.trim() || person.householdNotes?.trim());
+}
+
+function compactNamePart(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/\s+/g, " ");
+}
+
+function splitNameParts(value: string | null | undefined) {
+  const normalized = compactNamePart(value);
+
+  if (!normalized) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const [firstName = "", ...lastNameParts] = normalized.split(" ");
+
+  return {
+    firstName,
+    lastName: lastNameParts.join(" "),
+  };
+}
+
+function blankChildDraft(index = 0): PersonChildDraft {
+  return {
+    firstName: "",
+    id: `child-${index}`,
+    lastName: "",
+  };
+}
+
+function parseChildDrafts(value: string | null | undefined) {
+  const children = (value ?? "")
+    .split(/[,;\n]+/)
+    .map((child) => compactNamePart(child))
+    .filter(Boolean)
+    .map((child, index) => {
+      const nameParts = splitNameParts(child);
+
+      return {
+        ...nameParts,
+        id: `existing-child-${index}`,
+      };
+    });
+
+  return children.length ? children : [blankChildDraft()];
+}
+
+function householdDraftFromDefaults(defaults?: PersonFormDefaults): PersonHouseholdDraft {
+  const spouse = splitNameParts(defaults?.spouseName);
+
+  return {
+    children: parseChildDrafts(defaults?.childrenNames),
+    spouseFirstName: spouse.firstName,
+    spouseLastName: spouse.lastName,
+  };
+}
+
+function joinNameParts(firstName: string | null | undefined, lastName: string | null | undefined) {
+  return [compactNamePart(firstName), compactNamePart(lastName)].filter(Boolean).join(" ");
+}
+
+function householdDraftSpouseName(draft: PersonHouseholdDraft) {
+  return joinNameParts(draft.spouseFirstName, draft.spouseLastName);
+}
+
+function householdDraftChildrenNames(draft: PersonHouseholdDraft) {
+  return draft.children
+    .map((child) => joinNameParts(child.firstName, child.lastName))
+    .filter(Boolean)
+    .join(", ");
 }
 
 function mapsHrefForAddress(address: string) {
@@ -932,6 +1137,34 @@ function meetingPeopleTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
   return formatDosParticipantTitle(meetingParticipantNames(meeting, people));
 }
 
+function meetingParticipantTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  return formatDosParticipantTitle(meetingParticipantNames(meeting, people), "");
+}
+
+function meetingFallbackTitle(meeting: DosAppMeeting) {
+  const context = meetingActivityTitle(meeting);
+
+  return context.toLowerCase().includes("meeting") ? context : `${context} Meeting`;
+}
+
+function meetingDisplayTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  return meetingParticipantTitle(meeting, people) || meetingFallbackTitle(meeting);
+}
+
+function meetingTestimonyRecipientTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  const fieldPersonIds = Array.from(new Set(meeting.fieldPersonIds.filter(Boolean)));
+
+  if (fieldPersonIds.length !== 1) {
+    return "";
+  }
+
+  return people.find((person) => person.id === fieldPersonIds[0])?.name ?? "";
+}
+
+function canSendMeetingTestimonyRequest(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  return Boolean(meetingTestimonyRecipientTitle(meeting, people));
+}
+
 function meetingAvatarNames(meeting: DosAppMeeting, people: DosAppPerson[]) {
   return meetingParticipantNames(meeting, people).slice(0, 3);
 }
@@ -946,6 +1179,7 @@ function filteredPeople(people: DosAppPerson[], query: string) {
   return people.filter((person) => (
     person.name.toLowerCase().includes(search)
     || normalizeText(person.phone).toLowerCase().includes(search)
+    || formatPhoneNumber(person.phone).toLowerCase().includes(search)
     || normalizeText(person.relationshipType).toLowerCase().includes(search)
     || relationshipLine(person).toLowerCase().includes(search)
     || normalizeText(person.status).toLowerCase().includes(search)
@@ -1093,10 +1327,6 @@ function analyzePeopleImportRows(rows: PeopleImportRow[], existingPeople: DosApp
   });
 
   return { duplicateRows, invalidRows, readyRows };
-}
-
-function isNeedsAttention(person: DosAppPerson) {
-  return !person.lastActivityAt || normalizeText(person.status).toLowerCase().includes("follow");
 }
 
 function AppButton({
@@ -1257,6 +1487,19 @@ function StatTile({
 }
 
 type PersonActivitySection = "meetings" | "reflections" | "reviews";
+type PersonOutcomeEntry =
+  | {
+    date: string | null;
+    event: DosAppFruitEvent;
+    id: string;
+    type: "fruit";
+  }
+  | {
+    date: string | null;
+    id: string;
+    testimony: DosAppParticipantTestimony;
+    type: "testimony";
+  };
 
 function ActivityFilterCard({
   active,
@@ -1267,7 +1510,7 @@ function ActivityFilterCard({
   value,
 }: {
   active: boolean;
-  helper: string;
+  helper?: string;
   icon: ReactNode;
   label: string;
   onClick: () => void;
@@ -1293,8 +1536,40 @@ function ActivityFilterCard({
       <span className={`mt-3 block truncate text-[8px] font-bold uppercase tracking-[0.1em] max-[350px]:tracking-[0.06em] ${active ? "text-white/82" : "text-[#64748B]"}`} style={{ fontFamily: font.rajdhani }}>
         {label}
       </span>
-      <span className={`mt-0.5 line-clamp-2 block text-[10px] font-semibold leading-3 ${active ? "text-white/72" : "text-[#94A3B8]"}`}>{helper}</span>
+      {helper ? <span className={`mt-0.5 line-clamp-2 block text-[10px] font-semibold leading-3 ${active ? "text-white/72" : "text-[#94A3B8]"}`}>{helper}</span> : null}
     </button>
+  );
+}
+
+function FruitSummaryCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  const isShortValue = value.length <= 3;
+
+  return (
+    <div className="flex min-h-[108px] min-w-0 flex-col items-center justify-between rounded-[18px] border border-[#E2E8F0] bg-white px-2 py-3 text-center shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[104px] max-[350px]:rounded-[16px] max-[350px]:px-1.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-7 max-[350px]:w-7">
+        {icon}
+      </span>
+      <span className="mt-2 flex min-h-[34px] w-full min-w-0 items-center justify-center px-0.5">
+        <span className={`max-w-full whitespace-normal text-center font-bold text-[#0F172A] ${
+          isShortValue
+            ? "text-[24px] leading-none max-[350px]:text-[21px]"
+            : "text-[12px] leading-[0.95rem] max-[350px]:text-[10.5px] max-[350px]:leading-[0.85rem]"
+        }`}>
+          {value}
+        </span>
+      </span>
+      <span className="mt-2 block w-full text-center text-[8px] font-bold uppercase leading-3 tracking-[0.08em] text-[#64748B] max-[350px]:tracking-[0.04em]" style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </span>
+    </div>
   );
 }
 
@@ -1318,16 +1593,20 @@ function PersonSummaryTile({
   label: string;
   value: string;
 }) {
+  const isShortValue = value.length <= 3;
+
   return (
-    <div className="flex min-h-[86px] min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[78px] max-[350px]:gap-1.5 max-[350px]:rounded-[16px] max-[350px]:px-2">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-8 max-[350px]:w-8">
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block break-words text-[8px] font-bold uppercase leading-3 tracking-[0.13em] text-[#94A3B8] max-[350px]:text-[7px] max-[350px]:leading-[0.8rem] max-[350px]:tracking-[0.08em]" style={{ fontFamily: font.rajdhani }}>
-          {label}
+    <div className="min-w-0 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-2.5 py-3 text-left shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:rounded-[16px] max-[350px]:px-2">
+      <span className="flex items-center justify-between gap-1.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-7 max-[350px]:w-7">
+          {icon}
         </span>
-        <span className="mt-1 line-clamp-2 block break-words text-[13px] font-bold leading-[1.15] text-[#0F172A] max-[350px]:text-[12px]">{value}</span>
+        <span className={`min-w-0 text-right font-bold text-[#0F172A] ${isShortValue ? "text-[24px] leading-none max-[350px]:text-[21px]" : "line-clamp-2 text-[12px] leading-4 max-[350px]:text-[10px] max-[350px]:leading-[0.85rem]"}`}>
+          {value}
+        </span>
+      </span>
+      <span className="mt-3 block truncate text-[8px] font-bold uppercase tracking-[0.1em] text-[#64748B] max-[350px]:tracking-[0.06em]" style={{ fontFamily: font.rajdhani }}>
+        {label}
       </span>
     </div>
   );
@@ -1343,15 +1622,17 @@ function SnapshotMetricTile({
   value: string;
 }) {
   return (
-    <div className="flex min-h-[86px] min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[78px] max-[350px]:gap-1.5 max-[350px]:rounded-[16px] max-[350px]:px-2">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-8 max-[350px]:w-8">
+    <div className="flex min-h-[104px] min-w-0 flex-col items-center justify-between overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-2.5 py-3 text-center shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[96px] max-[350px]:rounded-[16px] max-[350px]:px-1.5 max-[350px]:py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-7 max-[350px]:w-7">
         {icon}
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block break-words text-[8px] font-bold uppercase leading-3 tracking-[0.13em] text-[#94A3B8] max-[350px]:text-[7px] max-[350px]:leading-[0.8rem] max-[350px]:tracking-[0.08em]" style={{ fontFamily: font.rajdhani }}>
-          {label}
+      <span className="mt-2 flex min-h-[30px] min-w-0 items-center justify-center max-[350px]:mt-1.5 max-[350px]:min-h-[28px]">
+        <span className="line-clamp-2 min-w-0 break-words text-[12px] font-bold leading-4 text-[#0F172A] max-[350px]:text-[10px] max-[350px]:leading-[0.85rem]">
+          {value}
         </span>
-        <span className="mt-1 line-clamp-2 block break-words text-[13px] font-bold leading-[1.15] text-[#0F172A] max-[350px]:text-[12px]">{value}</span>
+      </span>
+      <span className="mt-2 block w-full truncate text-[8px] font-bold uppercase tracking-[0.1em] text-[#64748B] max-[350px]:mt-1.5 max-[350px]:tracking-[0.06em]" style={{ fontFamily: font.rajdhani }}>
+        {label}
       </span>
     </div>
   );
@@ -1365,18 +1646,18 @@ function EngagementSnapshotTile({
   score: string;
 }) {
   return (
-    <div className="flex min-h-[86px] min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[78px] max-[350px]:gap-1.5 max-[350px]:rounded-[16px] max-[350px]:px-2">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-8 max-[350px]:w-8">
+    <div className="flex min-h-[104px] min-w-0 flex-col items-center justify-between overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-2.5 py-3 text-center shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[96px] max-[350px]:rounded-[16px] max-[350px]:px-1.5 max-[350px]:py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-7 max-[350px]:w-7">
         <Droplet className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block break-words text-[8px] font-bold uppercase leading-3 tracking-[0.13em] text-[#94A3B8] max-[350px]:text-[7px] max-[350px]:leading-[0.8rem] max-[350px]:tracking-[0.08em]" style={{ fontFamily: font.rajdhani }}>
-          Engagement
+      <span className="mt-2 flex min-h-[30px] min-w-0 items-center justify-center gap-1 max-[350px]:mt-1.5 max-[350px]:min-h-[28px] max-[350px]:gap-0.5">
+        <span className="shrink-0 text-[16px] font-bold leading-none text-[#0F172A] max-[350px]:text-[14px]">{score}</span>
+        <span className="line-clamp-1 min-w-0 text-[9px] font-bold leading-none text-[#64748B] max-[350px]:text-[7.5px]">
+          {label}
         </span>
-        <span className="mt-1 flex min-w-0 items-center gap-1.5 max-[350px]:gap-1">
-          <span className="shrink-0 text-[18px] font-bold leading-none text-[#0F172A] max-[350px]:text-[16px]">{score}</span>
-          <span className="min-w-0 break-words text-[10px] font-bold leading-[1.05] text-[#64748B] min-[351px]:whitespace-nowrap max-[350px]:text-[8.5px]">{label}</span>
-        </span>
+      </span>
+      <span className="mt-2 block w-full truncate text-[8px] font-bold uppercase tracking-[0.1em] text-[#64748B] max-[350px]:mt-1.5 max-[350px]:tracking-[0.06em]" style={{ fontFamily: font.rajdhani }}>
+        Engagement
       </span>
     </div>
   );
@@ -1437,6 +1718,97 @@ function TabPageHeader({
       </h1>
       {action ? <div className="shrink-0">{action}</div> : null}
     </header>
+  );
+}
+
+function TabHero({
+  icon,
+  onScriptureClick,
+  scripture,
+  subtitle,
+  title,
+}: {
+  icon: ReactNode;
+  onScriptureClick: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
+  scripture: ScriptureReference;
+  subtitle?: string;
+  title: string;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[30px] bg-[linear-gradient(135deg,#EFF6FF_0%,#FFFFFF_58%,#F8FBFF_100%)] px-5 py-5 shadow-[0_18px_38px_rgba(37,99,235,0.09)] ring-1 ring-[#DCEBFF]">
+      <div className="flex items-center gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          {icon}
+        </span>
+        <span className="min-w-0">
+          <h2 className="text-[22px] font-bold leading-tight text-[#0F172A]">{title}</h2>
+          {subtitle ? <p className="mt-1 text-[13px] leading-5 text-[#64748B]">{subtitle}</p> : null}
+          <button
+            className="mt-3 inline-flex rounded-full text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB] transition-colors hover:text-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25"
+            onClick={(event) => onScriptureClick(scripture, event)}
+            style={{ fontFamily: font.rajdhani }}
+            type="button"
+          >
+            {scripture.reference}
+          </button>
+        </span>
+      </div>
+    </section>
+  );
+}
+
+function ScriptureQuickView({
+  onClose,
+  state,
+}: {
+  onClose: () => void;
+  state: ScriptureQuickViewState;
+}) {
+  const touchStartYRef = useRef<number | null>(null);
+
+  return (
+    <div
+      className="absolute inset-0 z-[92] bg-white/35 backdrop-blur-[1.5px]"
+      onPointerDown={onClose}
+      role="presentation"
+    >
+      <section
+        aria-modal="true"
+        className="absolute left-4 right-4 rounded-[24px] border border-[#DCEBFF] bg-white/95 p-4 shadow-[0_18px_48px_rgba(37,99,235,0.16)] ring-1 ring-white/80 transition duration-150 ease-out"
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchEnd={(event) => {
+          const startY = touchStartYRef.current;
+          touchStartYRef.current = null;
+
+          if (startY !== null && event.changedTouches[0] && event.changedTouches[0].clientY - startY > 34) {
+            onClose();
+          }
+        }}
+        onTouchStart={(event) => {
+          touchStartYRef.current = event.touches[0]?.clientY ?? null;
+        }}
+        role="dialog"
+        style={{ top: state.top }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-[#0F172A]">{state.scripture.reference}</h2>
+            <p className="mt-2 text-[13px] font-medium leading-6 text-[#334155]">{state.scripture.text}</p>
+            <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+              KJV
+            </p>
+          </div>
+          <button
+            aria-label="Close scripture"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8FAFC] text-[#64748B] transition-colors hover:bg-[#EBF2FF] hover:text-[#1D4ED8]"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1638,11 +2010,13 @@ function Sheet({
   children,
   description,
   onClose,
+  showEyebrow = false,
   title,
 }: {
   children: ReactNode;
   description?: string;
   onClose: () => void;
+  showEyebrow?: boolean;
   title: string;
 }) {
   return (
@@ -1657,10 +2031,10 @@ function Sheet({
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E2E8F0]" aria-hidden="true" />
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+              {showEyebrow ? <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
                 DOS
-              </p>
-              <h2 className="mt-2 text-2xl font-bold leading-none text-[#0F172A]">{title}</h2>
+              </p> : null}
+              <h2 className={`${showEyebrow ? "mt-2" : ""} text-2xl font-bold leading-none text-[#0F172A]`}>{title}</h2>
               {description ? <p className="mt-3 text-sm leading-6 text-[#64748B]">{description}</p> : null}
             </div>
             <button
@@ -1818,13 +2192,13 @@ function ProfileSheetFrame({
 }) {
   return (
     <div
-      className="absolute inset-0 z-[90] box-border flex items-end bg-[#0F172A]/18 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-[calc(env(safe-area-inset-top)+0.85rem)] backdrop-blur-[3px]"
+      className="absolute inset-0 z-[90] box-border flex items-end overflow-y-auto bg-[#0F172A]/18 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-[calc(env(safe-area-inset-top)+0.85rem)] backdrop-blur-[3px]"
       onMouseDown={onClose}
       role="presentation"
     >
       <section
         aria-modal="true"
-        className="flex max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_1.7rem)] min-h-0 w-full flex-col overflow-hidden rounded-[30px] border border-white/70 bg-[#F4F6FB] p-3 shadow-[0_28px_85px_rgba(32,27,20,0.22)]"
+        className="flex max-h-full min-h-0 w-full flex-col overflow-hidden rounded-[30px] border border-white/70 bg-[#F4F6FB] p-3 shadow-[0_28px_85px_rgba(32,27,20,0.22)]"
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
@@ -2032,7 +2406,7 @@ function EditProfileSheet({
           {[
             ["Name", name],
             ["Email", email],
-            ["Phone", phone],
+            ["Phone", formatPhoneNumber(phone) || phone],
             ["Field name", fieldName],
             ["State", stateName ?? ""],
             ["Organization", organizationName ?? ""],
@@ -2089,6 +2463,45 @@ function SegmentedTabs<T extends string>({
   );
 }
 
+const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
+  { label: "My 3", value: "three" },
+  { label: "My 12", value: "twelve" },
+  { label: "My 70", value: "seventy" },
+  { label: "Other", value: "other" },
+];
+
+function PeopleCircleTabs({
+  onChange,
+  value,
+}: {
+  onChange: (value: PeopleCircleView) => void;
+  value: PeopleCircleView;
+}) {
+  return (
+    <div className="grid grid-cols-4 gap-1 rounded-full border border-[#DCEBFF] bg-white p-1 shadow-[0_8px_22px_rgba(37,99,235,0.05)]">
+      {peopleCircleTabs.map((option) => {
+        const selected = value === option.value;
+
+        return (
+          <button
+            aria-pressed={selected}
+            className={`min-h-9 rounded-full px-1.5 text-[11px] font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:text-[10px] ${
+              selected
+                ? "bg-[#EAF2FF] text-[#1D4ED8] shadow-[0_6px_14px_rgba(37,99,235,0.10)] ring-1 ring-[#CFE0FF]"
+                : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+            }`}
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function PersonCard({
   index,
   onClick,
@@ -2137,6 +2550,8 @@ function circleDisplayName(circle: string) {
       return "My 12";
     case "seventy":
       return "My 70";
+    case "other":
+      return "Everyone Else";
     default:
       return "Field";
   }
@@ -2146,7 +2561,8 @@ function scoreLabel(value: number) {
   return `${Math.round(value)}`;
 }
 
-type CirclePersonItem = { person: DosAppPerson; score: DosRelationshipScore };
+type CircleListItem = { person: DosAppPerson };
+type CirclePersonItem = CircleListItem & { score: DosRelationshipScore };
 
 function uniqueCircleMembers(items: CirclePersonItem[]) {
   const seen = new Set<string>();
@@ -2208,6 +2624,39 @@ function circleLayerDetails(activeCircle: CircleFocusView, rankedPeople: CircleP
 
 function previewCircleLayerItems(activeCircle: CircleFocusView, items: CirclePersonItem[]) {
   return activeCircle === "seventy" ? items.slice(0, 6) : items;
+}
+
+function peopleCircleDetails(activeCircle: PeopleCircleView, rankedPeople: CirclePersonItem[], people: DosAppPerson[]) {
+  if (activeCircle !== "other") {
+    const details = circleLayerDetails(activeCircle, rankedPeople);
+
+    return {
+      empty: details.empty,
+      items: details.items,
+      sectionLabel: details.sectionLabel,
+      startIndex: details.startIndex,
+      subtitle: details.subtitle,
+      title: details.title,
+    };
+  }
+
+  const rankedIds = new Set(rankedPeople.slice(0, 70).map(({ person }) => person.id));
+
+  return {
+    empty: "No one outside your circles yet.",
+    items: people.filter((person) => !rankedIds.has(person.id)).map((person) => ({ person })),
+    sectionLabel: "Everyone Else",
+    startIndex: 70,
+    subtitle: "People in your field who are not currently in My 3, My 12, or My 70.",
+    title: "Everyone Else",
+  };
+}
+
+function filterCircleItems(items: CircleListItem[], query: string) {
+  const filtered = filteredPeople(items.map(({ person }) => person), query);
+  const filteredIds = new Set(filtered.map((person) => person.id));
+
+  return items.filter(({ person }) => filteredIds.has(person.id));
 }
 
 function CircleAvatar({
@@ -2476,36 +2925,14 @@ function HomeActionPill({
 }) {
   return (
     <button
-      className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-2 text-[11px] font-bold text-[#0F172A] shadow-[0_10px_26px_rgba(42,37,29,0.055)]"
+      className="inline-flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-full bg-white px-2 text-[11px] font-bold leading-3 text-[#0F172A] shadow-[0_10px_26px_rgba(42,37,29,0.055)] max-[350px]:gap-1 max-[350px]:px-1.5 max-[350px]:text-[10px]"
       onClick={onClick}
       type="button"
     >
-      <span className="text-[#2563EB]">
+      <span className="shrink-0 text-[#2563EB]">
         <Icon name={icon} size={14} />
       </span>
-      {children}
-    </button>
-  );
-}
-
-function FocusRow({
-  action,
-  index,
-  onClick,
-  person,
-}: {
-  action: string;
-  index: number;
-  onClick: () => void;
-  person: DosAppPerson;
-}) {
-  return (
-    <button className="flex min-h-12 w-full items-center gap-3 rounded-2xl bg-white px-3 text-left shadow-[0_8px_24px_rgba(42,37,29,0.045)]" onClick={onClick} type="button">
-      <CircleAvatar index={index} person={person} size="sm" />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-[#0F172A]">{person.name}</span>
-        <span className="mt-0.5 block truncate text-xs text-[#64748B]">{action}</span>
-      </span>
+      <span className="min-w-0 text-center">{children}</span>
     </button>
   );
 }
@@ -2535,18 +2962,66 @@ function RecentActivityRow({
 }
 
 function WeekStatTile({
+  icon,
   label,
   value,
 }: {
+  icon: IconName;
   label: string;
   value: number;
 }) {
+  const isPrayerIcon = icon === "prayer";
+
   return (
-    <div className="rounded-2xl bg-white px-3 py-3 text-center shadow-[0_8px_22px_rgba(42,37,29,0.04)]">
-      <p className="text-lg font-bold leading-none text-[#0F172A]">{value}</p>
-      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+    <div className="min-w-0 rounded-[18px] border border-[#E2E8F0] bg-white px-2.5 py-3 text-center shadow-[0_10px_26px_rgba(37,99,235,0.055)] max-[350px]:px-2">
+      <div className="flex flex-col items-center">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-7 max-[350px]:w-7">
+          {isPrayerIcon ? (
+            <svg aria-hidden="true" className="h-[22px] w-[22px] max-[350px]:h-5 max-[350px]:w-5" fill="none" viewBox="0 0 64 64">
+              <path
+                d="M29.5 4.5c-4.8 0-8.6 3.9-8.6 8.8v18.6c0 3.8-1.4 7.4-3.9 10.3l-2 2.3 10.1 11.2 3.7-3.8c3.6-3.7 5.6-8.7 5.6-13.9V9.5c0-2.8-2.2-5-4.9-5Z"
+                fill="#EFF6FF"
+                stroke="#2563EB"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="4.2"
+              />
+              <path
+                d="M34.5 4.5c4.8 0 8.6 3.9 8.6 8.8v18.6c0 3.8 1.4 7.4 3.9 10.3l2 2.3-10.1 11.2-3.7-3.8c-3.6-3.7-5.6-8.7-5.6-13.9V9.5c0-2.8 2.2-5 4.9-5Z"
+                fill="#EFF6FF"
+                stroke="#2563EB"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="4.2"
+              />
+              <path d="M3.8 49.3 15 40.6l11.1 13.2-11 8.5c-1.2.9-2.9.7-3.8-.5l-8-10.4c-.5-.7-.4-1.6.5-2.1Z" fill="#2563EB" />
+              <path d="M60.2 49.3 49 40.6 37.9 53.8l11 8.5c1.2.9 2.9.7 3.8-.5l8-10.4c.5-.7.4-1.6-.5-2.1Z" fill="#2563EB" />
+              <path d="M32 7v32" stroke="#2563EB" strokeLinecap="round" strokeWidth="3.8" />
+              <path d="M26.5 10.5v25" stroke="#2563EB" strokeLinecap="round" strokeWidth="2.8" />
+              <path d="M37.5 10.5v25" stroke="#2563EB" strokeLinecap="round" strokeWidth="2.8" />
+            </svg>
+          ) : (
+            <Icon name={icon} size={14} />
+          )}
+        </span>
+        <span className="mt-1.5 block text-[24px] font-bold leading-none text-[#0F172A] max-[350px]:text-[21px]">{value}</span>
+      </div>
+      <p className="mt-1.5 line-clamp-2 min-h-3 text-center text-[8px] font-bold uppercase leading-3 tracking-[0.1em] text-[#64748B] max-[350px]:tracking-[0.06em]" style={{ fontFamily: font.rajdhani }}>
         {label}
       </p>
+    </div>
+  );
+}
+
+function ThisWeekHeader({ label }: { label: string }) {
+  return (
+    <div className="mb-2.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+      <h2 className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+        This Week
+      </h2>
+      <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-2.5 py-1 text-[11px] font-semibold leading-none text-[#64748B] shadow-[0_6px_14px_rgba(37,99,235,0.04)]">
+        {label}
+      </span>
     </div>
   );
 }
@@ -2560,48 +3035,48 @@ function MeetingCard({
   onClick: () => void;
   people: DosAppPerson[];
 }) {
-  const hasFlow = meeting.conversationFlowKey !== "none";
   const avatarNames = meetingAvatarNames(meeting, people);
-  const title = meetingPeopleTitle(meeting, people);
+  const participantTitle = meetingParticipantTitle(meeting, people);
+  const hasPeople = Boolean(participantTitle);
+  const context = meetingActivityTitle(meeting);
+  const summary = meeting.notes?.trim();
+  const title = meetingDisplayTitle(meeting, people);
+  const metadata = hasPeople ? `${context} • ${formatDate(meeting.date)}` : formatDate(meeting.date);
 
   return (
-    <button className="w-full rounded-2xl border border-[#E2E8F0] bg-white p-4 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#FFFFFF]" onClick={onClick} type="button">
+    <button className="group w-full max-w-[calc(100vw-32px)] rounded-[20px] border border-[#E2E8F0] bg-white p-3.5 text-left shadow-[0_10px_24px_rgba(15,23,42,0.045)] transition-all hover:border-[#BFDBFE] hover:shadow-[0_14px_30px_rgba(37,99,235,0.08)]" onClick={onClick} type="button">
       <div className="flex items-start gap-3">
-        {avatarNames.length ? (
-          <div className="mt-0.5 flex shrink-0 -space-x-2">
-            {avatarNames.map((name, index) => (
-              <span
-                className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold ${avatarTone(index)}`}
-                key={`${meeting.id}-${name}`}
-              >
-                {initials(name)}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[#0F172A]">{title}</p>
-              <p className="mt-1 truncate text-xs text-[#64748B]">
-                {meetingMetadataLine(meeting)}
-              </p>
+        <div className="mt-0.5 flex shrink-0 items-center">
+          {avatarNames.length ? (
+            <div className="flex -space-x-2">
+              {avatarNames.map((name, index) => (
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-[9px] font-bold shadow-sm ${avatarTone(index)}`}
+                  key={`${meeting.id}-${name}`}
+                >
+                  {initials(name)}
+                </span>
+              ))}
             </div>
-            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+          ) : (
+            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EFF6FF] text-[#2563EB] shadow-sm">
+              <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-bold leading-5 text-[#0F172A]">{title}</p>
+              <p className="mt-1 truncate text-xs leading-5 text-[#64748B]">{metadata}</p>
+            </div>
+            <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#94A3B8] transition-colors group-hover:text-[#2563EB]" aria-hidden="true" strokeWidth={1.8} />
           </div>
-          <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#0F172A]">{meeting.notes || "No summary added yet."}</p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {hasFlow ? (
-              <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                {conversationFlowLabel(meeting.conversationFlowKey)}
-              </span>
-            ) : null}
-            {meeting.recommendedResources.length ? (
-              <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                {meeting.recommendedResources.length} queued
-              </span>
-            ) : null}
-          </div>
+          {summary ? (
+            <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-[#334155]">{summary}</p>
+          ) : (
+            <p className="mt-1.5 text-sm leading-5 text-[#94A3B8]">No reflection yet</p>
+          )}
         </div>
       </div>
     </button>
@@ -2945,6 +3420,8 @@ function ConversationQuestionCard({
 
 function MeetingPeopleSelector({
   allPeople,
+  isCreatingPerson = false,
+  onCreatePerson,
   onQueryChange,
   onToggle,
   people,
@@ -2952,6 +3429,8 @@ function MeetingPeopleSelector({
   selectedPersonIds,
 }: {
   allPeople: DosAppPerson[];
+  isCreatingPerson?: boolean;
+  onCreatePerson?: (name: string) => Promise<void>;
   onQueryChange: (value: string) => void;
   onToggle: (personId: string) => void;
   people: DosAppPerson[];
@@ -2962,31 +3441,34 @@ function MeetingPeopleSelector({
     .map((personId) => allPeople.find((person) => person.id === personId))
     .filter((person): person is DosAppPerson => Boolean(person));
   const visiblePeople = people.filter((person) => !selectedPersonIds.includes(person.id));
+  const hasSearch = query.trim().length > 0;
+  const quickAddName = query.trim().replace(/\s+/g, " ");
+  const canQuickAdd = Boolean(onCreatePerson && hasSearch && quickAddName && people.length === 0);
 
   return (
     <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
       <FieldLabel>People Involved</FieldLabel>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {selectedPeople.length ? selectedPeople.map((person, index) => (
-          <button
-            aria-label={`Remove ${person.name} from meeting`}
-            className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#2563EB]"
-            key={person.id}
-            onClick={() => onToggle(person.id)}
-            type="button"
-          >
-            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold ${avatarTone(index)}`}>
-              {initials(person.name)}
-            </span>
-            <span className="max-w-[9rem] truncate">{person.name}</span>
-            <span className="ml-0.5 text-[13px] leading-none text-[#1D4ED8]" aria-hidden="true">
-              &times;
-            </span>
-          </button>
-        )) : (
-          <span className="inline-flex h-7 items-center rounded-full bg-[#F1F5F9] px-2.5 text-[11px] text-[#64748B]">No people selected</span>
-        )}
-      </div>
+      {selectedPeople.length ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {selectedPeople.map((person, index) => (
+            <button
+              aria-label={`Remove ${person.name} from meeting`}
+              className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#2563EB]"
+              key={person.id}
+              onClick={() => onToggle(person.id)}
+              type="button"
+            >
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold ${avatarTone(index)}`}>
+                {initials(person.name)}
+              </span>
+              <span className="max-w-[9rem] truncate">{person.name}</span>
+              <span className="ml-0.5 text-[13px] leading-none text-[#1D4ED8]" aria-hidden="true">
+                &times;
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="relative mt-2.5">
         <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
@@ -3001,8 +3483,8 @@ function MeetingPeopleSelector({
         />
       </div>
 
-      {allPeople.length ? (
-        <div className="mt-2 grid max-h-36 gap-1 overflow-y-auto pr-1">
+      {allPeople.length && hasSearch && visiblePeople.length ? (
+        <div className="mt-2 grid gap-1 pr-1">
           {visiblePeople.map((person, index) => (
             <button
               className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
@@ -3016,11 +3498,25 @@ function MeetingPeopleSelector({
               <span className="min-w-0 flex-1 truncate font-medium">{person.name}</span>
             </button>
           ))}
-          {!visiblePeople.length ? <p className="rounded-2xl border border-dashed border-[#E2E8F0] p-3 text-sm text-[#64748B]">No more matching people.</p> : null}
         </div>
-      ) : (
-        <p className="mt-2 text-sm text-[#64748B]">No people added yet.</p>
-      )}
+      ) : null}
+      {canQuickAdd ? (
+        <button
+          className="mt-2 flex min-h-10 w-full items-center gap-2.5 rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-left text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isCreatingPerson}
+          onClick={() => {
+            void onCreatePerson?.(quickAddName);
+          }}
+          type="button"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[#2563EB] ring-1 ring-[#BFDBFE]">
+            <Icon name="add" size={13} />
+          </span>
+          <span className="min-w-0 truncate">
+            {isCreatingPerson ? "Adding..." : <>+ Add &ldquo;{quickAddName}&rdquo;</>}
+          </span>
+        </button>
+      ) : null}
     </section>
   );
 }
@@ -3150,7 +3646,7 @@ function MeetingCaptureNotes({
   return (
     <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
       <div className="flex items-center justify-between gap-3">
-        <FieldLabel>Capture Notes</FieldLabel>
+        <FieldLabel>Meeting Notes</FieldLabel>
         {captures.length ? (
           <span className="rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Draft
@@ -3218,8 +3714,172 @@ function MeetingCaptureNotes({
         </div>
       ) : null}
 
-      <textarea className={`${FieldInputClass()} min-h-24 py-3`} defaultValue={defaultValue ?? ""} name="notes" placeholder="What happened?" />
+      <textarea className={`${FieldInputClass()} min-h-24 py-3`} defaultValue={defaultValue ?? ""} name="notes" placeholder="What happened at the table?" />
     </section>
+  );
+}
+
+function MeetingLeaderReflectionSection({
+  notesDefault,
+  onToggleOutcomeTag,
+  selectedOutcomeTags,
+}: {
+  notesDefault?: string | null;
+  onToggleOutcomeTag: (tag: string) => void;
+  selectedOutcomeTags: string[];
+}) {
+  return (
+    <section className={meetingFormGroupClassName}>
+      <div className={meetingFormGroupCardClassName}>
+        <p className={meetingFormGroupTitleClassName}>Leader Reflection</p>
+
+        <div className="mt-3 grid gap-3">
+          <MeetingCaptureNotes defaultValue={notesDefault} />
+
+          <label className="block">
+            <FieldLabel>Prayer Needs</FieldLabel>
+            <textarea className={`${FieldTextareaClass()} min-h-20`} name="prayer_needs" placeholder="What should we pray for?" />
+          </label>
+
+          <ObservedFruitMultiSelect
+            onToggle={onToggleOutcomeTag}
+            selectedOutcomeTags={selectedOutcomeTags}
+          />
+
+          <div className="grid gap-2 rounded-2xl bg-[#F8FAFC] p-3">
+            <label className="flex min-h-10 items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-[#0F172A]">Follow Up Needed</span>
+                <span className="mt-0.5 block text-xs text-[#64748B]">Mark if this needs action soon.</span>
+              </span>
+              <input className="h-5 w-5 shrink-0 accent-[#2563EB]" name="follow_up_needed" type="checkbox" />
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const meetingFormGroupClassName = "grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-[#F8FAFC] p-2.5 shadow-[0_10px_24px_rgba(37,99,235,0.04)]";
+const meetingFormGroupCardClassName = "rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]";
+const meetingFormGroupTitleClassName = "text-sm font-bold text-[#0F172A]";
+
+const meetingDurationOptions = [
+  { label: "15m", value: "15" },
+  { label: "30m", value: "30" },
+  { label: "1h", value: "60" },
+  { label: "2h", value: "120" },
+  { label: "Custom", value: "custom" },
+] as const;
+
+function MeetingDurationSelector() {
+  return (
+    <fieldset className="grid gap-2 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+      <FieldLabel>Meeting Duration</FieldLabel>
+      {/* TODO: Persist meeting duration when the DOS meeting schema exposes a duration field. */}
+      <div className="flex flex-wrap gap-2">
+        {meetingDurationOptions.map((option) => (
+          <label className="cursor-pointer" key={option.value}>
+            <input className="peer sr-only" defaultChecked={option.value === "30"} name="meeting_duration" type="radio" value={option.value} />
+            <span className="flex min-h-10 items-center justify-center rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-xs font-bold text-[#475569] transition-colors peer-checked:border-[#2563EB] peer-checked:bg-[#EBF2FF] peer-checked:text-[#1D4ED8] max-[350px]:min-h-9 max-[350px]:px-2.5">
+              {option.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function ObservedFruitMultiSelect({
+  onToggle,
+  selectedOutcomeTags,
+}: {
+  onToggle: (tag: string) => void;
+  selectedOutcomeTags: string[];
+}) {
+  const selectedOptions = meetingObservedFruitOptions.filter((option) => selectedOutcomeTags.includes(option.value));
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const dropdown = dropdownRef.current;
+
+      if (!dropdown || !(event.target instanceof Node) || dropdown.contains(event.target)) {
+        return;
+      }
+
+      setIsOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="grid gap-2">
+      <FieldLabel>Observed Fruit</FieldLabel>
+      <div className="relative" ref={dropdownRef}>
+        <button
+          aria-expanded={isOpen}
+          className="flex min-h-12 w-full cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
+          onClick={() => setIsOpen((current) => !current)}
+          type="button"
+        >
+          <span className="min-w-0 truncate">
+            {selectedOptions.length ? `${selectedOptions.length} selected` : "Select outcomes"}
+          </span>
+          <ChevronRight className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.9} />
+        </button>
+        {isOpen ? (
+          <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 grid max-h-64 gap-1.5 overflow-y-auto rounded-[18px] border border-[#DCEBFF] bg-[#F8FAFC] p-2 shadow-[0_18px_42px_rgba(15,23,42,0.12)]">
+            {meetingObservedFruitOptions.map((option) => {
+              const selected = selectedOutcomeTags.includes(option.value);
+
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition-colors ${
+                    selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-transparent bg-white text-[#475569] hover:border-[#BFDBFE]"
+                  }`}
+                  key={option.value}
+                  onClick={() => onToggle(option.value)}
+                  type="button"
+                >
+                  <span>{option.label}</span>
+                  {selected ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" strokeWidth={2} /> : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+      {selectedOptions.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedOptions.map((option) => (
+            <button
+              aria-label={`Remove ${option.label}`}
+              className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 text-xs font-bold text-[#1D4ED8]"
+              key={option.value}
+              onClick={() => onToggle(option.value)}
+              type="button"
+            >
+              {option.label}
+              <X className="h-3 w-3" aria-hidden="true" strokeWidth={2} />
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -3284,21 +3944,27 @@ function MeetingFormContent({
   conversationResponses,
   dateDefault,
   errorMessage,
+  includeReflectionFields = false,
+  isCreatingPerson = false,
   isSubmitting,
   meetingPeopleOptions,
   meetingPeopleQuery,
   notesDefault,
   onContextChange,
+  onCreatePerson,
   onConversationFlowChange,
   onConversationResponse,
   onSubmit,
   onToggleFollowUpAction,
+  onToggleOutcomeTag,
   onTogglePerson,
   onPeopleQueryChange,
   recommendedResources,
   selectedConversationFlow,
   selectedMeetingContext,
+  selectedOutcomeTags,
   selectedPersonIds,
+  showDurationField = false,
   submittingText,
 }: {
   allPeople: DosAppPerson[];
@@ -3307,43 +3973,84 @@ function MeetingFormContent({
   conversationResponses: DosConversationResponses;
   dateDefault: string;
   errorMessage?: string;
+  includeReflectionFields?: boolean;
+  isCreatingPerson?: boolean;
   isSubmitting: boolean;
   meetingPeopleOptions: DosAppPerson[];
   meetingPeopleQuery: string;
   notesDefault?: string | null;
   onContextChange: (value: DosAppMeetingType) => void;
+  onCreatePerson?: (name: string) => Promise<void>;
   onConversationFlowChange: (value: DosConversationFlowKey) => void;
   onConversationResponse: (questionId: string, value: DosConversationResponseValue | undefined) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onToggleFollowUpAction: (actionId: string) => void;
+  onToggleOutcomeTag?: (tag: string) => void;
   onTogglePerson: (personId: string) => void;
   onPeopleQueryChange: (value: string) => void;
   recommendedResources: DosRecommendedResource[];
   selectedConversationFlow: DosConversationFlowKey;
   selectedMeetingContext: DosAppMeetingType;
+  selectedOutcomeTags?: string[];
   selectedPersonIds: string[];
+  showDurationField?: boolean;
   submittingText: string;
 }) {
+  const peopleSelector = (
+    <MeetingPeopleSelector
+      allPeople={allPeople}
+      isCreatingPerson={isCreatingPerson}
+      onCreatePerson={onCreatePerson}
+      onQueryChange={onPeopleQueryChange}
+      onToggle={onTogglePerson}
+      people={meetingPeopleOptions}
+      query={meetingPeopleQuery}
+      selectedPersonIds={selectedPersonIds}
+    />
+  );
+  const durationSelector = showDurationField ? <MeetingDurationSelector /> : null;
+  const meetingContextPicker = <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />;
+  const conversationFlowPicker = (
+    <ConversationFlowPicker
+      allowConversationFlows={allowConversationFlows}
+      onChange={onConversationFlowChange}
+      value={selectedConversationFlow}
+    />
+  );
+
   return (
     <form className="space-y-3" onSubmit={onSubmit}>
-      <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
-      <MeetingPeopleSelector
-        allPeople={allPeople}
-        onQueryChange={onPeopleQueryChange}
-        onToggle={onTogglePerson}
-        people={meetingPeopleOptions}
-        query={meetingPeopleQuery}
-        selectedPersonIds={selectedPersonIds}
-      />
       <label className="block">
         <FieldLabel>Date</FieldLabel>
         <input className={FieldInputClass()} defaultValue={dateDefault} name="table_date" type="date" />
       </label>
-      <ConversationFlowPicker
-        allowConversationFlows={allowConversationFlows}
-        onChange={onConversationFlowChange}
-        value={selectedConversationFlow}
-      />
+      {showDurationField ? (
+        <section className={meetingFormGroupClassName}>
+          {peopleSelector}
+          {durationSelector}
+        </section>
+      ) : (
+        <>
+          {durationSelector}
+          {peopleSelector}
+        </>
+      )}
+      {showDurationField ? (
+        <section className={meetingFormGroupClassName}>
+          <div className={meetingFormGroupCardClassName}>
+            <p className={meetingFormGroupTitleClassName}>Meeting Details</p>
+            <div className="mt-3 grid gap-3">
+              {meetingContextPicker}
+              {conversationFlowPicker}
+            </div>
+          </div>
+        </section>
+      ) : (
+        <>
+          {meetingContextPicker}
+          {conversationFlowPicker}
+        </>
+      )}
       {selectedConversationFlow !== "none" ? (
         <ConversationFlowExperience
           flowKey={selectedConversationFlow}
@@ -3352,7 +4059,15 @@ function MeetingFormContent({
           responses={conversationResponses}
         />
       ) : null}
-      <MeetingCaptureNotes defaultValue={notesDefault} />
+      {includeReflectionFields ? (
+        <MeetingLeaderReflectionSection
+          notesDefault={notesDefault}
+          onToggleOutcomeTag={onToggleOutcomeTag ?? (() => undefined)}
+          selectedOutcomeTags={selectedOutcomeTags ?? []}
+        />
+      ) : (
+        <MeetingCaptureNotes defaultValue={notesDefault} />
+      )}
       <MeetingRecommendationsPreview resources={recommendedResources} />
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
@@ -3362,38 +4077,70 @@ function MeetingFormContent({
 
 function ScheduleMeetingPlaceholder({
   allPeople,
+  isCreatingPerson = false,
   meetingPeopleOptions,
   meetingPeopleQuery,
+  onContextChange,
+  onCreatePerson,
   onPeopleQueryChange,
   onStartLogMeeting,
   onTogglePerson,
+  selectedMeetingContext,
   selectedPersonIds,
 }: {
   allPeople: DosAppPerson[];
+  isCreatingPerson?: boolean;
   meetingPeopleOptions: DosAppPerson[];
   meetingPeopleQuery: string;
+  onContextChange: (value: DosAppMeetingType) => void;
+  onCreatePerson?: (name: string) => Promise<void>;
   onPeopleQueryChange: (value: string) => void;
   onStartLogMeeting: () => void;
   onTogglePerson: (personId: string) => void;
+  selectedMeetingContext: DosAppMeetingType;
   selectedPersonIds: string[];
 }) {
+  const [scheduledDate, setScheduledDate] = useState(todayDateValue());
+  const [scheduledTime, setScheduledTime] = useState("");
+
   return (
     <div className="space-y-3">
-      <section className="rounded-[24px] border border-[#DCEBFF] bg-[#EBF2FF] p-4">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-          Coming Soon
-        </p>
-        <p className="mt-1 text-sm font-semibold leading-5 text-[#0F172A]">Scheduling will create future follow-ups from DOS.</p>
-        <p className="mt-1 text-xs leading-5 text-[#64748B]">For now, pick who this is for and log the meeting after it happens.</p>
+      <section className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+            <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.8} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              Coming Soon
+            </span>
+            <span className="mt-1 block text-sm font-semibold leading-5 text-[#0F172A]">Scheduling will create future follow-ups from DOS.</span>
+          </span>
+        </div>
       </section>
       <MeetingPeopleSelector
         allPeople={allPeople}
+        isCreatingPerson={isCreatingPerson}
+        onCreatePerson={onCreatePerson}
         onQueryChange={onPeopleQueryChange}
         onToggle={onTogglePerson}
         people={meetingPeopleOptions}
         query={meetingPeopleQuery}
         selectedPersonIds={selectedPersonIds}
       />
+      <div className="grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+        <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block min-w-0">
+            <FieldLabel>Date</FieldLabel>
+            <input className={FieldInputClass()} onChange={(event) => setScheduledDate(event.target.value)} type="date" value={scheduledDate} />
+          </label>
+          <label className="block min-w-0">
+            <FieldLabel>Time</FieldLabel>
+            <input className={FieldInputClass()} onChange={(event) => setScheduledTime(event.target.value)} type="time" value={scheduledTime} />
+          </label>
+        </div>
+      </div>
       <AppButton icon="log" onClick={onStartLogMeeting} tone="black">Log Meeting Instead</AppButton>
     </div>
   );
@@ -3497,51 +4244,43 @@ function fruitThemeChips(stories: FruitDashboardStory[], isPreview: boolean) {
   return isPreview ? demoFruitThemeChips : [];
 }
 
-function distinctFruitPeopleCount(stories: FruitDashboardStory[], keywords: string[]) {
-  const matches = stories.filter((story) => hasFruitKeyword(story, keywords));
-  const peopleWithFruit = new Set(matches.map((story) => story.personId).filter((personId): personId is string => Boolean(personId)));
-
-  return peopleWithFruit.size || matches.length;
+function fruitOutcomeCount(stories: FruitDashboardStory[], keywords: string[]) {
+  return stories.filter((story) => hasFruitKeyword(story, keywords)).length;
 }
 
-function kingdomFruitMetrics(people: DosAppPerson[], stories: FruitDashboardStory[]) {
+function kingdomFruitMetrics(stories: FruitDashboardStory[]) {
   return [
     {
-      label: "Gospel Conversations",
-      value: distinctFruitPeopleCount(stories, ["gospel conversation", "gospel", "good news", "evangel", "preach"]),
-    },
-    {
-      label: "Prayer Received",
-      value: distinctFruitPeopleCount(stories, ["prayer received", "requested prayer", "prayer", "pray"]),
-    },
-    {
-      label: "Church Engagement",
-      value: distinctFruitPeopleCount(stories, ["church engagement", "church", "attending church", "joined church"]),
-    },
-    {
-      label: "Baptized",
-      value: distinctFruitPeopleCount(stories, ["baptism", "baptized"]),
+      label: "Reconciliation",
+      value: fruitOutcomeCount(stories, ["reconciliation", "reconciled", "restored relationship", "restored relationships", "forgiveness", "forgave", "restored family", "restored friendship"]),
     },
     {
       label: "New Believers",
-      value: distinctFruitPeopleCount(stories, ["salvation", "new believer", "gave their life", "born again", "follow jesus"]),
+      value: fruitOutcomeCount(stories, ["salvation", "new believer", "new believers", "gave their life", "born again", "follow jesus", "commitment to jesus", "received christ"]),
+    },
+    {
+      label: "Marriage Restoration",
+      value: fruitOutcomeCount(stories, ["marriage restoration", "marriage restored", "marriage healing", "marriage healed", "restored marriage", "healed marriage"]),
+    },
+    {
+      label: "Baptized",
+      value: fruitOutcomeCount(stories, ["baptism", "baptized"]),
+    },
+    {
+      label: "Discipling",
+      value: fruitOutcomeCount(stories, ["discipling", "joined discipleship", "discipleship started", "started discipleship", "discipleship relationship", "walking with"]),
     },
     {
       label: "Started Discipling Others",
-      value: Math.max(
-        people.filter((person) => person.discipleshipStage === "disciple_maker").length,
-        distinctFruitPeopleCount(stories, ["started discipling others", "disciple maker", "multiplying", "multiplication"]),
-      ),
+      value: fruitOutcomeCount(stories, ["started discipling others", "disciple maker", "multiplying", "multiplication"]),
     },
   ];
 }
 
 function FruitTreeCard({
   storyCount,
-  themes,
 }: {
   storyCount: number;
-  themes: string[];
 }) {
   return (
     <section className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_16px_36px_rgba(37,99,235,0.08)]">
@@ -3550,52 +4289,22 @@ function FruitTreeCard({
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Fruit Tree
           </p>
-          <h2 className="mt-1 text-xl font-bold leading-tight text-[#0F172A]">What God is growing</h2>
+          <h2 className="mt-1 text-xl font-bold leading-tight text-[#0F172A]">What God is Growing</h2>
         </div>
         <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1 text-[11px] font-bold text-[#1D4ED8]">
           {storyCount} {storyCount === 1 ? "story" : "stories"}
         </span>
       </div>
 
-      <div className="relative mx-auto mt-5 flex h-40 max-w-[300px] items-center justify-center">
-        <div className="absolute h-32 w-32 rounded-full border border-[#BFDBFE] bg-[#F8FBFF]" />
-        <div className="absolute h-24 w-24 rounded-full border border-[#93C5FD] bg-[#EBF2FF]" />
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_18px_34px_rgba(37,99,235,0.28)]">
-          <Icon name="fruit" size={24} />
+      <div className="relative mx-auto mt-5 flex h-44 max-w-[310px] items-center justify-center">
+        <div className="absolute h-40 w-40 rounded-full border border-[#DCEBFF] bg-[#F8FBFF]" />
+        <div className="absolute h-32 w-32 rounded-full border border-[#BFDBFE] bg-[#EFF6FF]" />
+        <div className="absolute h-24 w-24 rounded-full border border-[#93C5FD] bg-white/70" />
+        <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF]" />
+        <div className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_18px_34px_rgba(37,99,235,0.28)]">
+          <Icon name="fruit" size={22} />
         </div>
-        {themes.slice(0, 6).map((theme, index) => {
-          const positions = [
-            "left-[16%] top-[18%]",
-            "right-[18%] top-[14%]",
-            "left-[12%] bottom-[22%]",
-            "right-[13%] bottom-[24%]",
-            "left-[43%] top-[2%]",
-            "left-[45%] bottom-[4%]",
-          ];
-
-          return (
-            <span
-              aria-hidden="true"
-              className={`absolute h-3 w-3 rounded-full bg-[#2563EB] shadow-[0_0_0_5px_rgba(37,99,235,0.12)] ${positions[index]}`}
-              key={theme}
-            />
-          );
-        })}
       </div>
-
-      {themes.length ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {themes.map((theme) => (
-            <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-bold text-[#1D4ED8]" key={theme}>
-              {theme}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-4 rounded-2xl bg-[#F8FAFC] px-4 py-3 text-sm leading-6 text-[#64748B]">
-          Fruit themes will appear as recorded stories and reviews come in.
-        </p>
-      )}
     </section>
   );
 }
@@ -3607,12 +4316,28 @@ function KingdomFruitMetricTile({
   label: string;
   value: number;
 }) {
+  const icon = {
+    Baptized: <Droplet className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    Discipling: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    "Marriage Restoration": <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    "New Believers": <UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    Reconciliation: <HeartHandshake className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    "Started Discipling Others": <GitBranch className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+  }[label] ?? <Icon name="fruit" size={14} />;
+
   return (
-    <div className="rounded-2xl border border-[#E2E8F0] bg-white px-3 py-4 text-center shadow-[0_8px_22px_rgba(15,23,42,0.04)]">
-      <p className="text-2xl font-bold leading-none text-[#0F172A]">{value}</p>
-      <p className="mx-auto mt-2 max-w-[110px] text-[10px] font-bold uppercase tracking-[0.11em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-        {label}
-      </p>
+    <div className="min-w-0 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:rounded-[16px] max-[350px]:px-2.5">
+      <div className="flex min-h-[54px] min-w-0 items-center gap-2.5 max-[350px]:gap-2">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-8 max-[350px]:w-8">
+          {icon}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[25px] font-bold leading-none text-[#0F172A] max-[350px]:text-[22px]">{value}</span>
+          <span className="mt-1 block text-[8px] font-bold uppercase leading-[0.8rem] tracking-[0.08em] text-[#64748B] max-[350px]:text-[7.5px] max-[350px]:tracking-[0.04em]" style={{ fontFamily: font.rajdhani }}>
+            {label}
+          </span>
+        </span>
+      </div>
     </div>
   );
 }
@@ -3644,36 +4369,6 @@ function RecentFruitStoryCard({ story }: { story: FruitDashboardStory }) {
         </div>
       ) : null}
     </article>
-  );
-}
-
-function SearchField({
-  label,
-  onChange,
-  placeholder,
-  value,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  value: string;
-}) {
-  return (
-    <label className="block">
-      <FieldLabel>{label}</FieldLabel>
-      <div className="relative mt-2">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]">
-          <Icon name="search" size={15} />
-        </span>
-        <input
-          className="min-h-12 w-full rounded-full border border-[#E2E8F0] bg-white pl-10 pr-4 text-sm text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          type="search"
-          value={value}
-        />
-      </div>
-    </label>
   );
 }
 
@@ -3783,7 +4478,7 @@ function PeopleImportSheet({
                 <div className="rounded-2xl bg-[#F1F5F9] p-3" key={`${row.sourceRowNumber}-${row.name}-${row.phone}`}>
                   <p className="text-sm font-bold text-[#0F172A]">{row.name || "Missing name"}</p>
                   <p className="mt-1 text-xs leading-5 text-[#64748B]">
-                    {[row.phone, row.email, row.church, row.spouseName ? `Spouse: ${row.spouseName}` : ""].filter(Boolean).join(" · ") || `Row ${row.sourceRowNumber}`}
+                    {[formatPhoneNumber(row.phone) || row.phone, row.email, row.church, row.spouseName ? `Spouse: ${row.spouseName}` : ""].filter(Boolean).join(" · ") || `Row ${row.sourceRowNumber}`}
                   </p>
                 </div>
               ))}
@@ -3989,42 +4684,60 @@ function RelationshipScorePicker({
 
 function AdditionalPersonInformation({
   defaults = {},
+  householdDraft,
+  onHouseholdDraftChange,
   isOpen,
   onToggle,
   showToggle = true,
 }: {
   defaults?: PersonFormDefaults;
+  householdDraft: PersonHouseholdDraft;
+  onHouseholdDraftChange: (value: PersonHouseholdDraft) => void;
   isOpen: boolean;
   onToggle: () => void;
   showToggle?: boolean;
 }) {
+  const updateSpouseDraft = (key: "spouseFirstName" | "spouseLastName", value: string) => {
+    onHouseholdDraftChange({
+      ...householdDraft,
+      [key]: value,
+    });
+  };
+
+  const updateChildDraft = (childId: string, key: "firstName" | "lastName", value: string) => {
+    onHouseholdDraftChange({
+      ...householdDraft,
+      children: householdDraft.children.map((child) => (
+        child.id === childId ? { ...child, [key]: value } : child
+      )),
+    });
+  };
+
+  const addChildDraft = () => {
+    onHouseholdDraftChange({
+      ...householdDraft,
+      children: [
+        ...householdDraft.children,
+        {
+          firstName: "",
+          id: `child-${Date.now()}-${householdDraft.children.length}`,
+          lastName: "",
+        },
+      ],
+    });
+  };
+
+  const removeChildDraft = (childId: string) => {
+    const remainingChildren = householdDraft.children.filter((child) => child.id !== childId);
+
+    onHouseholdDraftChange({
+      ...householdDraft,
+      children: remainingChildren.length ? remainingChildren : [blankChildDraft()],
+    });
+  };
+
   const fields = (
     <div className={showToggle ? "mt-4 grid gap-3 border-t border-[#E2E8F0] pt-4" : "grid gap-3"}>
-      <details className="group overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white">
-        <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] [&::-webkit-details-marker]:hidden">
-          <span className="min-w-0">
-            <FieldLabel>Household</FieldLabel>
-            <span className="mt-1 block truncate text-sm font-bold text-[#0F172A]">
-              {hasHouseholdDetails(defaults) ? [defaults.spouseName, defaults.childrenNames].filter(Boolean).join(" · ") || "Household notes" : "Optional family context"}
-            </span>
-          </span>
-          <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
-        </summary>
-        <div className="grid gap-3 border-t border-[#E2E8F0] bg-[#F8FAFC] p-3">
-          <label className="block">
-            <FieldLabel>Spouse Name</FieldLabel>
-            <input className={FieldInputClass()} defaultValue={defaults.spouseName} name="spouse_name" placeholder="Spouse name" />
-          </label>
-          <label className="block">
-            <FieldLabel>Children Names</FieldLabel>
-            <input className={FieldInputClass()} defaultValue={defaults.childrenNames} name="children_names" placeholder="Names or simple note" />
-          </label>
-          <label className="block">
-            <FieldLabel>Household Notes</FieldLabel>
-            <textarea className={FieldTextareaClass()} defaultValue={defaults.householdNotes} name="household_notes" placeholder="Family context, rhythms, or care notes..." />
-          </label>
-        </div>
-      </details>
       <label className="block">
         <FieldLabel>Email</FieldLabel>
         <input className={FieldInputClass()} defaultValue={defaults.email} name="email" placeholder="email@example.com" type="email" />
@@ -4063,15 +4776,66 @@ function AdditionalPersonInformation({
         <FieldLabel>Notes</FieldLabel>
         <textarea className={FieldTextareaClass()} defaultValue={defaults.notes} name="notes" placeholder="Private notes..." />
       </label>
+      <details className="group overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white">
+        <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] [&::-webkit-details-marker]:hidden">
+          <FieldLabel>Household Information</FieldLabel>
+          <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
+        </summary>
+        <div className="grid gap-3 border-t border-[#E2E8F0] bg-[#F8FAFC] p-3">
+          <div className="grid gap-2 min-[360px]:grid-cols-2">
+            <label className="block min-w-0">
+              <FieldLabel>Spouse First Name</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} placeholder="First name" value={householdDraft.spouseFirstName} />
+            </label>
+            <label className="block min-w-0">
+              <FieldLabel>Spouse Last Name</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} placeholder="Last name" value={householdDraft.spouseLastName} />
+            </label>
+          </div>
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <FieldLabel>Children</FieldLabel>
+              <button
+                className="inline-flex h-8 items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
+                onClick={addChildDraft}
+                type="button"
+              >
+                + Child
+              </button>
+            </div>
+            <div className="grid gap-2">
+              {householdDraft.children.map((child, index) => (
+                <div className="grid gap-2 rounded-2xl border border-[#E2E8F0] bg-white p-2" key={child.id}>
+                  <div className="grid gap-2 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
+                    <label className="block min-w-0">
+                      <FieldLabel>Child First Name</FieldLabel>
+                      <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} placeholder="First name" value={child.firstName} />
+                    </label>
+                    <label className="block min-w-0">
+                      <FieldLabel>Child Last Name</FieldLabel>
+                      <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} placeholder="Last name" value={child.lastName} />
+                    </label>
+                    <button
+                      aria-label={`Remove child ${index + 1}`}
+                      className="mt-0 flex h-9 w-9 items-center justify-center justify-self-end rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 min-[360px]:mt-5"
+                      onClick={() => removeChildDraft(child.id)}
+                      type="button"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   );
 
   if (!showToggle) {
     return (
       <section className="grid gap-2">
-        <div>
-          <FieldLabel>Extra Details</FieldLabel>
-        </div>
         {fields}
       </section>
     );
@@ -4101,20 +4865,45 @@ function AdditionalPersonInformation({
 function PersonExtraDetails({
   additionalDefaults,
   detailsOpen,
+  householdDraft,
   onChange,
+  onHouseholdDraftChange,
   onScoreChange,
   onToggleDetails,
   scoreValue,
+  showToggle = true,
   value,
 }: {
   additionalDefaults?: PersonFormDefaults;
   detailsOpen: boolean;
+  householdDraft: PersonHouseholdDraft;
   onChange: (value: DosRelationshipModel) => void;
+  onHouseholdDraftChange: (value: PersonHouseholdDraft) => void;
   onScoreChange: (value: RelationshipScoreValue) => void;
   onToggleDetails: () => void;
   scoreValue: RelationshipScoreValue;
+  showToggle?: boolean;
   value: DosRelationshipModel;
 }) {
+  const fields = (
+    <div className="space-y-4 rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+      <RelationshipContextPicker onChange={onChange} value={value} />
+      <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
+      <AdditionalPersonInformation
+        defaults={additionalDefaults}
+        householdDraft={householdDraft}
+        isOpen
+        onHouseholdDraftChange={onHouseholdDraftChange}
+        onToggle={onToggleDetails}
+        showToggle={false}
+      />
+    </div>
+  );
+
+  if (!showToggle) {
+    return <section>{fields}</section>;
+  }
+
   return (
     <section className="space-y-3">
       <button
@@ -4128,13 +4917,7 @@ function PersonExtraDetails({
           +
         </span>
       </button>
-      {detailsOpen ? (
-        <div className="space-y-4 rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-          <RelationshipContextPicker onChange={onChange} value={value} />
-          <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
-          <AdditionalPersonInformation defaults={additionalDefaults} isOpen onToggle={onToggleDetails} showToggle={false} />
-        </div>
-      ) : null}
+      {detailsOpen ? fields : null}
     </section>
   );
 }
@@ -4147,12 +4930,14 @@ function PersonFormContent({
   isSubmitting,
   nameDefault,
   onRelationshipChange,
+  onDelete,
   onScoreChange,
   onSubmit,
   onToggleDetails,
   phoneDefault,
   relationshipModel,
   scoreValue,
+  showDetailsToggle = true,
   submittingText,
 }: {
   additionalDefaults?: PersonFormDefaults;
@@ -4162,38 +4947,90 @@ function PersonFormContent({
   isSubmitting: boolean;
   nameDefault?: string | null;
   onRelationshipChange: (value: DosRelationshipModel) => void;
+  onDelete?: () => void;
   onScoreChange: (value: RelationshipScoreValue) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onToggleDetails: () => void;
   phoneDefault?: string | null;
   relationshipModel: DosRelationshipModel;
   scoreValue: RelationshipScoreValue;
+  showDetailsToggle?: boolean;
   submittingText: string;
 }) {
+  const [nameDraft, setNameDraft] = useState(() => splitNameParts(nameDefault));
+  const [phoneDraft, setPhoneDraft] = useState(() => phoneDigitsOnly(phoneDefault));
+  const [householdDraft, setHouseholdDraft] = useState<PersonHouseholdDraft>(() => householdDraftFromDefaults(additionalDefaults));
+
+  useEffect(() => {
+    setNameDraft(splitNameParts(nameDefault));
+  }, [nameDefault]);
+
+  useEffect(() => {
+    setPhoneDraft(phoneDigitsOnly(phoneDefault));
+  }, [phoneDefault]);
+
+  useEffect(() => {
+    setHouseholdDraft(householdDraftFromDefaults(additionalDefaults));
+  }, [additionalDefaults?.childrenNames, additionalDefaults?.spouseName]);
+
+  const composedName = joinNameParts(nameDraft.firstName, nameDraft.lastName);
+  const effectiveDetailsOpen = showDetailsToggle ? detailsOpen : true;
+
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
+      <input name="name" type="hidden" value={composedName} />
+      <input name="phone" type="hidden" value={phoneDraft} />
+      <input name="spouse_name" type="hidden" value={householdDraftSpouseName(householdDraft)} />
+      <input name="children_names" type="hidden" value={householdDraftChildrenNames(householdDraft)} />
       <div className="grid gap-3">
-        <label className="block">
-          <FieldLabel>Name</FieldLabel>
-          <input className={FieldInputClass()} defaultValue={nameDefault ?? ""} name="name" placeholder="Full name" required />
-        </label>
+        <div className="grid gap-2 min-[360px]:grid-cols-2">
+          <label className="block min-w-0">
+            <FieldLabel>First Name</FieldLabel>
+            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} placeholder="First name" required value={nameDraft.firstName} />
+          </label>
+          <label className="block min-w-0">
+            <FieldLabel>Last Name</FieldLabel>
+            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} placeholder="Last name" value={nameDraft.lastName} />
+          </label>
+        </div>
         <label className="block">
           <FieldLabel>Phone</FieldLabel>
-          <input className={FieldInputClass()} defaultValue={phoneDefault ?? ""} inputMode="tel" name="phone" placeholder="Phone number" required />
+          <input
+            className={FieldInputClass()}
+            inputMode="tel"
+            onChange={(event) => setPhoneDraft(phoneDigitsOnly(event.target.value))}
+            placeholder="(651) 456-8974"
+            required
+            type="tel"
+            value={formatPhoneNumber(phoneDraft)}
+          />
         </label>
       </div>
       <RelationshipTypePicker onChange={onRelationshipChange} value={relationshipModel} />
       <PersonExtraDetails
         additionalDefaults={additionalDefaults}
-        detailsOpen={detailsOpen}
+        detailsOpen={effectiveDetailsOpen}
+        householdDraft={householdDraft}
         onChange={onRelationshipChange}
+        onHouseholdDraftChange={setHouseholdDraft}
         onScoreChange={onScoreChange}
         onToggleDetails={onToggleDetails}
         scoreValue={scoreValue}
+        showToggle={showDetailsToggle}
         value={relationshipModel}
       />
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+      {onDelete ? (
+        <button
+          className="mt-2 w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSubmitting}
+          onClick={onDelete}
+          type="button"
+        >
+          Delete Person
+        </button>
+      ) : null}
     </form>
   );
 }
@@ -4269,19 +5106,36 @@ function FruitEventIcon({ event }: { event: DosAppFruitEvent }) {
   return <Flame className={iconClass} aria-hidden="true" strokeWidth={1.8} />;
 }
 
-function FruitEventRow({ event }: { event: DosAppFruitEvent }) {
+function FruitEventRow({ event, onClick }: { event: DosAppFruitEvent; onClick?: () => void }) {
+  const content = (
+    <div className="flex gap-3">
+      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]">
+        <FruitEventIcon event={event} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-base font-bold leading-6 text-[#0F172A]">{event.title || event.fruitType}</h3>
+        <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B]">{formatDate(event.date)}</p>
+        <p className="mt-1 text-sm leading-6 text-[#64748B]">{fruitNarrative(event)}</p>
+      </div>
+      {onClick ? <ChevronRight className="mt-3 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
+    </div>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        className="relative w-full min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]"
+        onClick={onClick}
+        type="button"
+      >
+        {content}
+      </button>
+    );
+  }
+
   return (
     <article className="relative min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
-      <div className="flex gap-3">
-        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]">
-          <FruitEventIcon event={event} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-base font-bold leading-6 text-[#0F172A]">{event.title || event.fruitType}</h3>
-          <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B]">{formatDate(event.date)}</p>
-          <p className="mt-1 text-sm leading-6 text-[#64748B]">{fruitNarrative(event)}</p>
-        </div>
-      </div>
+      {content}
     </article>
   );
 }
@@ -4336,9 +5190,9 @@ function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
   );
 }
 
-function ParticipantTestimonyRow({ testimony }: { testimony: DosAppParticipantTestimony }) {
-  return (
-    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+function ParticipantTestimonyRow({ onClick, testimony }: { onClick?: () => void; testimony: DosAppParticipantTestimony }) {
+  const content = (
+    <>
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
         <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
       </span>
@@ -4352,7 +5206,72 @@ function ParticipantTestimonyRow({ testimony }: { testimony: DosAppParticipantTe
           <p className="mt-2 text-xs font-semibold leading-5 text-[#64748B]">{testimony.publicDisplayName}</p>
         ) : null}
       </div>
+      {onClick ? <ChevronRight className="mt-3 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        className="flex w-full min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]"
+        onClick={onClick}
+        type="button"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      {content}
     </article>
+  );
+}
+
+function OutcomeDetailSheet({
+  entry,
+  meeting,
+  onClose,
+  person,
+}: {
+  entry: PersonOutcomeEntry;
+  meeting?: DosAppMeeting | null;
+  onClose: () => void;
+  person: DosAppPerson;
+}) {
+  const isTestimony = entry.type === "testimony";
+  const title = isTestimony ? "Testimony Shared" : entry.event.title || entry.event.fruitType;
+  const date = isTestimony ? entry.testimony.submittedAt : entry.event.date;
+  const description = isTestimony
+    ? entry.testimony.whatChanged || entry.testimony.story || "Testimony shared."
+    : fruitNarrative(entry.event);
+  const source = isTestimony
+    ? "Testimony"
+    : entry.event.generatedBy || statusLabel(entry.event.sourceType);
+  const peopleInvolved = meeting?.participantNames.length
+    ? formatDosParticipantList(meeting.participantNames)
+    : person.name;
+
+  return (
+    <MobileBottomSheet
+      badge={<span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">{isTestimony ? <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : entry.type === "fruit" ? <FruitEventIcon event={entry.event} /> : null}</span>}
+      onClose={onClose}
+      subtitle={date ? formatDate(date) : "Date not recorded"}
+      title={title}
+    >
+      <div className="grid gap-3">
+        <DetailCard title="Outcome">
+          <p className="whitespace-pre-line rounded-[18px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-sm leading-6 text-[#0F172A]">{description}</p>
+        </DetailCard>
+        <DetailCard title="Details">
+          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={date ? formatDate(date) : "Not recorded" } />
+          {meeting ? <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Related Meeting" value={`${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}`} /> : null}
+          <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="People Involved" value={peopleInvolved} />
+          <DetailRow icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Source" value={source} />
+        </DetailCard>
+      </div>
+    </MobileBottomSheet>
   );
 }
 
@@ -4528,7 +5447,7 @@ function CircleLayerList({
 }: {
   empty: string;
   hiddenCount?: number;
-  items: CirclePersonItem[];
+  items: CircleListItem[];
   latestMeetingDateByPersonId: Map<string, string | null>;
   onLogMeeting?: (personId: string) => void;
   onOpenPerson: (personId: string) => void;
@@ -4728,9 +5647,11 @@ function PersonDetailOverlay({
   participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
 }) {
-  const [activeDetailTab, setActiveDetailTab] = useState<"activity" | "fruit" | "household" | "overview">("overview");
+  const detailScrollRef = useRef<HTMLDivElement | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<"activity" | "fruit" | "overview">("overview");
   const [activeActivitySection, setActiveActivitySection] = useState<PersonActivitySection>("meetings");
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
+  const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
   const mapHref = address ? mapsHrefForAddress(address) : "";
@@ -4751,6 +5672,26 @@ function PersonDetailOverlay({
   });
   const personFruitEvents = personFruitSummary.fruitEvents;
   const personReflections = leaderReflections.filter((reflection) => reflection.personId === person.id || personMeetings.some((meeting) => meeting.id === reflection.meetingId));
+  const personOutcomeFruitEvents = personFruitEvents.filter(isObservableFruitOutcome);
+  const personOutcomeTestimonies = personTestimonies.filter((testimony) => isSubmittedStatus(testimony.status) && Boolean(testimony.story?.trim() || testimony.whatChanged?.trim()));
+  const personOutcomeEntries: PersonOutcomeEntry[] = [
+    ...personOutcomeFruitEvents.map((event) => ({
+      date: event.date,
+      event,
+      id: `fruit-${event.id}`,
+      type: "fruit" as const,
+    })),
+    ...personOutcomeTestimonies.map((testimony) => ({
+      date: testimony.submittedAt,
+      id: `testimony-${testimony.id}`,
+      testimony,
+      type: "testimony" as const,
+    })),
+  ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
+  const latestOutcomeEntry = personOutcomeEntries[0];
+  const selectedOutcomeMeeting = selectedOutcomeEntry
+    ? meetings.find((meeting) => meeting.id === (selectedOutcomeEntry.type === "fruit" ? selectedOutcomeEntry.event.meetingId : selectedOutcomeEntry.testimony.meetingId)) ?? null
+    : null;
   const recentMeetings = personMeetings.slice(0, 3);
   const relationshipTypePill = relationshipTypePillLabel(person);
   const spiritualJourneyPill = deriveSpiritualJourney({
@@ -4764,9 +5705,6 @@ function PersonDetailOverlay({
   });
   const lastMeetingDate = personMeetings[0]?.date ?? person.lastActivityAt;
   const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
-  const reflectionNextStep = personReflections.find((reflection) => reflection.nextStep?.trim())?.nextStep?.trim();
-  const snapshotNextStep = reflectionNextStep
-    ?? (personFruitSummary.followUpNeeded === "Yes" ? "Send follow up" : personMeetings.length ? "Schedule meeting" : "Log first meeting");
   const overviewNotes = defaults.notes?.trim() ?? "";
   const completedGuidedMeetings = personMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
   const relationshipSnapshotReasons = Array.from(new Set([
@@ -4775,21 +5713,33 @@ function PersonDetailOverlay({
     relationshipTypePill !== "New" ? "Active discipleship relationship" : "",
     personFruitEvents.length ? `${personFruitEvents.length} fruit event${personFruitEvents.length === 1 ? "" : "s"} recorded` : "",
   ].filter((reason): reason is string => Boolean(reason)))).slice(0, 3);
+  function scrollDetailToTop() {
+    requestAnimationFrame(() => {
+      const scrollContainer = detailScrollRef.current;
+
+      if (!scrollContainer) {
+        return;
+      }
+
+      scrollContainer.scrollTop = 0;
+      scrollContainer.scrollLeft = 0;
+    });
+  }
+
   useEffect(() => {
     setActiveDetailTab("overview");
     setActiveActivitySection("meetings");
     setIsSnapshotOpen(false);
+    setSelectedOutcomeEntry(null);
+    scrollDetailToTop();
   }, [person.id]);
 
   return (
-    <div className="absolute inset-0 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
+    <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to people">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-          Person
-        </p>
         <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
           <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
           Edit
@@ -4810,22 +5760,22 @@ function PersonDetailOverlay({
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-4 bg-[#FAFBFD]/95 px-4 py-2 backdrop-blur">
-        <div className="grid grid-cols-4 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
+        <div className="grid grid-cols-3 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
           {[
             { label: "Overview", value: "overview" },
             { label: "Activity", value: "activity" },
             { label: "Fruit", value: "fruit" },
-            { label: "Household", value: "household" },
           ].map((tab) => (
             <button
               aria-current={activeDetailTab === tab.value ? "page" : undefined}
               className={`min-h-9 rounded-full px-2 text-[11px] font-bold transition-colors ${
-                activeDetailTab === tab.value ? "bg-[#2563EB] text-white shadow-[0_8px_20px_rgba(37,99,235,0.24)]" : "text-[#64748B] hover:bg-[#F8FAFC]"
+                activeDetailTab === tab.value ? "bg-[#EAF2FF] text-[#1D4ED8] shadow-[0_6px_14px_rgba(37,99,235,0.10)] ring-1 ring-[#CFE0FF]" : "text-[#64748B] hover:bg-[#F8FAFC]"
               }`}
               key={tab.value}
               onClick={() => {
                 const nextTab = tab.value as typeof activeDetailTab;
                 setActiveDetailTab(nextTab);
+                scrollDetailToTop();
                 if (nextTab === "activity") {
                   setActiveActivitySection("meetings");
                 }
@@ -4841,11 +5791,10 @@ function PersonDetailOverlay({
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
         {activeDetailTab === "overview" ? (
           <>
-            <div className="grid min-w-0 grid-cols-2 gap-2 max-[350px]:gap-1.5">
+            <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
               <SnapshotMetricTile icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Relationship" value={relationshipTypePill} />
               <EngagementSnapshotTile label={engagementOverviewLabel} score={engagementOverviewScore} />
               <SnapshotMetricTile icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Meeting" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
-              <SnapshotMetricTile icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Next Step" value={snapshotNextStep} />
             </div>
 
             <section className="rounded-[24px] border border-[#D7F3DD] bg-[#F7FEFA] p-4 shadow-[0_14px_34px_rgba(22,163,74,0.055)]">
@@ -4892,13 +5841,13 @@ function PersonDetailOverlay({
               {person.phone ? (
                 <ContactActionRow
                   actions={[
-                    { href: `tel:${person.phone}`, label: "Call" },
-                    { href: `sms:${person.phone}`, label: "Text" },
+                    { href: phoneActionHref("tel", person.phone), label: "Call" },
+                    { href: phoneActionHref("sms", person.phone), label: "Text" },
                   ]}
                   icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
                   label="Phone"
-                  primaryHref={`tel:${person.phone}`}
-                  value={person.phone}
+                  primaryHref={phoneActionHref("tel", person.phone)}
+                  value={formatPhoneNumber(person.phone) || person.phone}
                 />
               ) : null}
               {person.email ? (
@@ -4941,6 +5890,14 @@ function PersonDetailOverlay({
                 </div>
               </DetailCard>
             ) : null}
+
+            {hasHouseholdContext ? (
+              <DetailCard icon={<Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Household">
+                {person.spouseName ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Spouse" value={person.spouseName} /> : null}
+                {person.childrenNames ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Children" value={person.childrenNames} /> : null}
+                {person.householdNotes ? <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Household Notes" value={person.householdNotes} /> : null}
+              </DetailCard>
+            ) : null}
           </>
         ) : null}
 
@@ -4950,7 +5907,6 @@ function PersonDetailOverlay({
               <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
                 <ActivityFilterCard
                   active={activeActivitySection === "meetings"}
-                  helper="History"
                   icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                   label="Meetings"
                   onClick={() => setActiveActivitySection("meetings")}
@@ -4958,7 +5914,6 @@ function PersonDetailOverlay({
                 />
                 <ActivityFilterCard
                   active={activeActivitySection === "reviews"}
-                  helper="Shared"
                   icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                   label="Reviews"
                   onClick={() => setActiveActivitySection("reviews")}
@@ -4966,7 +5921,6 @@ function PersonDetailOverlay({
                 />
                 <ActivityFilterCard
                   active={activeActivitySection === "reflections"}
-                  helper="Leader notes"
                   icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                   label="Reflections"
                   onClick={() => setActiveActivitySection("reflections")}
@@ -5039,48 +5993,38 @@ function PersonDetailOverlay({
         {activeDetailTab === "fruit" ? (
           <>
             <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Summary">
-              <div className="grid min-w-0 grid-cols-2 gap-2 max-[350px]:gap-1.5">
-                <PersonSummaryTile icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Fruit" value={personFruitSummary.latestFruit} />
-                <PersonSummaryTile icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personFruitEvents.length)} />
-              </div>
-              <PersonSummaryTile icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication Status" value={fruitMultiplicationLabel(personFruitSummary.multiplicationStatus)} />
-            </DetailCard>
-
-            <DetailCard icon={<Gift className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Feed">
-              {personFruitEvents.length ? personFruitEvents.map((event) => (
-                <FruitEventRow event={event} key={event.id} />
-              )) : (
-                <SectionEmptyState
-                  text="After a meeting, capture what happened or invite them to share their story."
-                  title="No fruit has been logged yet."
+              <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
+                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personOutcomeEntries.length)} />
+                <FruitSummaryCard
+                  icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Latest Fruit"
+                  value={latestOutcomeEntry ? latestOutcomeEntry.type === "testimony" ? "Testimony Shared" : fruitOutcomeLabel(latestOutcomeEntry.event) : "None Yet"}
                 />
-              )}
+                <FruitSummaryCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication" value={fruitMultiplicationLabel(personFruitSummary.multiplicationStatus)} />
+              </div>
             </DetailCard>
 
-            <DetailCard icon={<Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Testimonies">
-              {personTestimonies.length ? personTestimonies.slice(0, 3).map((testimony) => (
-                <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
+            <DetailCard icon={<Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Testimonies & Outcomes">
+              {personOutcomeEntries.length ? personOutcomeEntries.map((entry) => (
+                entry.type === "testimony"
+                  ? <ParticipantTestimonyRow key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} testimony={entry.testimony} />
+                  : <FruitEventRow event={entry.event} key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} />
               )) : (
-                <SectionEmptyState text="Invite them to share their story after a meaningful conversation." title="No stories yet." />
+                <SectionEmptyState text="Observable outcomes and shared stories will appear here." title="No outcomes yet." />
               )}
             </DetailCard>
           </>
         ) : null}
 
-        {activeDetailTab === "household" ? (
-          <DetailCard icon={<Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Household">
-            {hasHouseholdContext ? (
-              <>
-                {person.spouseName ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Spouse" value={person.spouseName} /> : null}
-                {person.childrenNames ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Children" value={person.childrenNames} /> : null}
-                {person.householdNotes ? <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Household Notes" value={person.householdNotes} /> : null}
-              </>
-            ) : (
-              <SectionEmptyState text="Add spouse, children, or household context in Extra Details." title="No household details yet." />
-            )}
-          </DetailCard>
-        ) : null}
       </div>
+      {selectedOutcomeEntry ? (
+        <OutcomeDetailSheet
+          entry={selectedOutcomeEntry}
+          meeting={selectedOutcomeMeeting}
+          onClose={() => setSelectedOutcomeEntry(null)}
+          person={person}
+        />
+      ) : null}
     </div>
   );
 }
@@ -5098,7 +6042,7 @@ function ReviewActionButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-10 items-center justify-center gap-1 rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] px-1.5 text-[11px] font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] disabled:cursor-not-allowed disabled:opacity-55"
+      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] disabled:cursor-not-allowed disabled:opacity-55"
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -5109,21 +6053,149 @@ function ReviewActionButton({
   );
 }
 
+function RequestQuestionPreview({
+  questions,
+  title,
+}: {
+  questions: ReadonlyArray<string>;
+  title: string;
+}) {
+  return (
+    <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+        {title}
+      </p>
+      <ol className="mt-3 grid gap-2">
+        {questions.map((question, index) => (
+          <li className="flex items-start gap-2.5 rounded-2xl bg-white px-3 py-2 text-sm leading-5 text-[#0F172A] shadow-[0_8px_18px_rgba(37,99,235,0.035)]" key={question}>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[11px] font-bold text-[#1D4ED8]">
+              {index + 1}
+            </span>
+            <span>{question}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function MeetingSendConfirmationSheet({
+  isSending,
+  onClose,
+  onConfirm,
+  people,
+  action,
+}: {
+  action: PendingMeetingSendAction;
+  isSending: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  people: DosAppPerson[];
+}) {
+  const isTestimony = action.type === "testimony_request";
+  const title = isTestimony ? "Send Testimony Request" : "Send Quick Review";
+  const description = isTestimony
+    ? "Invite them to share what changed from this meeting."
+    : "Invite them to share a quick review of the meeting.";
+  const recipientTitle = isTestimony
+    ? meetingTestimonyRecipientTitle(action.meeting, people)
+    : meetingParticipantTitle(action.meeting, people);
+  const fallbackTitle = meetingFallbackTitle(action.meeting);
+  const cannotSendTestimony = isTestimony && !recipientTitle;
+
+  return (
+    <Sheet description={description} onClose={onClose} showEyebrow={false} title={title}>
+      <div className="grid gap-3">
+        <div className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+          {recipientTitle ? (
+            <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Recipient" value={recipientTitle} />
+          ) : (
+            <DetailRow icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Meeting" value={fallbackTitle} />
+          )}
+          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label={recipientTitle ? "Meeting" : "Date"} value={recipientTitle ? meetingMetadataLine(action.meeting) : formatDate(action.meeting.date)} />
+          <DetailRow icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Request Type" value={isTestimony ? "Testimony Request" : "Quick Review"} />
+        </div>
+        <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs leading-5 text-[#64748B]">
+          {cannotSendTestimony
+            ? "Add a person to this meeting before sending a testimony request."
+            : "DOS will create a share link for this request. You can use the phone share sheet or copy the link if sharing is not available."}
+        </p>
+          <RequestQuestionPreview
+            questions={isTestimony ? testimonyQuestionPreview : quickReviewQuestionPreview}
+            title={isTestimony ? "Testimony Questions" : "Review Questions"}
+          />
+        <div className="grid gap-2">
+          <AppButton disabled={isSending || cannotSendTestimony} onClick={onConfirm} tone="black">
+            {isSending ? "Preparing..." : isTestimony ? "Send Testimony Request" : "Send Review"}
+          </AppButton>
+          <AppButton disabled={isSending} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function MeetingNotesEditorSheet({
+  defaultValue,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+}: {
+  defaultValue?: string | null;
+  errorMessage?: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const hasNotes = Boolean(defaultValue?.trim());
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title={hasNotes ? "Edit Notes" : "Add Notes"}>
+      <form className="space-y-4" onSubmit={onSubmit}>
+        <label className="block">
+          <FieldLabel>Meeting Notes</FieldLabel>
+          <textarea
+            autoFocus
+            className={`${FieldTextareaClass()} min-h-40 bg-white`}
+            defaultValue={defaultValue ?? ""}
+            name="notes"
+            placeholder="What happened at the table?"
+          />
+        </label>
+        {errorMessage ? (
+          <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
+        ) : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} tone="black" type="submit">
+            {isSubmitting ? "Saving..." : "Save Notes"}
+          </AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">
+            Cancel
+          </AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
 function MeetingDetailOverlay({
   fruitEvents,
+  hasReviewRequestLink,
+  hasTestimonyRequestLink,
   isSendingReview,
   isSendingTestimony,
   leaderReflections,
   meeting,
-  onCopyReview,
-  onCopyTestimony,
   onBack,
   onEdit,
-  onLogReflection,
+  onDone,
+  onEditNotes,
+  onPrepareQuickReview,
+  onPrepareTestimonyRequest,
+  onScheduleNextMeeting,
   onSendReview,
   onSendTestimony,
-  onShareReview,
-  onShareTestimony,
   participantReviews,
   participantTestimonies,
   people,
@@ -5132,19 +6204,21 @@ function MeetingDetailOverlay({
   testimonyShareMessage,
 }: {
   fruitEvents: DosAppFruitEvent[];
+  hasReviewRequestLink?: boolean;
+  hasTestimonyRequestLink?: boolean;
   isSendingReview?: boolean;
   isSendingTestimony?: boolean;
   leaderReflections: DosAppLeaderReflection[];
   meeting: DosAppMeeting;
-  onCopyReview: () => void;
-  onCopyTestimony: () => void;
   onBack: () => void;
+  onDone: () => void;
   onEdit: () => void;
-  onLogReflection: () => void;
+  onEditNotes: () => void;
+  onPrepareQuickReview: () => void;
+  onPrepareTestimonyRequest: () => void;
+  onScheduleNextMeeting: () => void;
   onSendReview: () => void;
   onSendTestimony: () => void;
-  onShareReview: () => void;
-  onShareTestimony: () => void;
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
@@ -5157,11 +6231,94 @@ function MeetingDetailOverlay({
     ? relationshipWithJesusTemperature(responseAsNumber(meeting.conversationResponses.relationshipWithJesus))
     : null;
   const avatarNames = meetingAvatarNames(meeting, people);
-  const title = meetingPeopleTitle(meeting, people);
+  const title = meetingDisplayTitle(meeting, people);
+  const canSendTestimony = canSendMeetingTestimonyRequest(meeting, people);
   const meetingReflections = leaderReflections.filter((reflection) => reflection.meetingId === meeting.id);
   const meetingParticipantReviews = participantReviews.filter((review) => review.meetingId === meeting.id);
   const meetingTestimonies = participantTestimonies.filter((testimony) => testimony.meetingId === meeting.id);
   const meetingFruitEvents = fruitEvents.filter((event) => event.meetingId === meeting.id);
+  const reviewIsCompleted = meeting.review.status === "approved" || meeting.review.status === "private" || meeting.review.status === "submitted";
+  const reviewRequestSent = meeting.review.status === "pending" || Boolean(hasReviewRequestLink);
+  const reviewDisplayTitle = reviewIsCompleted ? "Completed" : reviewRequestSent ? "Sent" : "Not sent";
+  const reviewDisplayHelper = reviewIsCompleted
+    ? meeting.review.submittedAt
+      ? `Received ${formatDate(meeting.review.submittedAt)}.`
+      : "Review received."
+    : reviewRequestSent
+      ? "Awaiting response."
+      : "Send a quick review request when you are ready.";
+  const storyIsCompleted = meetingTestimonies.length > 0;
+  const storyRequestSent = Boolean(hasTestimonyRequestLink);
+  const storyDisplayTitle = storyIsCompleted ? "Completed" : storyRequestSent ? "Sent" : "Not sent";
+  const storyDisplayHelper = storyIsCompleted
+    ? "Testimony received."
+    : storyRequestSent
+      ? "Awaiting response."
+      : "Invite them to share how God worked in their life through this conversation.";
+
+  if (showPostMeetingFollowUp && isTableMeeting) {
+    return (
+      <div className="absolute inset-0 z-40 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
+        <header className="flex items-center justify-between gap-3">
+          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to meetings">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+          </button>
+          <span className="h-10 w-10" aria-hidden="true" />
+        </header>
+
+        <section className="mt-16 rounded-[30px] border border-[#DCEBFF] bg-white p-5 text-center shadow-[0_18px_48px_rgba(37,99,235,0.08)]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#DCFCE7] text-[#15803D] ring-1 ring-[#BBF7D0]">
+            <CheckCircle2 className="h-6 w-6" aria-hidden="true" strokeWidth={2} />
+          </div>
+          <h2 className="mt-4 text-[30px] font-bold leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+            Meeting Saved
+          </h2>
+          <p className="mt-2 text-sm font-medium leading-6 text-[#64748B]">Meeting saved successfully.</p>
+
+          <div className="mt-6 grid gap-2.5">
+            <button
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)]"
+              disabled={isSendingReview}
+              onClick={onPrepareQuickReview}
+              type="button"
+            >
+              <Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              Send Quick Review
+            </button>
+            {canSendTestimony ? (
+              <button
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB]"
+                disabled={isSendingTestimony}
+                onClick={onPrepareTestimonyRequest}
+                type="button"
+              >
+                <Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                Send Testimony Request
+              </button>
+            ) : null}
+            <button
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A] transition-colors hover:border-[#BFDBFE]"
+              onClick={onScheduleNextMeeting}
+              type="button"
+            >
+              <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              Schedule Next Meeting
+            </button>
+            <button
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#64748B] transition-colors hover:border-[#CBD5E1] hover:text-[#0F172A]"
+              onClick={onDone}
+              type="button"
+            >
+              Done
+            </button>
+          </div>
+          {reviewShareMessage ? (
+            <p className="mt-4 rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p>
+          ) : null}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 z-40 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
@@ -5213,60 +6370,12 @@ function MeetingDetailOverlay({
         </div>
       </section>
 
-      {isTableMeeting ? (
-        <div className="mt-5">
-          <AppButton onClick={onLogReflection} tone="white">Leader Reflection</AppButton>
-        </div>
-      ) : null}
-
       <div className="mt-5 grid gap-3">
-        {showPostMeetingFollowUp && isTableMeeting ? (
-          <section className="rounded-[24px] border border-[#BFDBFE] bg-[#EBF2FF] p-4 shadow-[0_18px_45px_rgba(37,99,235,0.10)]">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              Next
-            </p>
-            <h3 className="mt-1 text-xl font-bold text-[#0F172A]">Add a leader reflection.</h3>
-            <div className="mt-3 grid gap-2">
-              <button className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-left text-sm font-bold text-white" onClick={onLogReflection} type="button">
-                <span>Add Leader Reflection</span>
-                <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-              </button>
-              <div className="grid grid-cols-2 gap-2">
-                <ReviewActionButton disabled={isSendingReview} icon={<Copy className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyReview}>
-                  Copy Review Link
-                </ReviewActionButton>
-                <ReviewActionButton disabled={isSendingTestimony} icon={<Copy className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyTestimony}>
-                  Copy Story Link
-                </ReviewActionButton>
-                <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
-                  Send Review Link
-                </ReviewActionButton>
-                <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
-                  Send Story Link
-                </ReviewActionButton>
-              </div>
-            </div>
-          </section>
-        ) : null}
-
         {isTableMeeting ? (
-          <DetailCard title="Review Status">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-[#0F172A]">{reviewStatusLabel(meeting.review.status)}</p>
-                <p className="mt-1 text-xs leading-5 text-[#64748B]">
-                  {meeting.review.status === "not_sent"
-                    ? "Create a quick check-in link."
-                    : meeting.review.status === "pending"
-                      ? "Link ready. Waiting for a response."
-                      : meeting.review.submittedAt
-                        ? `Received ${formatDate(meeting.review.submittedAt)}.`
-                        : "Review received."}
-                </p>
-              </div>
-              <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${reviewStatusClass(meeting.review.status)}`} style={{ fontFamily: font.rajdhani }}>
-                {reviewStatusLabel(meeting.review.status)}
-              </span>
+          <DetailCard title="Quick Review">
+            <div>
+              <p className="text-sm font-semibold text-[#0F172A]">{reviewDisplayTitle}</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">{reviewDisplayHelper}</p>
             </div>
             {meeting.review.status !== "not_sent" && meeting.review.sharePermission ? (
               <span className="mt-3 inline-flex rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
@@ -5276,16 +6385,10 @@ function MeetingDetailOverlay({
             {meeting.review.stoodOut ? (
               <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
             ) : null}
-            {meeting.review.status === "not_sent" || meeting.review.status === "pending" ? (
-              <div className="mt-3 grid grid-cols-3 gap-2">
+            {meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
+              <div className="mt-3">
                 <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
                   Send Review
-                </ReviewActionButton>
-                <ReviewActionButton disabled={isSendingReview} icon={<Copy className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyReview}>
-                  Copy Link
-                </ReviewActionButton>
-                <ReviewActionButton disabled={isSendingReview} icon={<Share2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onShareReview}>
-                  Share
                 </ReviewActionButton>
               </div>
             ) : null}
@@ -5295,55 +6398,78 @@ function MeetingDetailOverlay({
           </DetailCard>
         ) : null}
 
-        {isTableMeeting ? (
-          <DetailCard title="Share Your Story">
-            <p className="text-sm leading-6 text-[#0F172A]">Invite them to share a transformation story.</p>
-            <div className="grid grid-cols-3 gap-2">
+        {isTableMeeting && canSendTestimony ? (
+          <DetailCard title="Testimony Request">
+            <div>
+              <p className="text-sm font-semibold text-[#0F172A]">{storyDisplayTitle}</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">{storyDisplayHelper}</p>
+            </div>
+            {!storyIsCompleted && !hasTestimonyRequestLink ? (
+              <div className="mt-3">
               <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
-                Send Story
-              </ReviewActionButton>
-              <ReviewActionButton disabled={isSendingTestimony} icon={<Copy className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyTestimony}>
-                Copy Story
-              </ReviewActionButton>
-              <ReviewActionButton disabled={isSendingTestimony} icon={<Share2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onShareTestimony}>
-                Share
+                Send Testimony Request
               </ReviewActionButton>
             </div>
+            ) : null}
             {testimonyShareMessage ? (
-              <p className="rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p>
+              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p>
             ) : null}
           </DetailCard>
         ) : null}
 
-        <DetailCard title="Summary">
-          <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Notes" value={meeting.notes || "No summary added yet."} />
+        <DetailCard title="Meeting Notes">
+          {meeting.notes ? (
+            <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#0F172A]">
+              {meeting.notes}
+            </div>
+          ) : (
+            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">No meeting notes were added.</p>
+          )}
+          {isTableMeeting ? (
+            <button
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB]"
+              onClick={onEditNotes}
+              type="button"
+            >
+              <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+              {meeting.notes ? "Edit Notes" : "Add Notes"}
+            </button>
+          ) : null}
         </DetailCard>
 
         <ConversationFlowDetail meeting={meeting} />
 
+        {meetingReflections.length ? (
         <DetailCard title="Leader Reflections">
           {meetingReflections.length ? meetingReflections.map((reflection) => (
             <LeaderReflectionRow key={reflection.id} reflection={reflection} />
-          )) : <SectionEmptyState text="Capture what happened after this meeting." title="No reflections yet." />}
+          )) : null}
         </DetailCard>
+        ) : null}
 
+        {meetingParticipantReviews.length ? (
         <DetailCard title="Reviews">
           {meetingParticipantReviews.length ? meetingParticipantReviews.map((review) => (
             <ParticipantReviewRow key={review.id} review={review} />
-          )) : <SectionEmptyState text="Send a review link after this meeting." title="No reviews yet." />}
+          )) : null}
         </DetailCard>
+        ) : null}
 
+        {meetingTestimonies.length ? (
         <DetailCard title="Testimonies">
           {meetingTestimonies.length ? meetingTestimonies.map((testimony) => (
             <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
-          )) : <SectionEmptyState text="Invite them to share their story if something changed." title="No stories yet." />}
+          )) : null}
         </DetailCard>
+        ) : null}
 
+        {meetingFruitEvents.length ? (
         <DetailCard title="Fruit Feed">
           {meetingFruitEvents.length ? meetingFruitEvents.map((event) => (
             <FruitEventRow event={event} key={event.id} />
-          )) : <SectionEmptyState text="After a meeting, capture what happened or invite them to share their story." title="No fruit has been logged yet." />}
+          )) : null}
         </DetailCard>
+        ) : null}
 
         {meeting.recommendedResources.length ? (
           <DetailCard title="Recommended Resources">
@@ -5368,6 +6494,8 @@ function MeetingDetailOverlay({
 
 export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const router = useRouter();
+  const appShellRef = useRef<HTMLDivElement | null>(null);
+  const appScrollRef = useRef<HTMLDivElement | null>(null);
   const isPreview = data.workspace.isPreview === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [errorMessage, setErrorMessage] = useState("");
@@ -5376,14 +6504,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
+  const [isCreatingMeetingPerson, setIsCreatingMeetingPerson] = useState(false);
   const [isPeopleImportOpen, setIsPeopleImportOpen] = useState(false);
+  const [isPeopleSearchOpen, setIsPeopleSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("all");
   const [conversationResponses, setConversationResponses] = useState<DosConversationResponses>({});
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
+  const [peopleCircleView, setPeopleCircleView] = useState<PeopleCircleView>("three");
   const [peopleImportMessage, setPeopleImportMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [meetingNotesOverrides, setMeetingNotesOverrides] = useState<Record<string, string | null>>({});
+  const [pendingMeetingSendAction, setPendingMeetingSendAction] = useState<PendingMeetingSendAction | null>(null);
   const [reviewLinksByMeetingId, setReviewLinksByMeetingId] = useState<Record<string, string>>({});
   const [reviewLinkMeetingId, setReviewLinkMeetingId] = useState<string | null>(null);
   const [reviewShareMessage, setReviewShareMessage] = useState("");
@@ -5399,11 +6531,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedRelationshipModel, setSelectedRelationshipModel] = useState<DosRelationshipModel>(defaultRelationshipModel);
   const [selectedRelationshipScore, setSelectedRelationshipScore] = useState<RelationshipScoreValue>(0);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
+  const [selectedScripture, setSelectedScripture] = useState<ScriptureQuickViewState | null>(null);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
-  const people = data.people;
+  const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
+  const people = useMemo(() => {
+    const loadedPersonIds = new Set(data.people.map((person) => person.id));
+
+    return [
+      ...data.people,
+      ...quickAddedPeople.filter((person) => !loadedPersonIds.has(person.id)),
+    ];
+  }, [data.people, quickAddedPeople]);
   const fruitDashboardStories = useMemo(() => approvedFruitStories(data.fruit, data.fruitEvents, people), [data.fruit, data.fruitEvents, people]);
-  const fruitThemes = useMemo(() => fruitThemeChips(fruitDashboardStories, isPreview), [fruitDashboardStories, isPreview]);
-  const fruitMetrics = useMemo(() => kingdomFruitMetrics(people, fruitDashboardStories), [fruitDashboardStories, people]);
+  const fruitMetrics = useMemo(() => kingdomFruitMetrics(fruitDashboardStories), [fruitDashboardStories]);
   const latestMeeting = data.meetings[0];
   const latestFruitActivity = useMemo(() => {
     const fruitItems = [
@@ -5424,7 +6564,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return secondTime - firstTime;
     })[0] ?? null;
   }, [data.fruitEvents, visibleFruit]);
-  const visiblePeople = useMemo(() => filteredPeople(people, peopleQuery), [people, peopleQuery]);
   const scoreByPersonId = useMemo(() => {
     const scores = data.circles ? [...data.circles.my3, ...data.circles.my12, ...data.circles.my70, ...data.circles.field] : [];
 
@@ -5436,9 +6575,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ), [conversationResponses, selectedConversationFlow]);
   const featuredTableTeaching = dosTableTeachingResources[0];
   const secondaryTableTeachings = dosTableTeachingResources.slice(1);
-  const showTableTeachings = libraryFilter === "all" || libraryFilter === "teachings";
-  const showFollowUpResources = libraryFilter === "all" || libraryFilter === "follow_up";
-  const selectedMeeting = useMemo(() => data.meetings.find((meeting) => meeting.id === selectedMeetingId) ?? null, [data.meetings, selectedMeetingId]);
+  const selectedMeeting = useMemo(() => {
+    const meeting = data.meetings.find((item) => item.id === selectedMeetingId) ?? null;
+
+    if (!meeting || !Object.prototype.hasOwnProperty.call(meetingNotesOverrides, meeting.id)) {
+      return meeting;
+    }
+
+    return {
+      ...meeting,
+      notes: meetingNotesOverrides[meeting.id],
+    };
+  }, [data.meetings, meetingNotesOverrides, selectedMeetingId]);
   const selectedMeetingWithReview = useMemo(() => {
     if (!selectedMeeting) {
       return null;
@@ -5460,12 +6608,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, [reviewLinksByMeetingId, selectedMeeting]);
   const selectedPerson = useMemo(() => people.find((person) => person.id === selectedPersonId) ?? null, [people, selectedPersonId]);
-  const attentionPeople = useMemo(() => people.filter(isNeedsAttention), [people]);
   const my3People = (data.circles?.my3 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my12People = (data.circles?.my12 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const my70People = (data.circles?.my70 ?? []).map((score) => ({ person: people.find((person) => person.id === score.person.id), score })).filter((item): item is { person: DosAppPerson; score: DosRelationshipScore } => Boolean(item.person));
   const rankedCirclePeople = rankedCircleMembers([...my3People, ...my12People, ...my70People]).slice(0, 70);
-  const my3CirclePeople = rankedCirclePeople.slice(0, 3);
+  const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, rankedCirclePeople, people), [people, peopleCircleView, rankedCirclePeople]);
+  const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
   const latestMeetingDateByPersonId = useMemo(() => {
     const latestDates = new Map<string, string | null>();
 
@@ -5493,7 +6641,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       .filter(isPrayerMeeting)
       .map((meeting) => ({
         date: meeting.date,
-        label: `${meetingPeopleTitle(meeting, people)} · ${formatRelativeDate(meeting.date)}`,
+        label: `${meetingDisplayTitle(meeting, people)} · ${formatRelativeDate(meeting.date)}`,
         meetingId: meeting.id,
       }));
     const prayerReflections = data.leaderReflections
@@ -5503,7 +6651,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         return {
           date: reflection.createdAt,
-          label: meeting ? `${meetingPeopleTitle(meeting, people)} · ${formatRelativeDate(reflection.createdAt)}` : `Prayer note · ${formatRelativeDate(reflection.createdAt)}`,
+          label: meeting ? `${meetingDisplayTitle(meeting, people)} · ${formatRelativeDate(reflection.createdAt)}` : `Prayer note · ${formatRelativeDate(reflection.createdAt)}`,
           meetingId: reflection.meetingId,
         };
       });
@@ -5518,27 +6666,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
     const meetingsThisWeek = data.meetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
-    const prayedThisWeek = new Set<string>();
-
-    meetingsThisWeek.filter(isPrayerMeeting).forEach((meeting) => prayedThisWeek.add(`meeting-${meeting.id}`));
-    data.leaderReflections
-      .filter((reflection) => isDateWithinRange(reflection.createdAt, start, end) && Boolean(normalizeText(reflection.prayerNeeds)))
-      .forEach((reflection) => prayedThisWeek.add(`reflection-${reflection.id}`));
+    const prayerLogsThisWeek = (data.prayerLogs ?? []).filter((log: DosAppPrayerLog) => isDateWithinRange(log.prayedAt, start, end));
 
     return {
-      label: formatWeekRange(start, end),
+      label: formatWeekRangeCompact(start, end),
       meetings: meetingsThisWeek.length,
       newPeople: people.filter((person) => isDateWithinRange(person.createdAt, start, end)).length,
-      prayed: prayedThisWeek.size,
+      prayed: prayerLogsThisWeek.length,
     };
-  }, [data.leaderReflections, data.meetings, people]);
-  const todayFocusPeople = useMemo(() => {
-    const preferredPeople = attentionPeople.length
-      ? attentionPeople
-      : my3CirclePeople.map((item) => item.person);
-
-    return preferredPeople.slice(0, 3);
-  }, [attentionPeople, my3CirclePeople]);
+  }, [data.meetings, data.prayerLogs, people]);
   const greetingName = cleanIdentitySegment(data.workspace.greetingName) ?? firstNameFromDisplayName(data.workspace.displayName);
   const [timeGreeting, setTimeGreeting] = useState("Good morning");
   const [homeSubtitle, setHomeSubtitle] = useState(() => homeDateSubtitle());
@@ -5549,6 +6685,33 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const fieldName = workspaceIdentityName(data.workspace);
   const fieldSublabel = workspaceFieldSublabel(data.workspace);
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
+
+  function scrollAppToTop() {
+    requestAnimationFrame(() => {
+      const scrollContainer = appScrollRef.current;
+
+      if (!scrollContainer) {
+        return;
+      }
+
+      scrollContainer.scrollTop = 0;
+      scrollContainer.scrollLeft = 0;
+    });
+  }
+
+  function openScriptureQuickView(scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) {
+    const shell = appShellRef.current;
+    const shellRect = shell?.getBoundingClientRect();
+    const triggerRect = event.currentTarget.getBoundingClientRect();
+    const shellHeight = shell?.clientHeight ?? window.innerHeight;
+    const rawTop = shellRect ? triggerRect.bottom - shellRect.top + 8 : triggerRect.bottom + 8;
+    const maxTop = Math.max(82, shellHeight - 250);
+
+    setSelectedScripture({
+      scripture,
+      top: Math.min(Math.max(rawTop, 82), maxTop),
+    });
+  }
 
   useEffect(() => {
     const updateHomeTime = () => {
@@ -5573,6 +6736,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedConversationFlow("none");
     setSelectedMeetingContext("kitchen_table");
     setSelectedMeetingPersonIds(personIds);
+    setSelectedOutcomeTags([]);
   }
 
   function closeForm() {
@@ -5583,6 +6747,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewShareMessage("");
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
+    setPendingMeetingSendAction(null);
     setSelectedRelationshipModel(defaultRelationshipModel);
     setSelectedRelationshipScore(0);
     resetMeetingDraft();
@@ -5611,6 +6776,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function selectTab(tab: ActiveTab) {
     setActiveTab(tab);
+    scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
     setIsCirclesOpen(false);
@@ -5618,6 +6784,27 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewShareMessage("");
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
+    setPendingMeetingSendAction(null);
+    setSelectedMeetingId(null);
+    setSelectedPersonId(null);
+    setPostMeetingFollowUpId(null);
+    setPeopleImportMessage(null);
+  }
+
+  function openPeopleCircle(circle: PeopleCircleView = "three") {
+    setActiveTab("people");
+    scrollAppToTop();
+    setPeopleCircleView(circle);
+    setPeopleQuery("");
+    setIsPeopleSearchOpen(false);
+    setErrorMessage("");
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
+    setReviewLinkMeetingId(null);
+    setReviewShareMessage("");
+    setTestimonyLinkMeetingId(null);
+    setTestimonyShareMessage("");
+    setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
@@ -5626,10 +6813,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openPersonDetail(personId: string) {
     setActiveTab("people");
+    scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setPostMeetingFollowUpId(null);
     setSelectedPersonId(personId);
   }
 
@@ -5651,14 +6840,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     resetMeetingDraft([personId]);
   }
 
-  function openScheduleMeeting(personId?: string) {
+  function openScheduleMeeting(personId?: string | string[]) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
     setErrorMessage("");
     setFormMode("scheduleMeeting");
     setIsAdditionalPersonInfoOpen(false);
-    resetMeetingDraft(personId ? [personId] : []);
+    resetMeetingDraft(Array.isArray(personId) ? personId : personId ? [personId] : []);
   }
 
   function openScheduledDraftAsMeeting() {
@@ -5694,32 +6883,48 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
   }
 
-  function personPayloadFromForm(formData: FormData, relationshipModel: DosRelationshipModel, relationshipScore: RelationshipScoreValue, id?: string) {
+  function openMeetingNotesEdit(meeting: DosAppMeeting) {
+    if (meeting.source !== "table") {
+      return;
+    }
+
+    setErrorMessage("");
+    setFormMode("meetingNotes");
+    setSelectedMeetingId(meeting.id);
+  }
+
+  function personPayloadFromForm(formData: FormData, relationshipModel: DosRelationshipModel, relationshipScore: RelationshipScoreValue, id?: string, fallback: PersonFormDefaults = {}) {
+    const formString = (name: string, fallbackValue = "") => (
+      formData.has(name)
+        ? String(formData.get(name) ?? "")
+        : fallbackValue
+    );
+
     return {
-      birthday: String(formData.get("birthday") ?? ""),
-      childrenNames: String(formData.get("children_names") ?? ""),
-      church: String(formData.get("church") ?? ""),
+      birthday: formString("birthday", fallback.birthday ?? ""),
+      childrenNames: formString("children_names", fallback.childrenNames ?? ""),
+      church: formString("church", fallback.church ?? ""),
       discipleshipStage: relationshipModel.discipleshipStage,
-      city: String(formData.get("city") ?? ""),
-      email: String(formData.get("email") ?? ""),
+      city: formString("city", fallback.city ?? ""),
+      email: formString("email", fallback.email ?? ""),
       engagementScore: relationshipScoreLabel(relationshipScore),
-      homeAddress: String(formData.get("home_address") ?? ""),
-      householdNotes: String(formData.get("household_notes") ?? ""),
+      homeAddress: formString("home_address", fallback.homeAddress ?? ""),
+      householdNotes: formString("household_notes", fallback.householdNotes ?? ""),
       id,
       name: String(formData.get("name") ?? ""),
-      notes: String(formData.get("notes") ?? ""),
-      occupation: String(formData.get("occupation") ?? ""),
+      notes: formString("notes", fallback.notes ?? ""),
+      occupation: formString("occupation", fallback.occupation ?? ""),
       phone: String(formData.get("phone") ?? ""),
       relationshipContext: relationshipModel.relationshipContext,
       relationshipType: relationshipModel.relationshipType,
       roleInMyLife: relationshipModel.roleInMyLife,
-      spouseName: String(formData.get("spouse_name") ?? ""),
-      state: String(formData.get("state") ?? ""),
-      zip: String(formData.get("zip") ?? ""),
+      spouseName: formString("spouse_name", fallback.spouseName ?? ""),
+      state: formString("state", fallback.state ?? ""),
+      zip: formString("zip", fallback.zip ?? ""),
     };
   }
 
-  async function submitJson(endpoint: string, payload: Record<string, unknown>, method: "PATCH" | "POST" = "POST", closeAfterSave = true) {
+  async function submitJson(endpoint: string, payload: Record<string, unknown>, method: "DELETE" | "PATCH" | "POST" = "POST", closeAfterSave = true) {
     setErrorMessage("");
 
     if (isPreview) {
@@ -5800,6 +7005,100 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return importResult;
   }
 
+  async function handleCreateMeetingPerson(rawName: string) {
+    const nameParts = splitNameParts(rawName);
+    const name = joinNameParts(nameParts.firstName, nameParts.lastName);
+
+    if (!name || isCreatingMeetingPerson) {
+      return;
+    }
+
+    setErrorMessage("");
+    setIsCreatingMeetingPerson(true);
+
+    try {
+      const createdAt = new Date().toISOString();
+
+      if (isPreview) {
+        const previewPersonId = `preview-person-${Date.now()}`;
+
+        setQuickAddedPeople((current) => [
+          ...current,
+          {
+            church: null,
+            createdAt,
+            discipleshipStage: "not_started",
+            email: null,
+            engagementLevel: "0",
+            id: previewPersonId,
+            lastActivityAt: null,
+            name,
+            notes: null,
+            phone: "",
+            relationshipContext: "other",
+            relationshipType: "new",
+            roleInMyLife: "not_active",
+            status: "new",
+            updatedAt: createdAt,
+          },
+        ]);
+        setSelectedMeetingPersonIds((current) => current.includes(previewPersonId) ? current : [...current, previewPersonId]);
+        setMeetingPeopleQuery("");
+        return;
+      }
+
+      const response = await fetch("/api/dos/app/people", {
+        body: JSON.stringify({
+          discipleshipStage: "not_started",
+          engagementScore: 0,
+          name,
+          phone: "",
+          relationshipContext: "other",
+          relationshipType: "new",
+          roleInMyLife: "not_active",
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; id?: string };
+
+      if (!response.ok || !result.id) {
+        throw new Error(result.error ?? "Unable to add person.");
+      }
+
+      setQuickAddedPeople((current) => [
+        ...current,
+        {
+          church: null,
+          createdAt,
+          discipleshipStage: "not_started",
+          email: null,
+          engagementLevel: "0",
+          id: result.id as string,
+          lastActivityAt: null,
+          name,
+          notes: null,
+          phone: "",
+          relationshipContext: "other",
+          relationshipType: "new",
+          roleInMyLife: "not_active",
+          status: "new",
+          updatedAt: createdAt,
+        },
+      ]);
+      setSelectedMeetingPersonIds((current) => current.includes(result.id as string) ? current : [...current, result.id as string]);
+      setMeetingPeopleQuery("");
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to add person.");
+    } finally {
+      setIsCreatingMeetingPerson(false);
+    }
+  }
+
   function handlePersonSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -5818,26 +7117,80 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     void submitJson("/api/dos/app/people", {
-      ...personPayloadFromForm(formData, selectedRelationshipModel, selectedRelationshipScore, selectedPerson.id),
+      ...personPayloadFromForm(formData, selectedRelationshipModel, selectedRelationshipScore, selectedPerson.id, selectedPersonDefaults),
     }, "PATCH");
+  }
+
+  function handleDeletePerson() {
+    if (!selectedPerson) {
+      return;
+    }
+
+    if (!window.confirm("Delete this person? This cannot be undone.")) {
+      return;
+    }
+
+    void (async () => {
+      const result = await submitJson("/api/dos/app/people", {
+        id: selectedPerson.id,
+      }, "DELETE", false);
+
+      if (result) {
+        setQuickAddedPeople((current) => current.filter((person) => person.id !== selectedPerson.id));
+        setSelectedPersonId(null);
+        closeForm();
+      }
+    })();
   }
 
   function handleMeetingSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const conversationFlowKey = data.workspace.isUsamWorkspace ? selectedConversationFlow : "none";
+    const meetingNotes = String(formData.get("notes") ?? "");
+    const observedFruit = [...selectedOutcomeTags];
+    const followUpNeeded = formData.get("follow_up_needed") === "on";
+    const nextStep = String(formData.get("next_step") ?? "");
+    const prayerNeeds = String(formData.get("prayer_needs") ?? "");
+    const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
+    const shouldSaveReflection = Boolean(
+      meetingNotes.trim()
+      || observedFruit.length
+      || followUpNeeded
+      || nextStep.trim()
+      || prayerNeeds.trim()
+      || spiritualOpenness.trim(),
+    );
 
     void (async () => {
       const result = await submitJson("/api/dos/app/meetings", {
       conversationFlowKey,
       conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
       fieldPersonIds: selectedMeetingPersonIds,
-      notes: String(formData.get("notes") ?? ""),
+      notes: meetingNotes,
       tableDate: String(formData.get("table_date") ?? todayDateValue()),
       tableType: selectedMeetingContext,
-      }, "POST");
+      }, "POST", false);
 
       if (result?.id) {
+        if (shouldSaveReflection) {
+          const reflectionResult = await submitJson("/api/dos/app/reflections", {
+            followUpNeeded,
+            meetingId: result.id,
+            nextStep,
+            observedFruit,
+            prayerNeeds,
+            privateNotes: "",
+            spiritualOpenness,
+            whatHappened: meetingNotes,
+          }, "POST", false);
+
+          if (!reflectionResult) {
+            return;
+          }
+        }
+
+        closeForm();
         setActiveTab("meetings");
         setSelectedMeetingId(result.id);
         setPostMeetingFollowUpId(result.id);
@@ -5866,6 +7219,57 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }, "PATCH");
   }
 
+  function handleMeetingNotesSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    if (!selectedMeeting || selectedMeeting.source !== "table") {
+      return;
+    }
+
+    const notes = String(formData.get("notes") ?? "");
+    const displayNotes = notes.trim() ? notes : null;
+
+    void (async () => {
+      const result = await submitJson("/api/dos/app/meetings", {
+        id: selectedMeeting.id,
+        notes,
+        notesOnly: true,
+      }, "PATCH", false);
+
+      if (result) {
+        setMeetingNotesOverrides((current) => ({
+          ...current,
+          [selectedMeeting.id]: displayNotes,
+        }));
+        closeForm();
+      }
+    })();
+  }
+
+  function handleDeleteMeeting() {
+    if (!selectedMeeting || selectedMeeting.source !== "table") {
+      return;
+    }
+
+    if (!window.confirm("Delete this meeting? This cannot be undone.")) {
+      return;
+    }
+
+    void (async () => {
+      const result = await submitJson("/api/dos/app/meetings", {
+        id: selectedMeeting.id,
+      }, "DELETE", false);
+
+      if (result) {
+        setActiveTab("meetings");
+        setPostMeetingFollowUpId(null);
+        setSelectedMeetingId(null);
+        closeForm();
+      }
+    })();
+  }
+
   function handleFruitSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -5875,26 +7279,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       outcomeTags: selectedOutcomeTags,
       summary: String(formData.get("summary") ?? ""),
       testimonyDate: String(formData.get("testimony_date") ?? todayDateValue()),
-    });
-  }
-
-  function handleReflectionSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-
-    if (!selectedMeeting || selectedMeeting.source !== "table") {
-      return;
-    }
-
-    void submitJson("/api/dos/app/reflections", {
-      followUpNeeded: formData.get("follow_up_needed") === "on",
-      meetingId: selectedMeeting.id,
-      nextStep: String(formData.get("next_step") ?? ""),
-      observedFruit: selectedOutcomeTags,
-      prayerNeeds: String(formData.get("prayer_needs") ?? ""),
-      privateNotes: String(formData.get("private_notes") ?? ""),
-      spiritualOpenness: String(formData.get("spiritual_openness") ?? ""),
-      whatHappened: String(formData.get("what_happened") ?? ""),
     });
   }
 
@@ -5968,6 +7352,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return null;
     }
 
+    if (!canSendMeetingTestimonyRequest(meeting, people)) {
+      throw new Error("Add a person to this meeting before sending a testimony request.");
+    }
+
     if (isPreview) {
       throw new Error("Preview mode is read-only. Story links are not created.");
     }
@@ -6006,34 +7394,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   async function copyReviewUrl(url: string) {
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(url);
+      try {
+        await navigator.clipboard.writeText(url);
 
-      return true;
+        return true;
+      } catch {
+        return false;
+      }
     }
 
     return false;
-  }
-
-  async function handleCopyReview(meeting: DosAppMeeting) {
-    setErrorMessage("");
-    setReviewLinkMeetingId(meeting.id);
-    setReviewShareMessage("");
-
-    try {
-      const url = await ensureReviewLink(meeting);
-
-      if (!url) {
-        return;
-      }
-
-      const copied = await copyReviewUrl(url);
-
-      setReviewShareMessage(copied ? "Review link copied." : url);
-    } catch (error) {
-      setReviewShareMessage(error instanceof Error ? error.message : "Unable to create review link.");
-    } finally {
-      setReviewLinkMeetingId(null);
-    }
   }
 
   async function handleShareReview(meeting: DosAppMeeting) {
@@ -6077,28 +7447,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     await handleShareReview(meeting);
   }
 
-  async function handleCopyTestimony(meeting: DosAppMeeting) {
-    setErrorMessage("");
-    setTestimonyLinkMeetingId(meeting.id);
-    setTestimonyShareMessage("");
-
-    try {
-      const url = await ensureTestimonyLink(meeting);
-
-      if (!url) {
-        return;
-      }
-
-      const copied = await copyReviewUrl(url);
-
-      setTestimonyShareMessage(copied ? "Story link copied." : url);
-    } catch (error) {
-      setTestimonyShareMessage(error instanceof Error ? error.message : "Unable to create story link.");
-    } finally {
-      setTestimonyLinkMeetingId(null);
-    }
-  }
-
   async function handleShareTestimony(meeting: DosAppMeeting) {
     setErrorMessage("");
     setTestimonyLinkMeetingId(meeting.id);
@@ -6115,10 +7463,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         try {
           await navigator.share({
             text: "Share your story from our conversation.",
-            title: "Share Your Story",
+            title: "DOS Testimony Request",
             url,
           });
-          setTestimonyShareMessage("Story link shared.");
+          setTestimonyShareMessage("Testimony request link shared.");
           return;
         } catch {
         }
@@ -6126,12 +7474,30 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       const copied = await copyReviewUrl(url);
 
-      setTestimonyShareMessage(copied ? "Story link copied." : url);
+      setTestimonyShareMessage(copied ? "Testimony request link copied." : url);
     } catch (error) {
-      setTestimonyShareMessage(error instanceof Error ? error.message : "Unable to share story link.");
+      setTestimonyShareMessage(error instanceof Error ? error.message : "Unable to share testimony request link.");
     } finally {
       setTestimonyLinkMeetingId(null);
     }
+  }
+
+  async function handleConfirmMeetingSendAction() {
+    if (!pendingMeetingSendAction) {
+      return;
+    }
+
+    const action = pendingMeetingSendAction;
+
+    if (action.type === "quick_review") {
+      await handleSendReview(action.meeting);
+    } else if (!canSendMeetingTestimonyRequest(action.meeting, people)) {
+      setPendingMeetingSendAction(null);
+    } else {
+      await handleShareTestimony(action.meeting);
+    }
+
+    setPendingMeetingSendAction(null);
   }
 
   function toggleOutcomeTag(tag: string) {
@@ -6187,8 +7553,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   return (
     <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#FAFBFD] text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:py-6">
-      <div className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-[#FAFBFD] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]">
-        <div className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none]">
+      <div ref={appShellRef} className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-[#FAFBFD] shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]">
+        <div ref={appScrollRef} className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none]">
           {activeTab === "home" ? (
             <header className="relative">
               <div className="min-w-0 pr-16">
@@ -6198,7 +7564,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <h1 className="mt-1 max-w-[270px] text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">
                   {timeGreeting}, {greetingName}.
                 </h1>
-                <p className="mt-1 max-w-[292px] text-[12.5px] font-medium leading-4 text-[#64748B]">{homeSubtitle}</p>
+                <span className="mt-2 inline-flex rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-[11px] font-semibold leading-none text-[#64748B] shadow-[0_6px_14px_rgba(37,99,235,0.045)]">
+                  {homeSubtitle}
+                </span>
               </div>
               <button
                 aria-label="Open profile"
@@ -6216,42 +7584,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <div className="space-y-5">
                 <CircleFocusHero
                   headline={circleHeadline}
-                  onSelectCircle={setCircleSheetView}
-                  onViewCircles={() => setIsCirclesOpen(true)}
+                  onSelectCircle={openPeopleCircle}
+                  onViewCircles={() => openPeopleCircle("three")}
                   rankedPeople={rankedCirclePeople}
                 />
 
                 <section className="grid grid-cols-3 gap-2">
                   <HomeActionPill icon="add" onClick={() => openForm("person")}>Add Person</HomeActionPill>
                   <HomeActionPill icon="log" onClick={() => openForm("meeting")}>Log Meeting</HomeActionPill>
-                  <HomeActionPill icon="search" onClick={() => setActiveTab("people")}>Search</HomeActionPill>
+                  <HomeActionPill icon="calendar" onClick={() => openScheduleMeeting()}>Schedule</HomeActionPill>
                 </section>
 
                 <section>
-                  <SectionHeading title="Today's Focus" />
-                  {todayFocusPeople.length ? (
-                    <div className="grid gap-2">
-                      {todayFocusPeople.map((person, index) => (
-                        <FocusRow
-                          action={!person.lastActivityAt ? "no contact yet" : isNeedsAttention(person) ? "log follow up" : "stay close today"}
-                          index={index}
-                          key={person.id}
-                          onClick={() => openPersonDetail(person.id)}
-                          person={person}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-[22px] bg-white px-4 py-4 text-sm font-medium text-[#64748B] shadow-[0_8px_24px_rgba(42,37,29,0.04)]">All caught up for now.</div>
-                  )}
-                </section>
-
-                <section>
-                  <SectionHeading action={<span className="text-xs text-[#64748B]">{thisWeekStats.label}</span>} title="This Week" />
+                  <ThisWeekHeader label={thisWeekStats.label} />
                   <div className="grid grid-cols-3 gap-2">
-                    <WeekStatTile label="Meetings" value={thisWeekStats.meetings} />
-                    <WeekStatTile label="Prayed" value={thisWeekStats.prayed} />
-                    <WeekStatTile label="New People" value={thisWeekStats.newPeople} />
+                    <WeekStatTile icon="log" label="Meetings" value={thisWeekStats.meetings} />
+                    <WeekStatTile icon="prayer" label="Prayed" value={thisWeekStats.prayed} />
+                    <WeekStatTile icon="people" label="New People" value={thisWeekStats.newPeople} />
                   </div>
                 </section>
 
@@ -6264,7 +7613,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         onClick={() => setActiveTab("meetings")}
                         title="Latest meeting"
                       >
-                        {meetingPeopleTitle(latestMeeting, people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
+                        {meetingDisplayTitle(latestMeeting, people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
                       </RecentActivityRow>
                     ) : null}
                     {latestPrayerActivity ? (
@@ -6294,28 +7643,73 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             ) : null}
 
             {activeTab === "people" ? (
-              <div>
+              <div className="space-y-4">
                 <TabPageHeader title="People" />
-                <div className="mt-3 flex items-center gap-2">
+                <TabHero
+                  icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                  onScriptureClick={openScriptureQuickView}
+                  scripture={scriptureReferences.luke1610}
+                  subtitle="Steward the field God has entrusted to your care."
+                  title="Faithful with a few."
+                />
+                <div className="flex items-center gap-2">
                   <button
-                    className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_rgba(37,99,235,0.22)] transition-colors hover:brightness-[0.98]"
+                    className="inline-flex h-12 min-w-0 flex-[1.35] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.24)] transition-colors hover:brightness-[0.98] max-[350px]:flex-[1.2] max-[350px]:px-3 max-[350px]:text-[12px]"
                     onClick={() => openForm("person")}
                     type="button"
                   >
                     + Add Person
                   </button>
                   <button
+                    aria-expanded={isPeopleSearchOpen}
+                    aria-label="Search people"
+                    className={`inline-flex h-12 min-w-0 flex-[0.9] items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.08)] transition-colors max-[350px]:flex-[0.88] max-[350px]:gap-1 max-[350px]:px-2 max-[350px]:text-[12px] ${
+                      isPeopleSearchOpen
+                        ? "border-[#2563EB] bg-[#EBF2FF]"
+                        : "border-[#D7E3F8] bg-white hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
+                    }`}
+                    onClick={() => {
+                      setIsPeopleSearchOpen((current) => {
+                        if (current) {
+                          setPeopleQuery("");
+                        }
+
+                        return !current;
+                      });
+                    }}
+                    title="Search people"
+                    type="button"
+                  >
+                    <Icon name="search" size={18} />
+                    <span>Search</span>
+                  </button>
+                  <button
                     aria-label="Import CSV"
-                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#D7E3F8] bg-white text-[#2563EB] shadow-[0_6px_14px_rgba(15,23,42,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
+                    className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#D7E3F8] bg-white text-[#2563EB] shadow-[0_6px_14px_rgba(15,23,42,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF] max-[350px]:w-10"
                     onClick={() => setIsPeopleImportOpen(true)}
                     title="Import CSV"
                     type="button"
                   >
-                    <Icon name="add" size={16} />
+                    <Icon name="add" size={14} />
                   </button>
                 </div>
-                <div className="mt-3">
-                  <SearchField label="Find Person" onChange={setPeopleQuery} placeholder="Search by name, phone, or relationship" value={peopleQuery} />
+                {isPeopleSearchOpen ? (
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]">
+                      <Icon name="search" size={15} />
+                    </span>
+                    <input
+                      autoFocus
+                      className="min-h-11 w-full rounded-full border border-[#BFDBFE] bg-white pl-10 pr-4 text-sm text-[#0F172A] shadow-[0_8px_18px_rgba(37,99,235,0.06)] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+                      onChange={(event) => setPeopleQuery(event.target.value)}
+                      placeholder="Search by name, phone, or relationship"
+                      type="search"
+                      value={peopleQuery}
+                    />
+                  </div>
+                ) : null}
+                <div>
+                  <PeopleCircleTabs onChange={setPeopleCircleView} value={peopleCircleView} />
                 </div>
                 {peopleImportMessage ? (
                   <p className={`mt-3 rounded-2xl border p-3 text-sm ${
@@ -6326,11 +7720,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     {peopleImportMessage.text}
                   </p>
                 ) : null}
-                <div className="mt-4">
-                  {visiblePeople.length ? (
-                    <div className="grid gap-3">{visiblePeople.map((person, index) => <PersonCard index={index} key={person.id} onClick={() => openPersonDetail(person.id)} person={person} />)}</div>
+                <div className="mt-3">
+                  {visibleCirclePeople.length ? (
+                    <CircleLayerList
+                      empty={peopleCircleContent.empty}
+                      items={visibleCirclePeople}
+                      latestMeetingDateByPersonId={latestMeetingDateByPersonId}
+                      onLogMeeting={openMeetingForPerson}
+                      onOpenPerson={openPersonDetail}
+                      startIndex={peopleCircleContent.startIndex}
+                    />
                   ) : people.length ? (
-                    <EmptyState text="Try a different name or relationship." title="No matching people." />
+                    <EmptyState text={peopleQuery.trim() ? `Try a different search inside ${circleDisplayName(peopleCircleView)}.` : peopleCircleContent.empty} title={peopleQuery.trim() ? "No matching people." : `No people in ${circleDisplayName(peopleCircleView)}.`} />
                   ) : (
                     <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No people added yet." />
                   )}
@@ -6339,12 +7740,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             ) : null}
 
             {activeTab === "meetings" ? (
-              <div>
+              <div className="space-y-4">
                 <TabPageHeader title="Meetings" />
-                <div className="mt-3">
+                <TabHero
+                  icon={<MessageCircle className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                  onScriptureClick={openScriptureQuickView}
+                  scripture={scriptureReferences.hebrews1025}
+                  subtitle="Every conversation is an opportunity to motivate, encourage, and challenge."
+                  title="Faithful at the table."
+                />
+                <div>
                   <MeetingActionRow onLogMeeting={() => openForm("meeting")} onScheduleMeeting={() => openScheduleMeeting()} />
                 </div>
-                <div className="mt-4">
+                <div>
                   {data.meetings.length ? (
                     <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
                   ) : (
@@ -6357,13 +7765,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             {activeTab === "fruit" ? (
               <div className="space-y-5">
                 <TabPageHeader title="Fruit" />
-                <section className="rounded-[24px] border border-[#DCEBFF] bg-white px-4 py-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.06)]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                    Matthew 7:16
-                  </p>
-                  <p className="mt-1 text-[13px] font-semibold leading-5 text-[#0F172A]">By their fruit you will recognize them.</p>
-                </section>
-                <FruitTreeCard storyCount={fruitDashboardStories.length} themes={fruitThemes} />
+                <TabHero
+                  icon={<Icon name="fruit" size={20} />}
+                  onScriptureClick={openScriptureQuickView}
+                  scripture={scriptureReferences.matthew716}
+                  title="“By their fruit you will recognize them.”"
+                />
+                <FruitTreeCard storyCount={fruitDashboardStories.length} />
 
                 <section>
                   <SectionHeading title="Kingdom Fruit" />
@@ -6373,86 +7781,46 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     ))}
                   </div>
                 </section>
-
-                <section>
-                  <SectionHeading title="Recent Fruit" />
-                  {fruitDashboardStories.length ? (
-                    <div className="grid gap-3">
-                      {fruitDashboardStories.slice(0, 6).map((story) => (
-                        <RecentFruitStoryCard key={story.id} story={story} />
-                      ))}
-                    </div>
-                  ) : (
-                    <EmptyState
-                      text="Fruit from meetings, reviews, and stories will appear here."
-                      title="No fruit visible yet."
-                    />
-                  )}
-                </section>
               </div>
             ) : null}
 
             {activeTab === "more" ? (
-              <div>
-                <TabPageHeader title="More" />
-                <section className="mt-4 rounded-[24px] border border-[#DCEBFF] bg-white px-4 py-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.06)]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                    Resources / Library
-                  </p>
-                  <p className="mt-1 text-[13px] leading-5 text-[#64748B]">For conversations and follow up.</p>
-                </section>
-                <div className="mb-6 mt-4 flex flex-wrap gap-1.5">
-                  {libraryFilters.map((filter) => {
-                    const isActive = libraryFilter === filter.value;
-
-                    return (
-                      <button
-                        className={`min-h-8 rounded-full border px-3 text-[11px] font-semibold transition-colors ${
-                          isActive
-                            ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white"
-                            : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#2563EB]"
-                        }`}
-                        key={filter.value}
-                        onClick={() => setLibraryFilter(filter.value)}
-                        type="button"
-                      >
-                        {filter.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
+              <div className="space-y-5">
+                <TabPageHeader title="Library" />
+                <TabHero
+                  icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                  onScriptureClick={openScriptureQuickView}
+                  scripture={scriptureReferences.secondPeter318}
+                  subtitle="Resources for conversations, follow up, and discipleship."
+                  title="Grow in truth."
+                />
                 <div className="space-y-6">
-                  {showTableTeachings ? (
-                    <LibrarySection
-                      title="Table Teachings"
-                    >
-                      <div className="grid gap-3">
-                        <FeaturedTeachingCard
-                          description={featuredTableTeaching.description}
-                          href={featuredTableTeaching.href}
-                          title={featuredTableTeaching.title}
+                  <LibrarySection
+                    title="Table Teachings"
+                  >
+                    <div className="grid gap-3">
+                      <FeaturedTeachingCard
+                        description={featuredTableTeaching.description}
+                        href={featuredTableTeaching.href}
+                        title={featuredTableTeaching.title}
+                      />
+                      {secondaryTableTeachings.map((teaching) => (
+                        <TableTeachingRow
+                          description={teaching.description}
+                          href={teaching.href}
+                          key={teaching.href}
+                          title={teaching.title}
                         />
-                        {secondaryTableTeachings.map((teaching) => (
-                          <TableTeachingRow
-                            description={teaching.description}
-                            href={teaching.href}
-                            key={teaching.href}
-                            title={teaching.title}
-                          />
-                        ))}
-                      </div>
-                    </LibrarySection>
-                  ) : null}
+                      ))}
+                    </div>
+                  </LibrarySection>
 
-                  {showFollowUpResources ? (
-                    <LibrarySection
-                      subtext="To send after a conversation."
-                      title="Follow Up Resources"
-                    >
-                      <FollowUpGuideList />
-                    </LibrarySection>
-                  ) : null}
+                  <LibrarySection
+                    subtext="To send after a conversation."
+                    title="Follow Up Resources"
+                  >
+                    <FollowUpGuideList />
+                  </LibrarySection>
                 </div>
                 {data.workspace.isUsamWorkspace ? (
                   <Link
@@ -6516,22 +7884,32 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {selectedMeetingWithReview ? (
           <MeetingDetailOverlay
             fruitEvents={data.fruitEvents}
+            hasReviewRequestLink={Boolean(existingReviewUrl(selectedMeetingWithReview))}
+            hasTestimonyRequestLink={Boolean(existingTestimonyUrl(selectedMeetingWithReview))}
             isSendingReview={reviewLinkMeetingId === selectedMeetingWithReview.id}
             isSendingTestimony={testimonyLinkMeetingId === selectedMeetingWithReview.id}
             leaderReflections={data.leaderReflections}
             meeting={selectedMeetingWithReview}
-            onBack={() => setSelectedMeetingId(null)}
-            onCopyReview={() => handleCopyReview(selectedMeetingWithReview)}
-            onCopyTestimony={() => handleCopyTestimony(selectedMeetingWithReview)}
-            onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
-            onLogReflection={() => {
-              setSelectedOutcomeTags([]);
-              setFormMode("reflection");
+            onBack={() => {
+              setPostMeetingFollowUpId(null);
+              setSelectedMeetingId(null);
             }}
+            onDone={() => {
+              setPostMeetingFollowUpId(null);
+              setSelectedMeetingId(null);
+              setActiveTab("meetings");
+            }}
+            onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
+            onEditNotes={() => openMeetingNotesEdit(selectedMeetingWithReview)}
+            onPrepareQuickReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
+            onPrepareTestimonyRequest={() => {
+              if (canSendMeetingTestimonyRequest(selectedMeetingWithReview, people)) {
+                setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "testimony_request" });
+              }
+            }}
+            onScheduleNextMeeting={() => openScheduleMeeting(selectedMeetingWithReview.fieldPersonIds)}
             onSendReview={() => handleSendReview(selectedMeetingWithReview)}
             onSendTestimony={() => handleShareTestimony(selectedMeetingWithReview)}
-            onShareReview={() => handleShareReview(selectedMeetingWithReview)}
-            onShareTestimony={() => handleShareTestimony(selectedMeetingWithReview)}
             participantReviews={data.participantReviews}
             participantTestimonies={data.participantTestimonies}
             people={people}
@@ -6554,7 +7932,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             }}
             onOpenCircles={() => {
               setIsProfileOpen(false);
-              setIsCirclesOpen(true);
+              openPeopleCircle("three");
             }}
             photoUrl={data.workspace.profileImageUrl}
           />
@@ -6579,11 +7957,29 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
 
+        {selectedScripture ? (
+          <ScriptureQuickView onClose={() => setSelectedScripture(null)} state={selectedScripture} />
+        ) : null}
+
+        {pendingMeetingSendAction ? (
+          <MeetingSendConfirmationSheet
+            action={pendingMeetingSendAction}
+            isSending={
+              pendingMeetingSendAction.type === "quick_review"
+                ? reviewLinkMeetingId === pendingMeetingSendAction.meeting.id
+                : testimonyLinkMeetingId === pendingMeetingSendAction.meeting.id
+            }
+            onClose={() => setPendingMeetingSendAction(null)}
+            onConfirm={handleConfirmMeetingSendAction}
+            people={people}
+          />
+        ) : null}
+
         <BottomNavigation activeTab={activeTab} onSelect={selectTab} />
       </div>
 
       {formMode === "person" ? (
-        <Sheet description="Add someone to your field. Keep the first pass fast." onClose={closeForm} title="Add Person">
+        <Sheet onClose={closeForm} showEyebrow={false} title="Add Person">
           <PersonFormContent
             buttonText="Add Person"
             detailsOpen={isAdditionalPersonInfoOpen}
@@ -6601,7 +7997,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "editPerson" && selectedPerson ? (
-        <Sheet description="Update the details you know. Keep the field record useful." onClose={closeForm} title="Edit Person">
+        <Sheet onClose={closeForm} showEyebrow={false} title="Edit Person">
           <PersonFormContent
             additionalDefaults={selectedPersonDefaults}
             buttonText="Save Person"
@@ -6609,6 +8005,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             nameDefault={selectedPerson.name}
+            onDelete={handleDeletePerson}
             onRelationshipChange={setSelectedRelationshipModel}
             onScoreChange={setSelectedRelationshipScore}
             onSubmit={handleEditPersonSubmit}
@@ -6616,6 +8013,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             phoneDefault={selectedPerson.phone}
             relationshipModel={selectedRelationshipModel}
             scoreValue={selectedRelationshipScore}
+            showDetailsToggle={false}
             submittingText="Saving..."
           />
         </Sheet>
@@ -6630,34 +8028,44 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             conversationResponses={conversationResponses}
             dateDefault={todayDateValue()}
             errorMessage={errorMessage}
+            includeReflectionFields
+            isCreatingPerson={isCreatingMeetingPerson}
             isSubmitting={isSubmitting}
             meetingPeopleOptions={meetingPeopleOptions}
             meetingPeopleQuery={meetingPeopleQuery}
             onContextChange={setSelectedMeetingContext}
+            onCreatePerson={handleCreateMeetingPerson}
             onConversationFlowChange={handleConversationFlowChange}
             onConversationResponse={handleConversationResponse}
             onPeopleQueryChange={setMeetingPeopleQuery}
             onSubmit={handleMeetingSubmit}
             onToggleFollowUpAction={handleConversationFollowUpAction}
+            onToggleOutcomeTag={toggleOutcomeTag}
             onTogglePerson={toggleMeetingPersonId}
             recommendedResources={draftRecommendedResources}
             selectedConversationFlow={selectedConversationFlow}
             selectedMeetingContext={selectedMeetingContext}
+            selectedOutcomeTags={selectedOutcomeTags}
             selectedPersonIds={selectedMeetingPersonIds}
+            showDurationField
             submittingText="Saving..."
           />
         </Sheet>
       ) : null}
 
       {formMode === "scheduleMeeting" ? (
-        <Sheet description="Create the follow-up rhythm without turning DOS into a calendar." onClose={closeForm} title="Schedule Meeting">
+        <Sheet onClose={closeForm} showEyebrow={false} title="Schedule Meeting">
           <ScheduleMeetingPlaceholder
             allPeople={people}
+            isCreatingPerson={isCreatingMeetingPerson}
             meetingPeopleOptions={meetingPeopleOptions}
             meetingPeopleQuery={meetingPeopleQuery}
+            onContextChange={setSelectedMeetingContext}
+            onCreatePerson={handleCreateMeetingPerson}
             onPeopleQueryChange={setMeetingPeopleQuery}
             onStartLogMeeting={openScheduledDraftAsMeeting}
             onTogglePerson={toggleMeetingPersonId}
+            selectedMeetingContext={selectedMeetingContext}
             selectedPersonIds={selectedMeetingPersonIds}
           />
         </Sheet>
@@ -6665,106 +8073,53 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       {formMode === "editMeeting" && selectedMeeting ? (
         <Sheet onClose={closeForm} title="Edit Meeting">
-          <MeetingFormContent
-            allPeople={people}
-            allowConversationFlows={data.workspace.isUsamWorkspace}
-            buttonText="Save Meeting"
-            conversationResponses={conversationResponses}
-            dateDefault={selectedMeeting.date ?? todayDateValue()}
-            errorMessage={errorMessage}
-            isSubmitting={isSubmitting}
-            meetingPeopleOptions={meetingPeopleOptions}
-            meetingPeopleQuery={meetingPeopleQuery}
-            notesDefault={selectedMeeting.notes}
-            onContextChange={setSelectedMeetingContext}
-            onConversationFlowChange={handleConversationFlowChange}
-            onConversationResponse={handleConversationResponse}
-            onPeopleQueryChange={setMeetingPeopleQuery}
-            onSubmit={handleEditMeetingSubmit}
-            onToggleFollowUpAction={handleConversationFollowUpAction}
-            onTogglePerson={toggleMeetingPersonId}
-            recommendedResources={draftRecommendedResources}
-            selectedConversationFlow={selectedConversationFlow}
-            selectedMeetingContext={selectedMeetingContext}
-            selectedPersonIds={selectedMeetingPersonIds}
-            submittingText="Saving..."
-          />
+          <div className="space-y-3">
+            <MeetingFormContent
+              allPeople={people}
+              allowConversationFlows={data.workspace.isUsamWorkspace}
+              buttonText="Save Meeting"
+              conversationResponses={conversationResponses}
+              dateDefault={selectedMeeting.date ?? todayDateValue()}
+              errorMessage={errorMessage}
+              isCreatingPerson={isCreatingMeetingPerson}
+              isSubmitting={isSubmitting}
+              meetingPeopleOptions={meetingPeopleOptions}
+              meetingPeopleQuery={meetingPeopleQuery}
+              notesDefault={selectedMeeting.notes}
+              onContextChange={setSelectedMeetingContext}
+              onCreatePerson={handleCreateMeetingPerson}
+              onConversationFlowChange={handleConversationFlowChange}
+              onConversationResponse={handleConversationResponse}
+              onPeopleQueryChange={setMeetingPeopleQuery}
+              onSubmit={handleEditMeetingSubmit}
+              onToggleFollowUpAction={handleConversationFollowUpAction}
+              onTogglePerson={toggleMeetingPersonId}
+              recommendedResources={draftRecommendedResources}
+              selectedConversationFlow={selectedConversationFlow}
+              selectedMeetingContext={selectedMeetingContext}
+              selectedPersonIds={selectedMeetingPersonIds}
+              submittingText="Saving..."
+            />
+            <button
+              className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSubmitting}
+              onClick={handleDeleteMeeting}
+              type="button"
+            >
+              Delete Meeting
+            </button>
+          </div>
         </Sheet>
       ) : null}
 
-      {formMode === "reflection" && selectedMeeting ? (
-        <Sheet onClose={closeForm} title="Leader Reflection">
-          <form className="space-y-4" onSubmit={handleReflectionSubmit}>
-            <FormOptionSelect
-              label="Spiritual Openness"
-              name="spiritual_openness"
-              options={[
-                { label: "Select", value: "" },
-                { label: "Not ready", value: "Not ready" },
-                { label: "Curious", value: "Curious" },
-                { label: "Open", value: "Open" },
-                { label: "Ready to follow", value: "Ready to follow" },
-                { label: "Actively following", value: "Actively following" },
-              ]}
-            />
-            <label className="block">
-              <FieldLabel>What Happened</FieldLabel>
-              <textarea className={FieldTextareaClass()} name="what_happened" placeholder="Internal observations from the meeting." />
-            </label>
-            <label className="block">
-              <FieldLabel>Prayer Needs</FieldLabel>
-              <textarea className={FieldTextareaClass()} name="prayer_needs" placeholder="Prayer needs or sensitive context." />
-            </label>
-            <label className="flex items-start gap-3 rounded-[20px] border border-[#E2E8F0] bg-white p-3">
-              <input className="mt-1 h-4 w-4 accent-[#2563EB]" name="follow_up_needed" type="checkbox" />
-              <span className="text-sm font-semibold text-[#0F172A]">Follow up needed</span>
-            </label>
-            <FormOptionSelect
-              label="Next Step"
-              name="next_step"
-              options={[
-                { label: "Select", value: "" },
-                { label: "Continue meeting", value: "Continue meeting" },
-                { label: "Begin discipleship", value: "Begin discipleship" },
-                { label: "Send follow up", value: "Send follow up" },
-                { label: "Invite to group", value: "Invite to group" },
-                { label: "Connect to church", value: "Connect to church" },
-                { label: "Connect to ministry", value: "Connect to ministry" },
-                { label: "Hand off", value: "Hand off" },
-                { label: "Pray and wait", value: "Pray and wait" },
-                { label: "Other", value: "Other" },
-              ]}
-            />
-            <div>
-              <FieldLabel>Observed Fruit</FieldLabel>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {outcomeTagOptions.map((tag) => {
-                  const selected = selectedOutcomeTags.includes(tag);
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-11 rounded-2xl border px-3 text-left text-xs font-semibold ${
-                        selected ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white" : "border-[#E2E8F0] bg-white text-[#0F172A]"
-                      }`}
-                      key={tag}
-                      onClick={() => toggleOutcomeTag(tag)}
-                      type="button"
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <label className="block">
-              <FieldLabel>Private Notes</FieldLabel>
-              <textarea className={FieldTextareaClass()} name="private_notes" placeholder="Private internal notes." />
-            </label>
-            {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-            <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Reflection"}</AppButton>
-          </form>
-        </Sheet>
+      {formMode === "meetingNotes" && selectedMeeting ? (
+        <MeetingNotesEditorSheet
+          defaultValue={selectedMeeting.notes}
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          onClose={closeForm}
+          onSubmit={handleMeetingNotesSubmit}
+        />
       ) : null}
 
       {formMode === "fruit" ? (

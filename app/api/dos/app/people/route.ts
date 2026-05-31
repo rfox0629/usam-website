@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { inferFruitEventsFromEngagement } from "@/src/lib/dos/fruit-intelligence";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { joinPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -178,8 +179,8 @@ export async function POST(request: Request) {
   const name = asString(payload.name);
   const phone = asString(payload.phone);
 
-  if (!workspaceId || !name || !phone) {
-    return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
+  if (!workspaceId || !name) {
+    return NextResponse.json({ error: "Name is required." }, { status: 400 });
   }
 
   const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
@@ -332,4 +333,67 @@ export async function PATCH(request: Request) {
   });
 
   return NextResponse.json({ id: data.id, ok: true });
+}
+
+export async function DELETE(request: Request) {
+  const authResult = await authorizeWrite();
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  const payload = await readPayload(request);
+
+  if (!payload) {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId));
+  const id = asString(payload.id);
+
+  if (!workspaceId || !isUuid(id)) {
+    return NextResponse.json({ error: "Person not found." }, { status: 404 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const archiveUpdate = {
+    status: "archived",
+    updated_at: new Date().toISOString(),
+  };
+  const scopedResult = await supabase
+    .from("missionary_field_people")
+    .update(archiveUpdate)
+    .eq("id", id)
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+    .select("id")
+    .single();
+  const { data, error } = scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
+    ? await supabase
+      .from("missionary_field_people")
+      .update(archiveUpdate)
+      .eq("id", id)
+      .eq("household_id", workspaceId)
+      .select("id")
+      .single()
+    : scopedResult;
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Unable to delete person." }, { status: 500 });
+  }
+
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after person archive", scoreError);
+  });
+
+  return NextResponse.json({ id: data.id, archived: true, ok: true });
 }
