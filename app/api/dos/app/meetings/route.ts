@@ -12,7 +12,7 @@ import {
   type DosConversationFlowKey,
   type DosConversationResponses,
 } from "@/src/lib/dos/meeting-engine";
-import { recordCalendarSyncFailure, syncGoogleCalendarEvent } from "@/src/lib/dos/google-calendar";
+import { deleteGoogleCalendarEventForSource, recordCalendarSyncFailure, syncGoogleCalendarEvent } from "@/src/lib/dos/google-calendar";
 import { dosAppMeetingTypes, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -85,6 +85,18 @@ function isMissingSchedulingColumn(error: { message?: string } | null | undefine
 
 function schedulingSetupResponse() {
   return NextResponse.json({ error: "Scheduling is not ready yet. You can still log a meeting now." }, { status: 500 });
+}
+
+function calendarDeleteWarning(status: "deleted" | "failed" | "needs_reconnect" | "no_link" | "not_connected") {
+  if (status === "failed") {
+    return "Meeting was deleted locally, but Google Calendar could not delete the synced event.";
+  }
+
+  if (status === "needs_reconnect" || status === "not_connected") {
+    return "Meeting was deleted locally. Reconnect Google Calendar to clean up the synced event.";
+  }
+
+  return null;
 }
 
 function meetingRecordCandidates(record: Record<string, unknown>) {
@@ -640,5 +652,12 @@ export async function DELETE(request: Request) {
     console.warn("[DOS circles] Unable to recalculate after meeting delete", scoreError);
   });
 
-  return NextResponse.json({ id: data.id, deleted: true, ok: true });
+  const calendarDelete = await deleteGoogleCalendarEventForSource({
+    sourceId: String(data.id),
+    sourceType: "meeting",
+    workspaceId,
+  }, supabase).catch(() => ({ status: "failed" as const }));
+  const calendarWarning = calendarDeleteWarning(calendarDelete.status);
+
+  return NextResponse.json({ calendarWarning, id: data.id, deleted: true, ok: true });
 }

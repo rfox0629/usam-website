@@ -80,7 +80,7 @@ Required environment variables:
 - `GOOGLE_REDIRECT_URI`
 - `GOOGLE_CALENDAR_SCOPES`
 
-Use `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email openid` for the MVP scope set unless product direction changes. `GOOGLE_REDIRECT_URI` should point to `/api/dos/app/calendar/google/callback` on the active local, preview, or production origin being tested.
+Use `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.calendarlist.readonly` for the Calendar read/import scope set. `GOOGLE_REDIRECT_URI` should point to `/api/dos/app/calendar/google/callback` on the active local, preview, or production origin being tested.
 
 ## Active Route Boundary
 

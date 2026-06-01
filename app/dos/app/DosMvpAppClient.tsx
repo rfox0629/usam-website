@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -19,7 +19,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppCalendarConnection, DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
+import type { DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import {
@@ -159,9 +159,15 @@ type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView | "other";
 type MeetingsView = "agenda" | "calendar";
-type MeetingCalendarItemKind = "anniversary" | "birthday" | "follow_up" | "meeting" | "prayer";
+type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
+type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
+type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "prayer" | "search" | "upload";
+type MeetingCaptureType = "photo" | "screenshot" | "voice";
+type MeetingReviewFollowUp = "none" | "quick_review" | "testimony_request";
+type MeetingCalendarItemKind = "anniversary" | "birthday" | "follow_up" | "google" | "meeting" | "prayer";
 type MeetingCalendarItem = {
   date: string;
+  externalEvent?: DosAppExternalCalendarEvent;
   id: string;
   kind: MeetingCalendarItemKind;
   meeting?: DosAppMeeting;
@@ -172,10 +178,6 @@ type MeetingCalendarItem = {
   syncLabel?: string;
   title: string;
 };
-type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
-type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "prayer" | "search" | "upload";
-type MeetingCaptureType = "photo" | "screenshot" | "voice";
-type MeetingReviewFollowUp = "none" | "quick_review" | "testimony_request";
 type PendingMeetingSendAction = {
   meeting: DosAppMeeting;
   type: Exclude<MeetingReviewFollowUp, "none">;
@@ -447,6 +449,17 @@ function formatMeetingTimeRange(meeting: DosAppMeeting) {
   const end = formatTime(meeting.scheduledEndAt);
 
   return [formatDate(meeting.scheduledStartAt ?? meeting.date), start && end ? `${start} - ${end}` : start].filter(Boolean).join(" · ");
+}
+
+function formatExternalCalendarEventTimeRange(event: DosAppExternalCalendarEvent) {
+  if (event.allDay) {
+    return formatDate(event.startAt);
+  }
+
+  const start = formatTime(event.startAt);
+  const end = formatTime(event.endAt);
+
+  return [formatDate(event.startAt), start && end ? `${start} - ${end}` : start].filter(Boolean).join(" · ");
 }
 
 function formatDateTime(value: string | null | undefined) {
@@ -816,11 +829,13 @@ function reminderDatesForCalendarMonth(reminder: DosAppRelationshipReminder, mon
 }
 
 function buildMeetingCalendarItems({
+  externalCalendarEvents,
   meetings,
   month,
   people,
   reminders,
 }: {
+  externalCalendarEvents: DosAppExternalCalendarEvent[];
   meetings: DosAppMeeting[];
   month: Date;
   people: DosAppPerson[];
@@ -873,7 +888,26 @@ function buildMeetingCalendarItems({
     }));
   });
 
-  return [...meetingItems, ...reminderItems].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
+  const googleItems: MeetingCalendarItem[] = externalCalendarEvents
+    .filter((event) => !event.importedMeetingId)
+    .map((event) => {
+      const date = event.startAt;
+      const parsedDate = parseDisplayDate(date);
+
+      return { date, event, parsedDate };
+    })
+    .filter((item): item is { date: string; event: DosAppExternalCalendarEvent; parsedDate: Date } => Boolean(item.date && item.parsedDate && isSameCalendarMonth(item.parsedDate, month)))
+    .map(({ date, event }) => ({
+      date,
+      externalEvent: event,
+      id: `google-${event.id}`,
+      kind: "google" as const,
+      subtitle: [formatExternalCalendarEventTimeRange(event), event.sourceName].filter(Boolean).join(" · "),
+      syncLabel: "Read only",
+      title: event.title,
+    }));
+
+  return [...meetingItems, ...reminderItems, ...googleItems].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
 }
 
 function isPrayerMeeting(meeting: DosAppMeeting) {
@@ -3000,6 +3034,13 @@ const meetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
   { label: "Calendar", value: "calendar" },
 ];
 
+const meetingCalendarFilterTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarFilter>> = [
+  { label: "All", value: "all" },
+  { label: "DOS", value: "dos" },
+  { label: "Google", value: "google" },
+  { label: "Reminders", value: "reminders" },
+];
+
 const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
   { label: "My 3", value: "three" },
   { label: "My 12", value: "twelve" },
@@ -3635,6 +3676,12 @@ function MeetingCard({
 
 function calendarItemTone(kind: MeetingCalendarItemKind) {
   switch (kind) {
+    case "google":
+      return {
+        bg: "bg-[#EEF6FF]",
+        dot: "bg-[#0EA5E9]",
+        text: "text-[#0369A1]",
+      };
     case "birthday":
       return {
         bg: "bg-[#FEF3C7]",
@@ -3671,6 +3718,8 @@ function calendarItemTone(kind: MeetingCalendarItemKind) {
 
 function calendarItemLabel(kind: MeetingCalendarItemKind) {
   switch (kind) {
+    case "google":
+      return "Google";
     case "birthday":
       return "Birthday";
     case "anniversary":
@@ -3685,10 +3734,28 @@ function calendarItemLabel(kind: MeetingCalendarItemKind) {
   }
 }
 
+function calendarItemMatchesFilter(item: MeetingCalendarItem, filter: MeetingCalendarFilter) {
+  if (filter === "all") {
+    return true;
+  }
+
+  if (filter === "dos") {
+    return item.kind === "meeting";
+  }
+
+  if (filter === "google") {
+    return item.kind === "google";
+  }
+
+  return item.kind !== "meeting" && item.kind !== "google";
+}
+
 function CalendarItemIcon({ kind }: { kind: MeetingCalendarItemKind }) {
   const className = "h-4 w-4";
 
   switch (kind) {
+    case "google":
+      return <CalendarDays className={className} aria-hidden="true" strokeWidth={1.9} />;
     case "birthday":
       return <Cake className={className} aria-hidden="true" strokeWidth={1.9} />;
     case "anniversary":
@@ -3705,10 +3772,12 @@ function CalendarItemIcon({ kind }: { kind: MeetingCalendarItemKind }) {
 
 function CalendarAgendaItem({
   item,
+  onOpenExternalEvent,
   onOpenMeeting,
   onOpenReminder,
 }: {
   item: MeetingCalendarItem;
+  onOpenExternalEvent: (eventId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenReminder: (reminderId: string) => void;
 }) {
@@ -3739,6 +3808,7 @@ function CalendarAgendaItem({
 
   const meeting = item.meeting;
   const reminder = item.reminder;
+  const externalEvent = item.externalEvent;
 
   if (meeting) {
     return (
@@ -3756,27 +3826,49 @@ function CalendarAgendaItem({
     );
   }
 
+  if (externalEvent) {
+    return (
+      <button className={className} onClick={() => onOpenExternalEvent(externalEvent.id)} type="button">
+        {content}
+      </button>
+    );
+  }
+
   return <div className={className}>{content}</div>;
 }
 
 function MeetingCalendarView({
+  calendarFilter,
+  calendarSyncMessage,
+  googleCalendarConnected,
+  isSyncingGoogleCalendar,
   items,
   month,
+  onCalendarFilterChange,
   onChangeMonth,
+  onOpenExternalEvent,
   onOpenMeeting,
   onOpenReminder,
   onScheduleMeeting,
   onSelectDate,
+  onSyncGoogleCalendar,
   onToday,
   selectedDateKey,
 }: {
+  calendarFilter: MeetingCalendarFilter;
+  calendarSyncMessage: string;
+  googleCalendarConnected: boolean;
+  isSyncingGoogleCalendar: boolean;
   items: MeetingCalendarItem[];
   month: Date;
+  onCalendarFilterChange: (filter: MeetingCalendarFilter) => void;
   onChangeMonth: (offset: number) => void;
+  onOpenExternalEvent: (eventId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenReminder: (reminderId: string) => void;
   onScheduleMeeting: () => void;
   onSelectDate: (date: Date) => void;
+  onSyncGoogleCalendar: () => void;
   onToday: () => void;
   selectedDateKey: string;
 }) {
@@ -3789,7 +3881,8 @@ function MeetingCalendarView({
     date.setDate(gridStart.getDate() + index);
     return date;
   });
-  const itemsByDay = items.reduce((map, item) => {
+  const filteredItems = items.filter((item) => calendarItemMatchesFilter(item, calendarFilter));
+  const itemsByDay = filteredItems.reduce((map, item) => {
     const key = calendarDateKeyFromValue(item.date);
 
     if (!key) {
@@ -3806,6 +3899,27 @@ function MeetingCalendarView({
 
   return (
     <section className="space-y-3">
+      <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-2.5 shadow-[0_12px_30px_rgba(37,99,235,0.055)]">
+        <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+          <p className="min-w-0 flex-1 text-xs font-medium leading-4 text-[#64748B]">
+            {calendarSyncMessage || (googleCalendarConnected ? "Google events stay read-only until you add them to DOS." : "Connect Google Calendar to read events.")}
+          </p>
+          {googleCalendarConnected ? (
+            <button
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
+              disabled={isSyncingGoogleCalendar}
+              onClick={onSyncGoogleCalendar}
+              style={{ fontFamily: font.rajdhani }}
+              type="button"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isSyncingGoogleCalendar ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={1.9} />
+              Sync
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
         <header className="flex items-center justify-between gap-2 border-b border-[#EFF6FF] px-3 py-3">
           <button
@@ -3890,6 +4004,7 @@ function MeetingCalendarView({
             <CalendarAgendaItem
               item={item}
               key={item.id}
+              onOpenExternalEvent={onOpenExternalEvent}
               onOpenMeeting={onOpenMeeting}
               onOpenReminder={onOpenReminder}
             />
@@ -3903,6 +4018,66 @@ function MeetingCalendarView({
         </div>
       </section>
     </section>
+  );
+}
+
+function GoogleCalendarEventDetailSheet({
+  event,
+  isAdding,
+  onAddToDos,
+  onClose,
+}: {
+  event: DosAppExternalCalendarEvent;
+  isAdding: boolean;
+  onAddToDos: () => void;
+  onClose: () => void;
+}) {
+  const alreadyAdded = Boolean(event.importedMeetingId);
+
+  return (
+    <MobileBottomSheet
+      badge={<span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Google</span>}
+      footer={(
+        <div className="grid gap-2">
+          <button
+            className="min-h-11 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.22)] disabled:opacity-60"
+            disabled={alreadyAdded || isAdding}
+            onClick={onAddToDos}
+            type="button"
+          >
+            {alreadyAdded ? "Already added to DOS" : isAdding ? "Adding..." : "Add to DOS"}
+          </button>
+          {event.htmlLink ? (
+            <a className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A]" href={event.htmlLink} rel="noreferrer" target="_blank">
+              Open in Google
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+            </a>
+          ) : null}
+        </div>
+      )}
+      onClose={onClose}
+      subtitle={formatExternalCalendarEventTimeRange(event)}
+      title={event.title}
+    >
+      <div className="grid gap-3">
+        <div className="rounded-[22px] border border-[#EAF2FF] bg-[#F8FAFC] p-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Source</p>
+          <p className="mt-1 text-sm font-semibold text-[#0F172A]">{event.sourceName ?? "Google Calendar"}</p>
+        </div>
+        {event.location ? (
+          <div className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Location</p>
+            <p className="mt-1 text-sm leading-5 text-[#334155]">{event.location}</p>
+          </div>
+        ) : null}
+        {event.description ? (
+          <div className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Details</p>
+            <p className="mt-1 line-clamp-5 whitespace-pre-line text-sm leading-5 text-[#334155]">{event.description}</p>
+          </div>
+        ) : null}
+      </div>
+    </MobileBottomSheet>
   );
 }
 
@@ -7766,6 +7941,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const isPreview = data.workspace.isPreview === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("agenda");
+  const [meetingCalendarFilter, setMeetingCalendarFilter] = useState<MeetingCalendarFilter>("all");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
@@ -7777,9 +7953,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isCreatingMeetingPerson, setIsCreatingMeetingPerson] = useState(false);
   const [isPeopleImportOpen, setIsPeopleImportOpen] = useState(false);
   const [isPeopleSearchOpen, setIsPeopleSearchOpen] = useState(false);
+  const [isAddingExternalEventToDos, setIsAddingExternalEventToDos] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCalendarDisconnecting, setIsCalendarDisconnecting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSyncingGoogleCalendar, setIsSyncingGoogleCalendar] = useState(false);
+  const [calendarSyncMessage, setCalendarSyncMessage] = useState("");
   const [conversationResponses, setConversationResponses] = useState<DosConversationResponses>({});
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
@@ -7795,6 +7974,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [testimonyLinkMeetingId, setTestimonyLinkMeetingId] = useState<string | null>(null);
   const [testimonyShareMessage, setTestimonyShareMessage] = useState("");
   const [selectedConversationFlow, setSelectedConversationFlow] = useState<DosConversationFlowKey>("none");
+  const [selectedExternalCalendarEventId, setSelectedExternalCalendarEventId] = useState<string | null>(null);
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
@@ -7882,6 +8062,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [reviewLinksByMeetingId, selectedMeeting]);
   const selectedPerson = useMemo(() => people.find((person) => person.id === selectedPersonId) ?? null, [people, selectedPersonId]);
   const selectedReminder = useMemo(() => data.reminders.find((reminder) => reminder.id === selectedReminderId) ?? null, [data.reminders, selectedReminderId]);
+  const selectedExternalCalendarEvent = useMemo(() => (
+    data.externalCalendarEvents.find((event) => event.id === selectedExternalCalendarEventId) ?? null
+  ), [data.externalCalendarEvents, selectedExternalCalendarEventId]);
   const circlePeopleByLayer = useMemo<CircleLayerGroups>(() => {
     const peopleById = new Map(people.map((person) => [person.id, person]));
     const mapScores = (scores: DosRelationshipScore[]) => uniqueCircleMembers(scores
@@ -7954,12 +8137,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ), [data.meetings, data.reminders, people]);
   const meetingCalendarItems = useMemo(() => (
     buildMeetingCalendarItems({
+      externalCalendarEvents: data.externalCalendarEvents,
       meetings: data.meetings,
       month: meetingsCalendarMonth,
       people,
       reminders: data.reminders,
     })
-  ), [data.meetings, data.reminders, meetingsCalendarMonth, people]);
+  ), [data.externalCalendarEvents, data.meetings, data.reminders, meetingsCalendarMonth, people]);
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
     const meetingsThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
@@ -8187,6 +8371,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openReminderEdit(reminderId: string) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
+    setSelectedExternalCalendarEventId(null);
     setSelectedReminderId(reminderId);
     setErrorMessage("");
     setFormMode("reminder");
@@ -8206,8 +8391,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
     setSelectedPersonId(null);
+    setSelectedExternalCalendarEventId(null);
     setSelectedReminderId(null);
     setSelectedMeetingId(meetingId);
+  }
+
+  function openExternalCalendarEventDetail(eventId: string) {
+    setActiveTab("meetings");
+    setErrorMessage("");
+    setFormMode(null);
+    setSelectedMeetingId(null);
+    setSelectedReminderId(null);
+    setSelectedPersonId(null);
+    setSelectedExternalCalendarEventId(eventId);
   }
 
   function openMeetingEdit(meeting: DosAppMeeting) {
@@ -8288,7 +8484,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         },
         method,
       });
-      const result = await response.json().catch(() => ({})) as { error?: string; id?: string };
+      const result = await response.json().catch(() => ({})) as { calendarWarning?: string | null; error?: string; id?: string };
 
       if (!response.ok) {
         throw new Error(result.error ?? "Unable to save.");
@@ -8349,6 +8545,118 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         setErrorMessage("Unable to disconnect Google Calendar. Please try again.");
       } finally {
         setIsCalendarDisconnecting(false);
+      }
+    })();
+  }
+
+  function handleSyncGoogleCalendar() {
+    setErrorMessage("");
+    setCalendarSyncMessage("");
+
+    if (isPreview) {
+      setCalendarSyncMessage("Preview mode does not sync live Google events.");
+      return;
+    }
+
+    if (!data.calendarConnection.connected || isSyncingGoogleCalendar) {
+      setCalendarSyncMessage("Connect Google Calendar to read events.");
+      return;
+    }
+
+    setIsSyncingGoogleCalendar(true);
+
+    void (async () => {
+      try {
+        const syncStart = addCalendarMonths(meetingsCalendarMonth, -1);
+        const syncEnd = addCalendarMonths(meetingsCalendarMonth, 4);
+        const response = await fetch("/api/dos/app/calendar/google/sync", {
+          body: JSON.stringify({
+            timeMax: syncEnd.toISOString(),
+            timeMin: syncStart.toISOString(),
+            workspaceId: data.workspace.id,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+        });
+        const result = await response.json().catch(() => ({})) as {
+          error?: string;
+          eventCount?: number;
+          message?: string | null;
+          status?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "Unable to sync Google Calendar.");
+        }
+
+        if (result.status === "needs_reconnect" || result.status === "not_connected") {
+          setCalendarSyncMessage(result.message ?? "Reconnect Google Calendar to read events.");
+          return;
+        }
+
+        setCalendarSyncMessage(`Synced ${result.eventCount ?? 0} Google events.`);
+        router.refresh();
+      } catch {
+        setCalendarSyncMessage("Unable to sync Google Calendar events.");
+      } finally {
+        setIsSyncingGoogleCalendar(false);
+      }
+    })();
+  }
+
+  function handleAddExternalEventToDos() {
+    if (!selectedExternalCalendarEvent || isAddingExternalEventToDos) {
+      return;
+    }
+
+    setErrorMessage("");
+
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. Google events are not added to DOS.");
+      return;
+    }
+
+    setIsAddingExternalEventToDos(true);
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/dos/app/calendar/events/${selectedExternalCalendarEvent.id}/add-to-dos`, {
+          body: JSON.stringify({
+            workspaceId: data.workspace.id,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+        });
+        const result = await response.json().catch(() => ({})) as {
+          error?: string;
+          meetingId?: string;
+          message?: string;
+          status?: "added" | "already_added";
+        };
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "Unable to add Google event to DOS.");
+        }
+
+        if (result.status === "already_added") {
+          setErrorMessage(result.message ?? "Already added to DOS.");
+        }
+
+        if (result.meetingId) {
+          setSelectedExternalCalendarEventId(null);
+          setSelectedMeetingId(result.meetingId);
+          setActiveTab("meetings");
+        }
+
+        router.refresh();
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Unable to add Google event to DOS.");
+      } finally {
+        setIsAddingExternalEventToDos(false);
       }
     })();
   }
@@ -8569,6 +8877,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             prayerNeeds,
             privateNotes: "",
             spiritualOpenness,
+            whatHappened: meetingNotes,
+          }, "POST", false);
+
+          if (!reflectionResult) {
+            return;
+          }
+        }
+
+        closeForm();
+        setActiveTab("meetings");
+        setSelectedMeetingId(result.id);
+        setPostMeetingFollowUpId(result.id);
+      }
+    })();
+  }
+
   function handleScheduleMeetingSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -8607,22 +8931,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     })();
   }
 
-            whatHappened: meetingNotes,
-          }, "POST", false);
-
-          if (!reflectionResult) {
-            return;
-          }
-        }
-
-        closeForm();
-        setActiveTab("meetings");
-        setSelectedMeetingId(result.id);
-        setPostMeetingFollowUpId(result.id);
-      }
-    })();
-  }
-
   function handleEditMeetingSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -8656,6 +8964,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const displayNotes = notes.trim() ? notes : null;
 
     void (async () => {
+      const result = await submitJson("/api/dos/app/meetings", {
+        id: selectedMeeting.id,
+        notes,
+        notesOnly: true,
+      }, "PATCH", false);
+
+      if (result) {
+        setMeetingNotesOverrides((current) => ({
+          ...current,
+          [selectedMeeting.id]: displayNotes,
+        }));
+        closeForm();
+      }
+    })();
+  }
+
   function handleReminderSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -8694,23 +9018,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return;
     }
 
-    void submitJson("/api/dos/app/reminders", {
-      id: selectedReminder.id,
-    }, "DELETE");
-  }
-
-      const result = await submitJson("/api/dos/app/meetings", {
-        id: selectedMeeting.id,
-        notes,
-        notesOnly: true,
-      }, "PATCH", false);
+    void (async () => {
+      const result = await submitJson("/api/dos/app/reminders", {
+        id: selectedReminder.id,
+      }, "DELETE", false);
 
       if (result) {
-        setMeetingNotesOverrides((current) => ({
-          ...current,
-          [selectedMeeting.id]: displayNotes,
-        }));
         closeForm();
+
+        if (result.calendarWarning) {
+          setErrorMessage(result.calendarWarning);
+        }
       }
     })();
   }
@@ -8734,6 +9052,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         setPostMeetingFollowUpId(null);
         setSelectedMeetingId(null);
         closeForm();
+
+        if (result.calendarWarning) {
+          setErrorMessage(result.calendarWarning);
+        }
       }
     })();
   }
@@ -9239,13 +9561,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     )
                   ) : (
                     <MeetingCalendarView
+                      calendarFilter={meetingCalendarFilter}
+                      calendarSyncMessage={calendarSyncMessage}
+                      googleCalendarConnected={data.calendarConnection.connected}
+                      isSyncingGoogleCalendar={isSyncingGoogleCalendar}
                       items={meetingCalendarItems}
                       month={meetingsCalendarMonth}
+                      onCalendarFilterChange={setMeetingCalendarFilter}
                       onChangeMonth={changeMeetingsCalendarMonth}
+                      onOpenExternalEvent={openExternalCalendarEventDetail}
                       onOpenMeeting={openMeetingDetail}
                       onOpenReminder={openReminderEdit}
                       onScheduleMeeting={() => openScheduleMeeting()}
                       onSelectDate={selectMeetingsCalendarDate}
+                      onSyncGoogleCalendar={handleSyncGoogleCalendar}
                       onToday={jumpMeetingsCalendarToToday}
                       selectedDateKey={selectedMeetingsCalendarDate}
                     />
@@ -9415,6 +9744,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             reviewShareMessage={reviewShareMessage}
             showPostMeetingFollowUp={postMeetingFollowUpId === selectedMeetingWithReview.id}
             testimonyShareMessage={testimonyShareMessage}
+          />
+        ) : null}
+
+        {selectedExternalCalendarEvent ? (
+          <GoogleCalendarEventDetailSheet
+            event={selectedExternalCalendarEvent}
+            isAdding={isAddingExternalEventToDos}
+            onAddToDos={handleAddExternalEventToDos}
+            onClose={() => setSelectedExternalCalendarEventId(null)}
           />
         ) : null}
 

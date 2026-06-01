@@ -31,6 +31,48 @@ type ConnectedCalendarRow = {
   workspace_id: string;
 };
 
+type CalendarSourceRow = {
+  external_calendar_id: string;
+  selected_for_availability: boolean | null;
+  selected_for_display: boolean | null;
+  selected_for_import: boolean | null;
+};
+
+type GoogleCalendarListItem = {
+  accessRole?: string;
+  backgroundColor?: string;
+  description?: string;
+  foregroundColor?: string;
+  id?: string;
+  primary?: boolean;
+  selected?: boolean;
+  summary?: string;
+  timeZone?: string;
+};
+
+type GoogleCalendarEventDate = {
+  date?: string;
+  dateTime?: string;
+  timeZone?: string;
+};
+
+type GoogleCalendarEvent = {
+  description?: string;
+  end?: GoogleCalendarEventDate;
+  etag?: string;
+  htmlLink?: string;
+  iCalUID?: string;
+  id?: string;
+  location?: string;
+  recurringEventId?: string;
+  start?: GoogleCalendarEventDate;
+  status?: string;
+  summary?: string;
+  transparency?: string;
+  updated?: string;
+  visibility?: string;
+};
+
 export type CalendarSyncSourceType = "important_date" | "meeting" | "reminder";
 
 export type DosCalendarEventInput = {
@@ -53,7 +95,7 @@ export function isGoogleCalendarConfigured() {
 
 export function googleCalendarScopes() {
   return (process.env.GOOGLE_CALENDAR_SCOPES?.trim()
-    || "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email openid")
+    || "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.calendarlist.readonly")
     .split(/\s+/)
     .filter(Boolean)
     .join(" ");
@@ -193,17 +235,52 @@ export function googleAuthorizationUrl({
 }
 
 async function readGoogleResponse<T>(response: Response) {
-  const body = await response.json().catch(() => ({})) as T & { error?: { message?: string } | string; error_description?: string };
+  const body = await response.json().catch(() => ({})) as T & {
+    error?: {
+      code?: number;
+      errors?: Array<{ reason?: string }>;
+      message?: string;
+      status?: string;
+    } | string;
+    error_description?: string;
+  };
 
   if (!response.ok) {
     const errorMessage = typeof body.error === "string"
       ? body.error_description ?? body.error
       : body.error?.message ?? "Google Calendar request failed.";
+    const error = new Error(errorMessage) as Error & {
+      googleReason?: string;
+      googleStatus?: string;
+      status?: number;
+    };
 
-    throw new Error(errorMessage);
+    error.status = response.status;
+
+    if (typeof body.error !== "string") {
+      error.googleReason = body.error?.errors?.[0]?.reason;
+      error.googleStatus = body.error?.status;
+    }
+
+    throw error;
   }
 
   return body;
+}
+
+export function isGoogleCalendarScopeError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const scopedError = error as Error & { googleReason?: string; googleStatus?: string; status?: number };
+  const message = error.message.toLowerCase();
+
+  return scopedError.status === 403
+    && (scopedError.googleReason === "insufficientPermissions"
+      || scopedError.googleStatus === "PERMISSION_DENIED"
+      || message.includes("insufficient authentication scopes")
+      || message.includes("insufficient permission"));
 }
 
 export async function exchangeGoogleCodeForTokens(code: string, origin: string) {
@@ -427,6 +504,396 @@ async function loadEventLink(supabase: SupabaseAdminClient, input: Pick<DosCalen
   }
 
   return data as { calendar_id: string; external_event_id: string | null; id: string } | null;
+}
+
+function googleCalendarDateBounds(event: GoogleCalendarEvent) {
+  const start = event.start?.dateTime ?? (event.start?.date ? `${event.start.date}T00:00:00.000Z` : null);
+  const end = event.end?.dateTime ?? (event.end?.date ? `${event.end.date}T00:00:00.000Z` : null);
+
+  return {
+    allDay: Boolean(event.start?.date),
+    endAt: end ? new Date(end).toISOString() : null,
+    startAt: start ? new Date(start).toISOString() : null,
+    timezone: event.start?.timeZone ?? event.end?.timeZone ?? null,
+  };
+}
+
+async function upsertCalendarSources({
+  calendars,
+  connectedCalendar,
+  supabase,
+  workspaceId,
+}: {
+  calendars: GoogleCalendarListItem[];
+  connectedCalendar: ConnectedCalendarRow;
+  supabase: SupabaseAdminClient;
+  workspaceId: string;
+}) {
+  const existingResult = await supabase
+    .from("calendar_sources")
+    .select("external_calendar_id, selected_for_display, selected_for_import, selected_for_availability")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google");
+  const existingRows = (existingResult.error ? [] : existingResult.data ?? []) as CalendarSourceRow[];
+  const existingByCalendarId = new Map(existingRows.map((row) => [row.external_calendar_id, row]));
+  const sourceRecords = calendars
+    .filter((calendar) => calendar.id && calendar.summary)
+    .map((calendar) => {
+      const existing = existingByCalendarId.get(calendar.id as string);
+
+      return {
+        access_role: calendar.accessRole ?? null,
+        background_color: calendar.backgroundColor ?? null,
+        connected_calendar_id: connectedCalendar.id,
+        description: calendar.description ?? null,
+        external_calendar_id: calendar.id as string,
+        foreground_color: calendar.foregroundColor ?? null,
+        is_active: true,
+        is_primary: calendar.primary === true || calendar.id === connectedCalendar.calendar_id,
+        name: calendar.summary as string,
+        provider: "google",
+        selected_for_availability: existing?.selected_for_availability ?? true,
+        selected_for_display: existing?.selected_for_display ?? (calendar.selected !== false),
+        selected_for_import: existing?.selected_for_import ?? true,
+        time_zone: calendar.timeZone ?? null,
+        workspace_id: workspaceId,
+      };
+    });
+
+  if (!sourceRecords.length) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("calendar_sources")
+    .upsert(sourceRecords, {
+      onConflict: "workspace_id,provider,external_calendar_id",
+    })
+    .select("id, external_calendar_id, name, selected_for_display, selected_for_import, selected_for_availability, is_primary, time_zone, access_role, last_synced_at");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
+export async function syncGoogleCalendarSources(workspaceId: string, supabase = createSupabaseAdminClient()) {
+  const connectedCalendar = await loadConnectedCalendar(supabase, workspaceId);
+
+  if (!connectedCalendar) {
+    return { sources: [], status: "not_connected" as const };
+  }
+
+  try {
+    const accessToken = await calendarAccessToken(supabase, connectedCalendar);
+    const calendars: GoogleCalendarListItem[] = [];
+    let pageToken: string | null = null;
+
+    do {
+      const params = new URLSearchParams({
+        maxResults: "250",
+        minAccessRole: "reader",
+        showDeleted: "false",
+        showHidden: "false",
+      });
+
+      if (pageToken) {
+        params.set("pageToken", pageToken);
+      }
+
+      const response = await fetch(`${googleCalendarApiBase}/users/me/calendarList?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const data = await readGoogleResponse<{ items?: GoogleCalendarListItem[]; nextPageToken?: string }>(response);
+
+      calendars.push(...(data.items ?? []));
+      pageToken = data.nextPageToken ?? null;
+    } while (pageToken);
+
+    const sources = await upsertCalendarSources({
+      calendars,
+      connectedCalendar,
+      supabase,
+      workspaceId,
+    });
+
+    return { sources, status: "synced" as const };
+  } catch (error) {
+    if (isGoogleCalendarScopeError(error)) {
+      return { sources: [], status: "needs_reconnect" as const };
+    }
+
+    throw error;
+  }
+}
+
+export async function pullFutureGoogleCalendarEvents({
+  supabase = createSupabaseAdminClient(),
+  timeMax,
+  timeMin,
+  workspaceId,
+}: {
+  supabase?: SupabaseAdminClient;
+  timeMax?: string;
+  timeMin?: string;
+  workspaceId: string;
+}) {
+  const connectedCalendar = await loadConnectedCalendar(supabase, workspaceId);
+
+  if (!connectedCalendar) {
+    return { eventCount: 0, sourceCount: 0, status: "not_connected" as const };
+  }
+
+  const sourceSync = await syncGoogleCalendarSources(workspaceId, supabase);
+
+  if (sourceSync.status !== "synced") {
+    return { eventCount: 0, sourceCount: 0, status: sourceSync.status };
+  }
+
+  const start = timeMin ? new Date(timeMin) : new Date();
+  const end = timeMax ? new Date(timeMax) : new Date(start.getTime() + 120 * 24 * 60 * 60 * 1000);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    throw new Error("Invalid calendar sync window.");
+  }
+
+  const { data: sources, error: sourcesError } = await supabase
+    .from("calendar_sources")
+    .select("id, external_calendar_id, name")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .eq("is_active", true)
+    .eq("selected_for_import", true);
+
+  if (sourcesError) {
+    throw new Error(sourcesError.message);
+  }
+
+  const accessToken = await calendarAccessToken(supabase, connectedCalendar);
+  let eventCount = 0;
+
+  for (const source of sources ?? []) {
+    const sourceId = String(source.id);
+    const externalCalendarId = String(source.external_calendar_id);
+    const syncStartedAt = new Date().toISOString();
+
+    await supabase
+      .from("calendar_sync_cursors")
+      .upsert({
+        calendar_source_id: sourceId,
+        last_error: null,
+        last_started_at: syncStartedAt,
+        provider: "google",
+        time_max: end.toISOString(),
+        time_min: start.toISOString(),
+        workspace_id: workspaceId,
+      }, {
+        onConflict: "workspace_id,calendar_source_id,provider",
+      });
+
+    try {
+      const events: GoogleCalendarEvent[] = [];
+      let pageToken: string | null = null;
+
+      do {
+        const params = new URLSearchParams({
+          maxResults: "250",
+          orderBy: "startTime",
+          showDeleted: "false",
+          singleEvents: "true",
+          timeMax: end.toISOString(),
+          timeMin: start.toISOString(),
+        });
+
+        if (pageToken) {
+          params.set("pageToken", pageToken);
+        }
+
+        const response = await fetch(`${googleCalendarApiBase}/calendars/${encodeURIComponent(externalCalendarId)}/events?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        const data = await readGoogleResponse<{ items?: GoogleCalendarEvent[]; nextPageToken?: string }>(response);
+
+        events.push(...(data.items ?? []));
+        pageToken = data.nextPageToken ?? null;
+      } while (pageToken);
+
+      const records = events
+        .filter((event) => event.id && event.status !== "cancelled")
+        .map((event) => {
+          const bounds = googleCalendarDateBounds(event);
+
+          return {
+            all_day: bounds.allDay,
+            calendar_source_id: sourceId,
+            description: event.description ?? null,
+            end_at: bounds.endAt,
+            etag: event.etag ?? null,
+            external_calendar_id: externalCalendarId,
+            external_event_id: event.id as string,
+            html_link: event.htmlLink ?? null,
+            i_cal_uid: event.iCalUID ?? null,
+            location: event.location ?? null,
+            provider: "google",
+            raw: event as unknown as Record<string, unknown>,
+            recurring_event_id: event.recurringEventId ?? null,
+            start_at: bounds.startAt,
+            status: event.status ?? null,
+            summary: event.summary ?? "Google Calendar event",
+            timezone: bounds.timezone,
+            transparency: event.transparency ?? null,
+            updated_external_at: event.updated ? new Date(event.updated).toISOString() : null,
+            visibility: event.visibility ?? null,
+            workspace_id: workspaceId,
+          };
+        });
+
+      if (records.length) {
+        const { error } = await supabase
+          .from("external_calendar_events")
+          .upsert(records, {
+            onConflict: "workspace_id,provider,external_calendar_id,external_event_id",
+          });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const { data: linkedEvents } = await supabase
+          .from("calendar_event_links")
+          .select("source_id, source_type, external_event_id")
+          .eq("workspace_id", workspaceId)
+          .eq("provider", "google")
+          .eq("calendar_id", externalCalendarId)
+          .in("external_event_id", records.map((record) => record.external_event_id));
+
+        await Promise.all((linkedEvents ?? [])
+          .filter((link) => link.external_event_id && link.source_id && link.source_type)
+          .map((link) => supabase
+            .from("external_calendar_events")
+            .update({
+              imported_dos_source_id: link.source_id,
+              imported_dos_source_type: link.source_type,
+            })
+            .eq("workspace_id", workspaceId)
+            .eq("provider", "google")
+            .eq("external_calendar_id", externalCalendarId)
+            .eq("external_event_id", link.external_event_id)));
+      }
+
+      // TODO: Swap this bounded future-window pull for Google syncToken
+      // incremental sync after webhook/channel lifecycle is implemented.
+      const syncedAt = new Date().toISOString();
+
+      await Promise.all([
+        supabase
+          .from("calendar_sources")
+          .update({ last_synced_at: syncedAt })
+          .eq("id", sourceId),
+        supabase
+          .from("calendar_sync_cursors")
+          .upsert({
+            calendar_source_id: sourceId,
+            last_error: null,
+            last_finished_at: syncedAt,
+            provider: "google",
+            time_max: end.toISOString(),
+            time_min: start.toISOString(),
+            workspace_id: workspaceId,
+          }, {
+            onConflict: "workspace_id,calendar_source_id,provider",
+          }),
+      ]);
+
+      eventCount += records.length;
+    } catch (error) {
+      if (isGoogleCalendarScopeError(error)) {
+        return { eventCount, sourceCount: (sources ?? []).length, status: "needs_reconnect" as const };
+      }
+
+      await supabase
+        .from("calendar_sync_cursors")
+        .upsert({
+          calendar_source_id: sourceId,
+          last_error: "Unable to sync Google Calendar events.",
+          last_finished_at: new Date().toISOString(),
+          provider: "google",
+          time_max: end.toISOString(),
+          time_min: start.toISOString(),
+          workspace_id: workspaceId,
+        }, {
+          onConflict: "workspace_id,calendar_source_id,provider",
+        });
+
+      throw error;
+    }
+  }
+
+  return { eventCount, sourceCount: (sources ?? []).length, status: "synced" as const };
+}
+
+export async function deleteGoogleCalendarEventForSource(
+  input: Pick<DosCalendarEventInput, "sourceId" | "sourceType" | "workspaceId">,
+  supabase = createSupabaseAdminClient(),
+) {
+  const existingLink = await loadEventLink(supabase, input);
+
+  if (!existingLink?.external_event_id) {
+    return { status: "no_link" as const };
+  }
+
+  const connectedCalendar = await loadConnectedCalendar(supabase, input.workspaceId);
+
+  if (!connectedCalendar) {
+    await recordCalendarSyncFailure({
+      error: "Google Calendar is not connected.",
+      sourceId: input.sourceId,
+      sourceType: input.sourceType,
+      supabase,
+      workspaceId: input.workspaceId,
+    }).catch(() => undefined);
+
+    return { status: "not_connected" as const };
+  }
+
+  try {
+    const accessToken = await calendarAccessToken(supabase, connectedCalendar);
+    const response = await fetch(
+      `${googleCalendarApiBase}/calendars/${encodeURIComponent(existingLink.calendar_id)}/events/${encodeURIComponent(existingLink.external_event_id)}?sendUpdates=none`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        method: "DELETE",
+      },
+    );
+
+    if (!response.ok && response.status !== 404 && response.status !== 410) {
+      await readGoogleResponse<Record<string, never>>(response);
+    }
+
+    await supabase
+      .from("calendar_event_links")
+      .delete()
+      .eq("id", existingLink.id);
+
+    return { status: "deleted" as const };
+  } catch (error) {
+    await recordCalendarSyncFailure({
+      error: "Unable to delete Google Calendar event.",
+      sourceId: input.sourceId,
+      sourceType: input.sourceType,
+      supabase,
+      workspaceId: input.workspaceId,
+    }).catch(() => undefined);
+
+    return { status: isGoogleCalendarScopeError(error) ? "needs_reconnect" as const : "failed" as const };
+  }
 }
 
 export async function recordCalendarSyncFailure({

@@ -238,6 +238,24 @@ export type DosAppCalendarConnection = {
   lastSyncedAt: string | null;
 };
 
+export type DosAppExternalCalendarEvent = {
+  allDay: boolean;
+  calendarSourceId: string | null;
+  description: string | null;
+  endAt: string | null;
+  externalCalendarId: string;
+  externalEventId: string;
+  htmlLink: string | null;
+  iCalUid: string | null;
+  id: string;
+  importedMeetingId: string | null;
+  location: string | null;
+  sourceName: string | null;
+  startAt: string | null;
+  timezone: string | null;
+  title: string;
+};
+
 export type DosAppRelationshipReminder = {
   googleSyncEnabled: boolean;
   googleSyncStatus?: "failed" | "pending" | "synced" | null;
@@ -254,6 +272,7 @@ export type DosAppRelationshipReminder = {
 export type DosAppData = {
   calendarConnection: DosAppCalendarConnection;
   circles: DosCircleData | null;
+  externalCalendarEvents: DosAppExternalCalendarEvent[];
   fruit: DosAppFruit[];
   fruitEvents: DosAppFruitEvent[];
   leaderReflections: DosAppLeaderReflection[];
@@ -442,6 +461,24 @@ type RelationshipReminderRow = {
   reminder_type: string | null;
   title: string | null;
   updated_at: string | null;
+};
+
+type ExternalCalendarEventRow = {
+  all_day: boolean | null;
+  calendar_source_id: string | null;
+  calendar_sources?: { name?: string | null } | Array<{ name?: string | null }> | null;
+  description: string | null;
+  end_at: string | null;
+  external_calendar_id: string;
+  external_event_id: string;
+  html_link: string | null;
+  i_cal_uid: string | null;
+  id: string;
+  imported_dos_source_id: string | null;
+  location: string | null;
+  start_at: string | null;
+  summary: string | null;
+  timezone: string | null;
 };
 
 type LeaderReflectionRow = {
@@ -920,6 +957,26 @@ async function loadRelationshipRemindersForWorkspace(supabase: SupabaseAdminClie
     : result;
 }
 
+async function loadExternalCalendarEventsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const start = new Date();
+  start.setDate(start.getDate() - 30);
+  const end = new Date();
+  end.setDate(end.getDate() + 180);
+  const result = await supabase
+    .from("external_calendar_events")
+    .select("id, calendar_source_id, external_calendar_id, external_event_id, i_cal_uid, summary, description, location, html_link, start_at, end_at, all_day, timezone, imported_dos_source_id, calendar_sources(name)")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .is("deleted_at", null)
+    .gte("start_at", start.toISOString())
+    .lte("start_at", end.toISOString())
+    .order("start_at", { ascending: true });
+
+  return result.error && isMissingWorkflowTable(result.error, "external_calendar_events")
+    ? { data: [], error: null }
+    : result;
+}
+
 async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const [{ data: scopedMeetings }, { data: scopedPeople }] = await Promise.all([
     loadMeetingsForWorkspace(supabase, workspaceId),
@@ -1104,7 +1161,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, calendarConnectionResult, calendarEventLinksResult, remindersResult, reviewsFruitResult, organization] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, calendarConnectionResult, calendarEventLinksResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, organization] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -1115,11 +1172,12 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadCalendarConnectionForWorkspace(supabase, workspace.id),
     loadCalendarEventLinksForWorkspace(supabase, workspace.id),
     loadRelationshipRemindersForWorkspace(supabase, workspace.id),
+    loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadOrganizationForWorkspace(supabase, workspace.slug),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || remindersResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -1131,6 +1189,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         ?? calendarConnectionResult.error?.message
         ?? calendarEventLinksResult.error?.message
         ?? remindersResult.error?.message
+        ?? externalCalendarEventsResult.error?.message
         ?? reviewsFruitResult.error?.message
         ?? "Unable to load DOS app data.",
       status: "error",
@@ -1145,6 +1204,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
   const reminderRows = (remindersResult.data ?? []) as RelationshipReminderRow[];
+  const externalCalendarEventRows = (externalCalendarEventsResult.data ?? []) as ExternalCalendarEventRow[];
   const reviewLinkByMeetingId = new Map<string, ReviewLinkRow>();
   const meetingReviewByMeetingId = new Map<string, MeetingReviewRow>();
   const calendarSyncStatusBySource = new Map<string, "failed" | "pending" | "synced" | null>();
@@ -1387,11 +1447,35 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       .filter((value): value is string => Boolean(value))
       .sort((first, second) => activityDateValue(second) - activityDateValue(first))[0] ?? null,
   };
+  const externalCalendarEvents = externalCalendarEventRows.map((event) => {
+    const sourceName = Array.isArray(event.calendar_sources)
+      ? event.calendar_sources[0]?.name ?? null
+      : event.calendar_sources?.name ?? null;
+
+    return {
+      allDay: event.all_day === true,
+      calendarSourceId: event.calendar_source_id,
+      description: event.description,
+      endAt: event.end_at,
+      externalCalendarId: event.external_calendar_id,
+      externalEventId: event.external_event_id,
+      htmlLink: event.html_link,
+      iCalUid: event.i_cal_uid,
+      id: event.id,
+      importedMeetingId: event.imported_dos_source_id,
+      location: event.location,
+      sourceName,
+      startAt: event.start_at,
+      timezone: event.timezone,
+      title: event.summary?.trim() || "Google Calendar event",
+    };
+  }).sort((first, second) => activityDateValue(first.startAt) - activityDateValue(second.startAt));
 
   return {
     data: {
       calendarConnection,
       circles: await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
+      externalCalendarEvents,
       fruit,
       fruitEvents,
       leaderReflections,

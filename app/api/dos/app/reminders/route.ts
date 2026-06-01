@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
-import { recordCalendarSyncFailure, syncGoogleCalendarEvent, type CalendarSyncSourceType } from "@/src/lib/dos/google-calendar";
+import { deleteGoogleCalendarEventForSource, recordCalendarSyncFailure, syncGoogleCalendarEvent, type CalendarSyncSourceType } from "@/src/lib/dos/google-calendar";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -103,6 +103,18 @@ function isMissingReminderSchema(error: { message?: string } | null | undefined)
 
 function reminderSetupResponse() {
   return NextResponse.json({ error: "Reminders are not ready yet. Try again after setup is finished." }, { status: 500 });
+}
+
+function calendarDeleteWarning(status: "deleted" | "failed" | "needs_reconnect" | "no_link" | "not_connected") {
+  if (status === "failed") {
+    return "Reminder was deleted locally, but Google Calendar could not delete the synced event.";
+  }
+
+  if (status === "needs_reconnect" || status === "not_connected") {
+    return "Reminder was deleted locally. Reconnect Google Calendar to clean up the synced event.";
+  }
+
+  return null;
 }
 
 function reminderTitle({
@@ -453,13 +465,14 @@ export async function DELETE(request: Request) {
     return workspaceAccess.response;
   }
 
-  const { data, error } = await createSupabaseAdminClient()
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("relationship_reminders")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", reminderId)
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
-    .select("id")
+    .select("id, reminder_type")
     .single();
 
   if (error) {
@@ -474,5 +487,13 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Unable to delete reminder." }, { status: 500 });
   }
 
-  return NextResponse.json({ deleted: true, id: data.id, ok: true });
+  const sourceType = sourceTypeForReminder(asReminderType(data.reminder_type));
+  const calendarDelete = await deleteGoogleCalendarEventForSource({
+    sourceId: String(data.id),
+    sourceType,
+    workspaceId,
+  }, supabase).catch(() => ({ status: "failed" as const }));
+  const calendarWarning = calendarDeleteWarning(calendarDelete.status);
+
+  return NextResponse.json({ calendarWarning, deleted: true, id: data.id, ok: true });
 }

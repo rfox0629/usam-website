@@ -472,6 +472,7 @@ function buildDosPreviewDemoData(): DosAppData {
       lastSyncedAt: demoTimestamp,
     },
     circles,
+    externalCalendarEvents: [],
     fruit,
     fruitEvents,
     leaderReflections,
