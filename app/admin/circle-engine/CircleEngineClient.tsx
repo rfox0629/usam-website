@@ -34,6 +34,7 @@ const overrideOptions: Array<{ label: string; value: CircleOverrideSelection }> 
   { label: "My 3", value: "three" },
   { label: "My 12", value: "twelve" },
   { label: "My 70", value: "seventy" },
+  { label: "My 120", value: "my_120" },
   { label: "Field", value: "field" },
 ];
 
@@ -62,8 +63,14 @@ const circleDefinitions: Array<{
     label: "My 70",
   },
   {
+    circle: "my_120",
+    description: "Extended active field relationships beyond My 70 that should remain on the current radar.",
+    emptyText: "No one is in My 120 yet. People will appear here after My 70 and activity support it.",
+    label: "My 120",
+  },
+  {
     circle: "field",
-    description: "Everyone outside the current focused circles. Field means not neglected, simply outside the current focus.",
+    description: "Everyone outside My 3, My 12, My 70, and My 120. Field remains internal and outside the current focused circles.",
     emptyText: "Field is empty because everyone with a score is currently in a focused circle.",
     label: "Field",
   },
@@ -83,6 +90,7 @@ type HistoryStatus = "error" | "idle" | "loading" | "ready";
 function circleLabel(circle: string) {
   return {
     field: "Field",
+    my_120: "My 120",
     seventy: "My 70",
     three: "My 3",
     twelve: "My 12",
@@ -378,7 +386,7 @@ export function CircleEngineClient({
   const [historyError, setHistoryError] = useState("");
   const [historyStatus, setHistoryStatus] = useState<HistoryStatus>("idle");
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
-  const ranked = useMemo(() => data ? [...data.my3, ...data.my12, ...data.my70, ...data.field] : [], [data]);
+  const ranked = useMemo(() => data ? [...data.my3, ...data.my12, ...data.my70, ...data.my120, ...data.field] : [], [data]);
   const matchingPeople = useMemo(() => {
     const query = personQuery.trim().toLowerCase();
 
@@ -604,10 +612,10 @@ export function CircleEngineClient({
             </p>
           </div>
           <span className="w-fit rounded-full border border-[#C9A24A]/30 bg-[#C9A24A]/10 px-3 py-1 text-xs font-semibold text-[#E4C465]">
-            Field is still cared for
+            Field is outside focused circles
           </span>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-5">
           {circleDefinitions.map((circle) => (
             <div className="rounded-lg border border-stone-800 bg-[#080808] p-3" key={circle.circle}>
               <p className="text-sm font-semibold text-stone-100">{circle.label}</p>
@@ -619,7 +627,7 @@ export function CircleEngineClient({
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-stone-100">Engine Summary</h2>
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-5">
           <SummaryCard label="Total people scored" value={data?.metadata.peopleScored ?? 0} />
           <SummaryCard label="Last recalculated" value={formatDateTime(data?.metadata.calculatedAt)} />
           <SummaryCard label="Auto Assigned" value={autoAssignedCount} />
@@ -643,13 +651,15 @@ export function CircleEngineClient({
                     ? data?.my12.length ?? 0
                     : circle.circle === "seventy"
                       ? data?.my70.length ?? 0
+                      : circle.circle === "my_120"
+                        ? data?.my120.length ?? 0
                       : data?.field.length ?? 0
               }
             />
           ))}
         </div>
         <p className="mt-3 rounded-lg border border-stone-800 bg-[#070707] px-3 py-2 text-sm leading-6 text-stone-400">
-          Field means not neglected, simply outside the current focused circles. These people remain visible for follow up and future activity.
+          Field means outside the current focused circles, not ignored. These people remain available for follow up and future activity.
         </p>
       </section>
 

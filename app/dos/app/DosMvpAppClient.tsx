@@ -156,8 +156,8 @@ const reminderRecurrenceOptions = [
 
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
-type CircleFocusView = "seventy" | "three" | "twelve";
-type PeopleCircleView = CircleFocusView | "other";
+type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
+type PeopleCircleView = CircleFocusView;
 type MeetingsView = "agenda" | "calendar";
 type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
@@ -1479,16 +1479,6 @@ function workspaceProfilePhone(workspace: DosAppWorkspace) {
   return cleanIdentitySegment(workspace.userPhone) ?? "";
 }
 
-const circleFocusHeadlines = [
-  "Tend your three.",
-  "Stay close to your people.",
-  "Steward your field.",
-  "Faithful with a few.",
-  "Who's on your heart?",
-  "One conversation at a time.",
-  "Start with prayer.",
-] as const;
-
 const currentRhythmDay = 14;
 
 function getDayOfYear(date = new Date()) {
@@ -1496,10 +1486,6 @@ function getDayOfYear(date = new Date()) {
   const diff = date.getTime() - start.getTime();
 
   return Math.floor(diff / 86400000);
-}
-
-function circleFocusHeadline(date = new Date()) {
-  return circleFocusHeadlines[getDayOfYear(date) % circleFocusHeadlines.length];
 }
 
 function homeDateSubtitle(date = new Date(), rhythmDay = currentRhythmDay) {
@@ -3031,7 +3017,7 @@ const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
   { label: "My 3", value: "three" },
   { label: "My 12", value: "twelve" },
   { label: "My 70", value: "seventy" },
-  { label: "Other", value: "other" },
+  { label: "My 120", value: "my_120" },
 ];
 
 function PeopleCircleTabs({
@@ -3114,8 +3100,8 @@ function circleDisplayName(circle: string) {
       return "My 12";
     case "seventy":
       return "My 70";
-    case "other":
-      return "Everyone Else";
+    case "my_120":
+      return "My 120";
     default:
       return "Field";
   }
@@ -3128,6 +3114,7 @@ function scoreLabel(value: number) {
 type CircleListItem = { person: DosAppPerson };
 type CirclePersonItem = CircleListItem & { score: DosRelationshipScore };
 type CircleLayerGroups = {
+  my120: CirclePersonItem[];
   seventy: CirclePersonItem[];
   three: CirclePersonItem[];
   twelve: CirclePersonItem[];
@@ -3184,40 +3171,35 @@ function circleLayerDetails(activeCircle: CircleFocusView, circleGroups: CircleL
         title: "My 70",
         value: "70",
       };
+    case "my_120":
+      return {
+        capacity: 120,
+        cumulativeCount: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length + circleGroups.my120.length,
+        empty: "No additional people in your 120 yet.",
+        items: circleGroups.my120,
+        sectionLabel: "Next 50 People",
+        startIndex: 70,
+        subtitle: "These are the next 50 people in your extended field. Together with your 70, this makes 120.",
+        title: "My 120",
+        value: "120",
+      };
   }
 }
 
 function previewCircleLayerItems(activeCircle: CircleFocusView, items: CirclePersonItem[]) {
-  return activeCircle === "seventy" ? items.slice(0, 6) : items;
+  return activeCircle === "seventy" || activeCircle === "my_120" ? items.slice(0, 6) : items;
 }
 
-function peopleCircleDetails(activeCircle: PeopleCircleView, circleGroups: CircleLayerGroups, people: DosAppPerson[]) {
-  if (activeCircle !== "other") {
-    const details = circleLayerDetails(activeCircle, circleGroups);
-
-    return {
-      empty: details.empty,
-      items: details.items,
-      sectionLabel: details.sectionLabel,
-      startIndex: details.startIndex,
-      subtitle: details.subtitle,
-      title: details.title,
-    };
-  }
-
-  const assignedIds = new Set([
-    ...circleGroups.three,
-    ...circleGroups.twelve,
-    ...circleGroups.seventy,
-  ].map(({ person }) => person.id));
+function peopleCircleDetails(activeCircle: PeopleCircleView, circleGroups: CircleLayerGroups) {
+  const details = circleLayerDetails(activeCircle, circleGroups);
 
   return {
-    empty: "No one outside your circles yet.",
-    items: people.filter((person) => !assignedIds.has(person.id)).map((person) => ({ person })),
-    sectionLabel: "Everyone Else",
-    startIndex: 70,
-    subtitle: "People in your field who are not currently in My 3, My 12, or My 70.",
-    title: "Everyone Else",
+    empty: details.empty,
+    items: details.items,
+    sectionLabel: details.sectionLabel,
+    startIndex: details.startIndex,
+    subtitle: details.subtitle,
+    title: details.title,
   };
 }
 
@@ -3267,11 +3249,13 @@ function CircleAvatar({
 
 function CircleTarget({
   my12Count,
+  my120Count,
   my3Count,
   my70Count,
   onSelectCircle,
 }: {
   my12Count: number;
+  my120Count: number;
   my3Count: number;
   my70Count: number;
   onSelectCircle: (circle: CircleFocusView) => void;
@@ -3280,11 +3264,12 @@ function CircleTarget({
   const isMy3Focused = focusedCircle === "three";
   const isMy12Focused = focusedCircle === "twelve";
   const isMy70Focused = focusedCircle === "seventy";
+  const isMy120Focused = focusedCircle === "my_120";
 
   return (
     <div
       aria-label="Discipleship circle target"
-      className="relative mx-auto mt-7 h-[216px] w-[216px] rounded-full max-[350px]:h-[204px] max-[350px]:w-[204px]"
+      className="relative mx-auto mt-1 h-[236px] w-[236px] rounded-full max-[350px]:h-[220px] max-[350px]:w-[220px]"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
           setFocusedCircle(null);
@@ -3293,15 +3278,23 @@ function CircleTarget({
       onMouseLeave={() => setFocusedCircle(null)}
     >
       <span
-        className={`absolute inset-0 rounded-full border bg-[#EBF2FF]/45 transition-all duration-200 ${
-          isMy70Focused
-            ? "border-[#2563EB]/60 shadow-[0_0_0_5px_rgba(37,99,235,0.065),inset_0_8px_26px_rgba(255,255,255,0.82),0_16px_34px_rgba(37,99,235,0.12)]"
-            : "border-[#CFE0FF]/80 shadow-[inset_0_6px_26px_rgba(255,255,255,0.8),0_14px_30px_rgba(37,99,235,0.06)]"
+        className={`absolute inset-0 rounded-full border bg-white transition-all duration-200 ${
+          isMy120Focused
+            ? "border-[#2563EB]/55 shadow-[0_0_0_5px_rgba(37,99,235,0.055),0_18px_42px_rgba(37,99,235,0.08)]"
+            : "border-[#DCEBFF] shadow-[0_16px_34px_rgba(37,99,235,0.045)]"
         }`}
         aria-hidden="true"
       />
       <span
-        className={`absolute left-1/2 top-1/2 h-[154px] w-[154px] -translate-x-1/2 -translate-y-1/2 rounded-full border bg-[#EBF2FF]/78 transition-all duration-200 max-[350px]:h-[145px] max-[350px]:w-[145px] ${
+        className={`absolute left-1/2 top-1/2 h-[184px] w-[184px] -translate-x-1/2 -translate-y-1/2 rounded-full border bg-[#F8FBFF] transition-all duration-200 max-[350px]:h-[172px] max-[350px]:w-[172px] ${
+          isMy70Focused
+            ? "border-[#2563EB]/60 shadow-[0_0_0_5px_rgba(37,99,235,0.06),inset_0_8px_26px_rgba(255,255,255,0.82),0_14px_30px_rgba(37,99,235,0.10)]"
+            : "border-[#CFE0FF]/90 shadow-[inset_0_6px_26px_rgba(255,255,255,0.82)]"
+        }`}
+        aria-hidden="true"
+      />
+      <span
+        className={`absolute left-1/2 top-1/2 h-[126px] w-[126px] -translate-x-1/2 -translate-y-1/2 rounded-full border bg-[#EBF2FF]/78 transition-all duration-200 max-[350px]:h-[118px] max-[350px]:w-[118px] ${
           isMy12Focused
             ? "border-[#2563EB]/60 shadow-[0_0_0_4px_rgba(37,99,235,0.075),inset_0_8px_24px_rgba(255,255,255,0.78)]"
             : "border-[#CFE0FF]/85 shadow-[inset_0_8px_24px_rgba(255,255,255,0.68)]"
@@ -3309,7 +3302,7 @@ function CircleTarget({
         aria-hidden="true"
       />
       <span
-        className={`absolute left-1/2 top-1/2 h-[70px] w-[70px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] transition-all duration-200 max-[350px]:h-[66px] max-[350px]:w-[66px] ${
+        className={`absolute left-1/2 top-1/2 h-[66px] w-[66px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] transition-all duration-200 max-[350px]:h-[62px] max-[350px]:w-[62px] ${
           isMy3Focused
             ? "scale-[1.03] shadow-[0_14px_28px_rgba(37,99,235,0.36),inset_0_5px_14px_rgba(255,255,255,0.28)]"
             : "shadow-[0_12px_24px_rgba(37,99,235,0.30),inset_0_5px_14px_rgba(255,255,255,0.22)]"
@@ -3319,45 +3312,70 @@ function CircleTarget({
       <svg
         aria-hidden="true"
         className="absolute inset-0 z-10 h-full w-full"
-        viewBox="0 0 172 172"
+        viewBox="0 0 236 236"
       >
         <circle
           className="cursor-pointer"
-          cx="86"
-          cy="86"
+          cx="118"
+          cy="118"
           fill="none"
-          onClick={() => onSelectCircle("seventy")}
-          onMouseEnter={() => setFocusedCircle("seventy")}
+          onClick={() => onSelectCircle("my_120")}
+          onMouseEnter={() => setFocusedCircle("my_120")}
           pointerEvents="stroke"
-          r="74"
+          r="108"
           stroke="transparent"
           strokeWidth="24"
         />
         <circle
           className="cursor-pointer"
-          cx="86"
-          cy="86"
+          cx="118"
+          cy="118"
+          fill="none"
+          onClick={() => onSelectCircle("seventy")}
+          onMouseEnter={() => setFocusedCircle("seventy")}
+          pointerEvents="stroke"
+          r="83"
+          stroke="transparent"
+          strokeWidth="30"
+        />
+        <circle
+          className="cursor-pointer"
+          cx="118"
+          cy="118"
           fill="none"
           onClick={() => onSelectCircle("twelve")}
           onMouseEnter={() => setFocusedCircle("twelve")}
           pointerEvents="stroke"
-          r="48"
+          r="55"
           stroke="transparent"
           strokeWidth="34"
         />
         <circle
           className="cursor-pointer"
-          cx="86"
-          cy="86"
+          cx="118"
+          cy="118"
           fill="transparent"
           onClick={() => onSelectCircle("three")}
           onMouseEnter={() => setFocusedCircle("three")}
-          r="28"
+          r="33"
         />
       </svg>
       <button
+        aria-label={`Open My 120, ${my120Count} people`}
+        className="absolute left-1/2 top-[7px] z-20 flex h-8 min-w-12 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-[#EFF6FF] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[5px] max-[350px]:text-[14px]"
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelectCircle("my_120");
+        }}
+        onFocus={() => setFocusedCircle("my_120")}
+        onMouseEnter={() => setFocusedCircle("my_120")}
+        type="button"
+      >
+        120
+      </button>
+      <button
         aria-label={`Open My 70, ${my70Count} people`}
-        className="absolute left-1/2 top-[6px] z-20 flex h-8 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/45 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[4px] max-[350px]:text-[14px]"
+        className="absolute left-1/2 top-[43px] z-20 flex h-8 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/60 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[38px] max-[350px]:text-[14px]"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("seventy");
@@ -3370,7 +3388,7 @@ function CircleTarget({
       </button>
       <button
         aria-label={`Open My 12, ${my12Count} people`}
-        className="absolute left-1/2 top-[43px] z-20 flex h-8 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/45 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[39px] max-[350px]:text-[14px]"
+        className="absolute left-1/2 top-[80px] z-20 flex h-8 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/60 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[73px] max-[350px]:text-[14px]"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("twelve");
@@ -3383,7 +3401,7 @@ function CircleTarget({
       </button>
       <button
         aria-label={`Open My 3, ${my3Count} people`}
-        className="absolute left-1/2 top-1/2 z-30 flex h-[70px] w-[70px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center transition-colors duration-200 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 max-[350px]:h-[66px] max-[350px]:w-[66px]"
+        className="absolute left-1/2 top-1/2 z-30 flex h-[66px] w-[66px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center transition-colors duration-200 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 max-[350px]:h-[62px] max-[350px]:w-[62px]"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("three");
@@ -3400,27 +3418,24 @@ function CircleTarget({
 
 function CircleFocusHero({
   circleGroups,
-  headline,
   onSelectCircle,
   onViewCircles,
 }: {
   circleGroups: CircleLayerGroups;
-  headline: string;
   onSelectCircle: (circle: CircleFocusView) => void;
   onViewCircles: () => void;
 }) {
   const my3Count = circleGroups.three.length;
   const my12Count = circleGroups.three.length + circleGroups.twelve.length;
   const my70Count = circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length;
+  const my120Count = my70Count + circleGroups.my120.length;
 
   return (
-    <section className="rounded-[36px] bg-white px-5 pb-6 pt-8 shadow-[0_24px_70px_rgba(37,99,235,0.075)]">
-      <h2 className="mx-auto max-w-[310px] text-center text-[30px] font-black leading-[1.02] tracking-[-0.015em] text-[#0F172A] max-[350px]:text-[28px]" style={{ fontFamily: font.oswald }}>{headline}</h2>
-
-      <CircleTarget my12Count={my12Count} my3Count={my3Count} my70Count={my70Count} onSelectCircle={onSelectCircle} />
+    <section className="-mt-1 px-1 pb-1">
+      <CircleTarget my12Count={my12Count} my120Count={my120Count} my3Count={my3Count} my70Count={my70Count} onSelectCircle={onSelectCircle} />
 
       <button
-        className="mx-auto mt-5 flex min-h-12 w-full max-w-[292px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-bold text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)]"
+        className="mx-auto mt-3 flex min-h-12 w-full max-w-[292px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-bold text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)]"
         onClick={onViewCircles}
         type="button"
       >
@@ -6972,6 +6987,7 @@ function CirclesDetailOverlay({
     { label: "My 3", value: "three" },
     { label: "My 12", value: "twelve" },
     { label: "My 70", value: "seventy" },
+    { label: "My 120", value: "my_120" },
   ];
   const circleContent = circleLayerDetails(activeCircle, circleGroups);
   const visiblePeople = previewCircleLayerItems(activeCircle, circleContent.items);
@@ -8004,7 +8020,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     })[0] ?? null;
   }, [data.fruitEvents, visibleFruit]);
   const scoreByPersonId = useMemo(() => {
-    const scores = data.circles ? [...data.circles.my3, ...data.circles.my12, ...data.circles.my70, ...data.circles.field] : [];
+    const scores = data.circles ? [...data.circles.my3, ...data.circles.my12, ...data.circles.my70, ...data.circles.my120, ...data.circles.field] : [];
 
     return new Map(scores.map((score) => [score.person.id, score]));
   }, [data.circles]);
@@ -8058,12 +8074,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       .filter((item): item is CirclePersonItem => Boolean(item.person)));
 
     return {
+      my120: mapScores(data.circles?.my120 ?? []),
       seventy: mapScores(data.circles?.my70 ?? []),
       three: mapScores(data.circles?.my3 ?? []),
       twelve: mapScores(data.circles?.my12 ?? []),
     };
   }, [data.circles, people]);
-  const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, people), [circlePeopleByLayer, people, peopleCircleView]);
+  const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer), [circlePeopleByLayer, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
   const latestMeetingDateByPersonId = useMemo(() => {
     const latestDates = new Map<string, string | null>();
@@ -8144,7 +8161,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [data.prayerLogs, loggedMeetings, people]);
   const greetingName = cleanIdentitySegment(data.workspace.greetingName) ?? firstNameFromDisplayName(data.workspace.displayName);
   const [homeSubtitle, setHomeSubtitle] = useState(() => homeDateSubtitle());
-  const [circleHeadline, setCircleHeadline] = useState(() => circleFocusHeadline());
   const profileName = workspaceProfileName(data.workspace, greetingName);
   const profileEmail = workspaceProfileEmail(data.workspace);
   const profilePhone = workspaceProfilePhone(data.workspace);
@@ -8208,7 +8224,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       const now = new Date();
 
       setHomeSubtitle(homeDateSubtitle(now));
-      setCircleHeadline(circleFocusHeadline(now));
     };
 
     updateHomeTime();
@@ -9359,7 +9374,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <div className="space-y-5">
                 <CircleFocusHero
                   circleGroups={circlePeopleByLayer}
-                  headline={circleHeadline}
                   onSelectCircle={openPeopleCircle}
                   onViewCircles={() => openPeopleCircle("three")}
                 />
