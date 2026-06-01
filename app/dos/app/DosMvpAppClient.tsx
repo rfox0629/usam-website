@@ -39,7 +39,7 @@ import {
 } from "@/src/lib/dos/relationship-model";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 
-const font = { oswald: "'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
+const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full max-w-[430px] bg-white text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:py-6";
 const dosPhoneShellClassName = "relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]";
 
@@ -1479,20 +1479,6 @@ function workspaceProfilePhone(workspace: DosAppWorkspace) {
   return cleanIdentitySegment(workspace.userPhone) ?? "";
 }
 
-function localTimeGreeting(date = new Date()) {
-  const hour = date.getHours();
-
-  if (hour < 12) {
-    return "Good morning";
-  }
-
-  if (hour < 17) {
-    return "Good afternoon";
-  }
-
-  return "Good evening";
-}
-
 const circleFocusHeadlines = [
   "Tend your three.",
   "Stay close to your people.",
@@ -2279,7 +2265,7 @@ function TabPageHeader({
 }) {
   return (
     <header className="flex min-h-10 items-center justify-between gap-3">
-      <h1 className="text-[18px] font-black uppercase tracking-[0.14em] text-[#0F172A]" style={{ fontFamily: font.rajdhani }}>
+      <h1 className="text-[18px] font-black uppercase tracking-[0.12em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
         {title}
       </h1>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -2301,13 +2287,13 @@ function TabHero({
   title: string;
 }) {
   return (
-    <section className="overflow-hidden rounded-[30px] bg-[linear-gradient(135deg,#EFF6FF_0%,#FFFFFF_58%,#F8FBFF_100%)] px-5 py-5 shadow-[0_18px_38px_rgba(37,99,235,0.09)] ring-1 ring-[#DCEBFF]">
-      <div className="flex items-center gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+    <section className="overflow-hidden rounded-[34px] bg-white px-5 py-5 shadow-[0_24px_70px_rgba(37,99,235,0.075)]">
+      <div className="flex items-center gap-3.5">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF]">
           {icon}
         </span>
         <span className="min-w-0">
-          <h2 className="text-[22px] font-bold leading-tight text-[#0F172A]">{title}</h2>
+          <h2 className="text-[24px] font-black leading-[1.02] tracking-[-0.035em] text-[#0F172A] max-[350px]:text-[22px]" style={{ fontFamily: font.oswald }}>{title}</h2>
           {subtitle ? <p className="mt-1 text-[13px] leading-5 text-[#64748B]">{subtitle}</p> : null}
           <button
             className="mt-3 inline-flex rounded-full text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB] transition-colors hover:text-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25"
@@ -2435,20 +2421,20 @@ function FeaturedTeachingCard({
   title: string;
 }) {
   return (
-    <article className="overflow-hidden rounded-[24px] border border-[#BFDBFE] bg-[#EBF2FF] shadow-[0_16px_34px_rgba(42,37,29,0.07)]">
+    <article className="overflow-hidden rounded-[28px] border border-[#EAF2FF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
       <div className="relative p-4 pb-3">
         <div className="min-w-0">
-          <span className="inline-flex rounded-full bg-white/75 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+          <span className="inline-flex rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Start here
           </span>
-          <h3 className="mt-3 text-lg font-bold leading-tight text-[#0F172A]">{title}</h3>
-          <p className="mt-1 text-xs font-medium leading-4 text-[#1D4ED8]">{description}</p>
+          <h3 className="mt-3 text-lg font-black leading-tight tracking-[-0.025em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>{title}</h3>
+          <p className="mt-1 text-xs font-medium leading-4 text-[#64748B]">{description}</p>
         </div>
-        <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/70 text-[#2563EB]">
+        <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF]">
           <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
         </div>
       </div>
-      <div className="bg-[#EBF2FF]/80 p-3">
+      <div className="border-t border-[#EFF6FF] bg-white p-3">
         <a
           className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-[11px] font-bold text-white transition-colors hover:brightness-[0.98]"
           href={href}
@@ -2476,7 +2462,7 @@ function TableTeachingRow({
 
   return (
     <a
-      className="flex min-h-[72px] items-center gap-2.5 rounded-[20px] border border-[#BFDBFE] bg-[#FFFFFF] px-3 py-2.5 shadow-[0_10px_24px_rgba(42,37,29,0.04)] transition-colors hover:border-[#BFDBFE]"
+      className="flex min-h-[72px] items-center gap-2.5 rounded-[22px] border border-[#EAF2FF] bg-white px-3 py-2.5 shadow-[0_12px_30px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE]"
       href={href}
       rel="noopener noreferrer"
       target="_blank"
@@ -2528,7 +2514,7 @@ function FollowUpGuideRow({
 
 function FollowUpGuideList() {
   return (
-    <article className="overflow-hidden rounded-[22px] border border-[#E2E8F0] bg-white shadow-[0_12px_28px_rgba(42,37,29,0.04)]">
+    <article className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
       <div className="divide-y divide-[#EBF2FF]">
         {dosFollowUpGuideResources.map((guide) => (
           <FollowUpGuideRow
@@ -2590,7 +2576,7 @@ function Sheet({
       <div className="flex min-h-full items-end justify-center">
         <div
           aria-modal="true"
-          className="w-full max-w-lg overflow-hidden rounded-t-[30px] rounded-b-[24px] border border-white/70 bg-[#FAFBFD] p-4 shadow-[0_26px_90px_rgba(0,0,0,0.20)]"
+          className="w-full max-w-lg overflow-hidden rounded-t-[30px] rounded-b-[24px] border border-white/70 bg-white p-4 shadow-[0_26px_90px_rgba(0,0,0,0.20)]"
           onMouseDown={(event) => event.stopPropagation()}
           role="dialog"
         >
@@ -2642,7 +2628,7 @@ function MobileBottomSheet({
     >
       <section
         aria-modal="true"
-        className="max-h-[calc(100dvh-1.5rem)] w-full overflow-hidden rounded-t-[32px] rounded-b-[24px] border border-white/70 bg-[#FAFBFD] p-3 shadow-[0_28px_85px_rgba(32,27,20,0.24)]"
+        className="max-h-[calc(100dvh-1.5rem)] w-full overflow-hidden rounded-t-[32px] rounded-b-[24px] border border-white/70 bg-white p-3 shadow-[0_28px_85px_rgba(32,27,20,0.24)]"
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
@@ -2673,7 +2659,7 @@ function MobileBottomSheet({
 
 function ActionList({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-[22px] bg-white shadow-[0_12px_36px_rgba(42,37,29,0.055)]">
+    <div className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_40px_rgba(37,99,235,0.045)]">
       {children}
     </div>
   );
@@ -3298,7 +3284,7 @@ function CircleTarget({
   return (
     <div
       aria-label="Discipleship circle target"
-      className="relative mx-auto mt-5 h-[172px] w-[172px] rounded-full"
+      className="relative mx-auto mt-7 h-[216px] w-[216px] rounded-full max-[350px]:h-[204px] max-[350px]:w-[204px]"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
           setFocusedCircle(null);
@@ -3309,21 +3295,21 @@ function CircleTarget({
       <span
         className={`absolute inset-0 rounded-full border bg-[#EBF2FF]/45 transition-all duration-200 ${
           isMy70Focused
-            ? "border-[#2563EB]/70 shadow-[0_0_0_5px_rgba(37,99,235,0.08),inset_0_8px_26px_rgba(255,255,255,0.82),0_16px_34px_rgba(37,99,235,0.14)]"
-            : "border-[#BFDBFE] shadow-[inset_0_6px_26px_rgba(255,255,255,0.72),0_14px_30px_rgba(37,99,235,0.08)]"
+            ? "border-[#2563EB]/60 shadow-[0_0_0_5px_rgba(37,99,235,0.065),inset_0_8px_26px_rgba(255,255,255,0.82),0_16px_34px_rgba(37,99,235,0.12)]"
+            : "border-[#CFE0FF]/80 shadow-[inset_0_6px_26px_rgba(255,255,255,0.8),0_14px_30px_rgba(37,99,235,0.06)]"
         }`}
         aria-hidden="true"
       />
       <span
-        className={`absolute left-1/2 top-1/2 h-[122px] w-[122px] -translate-x-1/2 -translate-y-1/2 rounded-full border bg-[#EBF2FF]/78 transition-all duration-200 ${
+        className={`absolute left-1/2 top-1/2 h-[154px] w-[154px] -translate-x-1/2 -translate-y-1/2 rounded-full border bg-[#EBF2FF]/78 transition-all duration-200 max-[350px]:h-[145px] max-[350px]:w-[145px] ${
           isMy12Focused
-            ? "border-[#2563EB]/70 shadow-[0_0_0_4px_rgba(37,99,235,0.09),inset_0_8px_24px_rgba(255,255,255,0.78)]"
-            : "border-[#BFDBFE] shadow-[inset_0_8px_24px_rgba(255,255,255,0.62)]"
+            ? "border-[#2563EB]/60 shadow-[0_0_0_4px_rgba(37,99,235,0.075),inset_0_8px_24px_rgba(255,255,255,0.78)]"
+            : "border-[#CFE0FF]/85 shadow-[inset_0_8px_24px_rgba(255,255,255,0.68)]"
         }`}
         aria-hidden="true"
       />
       <span
-        className={`absolute left-1/2 top-1/2 h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] transition-all duration-200 ${
+        className={`absolute left-1/2 top-1/2 h-[70px] w-[70px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] transition-all duration-200 max-[350px]:h-[66px] max-[350px]:w-[66px] ${
           isMy3Focused
             ? "scale-[1.03] shadow-[0_14px_28px_rgba(37,99,235,0.36),inset_0_5px_14px_rgba(255,255,255,0.28)]"
             : "shadow-[0_12px_24px_rgba(37,99,235,0.30),inset_0_5px_14px_rgba(255,255,255,0.22)]"
@@ -3371,7 +3357,7 @@ function CircleTarget({
       </svg>
       <button
         aria-label={`Open My 70, ${my70Count} people`}
-        className="absolute left-1/2 top-[1px] z-20 flex h-7 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[13px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/45 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        className="absolute left-1/2 top-[6px] z-20 flex h-8 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/45 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[4px] max-[350px]:text-[14px]"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("seventy");
@@ -3384,7 +3370,7 @@ function CircleTarget({
       </button>
       <button
         aria-label={`Open My 12, ${my12Count} people`}
-        className="absolute left-1/2 top-[31px] z-20 flex h-7 min-w-10 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[13px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/45 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25"
+        className="absolute left-1/2 top-[43px] z-20 flex h-8 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/45 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[39px] max-[350px]:text-[14px]"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("twelve");
@@ -3397,7 +3383,7 @@ function CircleTarget({
       </button>
       <button
         aria-label={`Open My 3, ${my3Count} people`}
-        className="absolute left-1/2 top-1/2 z-30 flex h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center transition-colors duration-200 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30"
+        className="absolute left-1/2 top-1/2 z-30 flex h-[70px] w-[70px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center transition-colors duration-200 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 max-[350px]:h-[66px] max-[350px]:w-[66px]"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("three");
@@ -3406,7 +3392,7 @@ function CircleTarget({
         onMouseEnter={() => setFocusedCircle("three")}
         type="button"
       >
-        <span className="text-[13px] font-bold leading-none text-white">3</span>
+        <span className="text-[16px] font-bold leading-none text-white max-[350px]:text-[15px]">3</span>
       </button>
     </div>
   );
@@ -3428,13 +3414,13 @@ function CircleFocusHero({
   const my70Count = circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length;
 
   return (
-    <section className="rounded-[30px] bg-white px-5 py-5 shadow-[0_18px_48px_rgba(42,37,29,0.08)]">
-      <h2 className="mx-auto max-w-[260px] text-center text-[21px] font-bold leading-tight text-[#0F172A]">{headline}</h2>
+    <section className="rounded-[36px] bg-white px-5 pb-6 pt-8 shadow-[0_24px_70px_rgba(37,99,235,0.075)]">
+      <h2 className="mx-auto max-w-[310px] text-center text-[30px] font-black leading-[1.02] tracking-[-0.015em] text-[#0F172A] max-[350px]:text-[28px]" style={{ fontFamily: font.oswald }}>{headline}</h2>
 
       <CircleTarget my12Count={my12Count} my3Count={my3Count} my70Count={my70Count} onSelectCircle={onSelectCircle} />
 
       <button
-        className="mt-5 inline-flex min-h-9 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
+        className="mx-auto mt-5 flex min-h-12 w-full max-w-[292px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-bold text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)]"
         onClick={onViewCircles}
         type="button"
       >
@@ -3468,7 +3454,7 @@ function CircleListRow({
 
   return (
     <div
-      className={`flex min-h-[64px] w-full items-center gap-3 bg-white px-3 py-2 text-left transition-colors hover:bg-[#FFFFFF] ${isLast ? "" : "border-b border-[#E2E8F0]"}`}
+      className={`flex min-h-[64px] w-full items-center gap-3 bg-white px-3 py-2 text-left transition-colors hover:bg-[#F8FBFF] ${isLast ? "" : "border-b border-[#EFF6FF]"}`}
     >
       <CircleAvatar index={index} person={person} size="sm" />
       <button className="min-w-0 flex-1 text-left" onClick={onClick} type="button">
@@ -3478,7 +3464,7 @@ function CircleListRow({
       {onLogMeeting ? (
         <button
           aria-label={`Log meeting with ${person.name}`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-[#FFFFFF] text-[#1D4ED8] transition-colors hover:border-[#2563EB]"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EFF6FF]"
           onClick={onLogMeeting}
           type="button"
         >
@@ -3508,11 +3494,11 @@ function HomeActionPill({
 }) {
   return (
     <button
-      className="inline-flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-full bg-white px-2 text-[11px] font-bold leading-3 text-[#0F172A] shadow-[0_10px_26px_rgba(42,37,29,0.055)] max-[350px]:gap-1 max-[350px]:px-1.5 max-[350px]:text-[10px]"
+      className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-full border border-[#EAF2FF] bg-white/85 px-2 text-[11px] font-semibold leading-3 text-[#334155] shadow-[0_8px_20px_rgba(15,23,42,0.035)] transition-colors hover:border-[#D7E7FF] hover:bg-white max-[350px]:gap-1 max-[350px]:px-1.5 max-[350px]:text-[10px]"
       onClick={onClick}
       type="button"
     >
-      <span className="shrink-0 text-[#2563EB]">
+      <span className="shrink-0 text-[#2563EB]/90">
         <Icon name={icon} size={14} />
       </span>
       <span className="min-w-0 text-center">{children}</span>
@@ -3630,7 +3616,7 @@ function MeetingCard({
     : hasPeople ? `${context} • ${formatDate(meeting.date)}` : formatDate(meeting.date);
 
   return (
-    <button className="group w-full max-w-[calc(100vw-32px)] rounded-[20px] border border-[#E2E8F0] bg-white p-3.5 text-left shadow-[0_10px_24px_rgba(15,23,42,0.045)] transition-all hover:border-[#BFDBFE] hover:shadow-[0_14px_30px_rgba(37,99,235,0.08)]" onClick={onClick} type="button">
+    <button className="group w-full max-w-[calc(100vw-32px)] rounded-[24px] border border-[#EAF2FF] bg-white p-3.5 text-left shadow-[0_14px_34px_rgba(37,99,235,0.045)] transition-all hover:border-[#BFDBFE] hover:shadow-[0_18px_40px_rgba(37,99,235,0.08)]" onClick={onClick} type="button">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex shrink-0 items-center">
           {avatarNames.length ? (
@@ -3649,11 +3635,6 @@ function MeetingCard({
               <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
             </span>
           )}
-          {isScheduled && meeting.googleSyncEnabled ? (
-            <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[10px] font-bold text-[#1D4ED8]">
-              {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
-            </span>
-          ) : null}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
@@ -3668,6 +3649,11 @@ function MeetingCard({
           ) : (
             <p className="mt-1.5 text-sm leading-5 text-[#94A3B8]">{isScheduled ? "No prep notes yet" : "No reflection yet"}</p>
           )}
+          {isScheduled && meeting.googleSyncEnabled ? (
+            <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[10px] font-bold text-[#1D4ED8]">
+              {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
+            </span>
+          ) : null}
         </div>
       </div>
     </button>
@@ -5712,13 +5698,13 @@ function FruitTreeCard({
   storyCount: number;
 }) {
   return (
-    <section className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_16px_36px_rgba(37,99,235,0.08)]">
+    <section className="overflow-hidden rounded-[34px] bg-white p-5 shadow-[0_24px_70px_rgba(37,99,235,0.075)]">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Fruit Tree
           </p>
-          <h2 className="mt-1 text-xl font-bold leading-tight text-[#0F172A]">What God is Growing</h2>
+          <h2 className="mt-1 text-xl font-black leading-tight tracking-[-0.015em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>What God is Growing</h2>
         </div>
         <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1 text-[11px] font-bold text-[#1D4ED8]">
           {storyCount} {storyCount === 1 ? "story" : "stories"}
@@ -5755,7 +5741,7 @@ function KingdomFruitMetricTile({
   }[label] ?? <Icon name="fruit" size={14} />;
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:rounded-[16px] max-[350px]:px-2.5">
+    <div className="min-w-0 overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-white px-3 py-3 shadow-[0_12px_30px_rgba(37,99,235,0.045)] max-[350px]:rounded-[18px] max-[350px]:px-2.5">
       <div className="flex min-h-[54px] min-w-0 items-center gap-2.5 max-[350px]:gap-2">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-8 max-[350px]:w-8">
           {icon}
@@ -6992,7 +6978,7 @@ function CirclesDetailOverlay({
   const hiddenCount = Math.max(0, circleContent.items.length - visiblePeople.length);
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-6 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-6 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white" onClick={onBack} type="button" aria-label="Back to home">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -7190,7 +7176,7 @@ function PersonDetailOverlay({
   }, [person.id]);
 
   return (
-    <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
+    <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to people">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -7214,7 +7200,7 @@ function PersonDetailOverlay({
         <MeetingActionRow onLogMeeting={onLogMeeting} onScheduleMeeting={onScheduleMeeting} />
       </div>
 
-      <div className="sticky top-0 z-20 -mx-4 mt-4 bg-[#FAFBFD]/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-0 z-20 -mx-4 mt-4 bg-white/95 px-4 py-2 backdrop-blur">
         <div className="grid grid-cols-3 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
           {[
             { label: "Overview", value: "overview" },
@@ -7695,7 +7681,7 @@ function MeetingDetailOverlay({
 
   if (showPostMeetingFollowUp && isLoggedTableMeeting) {
     return (
-      <div className="absolute inset-0 z-40 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
+      <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
         <header className="flex items-center justify-between gap-3">
           <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to meetings">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -7758,7 +7744,7 @@ function MeetingDetailOverlay({
   }
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to meetings">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -7779,7 +7765,7 @@ function MeetingDetailOverlay({
           <div className="mx-auto flex justify-center -space-x-2">
             {avatarNames.map((name, index) => (
               <span
-                className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#FAFBFD] text-sm font-bold ${avatarTone(index)}`}
+                className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-white text-sm font-bold ${avatarTone(index)}`}
                 key={`${meeting.id}-detail-${name}`}
               >
                 {initials(name)}
@@ -8157,7 +8143,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, [data.prayerLogs, loggedMeetings, people]);
   const greetingName = cleanIdentitySegment(data.workspace.greetingName) ?? firstNameFromDisplayName(data.workspace.displayName);
-  const [timeGreeting, setTimeGreeting] = useState("Good morning");
   const [homeSubtitle, setHomeSubtitle] = useState(() => homeDateSubtitle());
   const [circleHeadline, setCircleHeadline] = useState(() => circleFocusHeadline());
   const profileName = workspaceProfileName(data.workspace, greetingName);
@@ -8222,7 +8207,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const updateHomeTime = () => {
       const now = new Date();
 
-      setTimeGreeting(localTimeGreeting(now));
       setHomeSubtitle(homeDateSubtitle(now));
       setCircleHeadline(circleFocusHeadline(now));
     };
@@ -9344,15 +9328,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   return (
     <div className={dosRootShellClassName}>
       <div ref={appShellRef} className={dosPhoneShellClassName}>
-        <div ref={appScrollRef} className="h-full overflow-y-auto px-4 pb-28 pt-8 [scrollbar-width:none]">
+        <div ref={appScrollRef} className="h-full overflow-y-auto px-4 pb-28 pt-11 [scrollbar-width:none]">
           {activeTab === "home" ? (
             <header className="relative">
               <div className="min-w-0 pr-16">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                <p className="text-[20px] font-black leading-none tracking-[-0.035em] text-[#1D4ED8]" style={{ fontFamily: font.oswald }}>
                   DOS
                 </p>
-                <h1 className="mt-1 max-w-[270px] text-[32px] font-bold leading-tight tracking-tight text-[#0F172A]">
-                  {timeGreeting}, {greetingName}.
+                <h1 className="mt-2 max-w-[340px] text-[46px] font-black leading-[0.88] tracking-[-0.025em] text-[#020617] max-[350px]:text-[42px]" style={{ fontFamily: font.oswald, wordSpacing: "0.04em" }}>
+                  <span className="block">Discipleship</span>
+                  <span className="block">on the go.</span>
                 </h1>
                 <span className="mt-2 inline-flex rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-[11px] font-semibold leading-none text-[#64748B] shadow-[0_6px_14px_rgba(37,99,235,0.045)]">
                   {homeSubtitle}
@@ -9369,7 +9354,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             </header>
           ) : null}
 
-          <main className={activeTab === "home" ? "mt-7" : undefined}>
+          <main className={activeTab === "home" ? "mt-10" : undefined}>
             {activeTab === "home" ? (
               <div className="space-y-5">
                 <CircleFocusHero
@@ -9590,7 +9575,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   icon={<Icon name="fruit" size={20} />}
                   onScriptureClick={openScriptureQuickView}
                   scripture={scriptureReferences.matthew716}
-                  title="“By their fruit you will recognize them.”"
+                  subtitle="Track visible outcomes of faith, obedience, and multiplication."
+                  title="Recognize the fruit."
                 />
                 <FruitTreeCard storyCount={fruitDashboardStories.length} />
 

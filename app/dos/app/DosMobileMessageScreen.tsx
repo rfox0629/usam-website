@@ -17,7 +17,7 @@ export function DosMobileMessageScreen({
   title: string;
 }) {
   return (
-    <main className="min-h-screen bg-[#FAFBFD] px-5 py-16 text-[#0F172A]">
+    <main className="min-h-screen bg-white px-5 py-16 text-[#0F172A]">
       <section className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-sm flex-col justify-center">
         <div className="rounded-[30px] border border-[#E2E8F0] bg-white p-6 shadow-[0_22px_70px_rgba(15,23,42,0.08)]">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#2563EB]">

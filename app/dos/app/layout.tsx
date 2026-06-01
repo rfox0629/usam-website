@@ -9,15 +9,10 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
         dangerouslySetInnerHTML={{
           __html: `
             body:has(.dos-app-route) {
-              background: #FAFBFD !important;
+              background: #FFFFFF !important;
               color: #0F172A;
               font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
               overflow-x: hidden;
-            }
-
-            .dos-app-route,
-            .dos-app-route * {
-              font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
             }
 
             .dos-app-route {
@@ -26,7 +21,12 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
               margin: 0 auto;
               min-height: 100dvh;
               flex: 0 1 430px;
-              background: #FAFBFD;
+              background: #FFFFFF;
+              font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            }
+
+            .dos-app-route :where(button, a, input, textarea, select) {
+              font-family: inherit;
             }
 
             .dos-app-route :where(button, a, input, textarea, select):focus {
@@ -48,7 +48,7 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
               display: flex;
               justify-content: center;
               align-items: stretch;
-              background: #FAFBFD;
+              background: #FFFFFF;
             }
 
             @media (max-width: 430px) {
