@@ -48,11 +48,21 @@ export async function GET(request: Request) {
     }
   }
 
+  const { data: syncLinks } = await supabase
+    .from("calendar_event_links")
+    .select("last_synced_at")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .not("last_synced_at", "is", null)
+    .order("last_synced_at", { ascending: false })
+    .limit(1);
+
   return NextResponse.json({
     calendarId: data?.calendar_id ?? null,
     connected: Boolean(data),
     connectedAt: data?.connected_at ?? null,
     googleAccountEmail: data?.google_account_email ?? null,
     googleConfigured: isGoogleCalendarConfigured(),
+    lastSyncedAt: syncLinks?.[0]?.last_synced_at ?? null,
   });
 }

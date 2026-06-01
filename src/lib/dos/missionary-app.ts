@@ -235,6 +235,7 @@ export type DosAppCalendarConnection = {
   connectedAt: string | null;
   googleAccountEmail: string | null;
   googleConfigured: boolean;
+  lastSyncedAt: string | null;
 };
 
 export type DosAppRelationshipReminder = {
@@ -425,6 +426,7 @@ type CalendarConnectionRow = {
 };
 
 type CalendarEventLinkRow = {
+  last_synced_at: string | null;
   source_id: string;
   source_type: string;
   sync_status: string | null;
@@ -895,7 +897,7 @@ async function loadCalendarConnectionForWorkspace(supabase: SupabaseAdminClient,
 async function loadCalendarEventLinksForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("calendar_event_links")
-    .select("source_type, source_id, sync_status")
+    .select("source_type, source_id, sync_status, last_synced_at")
     .eq("workspace_id", workspaceId)
     .eq("provider", "google")
     .in("source_type", ["meeting", "reminder", "important_date"]);
@@ -1380,6 +1382,10 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     connectedAt: calendarConnectionRow?.connected_at ?? null,
     googleAccountEmail: calendarConnectionRow?.google_account_email ?? null,
     googleConfigured: isGoogleCalendarConfigured(),
+    lastSyncedAt: calendarEventLinkRows
+      .map((link) => link.last_synced_at)
+      .filter((value): value is string => Boolean(value))
+      .sort((first, second) => activityDateValue(second) - activityDateValue(first))[0] ?? null,
   };
 
   return {

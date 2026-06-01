@@ -469,6 +469,7 @@ function buildDosPreviewDemoData(): DosAppData {
       connectedAt: demoTimestamp,
       googleAccountEmail: "ryan@example.com",
       googleConfigured: true,
+      lastSyncedAt: demoTimestamp,
     },
     circles,
     fruit,
