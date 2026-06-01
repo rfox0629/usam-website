@@ -19,7 +19,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
+import type { DosAppCalendarConnection, DosAppData, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import {
@@ -138,12 +138,27 @@ const fruitOutcomeOptions = [
 
 const outcomeTagOptions = fruitOutcomeOptions;
 const meetingObservedFruitOptions = fruitOutcomeOptions.map((label) => ({ label, value: label }));
+const reminderTypeOptions = [
+  { helper: "Yearly", label: "Birthday", value: "birthday" },
+  { helper: "Yearly", label: "Anniversary", value: "anniversary" },
+  { helper: "Yearly", label: "Baptism", value: "baptism" },
+  { helper: "Yearly", label: "Salvation", value: "salvation" },
+  { helper: "One time", label: "Follow Up", value: "follow_up" },
+  { helper: "One time", label: "Prayer", value: "prayer" },
+  { helper: "Flexible", label: "Custom", value: "custom" },
+] as const;
+const reminderRecurrenceOptions = [
+  { label: "None", value: "none" },
+  { label: "Yearly", value: "yearly" },
+  { label: "Monthly", value: "monthly" },
+  { label: "Weekly", value: "weekly" },
+] as const;
 
 type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView | "other";
-type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "scheduleMeeting" | null;
+type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "prayer" | "search" | "upload";
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
 type MeetingReviewFollowUp = "none" | "quick_review" | "testimony_request";
@@ -400,6 +415,40 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
+function formatTime(value: string | null) {
+  const date = parseDisplayDate(value);
+
+  if (!date) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatMeetingTimeRange(meeting: DosAppMeeting) {
+  const start = formatTime(meeting.scheduledStartAt ?? meeting.date);
+  const end = formatTime(meeting.scheduledEndAt);
+
+  return [formatDate(meeting.scheduledStartAt ?? meeting.date), start && end ? `${start} - ${end}` : start].filter(Boolean).join(" · ");
+}
+
+function isUpcomingDate(value: string | null | undefined) {
+  const date = value ? parseDisplayDate(value) : null;
+
+  if (!date) {
+    return false;
+  }
+
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+
+  return dateStart >= todayStart;
+}
+
 function formatRelativeDate(value: string | null) {
   const date = parseDisplayDate(value);
 
@@ -454,6 +503,10 @@ function isDateWithinRange(value: string | null | undefined, start: Date, end: D
   return Boolean(date && date.getTime() >= start.getTime() && date.getTime() <= end.getTime());
 }
 
+function dateSortValue(value: string | null | undefined) {
+  return parseDisplayDate(value ?? null)?.getTime() ?? 0;
+}
+
 function formatWeekRangeCompact(start: Date, end: Date) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     day: "numeric",
@@ -493,12 +546,103 @@ function todayDateValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function localDateTimeIso(dateValue: string, timeValue: string) {
+  const date = new Date(`${dateValue}T${timeValue || "00:00"}:00`);
+
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function formDurationMinutes(value: FormDataEntryValue | null) {
+  const minutes = Number(value);
+
+  return Number.isFinite(minutes) && minutes > 0 ? minutes : 60;
+}
+
 function meetingTypeLabel(value: string) {
   return meetingTypeOptions.find((option) => option.value === value)?.label ?? "Meeting";
 }
 
 function meetingActivityTitle(meeting: DosAppMeeting) {
   return meeting.source === "connection" ? meeting.title : meetingTypeLabel(meeting.type);
+}
+
+function reminderTypeLabel(value: DosAppRelationshipReminder["reminderType"]) {
+  return reminderTypeOptions.find((option) => option.value === value)?.label ?? "Reminder";
+}
+
+function reminderDisplayTitle(reminder: DosAppRelationshipReminder, person?: DosAppPerson | null) {
+  if (reminder.title?.trim()) {
+    return reminder.title.trim();
+  }
+
+  const personName = person?.name ?? "Person";
+
+  switch (reminder.reminderType) {
+    case "anniversary":
+      return `${personName} anniversary`;
+    case "baptism":
+      return `${personName} baptism`;
+    case "birthday":
+      return `${personName} birthday`;
+    case "salvation":
+      return `${personName} salvation`;
+    case "follow_up":
+      return `Follow up with ${personName}`;
+    case "prayer":
+      return `Pray for ${personName}`;
+    case "custom":
+    default:
+      return `Reminder for ${personName}`;
+  }
+}
+
+function nextReminderDate(reminder: DosAppRelationshipReminder) {
+  const date = parseDisplayDate(reminder.reminderDate);
+
+  if (!date || reminder.recurrence === "none") {
+    return reminder.reminderDate;
+  }
+
+  const now = new Date();
+  const nextDate = new Date(date);
+
+  if (reminder.recurrence === "yearly") {
+    nextDate.setFullYear(now.getFullYear());
+    if (nextDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+      nextDate.setFullYear(now.getFullYear() + 1);
+    }
+  }
+
+  if (reminder.recurrence === "monthly") {
+    nextDate.setFullYear(now.getFullYear(), now.getMonth());
+    if (nextDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+      nextDate.setMonth(nextDate.getMonth() + 1);
+    }
+  }
+
+  if (reminder.recurrence === "weekly") {
+    while (nextDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+      nextDate.setDate(nextDate.getDate() + 7);
+    }
+  }
+
+  return nextDate.toISOString();
+}
+
+function reminderSyncLabel(reminder: DosAppRelationshipReminder) {
+  if (!reminder.googleSyncEnabled) {
+    return null;
+  }
+
+  if (reminder.googleSyncStatus === "synced") {
+    return "Synced";
+  }
+
+  if (reminder.googleSyncStatus === "failed") {
+    return "Sync failed";
+  }
+
+  return "Sync pending";
 }
 
 function isPrayerMeeting(meeting: DosAppMeeting) {
@@ -520,7 +664,9 @@ function answerLabel(value: DosConversationAnswer | undefined) {
 }
 
 function meetingMetadataLine(meeting: DosAppMeeting) {
-  return formatDosMeetingSecondary(meetingActivityTitle(meeting), formatDate(meeting.date));
+  const dateLine = meeting.meetingStatus === "scheduled" ? formatMeetingTimeRange(meeting) : formatDate(meeting.date);
+
+  return formatDosMeetingSecondary(meetingActivityTitle(meeting), dateLine);
 }
 
 function reviewStatusLabel(value: DosAppReviewStatus) {
@@ -1488,7 +1634,6 @@ function StatTile({
   );
 }
 
-type PersonActivitySection = "meetings" | "reflections" | "reviews";
 type PersonOutcomeEntry =
   | {
     date: string | null;
@@ -1511,24 +1656,39 @@ function ActivityFilterCard({
   onClick,
   value,
 }: {
-  active: boolean;
+  active?: boolean;
   helper?: string;
   icon: ReactNode;
   label: string;
-  onClick: () => void;
+  onClick?: () => void;
   value: number;
 }) {
+  const className = `min-w-0 overflow-hidden rounded-[18px] border px-2.5 py-3 text-left transition-all max-[350px]:rounded-[16px] max-[350px]:px-2 ${
+    active
+      ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_14px_30px_rgba(37,99,235,0.26)]"
+    </>
+  );
+
+  if (!onClick) {
+    return (
+      <div className={className}>
+        {content}
+      </div>
+    );
+  }
+
   return (
     <button
       aria-pressed={active}
-      className={`min-w-0 overflow-hidden rounded-[18px] border px-2.5 py-3 text-left transition-all active:scale-[0.98] max-[350px]:rounded-[16px] max-[350px]:px-2 ${
-        active
-          ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_14px_30px_rgba(37,99,235,0.26)]"
-          : "border-[#E2E8F0] bg-white text-[#0F172A] shadow-[0_8px_22px_rgba(37,99,235,0.045)] hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
-      }`}
+      className={`${className} active:scale-[0.98] hover:border-[#BFDBFE] hover:bg-[#F8FAFC]`}
       onClick={onClick}
       type="button"
     >
+      {content}
+      : "border-[#E2E8F0] bg-white text-[#0F172A] shadow-[0_8px_22px_rgba(37,99,235,0.045)]"
+  }`;
+  const content = (
+    <>
       <span className="flex items-center justify-between gap-1.5">
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${active ? "bg-white/18 text-white ring-1 ring-white/30" : "bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]"} max-[350px]:h-7 max-[350px]:w-7`}>
           {icon}
@@ -3032,6 +3192,7 @@ function ThisWeekHeader({ label }: { label: string }) {
     </div>
   );
 }
+  const isScheduled = meeting.meetingStatus === "scheduled";
 
 function MeetingCard({
   meeting,
@@ -3048,7 +3209,9 @@ function MeetingCard({
   const context = meetingActivityTitle(meeting);
   const summary = meeting.notes?.trim();
   const title = meetingDisplayTitle(meeting, people);
-  const metadata = hasPeople ? `${context} • ${formatDate(meeting.date)}` : formatDate(meeting.date);
+  const metadata = isScheduled
+    ? `Scheduled • ${formatMeetingTimeRange(meeting)}`
+    : hasPeople ? `${context} • ${formatDate(meeting.date)}` : formatDate(meeting.date);
 
   return (
     <button className="group w-full max-w-[calc(100vw-32px)] rounded-[20px] border border-[#E2E8F0] bg-white p-3.5 text-left shadow-[0_10px_24px_rgba(15,23,42,0.045)] transition-all hover:border-[#BFDBFE] hover:shadow-[0_14px_30px_rgba(37,99,235,0.08)]" onClick={onClick} type="button">
@@ -3070,6 +3233,11 @@ function MeetingCard({
               <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
             </span>
           )}
+          {isScheduled && meeting.googleSyncEnabled ? (
+            <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[10px] font-bold text-[#1D4ED8]">
+              {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
+            </span>
+          ) : null}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
@@ -3082,7 +3250,7 @@ function MeetingCard({
           {summary ? (
             <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-[#334155]">{summary}</p>
           ) : (
-            <p className="mt-1.5 text-sm leading-5 text-[#94A3B8]">No reflection yet</p>
+            <p className="mt-1.5 text-sm leading-5 text-[#94A3B8]">{isScheduled ? "No prep notes yet" : "No reflection yet"}</p>
           )}
         </div>
       </div>
@@ -4082,16 +4250,61 @@ function MeetingFormContent({
   );
 }
 
-function ScheduleMeetingPlaceholder({
+function CalendarConnectionCard({
+  calendarConnection,
+  workspaceId,
+}: {
+  calendarConnection: DosAppCalendarConnection;
+  workspaceId: string;
+}) {
+  const connectHref = `/api/dos/app/calendar/google/connect?workspaceId=${encodeURIComponent(workspaceId)}&next=${encodeURIComponent(`/dos/app?workspace=${workspaceId}`)}`;
+
+  return (
+    <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+      <div className="flex items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold leading-5 text-[#0F172A]">
+            {calendarConnection.connected ? "Google Calendar connected" : "Google Calendar"}
+          </span>
+          <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">
+            {calendarConnection.connected
+              ? calendarConnection.googleAccountEmail ?? "Ready to sync"
+              : calendarConnection.googleConfigured ? "Connect to sync scheduled items." : "You can still save without Google."}
+  calendarConnection,
+  errorMessage,
+          </span>
+  isSubmitting,
+        </span>
+        {!calendarConnection.connected && calendarConnection.googleConfigured ? (
+          <a className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" href={connectHref}>
+            Connect
+          </a>
+        ) : null}
+  onSubmit,
+      </div>
+    </section>
+  );
+  workspaceId,
+}
+
+  calendarConnection: DosAppCalendarConnection;
+  errorMessage?: string;
+function ScheduleMeetingForm({
+  isSubmitting: boolean;
   allPeople,
   isCreatingPerson = false,
   meetingPeopleOptions,
   meetingPeopleQuery,
   onContextChange,
   onCreatePerson,
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onPeopleQueryChange,
   onStartLogMeeting,
   onTogglePerson,
+  workspaceId: string;
   selectedMeetingContext,
   selectedPersonIds,
 }: {
@@ -4107,24 +4320,9 @@ function ScheduleMeetingPlaceholder({
   selectedMeetingContext: DosAppMeetingType;
   selectedPersonIds: string[];
 }) {
-  const [scheduledDate, setScheduledDate] = useState(todayDateValue());
-  const [scheduledTime, setScheduledTime] = useState("");
-
   return (
-    <div className="space-y-3">
-      <section className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-            <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.8} />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              Coming Soon
-            </span>
-            <span className="mt-1 block text-sm font-semibold leading-5 text-[#0F172A]">Scheduling will create future follow-ups from DOS.</span>
-          </span>
-        </div>
-      </section>
+    <form className="space-y-3" onSubmit={onSubmit}>
+      <CalendarConnectionCard calendarConnection={calendarConnection} workspaceId={workspaceId} />
       <MeetingPeopleSelector
         allPeople={allPeople}
         isCreatingPerson={isCreatingPerson}
@@ -4132,6 +4330,8 @@ function ScheduleMeetingPlaceholder({
         onQueryChange={onPeopleQueryChange}
         onToggle={onTogglePerson}
         people={meetingPeopleOptions}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
         query={meetingPeopleQuery}
         selectedPersonIds={selectedPersonIds}
       />
@@ -4140,15 +4340,181 @@ function ScheduleMeetingPlaceholder({
         <div className="grid grid-cols-2 gap-2">
           <label className="block min-w-0">
             <FieldLabel>Date</FieldLabel>
-            <input className={FieldInputClass()} onChange={(event) => setScheduledDate(event.target.value)} type="date" value={scheduledDate} />
+            <input className={FieldInputClass()} defaultValue={todayDateValue()} name="scheduled_date" required type="date" />
           </label>
           <label className="block min-w-0">
-            <FieldLabel>Time</FieldLabel>
-            <input className={FieldInputClass()} onChange={(event) => setScheduledTime(event.target.value)} type="time" value={scheduledTime} />
+            <FieldLabel>Start Time</FieldLabel>
+            <input className={FieldInputClass()} defaultValue="18:00" name="scheduled_time" required type="time" />
+          </label>
+          <label className="block min-w-0">
+            <FieldLabel>Duration</FieldLabel>
+            <select className={FieldInputClass()} defaultValue="60" name="duration_minutes">
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">1 hour</option>
+              <option value="90">90 min</option>
+        <label className="block">
+          <FieldLabel>Notes</FieldLabel>
+          <textarea className={`${FieldTextareaClass()} min-h-20`} name="notes" placeholder="What should you remember before this meeting?" />
+        </label>
+              <option value="120">2 hours</option>
+            </select>
+          </label>
+          <label className="flex min-h-[72px] min-w-0 items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-3">
+            <input
+              className="h-5 w-5 shrink-0 accent-[#2563EB]"
+              defaultChecked={calendarConnection.connected}
+              disabled={!calendarConnection.connected}
+              name="google_sync_enabled"
+              type="checkbox"
+            />
+            <span className="min-w-0 text-xs font-bold leading-5 text-[#0F172A]">Sync to Google</span>
           </label>
         </div>
       </div>
-      <AppButton icon="log" onClick={onStartLogMeeting} tone="black">Log Meeting Instead</AppButton>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Scheduling..." : "Schedule Meeting"}</AppButton>
+      <AppButton disabled={isSubmitting} icon="log" onClick={onStartLogMeeting} tone="white">Log Meeting Instead</AppButton>
+    </form>
+  );
+}
+
+function ReminderFormContent({
+  calendarConnection,
+  defaultPersonId,
+  errorMessage,
+  isSubmitting,
+  onDelete,
+  onSubmit,
+  people,
+  reminder,
+  workspaceId,
+}: {
+  calendarConnection: DosAppCalendarConnection;
+  defaultPersonId?: string | null;
+  errorMessage?: string;
+  isSubmitting: boolean;
+  onDelete?: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  people: DosAppPerson[];
+  reminder?: DosAppRelationshipReminder | null;
+  workspaceId: string;
+}) {
+  const fallbackPersonId = defaultPersonId ?? people[0]?.id ?? "";
+  const defaultReminderType = reminder?.reminderType ?? "follow_up";
+  const defaultRecurrence = reminder?.recurrence ?? (["birthday", "anniversary", "baptism", "salvation"].includes(defaultReminderType) ? "yearly" : "none");
+
+  return (
+    <form className="space-y-3" onSubmit={onSubmit}>
+      <CalendarConnectionCard calendarConnection={calendarConnection} workspaceId={workspaceId} />
+      <section className="grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+        <label className="block">
+          <FieldLabel>Person</FieldLabel>
+          <select className={FieldInputClass()} defaultValue={reminder?.personId ?? fallbackPersonId} name="person_id" required>
+            {people.map((person) => (
+              <option key={person.id} value={person.id}>{person.name}</option>
+            ))}
+          </select>
+        </label>
+        <FormOptionSelect
+          defaultValue={defaultReminderType}
+          label="Reminder Type"
+          name="reminder_type"
+          options={reminderTypeOptions}
+        />
+        <label className="block">
+          <FieldLabel>Title</FieldLabel>
+          <input className={FieldInputClass()} defaultValue={reminder?.title ?? ""} name="title" placeholder="Optional reminder title" type="text" />
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block min-w-0">
+            <FieldLabel>Date</FieldLabel>
+            <input className={FieldInputClass()} defaultValue={(reminder?.reminderDate ?? todayDateValue()).slice(0, 10)} name="reminder_date" required type="date" />
+          </label>
+          <FormOptionSelect
+            defaultValue={defaultRecurrence}
+            label="Repeat"
+            name="recurrence"
+            options={reminderRecurrenceOptions}
+          />
+        </div>
+        <label className="block">
+          <FieldLabel>Notes</FieldLabel>
+          <textarea className={`${FieldTextareaClass()} min-h-20`} defaultValue={reminder?.notes ?? ""} name="notes" placeholder="Prayer notes, follow-up context, or details." />
+        </label>
+        <label className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-3">
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-[#0F172A]">Sync to Google</span>
+            <span className="mt-0.5 block text-xs text-[#64748B]">{calendarConnection.connected ? "Create or update a calendar event." : "Saves in DOS without Google."}</span>
+          </span>
+          <input
+            className="h-5 w-5 shrink-0 accent-[#2563EB]"
+            defaultChecked={calendarConnection.connected && reminder?.googleSyncEnabled !== false}
+            disabled={!calendarConnection.connected}
+            name="google_sync_enabled"
+            type="checkbox"
+          />
+        </label>
+      </section>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting || !people.length} tone="black" type="submit">{isSubmitting ? "Saving..." : reminder ? "Save Reminder" : "Add Reminder"}</AppButton>
+      {reminder && onDelete ? (
+        <button
+          className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSubmitting}
+          onClick={onDelete}
+          type="button"
+        >
+          Delete Reminder
+        </button>
+      ) : null}
+    </form>
+  );
+}
+
+function ReminderRow({
+  onClick,
+  person,
+  reminder,
+}: {
+  onClick?: () => void;
+  person?: DosAppPerson | null;
+  reminder: DosAppRelationshipReminder;
+}) {
+  const syncLabel = reminderSyncLabel(reminder);
+  const content = (
+    <>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        {reminder.reminderType === "birthday" ? (
+          <Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        ) : (
+          <Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold leading-5 text-[#0F172A]">{reminderDisplayTitle(reminder, person)}</span>
+        <span className="mt-1 block text-xs leading-5 text-[#64748B]">
+          {reminderTypeLabel(reminder.reminderType)} · {formatDate(nextReminderDate(reminder))}
+          {reminder.recurrence !== "none" ? ` · ${reminder.recurrence}` : ""}
+        </span>
+        {reminder.notes ? <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{reminder.notes}</span> : null}
+        {syncLabel ? <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[10px] font-bold text-[#1D4ED8]">{syncLabel}</span> : null}
+      </span>
+      {onClick ? <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" onClick={onClick} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      {content}
     </div>
   );
 }
@@ -5616,7 +5982,10 @@ function CirclesDetailOverlay({
           type="button"
         >
           <Icon name="log" size={14} />
+  reminders,
           Log Meeting
+  onAddReminder,
+  onEditReminder,
         </button>
       </section>
     </div>
@@ -5631,7 +6000,10 @@ function PersonDetailOverlay({
   leaderReflections,
   meetings,
   onBack,
+  reminders: DosAppRelationshipReminder[];
   onEdit,
+  onAddReminder: () => void;
+  onEditReminder: (reminderId: string) => void;
   onOpenMeeting,
   onLogMeeting,
   onScheduleMeeting,
@@ -5656,7 +6028,6 @@ function PersonDetailOverlay({
 }) {
   const detailScrollRef = useRef<HTMLDivElement | null>(null);
   const [activeDetailTab, setActiveDetailTab] = useState<"activity" | "fruit" | "overview">("overview");
-  const [activeActivitySection, setActiveActivitySection] = useState<PersonActivitySection>("meetings");
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
   const defaults = personFormDefaults(person);
@@ -5667,18 +6038,39 @@ function PersonDetailOverlay({
   const engagementOverviewScore = relationshipScoreLabel(relationshipScore);
   const engagementOverviewLabel = overviewEngagementLabel(relationshipScore);
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
-  const personReviews = personMeetings.filter((meeting) => meeting.review.status !== "not_sent" && meeting.review.status !== "pending");
+  const personLoggedMeetings = personMeetings.filter((meeting) => meeting.meetingStatus === "logged");
+  const personScheduledMeetings = personMeetings
+    .filter((meeting) => meeting.meetingStatus === "scheduled" && isUpcomingDate(meeting.scheduledStartAt ?? meeting.date))
+    .sort((first, second) => dateSortValue(first.scheduledStartAt ?? first.date) - dateSortValue(second.scheduledStartAt ?? second.date));
+  const personReminders = reminders
+    .filter((reminder) => reminder.personId === person.id)
+    .sort((first, second) => dateSortValue(nextReminderDate(first)) - dateSortValue(nextReminderDate(second)));
+  const upcomingReminders = personReminders.filter((reminder) => isUpcomingDate(nextReminderDate(reminder)));
+  const upcomingActivityItems = [
+    ...personScheduledMeetings.map((meeting) => ({
+      date: meeting.scheduledStartAt ?? meeting.date,
+      id: `meeting-${meeting.id}`,
+      meeting,
+      type: "meeting" as const,
+    })),
+    ...upcomingReminders.map((reminder) => ({
+      date: nextReminderDate(reminder),
+      id: `reminder-${reminder.id}`,
+      reminder,
+      type: "reminder" as const,
+    })),
+  ].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
   const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || personMeetings.some((meeting) => meeting.id === review.meetingId));
   const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || personMeetings.some((meeting) => meeting.id === testimony.meetingId));
   const personFruitSummary = selectPersonDetailFruitSummary({
     fruitEvents,
     fruitItems,
     leaderReflections,
-    meetings,
+    meetings: meetings.filter((meeting) => meeting.meetingStatus === "logged"),
     person,
   });
   const personFruitEvents = personFruitSummary.fruitEvents;
-  const personReflections = leaderReflections.filter((reflection) => reflection.personId === person.id || personMeetings.some((meeting) => meeting.id === reflection.meetingId));
+  const personReflections = leaderReflections.filter((reflection) => reflection.personId === person.id || personLoggedMeetings.some((meeting) => meeting.id === reflection.meetingId));
   const personOutcomeFruitEvents = personFruitEvents.filter(isObservableFruitOutcome);
   const personOutcomeTestimonies = personTestimonies.filter((testimony) => isSubmittedStatus(testimony.status) && Boolean(testimony.story?.trim() || testimony.whatChanged?.trim()));
   const personOutcomeEntries: PersonOutcomeEntry[] = [
@@ -5699,23 +6091,23 @@ function PersonDetailOverlay({
   const selectedOutcomeMeeting = selectedOutcomeEntry
     ? meetings.find((meeting) => meeting.id === (selectedOutcomeEntry.type === "fruit" ? selectedOutcomeEntry.event.meetingId : selectedOutcomeEntry.testimony.meetingId)) ?? null
     : null;
-  const recentMeetings = personMeetings.slice(0, 3);
+  const recentMeetings = personLoggedMeetings.slice(0, 3);
   const relationshipTypePill = relationshipTypePillLabel(person);
   const spiritualJourneyPill = deriveSpiritualJourney({
     fruitEvents: personFruitEvents,
     fruitSummary: personFruitSummary,
-    meetings: personMeetings,
+    meetings: personLoggedMeetings,
     participantReviews: personParticipantReviews,
     participantTestimonies: personTestimonies,
     person,
     reflections: personReflections,
   });
-  const lastMeetingDate = personMeetings[0]?.date ?? person.lastActivityAt;
+  const lastMeetingDate = personLoggedMeetings[0]?.date ?? person.lastActivityAt;
   const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
   const overviewNotes = defaults.notes?.trim() ?? "";
-  const completedGuidedMeetings = personMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
+  const completedGuidedMeetings = personLoggedMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
   const relationshipSnapshotReasons = Array.from(new Set([
-    personMeetings.length ? `${personMeetings.length} meeting${personMeetings.length === 1 ? "" : "s"} logged` : "",
+    personLoggedMeetings.length ? `${personLoggedMeetings.length} meeting${personLoggedMeetings.length === 1 ? "" : "s"} logged` : "",
     completedGuidedMeetings ? `${completedGuidedMeetings} guided conversation${completedGuidedMeetings === 1 ? "" : "s"} completed` : "",
     relationshipTypePill !== "New" ? "Active discipleship relationship" : "",
     personFruitEvents.length ? `${personFruitEvents.length} fruit event${personFruitEvents.length === 1 ? "" : "s"} recorded` : "",
@@ -5735,7 +6127,6 @@ function PersonDetailOverlay({
 
   useEffect(() => {
     setActiveDetailTab("overview");
-    setActiveActivitySection("meetings");
     setIsSnapshotOpen(false);
     setSelectedOutcomeEntry(null);
     scrollDetailToTop();
@@ -5783,9 +6174,6 @@ function PersonDetailOverlay({
                 const nextTab = tab.value as typeof activeDetailTab;
                 setActiveDetailTab(nextTab);
                 scrollDetailToTop();
-                if (nextTab === "activity") {
-                  setActiveActivitySection("meetings");
-                }
               }}
               type="button"
             >
@@ -5913,87 +6301,64 @@ function PersonDetailOverlay({
             <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Activity">
               <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
                 <ActivityFilterCard
-                  active={activeActivitySection === "meetings"}
                   icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <CompactButton icon="bell" onClick={onAddReminder}>Add Reminder</CompactButton>
+                <CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Meeting</CompactButton>
+              </div>
                   label="Meetings"
-                  onClick={() => setActiveActivitySection("meetings")}
-                  value={personMeetings.length}
+                  value={personLoggedMeetings.length}
                 />
                 <ActivityFilterCard
-                  active={activeActivitySection === "reviews"}
-                  icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Reviews"
-                  onClick={() => setActiveActivitySection("reviews")}
-                  value={personParticipantReviews.length + personReviews.length}
+                  icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Scheduled"
+                  value={personScheduledMeetings.length}
                 />
                 <ActivityFilterCard
-                  active={activeActivitySection === "reflections"}
-                  icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Reflections"
-                  onClick={() => setActiveActivitySection("reflections")}
-                  value={personReflections.length}
+                  icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Reminders"
+                  value={upcomingReminders.length}
                 />
               </div>
             </DetailCard>
 
-            {activeActivitySection === "meetings" ? (
-              <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Meetings">
-                {recentMeetings.length ? recentMeetings.map((meeting) => (
-                  <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
+            <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Upcoming">
+              {upcomingActivityItems.length ? upcomingActivityItems.map((item) => (
+                item.type === "meeting" ? (
+                  <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={item.id} type="button" onClick={() => onOpenMeeting(item.meeting.id)}>
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
                       <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-bold leading-5 text-[#0F172A]">{meetingActivityTitle(meeting)}</span>
-                      <span className="mt-1 block text-xs leading-5 text-[#64748B]">{formatDate(meeting.date)}</span>
-                      <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{meeting.notes || "No summary added yet."}</span>
+                      <span className="block text-sm font-bold leading-5 text-[#0F172A]">{meetingDisplayTitle(item.meeting, [person])}</span>
+                      <span className="mt-1 block text-xs leading-5 text-[#64748B]">{formatMeetingTimeRange(item.meeting)}</span>
+                      <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{item.meeting.notes || "No prep notes yet."}</span>
                     </span>
                     <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
                   </button>
-                )) : <SectionEmptyState text="Log the next conversation when it happens." title="No meetings yet." />}
-              </DetailCard>
-            ) : null}
+                ) : (
+                  <ReminderRow key={item.id} onClick={() => onEditReminder(item.reminder.id)} person={person} reminder={item.reminder} />
+                )
+              )) : (
+                <SectionEmptyState action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Meeting</CompactButton>} text="Scheduled meetings and reminders will appear here." title="Nothing upcoming." />
+              )}
+            </DetailCard>
 
-            {activeActivitySection === "reviews" ? (
-              <DetailCard icon={<MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Reviews">
-                {personParticipantReviews.length ? personParticipantReviews.slice(0, 3).map((review) => (
-                  <ParticipantReviewRow key={review.id} review={review} />
-                )) : null}
-                {personReviews.length ? personReviews.slice(0, 3).map((meeting) => (
-                  <button className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} onClick={() => onOpenMeeting(meeting.id)} type="button">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-                      <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-bold text-[#0F172A]">Quick Review</span>
-                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${reviewStatusClass(meeting.review.status)}`} style={{ fontFamily: font.rajdhani }}>
-                          {reviewStatusLabel(meeting.review.status)}
-                        </span>
-                      </span>
-                      <span className="mt-2 line-clamp-3 block text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut || "Review submitted."}</span>
-                      <span className="mt-2 block text-xs text-[#94A3B8]">
-                        {meeting.review.submittedName ? `${meeting.review.submittedName} · ` : ""}
-                        {meetingActivityTitle(meeting)} · {formatDate(meeting.review.submittedAt ?? meeting.date)}
-                      </span>
-                    </span>
-                  </button>
-                )) : null}
-                {!personParticipantReviews.length && !personReviews.length ? (
-                  <SectionEmptyState text="Send a review link after your next meeting." title="No reviews yet." />
-                ) : null}
-              </DetailCard>
-            ) : null}
-
-            {activeActivitySection === "reflections" ? (
-              <DetailCard icon={<StickyNote className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Reflections">
-                {personReflections.length ? personReflections.slice(0, 4).map((reflection) => (
-                  <LeaderReflectionRow key={reflection.id} reflection={reflection} />
-                )) : (
-                  <SectionEmptyState text="After a meeting, capture what happened while it is fresh." title="No reflections yet." />
-                )}
-              </DetailCard>
-            ) : null}
+            <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Recent Activity">
+              {recentMeetings.length ? recentMeetings.map((meeting) => (
+                <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+                    <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold leading-5 text-[#0F172A]">{meetingActivityTitle(meeting)}</span>
+                    <span className="mt-1 block text-xs leading-5 text-[#64748B]">{formatDate(meeting.date)}</span>
+                    <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{meeting.notes || "No summary added yet."}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+                </button>
+              )) : <SectionEmptyState action={<CompactButton icon="log" onClick={onLogMeeting}>Log Meeting</CompactButton>} text="Log the next conversation when it happens." title="No meetings yet." />}
+            </DetailCard>
           </>
         ) : null}
 
@@ -6220,6 +6585,8 @@ function MeetingDetailOverlay({
   onBack: () => void;
   onDone: () => void;
   onEdit: () => void;
+  const isScheduledMeeting = meeting.meetingStatus === "scheduled";
+  const isLoggedTableMeeting = isTableMeeting && !isScheduledMeeting;
   onEditNotes: () => void;
   onPrepareQuickReview: () => void;
   onPrepareTestimonyRequest: () => void;
@@ -6263,7 +6630,7 @@ function MeetingDetailOverlay({
       ? "Awaiting response."
       : "Invite them to share how God worked in their life through this conversation.";
 
-  if (showPostMeetingFollowUp && isTableMeeting) {
+  if (showPostMeetingFollowUp && isLoggedTableMeeting) {
     return (
       <div className="absolute inset-0 z-40 overflow-y-auto bg-[#FAFBFD] px-4 pb-28 pt-7 [scrollbar-width:none]">
         <header className="flex items-center justify-between gap-3">
@@ -6334,9 +6701,9 @@ function MeetingDetailOverlay({
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-          Meeting
+          {isScheduledMeeting ? "Scheduled" : "Meeting"}
         </p>
-        {isTableMeeting ? (
+        {isLoggedTableMeeting ? (
           <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
             <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
             Edit
@@ -6355,6 +6722,11 @@ function MeetingDetailOverlay({
                 {initials(name)}
               </span>
             ))}
+          {meeting.googleSyncEnabled ? (
+            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+              {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
+            </span>
+          ) : null}
           </div>
         ) : (
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
@@ -6367,7 +6739,7 @@ function MeetingDetailOverlay({
         <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-            {conversationFlowLabel(meeting.conversationFlowKey)}
+            {isScheduledMeeting ? "Scheduled" : conversationFlowLabel(meeting.conversationFlowKey)}
           </span>
           {temperature ? (
             <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
@@ -6378,7 +6750,7 @@ function MeetingDetailOverlay({
       </section>
 
       <div className="mt-5 grid gap-3">
-        {isTableMeeting ? (
+        {isLoggedTableMeeting ? (
           <DetailCard title="Quick Review">
             <div>
               <p className="text-sm font-semibold text-[#0F172A]">{reviewDisplayTitle}</p>
@@ -6405,7 +6777,7 @@ function MeetingDetailOverlay({
           </DetailCard>
         ) : null}
 
-        {isTableMeeting && canSendTestimony ? (
+        {isLoggedTableMeeting && canSendTestimony ? (
           <DetailCard title="Testimony Request">
             <div>
               <p className="text-sm font-semibold text-[#0F172A]">{storyDisplayTitle}</p>
@@ -6424,13 +6796,13 @@ function MeetingDetailOverlay({
           </DetailCard>
         ) : null}
 
-        <DetailCard title="Meeting Notes">
+        <DetailCard title={isScheduledMeeting ? "Prep Notes" : "Meeting Notes"}>
           {meeting.notes ? (
             <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#0F172A]">
               {meeting.notes}
             </div>
           ) : (
-            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">No meeting notes were added.</p>
+            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No meeting notes were added."}</p>
           )}
           {isTableMeeting ? (
             <button
@@ -6444,7 +6816,7 @@ function MeetingDetailOverlay({
           ) : null}
         </DetailCard>
 
-        <ConversationFlowDetail meeting={meeting} />
+        {!isScheduledMeeting ? <ConversationFlowDetail meeting={meeting} /> : null}
 
         {meetingReflections.length ? (
         <DetailCard title="Leader Reflections">
@@ -6521,12 +6893,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [peopleQuery, setPeopleQuery] = useState("");
   const [peopleCircleView, setPeopleCircleView] = useState<PeopleCircleView>("three");
   const [peopleImportMessage, setPeopleImportMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [selectedReminderId, setSelectedReminderId] = useState<string | null>(null);
   const [meetingNotesOverrides, setMeetingNotesOverrides] = useState<Record<string, string | null>>({});
   const [pendingMeetingSendAction, setPendingMeetingSendAction] = useState<PendingMeetingSendAction | null>(null);
   const [reviewLinksByMeetingId, setReviewLinksByMeetingId] = useState<Record<string, string>>({});
   const [reviewLinkMeetingId, setReviewLinkMeetingId] = useState<string | null>(null);
   const [reviewShareMessage, setReviewShareMessage] = useState("");
   const [postMeetingFollowUpId, setPostMeetingFollowUpId] = useState<string | null>(null);
+  const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
   const [testimonyLinksByMeetingId, setTestimonyLinksByMeetingId] = useState<Record<string, string>>({});
   const [testimonyLinkMeetingId, setTestimonyLinkMeetingId] = useState<string | null>(null);
   const [testimonyShareMessage, setTestimonyShareMessage] = useState("");
@@ -6551,7 +6925,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [data.people, quickAddedPeople]);
   const fruitDashboardStories = useMemo(() => approvedFruitStories(data.fruit, data.fruitEvents, people), [data.fruit, data.fruitEvents, people]);
   const fruitMetrics = useMemo(() => kingdomFruitMetrics(fruitDashboardStories), [fruitDashboardStories]);
-  const latestMeeting = data.meetings[0];
+  const latestMeeting = loggedMeetings[0];
   const latestFruitActivity = useMemo(() => {
     const fruitItems = [
       ...visibleFruit.map((fruit) => ({
@@ -6601,6 +6975,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     const token = reviewLinksByMeetingId[selectedMeeting.id];
 
+  const selectedReminder = useMemo(() => data.reminders.find((reminder) => reminder.id === selectedReminderId) ?? null, [data.reminders, selectedReminderId]);
     if (!token || selectedMeeting.review.status !== "not_sent") {
       return selectedMeeting;
     }
@@ -6632,7 +7007,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const latestMeetingDateByPersonId = useMemo(() => {
     const latestDates = new Map<string, string | null>();
 
-    data.meetings.forEach((meeting) => {
+    loggedMeetings.forEach((meeting) => {
       if (!meeting.date) {
         return;
       }
@@ -6650,9 +7025,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     });
 
     return latestDates;
-  }, [data.meetings]);
+  }, [loggedMeetings]);
   const latestPrayerActivity = useMemo(() => {
-    const prayerMeetings = data.meetings
+    const prayerMeetings = loggedMeetings
       .filter(isPrayerMeeting)
       .map((meeting) => ({
         date: meeting.date,
@@ -6662,7 +7037,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const prayerReflections = data.leaderReflections
       .filter((reflection) => Boolean(normalizeText(reflection.prayerNeeds)))
       .map((reflection) => {
-        const meeting = data.meetings.find((item) => item.id === reflection.meetingId) ?? null;
+        const meeting = loggedMeetings.find((item) => item.id === reflection.meetingId) ?? null;
 
         return {
           date: reflection.createdAt,
@@ -6677,10 +7052,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       return secondTime - firstTime;
     })[0] ?? null;
-  }, [data.leaderReflections, data.meetings, people]);
+  }, [data.leaderReflections, loggedMeetings, people]);
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
-    const meetingsThisWeek = data.meetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
+    const meetingsThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
     const prayerLogsThisWeek = (data.prayerLogs ?? []).filter((log: DosAppPrayerLog) => isDateWithinRange(log.prayedAt, start, end));
 
     return {
@@ -6689,7 +7064,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       newPeople: people.filter((person) => isDateWithinRange(person.createdAt, start, end)).length,
       prayed: prayerLogsThisWeek.length,
     };
-  }, [data.meetings, data.prayerLogs, people]);
+  }, [data.prayerLogs, loggedMeetings, people]);
   const greetingName = cleanIdentitySegment(data.workspace.greetingName) ?? firstNameFromDisplayName(data.workspace.displayName);
   const [timeGreeting, setTimeGreeting] = useState("Good morning");
   const [homeSubtitle, setHomeSubtitle] = useState(() => homeDateSubtitle());
@@ -6747,6 +7122,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function resetMeetingDraft(personIds: string[] = []) {
     setConversationResponses({});
+    setSelectedReminderId(null);
     setMeetingPeopleQuery("");
     setSelectedConversationFlow("none");
     setSelectedMeetingContext("kitchen_table");
@@ -6785,6 +7161,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function handleConversationFlowChange(flowKey: DosConversationFlowKey) {
+    setSelectedReminderId(null);
     setSelectedConversationFlow(flowKey);
     setConversationResponses({});
   }
@@ -6805,6 +7182,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setPostMeetingFollowUpId(null);
     setPeopleImportMessage(null);
   }
+    setSelectedReminderId(null);
 
   function openPeopleCircle(circle: PeopleCircleView = "three") {
     setActiveTab("people");
@@ -6817,6 +7195,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsCirclesOpen(false);
     setReviewLinkMeetingId(null);
     setReviewShareMessage("");
+    setSelectedReminderId(null);
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
     setPendingMeetingSendAction(null);
@@ -6849,6 +7228,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+  function openReminderForm(personId?: string) {
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
+    setSelectedReminderId(null);
+    setErrorMessage("");
+    setFormMode("reminder");
+    setSelectedMeetingPersonIds(personId ? [personId] : []);
+  }
+
+  function openReminderEdit(reminderId: string) {
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
+    setSelectedReminderId(reminderId);
+    setErrorMessage("");
+    setFormMode("reminder");
+  }
+
     setErrorMessage("");
     setFormMode("meeting");
     setIsAdditionalPersonInfoOpen(false);
@@ -6863,6 +7259,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setFormMode("scheduleMeeting");
     setIsAdditionalPersonInfoOpen(false);
     resetMeetingDraft(Array.isArray(personId) ? personId : personId ? [personId] : []);
+    setSelectedReminderId(null);
   }
 
   function openScheduledDraftAsMeeting() {
@@ -7197,6 +7594,44 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             prayerNeeds,
             privateNotes: "",
             spiritualOpenness,
+  function handleScheduleMeetingSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const scheduledDate = String(formData.get("scheduled_date") ?? todayDateValue());
+    const scheduledTime = String(formData.get("scheduled_time") ?? "");
+    const scheduledStartAt = localDateTimeIso(scheduledDate, scheduledTime);
+
+    if (!scheduledStartAt) {
+      setErrorMessage("Choose a valid meeting date and time.");
+      return;
+    }
+
+    const scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + formDurationMinutes(formData.get("duration_minutes")) * 60_000).toISOString();
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+
+    void (async () => {
+      const result = await submitJson("/api/dos/app/meetings", {
+        conversationFlowKey: "none",
+        conversationResponses: {},
+        fieldPersonIds: selectedMeetingPersonIds,
+        googleSyncEnabled: formData.get("google_sync_enabled") === "on",
+        meetingStatus: "scheduled",
+        notes: String(formData.get("notes") ?? ""),
+        scheduledEndAt,
+        scheduledStartAt,
+        tableDate: scheduledDate,
+        tableType: selectedMeetingContext,
+        timezone,
+      }, "POST", false);
+
+      if (result?.id) {
+        closeForm();
+        setActiveTab("meetings");
+        setSelectedMeetingId(result.id);
+      }
+    })();
+  }
+
             whatHappened: meetingNotes,
           }, "POST", false);
 
@@ -7246,6 +7681,49 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const displayNotes = notes.trim() ? notes : null;
 
     void (async () => {
+  function handleReminderSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const personId = String(formData.get("person_id") ?? selectedMeetingPersonIds[0] ?? "");
+    const reminderType = String(formData.get("reminder_type") ?? "custom");
+    const rawRecurrence = String(formData.get("recurrence") ?? "none");
+    const recurrence = ["anniversary", "baptism", "birthday", "salvation"].includes(reminderType) && rawRecurrence === "none"
+      ? "yearly"
+      : rawRecurrence;
+    const googleSyncEnabled = formData.get("google_sync_enabled") === "on";
+    const reminderDate = String(formData.get("reminder_date") ?? todayDateValue());
+    const payload = {
+      googleSyncEnabled,
+      google_sync_enabled: googleSyncEnabled,
+      id: selectedReminder?.id,
+      notes: String(formData.get("notes") ?? ""),
+      personId,
+      person_id: personId,
+      recurrence,
+      reminderDate,
+      reminder_date: reminderDate,
+      reminderType,
+      reminder_type: reminderType,
+      title: String(formData.get("title") ?? ""),
+    };
+
+    void submitJson("/api/dos/app/reminders", payload, selectedReminder ? "PATCH" : "POST");
+  }
+
+  function handleDeleteReminder() {
+    if (!selectedReminder) {
+      return;
+    }
+
+    if (!window.confirm("Delete this reminder?")) {
+      return;
+    }
+
+    void submitJson("/api/dos/app/reminders", {
+      id: selectedReminder.id,
+    }, "DELETE");
+  }
+
       const result = await submitJson("/api/dos/app/meetings", {
         id: selectedMeeting.id,
         notes,
@@ -7870,8 +8348,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             activeCircle={circleSheetView}
             circleGroups={circlePeopleByLayer}
             latestMeetingDateByPersonId={latestMeetingDateByPersonId}
+              reminders={data.reminders}
             onClose={() => setCircleSheetView(null)}
+            onAddReminder={() => openReminderForm(selectedPerson.id)}
             onLogMeeting={() => openForm("meeting")}
+            onEditReminder={openReminderEdit}
             onLogMeetingForPerson={openMeetingForPerson}
             onOpenPerson={openPersonDetail}
           />
@@ -8058,19 +8539,40 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onToggleOutcomeTag={toggleOutcomeTag}
             onTogglePerson={toggleMeetingPersonId}
             recommendedResources={draftRecommendedResources}
+            calendarConnection={data.calendarConnection}
+            errorMessage={errorMessage}
             selectedConversationFlow={selectedConversationFlow}
+            isSubmitting={isSubmitting}
             selectedMeetingContext={selectedMeetingContext}
             selectedOutcomeTags={selectedOutcomeTags}
             selectedPersonIds={selectedMeetingPersonIds}
             showDurationField
             submittingText="Saving..."
           />
+            onSubmit={handleScheduleMeetingSubmit}
         </Sheet>
       ) : null}
 
+            workspaceId={data.workspace.id}
+          />
+        </Sheet>
+      ) : null}
+
+      {formMode === "reminder" ? (
+        <Sheet onClose={closeForm} showEyebrow={false} title={selectedReminder ? "Edit Reminder" : "Add Reminder"}>
+          <ReminderFormContent
+            calendarConnection={data.calendarConnection}
+            defaultPersonId={selectedMeetingPersonIds[0] ?? selectedPerson?.id ?? null}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onDelete={selectedReminder ? handleDeleteReminder : undefined}
+            onSubmit={handleReminderSubmit}
+            people={people}
+            reminder={selectedReminder}
+            workspaceId={data.workspace.id}
       {formMode === "scheduleMeeting" ? (
         <Sheet onClose={closeForm} showEyebrow={false} title="Schedule Meeting">
-          <ScheduleMeetingPlaceholder
+          <ScheduleMeetingForm
             allPeople={people}
             isCreatingPerson={isCreatingMeetingPerson}
             meetingPeopleOptions={meetingPeopleOptions}

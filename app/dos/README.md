@@ -69,6 +69,19 @@ DOS Reviews are external fruit verification from the person ministered to.
 - Public sharing permission is captured, but reviews and Fruit stay private until a future publishing workflow explicitly publishes them.
 - Future work: publishing approvals, testimony pages, Quick Check-In variants, Ministry Experience, Full Testimony / Fruit Story, SMS/email/WhatsApp sending, and public testimony publishing.
 
+## Google Calendar Setup
+
+DOS Calendar sync is server-owned. OAuth tokens must stay out of client components and are stored through the DOS calendar connection tables.
+
+Required environment variables:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+- `GOOGLE_CALENDAR_SCOPES`
+
+Use `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email openid` for the MVP scope set unless product direction changes. `GOOGLE_REDIRECT_URI` should point to `/api/dos/app/calendar/google/callback` on the active local, preview, or production origin being tested.
+
 ## Active Route Boundary
 
 - Canonical DOS entry route: `/dos`.

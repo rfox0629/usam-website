@@ -12,6 +12,7 @@ import {
   type DosConversationFlowKey,
   type DosConversationResponses,
 } from "@/src/lib/dos/meeting-engine";
+import { recordCalendarSyncFailure, syncGoogleCalendarEvent } from "@/src/lib/dos/google-calendar";
 import { dosAppMeetingTypes, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -22,8 +23,13 @@ type MeetingPayload = {
   id?: unknown;
   notes?: unknown;
   notesOnly?: unknown;
+  googleSyncEnabled?: unknown;
+  meetingStatus?: unknown;
+  scheduledEndAt?: unknown;
+  scheduledStartAt?: unknown;
   tableDate?: unknown;
   tableType?: unknown;
+  timezone?: unknown;
   workspaceId?: unknown;
 };
 
@@ -47,10 +53,115 @@ function asDateString(value: unknown) {
   return /^\d{4}-\d{2}-\d{2}$/.test(nextValue) ? nextValue : new Date().toISOString().slice(0, 10);
 }
 
+function asIsoString(value: unknown) {
+  const nextValue = asString(value);
+
+  if (!nextValue) {
+    return null;
+  }
+
+  const date = new Date(nextValue);
+
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function asMeetingStatus(value: unknown) {
+  const nextValue = asString(value);
+
+  return nextValue === "scheduled" || nextValue === "canceled" ? nextValue : "logged";
+}
+
 function asMeetingType(value: unknown): DosAppMeetingType {
   const nextValue = asString(value);
 
   return dosAppMeetingTypes.includes(nextValue as DosAppMeetingType) ? nextValue as DosAppMeetingType : "kitchen_table";
+}
+
+function isMissingSchedulingColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return ["meeting_status", "scheduled_start_at", "scheduled_end_at", "timezone", "google_sync_enabled"].some((column) => message.includes(column));
+}
+
+function schedulingSetupResponse() {
+  return NextResponse.json({ error: "Scheduling is not ready yet. You can still log a meeting now." }, { status: 500 });
+}
+
+function meetingRecordCandidates(record: Record<string, unknown>) {
+  const schedulingKeys = ["meeting_status", "scheduled_start_at", "scheduled_end_at", "timezone", "google_sync_enabled"];
+  const { workspace_id: _workspaceId, ...legacyRecord } = record;
+  const withoutScheduling = Object.fromEntries(Object.entries(record).filter(([key]) => !schedulingKeys.includes(key)));
+  const legacyWithoutScheduling = Object.fromEntries(Object.entries(legacyRecord).filter(([key]) => !schedulingKeys.includes(key)));
+
+  return [record, withoutScheduling, legacyRecord, legacyWithoutScheduling];
+}
+
+function meetingTitleForCalendar(participantNames: string[], tableType: DosAppMeetingType) {
+  if (participantNames.length) {
+    return `Meeting with ${participantNames.slice(0, 2).join(", ")}${participantNames.length > 2 ? " +" : ""}`;
+  }
+
+  return `${tableType.replace(/_/g, " ")} meeting`;
+}
+
+function meetingDescriptionForCalendar(notes: string | null) {
+  return [notes?.trim() ?? "", "Created from DOS."].filter(Boolean).join("\n\n");
+}
+
+async function syncMeetingCalendarEvent({
+  meetingId,
+  notes,
+  participantNames,
+  scheduledEndAt,
+  scheduledStartAt,
+  supabase,
+  tableType,
+  timezone,
+  workspaceId,
+}: {
+  meetingId: string;
+  notes: string | null;
+  participantNames: string[];
+  scheduledEndAt: string | null;
+  scheduledStartAt: string | null;
+  supabase: ReturnType<typeof createSupabaseAdminClient>;
+  tableType: DosAppMeetingType;
+  timezone: string | null;
+  workspaceId: string;
+}) {
+  if (!scheduledStartAt) {
+    await recordCalendarSyncFailure({
+      error: "Scheduled start time is required before syncing to Google Calendar.",
+      sourceId: meetingId,
+      sourceType: "meeting",
+      supabase,
+      workspaceId,
+    }).catch(() => undefined);
+    return;
+  }
+
+  const start = new Date(scheduledStartAt);
+  const defaultEnd = new Date(start.getTime() + 60 * 60 * 1000).toISOString();
+
+  await syncGoogleCalendarEvent({
+    description: meetingDescriptionForCalendar(notes),
+    endAt: scheduledEndAt ?? defaultEnd,
+    reminderMinutes: [60],
+    sourceId: meetingId,
+    sourceType: "meeting",
+    startAt: scheduledStartAt,
+    timezone,
+    title: meetingTitleForCalendar(participantNames, tableType),
+    workspaceId,
+  }, supabase).catch(async (calendarError) => {
+    await recordCalendarSyncFailure({
+      error: calendarError instanceof Error ? calendarError.message : "Unable to sync Google Calendar event.",
+      sourceId: meetingId,
+      sourceType: "meeting",
+      supabase,
+      workspaceId,
+    }).catch(() => undefined);
+  });
 }
 
 async function readPayload(request: Request) {
@@ -175,57 +286,100 @@ export async function POST(request: Request) {
   const validPersonIds = validPeople.map((person) => person.id);
   const participantNames = validPeople.map((person) => person.name);
   const recommendedResources = buildMeetingRecommendations(conversationFlowKey, conversationResponses);
+  const meetingStatus = asMeetingStatus(payload.meetingStatus);
+  const scheduledStartAt = asIsoString(payload.scheduledStartAt);
+  const scheduledEndAt = asIsoString(payload.scheduledEndAt);
+  const tableType = asMeetingType(payload.tableType);
+  const timezone = asString(payload.timezone) || null;
+  const googleSyncEnabled = payload.googleSyncEnabled === true;
+  const notes = asString(payload.notes) || null;
+  const requiresSchedulingColumns = meetingStatus === "scheduled" || Boolean(scheduledStartAt || scheduledEndAt || timezone || googleSyncEnabled);
   const meetingInsert: Record<string, unknown> = {
     conversation_flow_key: conversationFlowKey,
     conversation_responses: conversationResponses,
     field_person_ids: validPersonIds,
+    google_sync_enabled: googleSyncEnabled,
     household_id: workspaceId,
-    notes: asString(payload.notes) || null,
+    meeting_status: meetingStatus,
+    notes,
     participant_names: participantNames,
     recommended_resources: recommendedResources,
+    scheduled_end_at: scheduledEndAt,
+    scheduled_start_at: scheduledStartAt,
     source: "field",
     table_date: asDateString(payload.tableDate),
-    table_type: asMeetingType(payload.tableType),
+    table_type: tableType,
+    timezone,
     workspace_id: workspaceId,
   };
-  const insertResult = await supabase
-    .from("missionary_tables")
-    .insert(meetingInsert)
-    .select("id")
-    .single();
-  // TODO: Remove the household_id-only insert fallback after all Supabase
-  // environments have the Command Center workspace_id migration applied.
-  const { workspace_id: _workspaceId, ...legacyMeetingInsert } = meetingInsert;
-  const { data, error } = insertResult.error && isMissingWorkspaceScopeColumn(insertResult.error)
-    ? await supabase
+  let insertResult: { data: { id: unknown } | null; error: { message: string } | null } | null = null;
+
+  for (const candidate of meetingRecordCandidates(meetingInsert)) {
+    insertResult = await supabase
       .from("missionary_tables")
-      .insert(legacyMeetingInsert)
+      .insert(candidate)
       .select("id")
-      .single()
-    : insertResult;
+      .single();
+
+    if (insertResult.error && requiresSchedulingColumns && isMissingSchedulingColumn(insertResult.error)) {
+      break;
+    }
+
+    if (!insertResult.error || (!isMissingWorkspaceScopeColumn(insertResult.error) && !isMissingSchedulingColumn(insertResult.error))) {
+      break;
+    }
+  }
+
+  const { data, error } = insertResult ?? { data: null, error: { message: "Unable to create meeting." } };
 
   if (error) {
+    if (requiresSchedulingColumns && isMissingSchedulingColumn(error)) {
+      return schedulingSetupResponse();
+    }
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (validPersonIds.length) {
+  if (!data) {
+    return NextResponse.json({ error: "Unable to create meeting." }, { status: 500 });
+  }
+
+  if (validPersonIds.length && meetingStatus === "logged") {
     await supabase
       .from("missionary_field_people")
       .update({ last_activity_at: new Date().toISOString() })
       .in("id", validPersonIds);
   }
 
-  await recalculateCircleScores(workspaceId).catch((scoreError) => {
-    console.warn("[DOS circles] Unable to recalculate after meeting create", scoreError);
-  });
+  if (meetingStatus === "logged") {
+    await recalculateCircleScores(workspaceId).catch((scoreError) => {
+      console.warn("[DOS circles] Unable to recalculate after meeting create", scoreError);
+    });
+  }
 
-  await Promise.all(validPersonIds.map((personId) => inferFruitEventsFromEngagement({
-    leaderId: authResult.authorization.userId,
-    personId,
-    workspaceId,
-  }, supabase))).catch((fruitError) => {
-    console.warn("[Fruit Intelligence] Unable to infer engagement fruit after meeting create", fruitError);
-  });
+  if (meetingStatus === "logged") {
+    await Promise.all(validPersonIds.map((personId) => inferFruitEventsFromEngagement({
+      leaderId: authResult.authorization.userId,
+      personId,
+      workspaceId,
+    }, supabase))).catch((fruitError) => {
+      console.warn("[Fruit Intelligence] Unable to infer engagement fruit after meeting create", fruitError);
+    });
+  }
+
+  if (data?.id && googleSyncEnabled && meetingStatus === "scheduled") {
+    await syncMeetingCalendarEvent({
+      meetingId: String(data.id),
+      notes,
+      participantNames,
+      scheduledEndAt,
+      scheduledStartAt,
+      supabase,
+      tableType,
+      timezone,
+      workspaceId,
+    });
+  }
 
   return NextResponse.json({ id: data.id, ok: true });
 }
@@ -322,57 +476,109 @@ export async function PATCH(request: Request) {
   const validPeople = (peopleData ?? []) as Array<{ id: string; name: string }>;
   const validPersonIds = validPeople.map((person) => person.id);
   const participantNames = validPeople.map((person) => person.name);
+  const meetingStatus = asMeetingStatus(payload.meetingStatus);
+  const scheduledStartAt = asIsoString(payload.scheduledStartAt);
+  const scheduledEndAt = asIsoString(payload.scheduledEndAt);
+  const tableType = asMeetingType(payload.tableType);
+  const timezone = asString(payload.timezone) || null;
+  const googleSyncEnabled = payload.googleSyncEnabled === true;
+  const notes = asString(payload.notes) || null;
+  const requiresSchedulingColumns = meetingStatus === "scheduled" || Boolean(scheduledStartAt || scheduledEndAt || timezone || googleSyncEnabled);
   const meetingUpdate: Record<string, unknown> = {
     conversation_flow_key: conversationFlowKey,
     conversation_responses: conversationResponses,
     field_person_ids: validPersonIds,
-    notes: asString(payload.notes) || null,
+    google_sync_enabled: googleSyncEnabled,
+    meeting_status: meetingStatus,
+    notes,
     participant_names: participantNames,
     recommended_resources: buildMeetingRecommendations(conversationFlowKey, conversationResponses),
+    scheduled_end_at: scheduledEndAt,
+    scheduled_start_at: scheduledStartAt,
     table_date: asDateString(payload.tableDate),
-    table_type: asMeetingType(payload.tableType),
+    table_type: tableType,
+    timezone,
   };
-  const updateResult = await supabase
-    .from("missionary_tables")
-    .update(meetingUpdate)
-    .eq("id", id)
-    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-    .select("id")
-    .single();
-  // TODO: Remove the household_id-only fallback after all Supabase environments
-  // have the Command Center workspace_id migration applied.
-  const { data, error } = updateResult.error && isMissingWorkspaceScopeColumn(updateResult.error)
-    ? await supabase
+  let updateResult: { data: { id: unknown } | null; error: { message: string } | null } | null = null;
+
+  for (const candidate of meetingRecordCandidates(meetingUpdate)) {
+    const scopedUpdateResult = await supabase
       .from("missionary_tables")
-      .update(meetingUpdate)
+      .update(candidate)
       .eq("id", id)
-      .eq("household_id", workspaceId)
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
       .select("id")
-      .single()
-    : updateResult;
+      .single();
+
+    updateResult = scopedUpdateResult.error && isMissingWorkspaceScopeColumn(scopedUpdateResult.error)
+      ? await supabase
+        .from("missionary_tables")
+        .update(candidate)
+        .eq("id", id)
+        .eq("household_id", workspaceId)
+        .select("id")
+        .single()
+      : scopedUpdateResult;
+
+    if (updateResult.error && requiresSchedulingColumns && isMissingSchedulingColumn(updateResult.error)) {
+      break;
+    }
+
+    if (!updateResult.error || (!isMissingWorkspaceScopeColumn(updateResult.error) && !isMissingSchedulingColumn(updateResult.error))) {
+      break;
+    }
+  }
+
+  const { data, error } = updateResult ?? { data: null, error: { message: "Unable to update meeting." } };
 
   if (error) {
+    if (requiresSchedulingColumns && isMissingSchedulingColumn(error)) {
+      return schedulingSetupResponse();
+    }
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (validPersonIds.length) {
+  if (!data) {
+    return NextResponse.json({ error: "Unable to update meeting." }, { status: 500 });
+  }
+
+  if (validPersonIds.length && meetingStatus === "logged") {
     await supabase
       .from("missionary_field_people")
       .update({ last_activity_at: new Date().toISOString() })
       .in("id", validPersonIds);
   }
 
-  await recalculateCircleScores(workspaceId).catch((scoreError) => {
-    console.warn("[DOS circles] Unable to recalculate after meeting update", scoreError);
-  });
+  if (meetingStatus === "logged") {
+    await recalculateCircleScores(workspaceId).catch((scoreError) => {
+      console.warn("[DOS circles] Unable to recalculate after meeting update", scoreError);
+    });
+  }
 
-  await Promise.all(validPersonIds.map((personId) => inferFruitEventsFromEngagement({
-    leaderId: authResult.authorization.userId,
-    personId,
-    workspaceId,
-  }, supabase))).catch((fruitError) => {
-    console.warn("[Fruit Intelligence] Unable to infer engagement fruit after meeting update", fruitError);
-  });
+  if (meetingStatus === "logged") {
+    await Promise.all(validPersonIds.map((personId) => inferFruitEventsFromEngagement({
+      leaderId: authResult.authorization.userId,
+      personId,
+      workspaceId,
+    }, supabase))).catch((fruitError) => {
+      console.warn("[Fruit Intelligence] Unable to infer engagement fruit after meeting update", fruitError);
+    });
+  }
+
+  if (data?.id && googleSyncEnabled && meetingStatus === "scheduled") {
+    await syncMeetingCalendarEvent({
+      meetingId: String(data.id),
+      notes,
+      participantNames,
+      scheduledEndAt,
+      scheduledStartAt,
+      supabase,
+      tableType,
+      timezone,
+      workspaceId,
+    });
+  }
 
   return NextResponse.json({ id: data.id, ok: true });
 }

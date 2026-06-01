@@ -8,6 +8,7 @@ import {
   type DosAppMeeting,
   type DosAppParticipantReview,
   type DosAppPerson,
+  type DosAppRelationshipReminder,
 } from "@/src/lib/dos/missionary-app";
 import { normalizeRelationshipType, relationshipModelCounts } from "@/src/lib/dos/relationship-model";
 import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
@@ -29,6 +30,8 @@ export const metadata: Metadata = {
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
+type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "scheduledEndAt" | "scheduledStartAt" | "timezone">
+  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "scheduledEndAt" | "scheduledStartAt" | "timezone">>;
 
 function LockedPreviewScreen() {
   return (
@@ -63,6 +66,18 @@ function buildDemoReview(status: DosAppMeeting["review"]["status"] = "not_sent",
     submittedAt: status === "not_sent" ? null : demoTimestamp,
     submittedName: status === "not_sent" ? null : "Ryan Fox",
     token: null,
+  };
+}
+
+function buildDemoMeeting(meeting: DemoMeetingInput): DosAppMeeting {
+  return {
+    googleSyncEnabled: false,
+    googleSyncStatus: null,
+    meetingStatus: "logged",
+    scheduledEndAt: null,
+    scheduledStartAt: null,
+    timezone: "America/Chicago",
+    ...meeting,
   };
 }
 
@@ -158,7 +173,28 @@ function buildDosPreviewDemoData(): DosAppData {
     },
   ];
 
-  const meetings: DosAppMeeting[] = [
+  const meetingInputs = [
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: "2026-06-02T18:00:00-05:00",
+      fieldPersonIds: ["demo-person-naomi-lee"],
+      googleSyncEnabled: true,
+      googleSyncStatus: "pending",
+      id: "demo-meeting-naomi-scheduled",
+      meetingStatus: "scheduled",
+      notes: "Bring the John reading plan and ask about her family prayer request.",
+      participantNames: ["Naomi Lee"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      scheduledEndAt: "2026-06-02T19:00:00-05:00",
+      scheduledStartAt: "2026-06-02T18:00:00-05:00",
+      source: "table",
+      timezone: "America/Chicago",
+      title: "Coffee",
+      type: "coffee",
+      updatedAt: "2026-05-30T10:00:00-05:00",
+    },
     {
       conversationFlowKey: "kitchen_table_gospel",
       conversationResponses: {
@@ -301,7 +337,8 @@ function buildDosPreviewDemoData(): DosAppData {
       type: "coffee",
       updatedAt: "2026-05-14T13:00:00-05:00",
     },
-  ];
+  ] satisfies DemoMeetingInput[];
+  const meetings = meetingInputs.map(buildDemoMeeting);
 
   const fruit: DosAppFruit[] = [
     {
@@ -382,9 +419,35 @@ function buildDosPreviewDemoData(): DosAppData {
       wouldMeetAgain: true,
     },
   ];
+  const reminders: DosAppRelationshipReminder[] = [
+    {
+      googleSyncEnabled: true,
+      googleSyncStatus: "pending",
+      id: "demo-reminder-george-birthday",
+      notes: "Send a note in the morning.",
+      personId: "demo-person-george-jenko",
+      recurrence: "yearly",
+      reminderDate: "2026-06-11T12:00:00-05:00",
+      reminderType: "birthday",
+      title: null,
+      updatedAt: demoTimestamp,
+    },
+    {
+      googleSyncEnabled: false,
+      googleSyncStatus: null,
+      id: "demo-reminder-naomi-follow-up",
+      notes: "Ask how the prayer request is going.",
+      personId: "demo-person-naomi-lee",
+      recurrence: "none",
+      reminderDate: "2026-06-03T12:00:00-05:00",
+      reminderType: "follow_up",
+      title: "Family follow-up",
+      updatedAt: demoTimestamp,
+    },
+  ];
 
   const circles = buildFallbackCircleDataFromActivity({
-    meetings: meetings.map((meeting) => ({
+    meetings: meetings.filter((meeting) => meeting.meetingStatus === "logged").map((meeting) => ({
       date: meeting.date,
       fieldPersonIds: meeting.fieldPersonIds,
     })),
@@ -400,6 +463,13 @@ function buildDosPreviewDemoData(): DosAppData {
   });
 
   return {
+    calendarConnection: {
+      calendarId: "primary",
+      connected: true,
+      connectedAt: demoTimestamp,
+      googleAccountEmail: "ryan@example.com",
+      googleConfigured: true,
+    },
     circles,
     fruit,
     fruitEvents,
@@ -409,11 +479,12 @@ function buildDosPreviewDemoData(): DosAppData {
     participantTestimonies: [],
     people,
     prayerLogs: [],
+    reminders,
     stats: {
       approvedFruit: fruit.filter((item) => item.status === "approved").length,
       connectionsCount: meetings.filter((meeting) => meeting.source === "connection").length,
       fruitCount: fruit.length,
-      meetingsCount: meetings.length,
+      meetingsCount: meetings.filter((meeting) => meeting.meetingStatus === "logged").length,
       peopleCount: people.length,
       relationshipStewardship: relationshipModelCounts(people.map((person) => ({
         discipleshipStage: person.discipleshipStage,

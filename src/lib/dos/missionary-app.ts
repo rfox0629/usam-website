@@ -20,6 +20,7 @@ import {
   type RoleInMyLifeValue,
 } from "@/src/lib/dos/relationship-model";
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
+import { isGoogleCalendarConfigured } from "@/src/lib/dos/google-calendar";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -119,7 +120,10 @@ export type DosAppMeeting = {
   date: string | null;
   fieldPersonIds: string[];
   followUpNeeded?: boolean | string | null;
+  googleSyncEnabled: boolean;
+  googleSyncStatus?: "failed" | "pending" | "synced" | null;
   id: string;
+  meetingStatus: "canceled" | "logged" | "scheduled";
   movementStep?: string | null;
   notes: string | null;
   participantNames: string[];
@@ -133,6 +137,9 @@ export type DosAppMeeting = {
     token: string | null;
   };
   source: "connection" | "table";
+  scheduledEndAt: string | null;
+  scheduledStartAt: string | null;
+  timezone: string | null;
   title: string;
   type: DosAppMeetingType;
   updatedAt: string | null;
@@ -222,7 +229,29 @@ export type DosAppPrayerLog = {
   workspaceId: string;
 };
 
+export type DosAppCalendarConnection = {
+  calendarId: string | null;
+  connected: boolean;
+  connectedAt: string | null;
+  googleAccountEmail: string | null;
+  googleConfigured: boolean;
+};
+
+export type DosAppRelationshipReminder = {
+  googleSyncEnabled: boolean;
+  googleSyncStatus?: "failed" | "pending" | "synced" | null;
+  id: string;
+  notes: string | null;
+  personId: string;
+  recurrence: "monthly" | "none" | "weekly" | "yearly";
+  reminderDate: string;
+  reminderType: "anniversary" | "baptism" | "birthday" | "custom" | "follow_up" | "prayer" | "salvation";
+  title: string | null;
+  updatedAt: string | null;
+};
+
 export type DosAppData = {
+  calendarConnection: DosAppCalendarConnection;
   circles: DosCircleData | null;
   fruit: DosAppFruit[];
   fruitEvents: DosAppFruitEvent[];
@@ -232,6 +261,7 @@ export type DosAppData = {
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
   prayerLogs: DosAppPrayerLog[];
+  reminders: DosAppRelationshipReminder[];
   stats: {
     approvedFruit: number;
     connectionsCount: number;
@@ -321,12 +351,17 @@ type MeetingRow = {
   conversation_responses?: unknown;
   created_at?: string | null;
   field_person_ids: string[] | null;
+  google_sync_enabled?: boolean | null;
   id: string;
+  meeting_status?: string | null;
   notes: string | null;
   participant_names: string[] | null;
   recommended_resources?: unknown;
+  scheduled_end_at?: string | null;
+  scheduled_start_at?: string | null;
   table_date: string | null;
   table_type: string | null;
+  timezone?: string | null;
   updated_at: string | null;
 };
 
@@ -381,6 +416,30 @@ type PrayerLogRow = {
   prayed_by_user_id: string | null;
   prayer_request_id: string | null;
   workspace_id: string;
+};
+
+type CalendarConnectionRow = {
+  calendar_id: string | null;
+  connected_at: string | null;
+  google_account_email: string | null;
+};
+
+type CalendarEventLinkRow = {
+  source_id: string;
+  source_type: string;
+  sync_status: string | null;
+};
+
+type RelationshipReminderRow = {
+  google_sync_enabled: boolean | null;
+  id: string;
+  notes: string | null;
+  person_id: string;
+  recurrence: string | null;
+  reminder_date: string;
+  reminder_type: string | null;
+  title: string | null;
+  updated_at: string | null;
 };
 
 type LeaderReflectionRow = {
@@ -474,6 +533,24 @@ function mapConnectionType(value: string | null): DosAppMeetingType {
   }
 
   return "other";
+}
+
+function mapMeetingStatus(value: string | null | undefined): DosAppMeeting["meetingStatus"] {
+  return value === "scheduled" || value === "canceled" ? value : "logged";
+}
+
+function mapCalendarSyncStatus(value: string | null | undefined): "failed" | "pending" | "synced" | null {
+  return value === "failed" || value === "pending" || value === "synced" ? value : null;
+}
+
+function mapReminderType(value: string | null | undefined): DosAppRelationshipReminder["reminderType"] {
+  return ["anniversary", "baptism", "birthday", "custom", "follow_up", "prayer", "salvation"].includes(value ?? "")
+    ? value as DosAppRelationshipReminder["reminderType"]
+    : "custom";
+}
+
+function mapReminderRecurrence(value: string | null | undefined): DosAppRelationshipReminder["recurrence"] {
+  return value === "yearly" || value === "monthly" || value === "weekly" ? value : "none";
 }
 
 function mapOutcomeTags(value: string[] | null | undefined): DosAppOutcomeTag[] {
@@ -662,17 +739,28 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
 }
 
 async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const meetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
+  const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
   const scopedResult = await supabase
     .from("missionary_tables")
-    .select("id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at")
+    .select(meetingSelect)
     .or(workspaceScopeFilter(workspaceId))
     .order("table_date", { ascending: false })
     .order("created_at", { ascending: false });
 
+  if (scopedResult.error && isMissingColumnError(scopedResult.error) && !isMissingWorkspaceScopeColumn(scopedResult.error)) {
+    return supabase
+      .from("missionary_tables")
+      .select(legacyMeetingSelect)
+      .or(workspaceScopeFilter(workspaceId))
+      .order("table_date", { ascending: false })
+      .order("created_at", { ascending: false });
+  }
+
   return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
     ? supabase
       .from("missionary_tables")
-      .select("id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at")
+      .select(isMissingColumnError(scopedResult.error) ? legacyMeetingSelect : meetingSelect)
       .eq("household_id", workspaceId)
       .order("table_date", { ascending: false })
       .order("created_at", { ascending: false })
@@ -782,6 +870,50 @@ async function loadPrayerLogsForWorkspace(supabase: SupabaseAdminClient, workspa
     .order("prayed_at", { ascending: false });
 
   return result.error && isMissingWorkflowTable(result.error, "prayer_logs")
+    ? { data: [], error: null }
+    : result;
+}
+
+async function loadCalendarConnectionForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("connected_calendars")
+    .select("google_account_email, calendar_id, connected_at")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .is("disconnected_at", null)
+    .order("connected_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (result.error && isMissingWorkflowTable(result.error, "connected_calendars")) {
+    return { data: null, error: null };
+  }
+
+  return result;
+}
+
+async function loadCalendarEventLinksForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("calendar_event_links")
+    .select("source_type, source_id, sync_status")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .in("source_type", ["meeting", "reminder", "important_date"]);
+
+  return result.error && isMissingWorkflowTable(result.error, "calendar_event_links")
+    ? { data: [], error: null }
+    : result;
+}
+
+async function loadRelationshipRemindersForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("relationship_reminders")
+    .select("id, person_id, reminder_type, title, reminder_date, recurrence, notes, google_sync_enabled, updated_at")
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .order("reminder_date", { ascending: true });
+
+  return result.error && isMissingWorkflowTable(result.error, "relationship_reminders")
     ? { data: [], error: null }
     : result;
 }
@@ -970,7 +1102,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, reviewsFruitResult, organization] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, calendarConnectionResult, calendarEventLinksResult, remindersResult, reviewsFruitResult, organization] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -978,11 +1110,14 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadReviewLinksForWorkspace(supabase, workspace.id),
     loadMeetingReviewsForWorkspace(supabase, workspace.id),
     loadPrayerLogsForWorkspace(supabase, workspace.id),
+    loadCalendarConnectionForWorkspace(supabase, workspace.id),
+    loadCalendarEventLinksForWorkspace(supabase, workspace.id),
+    loadRelationshipRemindersForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadOrganizationForWorkspace(supabase, workspace.slug),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || remindersResult.error || reviewsFruitResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -991,6 +1126,9 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         ?? reviewLinksResult.error?.message
         ?? meetingReviewsResult.error?.message
         ?? prayerLogsResult.error?.message
+        ?? calendarConnectionResult.error?.message
+        ?? calendarEventLinksResult.error?.message
+        ?? remindersResult.error?.message
         ?? reviewsFruitResult.error?.message
         ?? "Unable to load DOS app data.",
       status: "error",
@@ -1002,9 +1140,17 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const reviewLinkRows = (reviewLinksResult.data ?? []) as ReviewLinkRow[];
   const meetingReviewRows = (meetingReviewsResult.data ?? []) as MeetingReviewRow[];
   const prayerLogRows = (prayerLogsResult.data ?? []) as PrayerLogRow[];
+  const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
+  const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
+  const reminderRows = (remindersResult.data ?? []) as RelationshipReminderRow[];
   const reviewLinkByMeetingId = new Map<string, ReviewLinkRow>();
   const meetingReviewByMeetingId = new Map<string, MeetingReviewRow>();
+  const calendarSyncStatusBySource = new Map<string, "failed" | "pending" | "synced" | null>();
   const latestActivityByPersonId = new Map<string, string>();
+
+  calendarEventLinkRows.forEach((link) => {
+    calendarSyncStatusBySource.set(`${link.source_type}:${link.source_id}`, mapCalendarSyncStatus(link.sync_status));
+  });
 
   reviewLinkRows.forEach((link) => {
     if (!reviewLinkByMeetingId.has(link.meeting_id)) {
@@ -1019,6 +1165,10 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   });
 
   meetingRows.forEach((meeting) => {
+    if (mapMeetingStatus(meeting.meeting_status) !== "logged") {
+      return;
+    }
+
     const activityDate = latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at);
 
     meeting.field_person_ids?.forEach((personId) => {
@@ -1082,18 +1232,25 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const meetings = [
     ...meetingRows.map((meeting) => {
       const conversationFlowKey = normalizeConversationFlowKey(meeting.conversation_flow_key);
+      const meetingStatus = mapMeetingStatus(meeting.meeting_status);
 
       return {
-        date: latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at),
+        date: latestActivityDate(meeting.scheduled_start_at, meeting.table_date, meeting.updated_at, meeting.created_at),
         conversationFlowKey,
         conversationResponses: normalizeConversationResponses(conversationFlowKey, meeting.conversation_responses),
         fieldPersonIds: meeting.field_person_ids ?? [],
+        googleSyncEnabled: meeting.google_sync_enabled === true,
+        googleSyncStatus: calendarSyncStatusBySource.get(`meeting:${meeting.id}`) ?? null,
         id: meeting.id,
+        meetingStatus,
         notes: meeting.notes,
         participantNames: meeting.participant_names ?? [],
         recommendedResources: normalizeRecommendedResources(meeting.recommended_resources),
         review: meetingReviewSummary(meeting.id, reviewLinkByMeetingId, meetingReviewByMeetingId),
         source: "table" as const,
+        scheduledEndAt: meeting.scheduled_end_at ?? null,
+        scheduledStartAt: meeting.scheduled_start_at ?? null,
+        timezone: meeting.timezone ?? null,
         title: "Meeting",
         type: mapMeetingType(meeting.table_type),
         updatedAt: meeting.updated_at,
@@ -1105,7 +1262,10 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       conversationResponses: {},
       fieldPersonIds: connection.field_person_id ? [connection.field_person_id] : [],
       followUpNeeded: connection.follow_up_needed,
+      googleSyncEnabled: false,
+      googleSyncStatus: null,
       id: `connection-${connection.id}`,
+      meetingStatus: "logged" as const,
       movementStep: connection.movement_step ?? null,
       notes: connection.notes,
       participantNames: connection.field_person_id && peopleById.has(connection.field_person_id)
@@ -1113,7 +1273,10 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         : [],
       recommendedResources: [],
       review: emptyReviewSummary(),
+      scheduledEndAt: null,
+      scheduledStartAt: null,
       source: "connection" as const,
+      timezone: null,
       title: connection.interaction_type ?? "Connection",
       type: mapConnectionType(connection.interaction_type),
       updatedAt: connection.updated_at,
@@ -1197,10 +1360,32 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     prayerRequestId: log.prayer_request_id,
     workspaceId: log.workspace_id,
   }));
+  const reminders = reminderRows.map((reminder) => ({
+    googleSyncEnabled: reminder.google_sync_enabled === true,
+    googleSyncStatus: calendarSyncStatusBySource.get(`reminder:${reminder.id}`)
+      ?? calendarSyncStatusBySource.get(`important_date:${reminder.id}`)
+      ?? null,
+    id: reminder.id,
+    notes: reminder.notes,
+    personId: reminder.person_id,
+    recurrence: mapReminderRecurrence(reminder.recurrence),
+    reminderDate: reminder.reminder_date,
+    reminderType: mapReminderType(reminder.reminder_type),
+    title: reminder.title,
+    updatedAt: reminder.updated_at,
+  })).sort((first, second) => activityDateValue(first.reminderDate) - activityDateValue(second.reminderDate));
+  const calendarConnection = {
+    calendarId: calendarConnectionRow?.calendar_id ?? null,
+    connected: Boolean(calendarConnectionRow),
+    connectedAt: calendarConnectionRow?.connected_at ?? null,
+    googleAccountEmail: calendarConnectionRow?.google_account_email ?? null,
+    googleConfigured: isGoogleCalendarConfigured(),
+  };
 
   return {
     data: {
-      circles: await loadFreshCircleData(workspace.id, people, meetings),
+      calendarConnection,
+      circles: await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
       fruit,
       fruitEvents,
       leaderReflections,
@@ -1209,11 +1394,12 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       participantTestimonies,
       people,
       prayerLogs,
+      reminders,
       stats: {
         approvedFruit: fruit.filter((item) => item.status === "approved").length,
         connectionsCount: connectionRows.length,
         fruitCount: fruit.length,
-        meetingsCount: meetings.length,
+        meetingsCount: meetings.filter((meeting) => meeting.meetingStatus === "logged").length,
         peopleCount: people.length,
         relationshipStewardship: relationshipModelCounts(people.map((person) => ({
           discipleshipStage: person.discipleshipStage,
