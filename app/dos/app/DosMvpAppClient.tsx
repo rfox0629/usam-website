@@ -158,6 +158,20 @@ type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView | "other";
+type MeetingsView = "agenda" | "calendar";
+type MeetingCalendarItemKind = "anniversary" | "birthday" | "follow_up" | "meeting" | "prayer";
+type MeetingCalendarItem = {
+  date: string;
+  id: string;
+  kind: MeetingCalendarItemKind;
+  meeting?: DosAppMeeting;
+  personId?: string | null;
+  personName?: string | null;
+  reminder?: DosAppRelationshipReminder;
+  subtitle: string;
+  syncLabel?: string;
+  title: string;
+};
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
 type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "prayer" | "search" | "upload";
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
@@ -579,6 +593,60 @@ function todayDateValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function calendarDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function dateFromCalendarKey(value: string) {
+  const date = new Date(`${value}T12:00:00`);
+
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function calendarDateKeyFromValue(value: string | null | undefined) {
+  const date = parseDisplayDate(value ?? null);
+
+  return date ? calendarDateKey(date) : "";
+}
+
+function startOfCalendarMonth(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addCalendarMonths(date: Date, offset: number) {
+  return new Date(date.getFullYear(), date.getMonth() + offset, 1);
+}
+
+function daysInCalendarMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
+function isSameCalendarMonth(first: Date, second: Date) {
+  return first.getFullYear() === second.getFullYear() && first.getMonth() === second.getMonth();
+}
+
+function calendarMonthLabel(date: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function calendarSelectedDayLabel(value: string) {
+  const date = dateFromCalendarKey(value);
+  const label = new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    weekday: "long",
+  }).format(date);
+
+  return isTodayDate(value) ? `Today · ${label}` : label;
+}
+
 function localDateTimeIso(dateValue: string, timeValue: string) {
   const date = new Date(`${dateValue}T${timeValue || "00:00"}:00`);
 
@@ -684,6 +752,128 @@ function meetingSyncLabel(meeting: DosAppMeeting) {
   }
 
   return "Local only";
+}
+
+function calendarKindForReminder(reminder: DosAppRelationshipReminder): MeetingCalendarItemKind | null {
+  if (reminder.reminderType === "birthday") {
+    return "birthday";
+  }
+
+  if (reminder.reminderType === "anniversary" || reminder.reminderType === "baptism" || reminder.reminderType === "salvation") {
+    return "anniversary";
+  }
+
+  if (reminder.reminderType === "follow_up") {
+    return "follow_up";
+  }
+
+  if (reminder.reminderType === "prayer") {
+    return "prayer";
+  }
+
+  return null;
+}
+
+function reminderDatesForCalendarMonth(reminder: DosAppRelationshipReminder, month: Date) {
+  const baseDate = parseDisplayDate(reminder.reminderDate);
+
+  if (!baseDate) {
+    return [];
+  }
+
+  const withBaseTime = (year: number, monthIndex: number, day: number) => (
+    new Date(year, monthIndex, day, baseDate.getHours(), baseDate.getMinutes(), baseDate.getSeconds())
+  );
+
+  if (reminder.recurrence === "none") {
+    return isSameCalendarMonth(baseDate, month) ? [baseDate] : [];
+  }
+
+  if (reminder.recurrence === "yearly") {
+    const occurrence = withBaseTime(month.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+
+    return isSameCalendarMonth(occurrence, month) ? [occurrence] : [];
+  }
+
+  if (reminder.recurrence === "monthly") {
+    const occurrence = withBaseTime(month.getFullYear(), month.getMonth(), baseDate.getDate());
+
+    return isSameCalendarMonth(occurrence, month) ? [occurrence] : [];
+  }
+
+  const dates: Date[] = [];
+  const cursor = new Date(month.getFullYear(), month.getMonth(), 1, baseDate.getHours(), baseDate.getMinutes(), baseDate.getSeconds());
+  const offset = (baseDate.getDay() - cursor.getDay() + 7) % 7;
+
+  cursor.setDate(cursor.getDate() + offset);
+
+  while (isSameCalendarMonth(cursor, month)) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 7);
+  }
+
+  return dates;
+}
+
+function buildMeetingCalendarItems({
+  meetings,
+  month,
+  people,
+  reminders,
+}: {
+  meetings: DosAppMeeting[];
+  month: Date;
+  people: DosAppPerson[];
+  reminders: DosAppRelationshipReminder[];
+}) {
+  const meetingItems: MeetingCalendarItem[] = meetings
+    .filter((meeting) => meeting.meetingStatus === "scheduled")
+    .map((meeting) => {
+      const date = meeting.scheduledStartAt ?? meeting.date;
+      const parsedDate = parseDisplayDate(date);
+
+      return { date, meeting, parsedDate };
+    })
+    .filter((item): item is { date: string; meeting: DosAppMeeting; parsedDate: Date } => Boolean(item.date && item.parsedDate && isSameCalendarMonth(item.parsedDate, month)))
+    .map(({ date, meeting }) => {
+      const linkedPerson = primaryMeetingPerson(meeting, people);
+
+      return {
+        date,
+        id: `meeting-${meeting.id}`,
+        kind: "meeting" as const,
+        meeting,
+        personId: linkedPerson?.id ?? meeting.fieldPersonIds[0] ?? null,
+        personName: linkedPerson?.name ?? null,
+        subtitle: formatMeetingTimeRange(meeting),
+        syncLabel: meetingSyncLabel(meeting),
+        title: meetingDisplayTitle(meeting, people),
+      };
+    });
+
+  const reminderItems: MeetingCalendarItem[] = reminders.flatMap((reminder) => {
+    const kind = calendarKindForReminder(reminder);
+
+    if (!kind) {
+      return [];
+    }
+
+    const linkedPerson = people.find((person) => person.id === reminder.personId) ?? null;
+
+    return reminderDatesForCalendarMonth(reminder, month).map((date) => ({
+      date: date.toISOString(),
+      id: `reminder-${reminder.id}-${calendarDateKey(date)}`,
+      kind,
+      personId: reminder.personId,
+      personName: linkedPerson?.name ?? null,
+      reminder,
+      subtitle: `${reminderTypeLabel(reminder.reminderType)} · ${linkedPerson?.name ?? "Person"}`,
+      syncLabel: reminderSyncLabel(reminder),
+      title: reminderDisplayTitle(reminder, linkedPerson),
+    }));
+  });
+
+  return [...meetingItems, ...reminderItems].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
 }
 
 function isPrayerMeeting(meeting: DosAppMeeting) {
@@ -1714,7 +1904,8 @@ function MeetingActionRow({
         type="button"
       >
         <CalendarDays className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-        <span className="truncate">Schedule Meeting</span>
+        <span className="truncate max-[350px]:hidden">Schedule Meeting</span>
+        <span className="hidden max-[350px]:inline">Schedule</span>
       </button>
     </div>
   );
@@ -2784,7 +2975,7 @@ function SegmentedTabs<T extends string>({
   value: T;
 }) {
   return (
-    <div className="grid grid-cols-3 rounded-full bg-[#E2E8F0] p-1 shadow-inner shadow-white/60">
+    <div className="grid rounded-full bg-[#E2E8F0] p-1 shadow-inner shadow-white/60" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       {options.map((option) => (
         <button
           aria-pressed={value === option.value}
@@ -2803,6 +2994,11 @@ function SegmentedTabs<T extends string>({
     </div>
   );
 }
+
+const meetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
+  { label: "Agenda", value: "agenda" },
+  { label: "Calendar", value: "calendar" },
+];
 
 const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
   { label: "My 3", value: "three" },
@@ -3434,6 +3630,279 @@ function MeetingCard({
         </div>
       </div>
     </button>
+  );
+}
+
+function calendarItemTone(kind: MeetingCalendarItemKind) {
+  switch (kind) {
+    case "birthday":
+      return {
+        bg: "bg-[#FEF3C7]",
+        dot: "bg-[#F59E0B]",
+        text: "text-[#B45309]",
+      };
+    case "anniversary":
+      return {
+        bg: "bg-[#FCE7F3]",
+        dot: "bg-[#DB2777]",
+        text: "text-[#BE185D]",
+      };
+    case "follow_up":
+      return {
+        bg: "bg-[#DCFCE7]",
+        dot: "bg-[#16A34A]",
+        text: "text-[#15803D]",
+      };
+    case "prayer":
+      return {
+        bg: "bg-[#EDE9FE]",
+        dot: "bg-[#7C3AED]",
+        text: "text-[#6D28D9]",
+      };
+    case "meeting":
+    default:
+      return {
+        bg: "bg-[#EBF2FF]",
+        dot: "bg-[#2563EB]",
+        text: "text-[#1D4ED8]",
+      };
+  }
+}
+
+function calendarItemLabel(kind: MeetingCalendarItemKind) {
+  switch (kind) {
+    case "birthday":
+      return "Birthday";
+    case "anniversary":
+      return "Anniversary";
+    case "follow_up":
+      return "Follow Up";
+    case "prayer":
+      return "Prayer";
+    case "meeting":
+    default:
+      return "Meeting";
+  }
+}
+
+function CalendarItemIcon({ kind }: { kind: MeetingCalendarItemKind }) {
+  const className = "h-4 w-4";
+
+  switch (kind) {
+    case "birthday":
+      return <Cake className={className} aria-hidden="true" strokeWidth={1.9} />;
+    case "anniversary":
+      return <HeartHandshake className={className} aria-hidden="true" strokeWidth={1.9} />;
+    case "follow_up":
+      return <Send className={className} aria-hidden="true" strokeWidth={1.9} />;
+    case "prayer":
+      return <Heart className={className} aria-hidden="true" strokeWidth={1.9} />;
+    case "meeting":
+    default:
+      return <CalendarDays className={className} aria-hidden="true" strokeWidth={1.9} />;
+  }
+}
+
+function CalendarAgendaItem({
+  item,
+  onOpenMeeting,
+  onOpenReminder,
+}: {
+  item: MeetingCalendarItem;
+  onOpenMeeting: (meetingId: string) => void;
+  onOpenReminder: (reminderId: string) => void;
+}) {
+  const tone = calendarItemTone(item.kind);
+  const content = (
+    <>
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tone.bg} ${tone.text}`}>
+        <CalendarItemIcon kind={item.kind} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold leading-5 text-[#0F172A]">{item.title}</span>
+        <span className="mt-0.5 block truncate text-xs font-medium leading-4 text-[#64748B]">{item.subtitle}</span>
+        <span className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] ${tone.bg} ${tone.text}`} style={{ fontFamily: font.rajdhani }}>
+            {calendarItemLabel(item.kind)}
+          </span>
+          {item.syncLabel ? (
+            <span className="rounded-full border border-[#E2E8F0] bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+              {item.syncLabel}
+            </span>
+          ) : null}
+        </span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+    </>
+  );
+  const className = "flex min-h-[74px] w-full items-center gap-3 rounded-[20px] border border-[#EAF2FF] bg-white px-3.5 py-3 text-left shadow-[0_10px_26px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE]";
+
+  const meeting = item.meeting;
+  const reminder = item.reminder;
+
+  if (meeting) {
+    return (
+      <button className={className} onClick={() => onOpenMeeting(meeting.id)} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  if (reminder) {
+    return (
+      <button className={className} onClick={() => onOpenReminder(reminder.id)} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
+}
+
+function MeetingCalendarView({
+  items,
+  month,
+  onChangeMonth,
+  onOpenMeeting,
+  onOpenReminder,
+  onScheduleMeeting,
+  onSelectDate,
+  onToday,
+  selectedDateKey,
+}: {
+  items: MeetingCalendarItem[];
+  month: Date;
+  onChangeMonth: (offset: number) => void;
+  onOpenMeeting: (meetingId: string) => void;
+  onOpenReminder: (reminderId: string) => void;
+  onScheduleMeeting: () => void;
+  onSelectDate: (date: Date) => void;
+  onToday: () => void;
+  selectedDateKey: string;
+}) {
+  const monthStart = startOfCalendarMonth(month);
+  const gridStart = new Date(monthStart);
+  gridStart.setDate(monthStart.getDate() - monthStart.getDay());
+
+  const calendarDays = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
+    return date;
+  });
+  const itemsByDay = items.reduce((map, item) => {
+    const key = calendarDateKeyFromValue(item.date);
+
+    if (!key) {
+      return map;
+    }
+
+    const dayItems = map.get(key) ?? [];
+    dayItems.push(item);
+    map.set(key, dayItems);
+
+    return map;
+  }, new Map<string, MeetingCalendarItem[]>());
+  const selectedItems = itemsByDay.get(selectedDateKey) ?? [];
+
+  return (
+    <section className="space-y-3">
+      <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
+        <header className="flex items-center justify-between gap-2 border-b border-[#EFF6FF] px-3 py-3">
+          <button
+            aria-label="Previous month"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
+            onClick={() => onChangeMonth(-1)}
+            type="button"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+          <div className="min-w-0 text-center">
+            <h2 className="truncate text-base font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+              {calendarMonthLabel(month)}
+            </h2>
+            <button className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#2563EB]" onClick={onToday} style={{ fontFamily: font.rajdhani }} type="button">
+              Today
+            </button>
+          </div>
+          <button
+            aria-label="Next month"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
+            onClick={() => onChangeMonth(1)}
+            type="button"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+        </header>
+
+        <div className="px-2.5 pb-3 pt-2">
+          <div className="grid grid-cols-7 gap-1 pb-1.5">
+            {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+              <div className="text-center text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" key={`${day}-${index}`} style={{ fontFamily: font.rajdhani }}>
+                {day}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {calendarDays.map((date) => {
+              const key = calendarDateKey(date);
+              const dayItems = itemsByDay.get(key) ?? [];
+              const isSelected = key === selectedDateKey;
+              const isOutsideMonth = !isSameCalendarMonth(date, month);
+              const isToday = key === todayDateValue();
+
+              return (
+                <button
+                  aria-label={new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}
+                  aria-pressed={isSelected}
+                  className={`min-h-[48px] rounded-[16px] px-1.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[44px] max-[350px]:rounded-[14px] ${
+                    isSelected
+                      ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]"
+                      : isToday
+                        ? "bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]"
+                        : "bg-[#F8FAFC] text-[#0F172A] hover:bg-[#EBF2FF]"
+                  } ${isOutsideMonth && !isSelected ? "opacity-45" : ""}`}
+                  key={key}
+                  onClick={() => onSelectDate(date)}
+                  type="button"
+                >
+                  <span className="block text-center text-xs font-bold leading-none max-[350px]:text-[11px]">{date.getDate()}</span>
+                  {dayItems.length ? (
+                    <span className="mt-2 flex min-h-1.5 items-center justify-center gap-0.5">
+                      {dayItems.slice(0, 3).map((item) => (
+                        <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : calendarItemTone(item.kind).dot}`} key={item.id} />
+                      ))}
+                      {dayItems.length > 3 ? <span className={`text-[8px] font-bold leading-none ${isSelected ? "text-white" : "text-[#64748B]"}`}>+{dayItems.length - 3}</span> : null}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <section>
+        <SectionHeading
+          title={calendarSelectedDayLabel(selectedDateKey)}
+        />
+        <div className="grid gap-2.5">
+          {selectedItems.length ? selectedItems.map((item) => (
+            <CalendarAgendaItem
+              item={item}
+              key={item.id}
+              onOpenMeeting={onOpenMeeting}
+              onOpenReminder={onOpenReminder}
+            />
+          )) : (
+            <SectionEmptyState
+              action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Meeting</CompactButton>}
+              text="Scheduled meetings and reminders for the selected day will appear here."
+              title="Nothing on this day."
+            />
+          )}
+        </div>
+      </section>
+    </section>
   );
 }
 
@@ -7296,6 +7765,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const appScrollRef = useRef<HTMLDivElement | null>(null);
   const isPreview = data.workspace.isPreview === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
+  const [meetingsView, setMeetingsView] = useState<MeetingsView>("agenda");
+  const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
+  const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [circleSheetView, setCircleSheetView] = useState<CircleFocusView | null>(null);
@@ -7480,6 +7952,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       reminders: data.reminders,
     }).filter((item) => isTodayDate(item.date)).slice(0, 4)
   ), [data.meetings, data.reminders, people]);
+  const meetingCalendarItems = useMemo(() => (
+    buildMeetingCalendarItems({
+      meetings: data.meetings,
+      month: meetingsCalendarMonth,
+      people,
+      reminders: data.reminders,
+    })
+  ), [data.meetings, data.reminders, meetingsCalendarMonth, people]);
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
     const meetingsThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
@@ -7514,6 +7994,30 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       scrollContainer.scrollTop = 0;
       scrollContainer.scrollLeft = 0;
     });
+  }
+
+  function selectMeetingsCalendarDate(date: Date) {
+    setSelectedMeetingsCalendarDate(calendarDateKey(date));
+
+    if (!isSameCalendarMonth(date, meetingsCalendarMonth)) {
+      setMeetingsCalendarMonth(startOfCalendarMonth(date));
+    }
+  }
+
+  function changeMeetingsCalendarMonth(offset: number) {
+    const nextMonth = addCalendarMonths(meetingsCalendarMonth, offset);
+    const selectedDate = dateFromCalendarKey(selectedMeetingsCalendarDate);
+    const selectedDay = Math.min(selectedDate.getDate(), daysInCalendarMonth(nextMonth));
+
+    setMeetingsCalendarMonth(nextMonth);
+    setSelectedMeetingsCalendarDate(calendarDateKey(new Date(nextMonth.getFullYear(), nextMonth.getMonth(), selectedDay)));
+  }
+
+  function jumpMeetingsCalendarToToday() {
+    const today = new Date();
+
+    setMeetingsCalendarMonth(startOfCalendarMonth(today));
+    setSelectedMeetingsCalendarDate(calendarDateKey(today));
   }
 
   function openScriptureQuickView(scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) {
@@ -8725,11 +9229,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <div>
                   <MeetingActionRow onLogMeeting={() => openForm("meeting")} onScheduleMeeting={() => openScheduleMeeting()} />
                 </div>
+                <SegmentedTabs onChange={setMeetingsView} options={meetingsViewTabs} value={meetingsView} />
                 <div>
-                  {data.meetings.length ? (
-                    <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                  {meetingsView === "agenda" ? (
+                    data.meetings.length ? (
+                      <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                    ) : (
+                      <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Meeting</CompactButton>} text="Capture the next conversation, table, call, or prayer moment." title="No meetings logged yet." />
+                    )
                   ) : (
-                    <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Meeting</CompactButton>} text="Capture the next conversation, table, call, or prayer moment." title="No meetings logged yet." />
+                    <MeetingCalendarView
+                      items={meetingCalendarItems}
+                      month={meetingsCalendarMonth}
+                      onChangeMonth={changeMeetingsCalendarMonth}
+                      onOpenMeeting={openMeetingDetail}
+                      onOpenReminder={openReminderEdit}
+                      onScheduleMeeting={() => openScheduleMeeting()}
+                      onSelectDate={selectMeetingsCalendarDate}
+                      onToday={jumpMeetingsCalendarToToday}
+                      selectedDateKey={selectedMeetingsCalendarDate}
+                    />
                   )}
                 </div>
               </div>
