@@ -3362,7 +3362,7 @@ function CircleTarget({
       </svg>
       <button
         aria-label={`Open My 120, ${my120Count} people`}
-        className="absolute left-1/2 top-[7px] z-20 flex h-8 min-w-12 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-[#EFF6FF] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[5px] max-[350px]:text-[14px]"
+        className="absolute left-1/2 top-[5px] z-20 flex h-5 min-w-12 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[14px] font-extrabold leading-none text-[#60A5FA] transition-all duration-200 hover:bg-[#EFF6FF] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[4px] max-[350px]:text-[13px]"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("my_120");
@@ -3375,7 +3375,7 @@ function CircleTarget({
       </button>
       <button
         aria-label={`Open My 70, ${my70Count} people`}
-        className="absolute left-1/2 top-[43px] z-20 flex h-8 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/60 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[38px] max-[350px]:text-[14px]"
+        className="absolute left-1/2 top-[36px] z-20 flex h-5 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[14px] font-extrabold leading-none text-[#3B82F6] transition-all duration-200 hover:bg-white/60 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[32px] max-[350px]:text-[13px]"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("seventy");
@@ -3388,7 +3388,7 @@ function CircleTarget({
       </button>
       <button
         aria-label={`Open My 12, ${my12Count} people`}
-        className="absolute left-1/2 top-[80px] z-20 flex h-8 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[15px] font-bold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/60 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[73px] max-[350px]:text-[14px]"
+        className="absolute left-1/2 top-[61px] z-20 flex h-5 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[14px] font-extrabold leading-none text-[#2563EB] transition-all duration-200 hover:bg-white/60 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[54px] max-[350px]:text-[13px]"
         onClick={(event) => {
           event.stopPropagation();
           onSelectCircle("twelve");
@@ -3410,7 +3410,7 @@ function CircleTarget({
         onMouseEnter={() => setFocusedCircle("three")}
         type="button"
       >
-        <span className="text-[16px] font-bold leading-none text-white max-[350px]:text-[15px]">3</span>
+        <span className="text-[17px] font-extrabold leading-none text-white max-[350px]:text-[16px]">3</span>
       </button>
     </div>
   );
