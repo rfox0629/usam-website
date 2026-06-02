@@ -41,7 +41,7 @@ import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-6 md:py-6 xl:px-8";
-const dosPhoneShellClassName = "relative mx-auto flex h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[calc(100dvh-3rem)] md:max-h-none md:max-w-[1440px] md:rounded-none md:border-0 md:bg-transparent md:shadow-none";
+const dosPhoneShellClassName = "relative isolate mx-auto flex h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[calc(100dvh-3rem)] md:max-h-none md:max-w-[1440px] md:rounded-none md:border-0 md:bg-[#F8FBFF] md:shadow-none";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
 type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "stewardship" | "support_team" | "table_flow";
@@ -4388,7 +4388,7 @@ function TableSearchBar({
         <input
           className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-[#F8FBFF] pl-10 pr-4 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Search tables, notes, people, or type"
+          placeholder="Search tables"
           type="search"
           value={query}
         />
@@ -5327,7 +5327,7 @@ function MeetingCalendarView({
         <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 px-1">
           <p className="min-w-0 flex-1 text-xs font-medium leading-4 text-[#64748B]">
-            {calendarSyncMessage || (googleCalendarConnected ? "Google events stay read-only until you add them to DOS." : "Connect Google Calendar to read events.")}
+            {calendarSyncMessage || (googleCalendarConnected ? "Google events are read-only." : "Connect Google to read events.")}
           </p>
           {googleCalendarConnected ? (
             <button
@@ -6869,7 +6869,7 @@ function ReminderFormContent({
                 {cadence.label}
               </button>
             ))}
-            <span className="inline-flex min-h-8 items-center rounded-full border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#94A3B8]">
+            <span aria-disabled="true" className="inline-flex min-h-8 cursor-not-allowed items-center rounded-full border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-3 text-[11px] font-bold text-[#94A3B8] opacity-70">
               Daily soon
             </span>
           </div>
@@ -7145,6 +7145,17 @@ function fruitStoryTitle(value: string | null | undefined) {
   const firstSentence = text.split(/[.!?]/)[0]?.trim() || text;
 
   return firstSentence.length > 82 ? `${firstSentence.slice(0, 79).trim()}...` : firstSentence;
+}
+
+function isQaFruitStory(story: FruitDashboardStory) {
+  const text = fruitSearchText(story.title, story.text, story.tags);
+
+  return /\bqa\b/.test(text)
+    || text.includes("safe to delete")
+    || text.includes("validation only")
+    || text.includes("pre deploy")
+    || text.includes("pre-deploy")
+    || text.includes("smoke test");
 }
 
 function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFruitEvent[], people: DosAppPerson[]) {
@@ -9689,7 +9700,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     participantTestimonies: data.participantTestimonies,
     people,
   }), [data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, people]);
-  const fruitMetrics = useMemo(() => kingdomFruitMetrics(fruitStoryEntries), [fruitStoryEntries]);
+  const visibleFruitStories = useMemo(() => fruitStoryEntries.filter((story) => !isQaFruitStory(story)), [fruitStoryEntries]);
+  const fruitMetrics = useMemo(() => kingdomFruitMetrics(visibleFruitStories), [visibleFruitStories]);
   const latestMeeting = loggedMeetings[0];
   const latestFruitActivity = useMemo(() => {
     const fruitItems = [
@@ -11229,7 +11241,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           label: "Fruit",
           onClick: () => openMoreApp("fruit"),
           section: "installed",
-          status: `${fruitStoryEntries.length} stories`,
+          status: `${visibleFruitStories.length} stories`,
         },
         {
           description: "Teachings and follow-up resources.",
@@ -11329,7 +11341,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           profileName={profileName}
           workspaceName={workspaceName}
         />
-        <div ref={appScrollRef} className="h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-28 pt-11 [scrollbar-width:none] md:px-8 md:pb-10 md:pt-6 xl:px-10">
+        <div ref={appScrollRef} className={`h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white px-4 pt-11 [scrollbar-width:none] md:bg-[#F8FBFF] md:px-8 md:pb-10 md:pt-6 xl:px-10 ${activeTab === "more" ? "pb-40" : "pb-28"}`}>
           {activeTab === "home" ? (
             <header className="relative md:hidden">
               <div className="min-w-0 pr-16">
@@ -11368,7 +11380,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <section className="grid grid-cols-3 gap-2">
                   <HomeActionPill icon="add" onClick={() => openForm("person")}>Add Person</HomeActionPill>
                   <HomeActionPill icon="log" onClick={() => openForm("meeting")}>Log Table</HomeActionPill>
-                  <HomeActionPill icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</HomeActionPill>
+                  <HomeActionPill icon="calendar" onClick={() => openScheduleMeeting()}>Schedule</HomeActionPill>
                 </section>
 
                 {isUsamApplicationPending ? <UsamPendingHomeCard onViewStatus={viewUsamApplicationStatus} /> : null}
@@ -11627,7 +11639,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         onScriptureClick={openScriptureQuickView}
                         scripture={scriptureReferences.secondPeter318}
                         subtitle="DOS core stays simple. Optional layers extend the workspace when needed."
-                        title="Choose an app."
+                        title="Apps for the work."
                       />
                       <div className="space-y-5">
                         {appCatalogSections.map((section) => (
@@ -11708,7 +11720,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <section>
                         <SectionHeading title="Stories" />
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                          {fruitStoryEntries.length ? fruitStoryEntries.slice(0, 9).map((story) => (
+                          {visibleFruitStories.length ? visibleFruitStories.slice(0, 9).map((story) => (
                             <RecentFruitStoryCard key={story.id} story={story} />
                           )) : (
                             <SectionEmptyState
@@ -11722,7 +11734,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     ) : null}
 
                     {fruitView === "tree" ? (
-                      <FruitTreeCard storyCount={fruitStoryEntries.length} />
+                      <FruitTreeCard storyCount={visibleFruitStories.length} />
                     ) : null}
 
                     {fruitView === "impact" ? (
@@ -11894,7 +11906,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       subtitle="Future analytics, multiplication reporting, state reporting, and dashboards."
                       title="Coming soon."
                     />
-                    <EmptyState text="Reports belong in the Command Center layer. DOS will stay focused on people, tables, prayer, fruit, follow up, and next actions." title="Reports are coming soon." />
+                    <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-5 text-sm leading-6 text-[#334155] shadow-[0_12px_30px_rgba(37,99,235,0.05)]">
+                      <p className="font-bold text-[#0F172A]">Reports are coming soon.</p>
+                      <p className="mt-2 font-medium text-[#334155]">Reports are being built for leaders and teams. DOS stays focused on your next faithful step.</p>
+                    </section>
                   </>
                 ) : null}
 
