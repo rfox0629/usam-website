@@ -1651,6 +1651,16 @@ type UpcomingTimelineItem = {
   title: string;
 };
 
+type HomeActivityItem = {
+  date: string | null;
+  icon: IconName;
+  id: string;
+  label: string;
+  meetingId?: string;
+  target: "fruit" | "meeting";
+  title: string;
+};
+
 const upcomingTimelineGroupOrder: UpcomingTimelineGroup[] = ["Today", "Tomorrow", "This Week", "Later"];
 
 function upcomingTimelineGroup(value: string | null | undefined): UpcomingTimelineGroup {
@@ -7006,15 +7016,21 @@ function UpcomingTimelineRow({
 
 function NextStepsCard({
   items,
-  onEditReminder,
-  onOpenMeeting,
+  onOpenAll,
 }: {
   items: UpcomingTimelineItem[];
-  onEditReminder: (reminderId: string) => void;
-  onOpenMeeting: (meetingId: string) => void;
+  onOpenAll: () => void;
 }) {
+  const visibleItems = items.slice(0, 3);
+  const hiddenCount = Math.max(items.length - visibleItems.length, 0);
+
   return (
-    <section className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_32px_rgba(37,99,235,0.07)]">
+    <button
+      aria-label="Open all upcoming items"
+      className="block w-full rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_14px_32px_rgba(37,99,235,0.07)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.995]"
+      onClick={onOpenAll}
+      type="button"
+    >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
           Upcoming
@@ -7023,18 +7039,10 @@ function NextStepsCard({
       </div>
 
       <div className="mt-3 grid gap-2">
-        {items.length ? items.map((item) => (
-          <button
-            className="flex min-w-0 items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5 text-left transition-colors hover:bg-[#EBF2FF]"
+        {visibleItems.length ? visibleItems.map((item) => (
+          <div
+            className="flex min-w-0 items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5 text-left"
             key={item.id}
-            onClick={() => {
-              if (item.meeting) {
-                onOpenMeeting(item.meeting.id);
-              } else if (item.reminder) {
-                onEditReminder(item.reminder.id);
-              }
-            }}
-            type="button"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
               <TimelineIcon icon={item.icon} />
@@ -7043,14 +7051,84 @@ function NextStepsCard({
               <span className="block truncate text-sm font-semibold text-[#0F172A]">{nextStepTitle(item)}</span>
               <span className="mt-0.5 block truncate text-xs text-[#64748B]">{item.label}</span>
             </span>
-          </button>
+          </div>
         )) : (
           <p className="rounded-2xl bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#64748B]">
             No next steps queued. Ask the Lord who to encourage next.
           </p>
         )}
+        {hiddenCount ? (
+          <p className="px-3 pt-1 text-xs font-semibold text-[#2563EB]">{hiddenCount} more upcoming</p>
+        ) : null}
       </div>
-    </section>
+    </button>
+  );
+}
+
+function HomeActivityCard({
+  items,
+  onOpenAll,
+}: {
+  items: HomeActivityItem[];
+  onOpenAll: () => void;
+}) {
+  const visibleItems = items.slice(0, 3);
+  const hiddenCount = Math.max(items.length - visibleItems.length, 0);
+
+  return (
+    <button
+      aria-label="Open all activity"
+      className="block w-full rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_14px_32px_rgba(37,99,235,0.07)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.995]"
+      onClick={onOpenAll}
+      type="button"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+          Activity
+        </h2>
+        <span className="rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">{items.length}</span>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        {visibleItems.length ? visibleItems.map((item) => (
+          <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5 text-left" key={item.id}>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+              <Icon name={item.icon} size={14} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-[#0F172A]">{item.title}</span>
+              <span className="mt-0.5 block truncate text-xs text-[#64748B]">{item.label}</span>
+            </span>
+          </div>
+        )) : (
+          <p className="rounded-2xl bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#64748B]">
+            Log a table to begin your activity rhythm.
+          </p>
+        )}
+        {hiddenCount ? (
+          <p className="px-3 pt-1 text-xs font-semibold text-[#2563EB]">{hiddenCount} more activity items</p>
+        ) : null}
+      </div>
+    </button>
+  );
+}
+
+function HomeActivitySheetRow({ item, onClick }: { item: HomeActivityItem; onClick: () => void }) {
+  return (
+    <button
+      className="flex min-w-0 items-start gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        <Icon name={item.icon} size={15} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold leading-5 text-[#0F172A]">{item.title}</span>
+        <span className="mt-1 block text-xs leading-5 text-[#64748B]">{item.label}</span>
+      </span>
+      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+    </button>
   );
 }
 
@@ -9651,6 +9729,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [isMobileActionSheetOpen, setIsMobileActionSheetOpen] = useState(false);
+  const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
+  const [isUpcomingSheetOpen, setIsUpcomingSheetOpen] = useState(false);
   const [circleSheetView, setCircleSheetView] = useState<CircleFocusView | null>(null);
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -9868,6 +9948,57 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return secondTime - firstTime;
     })[0] ?? null;
   }, [data.leaderReflections, loggedMeetings, people]);
+  const homeActivityItems = useMemo<HomeActivityItem[]>(() => {
+    const meetingItems: HomeActivityItem[] = loggedMeetings.map((meeting) => ({
+      date: meeting.date,
+      icon: "log",
+      id: `meeting-${meeting.id}`,
+      label: `${meetingDisplayTitle(meeting, people)} · ${meetingActivityTitle(meeting)} · ${formatRelativeDate(meeting.date)}`,
+      meetingId: meeting.id,
+      target: "meeting",
+      title: "Table",
+    }));
+    const prayerItems: HomeActivityItem[] = data.leaderReflections
+      .filter((reflection) => Boolean(normalizeText(reflection.prayerNeeds)))
+      .map((reflection) => {
+        const meeting = loggedMeetings.find((item) => item.id === reflection.meetingId) ?? null;
+
+        return {
+          date: reflection.createdAt,
+          icon: "bell",
+          id: `prayer-${reflection.id}`,
+          label: meeting ? `${meetingDisplayTitle(meeting, people)} · ${formatRelativeDate(reflection.createdAt)}` : `Prayer note · ${formatRelativeDate(reflection.createdAt)}`,
+          meetingId: reflection.meetingId,
+          target: "meeting",
+          title: "Prayer",
+        };
+      });
+    const fruitItems: HomeActivityItem[] = [
+      ...visibleFruit.map((fruit) => ({
+        date: fruit.testimonyDate,
+        icon: "fruit" as const,
+        id: `fruit-${fruit.id}`,
+        label: `${fruit.summary || "Fruit recorded"} · ${formatDate(fruit.testimonyDate)}`,
+        target: "fruit" as const,
+        title: "Fruit",
+      })),
+      ...data.fruitEvents.map((event) => ({
+        date: event.date,
+        icon: "fruit" as const,
+        id: `fruit-event-${event.id}`,
+        label: `${event.title || event.fruitType || "Fruit recorded"} · ${formatDate(event.date)}`,
+        target: "fruit" as const,
+        title: "Fruit",
+      })),
+    ];
+
+    return [...meetingItems, ...prayerItems, ...fruitItems].sort((first, second) => {
+      const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
+      const secondTime = parseDisplayDate(second.date)?.getTime() ?? 0;
+
+      return secondTime - firstTime;
+    });
+  }, [data.fruitEvents, data.leaderReflections, loggedMeetings, people, visibleFruit]);
   const upcomingTimelineItems = useMemo(() => (
     buildUpcomingTimelineItems({
       meetings: data.meetings,
@@ -10000,7 +10131,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   useEffect(() => {
     setIsMobileActionSheetOpen(false);
-  }, [activeTab, formMode, isAppsSearchOpen, isTableSearchOpen, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedReminderId]);
+  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedReminderId]);
 
   function resetMeetingDraft(personIds: string[] = []) {
     setConversationResponses({});
@@ -10053,6 +10184,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setMoreAppView(null);
     setIsAppsSearchOpen(false);
     setIsTableSearchOpen(false);
+    setIsActivitySheetOpen(false);
+    setIsUpcomingSheetOpen(false);
     setAppSearchQuery("");
     scrollAppToTop();
     setErrorMessage("");
@@ -10076,6 +10209,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setMoreAppView(view);
     setIsAppsSearchOpen(false);
     setIsTableSearchOpen(false);
+    setIsActivitySheetOpen(false);
+    setIsUpcomingSheetOpen(false);
     setAppSearchQuery("");
     scrollAppToTop();
     setErrorMessage("");
@@ -10101,6 +10236,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setMoreAppView(null);
     setIsAppsSearchOpen(false);
     setIsTableSearchOpen(false);
+    setIsActivitySheetOpen(false);
+    setIsUpcomingSheetOpen(false);
     setAppSearchQuery("");
     scrollAppToTop();
     setPeopleCircleView(circle);
@@ -10138,7 +10275,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function openUsamAppsLayer() {
-    openMoreApp("missionary_profile");
+    openMoreApp("organizations");
+  }
+
+  function openHomeActivityItem(item: HomeActivityItem) {
+    setIsActivitySheetOpen(false);
+
+    if (item.target === "fruit") {
+      openMoreApp("fruit");
+      return;
+    }
+
+    if (item.meetingId) {
+      openMeetingDetail(item.meetingId);
+      return;
+    }
+
+    setActiveTab("meetings");
   }
 
   function openUsamApplicationSheet() {
@@ -11387,7 +11540,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ],
     },
   ];
-  const mobileAppCatalogItems = appCatalogSections.flatMap((section) => section.items);
+  const mobileAppCatalogItems = appCatalogSections
+    .flatMap((section) => section.items)
+    .filter((item) => item.label !== "Table Flow");
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 
@@ -11414,6 +11569,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     : activeTab === "more"
       ? [
           { icon: "people", label: "USA Missionaries", onClick: runMobileAction(openUsamAppsLayer) },
+          { icon: "people", label: "Missionary Profile", onClick: runMobileAction(() => openMoreApp("missionary_profile")) },
+          { icon: "prayer", label: "Prayer Team", onClick: runMobileAction(() => openMoreApp("prayer_team")) },
+          { icon: "people", label: "Support Team", onClick: runMobileAction(() => openMoreApp("support_team")) },
+          { icon: "log", label: "Reports", onClick: runMobileAction(() => openMoreApp("reports")) },
           { icon: "search", label: "Search Apps", onClick: runMobileAction(openAppsSearch) },
         ]
       : activeTab === "home"
@@ -11431,7 +11590,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isEditProfileOpen
     && !isPeopleImportOpen
     && !isProfileOpen
+    && !isActivitySheetOpen
     && !isTableSearchOpen
+    && !isUpcomingSheetOpen
     && !isUsamApplicationOpen
     && !selectedExternalCalendarEventId
     && !selectedMeetingId
@@ -11491,46 +11652,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {isUsamApplicationPending ? <UsamPendingHomeCard onViewStatus={viewUsamApplicationStatus} /> : null}
 
                 <NextStepsCard
-                  items={nextStepItems}
-                  onEditReminder={openReminderEdit}
-                  onOpenMeeting={openMeetingDetail}
+                  items={upcomingTimelineItems}
+                  onOpenAll={() => setIsUpcomingSheetOpen(true)}
                 />
 
-                <section>
-                  <SectionHeading title="Recent Activity" />
-                  <div className="grid gap-2">
-                    {latestMeeting ? (
-                      <RecentActivityRow
-                        icon="log"
-                        onClick={() => setActiveTab("meetings")}
-                        title="Latest table"
-                      >
-                        {meetingDisplayTitle(latestMeeting, people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
-                      </RecentActivityRow>
-                    ) : null}
-                    {latestPrayerActivity ? (
-                      <RecentActivityRow
-                        icon="bell"
-                        onClick={() => openMeetingDetail(latestPrayerActivity.meetingId)}
-                        title="Latest prayer"
-                      >
-                        {latestPrayerActivity.label}
-                      </RecentActivityRow>
-                    ) : null}
-                    {latestFruitActivity ? (
-                      <RecentActivityRow
-                        icon="fruit"
-                        onClick={() => openMoreApp("fruit")}
-                        title="Latest fruit"
-                      >
-                        {latestFruitActivity.label}
-                      </RecentActivityRow>
-                    ) : null}
-                    {!latestMeeting && !latestPrayerActivity && !latestFruitActivity ? (
-                      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-[#64748B]">Log a table to begin your activity rhythm.</div>
-                    ) : null}
-                  </div>
-                </section>
+                <HomeActivityCard
+                  items={homeActivityItems}
+                  onOpenAll={() => setIsActivitySheetOpen(true)}
+                />
               </div>
               <DesktopHomeDashboard
                 circleGroups={circlePeopleByLayer}
@@ -12282,6 +12411,45 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
       </div>
+
+      {isUpcomingSheetOpen ? (
+        <Sheet onClose={() => setIsUpcomingSheetOpen(false)} showEyebrow={false} title="Upcoming">
+          <div className="max-h-[68dvh] overflow-y-auto pr-1 [scrollbar-width:none]">
+            <div className="grid gap-2">
+              {upcomingTimelineItems.length ? upcomingTimelineItems.map((item) => (
+                <UpcomingTimelineRow
+                  item={item}
+                  key={item.id}
+                  onEditReminder={(reminderId) => {
+                    setIsUpcomingSheetOpen(false);
+                    openReminderEdit(reminderId);
+                  }}
+                  onOpenMeeting={(meetingId) => {
+                    setIsUpcomingSheetOpen(false);
+                    openMeetingDetail(meetingId);
+                  }}
+                />
+              )) : (
+                <EmptyState text="No next steps queued. Ask the Lord who to encourage next." title="Nothing upcoming." />
+              )}
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
+
+      {isActivitySheetOpen ? (
+        <Sheet onClose={() => setIsActivitySheetOpen(false)} showEyebrow={false} title="Activity">
+          <div className="max-h-[68dvh] overflow-y-auto pr-1 [scrollbar-width:none]">
+            <div className="grid gap-2">
+              {homeActivityItems.length ? homeActivityItems.map((item) => (
+                <HomeActivitySheetRow item={item} key={item.id} onClick={() => openHomeActivityItem(item)} />
+              )) : (
+                <EmptyState text="Log a table to begin your activity rhythm." title="No activity yet." />
+              )}
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
 
       {isTableSearchOpen ? (
         <Sheet onClose={() => setIsTableSearchOpen(false)} showEyebrow={false} title="Search Tables">
