@@ -45,7 +45,7 @@ function WeightInput({
       <span className="text-xs font-medium text-stone-300">{label}</span>
       <div className="flex items-center gap-3">
         <input
-          className="h-1.5 min-w-0 flex-1 accent-[#C9A24A]"
+          className="h-1.5 min-w-0 flex-1 accent-usam-gold"
           max={100}
           min={0}
           onChange={(event) => onChange(Number(event.target.value))}
@@ -53,7 +53,7 @@ function WeightInput({
           value={value}
         />
         <input
-          className="h-9 w-16 rounded-md border border-stone-700 bg-[#050505] px-2 text-sm text-stone-100 outline-none focus:border-[#C9A24A]"
+          className="h-9 w-16 rounded-md border border-stone-700 bg-[#050505] px-2 text-sm text-stone-100 outline-none focus:border-usam-gold"
           max={100}
           min={0}
           onChange={(event) => onChange(Number(event.target.value))}
@@ -72,7 +72,7 @@ function ScoreRow({ score: item }: { score: DosRelationshipScore }) {
         <p className="truncate text-sm font-semibold text-stone-100">{item.person.name}</p>
         <p className="mt-1 truncate text-xs text-stone-500">{item.person.relationshipType ?? "Relationship"} · {item.person.engagementLevel ?? "No engagement set"}</p>
       </div>
-      <span className="w-fit rounded-full bg-[#C9A24A]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#E4C465]">
+      <span className="w-fit rounded-full bg-usam-gold/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-usam-gold">
         {circleLabel(item.circle)}
       </span>
       <span className="text-sm font-semibold text-stone-200">{score(item.totalScore)}</span>
@@ -179,7 +179,7 @@ export function CircleEngineClient({
         <label className="grid gap-2">
           <span className="text-xs font-medium text-stone-500">Workspace</span>
           <select
-            className="h-10 rounded-md border border-stone-700 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#C9A24A]"
+            className="h-10 rounded-md border border-stone-700 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-usam-gold"
             onChange={(event) => { void loadWorkspace(event.target.value); }}
             value={selectedWorkspaceId}
           >
@@ -193,14 +193,14 @@ export function CircleEngineClient({
             <Save className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
             Save Config
           </button>
-          <button className="inline-flex min-h-10 items-center gap-2 rounded-md bg-[#C9A24A] px-3 text-sm font-semibold text-[#111111] disabled:opacity-50" disabled={isWorking} onClick={recalculate} type="button">
+          <button className="inline-flex min-h-10 items-center gap-2 rounded-md bg-usam-gold px-3 text-sm font-semibold text-[#111111] disabled:opacity-50" disabled={isWorking} onClick={recalculate} type="button">
             <RefreshCw className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
             Recalculate
           </button>
         </div>
       </section>
 
-      {message ? <p className="rounded-lg border border-[#C9A24A]/30 bg-[#C9A24A]/10 px-3 py-2 text-sm text-[#E4C465]">{message}</p> : null}
+      {message ? <p className="rounded-lg border border-usam-gold/30 bg-usam-gold/10 px-3 py-2 text-sm text-usam-gold">{message}</p> : null}
 
       {config ? (
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

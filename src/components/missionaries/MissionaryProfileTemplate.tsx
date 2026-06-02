@@ -99,10 +99,10 @@ function getProgressFillClass(progressPercentage: number) {
   }
 
   if (progressPercentage >= 50) {
-    return "bg-gradient-to-r from-[#D4A63D] to-green-500";
+    return "bg-gradient-to-r from-usam-gold to-green-500";
   }
 
-  return "bg-[#D4A63D]";
+  return "bg-usam-gold";
 }
 
 function fruitDateValue(item: MissionaryFruitItem) {
@@ -227,9 +227,9 @@ function MissionProfileCard({
   title: string;
 }) {
   return (
-    <article id={id} className="group flex min-h-[280px] flex-col rounded-[1.25rem] border border-stone-800/80 bg-[#080808] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.2)] transition-all duration-300 hover:border-[#D4A63D]/45 hover:bg-[#0d0d0d] md:p-5">
+    <article id={id} className="group flex min-h-[280px] flex-col rounded-[1.25rem] border border-stone-800/80 bg-[#080808] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.2)] transition-all duration-300 hover:border-usam-gold/45 hover:bg-[#0d0d0d] md:p-5">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#D4A63D]/25 bg-[#D4A63D]/10 text-[#F5B942]">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-usam-gold/25 bg-usam-gold/10 text-usam-gold">
           {icon}
         </div>
         <span className="rounded-full border border-white/[0.1] px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -296,7 +296,7 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
                 {member.displayName}
               </h3>
               {member.publicNumber ? (
-                <span className="text-[9px] uppercase tracking-[0.14em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span className="text-[9px] uppercase tracking-[0.14em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   {member.publicNumber}
                 </span>
               ) : null}
@@ -385,7 +385,7 @@ function FruitSection({
         <div className="rounded-[1.25rem] border border-stone-800/80 bg-[#080808] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.2)] md:p-5">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Field Updates
               </p>
               <h2 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
@@ -408,7 +408,7 @@ function FruitSection({
               {topFruitItems.map((item) => (
                 <article key={item.id} className="rounded-xl border border-stone-800/70 bg-[#050505] p-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       {formatPrayerDate(item.testimonyDate ?? item.createdAt)}
                     </p>
                     {item.category ? (
@@ -417,7 +417,7 @@ function FruitSection({
                       </span>
                     ) : null}
                     {item.isFeatured ? (
-                      <span className="border border-[#D4A63D]/40 bg-[#D4A63D]/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      <span className="border border-usam-gold/40 bg-usam-gold/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Featured
                       </span>
                     ) : null}
@@ -479,7 +479,7 @@ function MissionProfileSection({
     <section className="border-t border-stone-900/80 px-6 py-8 md:py-10">
       <div className="mx-auto max-w-6xl">
         <div className="mb-5">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Mission Profile
           </p>
           <h2 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-[2.5rem]" style={{ fontFamily: font.oswald }}>

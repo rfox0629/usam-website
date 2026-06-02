@@ -29,10 +29,10 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
-const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
-const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
-const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#F5B942]";
+const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
+const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
+const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold";
+const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold";
 const prayerFormTypes = new Set(["prayer_team_application", "prayer_request"]);
 
 const statuses = [
@@ -283,7 +283,7 @@ function statusClassName(status: SubmissionStatus) {
   switch (status) {
     case "new":
     case "needs_follow_up":
-      return "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]";
+      return "border-usam-gold/35 bg-usam-gold/10 text-usam-gold";
     case "contacted":
       return "border-sky-400/25 bg-sky-950/25 text-sky-300";
     case "converted":
@@ -300,7 +300,7 @@ function priorityClassName(priority: SubmissionPriority) {
     case "high":
       return "border-red-500/35 bg-red-950/25 text-red-200";
     case "important":
-      return "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]";
+      return "border-usam-gold/35 bg-usam-gold/10 text-usam-gold";
     default:
       return "border-stone-700 bg-stone-900/70 text-stone-300";
   }
@@ -327,7 +327,7 @@ function MetricCard({
   value: number | string;
 }) {
   const toneClassName = {
-    amber: "text-[#E4C465]",
+    amber: "text-usam-gold",
     green: "text-green-300",
     red: "text-red-200",
   } as const;
@@ -375,7 +375,7 @@ function SystemNotice({
         <p>{title}</p>
         {detail ? (
           <details className="shrink-0 text-xs text-stone-400">
-            <summary className="cursor-pointer uppercase tracking-[0.14em] text-[#E4C465]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <summary className="cursor-pointer uppercase tracking-[0.14em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               View Details
             </summary>
             <p className="mt-2 max-w-2xl text-left leading-6 text-stone-400">{detail}</p>
@@ -619,7 +619,7 @@ function FilterBar({
         <details className="group rounded-lg border border-stone-800 bg-[#050505] lg:w-[190px]">
           <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between px-3 text-[11px] uppercase tracking-[0.14em] text-stone-300 group-open:border-b group-open:border-stone-800" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Filters
-            <span className="text-[#D4A63D]">+</span>
+            <span className="text-usam-gold">+</span>
           </summary>
           <div className="grid gap-2 p-3">
             <label>
@@ -690,7 +690,7 @@ function InboxList({
     <section className="overflow-hidden rounded-xl border border-stone-800/75 bg-[#080808]/85">
       <div className="flex items-center justify-between gap-4 border-b border-stone-800/70 px-4 py-3">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Submissions
           </p>
           <p className="mt-1 text-xs text-stone-500">{submissions.length} visible</p>
@@ -703,7 +703,7 @@ function InboxList({
           return (
             <Link
               className={`group grid gap-4 px-4 py-4 text-sm transition-colors hover:bg-stone-950/80 lg:grid-cols-[minmax(180px,1.1fr)_160px_minmax(160px,1fr)_150px_auto] lg:items-center ${
-                isActive ? "bg-[#C9A24A]/5" : ""
+                isActive ? "bg-usam-gold/5" : ""
               }`}
               href={buildHref(params, { submission: submission.id })}
               key={submission.id}
@@ -718,7 +718,7 @@ function InboxList({
               <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                 <Badge className={statusClassName(submission.status)}>{labelFromValue(submission.status)}</Badge>
                 <Badge className={priorityClassName(submission.priority)}>{labelFromValue(submission.priority)}</Badge>
-                <span className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.13em] text-stone-100 transition-colors group-hover:border-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.13em] text-stone-100 transition-colors group-hover:border-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Manage
                 </span>
               </div>
@@ -796,7 +796,7 @@ function DetailFrame({
       <aside className="ml-auto h-full w-full max-w-2xl overflow-y-auto border-l border-stone-800 bg-[#070707] p-5 shadow-[0_0_80px_rgba(0,0,0,0.55)] md:p-6">
         <div className="flex items-start justify-between gap-4 border-b border-stone-800/70 pb-4">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {eyebrow}
             </p>
             <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{title}</h2>
@@ -869,12 +869,12 @@ function ActionForm({
   variant?: "amber" | "blue" | "outline" | "danger";
 }) {
   const className = variant === "amber"
-    ? "border-transparent bg-[#D4A63D] text-black hover:bg-[#F5B942]"
+    ? "border-transparent bg-usam-gold text-black hover:bg-usam-gold"
     : variant === "blue"
       ? "border-blue-400/25 bg-blue-950/30 text-blue-200 hover:border-blue-300/60"
       : variant === "danger"
         ? "border-red-500/30 text-red-200 hover:bg-red-950/25"
-        : "border-stone-700 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]";
+        : "border-stone-700 text-stone-100 hover:border-usam-gold hover:text-usam-gold";
 
   return (
     <form action={action}>
@@ -930,7 +930,7 @@ function SubmissionDetail({
       title={fullName(submission)}
     >
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <DetailItem label="Email" value={submission.email ? <a className="hover:text-[#F5B942]" href={`mailto:${submission.email}`}>{submission.email}</a> : "-"} />
+        <DetailItem label="Email" value={submission.email ? <a className="hover:text-usam-gold" href={`mailto:${submission.email}`}>{submission.email}</a> : "-"} />
         <DetailItem label="Phone" value={submission.phone || "-"} />
         <DetailItem label="Source Page" value={submission.source_page || "-"} />
         <DetailItem label="Form Type" value={formTypeLabel(submission.form_type)} />
@@ -982,14 +982,14 @@ function SubmissionDetail({
             Internal Notes
           </span>
           <textarea
-            className="mt-2 min-h-28 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
+            className="mt-2 min-h-28 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
             defaultValue={submission.internal_notes ?? ""}
             name="internal_notes"
             placeholder="Add next steps, context, or follow-up notes for the support team."
           />
         </label>
         <button
-          className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#F5B942]"
+          className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-transparent bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="submit"
         >
@@ -1024,8 +1024,8 @@ function OperationalModule({
     <Link
       className={`group rounded-xl border p-4 transition-colors ${
         active
-          ? "border-[#D4A63D] bg-[#D4A63D] text-black"
-          : "border-stone-800/75 bg-[#080808]/90 text-stone-100 hover:border-[#D4A63D]/70 hover:bg-stone-950"
+          ? "border-usam-gold bg-usam-gold text-black"
+          : "border-stone-800/75 bg-[#080808]/90 text-stone-100 hover:border-usam-gold/70 hover:bg-stone-950"
       }`}
       href={href}
     >
@@ -1041,7 +1041,7 @@ function OperationalModule({
         <span className={`inline-flex min-h-9 items-center rounded-lg border px-3 text-[10px] uppercase tracking-[0.13em] transition-colors ${
           active
             ? "border-black/20 text-black"
-            : "border-stone-700 text-stone-300 group-hover:border-[#D4A63D] group-hover:text-[#F5B942]"
+            : "border-stone-700 text-stone-300 group-hover:border-usam-gold group-hover:text-usam-gold"
         }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {action}
         </span>
@@ -1091,7 +1091,7 @@ function CommitmentRow({ commitment }: { commitment: SupportCommitmentRecord }) 
   const statusTone = commitment.status === "active"
     ? "border-green-500/25 bg-green-950/30 text-green-300"
     : commitment.status === "needs_follow_up" || commitment.status === "pending_giving_setup"
-      ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
+      ? "border-usam-gold/35 bg-usam-gold/10 text-usam-gold"
       : "border-stone-700 bg-stone-900/70 text-stone-300";
 
   return (
@@ -1148,7 +1148,7 @@ function MatchRow({
         <p className="font-semibold text-stone-100">{gift ? donorName(gift) : "Missing PCO gift"}</p>
         <p className="text-xs text-stone-500">{gift?.donor_email || gift?.donor_phone || "-"}</p>
       </div>
-      <Badge className="border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]">{Number(match.confidence ?? 0)}%</Badge>
+      <Badge className="border-usam-gold/35 bg-usam-gold/10 text-usam-gold">{Number(match.confidence ?? 0)}%</Badge>
       <p className="text-sm text-stone-300 lg:text-right">{labelFromValue(match.match_status || "suggested")}</p>
     </div>
   );
@@ -1168,7 +1168,7 @@ function ReconciliationSection({
   return (
     <section className="overflow-hidden rounded-xl border border-stone-800/75 bg-[#080808]/85">
       <div className="border-b border-stone-800/70 px-4 py-3">
-        <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {title}
         </p>
       </div>
@@ -1210,7 +1210,7 @@ function GivingReconciliationView({
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section className="rounded-xl border border-stone-800/75 bg-[#080808]/85 p-5">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Giving Reconciliation
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -1220,11 +1220,11 @@ function GivingReconciliationView({
           </div>
         </section>
         <section className="rounded-xl border border-stone-800/75 bg-[#080808]/85 p-5">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Planning Center
           </p>
           <div className="mt-3">
-            <Badge className={config.configured ? "border-green-500/25 bg-green-950/30 text-green-300" : "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"}>
+            <Badge className={config.configured ? "border-green-500/25 bg-green-950/30 text-green-300" : "border-usam-gold/35 bg-usam-gold/10 text-usam-gold"}>
               {config.configured ? "Ready" : "Credentials Needed"}
             </Badge>
           </div>

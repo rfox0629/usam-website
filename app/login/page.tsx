@@ -83,7 +83,7 @@ export default async function LoginPage({
           <p className={`mt-5 border p-4 text-sm ${
             isDosLogin
               ? "rounded-2xl border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
-              : "border-[#D4A63D]/30 bg-[#D4A63D]/10 text-stone-100"
+              : "border-usam-gold/30 bg-usam-gold/10 text-stone-100"
           }`}>
             {success}
           </p>
@@ -99,7 +99,7 @@ export default async function LoginPage({
               className={`mt-2 min-h-12 w-full border px-4 outline-none transition-colors ${
                 isDosLogin
                   ? "rounded-2xl border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A] focus:border-[#2563EB] focus:bg-white"
-                  : "border-stone-800 bg-[#050505] text-stone-100 focus:border-[#D4A63D]"
+                  : "border-stone-800 bg-[#050505] text-stone-100 focus:border-usam-gold"
               }`}
               name="email"
               required
@@ -115,7 +115,7 @@ export default async function LoginPage({
               className={`mt-2 min-h-12 w-full border px-4 outline-none transition-colors ${
                 isDosLogin
                   ? "rounded-2xl border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A] focus:border-[#2563EB] focus:bg-white"
-                  : "border-stone-800 bg-[#050505] text-stone-100 focus:border-[#D4A63D]"
+                  : "border-stone-800 bg-[#050505] text-stone-100 focus:border-usam-gold"
               }`}
               name="password"
               required
@@ -126,7 +126,7 @@ export default async function LoginPage({
             className={`inline-flex min-h-12 w-full items-center justify-center px-6 py-3 text-xs uppercase tracking-[0.24em] transition-all ${
               isDosLogin
                 ? "rounded-full bg-[#2563EB] text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] hover:bg-[#1D4ED8]"
-                : "bg-[#D4A63D] text-black hover:bg-[#F5B942]"
+                : "bg-usam-gold text-black hover:bg-usam-gold"
             }`}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="submit"
@@ -152,14 +152,14 @@ export default async function LoginPage({
               </span>
               <input
                 autoComplete="email"
-                className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+                className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-usam-gold"
                 name="magic_email"
                 required
                 type="email"
               />
             </label>
             <button
-              className="inline-flex min-h-11 w-full items-center justify-center border border-stone-700 px-6 py-3 text-xs uppercase tracking-[0.22em] text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+              className="inline-flex min-h-11 w-full items-center justify-center border border-stone-700 px-6 py-3 text-xs uppercase tracking-[0.22em] text-stone-100 transition-all hover:border-usam-gold hover:text-usam-gold"
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               type="submit"
             >
@@ -182,14 +182,14 @@ export default async function LoginPage({
               </span>
               <input
                 autoComplete="email"
-                className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+                className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-usam-gold"
                 name="reset_email"
                 required
                 type="email"
               />
             </label>
             <button
-              className="inline-flex min-h-11 w-full items-center justify-center border border-stone-700 px-6 py-3 text-xs uppercase tracking-[0.22em] text-stone-100 transition-all hover:border-[#D4A63D] hover:text-[#F5B942]"
+              className="inline-flex min-h-11 w-full items-center justify-center border border-stone-700 px-6 py-3 text-xs uppercase tracking-[0.22em] text-stone-100 transition-all hover:border-usam-gold hover:text-usam-gold"
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               type="submit"
             >

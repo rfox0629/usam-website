@@ -100,7 +100,7 @@ export function RelationshipInsightsPanel({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p
-                className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-400"
+                className="text-[11px] font-bold uppercase tracking-[0.18em] text-usam-gold"
                 style={{ fontFamily: font.rajdhani }}
               >
                 Commitment Level
@@ -121,8 +121,8 @@ export function RelationshipInsightsPanel({
                   aria-pressed={isActive}
                   className={`min-h-10 border px-3 text-left transition-colors ${
                     isActive
-                      ? "border-amber-500/60 bg-amber-400 text-stone-950"
-                      : "border-stone-800 bg-[#050505] text-stone-300 hover:border-amber-500/45"
+                      ? "border-usam-gold/60 bg-usam-gold text-stone-950"
+                      : "border-stone-800 bg-[#050505] text-stone-300 hover:border-usam-gold/45"
                   }`}
                   disabled={!canEdit}
                   key={option.value}
@@ -144,7 +144,7 @@ export function RelationshipInsightsPanel({
 
         <section className="border border-stone-800 bg-[#080808] p-4 sm:p-5">
           <p
-            className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-400"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-usam-gold"
             style={{ fontFamily: font.rajdhani }}
           >
             Relationship Depth
@@ -162,8 +162,8 @@ export function RelationshipInsightsPanel({
                   aria-pressed={isActive}
                   className={`min-h-10 border px-3 text-center text-sm font-semibold transition-colors ${
                     isActive
-                      ? "border-amber-500/60 bg-amber-400 text-stone-950"
-                      : "border-stone-800 bg-[#050505] text-stone-300 hover:border-amber-500/45"
+                      ? "border-usam-gold/60 bg-usam-gold text-stone-950"
+                      : "border-stone-800 bg-[#050505] text-stone-300 hover:border-usam-gold/45"
                   }`}
                   disabled={!canEdit}
                   key={option}
@@ -185,7 +185,7 @@ export function RelationshipInsightsPanel({
       ) : null}
 
       {savedMessage ? (
-        <div className="border border-amber-500/35 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">
+        <div className="border border-usam-gold/35 bg-usam-gold/10 p-4 text-sm leading-6 text-usam-gold">
           {savedMessage}
         </div>
       ) : null}
@@ -193,7 +193,7 @@ export function RelationshipInsightsPanel({
       {canEdit ? (
         <div className="flex justify-end">
           <button
-            className="min-h-11 border border-amber-500/60 bg-amber-400 px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 border border-usam-gold/60 bg-usam-gold px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
             style={{ fontFamily: font.rajdhani }}
             type="submit"
@@ -265,13 +265,13 @@ export function RelationshipNotesPanel({
     <form className="border border-stone-900 bg-[#070707]/70 p-4" onSubmit={handleSubmit}>
       <label className="block">
         <span
-          className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-400"
+          className="text-[10px] font-bold uppercase tracking-[0.18em] text-usam-gold"
           style={{ fontFamily: font.rajdhani }}
         >
           Snapshot Notes
         </span>
         <textarea
-          className="mt-3 min-h-20 w-full border border-stone-800 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400 disabled:text-stone-500"
+          className="mt-3 min-h-20 w-full border border-stone-800 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold disabled:text-stone-500"
           disabled={!canEdit}
           onChange={(event) => setNotesPrivate(event.target.value)}
           placeholder="Notes about spiritual growth, follow up, or prayer."
@@ -291,7 +291,7 @@ export function RelationshipNotesPanel({
       ) : null}
 
       {savedMessage ? (
-        <div className="mt-4 border border-amber-500/35 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">
+        <div className="mt-4 border border-usam-gold/35 bg-usam-gold/10 p-4 text-sm leading-6 text-usam-gold">
           {savedMessage}
         </div>
       ) : null}
@@ -299,7 +299,7 @@ export function RelationshipNotesPanel({
       {canEdit ? (
         <div className="mt-3 flex justify-end">
           <button
-            className="min-h-10 border border-amber-500/60 bg-amber-400 px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-10 border border-usam-gold/60 bg-usam-gold px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
             style={{ fontFamily: font.rajdhani }}
             type="submit"

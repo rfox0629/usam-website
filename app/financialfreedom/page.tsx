@@ -28,7 +28,7 @@ export default async function FinancialFreedomInquiryPage({
 
       <section className="relative overflow-hidden px-6 pb-10 pt-24 md:pb-12 md:pt-28">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[length:72px_72px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(212,166,61,0.10),transparent_28%),radial-gradient(ellipse_at_center,transparent_38%,#050505_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(var(--usam-gold-rgb),0.10),transparent_28%),radial-gradient(ellipse_at_center,transparent_38%,#050505_100%)]" />
         <div className="relative mx-auto max-w-6xl">
           <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
             Financial Freedom

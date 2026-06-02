@@ -38,14 +38,14 @@ function buttonClassName(variant: JoinPrayerTeamModalProps["variant"] = "gold", 
   }
 
   if (variant === "compact") {
-    return "inline-flex min-h-10 items-center justify-center border border-[#D4A63D]/45 bg-[#D4A63D]/10 px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-[#F5B942] transition-colors hover:border-[#D4A63D] hover:bg-[#D4A63D]/15";
+    return "inline-flex min-h-10 items-center justify-center border border-usam-gold/45 bg-usam-gold/10 px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-usam-gold transition-colors hover:border-usam-gold hover:bg-usam-gold/15";
   }
 
   if (variant === "outline") {
-    return "inline-flex min-h-12 w-full items-center justify-center border border-[#D4A63D]/55 bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-[#F5B942] transition-all duration-300 hover:border-[#D4A63D] hover:bg-[#D4A63D]/10 sm:w-auto sm:min-w-[220px]";
+    return "inline-flex min-h-12 w-full items-center justify-center border border-usam-gold/55 bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-usam-gold transition-all duration-300 hover:border-usam-gold hover:bg-usam-gold/10 sm:w-auto sm:min-w-[220px]";
   }
 
-  return "inline-flex min-h-12 w-full items-center justify-center border border-transparent bg-[#D4A63D] px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-black transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_0_22px_rgba(212,166,61,0.24)] sm:w-auto sm:min-w-[220px]";
+  return "inline-flex min-h-12 w-full items-center justify-center border border-transparent bg-usam-gold px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-black transition-all duration-300 hover:bg-usam-gold hover:shadow-[0_0_22px_rgba(var(--usam-gold-rgb),0.24)] sm:w-auto sm:min-w-[220px]";
 }
 
 function formatPrayerDate(value: string) {
@@ -76,7 +76,7 @@ function PrayerRequestList({ requests }: { requests: readonly MissionaryPrayerRe
       {requests.map((request) => (
         <article key={request.id} className="border border-stone-800 bg-black/25 p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {formatPrayerDate(request.date)}
             </p>
             {request.category ? (
@@ -122,7 +122,7 @@ export function PrayerRequestsModalButton({
           <div className="w-full max-w-2xl border border-stone-700 bg-[#090909] p-5 shadow-2xl md:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Prayer Requests
                 </p>
                 <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
@@ -131,7 +131,7 @@ export function PrayerRequestsModalButton({
               </div>
               <button
                 aria-label="Close prayer requests"
-                className="border border-stone-700 px-3 py-2 text-xs uppercase tracking-[0.18em] text-stone-300 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                className="border border-stone-700 px-3 py-2 text-xs uppercase tracking-[0.18em] text-stone-300 hover:border-usam-gold hover:text-usam-gold"
                 onClick={() => setIsOpen(false)}
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 type="button"
@@ -242,7 +242,7 @@ export function JoinPrayerTeamModal({
           <div className="w-full max-w-lg border border-stone-700 bg-[#090909] p-5 shadow-2xl md:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Prayer Team
                 </p>
                 <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
@@ -251,7 +251,7 @@ export function JoinPrayerTeamModal({
               </div>
               <button
                 aria-label="Close prayer team signup"
-                className="border border-stone-700 px-3 py-2 text-xs uppercase tracking-[0.18em] text-stone-300 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                className="border border-stone-700 px-3 py-2 text-xs uppercase tracking-[0.18em] text-stone-300 hover:border-usam-gold hover:text-usam-gold"
                 onClick={closeModal}
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 type="button"
@@ -285,7 +285,7 @@ export function JoinPrayerTeamModal({
                   </span>
                   <input
                     autoComplete="name"
-                    className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+                    className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-usam-gold"
                     onChange={(event) => setFormValues((current) => ({ ...current, name: event.target.value }))}
                     required
                     value={formValues.name}
@@ -297,7 +297,7 @@ export function JoinPrayerTeamModal({
                   </span>
                   <input
                     autoComplete="email"
-                    className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+                    className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-usam-gold"
                     onChange={(event) => setFormValues((current) => ({ ...current, email: event.target.value }))}
                     required
                     type="email"
@@ -311,7 +311,7 @@ export function JoinPrayerTeamModal({
                     </span>
                     <input
                       autoComplete="address-level1"
-                      className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+                      className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-usam-gold"
                       onChange={(event) => setFormValues((current) => ({ ...current, state: event.target.value }))}
                       value={formValues.state}
                     />
@@ -321,7 +321,7 @@ export function JoinPrayerTeamModal({
                       Region
                     </span>
                     <input
-                      className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+                      className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-usam-gold"
                       onChange={(event) => setFormValues((current) => ({ ...current, region: event.target.value }))}
                       placeholder="Optional"
                       value={formValues.region}
@@ -333,7 +333,7 @@ export function JoinPrayerTeamModal({
                     How did you hear about our prayer team?
                   </span>
                   <select
-                    className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+                    className="mt-2 min-h-11 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-usam-gold"
                     onChange={(event) => setFormValues((current) => ({ ...current, source: event.target.value as typeof sourceOptions[number]["value"] }))}
                     value={formValues.source}
                   >

@@ -38,7 +38,7 @@ export function PasswordVisibilityInput({
       <button
         aria-label={isVisible ? "Hide access code" : "Show access code"}
         aria-pressed={isVisible}
-        className="absolute right-2 top-1/2 flex h-8 -translate-y-1/2 items-center justify-center rounded-md border border-[#D4A63D]/45 bg-[#D4A63D]/10 px-3 text-[10px] uppercase tracking-[0.14em] text-[#F5B942] transition-colors hover:border-[#D4A63D] hover:bg-[#D4A63D]/20 focus:outline-none focus:ring-2 focus:ring-[#D4A63D]/35"
+        className="absolute right-2 top-1/2 flex h-8 -translate-y-1/2 items-center justify-center rounded-md border border-usam-gold/45 bg-usam-gold/10 px-3 text-[10px] uppercase tracking-[0.14em] text-usam-gold transition-colors hover:border-usam-gold hover:bg-usam-gold/20 focus:outline-none focus:ring-2 focus:ring-usam-gold/35"
         onClick={() => setIsVisible((current) => !current)}
         style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}
         type="button"

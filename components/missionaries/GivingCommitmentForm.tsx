@@ -57,9 +57,9 @@ const baseAllocationPreferences = [
   "Unsure",
 ] as const;
 
-const inputClassName = "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
-const selectClassName = "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
-const textareaClassName = "mt-2 min-h-24 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-6 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+const inputClassName = "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-usam-gold focus:ring-4 focus:ring-usam-gold/15 md:text-sm";
+const selectClassName = "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-usam-gold focus:ring-4 focus:ring-usam-gold/15 md:text-sm";
+const textareaClassName = "mt-2 min-h-24 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-6 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-usam-gold focus:ring-4 focus:ring-usam-gold/15 md:text-sm";
 
 function parseAmount(value: FormDataEntryValue | null) {
   if (typeof value !== "string") {
@@ -285,7 +285,7 @@ export function GivingCommitmentForm({
     <section className={outerClassName}>
       <div className="space-y-4">
         <div className="max-w-[820px] px-1 pb-1 pr-12 pt-0 md:px-2 md:pr-14">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {contextName}
           </p>
           <h2 className="mt-3 text-3xl font-semibold leading-tight text-stone-950 md:text-4xl">
@@ -298,7 +298,7 @@ export function GivingCommitmentForm({
             Your support helps sustain both this missionary household and the broader USA Missionaries mission.
           </p>
           {!isHouseholdSupport ? (
-            <p className="mt-3 rounded-2xl border border-[#D4A63D]/40 bg-[#fff7df] px-4 py-3 text-sm leading-6 text-stone-800">
+            <p className="mt-3 rounded-2xl border border-usam-gold/40 bg-[rgba(var(--usam-gold-rgb),0.14)] px-4 py-3 text-sm leading-6 text-stone-800">
               {supportExplanation || "This missionary household is not currently raising personal support. You can still give toward the broader mission through the selected fund."}
             </p>
           ) : null}
@@ -432,7 +432,7 @@ export function GivingCommitmentForm({
               <button
                 type="submit"
                 disabled={status === "submitting"}
-                className="mt-4 inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_14px_34px_rgba(212,166,61,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-usam-gold px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-usam-gold hover:shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.22)] disabled:cursor-not-allowed disabled:opacity-60"
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               >
                 {status === "submitting" ? "Submitting..." : "Continue to Secure Giving"}

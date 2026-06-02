@@ -89,8 +89,8 @@ function ActionLink({
     <Link
       className={`inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-lg border px-3 text-[10px] uppercase tracking-[0.14em] transition-colors ${
         variant === "gold"
-          ? "border-transparent bg-[#D4A63D] text-black hover:bg-[#F5B942]"
-          : "border-stone-700 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+          ? "border-transparent bg-usam-gold text-black hover:bg-usam-gold"
+          : "border-stone-700 text-stone-100 hover:border-usam-gold hover:text-usam-gold"
       }`}
       href={href}
       onClick={(event) => event.stopPropagation()}
@@ -164,7 +164,7 @@ function DetailDrawer({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p
-              className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]"
+              className="text-[10px] uppercase tracking-[0.2em] text-usam-gold"
               style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
             >
               Detail
@@ -172,7 +172,7 @@ function DetailDrawer({
             <h2 className="mt-3 text-2xl font-semibold leading-tight text-stone-100">{title}</h2>
           </div>
           <button
-            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-300 hover:border-[#D4A63D] hover:text-[#F5B942]"
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-300 hover:border-usam-gold hover:text-usam-gold"
             onClick={onClose}
             style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
             type="button"
@@ -184,7 +184,7 @@ function DetailDrawer({
         {record.type === "page" ? (
           <>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <DetailItem label="URL" value={<Link className="hover:text-[#F5B942]" href={record.row.url}>{record.row.url}</Link>} />
+              <DetailItem label="URL" value={<Link className="hover:text-usam-gold" href={record.row.url}>{record.row.url}</Link>} />
               <DetailItem label="Status" value={<StatusBadge status={record.row.status} />} />
               <DetailItem label="Owner" value={record.row.owner} />
               <DetailItem label="Last Updated" value={record.row.lastUpdated} />
@@ -217,7 +217,7 @@ function DetailDrawer({
         {record.type === "access" ? (
           <>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <DetailItem label="URL" value={<Link className="hover:text-[#F5B942]" href={record.row.url}>{record.row.url}</Link>} />
+              <DetailItem label="URL" value={<Link className="hover:text-usam-gold" href={record.row.url}>{record.row.url}</Link>} />
               <DetailItem label="Access Type" value={record.row.accessType} />
               <DetailItem label="Status" value={<StatusBadge status={record.row.status} />} />
               <DetailItem label="Managed In" value={record.row.managedIn} />
@@ -244,7 +244,7 @@ function DetailDrawer({
 function DetailButton({ onClick }: { onClick: () => void }) {
   return (
     <button
-      className="inline-flex min-h-8 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+      className="inline-flex min-h-8 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold"
       onClick={(event) => {
         event.stopPropagation();
         onClick();
@@ -270,7 +270,7 @@ function RecordCard({
     <article
       className={`min-w-0 cursor-pointer rounded-xl border p-4 transition-colors ${
         selected
-          ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
+          ? "border-usam-gold/55 bg-usam-gold/[0.07]"
           : "border-stone-800/75 bg-[#080808]/90 hover:border-stone-700 hover:bg-stone-950/80"
       }`}
       onClick={onClick}
@@ -509,7 +509,7 @@ export function PublicExperienceControl({
               aria-selected={activeTab === tab.id}
               className={`${tabButtonBaseClass} ${
                 activeTab === tab.id
-                  ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                  ? "border-usam-gold bg-usam-gold text-black"
                   : "border-stone-800 bg-[#090909] text-stone-300 hover:border-stone-600 hover:bg-stone-900/80 hover:text-stone-100"
               }`}
               key={tab.id}
@@ -530,7 +530,7 @@ export function PublicExperienceControl({
         <label className="block min-w-0">
           <span className="sr-only">Search public experience records</span>
           <input
-            className="min-h-11 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
+            className="min-h-11 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search current tab"
             value={query}

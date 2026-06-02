@@ -34,7 +34,7 @@ function AdminBlocked({
           {showSignOut ? (
             <form action={signOutAdmin}>
               <button
-                className="inline-flex min-h-12 w-full items-center justify-center bg-stone-100 px-6 py-3 text-sm uppercase tracking-[0.2em] text-stone-950 transition-colors hover:bg-amber-200 sm:w-auto"
+                className="inline-flex min-h-12 w-full items-center justify-center bg-stone-100 px-6 py-3 text-sm uppercase tracking-[0.2em] text-stone-950 transition-colors hover:bg-usam-gold sm:w-auto"
                 style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
                 type="submit"
               >
@@ -43,7 +43,7 @@ function AdminBlocked({
             </form>
           ) : null}
           <Link
-            className="inline-flex min-h-12 items-center justify-center border border-stone-700 px-6 py-3 text-sm uppercase tracking-[0.2em] text-stone-200 transition-colors hover:border-[#D4A63D] hover:text-[#D4A63D]"
+            className="inline-flex min-h-12 items-center justify-center border border-stone-700 px-6 py-3 text-sm uppercase tracking-[0.2em] text-stone-200 transition-colors hover:border-usam-gold hover:text-usam-gold"
             href="/"
             style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
           >

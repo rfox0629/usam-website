@@ -1,3 +1,5 @@
+import { UsamFlagLogo } from "./UsamFlagLogo";
+
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 export function SiteFooter() {
@@ -5,7 +7,7 @@ export function SiteFooter() {
     <footer className="border-t border-stone-800/30 px-6 py-10">
       <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div className="flex items-center gap-3">
-          <div className="h-2 w-2 rotate-45 bg-amber-500/70" />
+          <UsamFlagLogo size="footer" />
           <span
             className="text-xs uppercase tracking-[0.3em] text-stone-500"
             style={{ fontFamily: font.oswald }}

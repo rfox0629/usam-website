@@ -42,17 +42,17 @@ import {
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 const lightPanelClass = "max-w-[900px] rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-7 text-[#111111] shadow-[0_22px_60px_rgba(0,0,0,0.28)] md:p-8";
 const lightWidePanelClass = "max-w-[1240px] rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-7 text-[#111111] shadow-[0_22px_60px_rgba(0,0,0,0.28)] md:p-8";
-const lightInputClass = "mt-2 min-h-12 w-full rounded-xl border border-[#d7d2c8] bg-white px-3.5 py-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]";
+const lightInputClass = "mt-2 min-h-12 w-full rounded-xl border border-[#d7d2c8] bg-white px-3.5 py-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-usam-gold focus:shadow-[0_0_0_3px_rgba(var(--usam-gold-rgb),0.16)]";
 const lightLabelClass = "text-[11px] uppercase tracking-[0.16em] text-[#6f6658]";
 const lightHelperClass = "mt-2 block text-[12px] leading-5 text-[#7b746a]";
-const lightPrimaryButtonClass = "inline-flex items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60";
-const lightSecondaryButtonClass = "inline-flex items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
-const lightTertiaryButtonClass = "inline-flex items-center justify-center gap-1.5 rounded-md border border-[#e2ded5] bg-transparent px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
+const lightPrimaryButtonClass = "inline-flex items-center justify-center rounded-md bg-usam-gold px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60";
+const lightSecondaryButtonClass = "inline-flex items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]";
+const lightTertiaryButtonClass = "inline-flex items-center justify-center gap-1.5 rounded-md border border-[#e2ded5] bg-transparent px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]";
 const workspaceTabBaseClass = "inline-flex h-10 w-[156px] max-w-full shrink-0 items-center justify-center overflow-hidden whitespace-nowrap rounded-lg border px-3 text-center text-[10px] uppercase tracking-[0.16em] transition-colors";
-const workspaceDarkTabActiveClass = "border-[#D4A63D] bg-[#D4A63D] text-black";
-const workspaceDarkTabInactiveClass = "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-[#D4A63D] hover:text-[#F5B942]";
-const workspaceLightTabActiveClass = "border-[#D4A63D] bg-[#D4A63D] text-black";
-const workspaceLightTabInactiveClass = "border-[#d7d2c8] bg-white text-[#4b443b] hover:border-[#c8952d] hover:text-[#8a5a00]";
+const workspaceDarkTabActiveClass = "border-usam-gold bg-usam-gold text-black";
+const workspaceDarkTabInactiveClass = "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-usam-gold hover:text-usam-gold";
+const workspaceLightTabActiveClass = "border-usam-gold bg-usam-gold text-black";
+const workspaceLightTabInactiveClass = "border-[#d7d2c8] bg-white text-[#4b443b] hover:border-usam-gold hover:text-[var(--usam-black)]";
 const lightDividerClass = "border-[#e2ded5]";
 
 export type AdminSupportMode = SupportRoutingMode;
@@ -1082,10 +1082,10 @@ function getSupportProgressFillClass(progressPercentage: number) {
   }
 
   if (progressPercentage >= 50) {
-    return "bg-gradient-to-r from-[#D4A63D] to-green-500";
+    return "bg-gradient-to-r from-usam-gold to-green-500";
   }
 
-  return "bg-[#D4A63D]";
+  return "bg-usam-gold";
 }
 
 function normalizePublicRosterNumber(value: string | null | undefined) {
@@ -1342,7 +1342,7 @@ function Field({
         </span>
       ) : null}
       {warningText ? (
-        <span className="mt-2 block text-xs leading-5 text-[#F5B942]">
+        <span className="mt-2 block text-xs leading-5 text-usam-gold">
           {warningText}
         </span>
       ) : null}
@@ -1531,7 +1531,7 @@ function ImageUploadField({
           </div>
         )}
         {isUploading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-xs uppercase tracking-[0.24em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-xs uppercase tracking-[0.24em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Uploading
           </div>
         ) : null}
@@ -1545,7 +1545,7 @@ function ImageUploadField({
       <div
         className={`mt-2 rounded-lg border border-dashed p-2.5 transition-colors ${
           isDragActive
-            ? "border-[#c8952d] bg-[#fff8ea]"
+            ? "border-usam-gold bg-[#fff8ea]"
             : "border-[#d7d2c8] bg-white"
         }`}
         onDragLeave={() => setIsDragActive(false)}
@@ -1568,7 +1568,7 @@ function ImageUploadField({
             className={`inline-flex min-h-8 cursor-pointer items-center justify-center rounded-md border px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] transition-colors ${
               isUploading
                 ? "border-[#d7d2c8] text-[#9a9488]"
-                : "border-[#d7d2c8] bg-white text-[#111111] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                : "border-[#d7d2c8] bg-white text-[#111111] hover:border-usam-gold hover:text-[var(--usam-black)]"
             }`}
             htmlFor={inputId}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -1586,7 +1586,7 @@ function ImageUploadField({
         </div>
         {uploadState.message ? (
           <p className={`mt-3 text-xs leading-5 ${
-            uploadState.status === "error" ? "text-red-700" : "text-[#8a5a00]"
+            uploadState.status === "error" ? "text-red-700" : "text-[var(--usam-black)]"
           }`}>
             {uploadState.message}
           </p>
@@ -1659,15 +1659,15 @@ function HeroStylePresetCard({
     <button
       className={`group rounded-2xl border p-3 text-left transition-all ${
         active
-          ? "border-[#D4A63D] bg-[#D4A63D] text-[#111111] shadow-[0_14px_34px_rgba(212,166,61,0.2)]"
-          : "border-[#e2ded5] bg-white text-[#111111] hover:border-[#c8952d]"
+          ? "border-usam-gold bg-usam-gold text-[#111111] shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.2)]"
+          : "border-[#e2ded5] bg-white text-[#111111] hover:border-usam-gold"
       }`}
       onClick={onSelect}
       type="button"
     >
       <span className="flex items-start gap-3">
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
-          active ? "border-black/10 bg-black/10" : "border-[#e2ded5] bg-[#f8f6f1] text-[#8a5a00]"
+          active ? "border-black/10 bg-black/10" : "border-[#e2ded5] bg-[#f8f6f1] text-[var(--usam-black)]"
         }`}>
           <Icon className="h-4 w-4" />
         </span>
@@ -1697,8 +1697,8 @@ function HeroOptionToggle({
     <button
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
         checked
-          ? "border-[#D4A63D] bg-[#D4A63D] text-[#111111]"
-          : "border-[#e2ded5] bg-white text-[#4b443b] hover:border-[#c8952d]"
+          ? "border-usam-gold bg-usam-gold text-[#111111]"
+          : "border-[#e2ded5] bg-white text-[#4b443b] hover:border-usam-gold"
       }`}
       onClick={() => onChange(!checked)}
       type="button"
@@ -1763,7 +1763,7 @@ function MissionaryCutoutGenerationModal({
       <div className="mx-auto max-w-5xl overflow-hidden rounded-[22px] border border-[#2b271f] bg-[#070707] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.58)]">
         <div className="flex items-start justify-between gap-4 border-b border-white/[0.08] px-5 py-5 md:px-6">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Generated Hero Image
             </p>
             <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
@@ -1774,7 +1774,7 @@ function MissionaryCutoutGenerationModal({
             </p>
           </div>
           <button
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-lg leading-none text-stone-200 transition-colors hover:border-[#D4A63D]/60 hover:text-[#F5B942]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-lg leading-none text-stone-200 transition-colors hover:border-usam-gold/60 hover:text-usam-gold"
             onClick={onClose}
             type="button"
           >
@@ -1785,7 +1785,7 @@ function MissionaryCutoutGenerationModal({
         <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="border-b border-white/[0.08] p-5 md:p-6 lg:border-b-0 lg:border-r">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Source Photo
               </p>
               <input
@@ -1796,7 +1796,7 @@ function MissionaryCutoutGenerationModal({
                 type="file"
               />
               <button
-                className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.14] bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-300 transition-colors hover:border-[#D4A63D]/60 hover:text-[#F5B942]"
+                className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.14] bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-300 transition-colors hover:border-usam-gold/60 hover:text-usam-gold"
                 onClick={() => sourceInputRef.current?.click()}
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 type="button"
@@ -1815,7 +1815,7 @@ function MissionaryCutoutGenerationModal({
 
             <div className="mt-5">
               <div className="flex items-center gap-2">
-                <ImageIcon className="h-4 w-4 text-[#D4A63D]" />
+                <ImageIcon className="h-4 w-4 text-usam-gold" />
                 <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Style Reference
                 </p>
@@ -1832,7 +1832,7 @@ function MissionaryCutoutGenerationModal({
 
           <div className="p-5 md:p-6">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Choose Style
               </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -1848,7 +1848,7 @@ function MissionaryCutoutGenerationModal({
             </div>
 
             <div className="mt-5">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Options
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -1872,11 +1872,11 @@ function MissionaryCutoutGenerationModal({
 
             <div className="mt-5 rounded-2xl border border-white/[0.1] bg-white/[0.035] p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Previews
                 </p>
                 {isGenerating ? (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-[#D4A63D]/35 bg-[#D4A63D]/10 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-usam-gold/35 bg-usam-gold/10 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     <RefreshCw className="h-3 w-3 animate-spin" />
                     Creating
                   </span>
@@ -1891,8 +1891,8 @@ function MissionaryCutoutGenerationModal({
                     <button
                       className={`relative min-h-[138px] overflow-hidden rounded-xl border text-left transition-colors ${
                         hasPreview
-                          ? "border-[#D4A63D] bg-black"
-                          : "border-white/[0.1] bg-black/30 hover:border-[#D4A63D]/45"
+                          ? "border-usam-gold bg-black"
+                          : "border-white/[0.1] bg-black/30 hover:border-usam-gold/45"
                       }`}
                       disabled={!hasPreview}
                       key={slot}
@@ -1906,7 +1906,7 @@ function MissionaryCutoutGenerationModal({
                         />
                       ) : (
                         <span className="flex min-h-[138px] flex-col items-center justify-center gap-2 px-3 text-center text-stone-500">
-                          <Wand2 className="h-5 w-5 text-[#D4A63D]/70" />
+                          <Wand2 className="h-5 w-5 text-usam-gold/70" />
                           <span className="text-[10px] uppercase tracking-[0.16em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                             Variant {slot + 1}
                           </span>
@@ -1927,7 +1927,7 @@ function MissionaryCutoutGenerationModal({
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <button
-                  className="inline-flex items-center justify-center rounded-md border border-white/[0.14] bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-300 transition-colors hover:border-[#D4A63D]/60 hover:text-[#F5B942]"
+                  className="inline-flex items-center justify-center rounded-md border border-white/[0.14] bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-300 transition-colors hover:border-usam-gold/60 hover:text-usam-gold"
                   onClick={onClose}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
@@ -1935,7 +1935,7 @@ function MissionaryCutoutGenerationModal({
                   Cancel
                 </button>
                 <button
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#c8952d] bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-white/[0.1] disabled:bg-white/[0.08] disabled:text-stone-500"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-usam-gold bg-usam-gold px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:border-white/[0.1] disabled:bg-white/[0.08] disabled:text-stone-500"
                   disabled={isGenerating}
                   onClick={onRequest}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -1945,7 +1945,7 @@ function MissionaryCutoutGenerationModal({
                   {generationState.status === "success" ? "Regenerate" : "Generate Preview"}
                 </button>
                 <button
-                  className="inline-flex items-center justify-center rounded-md border border-white/[0.14] bg-white/[0.04] px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-500 transition-colors enabled:text-stone-300 enabled:hover:border-[#D4A63D]/60 enabled:hover:text-[#F5B942] disabled:cursor-not-allowed"
+                  className="inline-flex items-center justify-center rounded-md border border-white/[0.14] bg-white/[0.04] px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-stone-500 transition-colors enabled:text-stone-300 enabled:hover:border-usam-gold/60 enabled:hover:text-usam-gold disabled:cursor-not-allowed"
                   disabled={!previewImageUrl}
                   onClick={() => {
                     if (previewImageUrl) {
@@ -2099,7 +2099,7 @@ function SectionIntro({
   return (
     <div className={wide ? lightWidePanelClass : lightPanelClass}>
       <div className="mb-6 max-w-3xl">
-        <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.24em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {title}
         </p>
         {description ? (
@@ -2176,12 +2176,12 @@ function DashboardGlanceMetric({
   value: string;
 }) {
   return (
-    <article className="min-w-0 rounded-2xl border border-white/[0.08] bg-[#0b0b0a] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition-colors hover:border-[#D4A63D]/35">
+    <article className="min-w-0 rounded-2xl border border-white/[0.08] bg-[#0b0b0a] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition-colors hover:border-usam-gold/35">
       <div className="flex items-start justify-between gap-3">
         <p className="text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {label}
         </p>
-        <Icon className="h-4 w-4 shrink-0 text-[#D4A63D]" aria-hidden="true" strokeWidth={1.8} />
+        <Icon className="h-4 w-4 shrink-0 text-usam-gold" aria-hidden="true" strokeWidth={1.8} />
       </div>
       <p className="mt-3 text-4xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
         {value}
@@ -2221,7 +2221,7 @@ function DashboardPanelHeader({
   return (
     <div className="mb-4 flex items-start justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2.5">
-        <Icon className="h-4.5 w-4.5 shrink-0 text-[#D4A63D]" aria-hidden="true" strokeWidth={1.8} />
+        <Icon className="h-4.5 w-4.5 shrink-0 text-usam-gold" aria-hidden="true" strokeWidth={1.8} />
         <div className="min-w-0">
           <h3 className="text-base font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
             {title}
@@ -2247,7 +2247,7 @@ function DashboardTinyButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-9 items-center justify-center rounded-lg border border-white/[0.12] bg-white/[0.035] px-3 text-[10px] uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-[#D4A63D]/60 hover:text-[#F5B942]"
+      className="inline-flex min-h-9 items-center justify-center rounded-lg border border-white/[0.12] bg-white/[0.035] px-3 text-[10px] uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-usam-gold/60 hover:text-usam-gold"
       onClick={onClick}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
       type="button"
@@ -2267,8 +2267,8 @@ function DashboardStatSegment({
   value: number;
 }) {
   return (
-    <div className={`min-w-0 rounded-xl border p-3 ${active ? "border-[#D4A63D]/45 bg-[#D4A63D]/12" : "border-white/[0.07] bg-white/[0.035]"}`}>
-      <p className={`text-[10px] uppercase tracking-[0.13em] ${active ? "text-[#F5B942]" : "text-stone-500"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+    <div className={`min-w-0 rounded-xl border p-3 ${active ? "border-usam-gold/45 bg-usam-gold/12" : "border-white/[0.07] bg-white/[0.035]"}`}>
+      <p className={`text-[10px] uppercase tracking-[0.13em] ${active ? "text-usam-gold" : "text-stone-500"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </p>
       <p className="mt-2 text-2xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
@@ -2280,8 +2280,8 @@ function DashboardStatSegment({
 
 function DashboardActivityRow({ activity }: { activity: DashboardActivityItem }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.035] p-3 transition-colors hover:border-[#D4A63D]/30 hover:bg-white/[0.055]">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D4A63D]/30 bg-[#D4A63D]/12 text-[10px] uppercase tracking-[0.12em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.035] p-3 transition-colors hover:border-usam-gold/30 hover:bg-white/[0.055]">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-usam-gold/30 bg-usam-gold/12 text-[10px] uppercase tracking-[0.12em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {activity.type.slice(0, 2)}
       </span>
       <div className="min-w-0 flex-1">
@@ -2503,7 +2503,7 @@ function WorkspaceOverview({
               </div>
             </div>
             <button
-              className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#D4A63D]/45 bg-[#D4A63D]/10 px-3 text-[10px] uppercase tracking-[0.14em] text-[#F5B942] transition-colors hover:border-[#D4A63D] hover:bg-[#D4A63D]/15"
+              className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-usam-gold/45 bg-usam-gold/10 px-3 text-[10px] uppercase tracking-[0.14em] text-usam-gold transition-colors hover:border-usam-gold hover:bg-usam-gold/15"
               onClick={onOpenPrayerRequests}
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               type="button"
@@ -2549,7 +2549,7 @@ function WorkspacePlanningState({
 }) {
   return (
     <div className="rounded-xl border border-[#e2ded5] bg-white p-5 text-sm leading-6 text-[#4b443b]">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {title}
       </p>
       <p className="mt-2">
@@ -2709,7 +2709,7 @@ function getFeatureStatusBadgeClasses(status: FeaturePublicPageStatus) {
     case "waiting":
       return "border-blue-200 bg-blue-50 text-blue-800";
     case "missing":
-      return "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]";
+      return "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]";
     case "hidden":
     default:
       return "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]";
@@ -2768,12 +2768,12 @@ function FeatureVisibilityTable({ rows }: { rows: FeatureVisibilityRow[] }) {
                   />
                   <span className={`relative h-5 w-9 rounded-full border transition-colors ${
                     row.checked
-                      ? "border-[#D4A63D]/70 bg-[#D4A63D]/25"
+                      ? "border-usam-gold/70 bg-usam-gold/25"
                       : "border-[#d7d2c8] bg-[#f1eee7]"
                   }`}>
                     <span className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform ${
                       row.checked
-                        ? "translate-x-4 bg-[#F5B942]"
+                        ? "translate-x-4 bg-usam-gold"
                         : "translate-x-1 bg-[#9a9488]"
                     }`} />
                   </span>
@@ -2821,7 +2821,7 @@ function EncounterStatusBadge({ status }: { status: AdminEncounterStatus }) {
     approved: "border-green-200 bg-green-50 text-green-800",
     archived: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
     hidden: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
-    raw: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
+    raw: "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]",
     reviewed: "border-green-200 bg-green-50 text-green-800",
   }[status];
 
@@ -2856,8 +2856,8 @@ function FruitStatusBadge({ status }: { status: AdminFruitStatus }) {
   const className = {
     approved: "border-green-200 bg-green-50 text-green-800",
     archived: "border-stone-200 bg-stone-50 text-stone-600",
-    draft: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
-    pending_review: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
+    draft: "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]",
+    pending_review: "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]",
     private: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
   }[status];
 
@@ -2873,7 +2873,7 @@ function FruitVisibilityBadge({ visibility }: { visibility: FruitListRow["visibi
     ? "border-green-200 bg-green-50 text-green-800"
     : visibility === "Private"
       ? "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]"
-      : "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]";
+      : "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]";
 
   return (
     <span className={`inline-flex min-h-6 w-fit items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -3217,8 +3217,8 @@ function FieldPersonStatusBadge({ status }: { status: AdminFieldPersonStatus }) 
     active: "border-green-200 bg-green-50 text-green-800",
     archived: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
     discipleship: "border-green-200 bg-green-50 text-green-800",
-    follow_up: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
-    new: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
+    follow_up: "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]",
+    new: "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]",
     paused: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
   }[status];
 
@@ -3607,7 +3607,7 @@ function PeopleCsvImportModal({
       <div className="mx-auto max-w-5xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Your Field Import
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -3617,7 +3617,7 @@ function PeopleCsvImportModal({
               Preview the mapped People rows, then confirm before creating records in this workspace.
             </p>
           </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
             ×
           </button>
         </div>
@@ -3630,7 +3630,7 @@ function PeopleCsvImportModal({
               </span>
               <input
                 accept=".csv,text/csv"
-                className="mt-3 block w-full text-sm text-[#4b443b] file:mr-4 file:rounded-md file:border-0 file:bg-[#D4A63D] file:px-4 file:py-2 file:text-[10px] file:uppercase file:tracking-[0.18em] file:text-black"
+                className="mt-3 block w-full text-sm text-[#4b443b] file:mr-4 file:rounded-md file:border-0 file:bg-usam-gold file:px-4 file:py-2 file:text-[10px] file:uppercase file:tracking-[0.18em] file:text-black"
                 onChange={handleFileChange}
                 type="file"
               />
@@ -3720,7 +3720,7 @@ function PeopleCsvImportModal({
               <p>{invalidRows} rows missing name or phone</p>
             </div>
 
-            <label className="flex items-start gap-3 rounded-xl border border-[#e2ded5] bg-[#fff8e8] p-3 text-sm leading-6 text-[#4b443b]">
+            <label className="flex items-start gap-3 rounded-xl border border-[#e2ded5] bg-[rgba(var(--usam-gold-rgb),0.14)] p-3 text-sm leading-6 text-[#4b443b]">
               <input
                 checked={isConfirmed}
                 className="mt-1"
@@ -3819,7 +3819,7 @@ function PersonEditorModal({
       <div className="mx-auto max-w-2xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Your Field
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -3829,7 +3829,7 @@ function PersonEditorModal({
               Name and phone are enough to save. More detail can be added after meetings and follow-up.
             </p>
           </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
             ×
           </button>
         </div>
@@ -4119,7 +4119,7 @@ function meetingToConnectionDraft(draft: MeetingDraft): ConnectionDraft {
 function MeetingStatusBadge({ status }: { status: AdminMeetingStatus }) {
   const className = {
     canceled: "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]",
-    completed: "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]",
+    completed: "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]",
     fruit_created: "border-green-200 bg-green-50 text-green-800",
     reviewed: "border-green-200 bg-green-50 text-green-800",
     scheduled: "border-[#d7d2c8] bg-white text-[#6f6658]",
@@ -4137,7 +4137,7 @@ function MeetingDisplayStatusBadge({ meeting }: { meeting: MeetingListItem }) {
   const className = displayStatus === "Upcoming"
     ? "border-[#d7d2c8] bg-white text-[#6f6658]"
     : displayStatus === "Needs Follow Up"
-      ? "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]"
+      ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
       : displayStatus === "In Progress"
         ? "border-blue-200 bg-blue-50 text-blue-700"
         : meeting.status === "canceled"
@@ -4187,7 +4187,7 @@ function ReviewStatusBadge({ status }: { status: ReviewFilter }) {
     ? "border-purple-200 bg-purple-50 text-purple-700"
     : status === "reviewed"
       ? "border-green-200 bg-green-50 text-green-800"
-      : "border-[#e6c777] bg-[#fff8e8] text-[#8a5a00]";
+      : "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]";
 
   return (
     <span className={`inline-flex min-h-6 w-fit items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${className}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -4211,7 +4211,7 @@ function ReviewStatCard({ helper, label, value }: { helper: string; label: strin
             {helper}
           </p>
         </div>
-        <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#D4A63D]" />
+        <span className="mt-1 h-2.5 w-2.5 rounded-full bg-usam-gold" />
       </div>
     </div>
   );
@@ -4329,7 +4329,7 @@ function ReviewsManager({
       <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Reviews
             </p>
             <h3 className="mt-2 text-2xl font-bold leading-tight text-[#111111]">
@@ -4372,8 +4372,8 @@ function ReviewsManager({
                   <button
                     className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 text-[10px] uppercase tracking-[0.16em] transition-colors ${
                       selected
-                        ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                        : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                        : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-usam-gold hover:text-[var(--usam-black)]"
                     }`}
                     key={option.value}
                     onClick={() => setReviewFilter(option.value)}
@@ -4390,7 +4390,7 @@ function ReviewsManager({
                 <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8174]" />
                 <span className="sr-only">Search reviews</span>
                 <input
-                  className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]"
+                  className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-usam-gold focus:shadow-[0_0_0_3px_rgba(var(--usam-gold-rgb),0.16)]"
                   onChange={(event) => setReviewSearch(event.target.value)}
                   placeholder="Search reviews"
                   value={reviewSearch}
@@ -4445,7 +4445,7 @@ function ReviewsManager({
                         Person / Meeting
                       </span>
                       <div className="flex min-w-0 items-center justify-end gap-3 xl:justify-start">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.2)] text-[10px] uppercase tracking-[0.08em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                           {initialsFromName(row.personLabel)}
                         </span>
                         <div className="min-w-0 text-right xl:text-left">
@@ -4484,7 +4484,7 @@ function ReviewsManager({
                     <div className="flex justify-end">
                       <button
                         aria-label={`Open actions for ${row.personLabel}`}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]"
                         onClick={(event) => {
                           event.stopPropagation();
                           setSelectedTableId(row.table.id);
@@ -4572,11 +4572,11 @@ function ReviewDetailModal({
         <div className="border-b border-[#e2ded5] bg-white px-4 py-4 md:px-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Review Details
               </p>
               <div className="mt-2 flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.2)] text-[10px] uppercase tracking-[0.08em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   {initialsFromName(row.personLabel)}
                 </span>
                 <div className="min-w-0">
@@ -4589,7 +4589,7 @@ function ReviewDetailModal({
                 </div>
               </div>
             </div>
-            <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
               <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
@@ -4823,7 +4823,7 @@ function MeetingsManager({
       <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
         <div className="flex flex-col gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Meetings & follow-up
             </p>
             <h3 className="mt-1 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -4849,8 +4849,8 @@ function MeetingsManager({
                 <button
                   className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 text-[10px] uppercase tracking-[0.16em] transition-colors ${
                     selected
-                      ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                      : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                      ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                      : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-usam-gold hover:text-[var(--usam-black)]"
                   }`}
                   key={option.value}
                   onClick={() => setMeetingsFilter(option.value)}
@@ -4867,7 +4867,7 @@ function MeetingsManager({
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8174]" />
               <span className="sr-only">Search meetings</span>
               <input
-                className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]"
+                className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-usam-gold focus:shadow-[0_0_0_3px_rgba(var(--usam-gold-rgb),0.16)]"
                 onChange={(event) => setMeetingsSearch(event.target.value)}
                 placeholder="Search meetings"
                 value={meetingsSearch}
@@ -4940,7 +4940,7 @@ function MeetingsManager({
                         Person
                       </span>
                       <div className="flex min-w-0 items-center justify-end gap-3 xl:justify-start">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.2)] text-[10px] uppercase tracking-[0.08em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                           {initialsFromName(personLabel)}
                         </span>
                         <div className="min-w-0 text-right xl:text-left">
@@ -4986,7 +4986,7 @@ function MeetingsManager({
                     <div className="flex justify-end">
                       <button
                         aria-label={`Open actions for ${personLabel}`}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]"
                         onClick={(event) => {
                           event.stopPropagation();
                           setSelectedMeetingId(meeting.id);
@@ -5121,11 +5121,11 @@ function MeetingDetailModal({
         <div className="border-b border-[#e2ded5] bg-white px-4 py-4 md:px-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Meeting Details
               </p>
               <div className="mt-2 flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.2)] text-[10px] uppercase tracking-[0.08em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   {initialsFromName(personLabel)}
                 </span>
                 <div className="min-w-0">
@@ -5138,7 +5138,7 @@ function MeetingDetailModal({
                 </div>
               </div>
             </div>
-            <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
               <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
@@ -5210,7 +5210,7 @@ function QuickTouchDetailPanel({
     <aside className="self-start rounded-xl border border-[#e2ded5] bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Quick Touch
           </p>
           <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -5282,14 +5282,14 @@ function MeetingEditorModal({
       <div className="mx-auto max-w-2xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {mode === "schedule" ? "Schedule Meeting" : "Log Meeting"}
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
               {meeting ? "Edit Meeting" : mode === "schedule" ? "New Scheduled Meeting" : "Completed Meeting"}
             </h3>
           </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
             ×
           </button>
         </div>
@@ -5308,8 +5308,8 @@ function MeetingEditorModal({
                     <button
                       className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
                         selected
-                          ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                          : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
+                          ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                          : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-usam-gold"
                       }`}
                       key={person.id}
                       onClick={() => toggleFieldPerson(person.id)}
@@ -5598,7 +5598,7 @@ function TableDetailPanel({
   return (
     <aside className="self-start rounded-xl border border-[#e2ded5] bg-white p-4">
       <div>
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Meeting Details
         </p>
         <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -5642,8 +5642,8 @@ function TableDetailPanel({
                 aria-selected={selected}
                 className={`${workspaceTabBaseClass} ${
                   selected
-                    ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                    : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
+                    ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                    : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-usam-gold"
                 }`}
                 key={section.value}
                 onClick={() => setActiveSection(section.value)}
@@ -5815,8 +5815,8 @@ function TableDetailPanel({
                       <button
                         className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
                           selected
-                            ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                            : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
+                            ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                            : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-usam-gold"
                         }`}
                         key={area}
                         onClick={() => toggleAssessmentArea(area)}
@@ -5897,8 +5897,8 @@ function TableDetailPanel({
                           <button
                             className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
                               selected
-                                ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                                : "border-[#e2ded5] bg-white text-[#6f6658] hover:border-[#c8952d]"
+                                ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                                : "border-[#e2ded5] bg-white text-[#6f6658] hover:border-usam-gold"
                             }`}
                             key={tag}
                             onClick={() => toggleFruitOutcomeTag(fruit, tag)}
@@ -6109,7 +6109,7 @@ function FruitEditorModal({
       <div className="mx-auto max-w-3xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {fruit ? "Edit Fruit" : "Create Fruit Summary"}
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -6119,7 +6119,7 @@ function FruitEditorModal({
               Approved Fruit is the public-safe outcome layer. Raw Encounter text and internal notes stay in the Missionary Workspace.
             </p>
           </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
             ×
           </button>
         </div>
@@ -6178,8 +6178,8 @@ function FruitEditorModal({
                   <button
                     className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
                       selected
-                        ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                        : "border-[#e2ded5] bg-white text-[#6f6658] hover:border-[#c8952d]"
+                        ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                        : "border-[#e2ded5] bg-white text-[#6f6658] hover:border-usam-gold"
                     }`}
                     key={tag}
                     onClick={() => toggleOutcomeTag(tag)}
@@ -6234,7 +6234,7 @@ function QuickEncounterModal({
       <div className="mx-auto max-w-2xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Add Encounter
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -6244,7 +6244,7 @@ function QuickEncounterModal({
               {formatProfileUpdatedDate(table.table_date)}
             </p>
           </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
             ×
           </button>
         </div>
@@ -6487,7 +6487,7 @@ function EncounterEditorModal({
       <div className="mx-auto max-w-5xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Encounter Review
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -6497,7 +6497,7 @@ function EncounterEditorModal({
               Review raw Encounter intake, write a public-safe Fruit summary, then approve only what should feed Profile and future Field.
             </p>
           </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
             ×
           </button>
         </div>
@@ -6577,7 +6577,7 @@ function EncounterEditorModal({
             <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
               <input
                 checked={encounter.do_not_publish}
-                className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                className="mt-1 h-4 w-4 accent-usam-gold"
                 onChange={(event) => onUpdate(encounter.id, {
                   do_not_publish: event.target.checked,
                   permission_to_share: event.target.checked ? false : encounter.permission_to_share,
@@ -6609,8 +6609,8 @@ function EncounterEditorModal({
                 <button
                   className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition-colors ${
                     selected
-                      ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                      : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-[#c8952d]"
+                      ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                      : "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658] hover:border-usam-gold"
                   }`}
                   key={tag}
                   onClick={() => toggleOutcomeTag(tag)}
@@ -6737,7 +6737,7 @@ function FruitManager({
       <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Fruit
             </p>
             <h3 className="mt-2 text-2xl font-bold leading-tight text-[#111111]">
@@ -6784,8 +6784,8 @@ function FruitManager({
                   <button
                     className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 text-[10px] uppercase tracking-[0.16em] transition-colors ${
                       selected
-                        ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                        : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                        : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-usam-gold hover:text-[var(--usam-black)]"
                     }`}
                     key={option.value}
                     onClick={() => setFruitFilter(option.value)}
@@ -6802,7 +6802,7 @@ function FruitManager({
                 <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8174]" />
                 <span className="sr-only">Search fruit</span>
                 <input
-                  className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]"
+                  className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-usam-gold focus:shadow-[0_0_0_3px_rgba(var(--usam-gold-rgb),0.16)]"
                   onChange={(event) => setFruitSearch(event.target.value)}
                   placeholder="Search fruit"
                   value={fruitSearch}
@@ -6869,7 +6869,7 @@ function FruitManager({
                           Person / Story
                         </span>
                         <div className="flex min-w-0 items-center justify-end gap-3 xl:justify-start">
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.2)] text-[10px] uppercase tracking-[0.08em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                             {initialsFromName(row.personLabel)}
                           </span>
                           <div className="min-w-0 text-right xl:text-left">
@@ -6897,7 +6897,7 @@ function FruitManager({
                       <div className="flex justify-end">
                         <button
                           aria-label={`Open actions for ${row.personLabel}`}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00] disabled:opacity-60"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)] disabled:opacity-60"
                           disabled={isBusy}
                           onClick={(event) => {
                             event.stopPropagation();
@@ -7055,11 +7055,11 @@ function FruitDetailDrawer({
         <div className="border-b border-[#e2ded5] bg-white px-4 py-4 md:px-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Fruit Details
               </p>
               <div className="mt-2 flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#efd28a] bg-[#ffe7a8] text-[10px] uppercase tracking-[0.08em] text-[#7a5200]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.2)] text-[10px] uppercase tracking-[0.08em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   {initialsFromName(row.personLabel)}
                 </span>
                 <div className="min-w-0">
@@ -7072,7 +7072,7 @@ function FruitDetailDrawer({
                 </div>
               </div>
             </div>
-            <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+            <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
               <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
@@ -7181,7 +7181,7 @@ function LibraryManager({
 
       {workspaceItems.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Workspace Library
           </p>
           <div className="grid gap-3 md:grid-cols-2">
@@ -7243,7 +7243,7 @@ function GuideResourceSection({
 
   return (
     <section className="space-y-3">
-      <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <p className="text-[10px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {title}
       </p>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -7262,7 +7262,7 @@ function GuideResourceSection({
             </div>
             {guide.href ? (
               <a
-                className="mt-4 inline-flex min-h-9 w-fit items-center justify-center rounded-md border border-[#e2ded5] bg-[#fbfaf7] px-3 text-[10px] uppercase tracking-[0.16em] text-[#8a5a00] transition-colors hover:border-[#c8952d] hover:text-[#111111]"
+                className="mt-4 inline-flex min-h-9 w-fit items-center justify-center rounded-md border border-[#e2ded5] bg-[#fbfaf7] px-3 text-[10px] uppercase tracking-[0.16em] text-[var(--usam-black)] transition-colors hover:border-usam-gold hover:text-[#111111]"
                 href={guide.href}
                 rel="noopener noreferrer"
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -7299,14 +7299,14 @@ function LibraryEditorModal({
       <div className="mx-auto max-w-2xl rounded-[18px] border border-[#e2ded5] bg-[#f8f6f1] p-5 text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {item ? "Edit Library Item" : "Add Library Item"}
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
               Teaching Framework
             </h3>
           </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
             ×
           </button>
         </div>
@@ -7385,7 +7385,7 @@ function FundraisingProgressControls({
 
   return (
     <div className="space-y-5">
-      <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         Fundraising Progress
       </p>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -7549,7 +7549,7 @@ function SupportFlowSetting({
         <label className="flex items-center gap-3 text-sm font-semibold text-[#111111]">
           <input
             checked={enabled}
-            className="h-4 w-4 accent-[#D4A63D]"
+            className="h-4 w-4 accent-usam-gold"
             onChange={(event) => onEnabledChange(event.target.checked)}
             type="checkbox"
           />
@@ -7597,7 +7597,7 @@ function SupportOverview({
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Support overview
         </p>
       </div>
@@ -7633,7 +7633,7 @@ function SupportOverview({
       </div>
 
       <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Primary Actions
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -7645,7 +7645,7 @@ function SupportOverview({
             <Copy className="h-3.5 w-3.5" aria-hidden="true" />
             Copy Support Link
           </button>
-          <a className={`${lightSecondaryButtonClass} min-h-10 gap-2 bg-[#111111] text-stone-100 hover:text-[#F5B942]`} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
+          <a className={`${lightSecondaryButtonClass} min-h-10 gap-2 bg-[#111111] text-stone-100 hover:text-usam-gold`} href={`${flyerLink}?version=color`} rel="noopener noreferrer" style={{ fontFamily: font.rajdhani, fontWeight: 700 }} target="_blank">
             <FileText className="h-3.5 w-3.5" aria-hidden="true" />
             Preview Flyer
           </a>
@@ -7657,7 +7657,7 @@ function SupportOverview({
       </div>
 
       <div className="rounded-2xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Goal Settings
         </p>
         <div className="mt-3 grid gap-4 md:grid-cols-3">
@@ -7701,7 +7701,7 @@ function ShareTemplateCard({
     <article className="rounded-2xl border border-[#dcd6ca] bg-white p-3.5 shadow-[0_8px_22px_rgba(17,17,17,0.035)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e2ded5] bg-[#fbfaf7] text-[#8a5a00]">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e2ded5] bg-[#fbfaf7] text-[var(--usam-black)]">
             <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
@@ -7712,7 +7712,7 @@ function ShareTemplateCard({
           </div>
         </div>
         <button
-          className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md border border-[#d7d2c8] bg-[#fbfaf7] px-2.5 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+          className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md border border-[#d7d2c8] bg-[#fbfaf7] px-2.5 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]"
           onClick={() => onCopy(body, title)}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
@@ -7724,7 +7724,7 @@ function ShareTemplateCard({
       <div className="mt-3 max-h-[180px] overflow-auto rounded-xl border border-[#ece7dd] bg-[#fbfaf7] p-3 text-[13px] leading-6 text-[#3f3932]">
         {previewParts.map((part, index) => (
           part.startsWith("{{") && part.endsWith("}}") ? (
-            <span className="rounded-md border border-[#d4a63d]/35 bg-[#fff2c6] px-1.5 py-0.5 text-[#7a5a12]" key={`${part}-${index}`}>
+            <span className="rounded-md border border-usam-gold/35 bg-[#fff2c6] px-1.5 py-0.5 text-[#7a5a12]" key={`${part}-${index}`}>
               {part}
             </span>
           ) : (
@@ -7748,7 +7748,7 @@ function SupportToolkitSection({
   return (
     <section className="rounded-2xl border border-[#dcd6ca] bg-[#fdfbf7] p-3.5 md:p-4">
       <div className="border-b border-[#e8e1d4] pb-2.5">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {title}
         </p>
         {description ? (
@@ -7790,8 +7790,8 @@ function ShareActionButton({
 }) {
   const className = `inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 text-[10px] uppercase tracking-[0.15em] transition-colors ${
     primary
-      ? "border-[#c8952d] bg-[#D4A63D] text-[#111111] hover:bg-[#F5B942]"
-      : "border-[#d7d2c8] bg-white text-[#3f3932] hover:border-[#c8952d] hover:text-[#8a5a00]"
+      ? "border-usam-gold bg-usam-gold text-[#111111] hover:bg-usam-gold"
+      : "border-[#d7d2c8] bg-white text-[#3f3932] hover:border-usam-gold hover:text-[var(--usam-black)]"
   }`;
   const content = (
     <>
@@ -7839,11 +7839,11 @@ function ShareChannelCard({
 }) {
   return (
     <button
-      className="flex min-h-20 items-center gap-3 rounded-xl border border-[#e2ded5] bg-white p-3 text-left transition-colors hover:border-[#c8952d] hover:bg-[#fffdf7]"
+      className="flex min-h-20 items-center gap-3 rounded-xl border border-[#e2ded5] bg-white p-3 text-left transition-colors hover:border-usam-gold hover:bg-[#fffdf7]"
       onClick={onClick}
       type="button"
     >
-      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d8c79d] bg-[#fff4cf] text-[#8a5a00]">
+      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.16)] text-[var(--usam-black)]">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
       <span className="min-w-0">
@@ -7878,7 +7878,7 @@ function ShareToolCard({
   return (
     <article className="rounded-2xl border border-[#dcd6ca] bg-white p-4 shadow-[0_8px_22px_rgba(17,17,17,0.035)]">
       <div className="flex items-start gap-3">
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d8c79d] bg-[#fff4cf] text-[#8a5a00]">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.16)] text-[var(--usam-black)]">
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -7929,7 +7929,7 @@ function FlyerField({
         {label}
       </span>
       <input
-        className="mt-1.5 min-h-10 w-full rounded-lg border border-[#d7d2c8] bg-white px-3 py-2 text-sm text-[#111111] outline-none transition-all placeholder:text-[#a49d91] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.14)]"
+        className="mt-1.5 min-h-10 w-full rounded-lg border border-[#d7d2c8] bg-white px-3 py-2 text-sm text-[#111111] outline-none transition-all placeholder:text-[#a49d91] focus:border-usam-gold focus:shadow-[0_0_0_3px_rgba(var(--usam-gold-rgb),0.14)]"
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         value={value ?? ""}
@@ -7957,7 +7957,7 @@ function FlyerTextAreaField({
         {label}
       </span>
       <textarea
-        className="mt-1.5 w-full rounded-lg border border-[#d7d2c8] bg-white px-3 py-2 text-sm leading-5 text-[#111111] outline-none transition-all placeholder:text-[#a49d91] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.14)]"
+        className="mt-1.5 w-full rounded-lg border border-[#d7d2c8] bg-white px-3 py-2 text-sm leading-5 text-[#111111] outline-none transition-all placeholder:text-[#a49d91] focus:border-usam-gold focus:shadow-[0_0_0_3px_rgba(var(--usam-gold-rgb),0.14)]"
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         rows={rows}
@@ -7969,7 +7969,7 @@ function FlyerTextAreaField({
 
 function MiniQrCode() {
   return (
-    <div className="grid h-[74px] w-[74px] grid-cols-8 gap-[2px] rounded-lg border border-[#d8c79d] bg-white p-2">
+    <div className="grid h-[74px] w-[74px] grid-cols-8 gap-[2px] rounded-lg border border-usam-gold bg-white p-2">
       {Array.from({ length: 64 }).map((_, index) => (
         <span
           className={`rounded-[1px] ${flyerQrCells.includes(index) ? "bg-[#111111]" : "bg-[#f3ead4]"}`}
@@ -8002,9 +8002,9 @@ function FlyerPreviewCard({
   const shortSupportLink = supportLink.replace(/^https?:\/\//, "");
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#d8c79d] bg-[#fffdf7] shadow-[0_18px_46px_rgba(17,17,17,0.09)]">
+    <div className="overflow-hidden rounded-2xl border border-usam-gold bg-[#fffdf7] shadow-[0_18px_46px_rgba(17,17,17,0.09)]">
       <div className="flex items-center justify-between border-b border-[#eadfcd] bg-[#111111] px-4 py-3 text-white">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           USA Missionaries
         </p>
         <p className="text-[9px] uppercase tracking-[0.16em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -8021,7 +8021,7 @@ function FlyerPreviewCard({
                 src={imageUrl}
               />
             ) : (
-              <div className="flex h-40 items-center justify-center bg-[#efe7d8] text-[#9a6b12]">
+              <div className="flex h-40 items-center justify-center bg-[rgba(var(--usam-gold-rgb),0.12)] text-[var(--usam-black)]">
                 <ImageIcon className="h-8 w-8" aria-hidden="true" />
               </div>
             )}
@@ -8039,7 +8039,7 @@ function FlyerPreviewCard({
           <p className="text-sm font-semibold text-[#111111]">{prayerAsk}</p>
           <p className="mt-2 text-xs leading-5 text-[#6f6658]">{supportAppeal}</p>
         </div>
-        <div className="mt-3 grid gap-3 rounded-xl border border-[#d8c79d] bg-[#fff4cf] p-3 sm:grid-cols-[auto_1fr]">
+        <div className="mt-3 grid gap-3 rounded-xl border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.16)] p-3 sm:grid-cols-[auto_1fr]">
           <MiniQrCode />
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-[0.18em] text-[#7a5a12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -8153,7 +8153,7 @@ function SupportShareTools({
       {selectedTool ? (
         <DetailModalShell eyebrow="Preview/Edit" onClose={() => setSelectedTool(null)} title={selectedTool.title}>
           <textarea
-            className="min-h-[260px] w-full rounded-xl border border-[#d7d2c8] bg-[#fbfaf7] px-3 py-3 text-sm leading-6 text-[#111111] outline-none focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.14)]"
+            className="min-h-[260px] w-full rounded-xl border border-[#d7d2c8] bg-[#fbfaf7] px-3 py-3 text-sm leading-6 text-[#111111] outline-none focus:border-usam-gold focus:shadow-[0_0_0_3px_rgba(var(--usam-gold-rgb),0.14)]"
             onChange={(event) => setSelectedTool({ ...selectedTool, body: event.target.value })}
             value={selectedTool.body}
           />
@@ -8205,7 +8205,7 @@ function SupportFlyerBuilder({
     <div className="mx-auto max-w-[1120px]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,430px)] lg:items-start">
         <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Flyer Fields
           </p>
           <div className="mt-3 grid gap-3">
@@ -8240,7 +8240,7 @@ function SupportFlyerBuilder({
 
         <div className="rounded-2xl border border-[#dcd6ca] bg-white p-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Live Preview
             </p>
             <span className="rounded-full border border-[#d7d2c8] bg-[#f8f6f1] px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -8269,7 +8269,7 @@ function SupportFlyerBuilder({
               <LinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
               Copy Flyer Link
             </button>
-            <button className={`${lightSecondaryButtonClass} min-h-10 gap-2 bg-[#111111] text-stone-100 hover:text-[#F5B942]`} onClick={() => onCopy(supportLink, "Support Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
+            <button className={`${lightSecondaryButtonClass} min-h-10 gap-2 bg-[#111111] text-stone-100 hover:text-usam-gold`} onClick={() => onCopy(supportLink, "Support Link")} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
               <Heart className="h-3.5 w-3.5" aria-hidden="true" />
               Copy Support Link
             </button>
@@ -8326,7 +8326,7 @@ function DetailModalShell({
       <div className="max-h-[90vh] w-full max-w-[720px] overflow-y-auto rounded-2xl border border-[#dcd6ca] bg-white p-4 text-[#111111] shadow-[0_24px_90px_rgba(0,0,0,0.35)] transition-transform sm:p-5">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-3">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {eyebrow}
             </p>
             <h3 className="mt-1 text-xl font-semibold leading-tight text-[#111111]">
@@ -8334,7 +8334,7 @@ function DetailModalShell({
             </h3>
           </div>
           <button
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-[#fbfaf7] text-sm font-semibold text-[#4b443b] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-[#fbfaf7] text-sm font-semibold text-[#4b443b] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]"
             onClick={onClose}
             type="button"
             aria-label="Close details"
@@ -8380,7 +8380,7 @@ function SupportCommitmentDetailModal({
         <DetailField
           label="Giving Destination"
           value={commitment.redirect_giving_url ? (
-            <a className="text-[#8a5a00] underline-offset-4 hover:underline" href={commitment.redirect_giving_url} rel="noopener noreferrer" target="_blank">
+            <a className="text-[var(--usam-black)] underline-offset-4 hover:underline" href={commitment.redirect_giving_url} rel="noopener noreferrer" target="_blank">
               {commitment.redirect_giving_url}
             </a>
           ) : "Not recorded"}
@@ -8446,7 +8446,7 @@ function SupportCommitmentsManager({
     <div className="space-y-4">
       <div className="space-y-2.5">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Support Interest & Commitments
           </p>
         </div>
@@ -8464,7 +8464,7 @@ function SupportCommitmentsManager({
               {sortedCommitments.map((commitment) => (
                 <div className="grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.4fr)_110px_92px_minmax(124px,0.8fr)_70px] md:items-center" key={commitment.id}>
                   <button
-                    className="min-w-0 text-left text-base font-semibold text-[#111111] underline-offset-4 hover:text-[#8a5a00] hover:underline"
+                    className="min-w-0 text-left text-base font-semibold text-[#111111] underline-offset-4 hover:text-[var(--usam-black)] hover:underline"
                     onClick={() => setSelectedCommitment(commitment)}
                     type="button"
                   >
@@ -8484,7 +8484,7 @@ function SupportCommitmentsManager({
                   </div>
                   <div className="flex justify-end">
                     <button
-                      className="inline-flex min-h-7 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-2.5 text-[10px] uppercase tracking-[0.14em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                      className="inline-flex min-h-7 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-2.5 text-[10px] uppercase tracking-[0.14em] text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]"
                       onClick={() => setSelectedCommitment(commitment)}
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
@@ -8505,7 +8505,7 @@ function SupportCommitmentsManager({
 
       <div className="space-y-2.5">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Major Gift Follow-Up
           </p>
         </div>
@@ -8523,7 +8523,7 @@ function SupportCommitmentsManager({
                 {sortedMajorGiftInquiries.map((inquiry) => (
                   <div className="grid gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#fbfaf7] md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.2fr)_130px_minmax(120px,0.8fr)_70px] md:items-center" key={inquiry.id}>
                     <button
-                      className="min-w-0 text-left text-base font-semibold text-[#111111] underline-offset-4 hover:text-[#8a5a00] hover:underline"
+                      className="min-w-0 text-left text-base font-semibold text-[#111111] underline-offset-4 hover:text-[var(--usam-black)] hover:underline"
                       onClick={() => setSelectedMajorGiftInquiry(inquiry)}
                       type="button"
                     >
@@ -8543,7 +8543,7 @@ function SupportCommitmentsManager({
                     </div>
                     <div className="flex justify-end">
                       <button
-                        className="inline-flex min-h-7 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-2.5 text-[10px] uppercase tracking-[0.14em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+                        className="inline-flex min-h-7 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-2.5 text-[10px] uppercase tracking-[0.14em] text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]"
                         onClick={() => setSelectedMajorGiftInquiry(inquiry)}
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                         type="button"
@@ -8680,7 +8680,7 @@ function TeamMemberManager({
     <div className="space-y-5">
       <div className="flex justify-end">
         <button
-          className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942]"
+          className="inline-flex min-h-9 items-center justify-center rounded-md bg-usam-gold px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-usam-gold"
           onClick={() => {
             setShouldEditNewestMember(true);
             onAdd();
@@ -8701,7 +8701,7 @@ function TeamMemberManager({
             <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Pending Prayer Partners
             </p>
-            <span className="rounded-full border border-[#D4A63D]/30 bg-[#D4A63D]/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[#8a5a00]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <span className="rounded-full border border-usam-gold/30 bg-usam-gold/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {pendingPrayerPartners.length}
             </span>
           </div>
@@ -8800,12 +8800,12 @@ function TeamMemberRow({
           />
           <span className={`relative h-5 w-9 rounded-full border transition-colors ${
             isPublic
-              ? "border-[#D4A63D]/70 bg-[#D4A63D]/25"
+              ? "border-usam-gold/70 bg-usam-gold/25"
               : "border-[#d7d2c8] bg-[#f1eee7]"
           }`}>
             <span className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform ${
               isPublic
-                ? "translate-x-4 bg-[#F5B942]"
+                ? "translate-x-4 bg-usam-gold"
                 : "translate-x-1 bg-[#9a9488]"
             }`} />
           </span>
@@ -8813,7 +8813,7 @@ function TeamMemberRow({
       </div>
       <div className="flex justify-end">
         <button
-          className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]"
+          className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 text-[10px] uppercase tracking-[0.16em] text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]"
           onClick={onEdit}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
@@ -8829,7 +8829,7 @@ function TeamStatusBadge({ status }: { status: AdminTeamMemberStatus }) {
   const toneClass = status === "active"
     ? "border-green-200 bg-green-50 text-green-800"
     : status === "pending"
-      ? "border-[#D4A63D]/40 bg-[#D4A63D]/10 text-[#8a5a00]"
+      ? "border-usam-gold/40 bg-usam-gold/10 text-[var(--usam-black)]"
       : status === "declined" || status === "archived"
         ? "border-red-200 bg-red-50 text-red-700"
         : "border-[#d7d2c8] bg-[#f1eee7] text-[#6f6658]";
@@ -8875,7 +8875,7 @@ function TeamMemberEditor({
     <div className="rounded-xl border border-[#e2ded5] bg-white p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {member.source === "dos" ? "DOS" : "Website Admin"}
           </p>
           <h3 className="mt-2 text-xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
@@ -8979,7 +8979,7 @@ function TeamMemberEditor({
       <label className="mt-4 inline-flex items-center gap-3 text-sm text-[#4b443b]">
         <input
           checked={member.is_public !== false && member.status === "active"}
-          className="h-4 w-4 accent-[#D4A63D]"
+          className="h-4 w-4 accent-usam-gold"
           onChange={(event) => onUpdate(member.id, {
             is_public: event.target.checked,
             status: event.target.checked ? "active" : member.status,
@@ -9036,7 +9036,7 @@ function PrayerRequestsWorkspace({
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-[#e2ded5] bg-white p-3.5">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           New Request
         </p>
         <div className="mt-2.5 grid gap-3 md:grid-cols-2">
@@ -9169,7 +9169,7 @@ function prayerRequestVisibilityLabel(visibility: AdminPrayerRequest["visibility
 
 function PrayerStatusChip({ children, tone = "neutral" }: { children: ReactNode; tone?: "amber" | "green" | "neutral" | "red" }) {
   const toneClass = {
-    amber: "border-[#D4A63D]/40 bg-[#fff7df] text-[#7a5200]",
+    amber: "border-usam-gold/40 bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]",
     green: "border-green-200 bg-green-50 text-green-800",
     neutral: "border-[#e2ded5] bg-[#f8f6f1] text-[#6f6658]",
     red: "border-red-200 bg-red-50 text-red-700",
@@ -9279,7 +9279,7 @@ function PrayerPublishingWorkspace({
       <div className="rounded-xl border border-[#e2ded5] bg-[#f8f6f1] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Prayer
             </p>
             <h3 className="mt-2 text-2xl font-bold leading-tight text-[#111111]">
@@ -9310,7 +9310,7 @@ function PrayerPublishingWorkspace({
         <section className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Public prayer section
               </p>
               <h4 className="mt-2 text-lg font-semibold leading-tight text-[#111111]">
@@ -9340,8 +9340,8 @@ function PrayerPublishingWorkspace({
                 <button
                   className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 text-[10px] uppercase tracking-[0.16em] transition-colors ${
                     selected
-                      ? "border-[#D4A63D] bg-[#fff8e8] text-[#8a5a00]"
-                      : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-[#c8952d] hover:text-[#8a5a00]"
+                      ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]"
+                      : "border-[#e2ded5] bg-[#fbfaf7] text-[#6f6658] hover:border-usam-gold hover:text-[var(--usam-black)]"
                   }`}
                   key={option.value}
                   onClick={() => setPrayerFilter(option.value)}
@@ -9358,7 +9358,7 @@ function PrayerPublishingWorkspace({
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8174]" />
               <span className="sr-only">Search prayer items</span>
               <input
-                className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-[#c8952d] focus:shadow-[0_0_0_3px_rgba(200,149,45,0.16)]"
+                className="h-10 w-full rounded-md border border-[#d7d2c8] bg-[#fbfaf7] pl-9 pr-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-usam-gold focus:shadow-[0_0_0_3px_rgba(var(--usam-gold-rgb),0.16)]"
                 onChange={(event) => setPrayerSearch(event.target.value)}
                 placeholder="Search prayer items"
                 value={prayerSearch}
@@ -9372,7 +9372,7 @@ function PrayerPublishingWorkspace({
 
         <section className="mt-4 overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
           <div className="border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Prayer team signups
             </p>
           </div>
@@ -9410,7 +9410,7 @@ function PrayerPublishingWorkspace({
                       <button className={lightTertiaryButtonClass} onClick={(event) => { event.stopPropagation(); onUpdatePrayerPartnerStatus(partner.id, "declined"); }} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
                         Decline
                       </button>
-                      <button aria-label={`View ${prayerPartnerName(partner)}`} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={(event) => { event.stopPropagation(); setSelectedPartnerId(partner.id); }} type="button">
+                      <button aria-label={`View ${prayerPartnerName(partner)}`} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={(event) => { event.stopPropagation(); setSelectedPartnerId(partner.id); }} type="button">
                         <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
@@ -9423,7 +9423,7 @@ function PrayerPublishingWorkspace({
 
         <section className="mt-4 overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
           <div className="flex flex-col gap-2 border-b border-[#e2ded5] bg-[#fbfaf7] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Prayer requests
             </p>
             <button className={lightSecondaryButtonClass} onClick={() => setIsAddingPrayerRequest(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
@@ -9470,7 +9470,7 @@ function PrayerPublishingWorkspace({
                       <button className={lightTertiaryButtonClass} onClick={(event) => { event.stopPropagation(); onUpdatePrayerRequest(request.id, { status: "archived" }); }} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
                         Archive
                       </button>
-                      <button aria-label={`View ${request.title}`} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={(event) => { event.stopPropagation(); setSelectedRequestId(request.id); }} type="button">
+                      <button aria-label={`View ${request.title}`} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={(event) => { event.stopPropagation(); setSelectedRequestId(request.id); }} type="button">
                         <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
@@ -9482,7 +9482,7 @@ function PrayerPublishingWorkspace({
         </section>
 
         <section className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Settings
           </p>
           <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
@@ -9491,11 +9491,11 @@ function PrayerPublishingWorkspace({
             <PrayerSettingRow label="Prayer mode" value="Household" />
             <label className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] px-3 py-2">
               <span className="text-sm font-medium text-[#111111]">Public profile visibility</span>
-              <input checked={profile.show_prayer !== false} className="h-4 w-4 accent-[#D4A63D]" onChange={(event) => onUpdateHouseholdField("show_prayer", event.target.checked)} type="checkbox" />
+              <input checked={profile.show_prayer !== false} className="h-4 w-4 accent-usam-gold" onChange={(event) => onUpdateHouseholdField("show_prayer", event.target.checked)} type="checkbox" />
             </label>
             <label className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[#e2ded5] bg-[#f8f6f1] px-3 py-2">
               <span className="text-sm font-medium text-[#111111]">Prayer team signups</span>
-              <input checked={profile.enable_prayer_team !== false} className="h-4 w-4 accent-[#D4A63D]" onChange={(event) => onUpdateHouseholdField("enable_prayer_team", event.target.checked)} type="checkbox" />
+              <input checked={profile.enable_prayer_team !== false} className="h-4 w-4 accent-usam-gold" onChange={(event) => onUpdateHouseholdField("enable_prayer_team", event.target.checked)} type="checkbox" />
             </label>
           </div>
         </section>
@@ -9641,10 +9641,10 @@ function PrayerCopyModal({
       <div className="ml-auto flex h-full w-full max-w-2xl flex-col border-l border-[#2a241a] bg-[#f8f6f1] text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] bg-white px-5 py-5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public Prayer Copy</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public Prayer Copy</p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>Edit Prayer Section</h3>
           </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -9691,10 +9691,10 @@ function PrayerRequestEditorModal({
       <div className="ml-auto flex h-full w-full max-w-2xl flex-col border-l border-[#2a241a] bg-[#f8f6f1] text-[#111111] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] bg-white px-5 py-5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Prayer Request</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Prayer Request</p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>Add Prayer Request</h3>
           </div>
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+          <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -9830,11 +9830,11 @@ function PrayerDrawerHeader({
   return (
     <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] bg-white px-5 py-5">
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{eyebrow}</p>
+        <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{eyebrow}</p>
         <h3 className="mt-2 truncate text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>{title}</h3>
         <p className="mt-1 text-xs leading-5 text-[#7b746a]">{subtitle}</p>
       </div>
-      <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
+      <button className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]" onClick={onClose} type="button">
         <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
@@ -11609,7 +11609,7 @@ export function MissionaryProfilesAdminDashboard({
           <label className="block">
             <span className="sr-only">Search missionary workspaces</span>
             <input
-              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
+              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-usam-gold"
               onChange={(event) => setProfileQuery(event.target.value)}
               placeholder="Search workspaces, slugs, states, or mission"
               value={profileQuery}
@@ -11618,7 +11618,7 @@ export function MissionaryProfilesAdminDashboard({
           <label className="block">
             <span className="sr-only">Filter by visibility</span>
             <select
-              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors focus:border-usam-gold"
               onChange={(event) => setProfileVisibilityFilter(event.target.value)}
               value={profileVisibilityFilter}
             >
@@ -11628,7 +11628,7 @@ export function MissionaryProfilesAdminDashboard({
             </select>
           </label>
           <button
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-stone-700 bg-stone-950/70 px-5 text-xs uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-stone-700 bg-stone-950/70 px-5 text-xs uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold"
             disabled={isRefreshing}
             onClick={refreshProfiles}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -11678,7 +11678,7 @@ export function MissionaryProfilesAdminDashboard({
                       </td>
                       <td className="px-4 py-4 text-right">
                         <button
-                          className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                          className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold"
                           onClick={() => openProfile(profile.id)}
                           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                           type="button"
@@ -11713,7 +11713,7 @@ export function MissionaryProfilesAdminDashboard({
                       <p className="mt-1 text-sm text-stone-300">{formatProfileUpdatedDate(profile.updated_at)}</p>
                     </div>
                     <button
-                      className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold"
                       onClick={() => openProfile(profile.id)}
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"
@@ -11877,7 +11877,7 @@ export function MissionaryProfilesAdminDashboard({
         <div className="border-b border-stone-800/80 pb-5 md:pb-7">
           <div className="mb-4 md:mb-5">
             <button
-              className="inline-flex items-center text-[11px] uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-[#F5B942]"
+              className="inline-flex items-center text-[11px] uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-usam-gold"
               onClick={closeProfile}
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               type="button"
@@ -11897,13 +11897,13 @@ export function MissionaryProfilesAdminDashboard({
                     Workspace shell
                   </span>
                   <span
-                    className="inline-flex min-h-8 items-center rounded-xl bg-[#D4A63D] px-3 text-[10px] uppercase tracking-[0.14em] text-black"
+                    className="inline-flex min-h-8 items-center rounded-xl bg-usam-gold px-3 text-[10px] uppercase tracking-[0.14em] text-black"
                     style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   >
                     Classic
                   </span>
                   <Link
-                    className="inline-flex min-h-8 items-center rounded-xl border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-[#D4A63D]/70 hover:text-[#F5B942]"
+                    className="inline-flex min-h-8 items-center rounded-xl border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-usam-gold/70 hover:text-usam-gold"
                     href={workspaceV2Href}
                     style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   >
@@ -11916,7 +11916,7 @@ export function MissionaryProfilesAdminDashboard({
             <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">
               <Link
                 aria-label="Open mobile Field App for this workspace"
-                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_14px_34px_rgba(212,166,61,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#e7b742] hover:shadow-[0_18px_42px_rgba(212,166,61,0.24)] sm:min-h-24 sm:p-4"
+                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-usam-gold bg-usam-gold p-3.5 text-black shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.18)] transition-all hover:-translate-y-0.5 hover:bg-usam-gold hover:shadow-[0_18px_42px_rgba(var(--usam-gold-rgb),0.24)] sm:min-h-24 sm:p-4"
                 href={`/dos/${encodeURIComponent(selectedProfile.slug)}`}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -11931,11 +11931,11 @@ export function MissionaryProfilesAdminDashboard({
               </Link>
               {workspaceShellV2Enabled ? (
                 <Link
-                  className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
+                  className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-usam-gold/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-usam-gold/80 hover:bg-[#141414] hover:text-usam-gold hover:shadow-[0_16px_36px_rgba(var(--usam-gold-rgb),0.1)] sm:min-h-24 sm:p-4"
                   href={workspaceV2Href}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <Eye className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                    <Eye className="h-5 w-5 shrink-0 text-usam-gold" aria-hidden="true" />
                     <div className="min-w-0">
                       <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open Workspace v2</p>
                     </div>
@@ -11943,12 +11943,12 @@ export function MissionaryProfilesAdminDashboard({
                 </Link>
               ) : null}
               <Link
-                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
+                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-usam-gold/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-usam-gold/80 hover:bg-[#141414] hover:text-usam-gold hover:shadow-[0_16px_36px_rgba(var(--usam-gold-rgb),0.1)] sm:min-h-24 sm:p-4"
                 href={`/missionaries/${selectedProfile.slug}`}
                 target="_blank"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <ExternalLink className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                  <ExternalLink className="h-5 w-5 shrink-0 text-usam-gold" aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public Profile</p>
                   </div>
@@ -11956,12 +11956,12 @@ export function MissionaryProfilesAdminDashboard({
               </Link>
               <button
                 aria-label={profileLinkCopyState === "failed" ? "Copy profile link failed. Try again." : "Copy public profile link"}
-                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-stone-700 bg-stone-950/70 p-3.5 text-left text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.2)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/55 hover:bg-stone-900/70 hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.08)] sm:min-h-24 sm:p-4"
+                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-stone-700 bg-stone-950/70 p-3.5 text-left text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.2)] transition-all hover:-translate-y-0.5 hover:border-usam-gold/55 hover:bg-stone-900/70 hover:text-usam-gold hover:shadow-[0_16px_36px_rgba(var(--usam-gold-rgb),0.08)] sm:min-h-24 sm:p-4"
                 onClick={copySelectedProfileLink}
                 type="button"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <Copy className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
+                  <Copy className="h-5 w-5 shrink-0 text-usam-gold" aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{profileLinkCopyTitle}</p>
                   </div>
@@ -11974,7 +11974,7 @@ export function MissionaryProfilesAdminDashboard({
         {status ? (
           <p className={`mt-5 border p-4 text-sm ${
             status.tone === "success"
-              ? "border-[#D4A63D]/30 bg-[#D4A63D]/10 text-stone-100"
+              ? "border-usam-gold/30 bg-usam-gold/10 text-stone-100"
               : "border-red-500/30 bg-red-950/20 text-red-200"
           }`}>
             {status.text}
@@ -11992,7 +11992,7 @@ export function MissionaryProfilesAdminDashboard({
                   aria-selected={selected}
                   className={`h-full min-h-[78px] min-w-0 rounded-xl border px-4 py-3 text-left transition-colors sm:min-h-[88px] ${
                     selected
-                      ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                      ? "border-usam-gold bg-usam-gold text-black"
                       : "border-stone-800 bg-[#090909] text-stone-300 hover:border-stone-600 hover:bg-stone-900/80 hover:text-stone-100"
                   }`}
                   key={group.key}
@@ -12007,7 +12007,7 @@ export function MissionaryProfilesAdminDashboard({
                   type="button"
                 >
                   <span className="flex h-full min-w-0 items-center gap-3">
-                    <Icon className={`h-4.5 w-4.5 shrink-0 md:h-5 md:w-5 ${selected ? "text-black" : "text-[#D4A63D]"}`} aria-hidden="true" />
+                    <Icon className={`h-4.5 w-4.5 shrink-0 md:h-5 md:w-5 ${selected ? "text-black" : "text-usam-gold"}`} aria-hidden="true" />
                     <span className="min-w-0">
                       <span className="block text-[15px] uppercase leading-none tracking-[0.105em] md:text-base">
                         {group.label}
@@ -12188,7 +12188,7 @@ export function MissionaryProfilesAdminDashboard({
           {activeTab === "profile" ? (
           <div className="max-w-[900px]">
             <div className={lightPanelClass}>
-              <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Profile
               </p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
@@ -12358,7 +12358,7 @@ export function MissionaryProfilesAdminDashboard({
                     ) : (
                       <div className="flex min-h-[210px] flex-col items-center justify-center px-5 text-center md:min-h-[260px]">
                         <div className="mb-3 h-10 w-10 rounded-full border border-[#d7d2c8] bg-white shadow-sm">
-                          <div className="mx-auto mt-3.5 h-3 w-3 rotate-45 bg-[#D4A63D]" />
+                          <div className="mx-auto mt-3.5 h-3 w-3 rotate-45 bg-usam-gold" />
                         </div>
                         <p className="text-base font-semibold text-[#111111]">
                           No generated hero image
@@ -12373,7 +12373,7 @@ export function MissionaryProfilesAdminDashboard({
                   <div className="space-y-3">
                     <div>
                       <button
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-[#c8952d] bg-[#D4A63D] px-4 py-2.5 text-center text-[11px] uppercase tracking-[0.18em] text-[#111111] shadow-[0_12px_26px_rgba(212,166,61,0.14)] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-usam-gold bg-usam-gold px-4 py-2.5 text-center text-[11px] uppercase tracking-[0.18em] text-[#111111] shadow-[0_12px_26px_rgba(var(--usam-gold-rgb),0.14)] transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
                         disabled={!selectedProfile.profile_image_url?.trim()}
                         onClick={openCutoutModal}
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -12384,19 +12384,19 @@ export function MissionaryProfilesAdminDashboard({
                     </div>
 
                     <div className="rounded-2xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
-                      <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Public Image
                       </p>
                       <div className="mt-2.5 space-y-2">
                         <label className={`flex items-center justify-between gap-3 rounded-xl border p-2.5 text-sm leading-5 ${
                           selectedGeneratedHeroImageUrl
                             ? "border-[#e2ded5] bg-white text-[#4b443b]"
-                            : "border-[#c8952d] bg-white text-[#111111]"
+                            : "border-usam-gold bg-white text-[#111111]"
                         }`}>
                           <span className="flex items-center gap-3">
                             <input
                               checked={!selectedGeneratedHeroImageUrl}
-                              className="h-4 w-4 accent-[#D4A63D]"
+                              className="h-4 w-4 accent-usam-gold"
                               name="profile_public_image_source"
                               onChange={() => updateHouseholdField("hero_image_url", "")}
                               type="radio"
@@ -12411,13 +12411,13 @@ export function MissionaryProfilesAdminDashboard({
                         </label>
                         <label className={`flex items-center justify-between gap-3 rounded-xl border p-2.5 text-sm leading-5 ${
                           selectedGeneratedHeroImageUrl
-                            ? "border-[#c8952d] bg-white text-[#111111]"
+                            ? "border-usam-gold bg-white text-[#111111]"
                             : "border-[#e2ded5] bg-white text-[#9a9488]"
                         }`}>
                           <span className="flex items-center gap-3">
                           <input
                             checked={Boolean(selectedGeneratedHeroImageUrl)}
-                            className="h-4 w-4 accent-[#D4A63D]"
+                            className="h-4 w-4 accent-usam-gold"
                             disabled={!selectedGeneratedHeroImageUrl}
                             name="profile_public_image_source"
                             onChange={() => undefined}
@@ -12526,7 +12526,7 @@ export function MissionaryProfilesAdminDashboard({
             ) : null}
             <div className="mt-3 grid gap-3.5 lg:grid-cols-2">
               <div className={`rounded-2xl border bg-white p-4 md:p-5 ${
-                isOriginalStoryPublished ? "border-[#c8952d] shadow-[0_14px_34px_rgba(200,149,45,0.12)]" : "border-[#e2ded5]"
+                isOriginalStoryPublished ? "border-usam-gold shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.12)]" : "border-[#e2ded5]"
               }`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -12567,7 +12567,7 @@ export function MissionaryProfilesAdminDashboard({
               </div>
 
               <div className={`rounded-2xl border bg-white p-4 md:p-5 ${
-                isImprovedStoryPublished ? "border-[#c8952d] shadow-[0_14px_34px_rgba(200,149,45,0.12)]" : "border-[#e2ded5]"
+                isImprovedStoryPublished ? "border-usam-gold shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.12)]" : "border-[#e2ded5]"
               }`}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -12708,7 +12708,7 @@ export function MissionaryProfilesAdminDashboard({
               {supportSubsection === "giving-page" ? (
                 <div className="space-y-4">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       Support Experience
                     </p>
                   </div>
@@ -12754,7 +12754,7 @@ export function MissionaryProfilesAdminDashboard({
                     </div>
 
                     <div className="rounded-2xl border border-[#201b13] bg-[#080807] p-4 text-stone-100 shadow-[0_24px_70px_rgba(0,0,0,0.22)]">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Live Public Preview
                       </p>
                       <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
@@ -12766,7 +12766,7 @@ export function MissionaryProfilesAdminDashboard({
                       <div className="mt-4 space-y-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3">
                         {support.enable_monthly_partnership !== false ? (
                           <div>
-                            <p className="text-[9px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                            <p className="text-[9px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                               Monthly Partnership
                             </p>
                             <p className="mt-1 text-xs leading-5 text-stone-400">
@@ -12776,7 +12776,7 @@ export function MissionaryProfilesAdminDashboard({
                         ) : null}
                         {support.enable_one_time_gift !== false ? (
                           <div className="border-t border-white/[0.07] pt-2">
-                            <p className="text-[9px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                            <p className="text-[9px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                               One-Time Gift
                             </p>
                             <p className="mt-1 text-xs leading-5 text-stone-400">
@@ -12786,7 +12786,7 @@ export function MissionaryProfilesAdminDashboard({
                         ) : null}
                         {support.enable_major_gift_inquiry !== false ? (
                           <div className="border-t border-white/[0.07] pt-2">
-                            <p className="text-[9px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                            <p className="text-[9px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                               Major Gift Conversation
                             </p>
                             <p className="mt-1 text-xs leading-5 text-stone-400">
@@ -12862,7 +12862,7 @@ export function MissionaryProfilesAdminDashboard({
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                         Giving Routing
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -12874,7 +12874,7 @@ export function MissionaryProfilesAdminDashboard({
                   </div>
 
                   <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       Major Gift Notifications
                     </p>
                     <div className="mt-3">
@@ -12887,7 +12887,7 @@ export function MissionaryProfilesAdminDashboard({
                   </div>
 
                   <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       Advanced Settings
                     </p>
                     <div className="mt-3 grid gap-3 lg:grid-cols-2">
@@ -12941,13 +12941,13 @@ export function MissionaryProfilesAdminDashboard({
         </div>
       </section>
       {hasUnsavedChanges ? (
-        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-[720px] flex-col gap-3 rounded-2xl border border-[#D4A63D]/40 bg-[#0f0f0f]/95 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.38)] backdrop-blur md:flex-row md:items-center md:justify-between">
+        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-[720px] flex-col gap-3 rounded-2xl border border-usam-gold/40 bg-[#0f0f0f]/95 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.38)] backdrop-blur md:flex-row md:items-center md:justify-between">
           <p className="text-sm leading-5 text-stone-200">
             You have unsaved changes.
           </p>
           <div className="flex gap-2">
             <button
-              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md border border-stone-700 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942] md:flex-none"
+              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md border border-stone-700 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-usam-gold hover:text-usam-gold md:flex-none"
               onClick={() => {
                 if (selectedLastSavedProfile) {
                   updateSelected(selectedLastSavedProfile);
@@ -12959,7 +12959,7 @@ export function MissionaryProfilesAdminDashboard({
               Discard
             </button>
             <button
-              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md bg-[#D4A63D] px-5 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
+              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md bg-usam-gold px-5 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
               disabled={saving}
               onClick={saveSelectedProfile}
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}

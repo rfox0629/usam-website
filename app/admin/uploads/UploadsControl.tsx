@@ -7,17 +7,17 @@ import { adminFont, type AdminBadgeTone } from "../_components/AdminUI";
 import type { AdminResourceControlRow } from "../_components/AdminResourceControlTable";
 
 const badgeToneClassName: Record<AdminBadgeTone, string> = {
-  amber: "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]",
+  amber: "border-usam-gold/35 bg-usam-gold/10 text-usam-gold",
   blue: "border-blue-400/25 bg-blue-950/30 text-blue-300",
   green: "border-green-500/25 bg-green-950/30 text-green-300",
   muted: "border-stone-700 bg-stone-900/70 text-stone-300",
   red: "border-red-500/35 bg-red-950/25 text-red-200",
 };
 
-const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
-const primaryActionClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#F5B942]";
-const secondaryActionClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
-const rowActionClassName = "inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.13em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
+const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
+const primaryActionClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold";
+const secondaryActionClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold";
+const rowActionClassName = "inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.13em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold";
 
 function statusTone(status: AdminResourceControlRow["status"]): AdminBadgeTone {
   switch (status) {
@@ -115,7 +115,7 @@ function DetailDrawer({
       <aside className="ml-auto h-full w-full max-w-2xl overflow-y-auto border-l border-stone-800 bg-[#070707] p-5 shadow-[0_0_80px_rgba(0,0,0,0.55)] md:p-6">
         <div className="flex items-start justify-between gap-4 border-b border-stone-800/70 pb-4">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
               Media Detail
             </p>
             <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{row.title}</h2>
@@ -134,7 +134,7 @@ function DetailDrawer({
             label="Area"
             value={row.url
               ? isNavigableUrl
-                ? <Link className="hover:text-[#F5B942]" href={row.url}>{row.url}</Link>
+                ? <Link className="hover:text-usam-gold" href={row.url}>{row.url}</Link>
                 : row.url
               : "-"}
           />
@@ -250,7 +250,7 @@ export function UploadsControl({ rows }: { rows: readonly AdminResourceControlRo
           <details className="group rounded-lg border border-stone-800 bg-[#050505] lg:w-[190px]">
             <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between px-3 text-[11px] uppercase tracking-[0.14em] text-stone-300 group-open:border-b group-open:border-stone-800" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
               Filters
-              <span className="text-[#D4A63D]">+</span>
+              <span className="text-usam-gold">+</span>
             </summary>
             <div className="grid gap-2 p-3">
               <SelectFilter label="All Statuses" onChange={setStatusFilter} options={statuses} value={statusFilter} />
@@ -281,7 +281,7 @@ export function UploadsControl({ rows }: { rows: readonly AdminResourceControlRo
 
       <section className="rounded-xl border border-stone-800/75 bg-[#050505]/75 p-3">
         <div className="flex flex-col gap-3 px-1 pb-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
             Storage Areas
           </p>
           <div className="flex flex-wrap gap-2">

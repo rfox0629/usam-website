@@ -45,7 +45,7 @@ function PrayerCoverageBoard() {
       <div className="relative border-b border-stone-800/70 px-4 py-4 md:px-5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_14px_rgba(245,158,11,0.38)]" />
+            <span className="h-2 w-2 rounded-full bg-usam-gold shadow-[0_0_14px_rgba(var(--usam-gold-rgb),0.38)]" />
             <span
               className="truncate text-[10px] uppercase tracking-[0.26em] text-stone-400"
               style={{ fontFamily: font.rajdhani }}
@@ -67,7 +67,7 @@ function PrayerCoverageBoard() {
               className={`inline-flex px-2.5 py-1.5 text-[10px] uppercase tracking-[0.16em] ${
                 row.tone === "emerald"
                   ? "bg-emerald-950/70 text-emerald-400"
-                  : "bg-amber-950/60 text-amber-400"
+                  : "bg-usam-gold/60 text-usam-gold"
               }`}
               style={{ fontFamily: font.rajdhani }}
             >
@@ -99,11 +99,11 @@ export default async function PrayerPage({
 
       <section className="relative overflow-hidden border-b border-stone-900/80 px-6 pb-14 pt-28 md:pb-20 md:pt-32">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:64px_64px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(245,158,11,0.06),transparent_24%),linear-gradient(180deg,rgba(5,5,5,0.15),#050505_88%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(var(--usam-gold-rgb),0.06),transparent_24%),linear-gradient(180deg,rgba(5,5,5,0.15),#050505_88%)]" />
 
         <div className="relative mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1fr_0.92fr] lg:gap-14">
           <div className="max-w-[660px]">
-            <p className="text-[11px] uppercase tracking-[0.32em] text-amber-500/80" style={{ fontFamily: font.rajdhani }}>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-usam-gold/80" style={{ fontFamily: font.rajdhani }}>
               PRAYER TEAM
             </p>
             <h1
@@ -141,7 +141,7 @@ export default async function PrayerPage({
           <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {prayerCards.map((card, index) => (
               <div key={card.title} className="border border-stone-700/70 bg-[#101010] p-6 shadow-[0_18px_36px_rgba(0,0,0,0.18)] md:p-7">
-                <div className="text-xs uppercase tracking-[0.16em] text-amber-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <div className="text-xs uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   0{index + 1}
                 </div>
                 <h3 className="mt-4 text-2xl uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>

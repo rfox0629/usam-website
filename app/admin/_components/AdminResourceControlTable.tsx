@@ -49,7 +49,7 @@ function SelectFilter({
     <label className="block">
       <span className="sr-only">{label}</span>
       <select
-        className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+        className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-usam-gold"
         onChange={(event) => onChange(event.target.value)}
         value={value}
       >
@@ -73,7 +73,7 @@ function DetailDrawer({
     return (
       <aside className="border border-stone-800/75 bg-[#080808]/85 p-6 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)]">
         <p
-          className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]"
+          className="text-[10px] uppercase tracking-[0.2em] text-usam-gold"
           style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
         >
           Detail Drawer
@@ -91,7 +91,7 @@ function DetailDrawer({
     <aside className="border border-stone-800/75 bg-[#080808]/85 p-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto">
       <div className="border-b border-stone-800/70 pb-4">
         <p
-          className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]"
+          className="text-[10px] uppercase tracking-[0.2em] text-usam-gold"
           style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
         >
           Record Detail
@@ -129,7 +129,7 @@ function DetailDrawer({
             <p className="mt-1 break-words text-sm leading-6 text-stone-300">
               {row.url
                 ? isNavigableUrl
-                  ? <Link className="hover:text-[#F5B942]" href={row.url}>{row.url}</Link>
+                  ? <Link className="hover:text-usam-gold" href={row.url}>{row.url}</Link>
                   : row.url
                 : "-"}
             </p>
@@ -220,7 +220,7 @@ export function AdminResourceControlTable({
         <label className="block">
           <span className="sr-only">Search records</span>
           <input
-            className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
+            className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search name, URL, or owner"
             value={query}
@@ -244,7 +244,7 @@ export function AdminResourceControlTable({
             {filteredRows.length > 0 ? filteredRows.map((row) => (
               <div
                 className={`grid w-full gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-stone-950/80 lg:grid-cols-[1fr_1fr_0.55fr_0.7fr_0.7fr_0.65fr] lg:items-center ${
-                  selectedRow?.id === row.id ? "bg-[#C9A24A]/5" : ""
+                  selectedRow?.id === row.id ? "bg-usam-gold/5" : ""
                 }`}
                 key={row.id}
                 onClick={() => setSelectedId(row.id)}
@@ -268,7 +268,7 @@ export function AdminResourceControlTable({
                 <span className="flex flex-wrap gap-2">
                   {row.actionHref ? (
                     <Link
-                      className="inline-flex min-h-8 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      className="inline-flex min-h-8 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold"
                       href={row.actionHref}
                       onClick={(event) => event.stopPropagation()}
                       style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
@@ -278,7 +278,7 @@ export function AdminResourceControlTable({
                   ) : null}
                   {row.secondaryHref ? (
                     <Link
-                      className="inline-flex min-h-8 items-center justify-center border border-stone-800 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                      className="inline-flex min-h-8 items-center justify-center border border-stone-800 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-300 transition-colors hover:border-usam-gold hover:text-usam-gold"
                       href={row.secondaryHref}
                       onClick={(event) => event.stopPropagation()}
                       style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
@@ -288,7 +288,7 @@ export function AdminResourceControlTable({
                   ) : null}
                   {!row.actionHref && !row.secondaryHref ? (
                     <span
-                      className="text-[10px] uppercase tracking-[0.16em] text-[#F5B942]"
+                      className="text-[10px] uppercase tracking-[0.16em] text-usam-gold"
                       style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
                     >
                       Open

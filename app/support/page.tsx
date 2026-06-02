@@ -23,8 +23,8 @@ function ActionLink({
   variant?: "primary" | "secondary";
 }) {
   const className = variant === "primary"
-    ? "border border-transparent bg-[#F5B942] text-black hover:bg-amber-300 hover:shadow-[0_0_22px_rgba(245,185,66,0.24)]"
-    : "border border-white/[0.3] bg-transparent text-white hover:border-amber-400 hover:bg-white/[0.04]";
+    ? "border border-transparent bg-usam-gold text-black hover:bg-usam-gold hover:shadow-[0_0_22px_rgba(var(--usam-gold-rgb),0.24)]"
+    : "border border-white/[0.3] bg-transparent text-white hover:border-usam-gold hover:bg-white/[0.04]";
 
   return (
     <Link
@@ -47,7 +47,7 @@ function ExternalActionLink({
   variant?: "primary" | "secondary";
 }) {
   const className = variant === "primary"
-    ? "bg-stone-100 text-stone-950 hover:bg-amber-200"
+    ? "bg-stone-100 text-stone-950 hover:bg-usam-gold"
     : "border border-stone-600 text-stone-300 hover:border-stone-400 hover:text-stone-100";
 
   return (
@@ -168,7 +168,7 @@ export default async function SupportPage({
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {resourceAreas.map((item, index) => (
               <div key={item} className="border border-stone-800/60 bg-stone-950/55 p-6 md:p-7">
-                <div className="tactical-amber-label text-xs tracking-[0.28em]" style={{ fontFamily: font.rajdhani }}>
+                <div className="tactical-gold-label text-xs tracking-[0.28em]" style={{ fontFamily: font.rajdhani }}>
                   0{index + 1}
                 </div>
                 <p className="mt-4 text-base leading-7 text-stone-300">{item}</p>
@@ -201,7 +201,7 @@ export default async function SupportPage({
                 key={option.title}
                 className={`border p-7 md:p-8 ${
                   option.featured
-                    ? "border-amber-500/20 bg-[radial-gradient(circle_at_20%_18%,rgba(212,160,84,0.08),transparent_30%),rgba(10,10,10,0.96)] shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
+                    ? "border-usam-gold/20 bg-[radial-gradient(circle_at_20%_18%,rgba(212,160,84,0.08),transparent_30%),rgba(10,10,10,0.96)] shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
                     : "border-stone-800/60 bg-stone-950/55"
                 }`}
               >

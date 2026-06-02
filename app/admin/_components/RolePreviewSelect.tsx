@@ -37,7 +37,7 @@ export function RolePreviewSelect() {
       </span>
       <select
         aria-label="Role preview"
-        className="min-h-8 appearance-none rounded-md border border-stone-700 bg-stone-950 px-2 text-xs font-semibold text-stone-100 outline-none transition-colors hover:border-[#C9A24A] focus:border-[#C9A24A]"
+        className="min-h-8 appearance-none rounded-md border border-stone-700 bg-stone-950 px-2 text-xs font-semibold text-stone-100 outline-none transition-colors hover:border-usam-gold focus:border-usam-gold"
         onChange={(event) => updateRole(event.target.value as RolePreview)}
         value={role}
       >

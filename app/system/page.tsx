@@ -39,7 +39,7 @@ const cards = [
 
 function BriefingLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] uppercase tracking-[0.32em] text-amber-500/80" style={{ fontFamily: font.rajdhani }}>
+    <p className="text-[11px] uppercase tracking-[0.32em] text-usam-gold/80" style={{ fontFamily: font.rajdhani }}>
       {children}
     </p>
   );
@@ -94,7 +94,7 @@ function DashboardPanel() {
                     className={`inline-flex px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${
                       row.status === "Active"
                         ? "bg-emerald-950/70 text-emerald-500"
-                        : "bg-amber-950/60 text-amber-500"
+                        : "bg-usam-gold/60 text-usam-gold"
                     }`}
                     style={{ fontFamily: font.rajdhani }}
                   >
@@ -133,7 +133,7 @@ export default async function SystemPage({
 
       <section className="relative overflow-hidden border-b border-stone-900/80 px-4 pb-16 pt-28 sm:px-6 md:pb-20 md:pt-36">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:64px_64px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(245,158,11,0.06),transparent_24%),linear-gradient(180deg,rgba(5,5,5,0.15),#050505_88%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(var(--usam-gold-rgb),0.06),transparent_24%),linear-gradient(180deg,rgba(5,5,5,0.15),#050505_88%)]" />
 
         <div className="relative mx-auto grid max-w-6xl min-w-0 items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="min-w-0 max-w-2xl">
@@ -200,7 +200,7 @@ export default async function SystemPage({
           <div className="mt-10 grid gap-px bg-stone-800/30 md:grid-cols-3">
             {cards.map((card) => (
               <div key={card.title} className="border border-stone-800/60 bg-stone-950/60 p-6 text-left">
-                <div className="text-[10px] uppercase tracking-[0.28em] text-amber-500/80" style={{ fontFamily: font.rajdhani }}>
+                <div className="text-[10px] uppercase tracking-[0.28em] text-usam-gold/80" style={{ fontFamily: font.rajdhani }}>
                   {card.number}
                 </div>
                 <h3 className="mt-4 text-2xl uppercase text-stone-100" style={{ fontFamily: font.oswald }}>

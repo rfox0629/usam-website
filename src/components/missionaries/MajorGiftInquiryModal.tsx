@@ -62,7 +62,7 @@ type MajorGiftResponse = {
 };
 
 function subtleButtonClassName() {
-  return "inline-flex min-h-12 w-full items-center justify-center border border-white/[0.22] bg-white/[0.02] px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-stone-100 transition-all duration-300 hover:border-[#D4A63D] hover:bg-white/[0.04] hover:text-[#F5B942] sm:w-auto";
+  return "inline-flex min-h-12 w-full items-center justify-center border border-white/[0.22] bg-white/[0.02] px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-stone-100 transition-all duration-300 hover:border-usam-gold hover:bg-white/[0.04] hover:text-usam-gold sm:w-auto";
 }
 
 export function MajorGiftInquiryModal({
@@ -158,7 +158,7 @@ export function MajorGiftInquiryModal({
             <PublicFormShell size="wide">
               <button
                 aria-label="Close major gift inquiry"
-                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-usam-gold hover:text-stone-950"
                 onClick={closeModal}
                 type="button"
               >
@@ -200,14 +200,14 @@ export function MajorGiftInquiryModal({
                       <label
                         className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 text-sm transition-colors ${
                           donationTypes.includes(option)
-                            ? "border-[#D4A63D]/50 bg-[#fff3cf] text-stone-950"
+                            ? "border-usam-gold/50 bg-[rgba(var(--usam-gold-rgb),0.16)] text-stone-950"
                             : "border-stone-200 bg-white text-stone-700"
                         }`}
                         key={option}
                       >
                         <input
                           checked={donationTypes.includes(option)}
-                          className="h-4 w-4 accent-[#D4A63D]"
+                          className="h-4 w-4 accent-usam-gold"
                           onChange={() => toggleDonationType(option)}
                           type="checkbox"
                         />
@@ -239,7 +239,7 @@ export function MajorGiftInquiryModal({
                 <label className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-white p-4 text-sm leading-6 text-stone-700 shadow-sm">
                   <input
                     checked={consentToContact}
-                    className="mt-1 h-4 w-4 accent-[#D4A63D]"
+                    className="mt-1 h-4 w-4 accent-usam-gold"
                     onChange={(event) => setConsentToContact(event.target.checked)}
                     required
                     type="checkbox"

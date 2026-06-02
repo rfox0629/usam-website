@@ -69,13 +69,13 @@ function MeetingCard({
 }) {
   return (
     <Link
-      className="group block border border-stone-800 bg-[#080808] p-4 transition-colors hover:border-amber-500/45 sm:p-5"
+      className="group block border border-stone-800 bg-[#080808] p-4 transition-colors hover:border-usam-gold/45 sm:p-5"
       href={`/dos/${collectiveSlug}/meetings/${meeting.id}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p
-            className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-400"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-usam-gold"
             style={{ fontFamily: font.rajdhani }}
           >
             {dosMeetingTypeLabel(meeting.type)}
@@ -113,7 +113,7 @@ function MeetingCard({
 function Indicator({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
+      className="border border-usam-gold/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-usam-gold"
       style={{ fontFamily: font.rajdhani }}
     >
       {children}
@@ -145,7 +145,7 @@ function ParticipantChip({
       {onRemove ? (
         <button
           aria-label="Remove person"
-          className="text-lg leading-none text-stone-500 transition-colors hover:text-amber-300"
+          className="text-lg leading-none text-stone-500 transition-colors hover:text-usam-gold"
           onClick={onRemove}
           type="button"
         >
@@ -218,7 +218,7 @@ function AddPersonInline({
         <label className="block">
           <FormLabel>First Name</FormLabel>
           <input
-            className="mt-2 min-h-11 w-full border border-stone-700 bg-[#030303] px-3 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+            className="mt-2 min-h-11 w-full border border-stone-700 bg-[#030303] px-3 text-base text-stone-100 outline-none transition-colors focus:border-usam-gold"
             name="first_name"
             onChange={(event) => setFirstName(event.target.value)}
             required
@@ -229,7 +229,7 @@ function AddPersonInline({
         <label className="block">
           <FormLabel>Last Name</FormLabel>
           <input
-            className="mt-2 min-h-11 w-full border border-stone-700 bg-[#030303] px-3 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+            className="mt-2 min-h-11 w-full border border-stone-700 bg-[#030303] px-3 text-base text-stone-100 outline-none transition-colors focus:border-usam-gold"
             name="last_name"
             onChange={(event) => setLastName(event.target.value)}
             required
@@ -241,7 +241,7 @@ function AddPersonInline({
       <label className="mt-3 block">
         <FormLabel>Relationship Stage</FormLabel>
         <select
-          className="mt-2 min-h-11 w-full border border-stone-700 bg-[#030303] px-3 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+          className="mt-2 min-h-11 w-full border border-stone-700 bg-[#030303] px-3 text-base text-stone-100 outline-none transition-colors focus:border-usam-gold"
           name="relationship_stage"
           onChange={(event) => setRelationshipStage(event.target.value)}
           value={relationshipStage}
@@ -255,7 +255,7 @@ function AddPersonInline({
       </label>
       {errorMessage ? <p className="mt-3 text-sm leading-6 text-red-200">{errorMessage}</p> : null}
       <button
-        className="mt-4 min-h-11 w-full border border-amber-500/50 bg-[#101010] px-4 text-xs font-bold uppercase tracking-[0.18em] text-amber-300 transition-colors hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-4 min-h-11 w-full border border-usam-gold/50 bg-[#101010] px-4 text-xs font-bold uppercase tracking-[0.18em] text-usam-gold transition-colors hover:border-usam-gold hover:text-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isAdding}
         onClick={handleAddPerson}
         style={{ fontFamily: font.rajdhani }}
@@ -414,7 +414,7 @@ function MeetingLoggerSheet({
           <div className="flex items-start justify-between gap-6">
             <div>
               <p
-                className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-400"
+                className="text-[11px] font-bold uppercase tracking-[0.22em] text-usam-gold"
                 style={{ fontFamily: font.rajdhani }}
               >
                 Field Note
@@ -432,7 +432,7 @@ function MeetingLoggerSheet({
             </div>
             <button
               aria-label="Close meeting form"
-              className="flex h-10 w-10 shrink-0 items-center justify-center border border-stone-700 text-xl leading-none text-stone-300 transition-colors hover:border-amber-400 hover:text-amber-300"
+              className="flex h-10 w-10 shrink-0 items-center justify-center border border-stone-700 text-xl leading-none text-stone-300 transition-colors hover:border-usam-gold hover:text-usam-gold"
               onClick={onClose}
               type="button"
             >
@@ -445,7 +445,7 @@ function MeetingLoggerSheet({
               <label className="block">
                 <FormLabel>Meeting Type</FormLabel>
                 <select
-                  className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+                  className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-usam-gold"
                   defaultValue="kitchen_table"
                   name="type"
                 >
@@ -460,7 +460,7 @@ function MeetingLoggerSheet({
               <label className="block">
                 <FormLabel>Date / Time</FormLabel>
                 <input
-                  className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+                  className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-usam-gold"
                   name="meeting_at"
                   onChange={(event) => setMeetingAtValue(event.target.value)}
                   required
@@ -474,7 +474,7 @@ function MeetingLoggerSheet({
               <FormLabel>People involved</FormLabel>
               <div className="mt-3 flex flex-wrap gap-2">
                 <ParticipantChip>
-                  {defaultMinister?.name ?? "Current field user"} <span className="text-amber-300">(Lead)</span>
+                  {defaultMinister?.name ?? "Current field user"} <span className="text-usam-gold">(Lead)</span>
                 </ParticipantChip>
                 {selectedParticipants.map((person) => (
                   <ParticipantChip key={`${person.kind}-${person.id}`} onRemove={() => removeParticipant(person)}>
@@ -486,7 +486,7 @@ function MeetingLoggerSheet({
               <label className="mt-3 block">
                 <span className="sr-only">Search people involved</span>
                 <input
-                  className="min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
+                  className="min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
                   onChange={(event) => {
                     setSearchValue(event.target.value);
                     setShowAddPerson(false);
@@ -521,7 +521,7 @@ function MeetingLoggerSheet({
                   ) : (
                     <div className="p-4">
                       <button
-                        className="min-h-11 w-full border border-amber-500/45 bg-[#101010] px-4 text-xs font-bold uppercase tracking-[0.18em] text-amber-300 transition-colors hover:border-amber-300 hover:text-amber-100"
+                        className="min-h-11 w-full border border-usam-gold/45 bg-[#101010] px-4 text-xs font-bold uppercase tracking-[0.18em] text-usam-gold transition-colors hover:border-usam-gold hover:text-usam-gold"
                         onClick={() => setShowAddPerson(true)}
                         style={{ fontFamily: font.rajdhani }}
                         type="button"
@@ -551,7 +551,7 @@ function MeetingLoggerSheet({
             <label className="block">
               <FormLabel>What did you discuss?</FormLabel>
               <select
-                className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+                className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-usam-gold"
                 defaultValue="none"
                 name="discussion_guide_key"
               >
@@ -569,7 +569,7 @@ function MeetingLoggerSheet({
             <label className="block">
               <FormLabel>What happened?</FormLabel>
               <textarea
-                className="mt-2 min-h-20 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-base leading-7 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
+                className="mt-2 min-h-20 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-base leading-7 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
                 maxLength={600}
                 name="summary_private"
                 placeholder="Briefly capture what happened in the conversation."
@@ -595,8 +595,8 @@ function MeetingLoggerSheet({
                       aria-pressed={isSelected}
                       className={`min-h-11 border px-3 text-left text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
                         isSelected
-                          ? "border-amber-400 bg-amber-400 text-stone-950"
-                          : "border-stone-700 bg-[#050505] text-stone-300 hover:border-amber-500/50 hover:text-amber-300"
+                          ? "border-usam-gold bg-usam-gold text-stone-950"
+                          : "border-stone-700 bg-[#050505] text-stone-300 hover:border-usam-gold/50 hover:text-usam-gold"
                       }`}
                       key={marker}
                       onClick={() => toggleOutcome(marker)}
@@ -614,7 +614,7 @@ function MeetingLoggerSheet({
               <label className="block">
                 <FormLabel>Outcome Notes</FormLabel>
                 <textarea
-                  className="mt-2 min-h-16 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
+                  className="mt-2 min-h-16 w-full border border-stone-700 bg-[#050505] px-4 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
                   maxLength={500}
                   name="outcome_notes_private"
                   placeholder="Small note about what changed."
@@ -625,7 +625,7 @@ function MeetingLoggerSheet({
               <label className="block">
                 <FormLabel>Did their commitment level change?</FormLabel>
                 <select
-                  className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+                  className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-usam-gold"
                   defaultValue="no_change"
                   name="relationship_movement"
                 >
@@ -649,7 +649,7 @@ function MeetingLoggerSheet({
                 Meeting summaries, outcomes, and prayer context stay private to the owning organization.
               </p>
               <button
-                className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSubmitting}
                 style={{ fontFamily: font.rajdhani }}
                 type="submit"
@@ -690,7 +690,7 @@ export function MeetingsWorkspaceClient({
           </p>
         </div>
         <button
-          className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300"
+          className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold"
           onClick={() => setIsLoggerOpen(true)}
           style={{ fontFamily: font.rajdhani }}
           type="button"

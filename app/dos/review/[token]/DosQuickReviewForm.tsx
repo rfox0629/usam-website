@@ -103,7 +103,7 @@ function ChoiceButton({
     <button
       aria-pressed={active}
       className={`min-h-9 rounded-full border px-3 text-xs font-bold transition-colors ${
-        active ? "border-[#D4A63D] bg-[#FFF8E7] text-[#8A5A12]" : "border-[#E2DED6] bg-[#F8F7F3] text-[#1E1D1A]"
+        active ? "border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.14)] text-[var(--usam-black)]" : "border-[#E2DED6] bg-[#F8F7F3] text-[#1E1D1A]"
       }`}
       onClick={onClick}
       type="button"

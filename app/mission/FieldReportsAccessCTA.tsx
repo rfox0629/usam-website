@@ -101,7 +101,7 @@ export function FieldReportsAccessCTA({ initialOpen = false }: { initialOpen?: b
       <button
         type="button"
         onClick={openModal}
-        className="inline-flex min-h-12 items-center justify-center border border-white/25 bg-transparent px-7 py-3 text-center text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-[#d4a017] hover:bg-[rgba(212,160,23,0.08)] hover:text-[#d4a017]"
+        className="inline-flex min-h-12 items-center justify-center border border-white/25 bg-transparent px-7 py-3 text-center text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-usam-gold hover:bg-[rgba(var(--usam-gold-rgb),0.08)] hover:text-usam-gold"
         style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
       >
         Request Access to Field Reports
@@ -120,7 +120,7 @@ export function FieldReportsAccessCTA({ initialOpen = false }: { initialOpen?: b
               <button
                 type="button"
                 onClick={closeModal}
-                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-usam-gold hover:text-stone-950"
                 aria-label="Close field reports access form"
               >
                 &times;

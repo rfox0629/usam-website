@@ -78,7 +78,7 @@ export default async function OrganizationDetailPage({
       ) : (
         <div className="space-y-5">
           <Link
-            className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-stone-400 transition-colors hover:text-[#E4C465]"
+            className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-stone-400 transition-colors hover:text-usam-gold"
             href="/admin/organizations"
             style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
           >
@@ -102,7 +102,7 @@ export default async function OrganizationDetailPage({
                 </p>
               </div>
               <Link
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#E4C465]"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold"
                 href="/admin/organizations"
                 style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
               >
@@ -123,7 +123,7 @@ export default async function OrganizationDetailPage({
               <span
                 className={`inline-flex min-h-9 items-center rounded-lg border px-3 text-[10px] uppercase tracking-[0.14em] ${
                   index === 0
-                    ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+                    ? "border-usam-gold bg-usam-gold text-black"
                     : "border-stone-800 bg-stone-950 text-stone-400"
                 }`}
                 key={tab}
@@ -138,7 +138,7 @@ export default async function OrganizationDetailPage({
             <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[#D8B65D]" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
                     Workspaces
                   </p>
                   <h2 className="mt-1 text-base font-semibold text-stone-50">Workspace preview</h2>
@@ -159,7 +159,7 @@ export default async function OrganizationDetailPage({
                       </div>
                       {workspace.previewHref && workspaceShellV2Enabled ? (
                         <Link
-                          className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#D4A63D]/60 px-3 text-[10px] uppercase tracking-[0.14em] text-[#E4C465] transition-colors hover:bg-[#D4A63D]/10"
+                          className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-usam-gold/60 px-3 text-[10px] uppercase tracking-[0.14em] text-usam-gold transition-colors hover:bg-usam-gold/10"
                           href={workspace.previewHref}
                           style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
                         >
@@ -168,7 +168,7 @@ export default async function OrganizationDetailPage({
                         </Link>
                       ) : workspace.kind === "workspace" ? (
                         <Link
-                          className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-300 transition-colors hover:border-[#D4A63D]/60 hover:text-[#E4C465]"
+                          className="inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-300 transition-colors hover:border-usam-gold/60 hover:text-usam-gold"
                           href={`/admin/missionary-profiles?profile=${workspace.slug}`}
                           style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
                         >
@@ -189,7 +189,7 @@ export default async function OrganizationDetailPage({
 
             <div className="space-y-5">
               <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-[#D8B65D]" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
                   Field Activity
                 </p>
                 <p className="mt-3 text-sm leading-6 text-stone-400">
@@ -198,7 +198,7 @@ export default async function OrganizationDetailPage({
               </section>
 
               <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-[#D8B65D]" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
                   Settings
                 </p>
                 <dl className="mt-3 grid gap-3 text-sm">

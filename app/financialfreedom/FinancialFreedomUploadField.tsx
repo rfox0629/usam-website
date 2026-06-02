@@ -19,7 +19,7 @@ export function FinancialFreedomUploadField() {
     <div className="space-y-4">
       <label
         htmlFor="uploads"
-        className="block rounded-2xl border border-dashed border-stone-300 bg-[#fbfaf7] p-5 transition-colors hover:border-[#D4A63D]/70 md:p-6"
+        className="block rounded-2xl border border-dashed border-stone-300 bg-[#fbfaf7] p-5 transition-colors hover:border-usam-gold/70 md:p-6"
       >
         <span className="block text-sm font-medium text-stone-950">
           Choose files
@@ -33,7 +33,7 @@ export function FinancialFreedomUploadField() {
           type="file"
           multiple
           accept={acceptedFileTypes}
-          className="mt-5 block w-full cursor-pointer rounded-xl border border-stone-300 bg-white text-sm text-stone-700 shadow-sm file:mr-4 file:cursor-pointer file:border-0 file:bg-[#D4A63D] file:px-4 file:py-3 file:text-xs file:font-bold file:uppercase file:tracking-[0.16em] file:text-stone-950 hover:file:bg-[#F5B942]"
+          className="mt-5 block w-full cursor-pointer rounded-xl border border-stone-300 bg-white text-sm text-stone-700 shadow-sm file:mr-4 file:cursor-pointer file:border-0 file:bg-usam-gold file:px-4 file:py-3 file:text-xs file:font-bold file:uppercase file:tracking-[0.16em] file:text-stone-950 hover:file:bg-usam-gold"
           onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
         />
       </label>

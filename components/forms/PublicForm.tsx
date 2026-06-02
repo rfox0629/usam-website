@@ -3,13 +3,13 @@ import type { ReactNode } from "react";
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 export const publicInputClassName =
-  "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+  "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-usam-gold focus:ring-4 focus:ring-usam-gold/15 md:text-sm";
 
 export const publicSelectClassName =
-  "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+  "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-usam-gold focus:ring-4 focus:ring-usam-gold/15 md:text-sm";
 
 export const publicTextareaClassName =
-  "mt-2 min-h-28 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+  "mt-2 min-h-28 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-usam-gold focus:ring-4 focus:ring-usam-gold/15 md:text-sm";
 
 export function PublicFormShell({
   children,
@@ -43,7 +43,7 @@ export function PublicFormHeader({
   return (
     <div className="max-w-[820px] px-1 pb-1 pr-12 pt-0 md:px-2 md:pr-14">
       {eyebrow ? (
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {eyebrow}
         </p>
       ) : null}
@@ -56,7 +56,7 @@ export function PublicFormHeader({
         </p>
       ) : null}
       {note ? (
-        <p className="mt-4 inline-block max-w-[820px] rounded-2xl border border-[#e2b84e]/45 bg-[#fff3cf] px-4 py-3 text-[14px] leading-[1.62] text-stone-800 md:px-[18px] md:py-[14px] md:text-[15px] md:leading-[1.58]">
+        <p className="mt-4 inline-block max-w-[820px] rounded-2xl border border-usam-gold/45 bg-[rgba(var(--usam-gold-rgb),0.16)] px-4 py-3 text-[14px] leading-[1.62] text-stone-800 md:px-[18px] md:py-[14px] md:text-[15px] md:leading-[1.58]">
           {note}
         </p>
       ) : null}
@@ -104,7 +104,7 @@ export function PublicFieldLabel({
   const content = (
     <>
       {children}
-      {required ? <span className="ml-1 text-[#9a6b12]">*</span> : null}
+      {required ? <span className="ml-1 text-[var(--usam-black)]">*</span> : null}
     </>
   );
 
@@ -231,8 +231,8 @@ export function PublicCheckbox({
   value?: string;
 }) {
   return (
-    <label className="flex min-h-12 items-start gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-[#D4A63D]/55">
-      <input className="mt-1 h-4 w-4 shrink-0 accent-[#D4A63D]" name={name} required={required} type="checkbox" value={value} />
+    <label className="flex min-h-12 items-start gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-usam-gold/55">
+      <input className="mt-1 h-4 w-4 shrink-0 accent-usam-gold" name={name} required={required} type="checkbox" value={value} />
       <span>{children}</span>
     </label>
   );
@@ -247,7 +247,7 @@ export function PublicSubmitButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_14px_34px_rgba(212,166,61,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-usam-gold px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-usam-gold hover:shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.22)] disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
       type="submit"

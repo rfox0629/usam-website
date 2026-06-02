@@ -19,7 +19,7 @@ const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 export function ImproveDosFeedbackModal({
   children = "Improve DOS",
-  className = "inline-flex min-h-12 items-center justify-center border border-stone-700 bg-transparent px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-100 transition-colors hover:border-amber-400 hover:text-amber-300",
+  className = "inline-flex min-h-12 items-center justify-center border border-stone-700 bg-transparent px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold",
   initialOpen = false,
 }: {
   children?: ReactNode;
@@ -128,7 +128,7 @@ export function ImproveDosFeedbackModal({
           <PublicFormShell size="standard">
             <button
               aria-label="Close feedback form"
-              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-usam-gold hover:text-stone-950"
               onClick={() => setIsOpen(false)}
               type="button"
             >

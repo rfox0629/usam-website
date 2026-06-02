@@ -89,7 +89,7 @@ export function PersonRelationshipModal({
   return (
     <>
       <button
-        className={buttonClassName ?? "min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300"}
+        className={buttonClassName ?? "min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold"}
         onClick={() => setIsOpen(true)}
         style={{ fontFamily: font.rajdhani }}
         type="button"
@@ -114,7 +114,7 @@ export function PersonRelationshipModal({
               <div className="flex items-start justify-between gap-6">
                 <div>
                   <p
-                    className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-400"
+                    className="text-[11px] font-bold uppercase tracking-[0.22em] text-usam-gold"
                     style={{ fontFamily: font.rajdhani }}
                   >
                     Discipleship
@@ -129,7 +129,7 @@ export function PersonRelationshipModal({
                 </div>
                 <button
                   aria-label="Close relationship form"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center border border-stone-700 text-xl leading-none text-stone-300 transition-colors hover:border-amber-400 hover:text-amber-300"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center border border-stone-700 text-xl leading-none text-stone-300 transition-colors hover:border-usam-gold hover:text-usam-gold"
                   onClick={() => setIsOpen(false)}
                   type="button"
                 >
@@ -178,7 +178,7 @@ export function PersonRelationshipModal({
                       This is secondary relationship management for additional discipleship support.
                     </p>
                     <button
-                      className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isSubmitting}
                       style={{ fontFamily: font.rajdhani }}
                       type="submit"
@@ -222,7 +222,7 @@ function Select({
         {label}
       </span>
       <select
-        className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+        className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-usam-gold"
         defaultValue={defaultValue}
         name={name}
         required={required}

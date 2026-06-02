@@ -18,12 +18,12 @@ const roleOptions = [
 const yesNoReviewOptions = ["Yes", "No", "Needs Review"] as const;
 
 function fieldClassName() {
-  return "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+  return "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-usam-gold focus:ring-4 focus:ring-usam-gold/15 md:text-sm";
 }
 
 function textAreaClassName(size: "standard" | "large" = "standard") {
   const height = size === "large" ? "min-h-[260px]" : "min-h-[150px]";
-  return `mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm ${height}`;
+  return `mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-usam-gold focus:ring-4 focus:ring-usam-gold/15 md:text-sm ${height}`;
 }
 
 function FieldLabel({ children, htmlFor, required = false }: { children: ReactNode; htmlFor: string; required?: boolean }) {
@@ -34,7 +34,7 @@ function FieldLabel({ children, htmlFor, required = false }: { children: ReactNo
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}
-      {required ? <span className="ml-1 text-[#F5B942]">*</span> : null}
+      {required ? <span className="ml-1 text-usam-gold">*</span> : null}
     </label>
   );
 }
@@ -60,7 +60,7 @@ function SectionCard({
 }) {
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-7">
-      <p className="text-[11px] uppercase tracking-[0.24em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <p className="text-[11px] uppercase tracking-[0.24em] text-[var(--usam-black)]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {eyebrow}
       </p>
       <h2 className="mt-3 text-3xl font-bold uppercase leading-none text-stone-950 md:text-4xl" style={{ fontFamily: font.oswald }}>
@@ -154,17 +154,17 @@ function RadioGroup({
     <fieldset>
       <legend className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
-        {required ? <span className="ml-1 text-[#F5B942]">*</span> : null}
+        {required ? <span className="ml-1 text-usam-gold">*</span> : null}
       </legend>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         {options.map((option) => (
-          <label key={option} className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 text-sm text-stone-700 transition-colors hover:border-[#D4A63D]/70">
+          <label key={option} className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 text-sm text-stone-700 transition-colors hover:border-usam-gold/70">
             <input
               type="radio"
               name={name}
               value={option}
               required={required}
-              className="h-4 w-4 accent-[#D4A63D]"
+              className="h-4 w-4 accent-usam-gold"
             />
             <span>{option}</span>
           </label>
@@ -415,7 +415,7 @@ export function MissionaryIntakeForm() {
           <button
             type="submit"
             disabled={status === "submitting"}
-            className="inline-flex min-h-12 w-full items-center justify-center border border-transparent bg-[#D4A63D] px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-black transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_0_22px_rgba(212,166,61,0.24)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+            className="inline-flex min-h-12 w-full items-center justify-center border border-transparent bg-usam-gold px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-black transition-all duration-300 hover:bg-usam-gold hover:shadow-[0_0_22px_rgba(var(--usam-gold-rgb),0.24)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
             {status === "submitting" ? "Submitting..." : "Submit Profile Intake"}

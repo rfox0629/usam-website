@@ -35,10 +35,10 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
-const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
-const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
-const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#F5B942]";
+const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
+const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
+const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold";
+const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold";
 const tabButtonClassName = "inline-flex h-10 w-[132px] shrink-0 items-center justify-center rounded-lg border px-3 text-center text-[10px] uppercase tracking-[0.15em] transition-colors";
 
 const tabs = [
@@ -365,7 +365,7 @@ function Badge({
   tone?: "amber" | "blue" | "green" | "muted" | "red";
 }) {
   const className = {
-    amber: "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]",
+    amber: "border-usam-gold/35 bg-usam-gold/10 text-usam-gold",
     blue: "border-blue-400/25 bg-blue-950/30 text-blue-300",
     green: "border-green-500/25 bg-green-950/30 text-green-300",
     muted: "border-stone-700 bg-stone-900/70 text-stone-300",
@@ -408,7 +408,7 @@ function MetricCard({
   value: number | string;
 }) {
   const toneClassName = {
-    amber: "text-[#E4C465]",
+    amber: "text-usam-gold",
     green: "text-green-300",
     red: "text-red-200",
   } as const;
@@ -456,7 +456,7 @@ function SystemNotice({
         <p>{title}</p>
         {detail ? (
           <details className="shrink-0 text-xs text-stone-400">
-            <summary className="cursor-pointer uppercase tracking-[0.14em] text-[#E4C465]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <summary className="cursor-pointer uppercase tracking-[0.14em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               View Details
             </summary>
             <p className="mt-2 max-w-2xl text-left leading-6 text-stone-400">{detail}</p>
@@ -474,7 +474,7 @@ function TabNav({ activeTab }: { activeTab: PrayerAdminTab }) {
         <Link
           className={`${tabButtonClassName} ${
             activeTab === tab.key
-              ? "border-[#D4A63D] bg-[#D4A63D] text-black"
+              ? "border-usam-gold bg-usam-gold text-black"
               : "border-stone-800 bg-[#090909] text-stone-300 hover:border-stone-600 hover:bg-stone-900/80 hover:text-stone-100"
           }`}
           href={`/admin/prayer-team?tab=${tab.key}`}
@@ -535,7 +535,7 @@ function DetailFrame({
       <aside className="ml-auto h-full w-full max-w-2xl overflow-y-auto border-l border-stone-800 bg-[#070707] p-5 shadow-[0_0_80px_rgba(0,0,0,0.55)] md:p-6">
         <div className="flex items-start justify-between gap-4 border-b border-stone-800/70 pb-4">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               {eyebrow}
             </p>
             <h2 className="mt-2 text-2xl font-semibold leading-tight text-stone-100">{title}</h2>
@@ -576,12 +576,12 @@ function ActionForm({
   tone?: "amber" | "green" | "outline" | "red";
 }) {
   const className = tone === "amber"
-    ? "border-transparent bg-[#D4A63D] text-black hover:bg-[#F5B942]"
+    ? "border-transparent bg-usam-gold text-black hover:bg-usam-gold"
     : tone === "green"
       ? "border-green-500/30 bg-green-950/25 text-green-200 hover:border-green-300"
       : tone === "red"
         ? "border-red-500/30 text-red-200 hover:bg-red-950/25"
-        : "border-stone-700 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]";
+        : "border-stone-700 text-stone-100 hover:border-usam-gold hover:text-usam-gold";
 
   return (
     <form action={action}>
@@ -674,7 +674,7 @@ function TextAreaField({
       <span className="text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         {label}
       </span>
-      <textarea className="mt-2 min-h-28 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]" defaultValue={defaultValue ?? ""} name={name} required={required} />
+      <textarea className="mt-2 min-h-28 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold" defaultValue={defaultValue ?? ""} name={name} required={required} />
     </label>
   );
 }
@@ -777,7 +777,7 @@ function OverviewTab({
       <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               New Applications
             </p>
             <h2 className="mt-1 text-xl font-semibold text-stone-100">Pending review</h2>
@@ -788,7 +788,7 @@ function OverviewTab({
         </div>
         <div className="mt-4 grid gap-2">
           {pendingApplications.length > 0 ? pendingApplications.map((partner) => (
-            <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-[#D4A63D]/55" href={`/admin/prayer-team?tab=applications&partner=${partner.id}`} key={partner.id}>
+            <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-usam-gold/55" href={`/admin/prayer-team?tab=applications&partner=${partner.id}`} key={partner.id}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-stone-100">{partnerName(partner)}</p>
@@ -807,7 +807,7 @@ function OverviewTab({
         <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Open Prayer Requests
               </p>
               <p className="mt-1 text-3xl font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
@@ -820,7 +820,7 @@ function OverviewTab({
           </div>
           <div className="mt-4 grid gap-2">
             {openRequests.length > 0 ? openRequests.map((request) => (
-              <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-[#D4A63D]/55" href={`/admin/prayer-team?tab=requests&request=${request.id}`} key={request.id}>
+              <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-usam-gold/55" href={`/admin/prayer-team?tab=requests&request=${request.id}`} key={request.id}>
                 <p className="truncate text-sm font-semibold text-stone-100">{request.title}</p>
                 <p className="mt-0.5 line-clamp-1 text-xs text-stone-500">{requestText(request)}</p>
               </Link>
@@ -833,7 +833,7 @@ function OverviewTab({
         <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Recent Partner Activity
               </p>
               <p className="mt-1 text-sm text-stone-400">{regionsActive} active region{regionsActive === 1 ? "" : "s"}</p>
@@ -874,7 +874,7 @@ function RequestCreateForm({
 }) {
   return (
     <details className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4" id="create-prayer-request">
-      <summary className="cursor-pointer text-[11px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <summary className="cursor-pointer text-[11px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         Create Prayer Request
       </summary>
       <form action={createPrayerRequest} className="mt-5 grid gap-4">
@@ -1002,7 +1002,7 @@ function RequestsTab({
             <Link
               className={`min-w-0 rounded-xl border p-4 text-sm transition-colors hover:border-stone-700 hover:bg-stone-950/80 ${
                 selectedRequest?.id === request.id
-                  ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
+                  ? "border-usam-gold/55 bg-usam-gold/[0.07]"
                   : "border-stone-800/75 bg-[#080808]/90"
               }`}
               href={`/admin/prayer-team?tab=requests&request=${request.id}`}
@@ -1131,14 +1131,14 @@ function RequestDetailDrawer({
         <div className="mt-3 grid max-h-44 gap-2 overflow-y-auto rounded-lg border border-stone-900 bg-[#050505] p-3">
           {activePartners.length > 0 ? activePartners.map((partner) => (
             <label className="flex items-center gap-2 text-sm text-stone-300" key={partner.id}>
-              <input className="accent-[#D4A63D]" defaultChecked={assignedPartnerIds.has(partner.id)} name="partner_ids" type="checkbox" value={partner.id} />
+              <input className="accent-usam-gold" defaultChecked={assignedPartnerIds.has(partner.id)} name="partner_ids" type="checkbox" value={partner.id} />
               <span>{partnerName(partner)}</span>
             </label>
           )) : (
             <p className="text-sm text-stone-500">No active prayer partners are available yet.</p>
           )}
         </div>
-        <textarea className="mt-3 min-h-20 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors focus:border-[#D4A63D]" defaultValue={request.prayer_notes ?? ""} name="prayer_notes" placeholder="Coverage notes" />
+        <textarea className="mt-3 min-h-20 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors focus:border-usam-gold" defaultValue={request.prayer_notes ?? ""} name="prayer_notes" placeholder="Coverage notes" />
         <button className={`${secondaryButtonClassName} mt-3 w-full`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
           Assign Partners
         </button>
@@ -1228,7 +1228,7 @@ function PartnersTab({
           <Link
             className={`min-w-0 rounded-xl border p-4 text-sm transition-colors hover:border-stone-700 hover:bg-stone-950/80 ${
               selectedPartner?.id === partner.id
-                ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
+                ? "border-usam-gold/55 bg-usam-gold/[0.07]"
                 : "border-stone-800/75 bg-[#080808]/90"
             }`}
             href={`/admin/prayer-team?tab=partners&partner=${partner.id}`}
@@ -1296,7 +1296,7 @@ function PartnerDetailDrawer({
     >
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <DetailItem label="Email" value={partner.email ? <a className="hover:text-[#F5B942]" href={`mailto:${partner.email}`}>{partner.email}</a> : "-"} />
+        <DetailItem label="Email" value={partner.email ? <a className="hover:text-usam-gold" href={`mailto:${partner.email}`}>{partner.email}</a> : "-"} />
         <DetailItem label="Phone" value={partner.phone || "-"} />
         <DetailItem label="City / State" value={[partner.city, partner.state].filter(Boolean).join(", ") || "-"} />
         <DetailItem label="Region" value={partner.region || "-"} />
@@ -1313,11 +1313,11 @@ function PartnerDetailDrawer({
         </SelectField>
         <div className="mt-4 grid gap-2">
           <label className="flex items-center gap-2 text-sm text-stone-300">
-            <input className="accent-[#D4A63D]" defaultChecked={Boolean(partner.email_alerts)} name="email_alerts" type="checkbox" />
+            <input className="accent-usam-gold" defaultChecked={Boolean(partner.email_alerts)} name="email_alerts" type="checkbox" />
             Email alerts
           </label>
           <label className="flex items-center gap-2 text-sm text-stone-300">
-            <input className="accent-[#D4A63D]" defaultChecked={Boolean(partner.sms_alerts)} name="sms_alerts" type="checkbox" />
+            <input className="accent-usam-gold" defaultChecked={Boolean(partner.sms_alerts)} name="sms_alerts" type="checkbox" />
             SMS alerts
           </label>
         </div>
@@ -1327,7 +1327,7 @@ function PartnerDetailDrawer({
           </p>
           {partnerPermissions.map((permission) => (
             <label className="flex items-center gap-2 text-sm text-stone-300" key={permission}>
-              <input className="accent-[#D4A63D]" defaultChecked={permissions[permission] === true} name="permissions" type="checkbox" value={permission} />
+              <input className="accent-usam-gold" defaultChecked={permissions[permission] === true} name="permissions" type="checkbox" value={permission} />
               {permissionLabel(permission)}
             </label>
           ))}
@@ -1377,7 +1377,7 @@ function ApplicationsTab({
           <article
             className={`min-w-0 rounded-xl border p-4 text-sm transition-colors hover:border-stone-700 hover:bg-stone-950/80 ${
               selectedApplication?.id === application.id
-                ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
+                ? "border-usam-gold/55 bg-usam-gold/[0.07]"
                 : "border-stone-800/75 bg-[#080808]/90"
             }`}
             key={application.id}
@@ -1438,7 +1438,7 @@ function ApplicationDetailDrawer({ application }: { application: PrayerPartnerRo
     >
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <DetailItem label="Email" value={application.email ? <a className="hover:text-[#F5B942]" href={`mailto:${application.email}`}>{application.email}</a> : "-"} />
+        <DetailItem label="Email" value={application.email ? <a className="hover:text-usam-gold" href={`mailto:${application.email}`}>{application.email}</a> : "-"} />
         <DetailItem label="Phone" value={application.phone || "-"} />
         <DetailItem label="City / State" value={[application.city, application.state].filter(Boolean).join(", ") || "-"} />
         <DetailItem label="Region" value={application.region || "-"} />
@@ -1656,7 +1656,7 @@ function EmailPreviewTab({ requests }: { requests: readonly PrayerRequestRow[] }
   return (
     <div className="grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
       <div className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-5">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Recipient Segment
         </p>
         <div className="mt-5 grid gap-3 text-sm leading-6 text-stone-300">

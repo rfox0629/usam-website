@@ -40,7 +40,7 @@ function shortUrl(value: string) {
 
 function MiniQrCode() {
   return (
-    <div className="grid h-[74px] w-[74px] grid-cols-8 gap-[2px] rounded-lg border border-[#d8c79d] bg-white p-2">
+    <div className="grid h-[74px] w-[74px] grid-cols-8 gap-[2px] rounded-lg border border-usam-gold bg-white p-2">
       {Array.from({ length: 64 }).map((_, index) => (
         <span
           className={`rounded-[1px] ${flyerQrCells.includes(index) ? "bg-[#111111]" : "bg-[#f3ead4]"}`}
@@ -66,9 +66,9 @@ export function SupportFlyerPreview({
   const monthlyGoal = calculateMonthlyGoal(annualGoal);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#d8c79d] bg-[#fffdf7] text-[#111111] shadow-[0_18px_46px_rgba(17,17,17,0.09)]">
+    <div className="overflow-hidden rounded-2xl border border-usam-gold bg-[#fffdf7] text-[#111111] shadow-[0_18px_46px_rgba(17,17,17,0.09)]">
       <div className="flex items-center justify-between border-b border-[#eadfcd] bg-[#111111] px-4 py-3 text-white">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           USA Missionaries
         </p>
         <p className="text-[9px] uppercase tracking-[0.16em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -86,7 +86,7 @@ export function SupportFlyerPreview({
                 src={imageUrl}
               />
             ) : (
-              <div className="flex h-40 items-center justify-center bg-[#efe7d8] text-[#9a6b12]">
+              <div className="flex h-40 items-center justify-center bg-[rgba(var(--usam-gold-rgb),0.12)] text-[var(--usam-black)]">
                 <ImageIcon className="h-8 w-8" aria-hidden="true" />
               </div>
             )}
@@ -104,12 +104,12 @@ export function SupportFlyerPreview({
           <p className="text-sm font-semibold text-[#111111]">{prayerAsk}</p>
           <p className="mt-2 text-xs leading-5 text-[#6f6658]">{supportAppeal}</p>
         </div>
-        <div className="mt-3 grid gap-3 rounded-xl border border-[#d8c79d] bg-[#fff4cf] p-3 sm:grid-cols-[auto_1fr]">
+        <div className="mt-3 grid gap-3 rounded-xl border border-usam-gold bg-[rgba(var(--usam-gold-rgb),0.16)] p-3 sm:grid-cols-[auto_1fr]">
           {qrImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               alt="QR code for support link"
-              className="h-[74px] w-[74px] rounded-lg border border-[#d8c79d] bg-white p-1.5"
+              className="h-[74px] w-[74px] rounded-lg border border-usam-gold bg-white p-1.5"
               src={qrImageUrl}
             />
           ) : (

@@ -30,7 +30,7 @@ function CTAButton({
   onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   const cls = variant === "primary"
-    ? "bg-stone-100 text-stone-950 hover:bg-amber-200"
+    ? "bg-stone-100 text-stone-950 hover:bg-usam-gold"
     : "border border-stone-600 text-stone-400 hover:border-stone-400 hover:text-stone-200";
   const className = `inline-block px-7 py-3 text-sm tracking-[0.2em] uppercase transition-all duration-300 cursor-pointer ${cls}`;
   const style = { fontFamily: font.rajdhani, fontWeight: 600 } as const;
@@ -93,8 +93,8 @@ function WorldMap() {
     <svg viewBox="0 0 1200 600" className="w-full h-full" style={{ opacity: 0.12 }}>
       <defs>
         <radialGradient id="ug" cx="28%" cy="42%" r="25%">
-          <stop offset="0%" stopColor="#d4a054" stopOpacity={0.6} />
-          <stop offset="100%" stopColor="#d4a054" stopOpacity={0} />
+          <stop offset="0%" stopColor="var(--usam-gold)" stopOpacity={0.6} />
+          <stop offset="100%" stopColor="var(--usam-gold)" stopOpacity={0} />
         </radialGradient>
       </defs>
       <path d="M160,120 Q200,90 280,95 Q340,100 370,140 Q380,170 360,200 Q340,230 310,250 Q290,260 270,280 Q250,290 220,285 Q200,290 180,310 Q160,290 140,260 Q130,230 135,200 Q140,170 155,140Z" fill="none" stroke="#3a3a3a" strokeWidth="0.8"/>
@@ -106,17 +106,17 @@ function WorldMap() {
       <circle cx={280} cy={190} r={160} fill="url(#ug)"/>
       {nodes.map(([x, y], i) => (
         <g key={i}>
-          <circle cx={x} cy={y} r={2.5} fill="#d4a054" opacity={0.7}>
+          <circle cx={x} cy={y} r={2.5} fill="var(--usam-gold)" opacity={0.7}>
             <animate attributeName="opacity" values="0.4;0.9;0.4" dur={`${2.5+i*0.3}s`} repeatCount="indefinite"/>
           </circle>
-          <circle cx={x} cy={y} r={8} fill="none" stroke="#d4a054" strokeWidth={0.4} opacity={0.3}>
+          <circle cx={x} cy={y} r={8} fill="none" stroke="var(--usam-gold)" strokeWidth={0.4} opacity={0.3}>
             <animate attributeName="r" values="6;16;6" dur={`${3+i*0.4}s`} repeatCount="indefinite"/>
             <animate attributeName="opacity" values="0.3;0;0.3" dur={`${3+i*0.4}s`} repeatCount="indefinite"/>
           </circle>
         </g>
       ))}
       {routes.map(([x1,y1,x2,y2], i) => (
-        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#d4a054" strokeWidth={0.4} opacity={0.15} strokeDasharray="4,6">
+        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--usam-gold)" strokeWidth={0.4} opacity={0.15} strokeDasharray="4,6">
           <animate attributeName="strokeDashoffset" from="0" to="-20" dur="3s" repeatCount="indefinite"/>
         </line>
       ))}
@@ -125,7 +125,7 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
-  const gold = "#C9A24A";
+  const gold = "var(--usam-gold)";
   const tableCenter = { x: 480, y: 246 };
   const seats = Array.from({ length: 8 }).map((_, i) => {
     const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
@@ -307,14 +307,14 @@ function GlobalUrgencySection() {
   function IntelligenceIcon({ icon }: { icon: IntelligenceIcon }) {
     const common = {
       fill: "none",
-      stroke: "#C9A24A",
+      stroke: "var(--usam-gold)",
       strokeLinecap: "round" as const,
       strokeLinejoin: "round" as const,
       strokeWidth: 1.7,
     };
 
     return (
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#C9A24A]/35 bg-[#C9A24A]/5 shadow-[0_0_20px_rgba(201,162,74,0.08)]">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-usam-gold/35 bg-usam-gold/5 shadow-[0_0_20px_rgba(var(--usam-gold-rgb),0.08)]">
         <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
           {icon === "cross" ? (
             <>
@@ -408,7 +408,7 @@ function GlobalUrgencySection() {
           </div>
         </div>
         {source ? (
-          <p className="mt-4 text-[10px] font-semibold uppercase leading-tight tracking-[0.18em] text-[#C9A24A]" style={{ fontFamily: font.rajdhani }}>
+          <p className="mt-4 text-[10px] font-semibold uppercase leading-tight tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani }}>
             {source}
           </p>
         ) : null}
@@ -428,7 +428,7 @@ function GlobalUrgencySection() {
     return (
       <div className="mx-auto max-w-3xl text-center">
         {eyebrow ? (
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C9A24A]" style={{ fontFamily: font.rajdhani }}>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani }}>
             {eyebrow}
           </p>
         ) : null}
@@ -469,7 +469,7 @@ function GlobalUrgencySection() {
 
   return (
     <section className="relative overflow-hidden border-y border-stone-900 bg-[#030303] px-5 py-9 md:px-6 md:py-12">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),transparent_18%,transparent_82%,rgba(255,255,255,0.025)),radial-gradient(circle_at_50%_0%,rgba(201,162,74,0.055),transparent_26%),linear-gradient(135deg,#050505,#0d0d0d_48%,#040404)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),transparent_18%,transparent_82%,rgba(255,255,255,0.025)),radial-gradient(circle_at_50%_0%,rgba(var(--usam-gold-rgb),0.055),transparent_26%),linear-gradient(135deg,#050505,#0d0d0d_48%,#040404)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-stone-700/35" />
       <div className="relative mx-auto max-w-6xl">
         <IntelligenceBlock
@@ -571,7 +571,7 @@ function DOSPanel() {
                 <td className="px-5 py-3 text-stone-300 font-mono text-xs">{r.op}</td>
                 <td className="px-5 py-3 text-stone-400 text-xs">{r.city}</td>
                 <td className="px-5 py-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-sm ${r.status==="Active"?"bg-green-900/30 text-green-400/80":"bg-amber-900/30 text-amber-400/80"}`} style={{fontFamily:font.rajdhani}}>{r.status}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-sm ${r.status==="Active"?"bg-green-900/30 text-green-400/80":"bg-usam-gold/30 text-usam-gold/80"}`} style={{fontFamily:font.rajdhani}}>{r.status}</span>
                 </td>
                 <td className="px-5 py-3 text-stone-400 font-mono text-xs">{r.tables}</td>
               </tr>
@@ -634,7 +634,7 @@ export default function Home() {
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
           <Reveal>
             <div className="flex items-center justify-center gap-3 mb-9">
-              <div className="w-9 h-[1.5px] bg-amber-500/45"/><span className="tactical-label uppercase" style={{fontFamily:font.rajdhani}}>ACTIVE DEPLOYMENT</span><div className="w-9 h-[1.5px] bg-amber-500/45"/>
+              <div className="w-9 h-[1.5px] bg-usam-gold/45"/><span className="tactical-label uppercase" style={{fontFamily:font.rajdhani}}>ACTIVE DEPLOYMENT</span><div className="w-9 h-[1.5px] bg-usam-gold/45"/>
             </div>
           </Reveal>
           <Reveal delay={150}>
@@ -690,7 +690,7 @@ export default function Home() {
           <Reveal delay={150}>
             <div className="mt-7 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <span className="animate-pulse text-[11px] text-[#C9A24A] shadow-[0_0_10px_rgba(201,162,74,0.55)]" aria-hidden="true">
+                <span className="animate-pulse text-[11px] text-usam-gold shadow-[0_0_10px_rgba(var(--usam-gold-rgb),0.55)]" aria-hidden="true">
                   ●
                 </span>
                 <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
@@ -729,7 +729,7 @@ export default function Home() {
             {[{n:"01",t:"MEET",d:"Enter the space. Identify the person of peace. Begin where they are."},{n:"02",t:"MINISTER",d:"Share the gospel with clarity. Serve with presence. Speak truth."},{n:"03",t:"MULTIPLY",d:"Train others to do the same. Launch tables. Repeat the cycle."}].map((c,i)=>(
               <Reveal key={i} delay={i*150}>
                 <div className="p-8 md:p-10 h-full" style={{background:"#0a0a0a"}}>
-                  <span className="tactical-amber-label text-xs tracking-[0.26em] block mb-4" style={{fontFamily:font.rajdhani}}>{c.n}</span>
+                  <span className="tactical-gold-label text-xs tracking-[0.26em] block mb-4" style={{fontFamily:font.rajdhani}}>{c.n}</span>
                   <h3 className="text-2xl font-bold text-stone-100 mb-4 tracking-wide" style={{fontFamily:font.oswald}}>{c.t}</h3>
                   <p className="text-stone-500 text-sm leading-relaxed">{c.d}</p>
                 </div>

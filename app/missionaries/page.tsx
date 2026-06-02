@@ -74,8 +74,8 @@ function ActionLink({
   variant?: "primary" | "secondary";
 }) {
   const className = variant === "primary"
-    ? "border border-transparent bg-[#D4A63D] text-black hover:bg-[#F5B942] hover:shadow-[0_0_22px_rgba(212,166,61,0.24)]"
-    : "border border-white/[0.3] bg-transparent text-white hover:border-[#D4A63D] hover:bg-white/[0.04]";
+    ? "border border-transparent bg-usam-gold text-black hover:bg-usam-gold hover:shadow-[0_0_22px_rgba(var(--usam-gold-rgb),0.24)]"
+    : "border border-white/[0.3] bg-transparent text-white hover:border-usam-gold hover:bg-white/[0.04]";
 
   return (
     <Link
@@ -108,7 +108,7 @@ export default async function MissionariesPage() {
 
       <section className="relative overflow-hidden px-6 pb-24 pt-24 md:pb-32 md:pt-32">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[length:72px_72px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(212,166,61,0.1),transparent_26%),radial-gradient(ellipse_at_center,transparent_30%,#050505_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(var(--usam-gold-rgb),0.1),transparent_26%),radial-gradient(ellipse_at_center,transparent_30%,#050505_100%)]" />
         <div className="relative mx-auto max-w-6xl">
           <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
             The Team

@@ -31,11 +31,11 @@ function compactButtonClassName(customClassName?: string) {
     return customClassName;
   }
 
-  return "inline-flex min-h-10 items-center justify-center border border-stone-700 bg-white/[0.03] px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-stone-200 transition-colors hover:border-[#D4A63D]/70 hover:text-[#F5B942]";
+  return "inline-flex min-h-10 items-center justify-center border border-stone-700 bg-white/[0.03] px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-stone-200 transition-colors hover:border-usam-gold/70 hover:text-usam-gold";
 }
 
 function inputClassName() {
-  return "mt-2 min-h-11 w-full rounded-xl border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
+  return "mt-2 min-h-11 w-full rounded-xl border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
 }
 
 function labelClassName() {
@@ -124,7 +124,7 @@ export function SubmitPrayerRequestModal({
             <div className="w-full rounded-[1.35rem] border border-stone-800 bg-[#090909] p-5 text-stone-100 shadow-[0_24px_90px_rgba(0,0,0,0.45)] md:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     Prayer
                   </p>
                   <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
@@ -138,7 +138,7 @@ export function SubmitPrayerRequestModal({
                 </div>
                 <button
                   aria-label="Close prayer request"
-                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-700 bg-white/[0.03] text-sm font-semibold text-stone-300 transition-colors hover:border-[#D4A63D]/70 hover:text-[#F5B942]"
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-700 bg-white/[0.03] text-sm font-semibold text-stone-300 transition-colors hover:border-usam-gold/70 hover:text-usam-gold"
                   onClick={closeModal}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="button"
@@ -148,7 +148,7 @@ export function SubmitPrayerRequestModal({
               </div>
 
               {status === "success" ? (
-                <div className="mt-6 rounded-2xl border border-[#D4A63D]/25 bg-[#D4A63D]/10 p-4">
+                <div className="mt-6 rounded-2xl border border-usam-gold/25 bg-usam-gold/10 p-4">
                   <p className="text-base font-semibold text-stone-100">
                     Your prayer request has been received.
                   </p>
@@ -156,7 +156,7 @@ export function SubmitPrayerRequestModal({
                     We will be praying with you.
                   </p>
                   <button
-                    className="mt-5 inline-flex min-h-10 items-center justify-center rounded-lg border border-[#D4A63D]/45 bg-[#D4A63D] px-4 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942]"
+                    className="mt-5 inline-flex min-h-10 items-center justify-center rounded-lg border border-usam-gold/45 bg-usam-gold px-4 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-usam-gold"
                     onClick={closeModal}
                     style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                     type="button"
@@ -197,7 +197,7 @@ export function SubmitPrayerRequestModal({
                       Prayer Request
                     </span>
                     <textarea
-                      className="mt-2 min-h-32 w-full rounded-xl border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
+                      className="mt-2 min-h-32 w-full rounded-xl border border-stone-800 bg-[#050505] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
                       onChange={(event) => setFormValues((current) => ({ ...current, prayerRequest: event.target.value }))}
                       required
                       value={formValues.prayerRequest}
@@ -246,7 +246,7 @@ export function SubmitPrayerRequestModal({
                   ) : null}
 
                   <button
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-5 text-[11px] uppercase tracking-[0.2em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-transparent bg-usam-gold px-5 text-[11px] uppercase tracking-[0.2em] text-black transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={status === "submitting"}
                     style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                     type="submit"

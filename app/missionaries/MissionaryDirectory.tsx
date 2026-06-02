@@ -57,7 +57,7 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
   const showImage = Boolean(missionary.image);
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden border border-stone-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-[#D4A63D]/50 hover:shadow-[0_28px_90px_rgba(15,23,42,0.14)]">
+    <article className="group flex h-full flex-col overflow-hidden border border-stone-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-usam-gold/50 hover:shadow-[0_28px_90px_rgba(15,23,42,0.14)]">
       <div className="relative h-[250px] overflow-hidden bg-stone-950">
         {showImage && missionary.image ? (
           <>
@@ -74,7 +74,7 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
         ) : (
           <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#090909,#1c1917)] px-6 text-center">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Photo Hidden
               </p>
               <p className="mt-3 text-sm leading-6 text-stone-300">
@@ -86,7 +86,7 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
       </div>
 
       <div className="flex flex-1 flex-col p-6 md:p-7">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {missionary.displayNumber}
         </p>
 
@@ -102,7 +102,7 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
           {missionary.roleTags.map((tag) => (
             <span
               key={tag}
-              className="border border-[#D4A63D]/35 bg-[#D4A63D]/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-stone-950"
+              className="border border-usam-gold/35 bg-usam-gold/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-stone-950"
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             >
               {tag}
@@ -122,7 +122,7 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
         <div className="mt-auto pt-8">
           <Link
             href={`/missionaries/${missionary.slug}`}
-            className="inline-flex min-h-11 w-full items-center justify-center bg-stone-950 px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] text-white transition-all duration-300 hover:bg-[#D4A63D] hover:text-black"
+            className="inline-flex min-h-11 w-full items-center justify-center bg-stone-950 px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] text-white transition-all duration-300 hover:bg-usam-gold hover:text-black"
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
             View Profile
@@ -168,7 +168,7 @@ export function MissionaryDirectory({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by name, state, or tag"
-            className="min-h-12 w-full border border-stone-300 bg-white px-4 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
+            className="min-h-12 w-full border border-stone-300 bg-white px-4 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-500 focus:border-usam-gold"
           />
           <div className="flex flex-wrap gap-2">
             {filters.map((filter) => (
@@ -179,7 +179,7 @@ export function MissionaryDirectory({
                 className={`min-h-10 border px-4 text-[11px] uppercase tracking-[0.18em] transition-colors duration-300 ${
                   activeFilter === filter
                     ? "border-stone-950 bg-stone-950 text-white"
-                    : "border-stone-300 bg-white text-stone-700 hover:border-[#D4A63D] hover:text-stone-950"
+                    : "border-stone-300 bg-white text-stone-700 hover:border-usam-gold hover:text-stone-950"
                 }`}
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               >

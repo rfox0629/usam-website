@@ -21,14 +21,14 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 const badgeToneClassName: Record<AdminBadgeTone, string> = {
-  amber: "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]",
+  amber: "border-usam-gold/35 bg-usam-gold/10 text-usam-gold",
   blue: "border-blue-400/25 bg-blue-950/30 text-blue-300",
   green: "border-green-500/25 bg-green-950/30 text-green-300",
   muted: "border-stone-700 bg-stone-900/70 text-stone-300",
   red: "border-red-500/35 bg-red-950/25 text-red-200",
 };
 
-const secondaryActionClassName = "inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.13em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
+const secondaryActionClassName = "inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.13em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold";
 
 type ProductFeedbackRow = {
   admin_notes: string | null;
@@ -313,7 +313,7 @@ export default async function ProductFeedbackAdminPage() {
         <section className="mt-6 rounded-xl border border-stone-800/75 bg-[#050505]/75 p-3">
           <div className="flex flex-col gap-3 px-1 pb-3 sm:flex-row sm:items-center sm:justify-between">
             <h2
-              className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#D4A63D]"
+              className="text-[10px] font-bold uppercase tracking-[0.16em] text-usam-gold"
               style={{ fontFamily: adminFont.rajdhani }}
             >
               Feedback

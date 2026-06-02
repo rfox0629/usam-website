@@ -36,7 +36,7 @@ function ActionLink({
   return (
     <Link
       href={href}
-      className="inline-block px-5 py-3 text-sm uppercase tracking-[0.2em] transition-all duration-300 bg-stone-100 text-stone-950 hover:bg-amber-200"
+      className="inline-block px-5 py-3 text-sm uppercase tracking-[0.2em] transition-all duration-300 bg-stone-100 text-stone-950 hover:bg-usam-gold"
       style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
     >
       {children}

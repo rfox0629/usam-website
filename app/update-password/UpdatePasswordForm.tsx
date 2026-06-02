@@ -259,7 +259,7 @@ export function UpdatePasswordForm() {
       ) : null}
 
       {status === "success" ? (
-        <p className="mt-6 border border-[#D4A63D]/30 bg-[#D4A63D]/10 p-4 text-sm leading-6 text-stone-100">
+        <p className="mt-6 border border-usam-gold/30 bg-usam-gold/10 p-4 text-sm leading-6 text-stone-100">
           Your password has been updated. Redirecting you to sign in...
         </p>
       ) : null}
@@ -271,7 +271,7 @@ export function UpdatePasswordForm() {
           </span>
           <input
             autoComplete="new-password"
-            className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-[#D4A63D] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
             disabled={!isReady || isSubmitting}
             minLength={8}
             onChange={(event) => setNewPassword(event.target.value)}
@@ -287,7 +287,7 @@ export function UpdatePasswordForm() {
           </span>
           <input
             autoComplete="new-password"
-            className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-[#D4A63D] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 min-h-12 w-full border border-stone-800 bg-[#050505] px-4 text-stone-100 outline-none transition-colors focus:border-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
             disabled={!isReady || isSubmitting}
             minLength={8}
             onChange={(event) => setConfirmPassword(event.target.value)}
@@ -298,7 +298,7 @@ export function UpdatePasswordForm() {
         </label>
 
         <button
-          className="inline-flex min-h-12 w-full items-center justify-center bg-[#D4A63D] px-6 py-3 text-xs uppercase tracking-[0.24em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-12 w-full items-center justify-center bg-usam-gold px-6 py-3 text-xs uppercase tracking-[0.24em] text-black transition-all hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
           disabled={!isReady || isSubmitting}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="submit"

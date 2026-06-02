@@ -51,7 +51,7 @@ export function HeroProfile({
           <p className="mt-5 max-w-[34rem] text-base leading-8 text-stone-200 md:text-lg">
             {description}
           </p>
-          <p className="mt-4 text-sm uppercase tracking-[0.16em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="mt-4 text-sm uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {location}
           </p>
           {actions ? (

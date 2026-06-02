@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { UsamFlagLogo } from "./UsamFlagLogo";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
@@ -34,7 +35,7 @@ function NavLink({
 }) {
   const className = mobile
     ? `flex min-h-[50px] items-center border-b border-stone-900/80 py-3 text-[15px] uppercase tracking-[0.1em] transition-colors duration-200 ease-out last:border-b-0 ${
-        active ? "text-amber-400" : "text-[rgba(255,255,255,0.88)] hover:text-amber-400"
+        active ? "text-usam-gold" : "text-[rgba(255,255,255,0.88)] hover:text-usam-gold"
       }`
     : `inline-flex min-h-[28px] items-center whitespace-nowrap px-1 py-1 text-[11px] uppercase tracking-[0.34em] transition-colors duration-200 ease-out ${
         active
@@ -67,9 +68,9 @@ export function PrimaryNav({ active, fixed = false, labelOverrides }: PrimaryNav
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-7 py-3 md:px-10 md:py-3.5">
         <Link href="/" className="flex min-h-[32px] items-center gap-3 md:gap-3.5">
-          <div className="h-2.5 w-2.5 rotate-45 bg-amber-500/70" />
+          <UsamFlagLogo />
           <span
-            className="text-sm font-medium tracking-[0.35em] text-stone-300"
+            className="hidden text-sm font-medium tracking-[0.35em] text-stone-300 min-[390px]:inline md:inline"
             style={{ fontFamily: font.oswald }}
           >
             USA MISSIONARIES
@@ -95,7 +96,7 @@ export function PrimaryNav({ active, fixed = false, labelOverrides }: PrimaryNav
           aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen((value) => !value)}
-          className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-sm border border-stone-700/80 text-[rgba(255,255,255,0.88)] transition-colors duration-200 hover:text-amber-400 md:hidden"
+          className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-sm border border-stone-700/80 text-[rgba(255,255,255,0.88)] transition-colors duration-200 hover:text-usam-gold md:hidden"
         >
           <span className="sr-only">Menu</span>
           <span className="flex flex-col gap-1.5">

@@ -17,12 +17,12 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]";
-const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#F5B942]";
-const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]";
+const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
+const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold";
+const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold";
 const dangerButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-red-500/35 px-4 text-[11px] uppercase tracking-[0.14em] text-red-200 transition-colors hover:bg-red-950/25";
 const badgeToneClassName: Record<AdminBadgeTone, string> = {
-  amber: "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]",
+  amber: "border-usam-gold/35 bg-usam-gold/10 text-usam-gold",
   blue: "border-blue-400/25 bg-blue-950/30 text-blue-300",
   green: "border-green-500/25 bg-green-950/30 text-green-300",
   muted: "border-stone-700 bg-stone-900/70 text-stone-300",
@@ -171,7 +171,7 @@ function Badge({
 
 function Notice({ children, tone = "info" }: { children: ReactNode; tone?: "amber" | "error" | "info" | "success" }) {
   const className = {
-    amber: "border-l-[#D4A63D] bg-amber-950/10 text-amber-100",
+    amber: "border-l-usam-gold bg-usam-gold/10 text-usam-gold",
     error: "border-l-red-400 bg-red-950/10 text-red-100",
     info: "border-l-stone-500 bg-stone-950/60 text-stone-300",
     success: "border-l-green-400 bg-green-950/15 text-green-200",
@@ -194,7 +194,7 @@ function Section({
       <div className="flex flex-col gap-3 border-b border-stone-800/70 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p
-            className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]"
+            className="text-[10px] uppercase tracking-[0.16em] text-usam-gold"
             style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
           >
             {title}
@@ -272,7 +272,7 @@ function AdminUserCard({ user }: { user: AdminUserRow }) {
           </label>
           <label className="flex min-h-10 items-center gap-2 pt-5 text-[10px] uppercase tracking-[0.14em] text-stone-300 lg:pt-6" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
             <input
-              className="h-4 w-4 accent-[#D4A63D]"
+              className="h-4 w-4 accent-usam-gold"
               defaultChecked={user.is_active}
               name="is_active"
               type="checkbox"
@@ -328,7 +328,7 @@ function AccessCodeCard({
         </label>
         <label className="flex min-h-10 items-center gap-2 pt-5 text-[10px] uppercase tracking-[0.14em] text-stone-300 lg:pt-6" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
           <input
-            className="h-4 w-4 accent-[#D4A63D]"
+            className="h-4 w-4 accent-usam-gold"
             defaultChecked={row?.active ?? true}
             name={`${field.name}_active`}
             type="checkbox"

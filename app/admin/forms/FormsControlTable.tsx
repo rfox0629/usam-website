@@ -41,7 +41,7 @@ function AccessBadge({ access }: { access: FormControlRow["access"] }) {
     <span
       className={`inline-flex min-h-6 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.14em] ${
         isProtected
-          ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
+          ? "border-usam-gold/35 bg-usam-gold/10 text-usam-gold"
           : "border-stone-700 bg-stone-900/70 text-stone-300"
       }`}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -59,7 +59,7 @@ function RouteBadge({ routesTo }: { routesTo: FormControlRow["routesTo"] }) {
     <span
       className={`inline-flex min-h-6 items-center justify-center border px-2 text-[9px] uppercase tracking-[0.14em] ${
         isPrayer
-          ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
+          ? "border-usam-gold/35 bg-usam-gold/10 text-usam-gold"
           : isSystem
             ? "border-green-500/25 bg-green-950/30 text-green-300"
             : "border-blue-400/25 bg-blue-950/30 text-blue-300"
@@ -84,8 +84,8 @@ function ActionLink({
     <Link
       className={`inline-flex min-h-8 items-center justify-center whitespace-nowrap px-3 text-[10px] uppercase tracking-[0.16em] transition-colors ${
         variant === "gold"
-          ? "border border-transparent bg-[#D4A63D] text-black hover:bg-[#F5B942]"
-          : "border border-stone-700 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]"
+          ? "border border-transparent bg-usam-gold text-black hover:bg-usam-gold"
+          : "border border-stone-700 text-stone-100 hover:border-usam-gold hover:text-usam-gold"
       }`}
       href={href}
       onClick={(event) => event.stopPropagation()}
@@ -115,7 +115,7 @@ function SelectFilter({
     <label className="block">
       <span className="sr-only">{label}</span>
       <select
-        className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+        className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-usam-gold"
         onChange={(event) => onChange(event.target.value)}
         value={value}
       >
@@ -151,7 +151,7 @@ function DetailDrawer({
   if (!form) {
     return (
       <aside className="hidden border border-stone-800/75 bg-[#080808]/85 p-5 xl:block xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)]">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           Form Detail
         </p>
         <p className="mt-4 text-sm leading-7 text-stone-400">
@@ -165,7 +165,7 @@ function DetailDrawer({
     <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-stone-800 bg-[#070707] p-5 shadow-[0_0_80px_rgba(0,0,0,0.55)] md:p-6 xl:sticky xl:top-8 xl:z-auto xl:max-h-[calc(100vh-4rem)] xl:border xl:border-stone-800/75 xl:bg-[#080808]/85 xl:shadow-none">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Form Detail
           </p>
           <h2 className="mt-3 text-2xl font-semibold leading-tight text-stone-100">
@@ -173,7 +173,7 @@ function DetailDrawer({
           </h2>
         </div>
         <button
-          className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-300 hover:border-[#D4A63D] hover:text-[#F5B942]"
+          className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.16em] text-stone-300 hover:border-usam-gold hover:text-usam-gold"
           onClick={onClose}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
@@ -183,7 +183,7 @@ function DetailDrawer({
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-        <DetailItem label="URL" value={<Link className="hover:text-[#F5B942]" href={form.url}>{form.url}</Link>} />
+        <DetailItem label="URL" value={<Link className="hover:text-usam-gold" href={form.url}>{form.url}</Link>} />
         <DetailItem label="Form Type" value={form.formType} />
         <DetailItem label="Status" value={<StatusBadge status={form.status} />} />
         <DetailItem label="Access" value={<AccessBadge access={form.access} />} />
@@ -237,7 +237,7 @@ export function FormsControlTable({ rows }: { rows: readonly FormControlRow[] })
         <label className="block">
           <span className="sr-only">Search forms</span>
           <input
-            className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#D4A63D]"
+            className="min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search name or URL"
             value={query}
@@ -267,7 +267,7 @@ export function FormsControlTable({ rows }: { rows: readonly FormControlRow[] })
                 {filteredRows.length > 0 ? filteredRows.map((row) => (
                   <tr
                     className={`cursor-pointer transition-colors hover:bg-stone-950/80 ${
-                      selectedRow?.formType === row.formType ? "bg-[#C9A24A]/5" : ""
+                      selectedRow?.formType === row.formType ? "bg-usam-gold/5" : ""
                     }`}
                     key={row.formType}
                     onClick={() => setSelectedFormType(row.formType)}

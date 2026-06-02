@@ -200,7 +200,7 @@ function formatList(values: string[] | null) {
 
 function StatusBadge({ status }: { status: InquiryStatus }) {
   const className = status === "new"
-    ? "border-[#C9A24A]/25 bg-[#C9A24A]/10 text-[#D8B65D]"
+    ? "border-usam-gold/25 bg-usam-gold/10 text-usam-gold"
     : status === "follow_up"
       ? "border-blue-400/20 bg-blue-950/30 text-blue-300/90"
       : status === "reviewed"
@@ -219,9 +219,9 @@ function StatusBadge({ status }: { status: InquiryStatus }) {
 
 function MajorGiftStatusBadge({ status }: { status: MajorGiftStatus }) {
   const className = status === "new"
-    ? "border-[#C9A24A]/25 bg-[#C9A24A]/10 text-[#D8B65D]"
+    ? "border-usam-gold/25 bg-usam-gold/10 text-usam-gold"
     : status === "needs_follow_up"
-      ? "border-amber-400/20 bg-amber-950/30 text-amber-200/90"
+      ? "border-usam-gold/20 bg-usam-gold/30 text-usam-gold/90"
     : status === "contacted"
       ? "border-blue-400/20 bg-blue-950/30 text-blue-300/90"
       : "border-stone-700/60 bg-stone-900/60 text-stone-400";
@@ -262,8 +262,8 @@ function InquiryTabs({ activeType }: { activeType: "financial-freedom" | "major-
           key={tab.value}
           className={`inline-flex min-h-10 items-center justify-center border px-4 text-xs uppercase tracking-[0.16em] transition-colors ${
             activeType === tab.value
-              ? "border-[#C9A24A]/45 bg-[#C9A24A]/10 text-[#E4C465]"
-              : "border-stone-800 text-stone-300 hover:border-[#C9A24A]/60 hover:text-stone-50"
+              ? "border-usam-gold/45 bg-usam-gold/10 text-usam-gold"
+              : "border-stone-800 text-stone-300 hover:border-usam-gold/60 hover:text-stone-50"
           }`}
           href={tab.href}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -395,7 +395,7 @@ function InquiryDetail({
             id="status"
             name="status"
             defaultValue={inquiry.status}
-            className="min-h-11 flex-1 border border-stone-700 bg-[#050505] px-4 text-sm uppercase tracking-[0.12em] text-stone-100 outline-none focus:border-[#D4A63D]"
+            className="min-h-11 flex-1 border border-stone-700 bg-[#050505] px-4 text-sm uppercase tracking-[0.12em] text-stone-100 outline-none focus:border-usam-gold"
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
             {statusOptions.map((option) => (
@@ -406,7 +406,7 @@ function InquiryDetail({
           </select>
           <button
             type="submit"
-            className="inline-flex min-h-11 items-center justify-center border border-stone-700/85 px-5 py-3 text-xs uppercase tracking-[0.16em] text-stone-200 transition-colors hover:border-[#D4A63D] hover:bg-[#D4A63D]/5 hover:text-[#D4A63D]"
+            className="inline-flex min-h-11 items-center justify-center border border-stone-700/85 px-5 py-3 text-xs uppercase tracking-[0.16em] text-stone-200 transition-colors hover:border-usam-gold hover:bg-usam-gold/5 hover:text-usam-gold"
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
             Save
@@ -417,7 +417,7 @@ function InquiryDetail({
       <div className="mt-7 space-y-7">
         <DetailGroup title="Contact">
           <DetailItem label="Name" value={inquiry.full_name} />
-          <DetailItem label="Email" value={<a className="transition-colors hover:text-[#D4A63D]" href={`mailto:${inquiry.email}`}>{inquiry.email}</a>} />
+          <DetailItem label="Email" value={<a className="transition-colors hover:text-usam-gold" href={`mailto:${inquiry.email}`}>{inquiry.email}</a>} />
           <DetailItem label="Phone" value={inquiry.phone} />
           <DetailItem label="Created" value={formatDate(inquiry.created_at)} />
         </DetailGroup>
@@ -510,7 +510,7 @@ function MajorGiftDetail({
             id="major-gift-status"
             name="status"
             defaultValue={inquiry.status}
-            className="min-h-11 flex-1 border border-stone-700 bg-[#050505] px-4 text-sm uppercase tracking-[0.12em] text-stone-100 outline-none focus:border-[#D4A63D]"
+            className="min-h-11 flex-1 border border-stone-700 bg-[#050505] px-4 text-sm uppercase tracking-[0.12em] text-stone-100 outline-none focus:border-usam-gold"
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
             {majorGiftStatusOptions.map((option) => (
@@ -521,7 +521,7 @@ function MajorGiftDetail({
           </select>
           <button
             type="submit"
-            className="inline-flex min-h-11 items-center justify-center border border-stone-700/85 px-5 py-3 text-xs uppercase tracking-[0.16em] text-stone-200 transition-colors hover:border-[#D4A63D] hover:bg-[#D4A63D]/5 hover:text-[#D4A63D]"
+            className="inline-flex min-h-11 items-center justify-center border border-stone-700/85 px-5 py-3 text-xs uppercase tracking-[0.16em] text-stone-200 transition-colors hover:border-usam-gold hover:bg-usam-gold/5 hover:text-usam-gold"
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
             Save
@@ -532,7 +532,7 @@ function MajorGiftDetail({
       <div className="mt-7 space-y-7">
         <DetailGroup title="Contact">
           <DetailItem label="Name" value={fullName} />
-          <DetailItem label="Email" value={<a className="transition-colors hover:text-[#D4A63D]" href={`mailto:${inquiry.email}`}>{inquiry.email}</a>} />
+          <DetailItem label="Email" value={<a className="transition-colors hover:text-usam-gold" href={`mailto:${inquiry.email}`}>{inquiry.email}</a>} />
           <DetailItem label="Phone" value={inquiry.phone} />
           <DetailItem label="Best Time To Contact" value={inquiry.best_time_to_contact} />
           <DetailItem label="Submitted" value={formatDate(inquiry.created_at)} />
@@ -574,7 +574,7 @@ function InquiryList({
           </h2>
           {statusFilter ? (
             <Link
-              className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-xs uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-[#C9A24A] hover:text-[#E4C465]"
+              className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-xs uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-usam-gold hover:text-usam-gold"
               href="/admin/financial-freedom"
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             >
@@ -602,7 +602,7 @@ function InquiryList({
               key={inquiry.id}
               href={`/admin/financial-freedom?inquiry=${inquiry.id}`}
               className={`grid gap-4 p-5 transition-colors hover:bg-stone-950/80 lg:grid-cols-[1.25fr_1.35fr_0.9fr_0.9fr_0.8fr_0.8fr] lg:items-center ${
-                isSelected ? "bg-[#C9A24A]/5" : ""
+                isSelected ? "bg-usam-gold/5" : ""
               }`}
             >
               <div>
@@ -649,7 +649,7 @@ function MajorGiftList({
           </h2>
           {statusFilter ? (
             <Link
-              className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-xs uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-[#C9A24A] hover:text-[#E4C465]"
+              className="inline-flex min-h-9 items-center justify-center border border-stone-700 px-3 text-xs uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-usam-gold hover:text-usam-gold"
               href="/admin/financial-freedom?type=major-gift"
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             >
@@ -681,7 +681,7 @@ function MajorGiftList({
               key={inquiry.id}
               href={`/admin/financial-freedom?type=major-gift&majorGift=${inquiry.id}${statusFilter ? `&status=${statusFilter}` : ""}`}
               className={`grid gap-4 p-5 transition-colors hover:bg-stone-950/80 xl:grid-cols-[1fr_1.2fr_0.8fr_1fr_1fr_0.9fr_1fr_0.7fr_0.8fr] xl:items-center ${
-                isSelected ? "bg-[#C9A24A]/5" : ""
+                isSelected ? "bg-usam-gold/5" : ""
               }`}
             >
               <div>

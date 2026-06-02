@@ -23,7 +23,7 @@ export function GeneralSupportGivingButton({
   return (
     <>
       <button
-        className="inline-block px-7 py-3 text-sm uppercase tracking-[0.2em] transition-all duration-300 bg-stone-100 text-stone-950 hover:bg-amber-200"
+        className="inline-block px-7 py-3 text-sm uppercase tracking-[0.2em] transition-all duration-300 bg-stone-100 text-stone-950 hover:bg-usam-gold"
         onClick={() => setIsOpen(true)}
         style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
         type="button"

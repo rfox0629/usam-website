@@ -9,7 +9,7 @@ export const adminFont = {
 export type AdminBadgeTone = "amber" | "blue" | "green" | "muted" | "red";
 
 const badgeToneClassName: Record<AdminBadgeTone, string> = {
-  amber: "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]",
+  amber: "border-usam-gold/35 bg-usam-gold/10 text-usam-gold",
   blue: "border-blue-400/25 bg-blue-950/30 text-blue-300",
   green: "border-green-500/25 bg-green-950/30 text-green-300",
   muted: "border-stone-700 bg-stone-900/70 text-stone-300",
@@ -62,7 +62,7 @@ export function AdminMetricCard({
 
   if (href) {
     return (
-      <Link className={`${className} transition-colors hover:border-[#C9A24A]/55 hover:bg-[#C9A24A]/[0.04]`} href={href}>
+      <Link className={`${className} transition-colors hover:border-usam-gold/55 hover:bg-usam-gold/[0.04]`} href={href}>
         {content}
       </Link>
     );
@@ -83,8 +83,8 @@ export function AdminActionLink({
   const className = {
     blue: "border-blue-400/25 bg-blue-950/30 text-blue-200 hover:border-blue-300/60",
     danger: "border-red-500/30 text-red-200 hover:bg-red-950/25",
-    gold: "border-transparent bg-[#D4A63D] text-black hover:bg-[#F5B942]",
-    outline: "border-stone-700 text-stone-100 hover:border-[#D4A63D] hover:text-[#F5B942]",
+    gold: "border-transparent bg-usam-gold text-black hover:bg-usam-gold",
+    outline: "border-stone-700 text-stone-100 hover:border-usam-gold hover:text-usam-gold",
   }[variant];
 
   return (
@@ -110,7 +110,7 @@ export function AdminEmptyState({
   return (
     <div className="border border-stone-800/75 bg-[#080808]/85 p-6">
       <p
-        className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]"
+        className="text-[10px] uppercase tracking-[0.2em] text-usam-gold"
         style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
       >
         {title}

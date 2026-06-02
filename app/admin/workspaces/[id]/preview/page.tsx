@@ -53,7 +53,7 @@ export default async function WorkspacePreviewPage({
       <section className="border-b border-stone-800/80 bg-[#060606] px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link
-            className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-stone-400 transition-colors hover:text-[#E4C465]"
+            className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-stone-400 transition-colors hover:text-usam-gold"
             href="/admin/organizations"
             style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
           >

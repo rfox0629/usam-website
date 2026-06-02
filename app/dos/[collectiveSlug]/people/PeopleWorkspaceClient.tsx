@@ -98,7 +98,7 @@ function PersonCard({
 
   return (
     <Link
-      className="group block border border-stone-800 bg-[#080808] p-4 transition-colors hover:border-amber-500/45 sm:p-5"
+      className="group block border border-stone-800 bg-[#080808] p-4 transition-colors hover:border-usam-gold/45 sm:p-5"
       href={`/dos/${collectiveSlug}/people/${person.id}`}
     >
       <div className="flex items-start justify-between gap-4">
@@ -109,7 +109,7 @@ function PersonCard({
         </div>
         {person.disciplingCount > 0 ? (
           <span
-            className="shrink-0 border border-amber-500/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300"
+            className="shrink-0 border border-usam-gold/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-usam-gold"
             style={{ fontFamily: font.rajdhani }}
           >
             Multiplying
@@ -129,7 +129,7 @@ function PersonCard({
         ) : null}
 
         {person.disciplingCount > 0 ? (
-          <p className="pt-1 text-amber-300">
+          <p className="pt-1 text-usam-gold">
             Walking with {pluralize(person.disciplingCount, "person", "people")}
           </p>
         ) : null}
@@ -207,7 +207,7 @@ function AddPersonModal({
           <div className="flex items-start justify-between gap-6">
             <div>
               <p
-                className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-400"
+                className="text-[11px] font-bold uppercase tracking-[0.22em] text-usam-gold"
                 style={{ fontFamily: font.rajdhani }}
               >
                 Your Field
@@ -225,7 +225,7 @@ function AddPersonModal({
             </div>
             <button
               aria-label="Close add person form"
-              className="flex h-10 w-10 shrink-0 items-center justify-center border border-stone-700 text-xl leading-none text-stone-300 transition-colors hover:border-amber-400 hover:text-amber-300"
+              className="flex h-10 w-10 shrink-0 items-center justify-center border border-stone-700 text-xl leading-none text-stone-300 transition-colors hover:border-usam-gold hover:text-usam-gold"
               onClick={onClose}
               type="button"
             >
@@ -252,7 +252,7 @@ function AddPersonModal({
                 This stays in the owning organization workspace and is not shared as public profile content.
               </p>
               <button
-                className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSubmitting}
                 style={{ fontFamily: font.rajdhani }}
                 type="submit"
@@ -277,7 +277,7 @@ function RelationshipStageSelect() {
         Relationship Stage
       </span>
       <select
-        className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-amber-400"
+        className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors focus:border-usam-gold"
         defaultValue="Walking With"
         name="relationship_stage"
       >
@@ -314,7 +314,7 @@ function Field({
         {label}
       </span>
       <input
-        className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
+        className="mt-2 min-h-12 w-full border border-stone-700 bg-[#050505] px-4 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
         name={name}
         required={required}
         type={type}
@@ -358,7 +358,7 @@ export function PeopleWorkspaceClient({
             Search
           </span>
           <input
-            className="mt-3 min-h-12 w-full border border-stone-800 bg-[#080808] px-4 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-amber-400"
+            className="mt-3 min-h-12 w-full border border-stone-800 bg-[#080808] px-4 text-base text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold"
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by name or relationship"
             type="search"
@@ -368,14 +368,14 @@ export function PeopleWorkspaceClient({
 
         <div className="grid gap-2 sm:grid-cols-2 lg:flex">
           <Link
-            className="inline-flex min-h-12 items-center justify-center border border-stone-700 bg-[#080808] px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-200 transition-colors hover:border-amber-500/50 hover:text-amber-300"
+            className="inline-flex min-h-12 items-center justify-center border border-stone-700 bg-[#080808] px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-200 transition-colors hover:border-usam-gold/50 hover:text-usam-gold"
             href={`/dos/${collectiveSlug}/meetings`}
             style={{ fontFamily: font.rajdhani }}
           >
             Log Meeting
           </Link>
           <button
-            className="min-h-12 border border-amber-500/60 bg-amber-400 px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-amber-300"
+            className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold"
             onClick={() => setIsAddOpen(true)}
             style={{ fontFamily: font.rajdhani }}
             type="button"
@@ -394,8 +394,8 @@ export function PeopleWorkspaceClient({
               <button
                 className={`min-h-9 shrink-0 border px-3 text-[11px] font-bold uppercase tracking-[0.14em] transition-colors ${
                   isActive
-                    ? "border-amber-500/60 bg-amber-400 text-stone-950"
-                    : "border-stone-800 bg-[#080808] text-stone-400 hover:border-amber-500/45 hover:text-stone-100"
+                    ? "border-usam-gold/60 bg-usam-gold text-stone-950"
+                    : "border-stone-800 bg-[#080808] text-stone-400 hover:border-usam-gold/45 hover:text-stone-100"
                 }`}
                 key={filter.key}
                 onClick={() => setActiveFilter(filter.key)}

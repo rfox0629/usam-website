@@ -12,7 +12,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 function VideoPlaceholderCard() {
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-white/25 bg-[#050505] shadow-[0_0_0_1px_rgba(212,160,23,0.08),0_24px_70px_rgba(0,0,0,0.68)]">
+    <div className="group relative overflow-hidden rounded-xl border border-white/25 bg-[#050505] shadow-[0_0_0_1px_rgba(var(--usam-gold-rgb),0.08),0_24px_70px_rgba(0,0,0,0.68)]">
       <div className="absolute inset-x-0 top-0 h-px bg-white/25" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(212,160,84,0.13),transparent_28%),radial-gradient(ellipse_at_center,transparent_38%,rgba(0,0,0,0.78)_100%),linear-gradient(135deg,rgba(255,255,255,0.055),transparent_40%,rgba(212,160,84,0.02))]" />
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:42px_42px] opacity-[0.08]" />
@@ -20,7 +20,7 @@ function VideoPlaceholderCard() {
       <div className="relative aspect-video min-h-[280px] p-5 md:min-h-0 md:p-7">
         <div className="flex h-full flex-col">
           <div className="relative z-10">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[2px] text-[#d4a017] [text-shadow:0_0_10px_rgba(212,160,23,0.28)]" style={{ fontFamily: font.rajdhani }}>
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[2px] text-usam-gold [text-shadow:0_0_10px_rgba(var(--usam-gold-rgb),0.28)]" style={{ fontFamily: font.rajdhani }}>
               Coming Soon
             </p>
             <h2 className="max-w-sm text-2xl font-semibold leading-[1.2] text-white md:text-3xl" style={{ fontFamily: font.oswald }}>
@@ -32,7 +32,7 @@ function VideoPlaceholderCard() {
           </div>
 
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-white/50 bg-black/40 shadow-[0_0_0_8px_rgba(255,255,255,0.035),0_0_42px_rgba(212,160,23,0.28)] backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:border-amber-200/70 group-hover:shadow-[0_0_0_10px_rgba(255,255,255,0.04),0_0_54px_rgba(212,160,23,0.36)] md:h-[84px] md:w-[84px]">
+            <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-white/50 bg-black/40 shadow-[0_0_0_8px_rgba(255,255,255,0.035),0_0_42px_rgba(var(--usam-gold-rgb),0.28)] backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:border-usam-gold/70 group-hover:shadow-[0_0_0_10px_rgba(255,255,255,0.04),0_0_54px_rgba(var(--usam-gold-rgb),0.36)] md:h-[84px] md:w-[84px]">
               <div className="ml-1 h-0 w-0 border-y-[13px] border-l-[21px] border-y-transparent border-l-stone-100" />
             </div>
           </div>
@@ -152,15 +152,15 @@ function FeaturedEncounterSection() {
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,5,5,0.95),rgba(8,8,8,0.86),rgba(5,5,5,0.98))]" />
 
       <div className="relative mx-auto max-w-6xl">
-        <div className="relative overflow-hidden border border-white/[0.1] bg-[linear-gradient(135deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012)_44%,rgba(212,160,23,0.035))] px-6 py-10 shadow-[0_24px_80px_rgba(0,0,0,0.5)] md:px-12 md:py-14">
-          <div className="absolute inset-y-0 left-0 w-px bg-amber-500/55" />
-          <div className="absolute -right-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-amber-500/10 blur-3xl" />
+        <div className="relative overflow-hidden border border-white/[0.1] bg-[linear-gradient(135deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012)_44%,rgba(var(--usam-gold-rgb),0.035))] px-6 py-10 shadow-[0_24px_80px_rgba(0,0,0,0.5)] md:px-12 md:py-14">
+          <div className="absolute inset-y-0 left-0 w-px bg-usam-gold/55" />
+          <div className="absolute -right-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-usam-gold/10 blur-3xl" />
 
           <div className="relative max-w-5xl">
             <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
               Featured Encounter
             </p>
-            <blockquote className="mt-8 border-l-2 border-amber-500/45 pl-6 md:pl-8">
+            <blockquote className="mt-8 border-l-2 border-usam-gold/45 pl-6 md:pl-8">
               <p className="text-2xl font-normal italic leading-[1.5] text-white/[0.92] md:text-4xl md:leading-[1.35]">
                 &ldquo;{featuredEncounter.quote}&rdquo;
               </p>
@@ -188,16 +188,16 @@ function FieldReportCard({
   const cardStyle = fieldReportCardStyles[index] ?? "p-6 md:p-7 lg:col-span-6";
 
   return (
-    <article className={`border border-white/[0.075] bg-white/[0.018] shadow-[0_18px_54px_rgba(0,0,0,0.22)] transition-colors duration-200 hover:border-amber-500/24 hover:bg-white/[0.026] ${cardStyle}`}>
+    <article className={`border border-white/[0.075] bg-white/[0.018] shadow-[0_18px_54px_rgba(0,0,0,0.22)] transition-colors duration-200 hover:border-usam-gold/24 hover:bg-white/[0.026] ${cardStyle}`}>
       {report.tag ? (
         <p
-          className="mb-5 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-300/56"
+          className="mb-5 text-[10px] font-semibold uppercase tracking-[0.22em] text-usam-gold/56"
           style={{ fontFamily: font.rajdhani }}
         >
           {report.tag}
         </p>
       ) : null}
-      <div className="border-l-2 border-amber-500/35 pl-5 md:pl-6">
+      <div className="border-l-2 border-usam-gold/35 pl-5 md:pl-6">
         <p className="text-[15.5px] font-normal italic leading-[1.72] text-white/[0.86] md:text-[17px]">
           &ldquo;{report.quote}&rdquo;
         </p>
@@ -273,7 +273,7 @@ export default async function MissionPage({
           </div>
 
           <div className="relative mt-16 overflow-hidden border border-white/[0.1] bg-[#060606] p-6 shadow-[0_22px_70px_rgba(0,0,0,0.42)] md:p-9">
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_72%_48%,rgba(212,160,23,0.11),transparent_34%)]" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_72%_48%,rgba(var(--usam-gold-rgb),0.11),transparent_34%)]" />
             <div className="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="relative max-w-3xl">
                 <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>

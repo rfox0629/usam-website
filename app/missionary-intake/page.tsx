@@ -18,13 +18,13 @@ export default function MissionaryIntakePage() {
     <main className="min-h-screen bg-[#050505] text-stone-100">
       <PrimaryNav active="support" />
 
-      <div className="w-full bg-[#0A0A0A] py-2.5 text-center text-xs uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+      <div className="w-full bg-[#0A0A0A] py-2.5 text-center text-xs uppercase tracking-[0.24em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
         Internal Use Only - USAM Missionary Intake
       </div>
 
       <section className="relative overflow-hidden px-6 pb-16 pt-24 md:pb-20 md:pt-32">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[length:72px_72px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(212,166,61,0.12),transparent_28%),radial-gradient(ellipse_at_center,transparent_34%,#050505_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(var(--usam-gold-rgb),0.12),transparent_28%),radial-gradient(ellipse_at_center,transparent_34%,#050505_100%)]" />
         <div className="relative mx-auto max-w-6xl">
           <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
             Missionary Intake

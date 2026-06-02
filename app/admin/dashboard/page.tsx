@@ -457,7 +457,7 @@ function SectionHeader({
   return (
     <div className="mb-3 flex items-center justify-between gap-4">
       <div>
-        <p className="text-[10px] uppercase tracking-[0.16em] text-[#D8B65D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {eyebrow}
         </p>
         <h2 className="mt-1 text-base font-semibold text-stone-50">
@@ -482,7 +482,7 @@ function MetricCard({
 }) {
   return (
     <Link
-      className="group flex min-h-28 flex-col justify-between rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4 transition-colors hover:border-[#C9A24A]/60 hover:bg-[#C9A24A]/[0.045]"
+      className="group flex min-h-28 flex-col justify-between rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4 transition-colors hover:border-usam-gold/60 hover:bg-usam-gold/[0.045]"
       href={href}
     >
       <p className="text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -515,8 +515,8 @@ function ActionButton({
     <Link
       className={`inline-flex min-h-9 items-center justify-center rounded-lg border px-3 text-[10px] uppercase tracking-[0.14em] transition-colors ${
         primary
-          ? "border-[#C9A24A] bg-[#C9A24A] text-stone-950 hover:bg-[#D8B65D]"
-          : "border-stone-700 text-stone-100 hover:border-[#C9A24A] hover:text-[#E4C465]"
+          ? "border-usam-gold bg-usam-gold text-stone-950 hover:bg-usam-gold"
+          : "border-stone-700 text-stone-100 hover:border-usam-gold hover:text-usam-gold"
       }`}
       href={href}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -567,7 +567,7 @@ function TaskModule({
             {title}
           </h3>
           {typeof count === "number" ? (
-            <span className="text-2xl font-semibold leading-none text-[#E4C465]">
+            <span className="text-2xl font-semibold leading-none text-usam-gold">
               {count}
             </span>
           ) : null}
@@ -601,7 +601,7 @@ function OperationalModule({
   return (
     <article className="flex min-h-48 flex-col justify-between rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
       <div>
-        <p className="text-[10px] uppercase tracking-[0.16em] text-[#D8B65D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.16em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {eyebrow}
         </p>
         <h3 className="mt-2 text-base font-semibold text-stone-50">
@@ -621,7 +621,7 @@ function OperationalModule({
         </dl>
       </div>
       <Link
-        className="mt-5 inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#C9A24A] hover:text-[#E4C465]"
+        className="mt-5 inline-flex min-h-9 items-center justify-center rounded-lg border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold"
         href={actionHref}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
       >
@@ -642,7 +642,7 @@ function StatusBadge({
     <span
       className={`inline-flex h-5 items-center justify-center rounded-full border px-2 text-[9px] uppercase tracking-[0.12em] ${
         isNew
-          ? "border-[#C9A24A]/35 bg-[#C9A24A]/10 text-[#E4C465]"
+          ? "border-usam-gold/35 bg-usam-gold/10 text-usam-gold"
           : "border-stone-700/70 bg-stone-900/60 text-stone-300"
       }`}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -655,7 +655,7 @@ function StatusBadge({
 function ActivityBadge({ children }: { children: ReactNode }) {
   return (
     <span
-      className="inline-flex h-5 items-center rounded-full border border-[#C9A24A]/30 bg-[#C9A24A]/10 px-2 text-[9px] uppercase tracking-[0.12em] text-[#E4C465]"
+      className="inline-flex h-5 items-center rounded-full border border-usam-gold/30 bg-usam-gold/10 px-2 text-[9px] uppercase tracking-[0.12em] text-usam-gold"
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}
@@ -755,7 +755,7 @@ function IncompleteProfileAlerts({ profiles }: { profiles: DashboardProfile[] })
                 <span className="block text-sm font-semibold text-stone-50">{profile.display_name}</span>
                 <span className="mt-1 block text-sm text-stone-300">Missing: {getMissingProfileFields(profile)}</span>
               </span>
-              <span className="text-[10px] uppercase tracking-[0.14em] text-[#D8B65D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <span className="text-[10px] uppercase tracking-[0.14em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 Fix Now
               </span>
             </Link>
@@ -794,7 +794,7 @@ export default async function AdminDashboardPage() {
     >
       <div className="space-y-6">
         {data.error ? (
-          <p className="border border-[#C9A24A]/35 bg-[#C9A24A]/10 p-4 text-sm leading-6 text-stone-100">
+          <p className="border border-usam-gold/35 bg-usam-gold/10 p-4 text-sm leading-6 text-stone-100">
             {data.error}
           </p>
         ) : null}
