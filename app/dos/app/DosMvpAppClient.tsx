@@ -418,10 +418,10 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
     case "meetings":
       return (
         <svg {...commonProps}>
-          <rect height="6" rx="1.5" width="6" x="4" y="4" />
-          <rect height="6" rx="1.5" width="6" x="14" y="4" />
-          <rect height="6" rx="1.5" width="6" x="4" y="14" />
-          <rect height="6" rx="1.5" width="6" x="14" y="14" />
+          <rect height="7" rx="2" width="16" x="4" y="5" />
+          <path d="M7 12v7" />
+          <path d="M17 12v7" />
+          <path d="M6 16h12" />
         </svg>
       );
     case "more":
@@ -3357,7 +3357,7 @@ function DesktopMoreLauncher({
       <TabPageHeader title="Apps" />
       <div className="mt-4">
         <TabHero
-          icon={<Square className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+          icon={<Icon name="apps" size={20} />}
           onScriptureClick={onScriptureClick}
           scripture={scriptureReferences.secondPeter318}
           subtitle="DOS core stays simple. Installable layers extend the workspace when needed."
@@ -8391,20 +8391,20 @@ function MobileFloatingActions({
           type="button"
         />
       ) : null}
-      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-6 flex flex-col items-end gap-2 pointer-events-auto">
+      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-5 flex w-[216px] flex-col items-end gap-2 pointer-events-auto">
         {isOpen ? (
-          <div className="flex flex-col items-end gap-2">
+          <div className="w-full rounded-[26px] border border-white/80 bg-white/95 p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl">
             {items.map((item) => (
               <button
-                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-xs font-bold text-[#0F172A] shadow-[0_14px_34px_rgba(15,23,42,0.14)] transition-transform active:scale-[0.98]"
+                className="flex min-h-11 w-full items-center gap-3 rounded-[18px] px-3 text-left text-xs font-bold text-[#0F172A] transition-colors hover:bg-[#F8FAFC] active:bg-[#EFF6FF]"
                 key={item.label}
                 onClick={item.onClick}
                 type="button"
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
                   <Icon name={item.icon} size={15} />
                 </span>
-                {item.label}
+                <span className="min-w-0 whitespace-nowrap">{item.label}</span>
               </button>
             ))}
           </div>
@@ -9673,6 +9673,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
   const [tableQuery, setTableQuery] = useState("");
+  const [appSearchQuery, setAppSearchQuery] = useState("");
+  const [isAppsSearchOpen, setIsAppsSearchOpen] = useState(false);
+  const [isTableSearchOpen, setIsTableSearchOpen] = useState(false);
   const [peopleCircleView, setPeopleCircleView] = useState<PeopleCircleView>("three");
   const [peopleImportMessage, setPeopleImportMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [meetingNotesOverrides, setMeetingNotesOverrides] = useState<Record<string, string | null>>({});
@@ -9997,7 +10000,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   useEffect(() => {
     setIsMobileActionSheetOpen(false);
-  }, [activeTab, formMode, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedReminderId]);
+  }, [activeTab, formMode, isAppsSearchOpen, isTableSearchOpen, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedReminderId]);
 
   function resetMeetingDraft(personIds: string[] = []) {
     setConversationResponses({});
@@ -10048,6 +10051,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function selectTab(tab: ActiveTab) {
     setActiveTab(tab);
     setMoreAppView(null);
+    setIsAppsSearchOpen(false);
+    setIsTableSearchOpen(false);
+    setAppSearchQuery("");
     scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
@@ -10068,6 +10074,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openMoreApp(view: MoreAppView) {
     setActiveTab("more");
     setMoreAppView(view);
+    setIsAppsSearchOpen(false);
+    setIsTableSearchOpen(false);
+    setAppSearchQuery("");
     scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
@@ -10090,6 +10099,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openPeopleCircle(circle: PeopleCircleView = "three") {
     setActiveTab("people");
     setMoreAppView(null);
+    setIsAppsSearchOpen(false);
+    setIsTableSearchOpen(false);
+    setAppSearchQuery("");
     scrollAppToTop();
     setPeopleCircleView(circle);
     setPeopleQuery("");
@@ -10108,6 +10120,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setPostMeetingFollowUpId(null);
     setPeopleImportMessage(null);
     setIsUsamApplicationOpen(false);
+  }
+
+  function openFieldSearch() {
+    openPeopleCircle("three");
+    setIsPeopleSearchOpen(true);
+  }
+
+  function openTableSearch() {
+    selectTab("meetings");
+    setIsTableSearchOpen(true);
+  }
+
+  function openAppsSearch() {
+    openMoreApp("apps");
+    setIsAppsSearchOpen(true);
+  }
+
+  function openUsamAppsLayer() {
+    openMoreApp("missionary_profile");
   }
 
   function openUsamApplicationSheet() {
@@ -11255,7 +11286,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         },
         {
           description: "Upcoming and completed table conversations.",
-          icon: <MessageCircle className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          icon: <Icon name="meetings" size={20} />,
           label: "Table",
           onClick: () => selectTab("meetings"),
           section: "installed",
@@ -11322,12 +11353,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       label: "Coming Soon",
       items: [
         {
-          description: "Seasonal next steps for relationships.",
-          icon: <Flame className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "In Season",
-          onClick: () => openMoreApp("in_season"),
+          description: "Reports for leaders and teams.",
+          icon: <Megaphone className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Reports",
+          onClick: () => openMoreApp("reports"),
           section: "coming_soon",
-          status: "Soon",
+          status: "Coming Soon",
         },
         {
           description: "Generosity, budgeting, and ministry stewardship tools.",
@@ -11335,7 +11366,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           label: "Stewardship",
           onClick: () => openMoreApp("stewardship"),
           section: "coming_soon",
-          status: "Soon",
+          status: "Coming Soon",
+        },
+        {
+          description: "Seasonal next steps for relationships.",
+          icon: <Flame className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "In Season",
+          onClick: () => openMoreApp("in_season"),
+          section: "coming_soon",
+          status: "Coming Soon",
         },
         {
           description: "Guided table conversation flows and follow-up paths.",
@@ -11343,19 +11382,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           label: "Table Flow",
           onClick: () => openMoreApp("table_flow"),
           section: "coming_soon",
-          status: "Soon",
-        },
-        {
-          description: "Analytics, multiplication reporting, state reporting, and dashboards.",
-          icon: <Megaphone className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "Reports",
-          onClick: () => openMoreApp("reports"),
-          section: "coming_soon",
-          status: "Soon",
+          status: "Coming Soon",
         },
       ],
     },
   ];
+  const mobileAppCatalogItems = appCatalogSections.flatMap((section) => section.items);
+  const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
+    const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
+
+    if (!query) {
+      return true;
+    }
+
+    return `${item.label} ${item.description} ${item.status}`.toLowerCase().includes(query);
+  });
   const desktopAppsPreview = appCatalogSections
     .flatMap((section) => section.items)
     .filter((item) => item.section !== "coming_soon")
@@ -11368,13 +11409,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ? [
         { icon: "log", label: "Log Table", onClick: runMobileAction(() => openForm("meeting")) },
         { icon: "calendar", label: "Schedule Table", onClick: runMobileAction(() => openScheduleMeeting()) },
+        { icon: "search", label: "Search Tables", onClick: runMobileAction(openTableSearch) },
       ]
-    : activeTab === "home" || activeTab === "more"
+    : activeTab === "more"
+      ? [
+          { icon: "people", label: "USA Missionaries", onClick: runMobileAction(openUsamAppsLayer) },
+          { icon: "search", label: "Search Apps", onClick: runMobileAction(openAppsSearch) },
+        ]
+      : activeTab === "home"
       ? [
           { icon: "people", label: "My Field", onClick: runMobileAction(() => openPeopleCircle("three")) },
           { icon: "add", label: "Add Person", onClick: runMobileAction(() => openForm("person")) },
           { icon: "log", label: "Log Table", onClick: runMobileAction(() => openForm("meeting")) },
           { icon: "calendar", label: "Schedule", onClick: runMobileAction(() => openScheduleMeeting()) },
+          { icon: "search", label: "Search", onClick: runMobileAction(openFieldSearch) },
         ]
       : [];
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
@@ -11383,6 +11431,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isEditProfileOpen
     && !isPeopleImportOpen
     && !isProfileOpen
+    && !isTableSearchOpen
     && !isUsamApplicationOpen
     && !selectedExternalCalendarEventId
     && !selectedMeetingId
@@ -11631,7 +11680,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <TabPageHeader title="Table" />
                 </div>
                 <TabHero
-                  icon={<MessageCircle className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                  icon={<Icon name="meetings" size={20} />}
                   onScriptureClick={openScriptureQuickView}
                   scripture={scriptureReferences.hebrews1025}
                   subtitle="Every conversation is an opportunity to motivate, encourage, and challenge."
@@ -11641,7 +11690,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <MeetingActionRow onLogMeeting={() => openForm("meeting")} onScheduleMeeting={() => openScheduleMeeting()} />
                 </div>
                 <div className="grid gap-3 md:grid-cols-[minmax(260px,1fr)_340px] md:items-center">
-                  <TableSearchBar onChange={setTableQuery} query={tableQuery} resultCount={tableResultCount} />
+                  <div className="hidden md:block">
+                    <TableSearchBar onChange={setTableQuery} query={tableQuery} resultCount={tableResultCount} />
+                  </div>
                   <div className="md:justify-self-end md:w-[340px]">
                     <SegmentedTabs onChange={setMeetingsView} options={meetingsViewTabs} value={meetingsView} />
                   </div>
@@ -11687,19 +11738,46 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               <div className="space-y-5">
                 {moreAppView === null || moreAppView === "apps" ? (
                   <>
-                    <div className="space-y-5 md:hidden">
+                    <div className="space-y-4 md:hidden">
                       <TabHero
-                        icon={<Square className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                        icon={<Icon name="apps" size={20} />}
                         onScriptureClick={openScriptureQuickView}
                         scripture={scriptureReferences.secondPeter318}
-                        subtitle="DOS core stays simple. Optional layers extend the workspace when needed."
+                        subtitle="Open the rhythms and layers you need."
                         title="Apps for the work."
                       />
-                      <div className="space-y-5">
-                        {appCatalogSections.map((section) => (
-                          <AppsCatalogSection key={section.label} section={section} />
+                      {isAppsSearchOpen ? (
+                        <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-2 shadow-[0_12px_30px_rgba(37,99,235,0.055)]">
+                          <div className="relative">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+                            <input
+                              autoFocus
+                              className="h-11 w-full rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] pl-9 pr-10 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#BFDBFE] focus:bg-white"
+                              onChange={(event) => setAppSearchQuery(event.target.value)}
+                              placeholder="Search apps"
+                              value={appSearchQuery}
+                            />
+                            {appSearchQuery.trim() ? (
+                              <button
+                                aria-label="Clear app search"
+                                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-white hover:text-[#0F172A]"
+                                onClick={() => setAppSearchQuery("")}
+                                type="button"
+                              >
+                                <X className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="grid grid-cols-2 gap-3">
+                        {visibleMobileAppCatalogItems.map((item) => (
+                          <DesktopMoreAppCard item={item} key={item.label} />
                         ))}
                       </div>
+                      {visibleMobileAppCatalogItems.length ? null : (
+                        <EmptyState text="Try a different app name." title="No apps found." />
+                      )}
                     </div>
                     <DesktopMoreLauncher onScriptureClick={openScriptureQuickView} sections={appCatalogSections} />
                   </>
@@ -12204,6 +12282,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
       </div>
+
+      {isTableSearchOpen ? (
+        <Sheet onClose={() => setIsTableSearchOpen(false)} showEyebrow={false} title="Search Tables">
+          <div className="space-y-4">
+            <TableSearchBar onChange={setTableQuery} query={tableQuery} resultCount={tableResultCount} />
+            <AppButton onClick={() => setIsTableSearchOpen(false)} tone="black">Done</AppButton>
+          </div>
+        </Sheet>
+      ) : null}
 
       {formMode === "person" ? (
         <Sheet onClose={closeForm} showEyebrow={false} title="Add Person">
