@@ -37,4 +37,4 @@ begin
     comment on column public.prayer_requests.source is
       'Creation surface for the prayer request, such as missionary_workspace, prayer_team, public_form, or dos.';
   end if;
-end $$;
+end $$;;

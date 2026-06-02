@@ -26,4 +26,4 @@ revoke all on table public.prayer_logs from authenticated;
 grant all on table public.prayer_logs to service_role;
 
 comment on table public.prayer_logs is
-  'Internal DOS prayer activity logs. Server routes should write these records; no public or direct client access is granted by default.';
+  'Internal DOS prayer activity logs. Server routes should write these records; no public or direct client access is granted by default.';;

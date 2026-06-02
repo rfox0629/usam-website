@@ -379,4 +379,4 @@ comment on table public.visibility_rules is
   'Visibility sharing rules for affiliate organizations. Private notes are never shared through these rules.';
 
 comment on table public.product_feedback is
-  'MVP feedback intake for improving DOS from users and admins.';
+  'MVP feedback intake for improving DOS from users and admins.';;

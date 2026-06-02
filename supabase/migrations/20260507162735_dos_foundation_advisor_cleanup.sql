@@ -72,4 +72,4 @@ begin
       dos_table_name
     );
   end loop;
-end $$;
+end $$;;
