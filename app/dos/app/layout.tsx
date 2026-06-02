@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-// /dos/app is the mobile-first Field app. Keep Command Center/admin shells,
+// /dos/app is the mobile-first DOS app. Keep Command Center/admin shells,
 // navigation, profile management, and analytics panels out of this route.
 export default function DosAppLayout({ children }: { children: ReactNode }) {
   return (
@@ -55,6 +55,13 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
               .dos-app-route {
                 max-width: 100%;
                 flex-basis: 100%;
+              }
+            }
+
+            @media (min-width: 768px) {
+              .dos-app-route {
+                max-width: min(100%, 1440px);
+                flex-basis: min(100%, 1440px);
               }
             }
 

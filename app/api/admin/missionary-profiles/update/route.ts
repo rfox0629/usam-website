@@ -717,7 +717,7 @@ export async function POST(request: Request) {
   if (householdError && hasMissingFeatureColumnsError(householdError)) {
     if (requiresPublishingFeatureColumns) {
       return NextResponse.json({
-        error: "Publishing features were not saved because the profile feature columns are missing in the connected Supabase project. Apply the Missionary Workspace publishing/team migrations, then save again.",
+        error: "Publishing features were not saved because the profile feature columns are missing in the connected Supabase project. Apply the USA Missionaries Profiles publishing/team migrations, then save again.",
       }, { status: 500 });
     }
 

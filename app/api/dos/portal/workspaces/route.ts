@@ -1,29 +1,85 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { slugify, type AdminOrganizationType } from "@/src/lib/admin/organization-shared";
+import { submitUsamApplicationForSetup, type UsamApplicationSubmitPayload } from "@/src/lib/dos/usam-application";
 
 type DosPortalPayload = {
   city?: unknown;
   email?: unknown;
   firstName?: unknown;
+  firstThreePeople?: unknown;
   lastName?: unknown;
+  organizationRole?: unknown;
   organizationName?: unknown;
+  people?: unknown;
   phone?: unknown;
   roleCalling?: unknown;
   setupType?: unknown;
   spouseEmail?: unknown;
   spouseName?: unknown;
+  spousePhone?: unknown;
   state?: unknown;
   teamStatus?: unknown;
+  usamApplication?: unknown;
   workspaceName?: unknown;
 };
 
+type SetupPersonPayload = {
+  address?: unknown;
+  email?: unknown;
+  name?: unknown;
+  phone?: unknown;
+  relationshipType?: unknown;
+};
+
 type SetupType = "church" | "ministry_team" | "personal" | "usa_missionaries";
+type SetupUsamApplicationPayload = {
+  callingFocus?: unknown;
+  location?: unknown;
+  monthlyBudget?: unknown;
+  prayerNeeds?: unknown;
+  profilePhotoUrl?: unknown;
+  referencesText?: unknown;
+  storyTestimony?: unknown;
+  supportGoal?: unknown;
+};
 
 const setupTypes = ["church", "ministry_team", "personal", "usa_missionaries"] as const;
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function asNullableString(value: unknown) {
+  const text = asString(value);
+
+  return text ? text : null;
+}
+
+function asNullableNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.replace(/[$,]/g, "").trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const number = Number(normalized);
+
+  return Number.isFinite(number) ? number : null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
 }
 
 function asSetupType(value: unknown): SetupType {
@@ -78,6 +134,60 @@ function roleLabel(value: string) {
 
 function personalWorkspaceName(firstName: string, lastName: string) {
   return [firstName, lastName].filter(Boolean).join(" ").trim();
+}
+
+function normalizePhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+
+  return digits.length >= 7 ? digits : "";
+}
+
+function appWorkspaceHref(slug: string) {
+  return `/dos/app?workspace=${encodeURIComponent(slug)}`;
+}
+
+function setupApplicationPayload({
+  applicantEmail,
+  applicantName,
+  applicantPhone,
+  fallbackLocation,
+  rawApplication,
+  workspaceId,
+}: {
+  applicantEmail: string;
+  applicantName: string;
+  applicantPhone: string;
+  fallbackLocation: string;
+  rawApplication: unknown;
+  workspaceId: string;
+}): UsamApplicationSubmitPayload | null {
+  const application = asRecord(rawApplication) as SetupUsamApplicationPayload | null;
+
+  if (!application) {
+    return null;
+  }
+
+  const storyTestimony = asString(application.storyTestimony);
+  const callingFocus = asString(application.callingFocus);
+
+  if (!storyTestimony || !callingFocus) {
+    return null;
+  }
+
+  return {
+    applicantEmail,
+    applicantName,
+    applicantPhone,
+    callingFocus,
+    location: asString(application.location) || fallbackLocation,
+    monthlyBudget: asNullableNumber(application.monthlyBudget),
+    prayerNeeds: asString(application.prayerNeeds),
+    profilePhotoUrl: asString(application.profilePhotoUrl),
+    referencesText: asString(application.referencesText),
+    storyTestimony,
+    supportGoal: asNullableNumber(application.supportGoal),
+    workspaceId,
+  };
 }
 
 async function readPayload(request: Request) {
@@ -222,6 +332,259 @@ function isMissingFeatureColumn(error: { message?: string } | null | undefined) 
   return message.includes("schema cache") || message.includes("could not find");
 }
 
+function setupPeopleFromPayload(payload: DosPortalPayload) {
+  const rawPeople = Array.isArray(payload.firstThreePeople)
+    ? payload.firstThreePeople
+    : Array.isArray(payload.people)
+      ? payload.people
+      : [];
+
+  return rawPeople
+    .map((rawPerson): SetupPersonPayload => rawPerson && typeof rawPerson === "object" ? rawPerson as SetupPersonPayload : {})
+    .map((person) => ({
+      address: asString(person.address),
+      email: asString(person.email).toLowerCase(),
+      name: asString(person.name),
+      phone: asString(person.phone),
+      relationshipType: asString(person.relationshipType),
+    }))
+    .filter((person) => person.name);
+}
+
+async function loadWorkspaceById(householdId: string) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("missionary_households")
+    .select("id, slug, display_name")
+    .eq("id", householdId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+async function findExistingWorkspaceForIdentity({
+  email,
+  phone,
+}: {
+  email: string;
+  phone: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+  const normalized = normalizePhone(phone);
+  const teamRows: Array<{ household_id: string | null; id: string; status: string | null }> = [];
+  const appendRows = (rows: Array<{ household_id: string | null; id: string; status: string | null }> | null | undefined) => {
+    teamRows.push(...(rows ?? []));
+  };
+
+  if (email) {
+    const directResult = await supabase
+      .from("missionary_team_members")
+      .select("id, household_id, status")
+      .ilike("dos_user_id", email)
+      .limit(1);
+
+    if (!directResult.error) {
+      appendRows(directResult.data);
+    }
+
+    const inviteEmailResult = await supabase
+      .from("missionary_team_members")
+      .select("id, household_id, status")
+      .ilike("invite_email", email)
+      .limit(1);
+
+    if (!inviteEmailResult.error || !isMissingFeatureColumn(inviteEmailResult.error)) {
+      if (inviteEmailResult.error) {
+        throw new Error(inviteEmailResult.error.message);
+      }
+
+      appendRows(inviteEmailResult.data);
+    }
+  }
+
+  if (normalized) {
+    const invitePhoneResult = await supabase
+      .from("missionary_team_members")
+      .select("id, household_id, status")
+      .eq("invite_phone_normalized", normalized)
+      .limit(1);
+
+    if (!invitePhoneResult.error || !isMissingFeatureColumn(invitePhoneResult.error)) {
+      if (invitePhoneResult.error) {
+        throw new Error(invitePhoneResult.error.message);
+      }
+
+      appendRows(invitePhoneResult.data);
+    }
+  }
+
+  const existingTeamMember = teamRows.find((member) => (
+    member.household_id
+    && member.status !== "inactive"
+    && member.status !== "archived"
+  ));
+
+  if (!existingTeamMember?.household_id) {
+    return null;
+  }
+
+  await supabase
+    .from("missionary_team_members")
+    .update({
+      account_linked_at: new Date().toISOString(),
+      dos_user_id: email,
+      status: "active",
+    })
+    .eq("id", existingTeamMember.id);
+
+  const workspace = await loadWorkspaceById(existingTeamMember.household_id);
+
+  return workspace ?? null;
+}
+
+function teamMemberRecordCandidates(record: Record<string, unknown>) {
+  const withoutInviteMetadata = Object.fromEntries(
+    Object.entries(record).filter(([key]) => !["account_linked_at", "invite_email", "invite_phone", "invite_phone_normalized", "relationship_to_workspace"].includes(key)),
+  );
+
+  return [record, withoutInviteMetadata];
+}
+
+async function insertTeamMember(record: Record<string, unknown>) {
+  const supabase = createSupabaseAdminClient();
+  let result: { error: { message: string } | null } | null = null;
+
+  for (const candidate of teamMemberRecordCandidates(record)) {
+    result = await supabase
+      .from("missionary_team_members")
+      .insert(candidate);
+
+    if (!result.error || !isMissingFeatureColumn(result.error)) {
+      break;
+    }
+  }
+
+  if (result?.error) {
+    throw new Error(result.error.message);
+  }
+}
+
+async function findExistingFieldPerson({
+  email,
+  name,
+  phone,
+  workspaceId,
+}: {
+  email: string;
+  name: string;
+  phone: string;
+  workspaceId: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+  const queryBy = async (column: "email" | "name" | "phone", value: string, caseInsensitive = false) => {
+    if (!value) {
+      return null;
+    }
+
+    const scopedQuery = supabase
+      .from("missionary_field_people")
+      .select("id")
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+      .limit(1);
+    const result = caseInsensitive
+      ? await scopedQuery.ilike(column, value)
+      : await scopedQuery.eq(column, value);
+
+    if (result.error && isMissingFeatureColumn(result.error)) {
+      const legacyQuery = supabase
+        .from("missionary_field_people")
+        .select("id")
+        .eq("household_id", workspaceId)
+        .limit(1);
+      const legacyResult = caseInsensitive
+        ? await legacyQuery.ilike(column, value)
+        : await legacyQuery.eq(column, value);
+
+      if (legacyResult.error) {
+        throw new Error(legacyResult.error.message);
+      }
+
+      return legacyResult.data?.[0] ?? null;
+    }
+
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+
+    return result.data?.[0] ?? null;
+  };
+
+  return await queryBy("email", email, true)
+    ?? await queryBy("phone", phone)
+    ?? await queryBy("name", name, true);
+}
+
+function fieldPersonRecordCandidates(record: Record<string, unknown>) {
+  const { workspace_id: _workspaceId, ...legacyRecord } = record;
+
+  return [record, legacyRecord];
+}
+
+async function insertSetupPeople({
+  people,
+  workspaceId,
+}: {
+  people: Array<{ address: string; email: string; name: string; phone: string; relationshipType: string }>;
+  workspaceId: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+
+  for (const person of people) {
+    const existingPerson = await findExistingFieldPerson({
+      email: person.email,
+      name: person.name,
+      phone: person.phone,
+      workspaceId,
+    });
+
+    if (existingPerson) {
+      continue;
+    }
+
+    const notes = person.address ? `Address: ${person.address}` : "";
+    const record = {
+      email: asNullableString(person.email),
+      household_id: workspaceId,
+      name: person.name,
+      notes: notes || null,
+      phone: person.phone,
+      relationship_type: person.relationshipType || null,
+      source: "field",
+      status: "new",
+      workspace_id: workspaceId,
+    };
+    let insertResult: { error: { message: string } | null } | null = null;
+
+    for (const candidate of fieldPersonRecordCandidates(record)) {
+      insertResult = await supabase
+        .from("missionary_field_people")
+        .insert(candidate);
+
+      if (!insertResult.error || !isMissingFeatureColumn(insertResult.error)) {
+        break;
+      }
+    }
+
+    if (insertResult?.error) {
+      throw new Error(insertResult.error.message);
+    }
+  }
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured()) {
     return NextResponse.json({ error: "Supabase admin environment variables are not configured." }, { status: 500 });
@@ -241,10 +604,13 @@ export async function POST(request: Request) {
   const city = asString(payload.city);
   const state = asString(payload.state).toUpperCase().slice(0, 2);
   const roleCalling = asString(payload.roleCalling) || "disciple_maker";
+  const organizationRole = asString(payload.organizationRole);
   const spouseEmail = asString(payload.spouseEmail).toLowerCase();
   const spouseName = asString(payload.spouseName);
+  const spousePhone = asString(payload.spousePhone);
   const teamStatus = asString(payload.teamStatus) === "married_team" ? "married_team" : "individual";
   const providedOrganizationName = asString(payload.organizationName);
+  const setupPeople = setupPeopleFromPayload(payload);
   const personName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const workspaceName = personalWorkspaceName(firstName, lastName);
   const organizationName = setupType === "usa_missionaries"
@@ -268,6 +634,20 @@ export async function POST(request: Request) {
   let profileId = "";
 
   try {
+    const existingWorkspace = await findExistingWorkspaceForIdentity({ email, phone });
+
+    if (existingWorkspace) {
+      return NextResponse.json({
+        existingWorkspace: true,
+        temporaryCompatibility: {
+          note: "Found an existing DOS workspace from household membership metadata.",
+          workspaceId: existingWorkspace.id,
+        },
+        workspaceHref: appWorkspaceHref(existingWorkspace.slug),
+        workspaceSlug: existingWorkspace.slug,
+      }, { status: 200 });
+    }
+
     const { organization, wasCreated } = await findOrCreateOrganization({ organizationName, setupType });
 
     if (wasCreated) {
@@ -379,61 +759,77 @@ export async function POST(request: Request) {
     householdId = fallbackHouseholdResult.data.id;
 
     const teamMemberPayload = {
+      account_linked_at: new Date().toISOString(),
       display_name: personName,
       dos_user_id: email,
       household_id: householdId,
+      invite_email: email || null,
+      invite_phone: phone || null,
+      invite_phone_normalized: normalizePhone(phone) || null,
       is_public: false,
-      role_title: roleLabel(roleCalling),
+      relationship_to_workspace: "owner",
+      role_title: organizationRole || roleLabel(roleCalling),
       source: "dos",
       status: "active",
     };
-    const teamMemberResult = await supabase
-      .from("missionary_team_members")
-      .insert(teamMemberPayload);
-    const { dos_user_id: _dosUserId, ...legacyTeamMemberPayload } = teamMemberPayload;
-    const fallbackTeamMemberResult = teamMemberResult.error && isMissingFeatureColumn(teamMemberResult.error)
-      ? await supabase
-        .from("missionary_team_members")
-        .insert(legacyTeamMemberPayload)
-      : teamMemberResult;
 
-    if (fallbackTeamMemberResult.error) {
-      throw new Error(fallbackTeamMemberResult.error.message);
-    }
+    await insertTeamMember(teamMemberPayload);
 
     if (teamStatus === "married_team" && spouseName) {
       const spouseTeamMemberPayload = {
         display_name: spouseName,
         dos_user_id: spouseEmail || null,
         household_id: householdId,
+        invite_email: spouseEmail || null,
+        invite_phone: spousePhone || null,
+        invite_phone_normalized: normalizePhone(spousePhone) || null,
         is_public: false,
+        relationship_to_workspace: "spouse",
         role_title: "Team Member",
         source: "dos",
         status: "pending",
       };
-      const spouseTeamMemberResult = await supabase
-        .from("missionary_team_members")
-        .insert(spouseTeamMemberPayload);
-      const { dos_user_id: _spouseDosUserId, ...legacySpouseTeamMemberPayload } = spouseTeamMemberPayload;
-      const fallbackSpouseTeamMemberResult = spouseTeamMemberResult.error && isMissingFeatureColumn(spouseTeamMemberResult.error)
-        ? await supabase
-          .from("missionary_team_members")
-          .insert(legacySpouseTeamMemberPayload)
-        : spouseTeamMemberResult;
 
-      if (fallbackSpouseTeamMemberResult.error) {
-        throw new Error(fallbackSpouseTeamMemberResult.error.message);
-      }
+      await insertTeamMember(spouseTeamMemberPayload);
+    }
+
+    if (setupPeople.length) {
+      await insertSetupPeople({
+        people: setupPeople,
+        workspaceId: householdId,
+      });
+    }
+
+    const applicationPayload = setupApplicationPayload({
+      applicantEmail: email,
+      applicantName: personName,
+      applicantPhone: phone,
+      fallbackLocation: location,
+      rawApplication: payload.usamApplication,
+      workspaceId: householdId,
+    });
+    let applicationId: string | null = null;
+
+    if (applicationPayload) {
+      const applicationResult = await submitUsamApplicationForSetup({
+        payload: applicationPayload,
+        profileId,
+        supabase,
+      });
+
+      applicationId = applicationResult.applicationId;
     }
 
     return NextResponse.json({
+      applicationId,
+      applicationSubmitted: Boolean(applicationId),
       organizationId: organization.id,
       profileId,
       temporaryCompatibility: {
         note: "Created a personal DOS workspace using the current missionary_households compatibility layer. Household/team rollups remain linked through non-public team member metadata until a dedicated rollup relation is added.",
         workspaceId: householdId,
       },
-      workspaceHref: `/dos/${fallbackHouseholdResult.data.slug}`,
+      workspaceHref: appWorkspaceHref(fallbackHouseholdResult.data.slug),
       workspaceSlug: fallbackHouseholdResult.data.slug,
     }, { status: 201 });
   } catch (error) {

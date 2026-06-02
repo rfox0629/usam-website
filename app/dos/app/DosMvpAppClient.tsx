@@ -19,7 +19,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
+import type { DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import {
@@ -40,16 +40,49 @@ import {
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
-const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full max-w-[430px] bg-white text-[#0F172A] sm:flex sm:items-center sm:justify-center sm:py-6";
-const dosPhoneShellClassName = "relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] sm:h-[calc(100dvh-3rem)] sm:max-h-[900px] sm:rounded-[34px] sm:border sm:border-[#E2E8F0]";
+const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-6 md:py-6 xl:px-8";
+const dosPhoneShellClassName = "relative mx-auto flex h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[calc(100dvh-3rem)] md:max-h-none md:max-w-[1440px] md:rounded-none md:border-0 md:bg-transparent md:shadow-none";
 
-const tabs = [
+type ActiveTab = "home" | "meetings" | "more" | "people";
+type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "stewardship" | "support_team" | "table_flow";
+type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "settings" | "upload";
+
+const mobileTabs: ReadonlyArray<{ icon: IconName; label: string; value: ActiveTab }> = [
   { icon: "home", label: "Home", value: "home" },
-  { icon: "people", label: "People", value: "people" },
-  { icon: "meetings", label: "Meetings", value: "meetings" },
-  { icon: "fruit", label: "Fruit", value: "fruit" },
-  { icon: "library", label: "Library", value: "more" },
-] as const;
+  { icon: "meetings", label: "Table", value: "meetings" },
+  { icon: "apps", label: "Apps", value: "more" },
+];
+
+type DesktopNavItem =
+  | { icon: IconName; label: string; type: "moreApp"; value: MoreAppView }
+  | { icon: IconName; label: string; type: "settings" }
+  | { icon: IconName; label: string; type: "tab"; value: ActiveTab };
+
+const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }> = [
+  {
+    label: "Core",
+    items: [
+      { icon: "home", label: "Home", type: "tab", value: "home" },
+      { icon: "people", label: "People", type: "tab", value: "people" },
+      { icon: "meetings", label: "Table", type: "tab", value: "meetings" },
+    ],
+  },
+  {
+    label: "Discipleship",
+    items: [
+      { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
+      { icon: "fruit", label: "Fruit", type: "moreApp", value: "fruit" },
+      { icon: "library", label: "Library", type: "moreApp", value: "library" },
+    ],
+  },
+  {
+    label: "Manage",
+    items: [
+      { icon: "apps", label: "Apps", type: "moreApp", value: "apps" },
+      { icon: "settings", label: "Settings", type: "settings" },
+    ],
+  },
+];
 
 const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppMeetingType }> = [
   { helper: "Around the table", label: "Kitchen Table", value: "kitchen_table" },
@@ -154,14 +187,12 @@ const reminderRecurrenceOptions = [
   { label: "Weekly", value: "weekly" },
 ] as const;
 
-type ActiveTab = typeof tabs[number]["value"];
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView;
 type MeetingsView = "agenda" | "calendar";
 type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
-type IconName = typeof tabs[number]["icon"] | "add" | "arrow" | "bell" | "calendar" | "log" | "prayer" | "search" | "upload";
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
 type MeetingReviewFollowUp = "none" | "quick_review" | "testimony_request";
 type MeetingCalendarItemKind = "anniversary" | "birthday" | "follow_up" | "google" | "meeting" | "prayer";
@@ -181,6 +212,20 @@ type MeetingCalendarItem = {
 type PendingMeetingSendAction = {
   meeting: DosAppMeeting;
   type: Exclude<MeetingReviewFollowUp, "none">;
+};
+type UsamApplicationDraft = {
+  applicantEmail: string;
+  applicantName: string;
+  applicantPhone: string;
+  callingReason: string;
+  location: string;
+  ministryFocus: string;
+  monthlyBudget: string;
+  prayerNeeds: string;
+  profilePhotoUrl: string;
+  referencesText: string;
+  storyTestimony: string;
+  supportGoal: string;
 };
 const quickReviewQuestionPreview = [
   "I felt heard",
@@ -315,6 +360,16 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
           <path d="M9 6l6 6-6 6" />
         </svg>
       );
+    case "apps":
+      return (
+        <svg {...commonProps}>
+          <rect height="5.5" rx="1.5" width="5.5" x="4" y="4" />
+          <rect height="5.5" rx="1.5" width="5.5" x="14.5" y="4" />
+          <rect height="5.5" rx="1.5" width="5.5" x="4" y="14.5" />
+          <path d="M17.25 14.5v5.5" />
+          <path d="M14.5 17.25h5.5" />
+        </svg>
+      );
     case "bell":
       return (
         <svg {...commonProps}>
@@ -368,6 +423,15 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
           <rect height="6" rx="1.5" width="6" x="14" y="14" />
         </svg>
       );
+    case "more":
+      return (
+        <svg {...commonProps}>
+          <rect height="6" rx="1.5" width="6" x="4" y="4" />
+          <rect height="6" rx="1.5" width="6" x="14" y="4" />
+          <rect height="6" rx="1.5" width="6" x="4" y="14" />
+          <rect height="6" rx="1.5" width="6" x="14" y="14" />
+        </svg>
+      );
     case "library":
       return (
         <svg {...commonProps}>
@@ -386,11 +450,32 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
           <path d="M17 6.2a2.5 2.5 0 0 1 0 4.6" />
         </svg>
       );
+    case "prayer":
+      return (
+        <svg {...commonProps}>
+          <path d="M12 20s-7-4.4-7-10.2A4.2 4.2 0 0 1 12 6a4.2 4.2 0 0 1 7 3.8C19 15.6 12 20 12 20Z" />
+          <path d="M9 11h6" />
+        </svg>
+      );
     case "search":
       return (
         <svg {...commonProps}>
           <circle cx="11" cy="11" r="6" />
           <path d="m16 16 4 4" />
+        </svg>
+      );
+    case "settings":
+      return (
+        <svg {...commonProps}>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 3v2" />
+          <path d="M12 19v2" />
+          <path d="m4.2 4.2 1.4 1.4" />
+          <path d="m18.4 18.4 1.4 1.4" />
+          <path d="M3 12h2" />
+          <path d="M19 12h2" />
+          <path d="m4.2 19.8 1.4-1.4" />
+          <path d="m18.4 5.6 1.4-1.4" />
         </svg>
       );
     case "upload":
@@ -673,7 +758,7 @@ function formDurationMinutes(value: FormDataEntryValue | null) {
 }
 
 function meetingTypeLabel(value: string) {
-  return meetingTypeOptions.find((option) => option.value === value)?.label ?? "Meeting";
+  return meetingTypeOptions.find((option) => option.value === value)?.label ?? "Table";
 }
 
 function meetingActivityTitle(meeting: DosAppMeeting) {
@@ -1408,7 +1493,7 @@ function relationshipStatusLabel(person: DosAppPerson) {
 }
 
 function lastActivityLine(person: DosAppPerson) {
-  return person.lastActivityAt ? `Last interaction · ${formatDate(person.lastActivityAt.slice(0, 10))}` : "No meetings yet";
+  return person.lastActivityAt ? `Last interaction · ${formatDate(person.lastActivityAt.slice(0, 10))}` : "No tables yet";
 }
 
 function recentActivityLine(person: DosAppPerson) {
@@ -1444,10 +1529,10 @@ function workspaceIdentityName(workspace: DosAppWorkspace) {
     return "Fox Family";
   }
 
-  return displayName ?? "My Field";
+  return displayName ?? "My DOS";
 }
 
-function workspaceFieldSublabel(workspace: DosAppWorkspace) {
+function workspaceIdentitySublabel(workspace: DosAppWorkspace) {
   return [
     cleanIdentitySegment(workspace.stateName),
     cleanIdentitySegment(workspace.organizationName),
@@ -1528,8 +1613,13 @@ function meetingParticipantTitle(meeting: DosAppMeeting, people: DosAppPerson[])
 
 function meetingFallbackTitle(meeting: DosAppMeeting) {
   const context = meetingActivityTitle(meeting);
+  const normalizedContext = context.toLowerCase();
 
-  return context.toLowerCase().includes("meeting") ? context : `${context} Meeting`;
+  if (normalizedContext.includes("table")) {
+    return context;
+  }
+
+  return normalizedContext.includes("meeting") ? context.replace(/meeting/gi, "Table") : `${context} Table`;
 }
 
 function meetingDisplayTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
@@ -1707,6 +1797,51 @@ function filteredPeople(people: DosAppPerson[], query: string) {
     || relationshipLine(person).toLowerCase().includes(search)
     || normalizeText(person.status).toLowerCase().includes(search)
   ));
+}
+
+function tableSearchText(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  return [
+    meetingDisplayTitle(meeting, people),
+    meetingActivityTitle(meeting),
+    meeting.notes,
+    meeting.meetingStatus,
+    formatMeetingTimeRange(meeting),
+    formatDate(meeting.date),
+    ...meetingParticipantNames(meeting, people),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function filteredTables(meetings: DosAppMeeting[], people: DosAppPerson[], query: string) {
+  const search = query.trim().toLowerCase();
+
+  if (!search) {
+    return meetings;
+  }
+
+  return meetings.filter((meeting) => tableSearchText(meeting, people).includes(search));
+}
+
+function filteredCalendarItems(items: MeetingCalendarItem[], query: string) {
+  const search = query.trim().toLowerCase();
+
+  if (!search) {
+    return items;
+  }
+
+  return items.filter((item) => [
+    item.title,
+    item.subtitle,
+    item.personName,
+    item.syncLabel,
+    calendarItemLabel(item.kind),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .includes(search));
 }
 
 function normalizeCsvHeader(header: string) {
@@ -1902,7 +2037,7 @@ function MeetingActionRow({
         type="button"
       >
         <Icon name="log" size={14} />
-        <span className="truncate">Log Meeting</span>
+        <span className="truncate">Log Table</span>
       </button>
       <button
         className="inline-flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-[12px] font-bold text-[#0F172A] shadow-[0_8px_22px_rgba(37,99,235,0.05)] transition-colors hover:border-[#BFDBFE] active:scale-[0.99] max-[350px]:text-[11px]"
@@ -1910,7 +2045,7 @@ function MeetingActionRow({
         type="button"
       >
         <CalendarDays className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-        <span className="truncate max-[350px]:hidden">Schedule Meeting</span>
+        <span className="truncate max-[350px]:hidden">Schedule Table</span>
         <span className="hidden max-[350px]:inline">Schedule</span>
       </button>
     </div>
@@ -2273,16 +2408,16 @@ function TabHero({
   title: string;
 }) {
   return (
-    <section className="overflow-hidden rounded-[34px] bg-white px-5 py-5 shadow-[0_24px_70px_rgba(37,99,235,0.075)]">
+    <section className="overflow-hidden rounded-[34px] bg-white px-5 py-5 shadow-[0_24px_70px_rgba(37,99,235,0.075)] md:rounded-[24px] md:px-4 md:py-3 md:shadow-[0_12px_34px_rgba(37,99,235,0.045)] xl:px-5">
       <div className="flex items-center gap-3.5">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF]">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF] md:h-10 md:w-10 md:rounded-[16px]">
           {icon}
         </span>
         <span className="min-w-0">
-          <h2 className="text-[24px] font-black leading-[1.02] tracking-[-0.035em] text-[#0F172A] max-[350px]:text-[22px]" style={{ fontFamily: font.oswald }}>{title}</h2>
-          {subtitle ? <p className="mt-1 text-[13px] leading-5 text-[#64748B]">{subtitle}</p> : null}
+          <h2 className="text-[24px] font-black leading-[1.02] tracking-[-0.035em] text-[#0F172A] max-[350px]:text-[22px] md:text-[20px]" style={{ fontFamily: font.oswald }}>{title}</h2>
+          {subtitle ? <p className="mt-1 text-[13px] leading-5 text-[#64748B] md:line-clamp-1">{subtitle}</p> : null}
           <button
-            className="mt-3 inline-flex rounded-full text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB] transition-colors hover:text-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25"
+            className="mt-3 inline-flex rounded-full text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB] transition-colors hover:text-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25 md:mt-1.5"
             onClick={(event) => onScriptureClick(scripture, event)}
             style={{ fontFamily: font.rajdhani }}
             type="button"
@@ -2512,6 +2647,1212 @@ function FollowUpGuideList() {
         ))}
       </div>
     </article>
+  );
+}
+
+function usamStatusLabel(status: DosAppData["usamApplication"]["status"]) {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "application_started":
+      return "Started";
+    case "application_submitted":
+      return "Submitted";
+    case "approved":
+      return "Approved";
+    case "archived":
+      return "Archived";
+    case "independent":
+      return "Independent";
+    case "pending_review":
+      return "Pending Review";
+    case "rejected":
+      return "Not Approved";
+    case "not_connected":
+    default:
+      return "Independent";
+  }
+}
+
+function usamProfileStatusLabel(status: DosAppData["usamApplication"]["profileStatus"]) {
+  switch (status) {
+    case "approved":
+      return "Approved Draft";
+    case "archived":
+      return "Archived";
+    case "hidden":
+      return "Hidden";
+    case "published":
+      return "Published";
+    case "under_review":
+      return "Under Review";
+    case "draft":
+    default:
+      return "Draft";
+  }
+}
+
+function defaultUsamApplicationDraft(data: DosAppData): UsamApplicationDraft {
+  return {
+    applicantEmail: data.workspace.userEmail ?? "",
+    applicantName: data.workspace.userFullName ?? data.workspace.displayName,
+    applicantPhone: data.workspace.userPhone ?? "",
+    callingReason: data.workspace.shortMission ?? "",
+    location: data.workspace.stateName ?? "",
+    ministryFocus: "",
+    monthlyBudget: "",
+    prayerNeeds: "",
+    profilePhotoUrl: data.workspace.profileImageUrl ?? "",
+    referencesText: "",
+    storyTestimony: "",
+    supportGoal: "",
+  };
+}
+
+function buildUsamApplicationCallingFocus(draft: Pick<UsamApplicationDraft, "callingReason" | "ministryFocus">) {
+  return [
+    ["Calling", draft.callingReason],
+    ["Ministry focus", draft.ministryFocus],
+  ]
+    .filter(([, value]) => value.trim())
+    .map(([label, value]) => `${label}: ${value.trim()}`)
+    .join("\n\n");
+}
+
+function OrganizationStatusCard({
+  application,
+  message,
+  onApply,
+  onCopyPublicLink,
+  onViewStatus,
+  publicProfileHref,
+}: {
+  application: DosAppData["usamApplication"];
+  message: { text: string; tone: "error" | "success" } | null;
+  onApply: () => void;
+  onCopyPublicLink: () => void;
+  onViewStatus: () => void;
+  publicProfileHref: string;
+}) {
+  const isPending = application.status === "application_submitted" || application.status === "pending_review";
+  const isActive = application.status === "active" || application.status === "approved";
+  const canApply = !isPending && application.status !== "rejected" && application.status !== "archived";
+  const applyButtonLabel = application.status === "active" || application.status === "approved"
+    ? "Submit Update"
+    : "Apply to USA Missionaries";
+
+  return (
+    <section className={`rounded-[28px] border p-4 ${
+      isPending
+        ? "border-[#E2E8F0] bg-[#F8FAFC] shadow-[0_12px_32px_rgba(15,23,42,0.04)]"
+        : "border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)]"
+    }`}>
+      <div className="flex items-start gap-3">
+        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] ${
+          isPending ? "bg-white text-[#64748B] ring-1 ring-[#E2E8F0]" : "bg-[#EBF2FF] text-[#2563EB]"
+        }`}>
+          <Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-[18px] font-black leading-tight tracking-[-0.02em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+              Organization
+            </h2>
+            <span className={`rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] ${
+              isActive
+                ? "bg-[#ECFDF3] text-[#15803D]"
+                : isPending
+                  ? "bg-[#FFF7ED] text-[#C2410C]"
+                  : "bg-[#F1F5F9] text-[#64748B]"
+            }`} style={{ fontFamily: font.rajdhani }}>
+              {usamStatusLabel(application.status)}
+            </span>
+          </div>
+          <p className="mt-1 text-sm leading-5 text-[#64748B]">
+            {isActive
+              ? `Connected to ${application.organizationName}.`
+              : isPending
+                ? "Application submitted. Pending review."
+                : "You are using DOS independently."}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="text-xs font-semibold text-[#64748B]">Public profile</span>
+          <span className="text-xs font-bold text-[#0F172A]">{usamProfileStatusLabel(application.profileStatus)}</span>
+        </div>
+        {application.appliedAt ? (
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2">
+            <span className="text-xs font-semibold text-[#64748B]">Applied</span>
+            <span className="text-xs font-bold text-[#0F172A]">{formatDate(application.appliedAt)}</span>
+          </div>
+        ) : null}
+      </div>
+
+      {message ? (
+        <p className={`mt-3 rounded-2xl border px-3 py-2 text-sm ${
+          message.tone === "success"
+            ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
+            : "border-red-200 bg-red-50 text-red-700"
+        }`}>
+          {message.text}
+        </p>
+      ) : null}
+
+      <div className="mt-4 grid gap-2">
+        {canApply ? (
+          <button
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] transition-colors hover:brightness-[0.98]"
+            onClick={onApply}
+            type="button"
+          >
+            {applyButtonLabel}
+          </button>
+        ) : null}
+        {isPending ? (
+          <button
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#475569] transition-colors hover:border-[#BFDBFE]"
+            onClick={onViewStatus}
+            type="button"
+          >
+            View application status
+          </button>
+        ) : null}
+        {application.publicProfileLive ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#BFDBFE]"
+              href={publicProfileHref}
+            >
+              View Profile
+            </Link>
+            <button
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#BFDBFE]"
+              onClick={onCopyPublicLink}
+              type="button"
+            >
+              Copy Link
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function UsamPendingHomeCard({ onViewStatus }: { onViewStatus: () => void }) {
+  return (
+    <section className="hidden rounded-[26px] border border-[#E2E8F0] bg-[#F8FAFC] p-4 shadow-[0_12px_32px_rgba(15,23,42,0.04)] md:block">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-white text-[#64748B] ring-1 ring-[#E2E8F0]">
+          <Briefcase className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black leading-tight text-[#0F172A]">USA Missionaries application pending</p>
+          <p className="mt-1 text-xs leading-5 text-[#64748B]">
+            Your application has been submitted and is waiting for review.
+          </p>
+        </div>
+      </div>
+      <button
+        className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-xs font-bold text-[#475569] transition-colors hover:border-[#BFDBFE]"
+        onClick={onViewStatus}
+        type="button"
+      >
+        View application status
+      </button>
+    </section>
+  );
+}
+
+function DesktopPanel({
+  children,
+  className = "",
+  eyebrow,
+  title,
+}: {
+  children: ReactNode;
+  className?: string;
+  eyebrow?: string;
+  title?: string;
+}) {
+  return (
+    <section className={`rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)] xl:p-5 ${className}`}>
+      {eyebrow || title ? (
+        <div className="mb-3">
+          {eyebrow ? (
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+              {eyebrow}
+            </p>
+          ) : null}
+          {title ? <h2 className="mt-0.5 text-base font-black leading-tight tracking-[-0.02em] text-[#0F172A] xl:text-lg">{title}</h2> : null}
+        </div>
+      ) : null}
+      {children}
+    </section>
+  );
+}
+
+function DesktopMetricCard({
+  helper,
+  icon,
+  label,
+  value,
+}: {
+  helper: string;
+  icon: IconName;
+  label: string;
+  value: number | string;
+}) {
+  return (
+    <article className="min-w-0 rounded-[20px] border border-[#EAF2FF] bg-white p-3 shadow-[0_10px_28px_rgba(37,99,235,0.045)]">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          <Icon name={icon} size={17} />
+        </span>
+        <span className="text-2xl font-black leading-none tracking-[-0.025em] text-[#0F172A]">{value}</span>
+      </div>
+      <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+      <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{helper}</p>
+    </article>
+  );
+}
+
+function DesktopQuickActionButton({
+  children,
+  icon,
+  onClick,
+  primary = false,
+}: {
+  children: ReactNode;
+  icon: IconName;
+  onClick: () => void;
+  primary?: boolean;
+}) {
+  return (
+    <button
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-colors ${
+        primary
+          ? "bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)] hover:brightness-[0.98]"
+          : "border border-[#DCEBFF] bg-white text-[#1D4ED8] hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <Icon name={icon} size={15} />
+      <span className="truncate">{children}</span>
+    </button>
+  );
+}
+
+function DesktopUpcomingMeetingsCard({
+  meetings,
+  onOpenMeeting,
+  onScheduleMeeting,
+  people,
+}: {
+  meetings: DosAppMeeting[];
+  onOpenMeeting: (meetingId: string) => void;
+  onScheduleMeeting: () => void;
+  people: DosAppPerson[];
+}) {
+  return (
+    <DesktopPanel eyebrow="Table" title="Upcoming Tables">
+      <div className="grid gap-2">
+        {meetings.length ? meetings.map((meeting) => (
+          <button
+            className="flex min-w-0 items-center gap-3 rounded-[18px] bg-[#F8FAFC] px-3 py-2.5 text-left transition-colors hover:bg-[#EBF2FF]"
+            key={meeting.id}
+            onClick={() => onOpenMeeting(meeting.id)}
+            type="button"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-bold text-[#0F172A]">{meetingDisplayTitle(meeting, people)}</span>
+              <span className="mt-1 block truncate text-xs text-[#64748B]">{formatMeetingTimeRange(meeting)}</span>
+            </span>
+            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+              {meetingSyncLabel(meeting)}
+            </span>
+          </button>
+        )) : (
+          <div className="rounded-[20px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">
+            No tables scheduled yet.
+          </div>
+        )}
+      </div>
+      <button
+        className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+        onClick={onScheduleMeeting}
+        type="button"
+      >
+        <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        Schedule Table
+      </button>
+    </DesktopPanel>
+  );
+}
+
+function DesktopTodayFocusPanel({
+  items,
+  onEditReminder,
+  onLogMeetingForPerson,
+  onOpenMeeting,
+  onOpenPerson,
+  onScheduleForPerson,
+}: {
+  items: UpcomingTimelineItem[];
+  onEditReminder: (reminderId: string) => void;
+  onLogMeetingForPerson: (personId: string) => void;
+  onOpenMeeting: (meetingId: string) => void;
+  onOpenPerson: (personId: string) => void;
+  onScheduleForPerson: (personId?: string | string[]) => void;
+}) {
+  const primaryPersonId = items.find((item) => item.personId)?.personId ?? null;
+
+  return (
+    <DesktopPanel eyebrow="Focus" title="Today's Focus / Prayer">
+      <div className="grid gap-2">
+        {items.length ? items.slice(0, 3).map((item) => (
+          <button
+            className="flex min-w-0 items-center gap-3 rounded-[18px] bg-[#F8FAFC] px-3 py-2.5 text-left transition-colors hover:bg-[#EBF2FF]"
+            key={item.id}
+            onClick={() => {
+              if (item.meeting) {
+                onOpenMeeting(item.meeting.id);
+              } else if (item.reminder) {
+                onEditReminder(item.reminder.id);
+              }
+            }}
+            type="button"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+              <TimelineIcon icon={item.icon} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-bold text-[#0F172A]">{todayFocusTitle(item)}</span>
+              <span className="mt-1 block truncate text-xs text-[#64748B]">{item.label}</span>
+            </span>
+          </button>
+        )) : (
+          <p className="rounded-[20px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">
+            No scheduled reminders today. Ask the Lord who to encourage next.
+          </p>
+        )}
+      </div>
+
+      {primaryPersonId ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <DesktopQuickActionButton icon="people" onClick={() => onOpenPerson(primaryPersonId)}>View person</DesktopQuickActionButton>
+          <DesktopQuickActionButton icon="log" onClick={() => onLogMeetingForPerson(primaryPersonId)}>Log Table</DesktopQuickActionButton>
+          <DesktopQuickActionButton icon="calendar" onClick={() => onScheduleForPerson(primaryPersonId)}>Schedule Table</DesktopQuickActionButton>
+        </div>
+      ) : (
+        <button
+          className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+          onClick={() => onScheduleForPerson()}
+          type="button"
+        >
+          <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          Schedule Table
+        </button>
+      )}
+    </DesktopPanel>
+  );
+}
+
+function DesktopCirclePanel({
+  circleGroups,
+  onSelectCircle,
+  onViewCircles,
+}: {
+  circleGroups: CircleLayerGroups;
+  onSelectCircle: (circle: CircleFocusView) => void;
+  onViewCircles: () => void;
+}) {
+  const my3Count = circleGroups.three.length;
+  const my12Count = circleGroups.three.length + circleGroups.twelve.length;
+  const my70Count = circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length;
+  const my120Count = my70Count + circleGroups.my120.length;
+
+  return (
+    <DesktopPanel eyebrow="Circle" title="Your Circle">
+      <div className="flex justify-center overflow-hidden">
+        <div className="-my-6 scale-[0.78] xl:scale-[0.82]">
+          <CircleTarget
+            my12Count={my12Count}
+            my120Count={my120Count}
+            my3Count={my3Count}
+            my70Count={my70Count}
+            onSelectCircle={onSelectCircle}
+          />
+        </div>
+      </div>
+      <button
+        className="mt-1 inline-flex min-h-10 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.20)] transition-colors hover:brightness-[0.98]"
+        onClick={onViewCircles}
+        type="button"
+      >
+        See who's inside
+      </button>
+      <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+        {[
+          ["3", my3Count],
+          ["12", my12Count],
+          ["70", my70Count],
+          ["120", my120Count],
+        ].map(([label, value]) => (
+          <div className="rounded-2xl bg-[#F8FAFC] px-2 py-2" key={label}>
+            <p className="text-sm font-black text-[#0F172A]">{value}</p>
+            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>My {label}</p>
+          </div>
+        ))}
+      </div>
+    </DesktopPanel>
+  );
+}
+
+type DosAppCatalogSectionKey = "coming_soon" | "installed" | "missionary";
+
+type DesktopMoreAppItem = {
+  description: string;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  section: DosAppCatalogSectionKey;
+  status: string;
+};
+
+type DosAppCatalogSection = {
+  description: string;
+  items: DesktopMoreAppItem[];
+  label: string;
+};
+
+function DesktopMoreAppCard({ item }: { item: DesktopMoreAppItem }) {
+  return (
+    <button
+      className="flex min-h-[112px] min-w-0 flex-col justify-between rounded-[22px] border border-[#EAF2FF] bg-white p-3.5 text-left shadow-[0_10px_28px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF]"
+      onClick={item.onClick}
+      type="button"
+    >
+      <span className="flex items-start justify-between gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          {item.icon}
+        </span>
+        <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+          {item.status}
+        </span>
+      </span>
+      <span className="mt-3 min-w-0">
+        <span className="block text-base font-black leading-tight tracking-[-0.02em] text-[#0F172A]">{item.label}</span>
+        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{item.description}</span>
+      </span>
+    </button>
+  );
+}
+
+function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
+  return (
+    <DesktopPanel eyebrow="Apps" title="Installed Apps">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {apps.map((item) => (
+          <DesktopMoreAppCard item={item} key={item.label} />
+        ))}
+      </div>
+    </DesktopPanel>
+  );
+}
+
+function AppsCatalogSection({ section }: { section: DosAppCatalogSection }) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+          {section.label}
+        </h2>
+        <p className="mt-1 text-xs leading-5 text-[#64748B]">{section.description}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {section.items.map((item) => (
+          <DesktopMoreAppCard item={item} key={item.label} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DesktopRecentActivityPanel({
+  latestFruitActivity,
+  latestMeeting,
+  latestPrayerActivity,
+  onOpenFruit,
+  onOpenMeeting,
+  onOpenMeetings,
+  people,
+}: {
+  latestFruitActivity: { label: string } | null;
+  latestMeeting: DosAppMeeting | undefined;
+  latestPrayerActivity: { label: string; meetingId: string } | null;
+  onOpenFruit: () => void;
+  onOpenMeeting: (meetingId: string) => void;
+  onOpenMeetings: () => void;
+  people: DosAppPerson[];
+}) {
+  return (
+    <DesktopPanel eyebrow="Activity" title="Recent Activity / Fruit">
+      <div className="grid gap-2 md:grid-cols-3">
+        {latestMeeting ? (
+          <RecentActivityRow icon="log" onClick={onOpenMeetings} title="Latest table">
+            {meetingDisplayTitle(latestMeeting, people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
+          </RecentActivityRow>
+        ) : null}
+        {latestPrayerActivity ? (
+          <RecentActivityRow icon="bell" onClick={() => onOpenMeeting(latestPrayerActivity.meetingId)} title="Latest prayer">
+            {latestPrayerActivity.label}
+          </RecentActivityRow>
+        ) : null}
+        {latestFruitActivity ? (
+          <RecentActivityRow icon="fruit" onClick={onOpenFruit} title="Latest fruit">
+            {latestFruitActivity.label}
+          </RecentActivityRow>
+        ) : null}
+        {!latestMeeting && !latestPrayerActivity && !latestFruitActivity ? (
+          <p className="rounded-[20px] bg-[#F8FAFC] px-4 py-4 text-sm text-[#64748B]">Log a table to begin your activity rhythm.</p>
+        ) : null}
+      </div>
+    </DesktopPanel>
+  );
+}
+
+function DesktopHomeDashboard({
+  circleGroups,
+  fruitStoryCount,
+  greetingName,
+  homeSubtitle,
+  isUsamApplicationPending,
+  latestFruitActivity,
+  latestMeeting,
+  latestPrayerActivity,
+  moreApps,
+  onAddPerson,
+  onEditReminder,
+  onLogMeeting,
+  onLogMeetingForPerson,
+  onOpenFruit,
+  onOpenMeeting,
+  onOpenMeetings,
+  onOpenPerson,
+  onOpenPrayer,
+  onOpenProfile,
+  onScheduleMeeting,
+  onSelectCircle,
+  onViewCircles,
+  onViewUsamStatus,
+  people,
+  profileImageUrl,
+  profileName,
+  thisWeekStats,
+  todayFocusItems,
+  upcomingMeetings,
+}: {
+  circleGroups: CircleLayerGroups;
+  fruitStoryCount: number;
+  greetingName: string;
+  homeSubtitle: string;
+  isUsamApplicationPending: boolean;
+  latestFruitActivity: { label: string } | null;
+  latestMeeting: DosAppMeeting | undefined;
+  latestPrayerActivity: { label: string; meetingId: string } | null;
+  moreApps: DesktopMoreAppItem[];
+  onAddPerson: () => void;
+  onEditReminder: (reminderId: string) => void;
+  onLogMeeting: () => void;
+  onLogMeetingForPerson: (personId: string) => void;
+  onOpenFruit: () => void;
+  onOpenMeeting: (meetingId: string) => void;
+  onOpenMeetings: () => void;
+  onOpenPerson: (personId: string) => void;
+  onOpenPrayer: () => void;
+  onOpenProfile: () => void;
+  onScheduleMeeting: (personId?: string | string[]) => void;
+  onSelectCircle: (circle: CircleFocusView) => void;
+  onViewCircles: () => void;
+  onViewUsamStatus: () => void;
+  people: DosAppPerson[];
+  profileImageUrl?: string | null;
+  profileName: string;
+  thisWeekStats: { label: string; meetings: number; newPeople: number; prayed: number };
+  todayFocusItems: UpcomingTimelineItem[];
+  upcomingMeetings: DosAppMeeting[];
+}) {
+  const my3Count = circleGroups.three.length;
+  const my12Count = circleGroups.three.length + circleGroups.twelve.length;
+
+  return (
+    <div className="hidden md:block">
+      <header className="flex items-center justify-between gap-5">
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-[#2563EB] xl:text-sm">Good afternoon, {greetingName}.</p>
+          <h1 className="mt-1 text-[30px] font-black leading-[0.95] tracking-[-0.035em] text-[#020617] xl:text-[36px]" style={{ fontFamily: font.oswald }}>
+            Discipleship on the go.
+          </h1>
+          <span className="mt-2 inline-flex rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-semibold leading-none text-[#64748B] shadow-[0_6px_14px_rgba(37,99,235,0.045)]">
+            {homeSubtitle}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          <DesktopQuickActionButton icon="log" onClick={onLogMeeting} primary>Log Table</DesktopQuickActionButton>
+          <button
+            aria-label="Open profile"
+            className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/35"
+            onClick={onOpenProfile}
+            type="button"
+          >
+            <UserProfileAvatar imageUrl={profileImageUrl} name={profileName} />
+          </button>
+        </div>
+      </header>
+
+      <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <DesktopMetricCard helper="Highest focus" icon="people" label="My 3" value={my3Count} />
+        <DesktopMetricCard helper="Active discipleship" icon="people" label="My 12" value={my12Count} />
+        <DesktopMetricCard helper={thisWeekStats.label} icon="log" label="Tables" value={thisWeekStats.meetings} />
+        <DesktopMetricCard helper="Approved stories" icon="fruit" label="Recent Fruit" value={fruitStoryCount} />
+      </section>
+
+      <section className="mt-4 flex flex-wrap gap-2">
+        <DesktopQuickActionButton icon="add" onClick={onAddPerson}>Add Person</DesktopQuickActionButton>
+        <DesktopQuickActionButton icon="log" onClick={onLogMeeting}>Log Table</DesktopQuickActionButton>
+        <DesktopQuickActionButton icon="calendar" onClick={() => onScheduleMeeting()}>Schedule Table</DesktopQuickActionButton>
+        <DesktopQuickActionButton icon="prayer" onClick={onOpenPrayer}>Prayer Alert</DesktopQuickActionButton>
+      </section>
+
+      {isUsamApplicationPending ? (
+        <div className="mt-4">
+          <UsamPendingHomeCard onViewStatus={onViewUsamStatus} />
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(0,1.25fr)_minmax(330px,0.75fr)]">
+        <div className="grid gap-4">
+          <DesktopUpcomingMeetingsCard
+            meetings={upcomingMeetings}
+            onOpenMeeting={onOpenMeeting}
+            onScheduleMeeting={() => onScheduleMeeting()}
+            people={people}
+          />
+          <DesktopTodayFocusPanel
+            items={todayFocusItems}
+            onEditReminder={onEditReminder}
+            onLogMeetingForPerson={onLogMeetingForPerson}
+            onOpenMeeting={onOpenMeeting}
+            onOpenPerson={onOpenPerson}
+            onScheduleForPerson={onScheduleMeeting}
+          />
+        </div>
+        <div className="grid gap-4">
+          <DesktopCirclePanel circleGroups={circleGroups} onSelectCircle={onSelectCircle} onViewCircles={onViewCircles} />
+          <DesktopMoreAppsPreview apps={moreApps} />
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <DesktopRecentActivityPanel
+          latestFruitActivity={latestFruitActivity}
+          latestMeeting={latestMeeting}
+          latestPrayerActivity={latestPrayerActivity}
+          onOpenFruit={onOpenFruit}
+          onOpenMeeting={onOpenMeeting}
+          onOpenMeetings={onOpenMeetings}
+          people={people}
+        />
+      </div>
+    </div>
+  );
+}
+
+function DesktopMoreLauncher({
+  sections,
+  onScriptureClick,
+}: {
+  sections: DosAppCatalogSection[];
+  onScriptureClick: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <div className="hidden md:block">
+      <TabPageHeader title="Apps" />
+      <div className="mt-4">
+        <TabHero
+          icon={<Square className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+          onScriptureClick={onScriptureClick}
+          scripture={scriptureReferences.secondPeter318}
+          subtitle="DOS core stays simple. Installable layers extend the workspace when needed."
+          title="Apps for the work."
+        />
+      </div>
+      <div className="mt-5 space-y-6">
+        {sections.map((section) => (
+          <AppsCatalogSection key={section.label} section={section} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function desktopOrganizationCopy(connection: DosAppOrganizationConnection, application: DosAppData["usamApplication"]) {
+  if (connection.type === "independent") {
+    return "Your DOS workspace can operate independently for now.";
+  }
+
+  if (connection.type !== "usam") {
+    return connection.status === "active" ? "Connected organization extension." : "Organization connection is waiting.";
+  }
+
+  const status = application.status;
+
+  if (status === "application_started") {
+    return "Application started. Continue when you are ready.";
+  }
+
+  if (status === "application_submitted" || status === "pending_review") {
+    return "Application submitted. Pending review.";
+  }
+
+  if (status === "approved" || status === "active") {
+    return application.publicProfileLive ? "Profile live and connected." : "Approved. Profile is not live yet.";
+  }
+
+  if (status === "rejected") {
+    return "Application reviewed. Contact USA Missionaries for next steps.";
+  }
+
+  return "Apply to USA Missionaries when you are ready.";
+}
+
+function DesktopOrganizationConnectionCard({
+  application,
+  connection,
+  onApply,
+  onCopyPublicLink,
+  onViewStatus,
+  publicProfileHref,
+}: {
+  application: DosAppData["usamApplication"];
+  connection: DosAppOrganizationConnection;
+  onApply: () => void;
+  onCopyPublicLink: () => void;
+  onViewStatus: () => void;
+  publicProfileHref: string;
+}) {
+  const isUsam = connection.type === "usam";
+  const isIndependent = connection.type === "independent";
+  const isPending = isUsam && (application.status === "application_submitted" || application.status === "pending_review");
+  const isActive = isUsam && (application.status === "approved" || application.status === "active");
+  const canApply = isUsam && !isPending && application.status !== "rejected" && application.status !== "archived";
+  const statusLabel = isUsam ? usamStatusLabel(application.status) : organizationConnectionStatusLabel(connection);
+
+  return (
+    <article className={`flex min-h-[190px] min-w-0 flex-col rounded-[28px] border p-5 shadow-[0_16px_38px_rgba(37,99,235,0.05)] ${
+      isPending
+        ? "border-[#E2E8F0] bg-[#F8FAFC]"
+        : isActive
+          ? "border-[#BFDBFE] bg-white"
+          : "border-[#EAF2FF] bg-white"
+    }`}>
+      <div className="flex items-start justify-between gap-3">
+        <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] ${
+          isIndependent ? "bg-[#F8FAFC] text-[#64748B] ring-1 ring-[#E2E8F0]" : "bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]"
+        }`}>
+          {isUsam ? <Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} /> : isIndependent ? <User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} /> : <Church className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+        </span>
+        <span className={`rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] ${
+          isActive
+            ? "bg-[#ECFDF3] text-[#15803D]"
+            : isPending
+              ? "bg-[#FFF7ED] text-[#C2410C]"
+              : "bg-[#F1F5F9] text-[#64748B]"
+        }`} style={{ fontFamily: font.rajdhani }}>
+          {statusLabel}
+        </span>
+      </div>
+      <h3 className="mt-4 text-xl font-black leading-tight tracking-[-0.02em] text-[#0F172A]">{connection.name}</h3>
+      <p className="mt-2 text-sm leading-6 text-[#64748B]">{desktopOrganizationCopy(connection, application)}</p>
+      {isUsam ? (
+        <div className="mt-auto pt-4">
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs">
+            <span className="font-semibold text-[#64748B]">Profile</span>
+            <span className="font-bold text-[#0F172A]">{usamProfileStatusLabel(application.profileStatus)}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {canApply ? (
+              <button
+                className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-xs font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.20)]"
+                onClick={onApply}
+                type="button"
+              >
+                {application.status === "application_started" ? "Continue application" : isActive ? "Submit update" : "Apply"}
+              </button>
+            ) : null}
+            {isPending ? (
+              <button
+                className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-xs font-bold text-[#475569] transition-colors hover:border-[#BFDBFE]"
+                onClick={onViewStatus}
+                type="button"
+              >
+                View status
+              </button>
+            ) : null}
+            {application.publicProfileLive ? (
+              <>
+                <Link
+                  className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#BFDBFE]"
+                  href={publicProfileHref}
+                >
+                  View profile
+                </Link>
+                <button
+                  className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#BFDBFE]"
+                  onClick={onCopyPublicLink}
+                  type="button"
+                >
+                  Copy link
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function DesktopOrganizationsView({
+  application,
+  message,
+  onApply,
+  onBack,
+  onCopyPublicLink,
+  onScriptureClick,
+  onViewStatus,
+  organizations,
+  publicProfileHref,
+}: {
+  application: DosAppData["usamApplication"];
+  message: { text: string; tone: "error" | "success" } | null;
+  onApply: () => void;
+  onBack: () => void;
+  onCopyPublicLink: () => void;
+  onScriptureClick: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
+  onViewStatus: () => void;
+  organizations: DosAppOrganizationConnection[];
+  publicProfileHref: string;
+}) {
+  return (
+    <div className="hidden md:block">
+      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Organizations" />
+      <div className="mt-4">
+        <TabHero
+          icon={<Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+          onScriptureClick={onScriptureClick}
+          scripture={scriptureReferences.secondPeter318}
+          subtitle="Manage optional organization connections without changing your DOS workspace."
+          title="Connected work."
+        />
+      </div>
+      {message ? (
+        <p className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+          message.tone === "success"
+            ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
+            : "border-red-200 bg-red-50 text-red-700"
+        }`}>
+          {message.text}
+        </p>
+      ) : null}
+      <section className="mt-5 grid gap-4 lg:grid-cols-3">
+        {organizations.map((organization) => (
+          <DesktopOrganizationConnectionCard
+            application={application}
+            connection={organization}
+            key={organization.id}
+            onApply={onApply}
+            onCopyPublicLink={onCopyPublicLink}
+            onViewStatus={onViewStatus}
+            publicProfileHref={publicProfileHref}
+          />
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function MoreBackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+      onClick={onClick}
+      type="button"
+    >
+      <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+      Apps
+    </button>
+  );
+}
+
+function MoreAppTile({
+  description,
+  icon,
+  label,
+  onClick,
+}: {
+  description: string;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="flex min-h-[108px] min-w-0 flex-col items-start justify-between rounded-[26px] border border-[#EAF2FF] bg-white p-4 text-left shadow-[0_16px_38px_rgba(37,99,235,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.99]"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+        {icon}
+      </span>
+      <span className="mt-3 min-w-0">
+        <span className="block text-base font-black leading-tight tracking-[-0.02em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>{label}</span>
+        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{description}</span>
+      </span>
+    </button>
+  );
+}
+
+function organizationConnectionStatusLabel(connection: DosAppOrganizationConnection) {
+  if (connection.type === "usam") {
+    return usamStatusLabel(connection.status as DosAppData["usamApplication"]["status"]);
+  }
+
+  if (connection.type === "independent") {
+    return "Independent";
+  }
+
+  return connection.status === "active" ? "Connected" : connection.status;
+}
+
+function OrganizationConnectionRow({ connection }: { connection: DosAppOrganizationConnection }) {
+  const isUsam = connection.type === "usam";
+  const isIndependent = connection.type === "independent";
+
+  return (
+    <article className="flex min-w-0 gap-3 rounded-[22px] border border-[#EAF2FF] bg-white p-3.5 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] ${
+        isIndependent ? "bg-[#F8FAFC] text-[#64748B]" : "bg-[#EBF2FF] text-[#2563EB]"
+      }`}>
+        {isUsam ? <Briefcase className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.9} /> : isIndependent ? <User className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.9} /> : <Church className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.9} />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="min-w-0 truncate text-sm font-bold text-[#0F172A]">{connection.name}</h3>
+          <span className="shrink-0 rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+            {organizationConnectionStatusLabel(connection)}
+          </span>
+        </div>
+        <p className="mt-1 text-xs leading-5 text-[#64748B]">
+          {isUsam
+            ? connection.status === "pending_review" || connection.status === "application_submitted"
+              ? "Application submitted. Pending review."
+              : `Profile ${connection.profileStatus ?? "draft"}${connection.publicProfileLive ? " · Live" : ""}`
+            : isIndependent
+              ? "Your DOS workspace can operate without an organization connection."
+              : "Connected organization extension."}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function UsamApplicationSheet({
+  draft,
+  errorMessage,
+  isSubmitting,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  draft: UsamApplicationDraft;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onChange: (field: keyof UsamApplicationDraft, value: string) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const steps = [
+    "calling",
+    "story",
+    "focus",
+    "location",
+    "photo",
+    "budget",
+    "prayer",
+    "references",
+    "review",
+  ] as const;
+  const [stepIndex, setStepIndex] = useState(0);
+  const currentStep = steps[stepIndex] ?? "calling";
+  const canAdvance = currentStep === "calling"
+    ? Boolean(draft.callingReason.trim())
+    : currentStep === "story"
+      ? Boolean(draft.storyTestimony.trim())
+      : currentStep === "focus"
+        ? Boolean(draft.ministryFocus.trim())
+        : currentStep === "budget"
+          ? Boolean(draft.monthlyBudget.trim() || draft.supportGoal.trim())
+          : currentStep === "prayer"
+            ? Boolean(draft.prayerNeeds.trim())
+            : true;
+  const canSubmit = Boolean(
+    draft.applicantName.trim()
+    && draft.applicantEmail.trim()
+    && draft.storyTestimony.trim()
+    && buildUsamApplicationCallingFocus(draft),
+  );
+
+  function nextStep() {
+    if (!canAdvance) {
+      return;
+    }
+
+    setStepIndex((current) => Math.min(current + 1, steps.length - 1));
+  }
+
+  function previousStep() {
+    setStepIndex((current) => Math.max(current - 1, 0));
+  }
+
+  return (
+    <Sheet description="Application details seed a draft USA Missionaries profile for admin review." onClose={onClose} showEyebrow={false} title="Apply to USA Missionaries">
+      <form className="space-y-4" onSubmit={onSubmit}>
+        {errorMessage ? (
+          <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
+        ) : null}
+        <div className="rounded-[26px] border border-[#EAF2FF] bg-[#FBFDFF] p-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+            Question {stepIndex + 1} of {steps.length}
+          </p>
+          {currentStep === "calling" ? (
+            <label className="mt-3 block">
+              <FieldLabel>Tell us briefly why you feel called to USA Missionaries.</FieldLabel>
+              <textarea className={`${FieldTextareaClass()} min-h-32 bg-white`} onChange={(event) => onChange("callingReason", event.target.value)} required value={draft.callingReason} />
+            </label>
+          ) : null}
+          {currentStep === "story" ? (
+            <label className="mt-3 block">
+              <FieldLabel>Share your story or testimony.</FieldLabel>
+              <textarea className={`${FieldTextareaClass()} min-h-40 bg-white`} onChange={(event) => onChange("storyTestimony", event.target.value)} required value={draft.storyTestimony} />
+            </label>
+          ) : null}
+          {currentStep === "focus" ? (
+            <label className="mt-3 block">
+              <FieldLabel>Who do you feel called to reach or disciple?</FieldLabel>
+              <textarea className={`${FieldTextareaClass()} min-h-32 bg-white`} onChange={(event) => onChange("ministryFocus", event.target.value)} required value={draft.ministryFocus} />
+            </label>
+          ) : null}
+          {currentStep === "location" ? (
+            <label className="mt-3 block">
+              <FieldLabel>Where are you based?</FieldLabel>
+              <input className={`${FieldInputClass()} bg-white`} onChange={(event) => onChange("location", event.target.value)} value={draft.location} />
+            </label>
+          ) : null}
+          {currentStep === "photo" ? (
+            <div className="mt-3 grid gap-2">
+              <label className="block">
+                <FieldLabel>Add a profile photo.</FieldLabel>
+                <input className={`${FieldInputClass()} bg-white`} onChange={(event) => onChange("profilePhotoUrl", event.target.value)} placeholder="https://..." value={draft.profilePhotoUrl} />
+              </label>
+              <p className="text-xs leading-5 text-[#64748B]">A URL is enough for now. Upload can come later.</p>
+            </div>
+          ) : null}
+          {currentStep === "budget" ? (
+            <div className="mt-3 grid gap-3">
+              <label className="block">
+                <FieldLabel>What is your monthly support goal?</FieldLabel>
+                <input className={`${FieldInputClass()} bg-white`} inputMode="decimal" onChange={(event) => onChange("monthlyBudget", event.target.value)} placeholder="3500" value={draft.monthlyBudget} />
+              </label>
+              <label className="block">
+                <FieldLabel>Support goal note</FieldLabel>
+                <input className={`${FieldInputClass()} bg-white`} inputMode="decimal" onChange={(event) => onChange("supportGoal", event.target.value)} placeholder="Optional if different" value={draft.supportGoal} />
+              </label>
+            </div>
+          ) : null}
+          {currentStep === "prayer" ? (
+            <label className="mt-3 block">
+              <FieldLabel>How can people be praying for you?</FieldLabel>
+              <textarea className={`${FieldTextareaClass()} min-h-32 bg-white`} onChange={(event) => onChange("prayerNeeds", event.target.value)} required value={draft.prayerNeeds} />
+            </label>
+          ) : null}
+          {currentStep === "references" ? (
+            <label className="mt-3 block">
+              <FieldLabel>Optional references or pastor/church contact</FieldLabel>
+              <textarea className={`${FieldTextareaClass()} min-h-28 bg-white`} onChange={(event) => onChange("referencesText", event.target.value)} value={draft.referencesText} />
+            </label>
+          ) : null}
+          {currentStep === "review" ? (
+            <div className="mt-3 grid gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="col-span-2 block">
+                  <FieldLabel>Name</FieldLabel>
+                  <input className={`${FieldInputClass()} bg-white`} onChange={(event) => onChange("applicantName", event.target.value)} required value={draft.applicantName} />
+                </label>
+                <label className="block">
+                  <FieldLabel>Email</FieldLabel>
+                  <input className={`${FieldInputClass()} bg-white`} onChange={(event) => onChange("applicantEmail", event.target.value)} required type="email" value={draft.applicantEmail} />
+                </label>
+                <label className="block">
+                  <FieldLabel>Phone</FieldLabel>
+                  <input className={`${FieldInputClass()} bg-white`} onChange={(event) => onChange("applicantPhone", event.target.value)} value={draft.applicantPhone} />
+                </label>
+              </div>
+              <div className="rounded-[20px] border border-[#DCEBFF] bg-white px-3 py-3 text-sm leading-6 text-[#64748B]">
+                Submitting creates a draft USA Missionaries Profile for admin review. It does not activate membership or publish your profile.
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <div className="flex gap-2">
+          {stepIndex > 0 ? (
+            <button
+              className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A]"
+              onClick={previousStep}
+              type="button"
+            >
+              Back
+            </button>
+          ) : null}
+          {currentStep === "review" ? (
+            <button
+              className="inline-flex min-h-12 flex-[1.6] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] transition-colors hover:brightness-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSubmitting || !canSubmit}
+              type="submit"
+            >
+              {isSubmitting ? "Submitting..." : "Submit Application"}
+            </button>
+          ) : (
+            <button
+              className="inline-flex min-h-12 flex-[1.6] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] transition-colors hover:brightness-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!canAdvance}
+              onClick={nextStep}
+              type="button"
+            >
+              Continue
+            </button>
+          )}
+        </div>
+      </form>
+    </Sheet>
   );
 }
 
@@ -2823,22 +4164,22 @@ function RhythmBars() {
 
 function ProfileSheet({
   email,
-  fieldName,
-  fieldSublabel,
   name,
   onClose,
   onEditProfile,
   onOpenCircles,
   photoUrl,
+  workspaceName,
+  workspaceSublabel,
 }: {
   email: string;
-  fieldName: string;
-  fieldSublabel: string;
   name: string;
   onClose: () => void;
   onEditProfile: () => void;
   onOpenCircles: () => void;
   photoUrl?: string | null;
+  workspaceName: string;
+  workspaceSublabel: string;
 }) {
   return (
     <ProfileSheetFrame
@@ -2871,9 +4212,9 @@ function ProfileSheet({
           </div>
         </section>
 
-        <ProfileGroup title="Your Field">
-          <ProfileRow icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} meta={<span className="text-[#2563EB]">Switch</span>} sublabel={fieldSublabel}>
-            {fieldName}
+        <ProfileGroup title="Your DOS Workspace">
+          <ProfileRow icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} meta={<span className="text-[#2563EB]">Switch</span>} sublabel={workspaceSublabel}>
+            {workspaceName}
           </ProfileRow>
           <ProfileRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} isLast onClick={onOpenCircles}>
             People & circles
@@ -2915,20 +4256,20 @@ function ProfileSheet({
 
 function EditProfileSheet({
   email,
-  fieldName,
-  fieldSublabel,
   name,
   onClose,
   phone,
+  workspaceName,
+  workspaceSublabel,
 }: {
   email: string;
-  fieldName: string;
-  fieldSublabel: string;
   name: string;
   onClose: () => void;
   phone: string;
+  workspaceName: string;
+  workspaceSublabel: string;
 }) {
-  const [stateName, organizationName] = fieldSublabel.split(" · ");
+  const [stateName, organizationName] = workspaceSublabel.split(" · ");
 
   return (
     <ProfileSheetFrame onClose={onClose} title="Edit profile">
@@ -2945,7 +4286,7 @@ function EditProfileSheet({
             ["Name", name],
             ["Email", email],
             ["Phone", formatPhoneNumber(phone) || phone],
-            ["Field name", fieldName],
+            ["Workspace name", workspaceName],
             ["State", stateName ?? ""],
             ["Organization", organizationName ?? ""],
           ].map(([label, value]) => (
@@ -3048,6 +4389,116 @@ function PeopleCircleTabs({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function TableSearchBar({
+  query,
+  resultCount,
+  onChange,
+}: {
+  query: string;
+  resultCount: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-[22px] border border-[#EAF2FF] bg-white p-2.5 shadow-[0_10px_28px_rgba(37,99,235,0.045)] md:flex md:items-center md:gap-3 md:p-3">
+      <label className="relative block min-w-0 flex-1">
+        <span className="sr-only">Search tables</span>
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]">
+          <Icon name="search" size={15} />
+        </span>
+        <input
+          className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-[#F8FBFF] pl-10 pr-4 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Search tables, notes, people, or type"
+          type="search"
+          value={query}
+        />
+      </label>
+      <span className="mt-2 block rounded-full bg-[#F8FAFC] px-3 py-1.5 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B] md:mt-0" style={{ fontFamily: font.rajdhani }}>
+        {resultCount} shown
+      </span>
+    </div>
+  );
+}
+
+function DesktopPeopleIndex({
+  empty,
+  fruitCountByPersonId,
+  items,
+  latestMeetingDateByPersonId,
+  onLogMeeting,
+  onOpenPerson,
+  startIndex = 0,
+}: {
+  empty: string;
+  fruitCountByPersonId: Map<string, number>;
+  items: CircleListItem[];
+  latestMeetingDateByPersonId: Map<string, string | null>;
+  onLogMeeting: (personId: string) => void;
+  onOpenPerson: (personId: string) => void;
+  startIndex?: number;
+}) {
+  if (!items.length) {
+    return (
+      <div className="rounded-[24px] border border-[#EAF2FF] bg-white px-5 py-8 text-center text-sm text-[#64748B] shadow-[0_12px_34px_rgba(37,99,235,0.045)]">
+        {empty}
+      </div>
+    );
+  }
+
+  return (
+    <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
+      <div className="grid grid-cols-[minmax(190px,1.4fr)_minmax(112px,0.72fr)_minmax(104px,0.68fr)] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8] lg:grid-cols-[minmax(220px,1.5fr)_minmax(130px,0.8fr)_minmax(130px,0.8fr)_90px_76px]" style={{ fontFamily: font.rajdhani }}>
+        <span>Person</span>
+        <span>Status</span>
+        <span>Last Table</span>
+        <span className="hidden lg:block">Fruit</span>
+        <span className="hidden text-right lg:block">Action</span>
+      </div>
+      <div className="divide-y divide-[#EFF6FF]">
+        {items.map(({ person }, index) => {
+          const lastTable = latestMeetingDateByPersonId.get(person.id) ?? null;
+          const fruitCount = fruitCountByPersonId.get(person.id) ?? 0;
+
+          return (
+            <div
+              className="grid grid-cols-[minmax(190px,1.4fr)_minmax(112px,0.72fr)_minmax(104px,0.68fr)] items-center gap-3 px-4 py-3 transition-colors hover:bg-[#F8FBFF] lg:grid-cols-[minmax(220px,1.5fr)_minmax(130px,0.8fr)_minmax(130px,0.8fr)_90px_76px]"
+              key={person.id}
+            >
+              <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => onOpenPerson(person.id)} type="button">
+                <CircleAvatar index={startIndex + index} person={person} size="sm" />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black text-[#0F172A]">{person.name}</span>
+                  <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] font-semibold text-[#64748B] lg:hidden">
+                    <span className="truncate">{relationshipLine(person)}</span>
+                    <span className="rounded-full bg-[#F8FBFF] px-2 py-0.5 text-[10px] font-black text-[#2563EB]">{fruitCount} fruit</span>
+                  </span>
+                  <span className="mt-0.5 hidden truncate text-xs text-[#64748B] lg:block">{relationshipLine(person)}</span>
+                </span>
+              </button>
+              <span className="inline-flex w-fit rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
+                {relationshipStatusLabel(person)}
+              </span>
+              <span className="truncate text-xs font-semibold text-[#475569]">
+                {lastTable ? formatRelativeDate(lastTable) : "No table yet"}
+              </span>
+              <span className="hidden text-sm font-black text-[#0F172A] lg:block">
+                {fruitCount}
+              </span>
+              <button
+                className="hidden justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] lg:inline-flex"
+                onClick={() => onLogMeeting(person.id)}
+                type="button"
+              >
+                Log
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -3465,7 +4916,7 @@ function CircleListRow({
     ? "Follow up today"
     : lastMeetingDate
       ? `Met ${formatRelativeDate(lastMeetingDate).toLowerCase()}`
-      : "No meeting yet";
+      : "No table yet";
 
   return (
     <div
@@ -3478,7 +4929,7 @@ function CircleListRow({
       </button>
       {onLogMeeting ? (
         <button
-          aria-label={`Log meeting with ${person.name}`}
+          aria-label={`Log table with ${person.name}`}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EFF6FF]"
           onClick={onLogMeeting}
           type="button"
@@ -3626,12 +5077,13 @@ function MeetingCard({
   const isScheduled = meeting.meetingStatus === "scheduled";
   const summary = meeting.notes?.trim();
   const title = meetingDisplayTitle(meeting, people);
+  const statusLabel = isScheduled ? "Scheduled" : "Logged";
   const metadata = isScheduled
     ? `Scheduled • ${formatMeetingTimeRange(meeting)}`
     : hasPeople ? `${context} • ${formatDate(meeting.date)}` : formatDate(meeting.date);
 
   return (
-    <button className="group w-full max-w-[calc(100vw-32px)] rounded-[24px] border border-[#EAF2FF] bg-white p-3.5 text-left shadow-[0_14px_34px_rgba(37,99,235,0.045)] transition-all hover:border-[#BFDBFE] hover:shadow-[0_18px_40px_rgba(37,99,235,0.08)]" onClick={onClick} type="button">
+    <button className="group w-full max-w-[calc(100vw-32px)] rounded-[24px] border border-[#EAF2FF] bg-white p-3.5 text-left shadow-[0_14px_34px_rgba(37,99,235,0.045)] transition-all hover:border-[#BFDBFE] hover:shadow-[0_18px_40px_rgba(37,99,235,0.08)] md:max-w-none md:rounded-[20px] md:p-3 md:shadow-[0_10px_28px_rgba(37,99,235,0.04)]" onClick={onClick} type="button">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex shrink-0 items-center">
           {avatarNames.length ? (
@@ -3659,10 +5111,18 @@ function MeetingCard({
             </div>
             <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#94A3B8] transition-colors group-hover:text-[#2563EB]" aria-hidden="true" strokeWidth={1.8} />
           </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              {context}
+            </span>
+            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+              {statusLabel}
+            </span>
+          </div>
           {summary ? (
-            <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-[#334155]">{summary}</p>
+            <p className="mt-2 line-clamp-2 text-sm leading-5 text-[#334155] md:text-[13px]">{summary}</p>
           ) : (
-            <p className="mt-1.5 text-sm leading-5 text-[#94A3B8]">{isScheduled ? "No prep notes yet" : "No reflection yet"}</p>
+            <p className="mt-2 text-sm leading-5 text-[#94A3B8] md:text-[13px]">{isScheduled ? "No prep notes yet" : "No reflection yet"}</p>
           )}
           {isScheduled && meeting.googleSyncEnabled ? (
             <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[10px] font-bold text-[#1D4ED8]">
@@ -3731,7 +5191,7 @@ function calendarItemLabel(kind: MeetingCalendarItemKind) {
       return "Prayer";
     case "meeting":
     default:
-      return "Meeting";
+      return "Table";
   }
 }
 
@@ -3899,10 +5359,10 @@ function MeetingCalendarView({
   const selectedItems = itemsByDay.get(selectedDateKey) ?? [];
 
   return (
-    <section className="space-y-3">
-      <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-2.5 shadow-[0_12px_30px_rgba(37,99,235,0.055)]">
+    <section className="space-y-3 md:grid md:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)] md:gap-4 md:space-y-0">
+      <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-2.5 shadow-[0_12px_30px_rgba(37,99,235,0.055)] md:col-span-2 md:flex md:items-center md:gap-3 md:space-y-0 md:p-3">
         <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
-        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 px-1">
           <p className="min-w-0 flex-1 text-xs font-medium leading-4 text-[#64748B]">
             {calendarSyncMessage || (googleCalendarConnected ? "Google events stay read-only until you add them to DOS." : "Connect Google Calendar to read events.")}
           </p>
@@ -3969,7 +5429,7 @@ function MeetingCalendarView({
                 <button
                   aria-label={new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}
                   aria-pressed={isSelected}
-                  className={`min-h-[48px] rounded-[16px] px-1.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[44px] max-[350px]:rounded-[14px] ${
+                  className={`min-h-[48px] rounded-[16px] px-1.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[44px] max-[350px]:rounded-[14px] md:min-h-[58px] ${
                     isSelected
                       ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]"
                       : isToday
@@ -3996,7 +5456,7 @@ function MeetingCalendarView({
         </div>
       </div>
 
-      <section>
+      <section className="min-w-0">
         <SectionHeading
           title={calendarSelectedDayLabel(selectedDateKey)}
         />
@@ -4011,8 +5471,8 @@ function MeetingCalendarView({
             />
           )) : (
             <SectionEmptyState
-              action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Meeting</CompactButton>}
-              text="Scheduled meetings and reminders for the selected day will appear here."
+              action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>}
+              text="Scheduled tables and reminders for the selected day will appear here."
               title="Nothing on this day."
             />
           )}
@@ -4176,7 +5636,7 @@ function MeetingContextPicker({
 }) {
   return (
     <CompactOptionSelect
-      label="Meeting Context"
+      label="Table Context"
       onChange={(nextValue) => onChange(nextValue as DosAppMeetingType)}
       options={meetingTypeOptions.map((option) => ({ label: option.label, value: option.value }))}
       value={value}
@@ -4451,7 +5911,7 @@ function MeetingPeopleSelector({
         <div className="mt-2 flex flex-wrap gap-1.5">
           {selectedPeople.map((person, index) => (
             <button
-              aria-label={`Remove ${person.name} from meeting`}
+              aria-label={`Remove ${person.name} from table`}
               className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#2563EB]"
               key={person.id}
               onClick={() => onToggle(person.id)}
@@ -4645,7 +6105,7 @@ function MeetingCaptureNotes({
   return (
     <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
       <div className="flex items-center justify-between gap-3">
-        <FieldLabel>Meeting Notes</FieldLabel>
+        <FieldLabel>Table Notes</FieldLabel>
         {captures.length ? (
           <span className="rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Draft
@@ -4775,8 +6235,8 @@ const meetingDurationOptions = [
 function MeetingDurationSelector() {
   return (
     <fieldset className="grid gap-2 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
-      <FieldLabel>Meeting Duration</FieldLabel>
-      {/* TODO: Persist meeting duration when the DOS meeting schema exposes a duration field. */}
+      <FieldLabel>Table Duration</FieldLabel>
+      {/* TODO: Persist table duration when the DOS meeting schema exposes a duration field. */}
       <div className="flex flex-wrap gap-2">
         {meetingDurationOptions.map((option) => (
           <label className="cursor-pointer" key={option.value}>
@@ -5037,7 +6497,7 @@ function MeetingFormContent({
       {showDurationField ? (
         <section className={meetingFormGroupClassName}>
           <div className={meetingFormGroupCardClassName}>
-            <p className={meetingFormGroupTitleClassName}>Meeting Details</p>
+            <p className={meetingFormGroupTitleClassName}>Table Details</p>
             <div className="mt-3 grid gap-3">
               {meetingContextPicker}
               {conversationFlowPicker}
@@ -5093,7 +6553,7 @@ function CalendarConnectionCard({
   const statusDetail = calendarConnection.connected
     ? calendarConnection.googleAccountEmail ?? "Google Calendar is ready."
     : calendarConnection.googleConfigured ? "Connect Google Calendar to sync." : "Google setup needed before live sync.";
-  const lastSyncLabel = calendarConnection.lastSyncedAt ? `Last sync ${formatDateTime(calendarConnection.lastSyncedAt)}` : "Meetings and reminders still save locally when disconnected.";
+  const lastSyncLabel = calendarConnection.lastSyncedAt ? `Last sync ${formatDateTime(calendarConnection.lastSyncedAt)}` : "Tables and reminders still save locally when disconnected.";
 
   return (
     <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
@@ -5233,12 +6693,12 @@ function ScheduleMeetingForm({
         </div>
         <label className="block">
           <FieldLabel>Notes</FieldLabel>
-          <textarea className={`${FieldTextareaClass()} min-h-20`} name="notes" placeholder="What should you remember before this meeting?" />
+          <textarea className={`${FieldTextareaClass()} min-h-20`} name="notes" placeholder="What should you remember before this table?" />
         </label>
       </div>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Scheduling..." : "Schedule Meeting"}</AppButton>
-      <AppButton disabled={isSubmitting} icon="log" onClick={onStartLogMeeting} tone="white">Log Meeting Instead</AppButton>
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Scheduling..." : "Schedule Table"}</AppButton>
+      <AppButton disabled={isSubmitting} icon="log" onClick={onStartLogMeeting} tone="white">Log Table Instead</AppButton>
     </form>
   );
 }
@@ -5564,12 +7024,12 @@ function TodayFocusCard({
       {primaryPersonId ? (
         <div className="mt-3 grid grid-cols-3 gap-2 max-[350px]:gap-1.5">
           <CompactButton icon="people" onClick={() => onOpenPerson(primaryPersonId)}>View person</CompactButton>
-          <CompactButton icon="log" onClick={() => onLogMeetingForPerson(primaryPersonId)}>Log meeting</CompactButton>
-          <CompactButton icon="calendar" onClick={() => onScheduleForPerson(primaryPersonId)}>Schedule</CompactButton>
+          <CompactButton icon="log" onClick={() => onLogMeetingForPerson(primaryPersonId)}>Log Table</CompactButton>
+          <CompactButton icon="calendar" onClick={() => onScheduleForPerson(primaryPersonId)}>Schedule Table</CompactButton>
         </div>
       ) : (
         <div className="mt-3">
-          <CompactButton icon="calendar" onClick={() => onScheduleForPerson()}>Schedule</CompactButton>
+          <CompactButton icon="calendar" onClick={() => onScheduleForPerson()}>Schedule Table</CompactButton>
         </div>
       )}
     </section>
@@ -6696,7 +8156,7 @@ function OutcomeDetailSheet({
         </DetailCard>
         <DetailCard title="Details">
           <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={date ? formatDate(date) : "Not recorded" } />
-          {meeting ? <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Related Meeting" value={`${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}`} /> : null}
+          {meeting ? <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Related Table" value={`${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}`} /> : null}
           <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="People Involved" value={peopleInvolved} />
           <DetailRow icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Source" value={source} />
         </DetailCard>
@@ -6808,13 +8268,16 @@ function BottomNavigation({
   onSelect: (tab: ActiveTab) => void;
 }) {
   return (
-    <nav className="absolute inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)]">
-      <div className="mx-auto grid w-full grid-cols-5 gap-1 rounded-full border border-white/75 bg-white/82 p-1.5 shadow-[0_18px_48px_rgba(42,37,29,0.16)] backdrop-blur-xl">
-        {tabs.map((tab) => (
+    <nav aria-label="Primary" className="absolute inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] md:hidden">
+      <div className="mx-auto grid w-full grid-cols-3 gap-1 rounded-full border border-white/75 bg-white/82 p-1.5 shadow-[0_18px_48px_rgba(42,37,29,0.16)] backdrop-blur-xl">
+        {mobileTabs.map((tab) => {
+          const selected = activeTab === tab.value || (tab.value === "more" && activeTab === "people");
+
+          return (
           <button
-            aria-current={activeTab === tab.value ? "page" : undefined}
+            aria-current={selected ? "page" : undefined}
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-semibold transition-colors ${
-              activeTab === tab.value ? "bg-[#EBF2FF] text-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]" : "text-[#94A3B8]"
+              selected ? "bg-[#EBF2FF] text-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]" : "text-[#94A3B8]"
             }`}
             key={tab.value}
             onClick={() => onSelect(tab.value)}
@@ -6823,9 +8286,116 @@ function BottomNavigation({
             <Icon name={tab.icon} size={18} />
             {tab.label}
           </button>
-        ))}
+          );
+        })}
       </div>
     </nav>
+  );
+}
+
+function DesktopNavigation({
+  activeTab,
+  moreAppView,
+  onOpenMoreApp,
+  onOpenProfile,
+  onSelect,
+  profileEmail,
+  profileImageUrl,
+  profileName,
+  workspaceName,
+}: {
+  activeTab: ActiveTab;
+  moreAppView: MoreAppView | null;
+  onOpenMoreApp: (view: MoreAppView) => void;
+  onOpenProfile: () => void;
+  onSelect: (tab: ActiveTab) => void;
+  profileEmail: string;
+  profileImageUrl?: string | null;
+  profileName: string;
+  workspaceName: string;
+}) {
+  function isNavItemActive(item: DesktopNavItem) {
+    if (item.type === "tab") {
+      return activeTab === item.value && moreAppView === null;
+    }
+
+    if (item.type === "moreApp") {
+      if (item.value === "apps") {
+        return activeTab === "more" && (moreAppView === "apps" || moreAppView === null);
+      }
+
+      return activeTab === "more" && moreAppView === item.value;
+    }
+
+    return false;
+  }
+
+  function selectNavItem(item: DesktopNavItem) {
+    if (item.type === "tab") {
+      onSelect(item.value);
+    } else if (item.type === "moreApp") {
+      onOpenMoreApp(item.value);
+    } else {
+      onOpenProfile();
+    }
+  }
+
+  return (
+    <aside className="hidden h-full w-[232px] shrink-0 border-r border-[#EAF2FF] bg-white px-4 py-6 md:flex md:flex-col xl:w-[260px]">
+      <div className="rounded-[26px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+        <p className="text-[20px] font-black leading-none tracking-[-0.035em] text-[#1D4ED8]" style={{ fontFamily: font.oswald }}>
+          DOS
+        </p>
+        <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Workspace</p>
+        <p className="mt-3 line-clamp-2 text-sm font-black leading-5 text-[#0F172A]">{workspaceName}</p>
+      </div>
+      <nav className="mt-5 grid gap-5" aria-label="DOS sections">
+        {desktopNavGroups.map((group) => (
+          <div key={group.label}>
+            <p className="px-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+              {group.label}
+            </p>
+            <div className="mt-2 grid gap-1.5">
+              {group.items.map((item) => {
+                const selected = isNavItemActive(item);
+
+                return (
+                  <button
+                    aria-current={selected ? "page" : undefined}
+                    className={`flex min-h-11 items-center gap-3 rounded-[18px] px-3 text-sm font-bold transition-colors ${
+                      selected
+                        ? "bg-[#EBF2FF] text-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_8px_22px_rgba(37,99,235,0.08)]"
+                        : "text-[#64748B] hover:bg-[#F8FBFF] hover:text-[#0F172A]"
+                    }`}
+                    key={`${group.label}-${item.label}`}
+                    onClick={() => selectNavItem(item)}
+                    type="button"
+                  >
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[14px] ${
+                      selected ? "bg-white text-[#2563EB]" : "bg-[#F8FAFC] text-[#94A3B8]"
+                    }`}>
+                      <Icon name={item.icon} size={17} />
+                    </span>
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+      <button
+        className="mt-auto flex min-w-0 items-center gap-3 rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-left transition-colors hover:border-[#BFDBFE] hover:bg-white"
+        onClick={onOpenProfile}
+        type="button"
+      >
+        <UserProfileAvatar imageUrl={profileImageUrl} name={profileName} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold text-[#0F172A]">{profileName}</span>
+          <span className="mt-0.5 block truncate text-xs text-[#64748B]">{profileEmail || "Profile settings"}</span>
+        </span>
+      </button>
+    </aside>
   );
 }
 
@@ -6945,7 +8515,7 @@ function CircleLayerSheet({
           type="button"
         >
           <Icon name="add" size={14} />
-          Log Meeting
+          Log Table
         </button>
       )}
       onClose={onClose}
@@ -7040,7 +8610,7 @@ function CirclesDetailOverlay({
           type="button"
         >
           <Icon name="log" size={14} />
-          Log Meeting
+          Log Table
         </button>
       </section>
     </div>
@@ -7166,7 +8736,7 @@ function PersonDetailOverlay({
   const overviewNotes = defaults.notes?.trim() ?? "";
   const completedGuidedMeetings = personLoggedMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
   const relationshipSnapshotReasons = Array.from(new Set([
-    personLoggedMeetings.length ? `${personLoggedMeetings.length} meeting${personLoggedMeetings.length === 1 ? "" : "s"} logged` : "",
+    personLoggedMeetings.length ? `${personLoggedMeetings.length} table${personLoggedMeetings.length === 1 ? "" : "s"} logged` : "",
     completedGuidedMeetings ? `${completedGuidedMeetings} guided conversation${completedGuidedMeetings === 1 ? "" : "s"} completed` : "",
     relationshipTypePill !== "New" ? "Active discipleship relationship" : "",
     personFruitEvents.length ? `${personFruitEvents.length} fruit event${personFruitEvents.length === 1 ? "" : "s"} recorded` : "",
@@ -7248,7 +8818,7 @@ function PersonDetailOverlay({
             <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
               <SnapshotMetricTile icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Relationship" value={relationshipTypePill} />
               <EngagementSnapshotTile label={engagementOverviewLabel} score={engagementOverviewScore} />
-              <SnapshotMetricTile icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Meeting" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
+              <SnapshotMetricTile icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Table" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
             </div>
 
             <section className="rounded-[24px] border border-[#D7F3DD] bg-[#F7FEFA] p-4 shadow-[0_14px_34px_rgba(22,163,74,0.055)]">
@@ -7283,7 +8853,7 @@ function PersonDetailOverlay({
                     )) : (
                       <p className="flex items-start gap-2 text-xs leading-5 text-[#475569]">
                         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#16A34A]" aria-hidden="true" strokeWidth={1.9} />
-                        <span>Log meetings and discipleship activity to help DOS place this relationship.</span>
+                        <span>Log tables and discipleship activity to help DOS place this relationship.</span>
                       </p>
                     )}
                   </div>
@@ -7364,7 +8934,7 @@ function PersonDetailOverlay({
               <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
                 <ActivityFilterCard
                   icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Meetings"
+                  label="Tables"
                   value={personLoggedMeetings.length}
                 />
                 <ActivityFilterCard
@@ -7380,7 +8950,7 @@ function PersonDetailOverlay({
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <CompactButton icon="bell" onClick={onAddReminder}>Add Reminder</CompactButton>
-                <CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Meeting</CompactButton>
+                <CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>
               </div>
             </DetailCard>
 
@@ -7405,7 +8975,7 @@ function PersonDetailOverlay({
                   ))}
                 </section>
               )) : (
-                <SectionEmptyState action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Meeting</CompactButton>} text="Scheduled meetings and reminders will appear here." title="Nothing upcoming." />
+                <SectionEmptyState action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>} text="Scheduled tables and reminders will appear here." title="Nothing upcoming." />
               )}
             </DetailCard>
 
@@ -7422,7 +8992,7 @@ function PersonDetailOverlay({
                   </span>
                   <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
                 </button>
-              )) : <SectionEmptyState action={<CompactButton icon="log" onClick={onLogMeeting}>Log Meeting</CompactButton>} text="Log the next conversation when it happens." title="No meetings yet." />}
+              )) : <SectionEmptyState action={<CompactButton icon="log" onClick={onLogMeeting}>Log Table</CompactButton>} text="Log the next conversation when it happens." title="No tables yet." />}
             </DetailCard>
           </>
         ) : null}
@@ -7532,8 +9102,8 @@ function MeetingSendConfirmationSheet({
   const isTestimony = action.type === "testimony_request";
   const title = isTestimony ? "Send Testimony Request" : "Send Quick Review";
   const description = isTestimony
-    ? "Invite them to share what changed from this meeting."
-    : "Invite them to share a quick review of the meeting.";
+    ? "Invite them to share what changed from this table."
+    : "Invite them to share a quick review of the table.";
   const recipientTitle = isTestimony
     ? meetingTestimonyRecipientTitle(action.meeting, people)
     : meetingParticipantTitle(action.meeting, people);
@@ -7547,14 +9117,14 @@ function MeetingSendConfirmationSheet({
           {recipientTitle ? (
             <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Recipient" value={recipientTitle} />
           ) : (
-            <DetailRow icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Meeting" value={fallbackTitle} />
+            <DetailRow icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Table" value={fallbackTitle} />
           )}
-          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label={recipientTitle ? "Meeting" : "Date"} value={recipientTitle ? meetingMetadataLine(action.meeting) : formatDate(action.meeting.date)} />
+          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label={recipientTitle ? "Table" : "Date"} value={recipientTitle ? meetingMetadataLine(action.meeting) : formatDate(action.meeting.date)} />
           <DetailRow icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Request Type" value={isTestimony ? "Testimony Request" : "Quick Review"} />
         </div>
         <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs leading-5 text-[#64748B]">
           {cannotSendTestimony
-            ? "Add a person to this meeting before sending a testimony request."
+            ? "Add a person to this table before sending a testimony request."
             : "DOS will create a share link for this request. You can use the phone share sheet or copy the link if sharing is not available."}
         </p>
           <RequestQuestionPreview
@@ -7591,7 +9161,7 @@ function MeetingNotesEditorSheet({
     <Sheet onClose={onClose} showEyebrow={false} title={hasNotes ? "Edit Notes" : "Add Notes"}>
       <form className="space-y-4" onSubmit={onSubmit}>
         <label className="block">
-          <FieldLabel>Meeting Notes</FieldLabel>
+          <FieldLabel>Table Notes</FieldLabel>
           <textarea
             autoFocus
             className={`${FieldTextareaClass()} min-h-40 bg-white`}
@@ -7699,7 +9269,7 @@ function MeetingDetailOverlay({
     return (
       <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
         <header className="flex items-center justify-between gap-3">
-          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to meetings">
+          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
           </button>
           <span className="h-10 w-10" aria-hidden="true" />
@@ -7710,9 +9280,9 @@ function MeetingDetailOverlay({
             <CheckCircle2 className="h-6 w-6" aria-hidden="true" strokeWidth={2} />
           </div>
           <h2 className="mt-4 text-[30px] font-bold leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-            Meeting Saved
+            Table Saved
           </h2>
-          <p className="mt-2 text-sm font-medium leading-6 text-[#64748B]">Meeting saved successfully.</p>
+          <p className="mt-2 text-sm font-medium leading-6 text-[#64748B]">Table saved successfully.</p>
 
           <div className="mt-6 grid gap-2.5">
             <button
@@ -7741,7 +9311,7 @@ function MeetingDetailOverlay({
               type="button"
             >
               <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-              Schedule Next Meeting
+              Schedule Next Table
             </button>
             <button
               className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#64748B] transition-colors hover:border-[#CBD5E1] hover:text-[#0F172A]"
@@ -7762,11 +9332,11 @@ function MeetingDetailOverlay({
   return (
     <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to meetings">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-          {isScheduledMeeting ? "Scheduled" : "Meeting"}
+          {isScheduledMeeting ? "Scheduled" : "Table"}
         </p>
         {isLoggedTableMeeting ? (
           <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
@@ -7861,13 +9431,13 @@ function MeetingDetailOverlay({
           </DetailCard>
         ) : null}
 
-        <DetailCard title={isScheduledMeeting ? "Prep Notes" : "Meeting Notes"}>
+        <DetailCard title={isScheduledMeeting ? "Prep Notes" : "Table Notes"}>
           {meeting.notes ? (
             <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#0F172A]">
               {meeting.notes}
             </div>
           ) : (
-            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No meeting notes were added."}</p>
+            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No table notes were added."}</p>
           )}
           {isTableMeeting ? (
             <button
@@ -7942,6 +9512,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const appScrollRef = useRef<HTMLDivElement | null>(null);
   const isPreview = data.workspace.isPreview === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
+  const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("agenda");
   const [meetingCalendarFilter, setMeetingCalendarFilter] = useState<MeetingCalendarFilter>("all");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
@@ -7955,15 +9526,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isCreatingMeetingPerson, setIsCreatingMeetingPerson] = useState(false);
   const [isPeopleImportOpen, setIsPeopleImportOpen] = useState(false);
   const [isPeopleSearchOpen, setIsPeopleSearchOpen] = useState(false);
+  const [isUsamApplicationOpen, setIsUsamApplicationOpen] = useState(false);
   const [isAddingExternalEventToDos, setIsAddingExternalEventToDos] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCalendarDisconnecting, setIsCalendarDisconnecting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSyncingGoogleCalendar, setIsSyncingGoogleCalendar] = useState(false);
+  const [isSubmittingUsamApplication, setIsSubmittingUsamApplication] = useState(false);
   const [calendarSyncMessage, setCalendarSyncMessage] = useState("");
+  const [usamApplicationMessage, setUsamApplicationMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [usamApplication, setUsamApplication] = useState(data.usamApplication);
+  const [usamApplicationDraft, setUsamApplicationDraft] = useState<UsamApplicationDraft>(() => defaultUsamApplicationDraft(data));
   const [conversationResponses, setConversationResponses] = useState<DosConversationResponses>({});
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
+  const [tableQuery, setTableQuery] = useState("");
   const [peopleCircleView, setPeopleCircleView] = useState<PeopleCircleView>("three");
   const [peopleImportMessage, setPeopleImportMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [meetingNotesOverrides, setMeetingNotesOverrides] = useState<Record<string, string | null>>({});
@@ -8104,6 +9681,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return latestDates;
   }, [loggedMeetings]);
+  const fruitCountByPersonId = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    people.forEach((person) => {
+      const summary = selectPersonDetailFruitSummary({
+        fruitEvents: data.fruitEvents,
+        fruitItems: data.fruit,
+        leaderReflections: data.leaderReflections,
+        meetings: data.meetings,
+        person,
+      });
+
+      counts.set(person.id, summary.fruitEvents.length);
+    });
+
+    return counts;
+  }, [data.fruit, data.fruitEvents, data.leaderReflections, data.meetings, people]);
   const latestPrayerActivity = useMemo(() => {
     const prayerMeetings = loggedMeetings
       .filter(isPrayerMeeting)
@@ -8131,13 +9725,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return secondTime - firstTime;
     })[0] ?? null;
   }, [data.leaderReflections, loggedMeetings, people]);
-  const todayFocusItems = useMemo(() => (
+  const upcomingTimelineItems = useMemo(() => (
     buildUpcomingTimelineItems({
       meetings: data.meetings,
       people,
       reminders: data.reminders,
-    }).filter((item) => isTodayDate(item.date)).slice(0, 4)
+    })
   ), [data.meetings, data.reminders, people]);
+  const todayFocusItems = useMemo(() => (
+    upcomingTimelineItems.filter((item) => isTodayDate(item.date)).slice(0, 4)
+  ), [upcomingTimelineItems]);
+  const upcomingScheduledMeetings = useMemo(() => (
+    data.meetings
+      .filter((meeting) => meeting.meetingStatus === "scheduled")
+      .filter((meeting) => isUpcomingDate(meeting.scheduledStartAt ?? meeting.date))
+      .sort((first, second) => dateSortValue(first.scheduledStartAt ?? first.date) - dateSortValue(second.scheduledStartAt ?? second.date))
+      .slice(0, 4)
+  ), [data.meetings]);
   const meetingCalendarItems = useMemo(() => (
     buildMeetingCalendarItems({
       externalCalendarEvents: data.externalCalendarEvents,
@@ -8147,6 +9751,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       reminders: data.reminders,
     })
   ), [data.externalCalendarEvents, data.meetings, data.reminders, meetingsCalendarMonth, people]);
+  const visibleTableMeetings = useMemo(() => filteredTables(data.meetings, people, tableQuery), [data.meetings, people, tableQuery]);
+  const visibleMeetingCalendarItems = useMemo(() => filteredCalendarItems(meetingCalendarItems, tableQuery), [meetingCalendarItems, tableQuery]);
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
     const meetingsThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
@@ -8164,9 +9770,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const profileName = workspaceProfileName(data.workspace, greetingName);
   const profileEmail = workspaceProfileEmail(data.workspace);
   const profilePhone = workspaceProfilePhone(data.workspace);
-  const fieldName = workspaceIdentityName(data.workspace);
-  const fieldSublabel = workspaceFieldSublabel(data.workspace);
+  const workspaceName = workspaceIdentityName(data.workspace);
+  const workspaceSublabel = workspaceIdentitySublabel(data.workspace);
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
+  const isUsamApplicationPending = usamApplication.status === "application_submitted" || usamApplication.status === "pending_review";
 
   function scrollAppToTop() {
     requestAnimationFrame(() => {
@@ -8255,6 +9862,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedReminderId(null);
     setSelectedRelationshipModel(defaultRelationshipModel);
     setSelectedRelationshipScore(0);
+    setIsUsamApplicationOpen(false);
     resetMeetingDraft();
   }
 
@@ -8281,6 +9889,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function selectTab(tab: ActiveTab) {
     setActiveTab(tab);
+    setMoreAppView(null);
     scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
@@ -8295,10 +9904,34 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
     setPeopleImportMessage(null);
+    setIsUsamApplicationOpen(false);
+  }
+
+  function openMoreApp(view: MoreAppView) {
+    setActiveTab("more");
+    setMoreAppView(view);
+    scrollAppToTop();
+    setErrorMessage("");
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
+    setSelectedMeetingId(null);
+    setSelectedReminderId(null);
+    setSelectedPersonId(null);
+    setPostMeetingFollowUpId(null);
+    setIsUsamApplicationOpen(false);
+  }
+
+  function viewUsamApplicationStatus() {
+    openMoreApp("missionary_profile");
+    setUsamApplicationMessage({
+      text: "Application submitted. Pending review.",
+      tone: "success",
+    });
   }
 
   function openPeopleCircle(circle: PeopleCircleView = "three") {
     setActiveTab("people");
+    setMoreAppView(null);
     scrollAppToTop();
     setPeopleCircleView(circle);
     setPeopleQuery("");
@@ -8316,10 +9949,48 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
     setPeopleImportMessage(null);
+    setIsUsamApplicationOpen(false);
+  }
+
+  function openUsamApplicationSheet() {
+    setUsamApplicationDraft((currentDraft) => ({
+      ...defaultUsamApplicationDraft(data),
+      ...currentDraft,
+      applicantEmail: currentDraft.applicantEmail || data.workspace.userEmail || "",
+      applicantName: currentDraft.applicantName || data.workspace.displayName,
+    }));
+    setUsamApplicationMessage(null);
+    setErrorMessage("");
+    setIsUsamApplicationOpen(true);
+  }
+
+  function closeUsamApplicationSheet() {
+    setIsUsamApplicationOpen(false);
+    setErrorMessage("");
+  }
+
+  function updateUsamApplicationDraft(field: keyof UsamApplicationDraft, value: string) {
+    setUsamApplicationDraft((currentDraft) => ({
+      ...currentDraft,
+      [field]: value,
+    }));
+  }
+
+  async function copyPublicProfileLink() {
+    const href = data.workspace.publicProfileHref;
+    const publicUrl = typeof window !== "undefined" ? new URL(href, window.location.origin).toString() : href;
+
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setUsamApplicationMessage({ text: "Public profile link copied.", tone: "success" });
+    } catch {
+      setUsamApplicationMessage({ text: publicUrl, tone: "success" });
+    }
   }
 
   function openPersonDetail(personId: string) {
     setActiveTab("people");
+    setMoreAppView(null);
     scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
@@ -8384,6 +10055,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openMeetingDetail(meetingId: string) {
     setActiveTab("meetings");
+    setMoreAppView(null);
     setErrorMessage("");
     setReviewLinkMeetingId(null);
     setReviewShareMessage("");
@@ -8397,6 +10069,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openExternalCalendarEventDetail(eventId: string) {
     setActiveTab("meetings");
+    setMoreAppView(null);
     setErrorMessage("");
     setFormMode(null);
     setSelectedMeetingId(null);
@@ -8504,6 +10177,64 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  function handleUsamApplicationSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage("");
+    setUsamApplicationMessage(null);
+
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. Applications are not submitted.");
+      return;
+    }
+
+    void (async () => {
+      setIsSubmittingUsamApplication(true);
+
+      try {
+        const response = await fetch("/api/dos/app/organization/usam/apply", {
+          body: JSON.stringify({
+            ...usamApplicationDraft,
+            callingFocus: buildUsamApplicationCallingFocus(usamApplicationDraft),
+            workspaceId: data.workspace.id,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+        });
+        const result = await response.json().catch(() => ({})) as {
+          applicationId?: string;
+          error?: string;
+          status?: DosAppData["usamApplication"]["status"];
+          submittedAt?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "Unable to submit USA Missionaries application.");
+        }
+
+        setUsamApplication((currentApplication) => ({
+          ...currentApplication,
+          applicationId: result.applicationId ?? currentApplication.applicationId,
+          appliedAt: result.submittedAt ?? new Date().toISOString(),
+          profileStatus: "under_review",
+          publicProfileLive: false,
+          status: result.status ?? "pending_review",
+        }));
+        setUsamApplicationMessage({
+          text: "Application submitted for review.",
+          tone: "success",
+        });
+        setIsUsamApplicationOpen(false);
+        router.refresh();
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Unable to submit USA Missionaries application.");
+      } finally {
+        setIsSubmittingUsamApplication(false);
+      }
+    })();
+  }
+
   function handleDisconnectCalendar() {
     setErrorMessage("");
 
@@ -8516,7 +10247,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return;
     }
 
-    if (!window.confirm("Disconnect Google Calendar? DOS meetings and reminders will keep saving locally.")) {
+    if (!window.confirm("Disconnect Google Calendar? DOS tables and reminders will keep saving locally.")) {
       return;
     }
 
@@ -8900,7 +10631,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const scheduledStartAt = localDateTimeIso(scheduledDate, scheduledTime);
 
     if (!scheduledStartAt) {
-      setErrorMessage("Choose a valid meeting date and time.");
+      setErrorMessage("Choose a valid table date and time.");
       return;
     }
 
@@ -9037,7 +10768,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return;
     }
 
-    if (!window.confirm("Delete this meeting? This cannot be undone.")) {
+    if (!window.confirm("Delete this table? This cannot be undone.")) {
       return;
     }
 
@@ -9142,7 +10873,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     if (!canSendMeetingTestimonyRequest(meeting, people)) {
-      throw new Error("Add a person to this meeting before sending a testimony request.");
+      throw new Error("Add a person to this table before sending a testimony request.");
     }
 
     if (isPreview) {
@@ -9340,12 +11071,131 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     });
   }
 
+  const prayerReminderCount = data.reminders.filter((reminder) => reminder.reminderType === "prayer").length;
+  const isMissionaryLayerActive = usamApplication.status === "approved"
+    || usamApplication.status === "active"
+    || usamApplication.publicProfileLive;
+  const missionaryLayerStatus = usamApplication.publicProfileLive
+    ? "Live"
+    : isMissionaryLayerActive
+      ? "Approved"
+      : isUsamApplicationPending
+        ? "Pending"
+        : "Optional";
+  const appCatalogSections: DosAppCatalogSection[] = [
+    {
+      description: "Core DOS rhythms that are already available in this workspace.",
+      label: "Installed",
+      items: [
+        {
+          description: `${prayerReminderCount} reminders and recent prayer activity.`,
+          icon: <Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Prayer",
+          onClick: () => openMoreApp("prayer"),
+          section: "installed",
+          status: "Installed",
+        },
+        {
+          description: "Curated outcomes and visible multiplication.",
+          icon: <Icon name="fruit" size={20} />,
+          label: "Fruit",
+          onClick: () => openMoreApp("fruit"),
+          section: "installed",
+          status: `${fruitDashboardStories.length} stories`,
+        },
+        {
+          description: "Teachings and follow-up resources.",
+          icon: <BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Library",
+          onClick: () => openMoreApp("library"),
+          section: "installed",
+          status: "Installed",
+        },
+      ],
+    },
+    {
+      description: "Optional USA Missionaries profile, prayer, and support layer attached to this DOS workspace.",
+      label: "Missionary",
+      items: [
+        {
+          description: "Application status, public profile, publishing, and profile link.",
+          icon: <User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Missionary Profile",
+          onClick: () => openMoreApp("missionary_profile"),
+          section: "missionary",
+          status: missionaryLayerStatus,
+        },
+        {
+          description: "Prayer partners and profile prayer visibility.",
+          icon: <HeartHandshake className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Prayer Team",
+          onClick: () => openMoreApp("prayer_team"),
+          section: "missionary",
+          status: isMissionaryLayerActive ? "Available" : "Layer",
+        },
+        {
+          description: "Support partners, giving progress, and support visibility.",
+          icon: <Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Support Team",
+          onClick: () => openMoreApp("support_team"),
+          section: "missionary",
+          status: isMissionaryLayerActive ? "Available" : "Layer",
+        },
+      ],
+    },
+    {
+      description: "Future optional apps that can be installed without changing the DOS core.",
+      label: "Coming Soon",
+      items: [
+        {
+          description: "Seasonal next steps for relationships.",
+          icon: <Flame className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "In Season",
+          onClick: () => openMoreApp("in_season"),
+          section: "coming_soon",
+          status: "Soon",
+        },
+        {
+          description: "Generosity, budgeting, and ministry stewardship tools.",
+          icon: <Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Stewardship",
+          onClick: () => openMoreApp("stewardship"),
+          section: "coming_soon",
+          status: "Soon",
+        },
+        {
+          description: "Guided table conversation flows and follow-up paths.",
+          icon: <GitBranch className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Table Flow",
+          onClick: () => openMoreApp("table_flow"),
+          section: "coming_soon",
+          status: "Soon",
+        },
+      ],
+    },
+  ];
+  const desktopAppsPreview = appCatalogSections
+    .flatMap((section) => section.items)
+    .filter((item) => item.section !== "coming_soon")
+    .slice(0, 4);
+
   return (
     <div className={dosRootShellClassName}>
       <div ref={appShellRef} className={dosPhoneShellClassName}>
-        <div ref={appScrollRef} className="h-full overflow-y-auto px-4 pb-28 pt-11 [scrollbar-width:none]">
+        <DesktopNavigation
+          activeTab={activeTab}
+          moreAppView={moreAppView}
+          onOpenMoreApp={openMoreApp}
+          onOpenProfile={() => setIsProfileOpen(true)}
+          onSelect={selectTab}
+          profileEmail={profileEmail}
+          profileImageUrl={data.workspace.profileImageUrl}
+          profileName={profileName}
+          workspaceName={workspaceName}
+        />
+        <div ref={appScrollRef} className="h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-28 pt-11 [scrollbar-width:none] md:px-8 md:pb-10 md:pt-6 xl:px-10">
           {activeTab === "home" ? (
-            <header className="relative">
+            <header className="relative md:hidden">
               <div className="min-w-0 pr-16">
                 <p className="text-[20px] font-black leading-none tracking-[-0.035em] text-[#1D4ED8]" style={{ fontFamily: font.oswald }}>
                   DOS
@@ -9369,9 +11219,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             </header>
           ) : null}
 
-          <main className={activeTab === "home" ? "mt-10" : undefined}>
+          <main className={`min-w-0 max-w-full ${activeTab === "home" ? "mt-10 md:mt-0" : ""}`}>
             {activeTab === "home" ? (
-              <div className="space-y-5">
+              <>
+              <div className="space-y-5 md:hidden">
                 <CircleFocusHero
                   circleGroups={circlePeopleByLayer}
                   onSelectCircle={openPeopleCircle}
@@ -9380,9 +11231,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 <section className="grid grid-cols-3 gap-2">
                   <HomeActionPill icon="add" onClick={() => openForm("person")}>Add Person</HomeActionPill>
-                  <HomeActionPill icon="log" onClick={() => openForm("meeting")}>Log Meeting</HomeActionPill>
-                  <HomeActionPill icon="calendar" onClick={() => openScheduleMeeting()}>Schedule</HomeActionPill>
+                  <HomeActionPill icon="log" onClick={() => openForm("meeting")}>Log Table</HomeActionPill>
+                  <HomeActionPill icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</HomeActionPill>
                 </section>
+
+                {isUsamApplicationPending ? <UsamPendingHomeCard onViewStatus={viewUsamApplicationStatus} /> : null}
 
                 <TodayFocusCard
                   items={todayFocusItems}
@@ -9396,7 +11249,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <section>
                   <ThisWeekHeader label={thisWeekStats.label} />
                   <div className="grid grid-cols-3 gap-2">
-                    <WeekStatTile icon="log" label="Meetings" value={thisWeekStats.meetings} />
+                    <WeekStatTile icon="log" label="Tables" value={thisWeekStats.meetings} />
                     <WeekStatTile icon="prayer" label="Prayed" value={thisWeekStats.prayed} />
                     <WeekStatTile icon="people" label="New People" value={thisWeekStats.newPeople} />
                   </div>
@@ -9409,7 +11262,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <RecentActivityRow
                         icon="log"
                         onClick={() => setActiveTab("meetings")}
-                        title="Latest meeting"
+                        title="Latest table"
                       >
                         {meetingDisplayTitle(latestMeeting, people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
                       </RecentActivityRow>
@@ -9426,18 +11279,50 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     {latestFruitActivity ? (
                       <RecentActivityRow
                         icon="fruit"
-                        onClick={() => setActiveTab("fruit")}
+                        onClick={() => openMoreApp("fruit")}
                         title="Latest fruit"
                       >
                         {latestFruitActivity.label}
                       </RecentActivityRow>
                     ) : null}
                     {!latestMeeting && !latestPrayerActivity && !latestFruitActivity ? (
-                      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-[#64748B]">Log a meeting to begin your activity rhythm.</div>
+                      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-[#64748B]">Log a table to begin your activity rhythm.</div>
                     ) : null}
                   </div>
                 </section>
               </div>
+              <DesktopHomeDashboard
+                circleGroups={circlePeopleByLayer}
+                fruitStoryCount={fruitDashboardStories.length}
+                greetingName={greetingName}
+                homeSubtitle={homeSubtitle}
+                isUsamApplicationPending={isUsamApplicationPending}
+                latestFruitActivity={latestFruitActivity}
+                latestMeeting={latestMeeting}
+                latestPrayerActivity={latestPrayerActivity}
+                moreApps={desktopAppsPreview}
+                onAddPerson={() => openForm("person")}
+                onEditReminder={openReminderEdit}
+                onLogMeeting={() => openForm("meeting")}
+                onLogMeetingForPerson={openMeetingForPerson}
+                onOpenFruit={() => openMoreApp("fruit")}
+                onOpenMeeting={openMeetingDetail}
+                onOpenMeetings={() => setActiveTab("meetings")}
+                onOpenPerson={openPersonDetail}
+                onOpenPrayer={() => openMoreApp("prayer")}
+                onOpenProfile={() => setIsProfileOpen(true)}
+                onScheduleMeeting={openScheduleMeeting}
+                onSelectCircle={openPeopleCircle}
+                onViewCircles={() => openPeopleCircle("three")}
+                onViewUsamStatus={viewUsamApplicationStatus}
+                people={people}
+                profileImageUrl={data.workspace.profileImageUrl}
+                profileName={profileName}
+                thisWeekStats={thisWeekStats}
+                todayFocusItems={todayFocusItems}
+                upcomingMeetings={upcomingScheduledMeetings}
+              />
+              </>
             ) : null}
 
             {activeTab === "people" ? (
@@ -9520,14 +11405,27 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 ) : null}
                 <div className="mt-3">
                   {visibleCirclePeople.length ? (
-                    <CircleLayerList
-                      empty={peopleCircleContent.empty}
-                      items={visibleCirclePeople}
-                      latestMeetingDateByPersonId={latestMeetingDateByPersonId}
-                      onLogMeeting={openMeetingForPerson}
-                      onOpenPerson={openPersonDetail}
-                      startIndex={peopleCircleContent.startIndex}
-                    />
+                    <>
+                      <div className="md:hidden">
+                        <CircleLayerList
+                          empty={peopleCircleContent.empty}
+                          items={visibleCirclePeople}
+                          latestMeetingDateByPersonId={latestMeetingDateByPersonId}
+                          onLogMeeting={openMeetingForPerson}
+                          onOpenPerson={openPersonDetail}
+                          startIndex={peopleCircleContent.startIndex}
+                        />
+                      </div>
+                      <DesktopPeopleIndex
+                        empty={peopleCircleContent.empty}
+                        fruitCountByPersonId={fruitCountByPersonId}
+                        items={visibleCirclePeople}
+                        latestMeetingDateByPersonId={latestMeetingDateByPersonId}
+                        onLogMeeting={openMeetingForPerson}
+                        onOpenPerson={openPersonDetail}
+                        startIndex={peopleCircleContent.startIndex}
+                      />
+                    </>
                   ) : people.length ? (
                     <EmptyState text={peopleQuery.trim() ? `Try a different search inside ${circleDisplayName(peopleCircleView)}.` : peopleCircleContent.empty} title={peopleQuery.trim() ? "No matching people." : `No people in ${circleDisplayName(peopleCircleView)}.`} />
                   ) : (
@@ -9539,7 +11437,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "meetings" ? (
               <div className="space-y-4">
-                <TabPageHeader title="Meetings" />
+                <TabPageHeader title="Table" />
                 <TabHero
                   icon={<MessageCircle className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                   onScriptureClick={openScriptureQuickView}
@@ -9550,13 +11448,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <div>
                   <MeetingActionRow onLogMeeting={() => openForm("meeting")} onScheduleMeeting={() => openScheduleMeeting()} />
                 </div>
-                <SegmentedTabs onChange={setMeetingsView} options={meetingsViewTabs} value={meetingsView} />
+                <div className="grid gap-3 md:grid-cols-[minmax(260px,1fr)_260px] md:items-center">
+                  <TableSearchBar onChange={setTableQuery} query={tableQuery} resultCount={meetingsView === "agenda" ? visibleTableMeetings.length : visibleMeetingCalendarItems.length} />
+                  <div className="md:justify-self-end md:w-[260px]">
+                    <SegmentedTabs onChange={setMeetingsView} options={meetingsViewTabs} value={meetingsView} />
+                  </div>
+                </div>
                 <div>
                   {meetingsView === "agenda" ? (
-                    data.meetings.length ? (
-                      <div className="grid gap-3">{data.meetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                    visibleTableMeetings.length ? (
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
                     ) : (
-                      <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Meeting</CompactButton>} text="Capture the next conversation, table, call, or prayer moment." title="No meetings logged yet." />
+                      <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Table</CompactButton>} text={tableQuery.trim() ? "Try another table type, note, person, or date." : "Capture the next conversation, table, call, or prayer moment."} title={tableQuery.trim() ? "No matching tables." : "No tables logged yet."} />
                     )
                   ) : (
                     <MeetingCalendarView
@@ -9564,7 +11467,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       calendarSyncMessage={calendarSyncMessage}
                       googleCalendarConnected={data.calendarConnection.connected}
                       isSyncingGoogleCalendar={isSyncingGoogleCalendar}
-                      items={meetingCalendarItems}
+                      items={visibleMeetingCalendarItems}
                       month={meetingsCalendarMonth}
                       onCalendarFilterChange={setMeetingCalendarFilter}
                       onChangeMonth={changeMeetingsCalendarMonth}
@@ -9582,74 +11485,305 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               </div>
             ) : null}
 
-            {activeTab === "fruit" ? (
-              <div className="space-y-5">
-                <TabPageHeader title="Fruit" />
-                <TabHero
-                  icon={<Icon name="fruit" size={20} />}
-                  onScriptureClick={openScriptureQuickView}
-                  scripture={scriptureReferences.matthew716}
-                  subtitle="Track visible outcomes of faith, obedience, and multiplication."
-                  title="Recognize the fruit."
-                />
-                <FruitTreeCard storyCount={fruitDashboardStories.length} />
-
-                <section>
-                  <SectionHeading title="Kingdom Fruit" />
-                  <div className="grid grid-cols-2 gap-2">
-                    {fruitMetrics.map((metric) => (
-                      <KingdomFruitMetricTile key={metric.label} label={metric.label} value={metric.value} />
-                    ))}
-                  </div>
-                </section>
-              </div>
-            ) : null}
-
             {activeTab === "more" ? (
               <div className="space-y-5">
-                <TabPageHeader title="Library" />
-                <TabHero
-                  icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-                  onScriptureClick={openScriptureQuickView}
-                  scripture={scriptureReferences.secondPeter318}
-                  subtitle="Resources for conversations, follow up, and discipleship."
-                  title="Grow in truth."
-                />
-                <div className="space-y-6">
-                  <LibrarySection
-                    title="Table Teachings"
-                  >
-                    <div className="grid gap-3">
-                      <FeaturedTeachingCard
-                        description={featuredTableTeaching.description}
-                        href={featuredTableTeaching.href}
-                        title={featuredTableTeaching.title}
+                {moreAppView === null || moreAppView === "apps" ? (
+                  <>
+                    <div className="space-y-5 md:hidden">
+                      <TabPageHeader title="Apps" />
+                      <TabHero
+                        icon={<Square className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                        onScriptureClick={openScriptureQuickView}
+                        scripture={scriptureReferences.secondPeter318}
+                        subtitle="DOS core stays simple. Optional layers extend the workspace when needed."
+                        title="Choose an app."
                       />
-                      {secondaryTableTeachings.map((teaching) => (
-                        <TableTeachingRow
-                          description={teaching.description}
-                          href={teaching.href}
-                          key={teaching.href}
-                          title={teaching.title}
-                        />
-                      ))}
+                      <div className="space-y-5">
+                        {appCatalogSections.map((section) => (
+                          <AppsCatalogSection key={section.label} section={section} />
+                        ))}
+                      </div>
                     </div>
-                  </LibrarySection>
+                    <DesktopMoreLauncher onScriptureClick={openScriptureQuickView} sections={appCatalogSections} />
+                  </>
+                ) : null}
 
-                  <LibrarySection
-                    subtext="To send after a conversation."
-                    title="Follow Up Resources"
-                  >
-                    <FollowUpGuideList />
-                  </LibrarySection>
-                </div>
-                {data.workspace.isUsamWorkspace ? (
-                  <Link
-                    className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A]"
-                    href={data.workspace.publicProfileHref}
-                  >
-                    View Public Profile
-                  </Link>
+                {moreAppView === "prayer" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Prayer" />
+                    <TabHero
+                      icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.hebrews1025}
+                      subtitle="Remember who to pray for and keep the next faithful step visible."
+                      title="Pray with purpose."
+                    />
+                    <LibrarySection title="Prayer Today">
+                      <div className="grid gap-3">
+                        {data.reminders.filter((reminder) => reminder.reminderType === "prayer").slice(0, 4).map((reminder) => {
+                          const person = people.find((item) => item.id === reminder.personId);
+
+                          return (
+                            <button
+                              className="flex min-w-0 items-center gap-3 rounded-[22px] border border-[#EAF2FF] bg-white p-3 text-left shadow-[0_12px_30px_rgba(37,99,235,0.045)]"
+                              key={reminder.id}
+                              onClick={() => openReminderEdit(reminder.id)}
+                              type="button"
+                            >
+                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB]">
+                                <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-bold text-[#0F172A]">{reminder.title || "Prayer reminder"}</span>
+                                <span className="mt-1 block text-xs leading-5 text-[#64748B]">{person?.name ?? "Someone"} · {formatDate(reminder.reminderDate)}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                        {!data.reminders.some((reminder) => reminder.reminderType === "prayer") ? (
+                          <EmptyState text="No prayer reminders yet. Add one from a person profile when someone needs steady covering." title="No prayer reminders." />
+                        ) : null}
+                      </div>
+                    </LibrarySection>
+                    <LibrarySection title="Recent Prayer">
+                      <div className="grid gap-2">
+                        {latestPrayerActivity ? (
+                          <RecentActivityRow icon="prayer" onClick={() => openMeetingDetail(latestPrayerActivity.meetingId)} title="Latest prayer">
+                            {latestPrayerActivity.label}
+                          </RecentActivityRow>
+                        ) : null}
+                        <div className="grid grid-cols-2 gap-2">
+                          <WeekStatTile icon="prayer" label="This Week" value={thisWeekStats.prayed} />
+                          <WeekStatTile icon="bell" label="Reminders" value={data.reminders.filter((reminder) => reminder.reminderType === "prayer").length} />
+                        </div>
+                      </div>
+                    </LibrarySection>
+                  </>
+                ) : null}
+
+                {moreAppView === "fruit" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Fruit" />
+                    <TabHero
+                      icon={<Icon name="fruit" size={20} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.matthew716}
+                      subtitle="Track visible outcomes of faith, obedience, and multiplication."
+                      title="Recognize the fruit."
+                    />
+                    <FruitTreeCard storyCount={fruitDashboardStories.length} />
+
+                    <section>
+                      <SectionHeading title="Kingdom Fruit" />
+                      <div className="grid grid-cols-2 gap-2">
+                        {fruitMetrics.map((metric) => (
+                          <KingdomFruitMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                        ))}
+                      </div>
+                    </section>
+                  </>
+                ) : null}
+
+                {moreAppView === "library" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Library" />
+                    <TabHero
+                      icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.secondPeter318}
+                      subtitle="Resources for conversations, follow up, and discipleship."
+                      title="Grow in truth."
+                    />
+                    <div className="space-y-6">
+                      <LibrarySection title="Table Teachings">
+                        <div className="grid gap-3">
+                          <FeaturedTeachingCard
+                            description={featuredTableTeaching.description}
+                            href={featuredTableTeaching.href}
+                            title={featuredTableTeaching.title}
+                          />
+                          {secondaryTableTeachings.map((teaching) => (
+                            <TableTeachingRow
+                              description={teaching.description}
+                              href={teaching.href}
+                              key={teaching.href}
+                              title={teaching.title}
+                            />
+                          ))}
+                        </div>
+                      </LibrarySection>
+
+                      <LibrarySection
+                        subtext="To send after a conversation."
+                        title="Follow Up Resources"
+                      >
+                        <FollowUpGuideList />
+                      </LibrarySection>
+                    </div>
+                  </>
+                ) : null}
+
+                {moreAppView === "in_season" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="In Season" />
+                    <TabHero
+                      icon={<Flame className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.luke1610}
+                      subtitle="A simple place for seasonal focus once those rhythms are ready."
+                      title="What is next?"
+                    />
+                    <EmptyState text="Seasonal prompts will live here without changing your core People and Table flow." title="In Season is coming soon." />
+                  </>
+                ) : null}
+
+                {moreAppView === "missionary_profile" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Missionary Profile" />
+                    <TabHero
+                      icon={<User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.secondPeter318}
+                      subtitle="An optional USA Missionaries layer attached to this DOS workspace."
+                      title="Workspace to profile."
+                    />
+                    <OrganizationStatusCard
+                      application={usamApplication}
+                      message={usamApplicationMessage}
+                      onApply={openUsamApplicationSheet}
+                      onCopyPublicLink={copyPublicProfileLink}
+                      onViewStatus={viewUsamApplicationStatus}
+                      publicProfileHref={data.workspace.publicProfileHref}
+                    />
+                    <LibrarySection title="Architecture">
+                      <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 text-sm leading-6 text-[#64748B] shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+                        <p className="font-bold text-[#0F172A]">DOS Workspace → Optional Missionary Layer</p>
+                        <p className="mt-2">
+                          People, tables, prayer, fruit, and library stay in this DOS workspace. USA Missionaries can attach a public profile, prayer team, and support team to the same workspace after approval.
+                        </p>
+                      </div>
+                    </LibrarySection>
+                  </>
+                ) : null}
+
+                {moreAppView === "prayer_team" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Prayer Team" />
+                    <TabHero
+                      icon={<HeartHandshake className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.hebrews1025}
+                      subtitle="A USA Missionaries layer for public profile prayer partnership."
+                      title="Invite covering."
+                    />
+                    <EmptyState
+                      action={<CompactButton icon="people" onClick={() => openMoreApp("missionary_profile")}>View Missionary Profile</CompactButton>}
+                      text={isMissionaryLayerActive ? "Prayer Team tools will connect to the public profile and partner list once this layer is expanded." : "Apply to USA Missionaries first. Admin approval turns this from an optional layer into an active profile tool."}
+                      title={isMissionaryLayerActive ? "Prayer Team layer is available." : "Prayer Team waits for approval."}
+                    />
+                  </>
+                ) : null}
+
+                {moreAppView === "support_team" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Support Team" />
+                    <TabHero
+                      icon={<Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.secondPeter318}
+                      subtitle="A USA Missionaries layer for giving goals and support partners."
+                      title="Steward support."
+                    />
+                    <EmptyState
+                      action={<CompactButton icon="people" onClick={() => openMoreApp("missionary_profile")}>View Missionary Profile</CompactButton>}
+                      text={isMissionaryLayerActive ? "Support Team tools will use the existing workspace/profile relationship and support settings. No duplicate missionary account is needed." : "Apply to USA Missionaries first. Admin approval keeps support visibility from going live automatically."}
+                      title={isMissionaryLayerActive ? "Support Team layer is available." : "Support Team waits for approval."}
+                    />
+                  </>
+                ) : null}
+
+                {moreAppView === "stewardship" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Stewardship" />
+                    <TabHero
+                      icon={<Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.luke1610}
+                      subtitle="A future optional app for budgets, giving, and faithful management."
+                      title="Coming soon."
+                    />
+                    <EmptyState text="Stewardship can be installed later without changing the DOS core workspace." title="Stewardship is not installed yet." />
+                  </>
+                ) : null}
+
+                {moreAppView === "table_flow" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Table Flow" />
+                    <TabHero
+                      icon={<GitBranch className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.hebrews1025}
+                      subtitle="A future optional app for guided table conversations and follow-up paths."
+                      title="Coming soon."
+                    />
+                    <EmptyState text="Table Flow can become an installable guided conversation layer while Table remains the core capture flow." title="Table Flow is not installed yet." />
+                  </>
+                ) : null}
+
+                {moreAppView === "organizations" ? (
+                  <>
+                    <div className="space-y-5 md:hidden">
+                      <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Organizations" />
+                      <TabHero
+                        icon={<Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                        onScriptureClick={openScriptureQuickView}
+                        scripture={scriptureReferences.secondPeter318}
+                        subtitle="Manage optional organization connections without changing your DOS workspace."
+                        title="Connected work."
+                      />
+                      <LibrarySection title="Connections">
+                        <div className="grid gap-3">
+                          {data.organizations.map((organization) => (
+                            <OrganizationConnectionRow connection={organization} key={organization.id} />
+                          ))}
+                        </div>
+                      </LibrarySection>
+                      <OrganizationStatusCard
+                        application={usamApplication}
+                        message={usamApplicationMessage}
+                        onApply={openUsamApplicationSheet}
+                        onCopyPublicLink={copyPublicProfileLink}
+                        onViewStatus={viewUsamApplicationStatus}
+                        publicProfileHref={data.workspace.publicProfileHref}
+                      />
+                      {usamApplication.status === "active" || usamApplication.status === "approved" ? (
+                        <section className="grid grid-cols-2 gap-2">
+                          {[
+                            ["Prayer Team", "Profile"],
+                            ["Support Team", "Profile"],
+                            ["Giving", "Draft"],
+                            ["Profile", usamProfileStatusLabel(usamApplication.profileStatus)],
+                          ].map(([label, value]) => (
+                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-3 shadow-[0_10px_26px_rgba(37,99,235,0.05)]" key={label}>
+                              <p className="text-[9px] font-bold uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+                              <p className="mt-1 text-sm font-bold text-[#0F172A]">{value}</p>
+                            </div>
+                          ))}
+                        </section>
+                      ) : null}
+                    </div>
+                    <DesktopOrganizationsView
+                      application={usamApplication}
+                      message={usamApplicationMessage}
+                      onApply={openUsamApplicationSheet}
+                      onBack={() => setMoreAppView(null)}
+                      onCopyPublicLink={copyPublicProfileLink}
+                      onScriptureClick={openScriptureQuickView}
+                      onViewStatus={viewUsamApplicationStatus}
+                      organizations={data.organizations}
+                      publicProfileHref={data.workspace.publicProfileHref}
+                    />
+                  </>
                 ) : null}
               </div>
             ) : null}
@@ -9759,8 +11893,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {isProfileOpen ? (
           <ProfileSheet
             email={profileEmail}
-            fieldName={fieldName}
-            fieldSublabel={fieldSublabel}
             name={profileName}
             onClose={() => setIsProfileOpen(false)}
             onEditProfile={() => {
@@ -9772,17 +11904,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               openPeopleCircle("three");
             }}
             photoUrl={data.workspace.profileImageUrl}
+            workspaceName={workspaceName}
+            workspaceSublabel={workspaceSublabel}
           />
         ) : null}
 
         {isEditProfileOpen ? (
           <EditProfileSheet
             email={profileEmail}
-            fieldName={fieldName}
-            fieldSublabel={fieldSublabel}
             name={profileName}
             onClose={() => setIsEditProfileOpen(false)}
             phone={profilePhone}
+            workspaceName={workspaceName}
+            workspaceSublabel={workspaceSublabel}
           />
         ) : null}
 
@@ -9791,6 +11925,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             existingPeople={people}
             onClose={() => setIsPeopleImportOpen(false)}
             onImport={handlePeopleImport}
+          />
+        ) : null}
+
+        {isUsamApplicationOpen ? (
+          <UsamApplicationSheet
+            draft={usamApplicationDraft}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmittingUsamApplication}
+            onChange={updateUsamApplicationDraft}
+            onClose={closeUsamApplicationSheet}
+            onSubmit={handleUsamApplicationSubmit}
           />
         ) : null}
 
@@ -9857,11 +12002,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "meeting" ? (
-        <Sheet onClose={closeForm} title="Log Meeting">
+        <Sheet onClose={closeForm} title="Log Table">
           <MeetingFormContent
             allPeople={people}
             allowConversationFlows={data.workspace.isUsamWorkspace}
-            buttonText="Log Meeting"
+            buttonText="Log Table"
             conversationResponses={conversationResponses}
             dateDefault={todayDateValue()}
             errorMessage={errorMessage}
@@ -9891,7 +12036,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "scheduleMeeting" ? (
-        <Sheet onClose={closeForm} showEyebrow={false} title="Schedule Meeting">
+        <Sheet onClose={closeForm} showEyebrow={false} title="Schedule Table">
           <ScheduleMeetingForm
             allPeople={people}
             calendarConnection={data.calendarConnection}
@@ -9935,12 +12080,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "editMeeting" && selectedMeeting ? (
-        <Sheet onClose={closeForm} title="Edit Meeting">
+        <Sheet onClose={closeForm} title="Edit Table">
           <div className="space-y-3">
             <MeetingFormContent
               allPeople={people}
               allowConversationFlows={data.workspace.isUsamWorkspace}
-              buttonText="Save Meeting"
+              buttonText="Save Table"
               conversationResponses={conversationResponses}
               dateDefault={selectedMeeting.date ?? todayDateValue()}
               errorMessage={errorMessage}
@@ -9969,7 +12114,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onClick={handleDeleteMeeting}
               type="button"
             >
-              Delete Meeting
+              Delete Table
             </button>
           </div>
         </Sheet>

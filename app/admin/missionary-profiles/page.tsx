@@ -32,14 +32,15 @@ import {
   type AdminTableReview,
   type AdminTeachingUsed,
   type AdminTeamMember,
+  type AdminUsamApplication,
+  type AdminUsamApplicationStatus,
 } from "./MissionaryProfilesAdminDashboard";
 import { AdminShell } from "../_components/AdminShell";
 import { getAdminAuthorization } from "@/src/lib/admin-auth";
-import { isWorkspaceShellV2Enabled } from "@/src/lib/admin/workspace-feature-flags";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Missionary Workspace | USA Missionaries",
+  title: "USA Missionaries Profiles | National Command Center",
   robots: {
     follow: false,
     index: false,
@@ -47,7 +48,7 @@ export const metadata: Metadata = {
 };
 
 const householdBaseSelect = "id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order, updated_at";
-const householdFeatureColumns = [
+const householdPublishingFeatureColumns = [
   "show_household",
   "show_photos",
   "show_team",
@@ -76,7 +77,20 @@ const householdFeatureColumns = [
   "role_type",
   "custom_serving_label",
   "location_visibility",
+];
+const householdUsamWorkflowColumns = [
+  "usam_application_id",
+  "usam_application_status",
+  "usam_profile_status",
+  "usam_application_submitted_at",
+  "usam_application_reviewed_at",
+  "usam_assigned_admin_email",
+];
+const householdFeatureColumns = [
+  ...householdPublishingFeatureColumns,
+  ...householdUsamWorkflowColumns,
 ].join(", ");
+const householdFeatureColumnsWithoutUsamWorkflow = householdPublishingFeatureColumns.join(", ");
 const encounterStatuses = ["raw", "reviewed", "approved", "hidden", "archived"] as const satisfies readonly AdminEncounterStatus[];
 const encounterSources = ["manual", "public_form", "dos"] as const;
 const encounterSubmissionTypes = ["quick_response", "full_testimony"] as const satisfies readonly AdminEncounterSubmissionType[];
@@ -274,6 +288,10 @@ type PublicFruitItemRow = {
   household_id: string | null;
 };
 
+type UsamApplicationRow = Omit<AdminUsamApplication, "status"> & {
+  status: string | null;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -422,6 +440,27 @@ function getPrayerPartnerStatus(value: string | null | undefined): AdminPrayerPa
   return prayerPartnerStatuses.includes(value as AdminPrayerPartnerStatus) ? value as AdminPrayerPartnerStatus : "pending";
 }
 
+function getUsamApplicationStatus(value: string | null | undefined): AdminUsamApplicationStatus {
+  switch (value) {
+    case "active":
+    case "application_started":
+    case "application_submitted":
+    case "approved":
+    case "archived":
+    case "independent":
+    case "not_connected":
+    case "pending_review":
+    case "rejected":
+      return value;
+    case "pending":
+      return "pending_review";
+    case "inactive":
+      return "archived";
+    default:
+      return "not_connected";
+  }
+}
+
 function getPermissionToShare(payload: Record<string, unknown>) {
   return payloadBoolean(payload, "permission_to_share")
     || payloadString(payload, "permission_to_share").toLowerCase() === "true"
@@ -483,6 +522,13 @@ function hasMissingStoryVersionColumnsError(error: { message?: string } | null |
   const message = error?.message ?? "";
 
   return ["original_story", "public_story"].some((columnName) => message.includes(columnName));
+}
+
+function hasMissingUsamWorkflowColumnsError(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return householdUsamWorkflowColumns.some((columnName) => message.includes(columnName))
+    || (message.includes("missionary_households") && message.includes("usam_application"));
 }
 
 function isMissingPrayerTeamTable(error: { message?: string } | null | undefined) {
@@ -645,6 +691,15 @@ function isMissingMajorGiftInquiriesTable(error: { message?: string } | null | u
     || message.toLowerCase().includes("could not find the table");
 }
 
+function isMissingUsamApplicationsTable(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return message.includes("usam_missionary_applications")
+    || message.includes("schema cache")
+    || message.includes("could not find the table")
+    || message.includes("does not exist");
+}
+
 function getSupportCommitmentStatus(value: string | null | undefined): AdminSupportCommitmentStatus {
   switch (value) {
     case "active":
@@ -699,6 +754,18 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   let error = householdResult.error;
   let hasPublishingFeatureColumns = true;
   let hasStoryVersionColumns = true;
+  let hasUsamWorkflowColumns = true;
+
+  if (error && hasMissingUsamWorkflowColumnsError(error)) {
+    hasUsamWorkflowColumns = false;
+    const fallbackResult = await supabase
+      .from("missionary_households")
+      .select(`${householdBaseSelect}, ${householdFeatureColumnsWithoutUsamWorkflow}` as string)
+      .order("sort_order", { ascending: true });
+
+    households = fallbackResult.data as AdminHousehold[] | null;
+    error = fallbackResult.error;
+  }
 
   if (error && hasMissingFeatureColumnsError(error)) {
     hasPublishingFeatureColumns = false;
@@ -735,6 +802,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const tableReviewsByHouseholdId = new Map<string, AdminTableReview[]>();
   const tablesByHouseholdId = new Map<string, AdminMissionaryTable[]>();
   const teamMembersByHouseholdId = new Map<string, AdminTeamMember[]>();
+  const applicationsByHouseholdId = new Map<string, AdminUsamApplication>();
 
   if (ids.length > 0) {
     const supportResult = await supabase
@@ -756,6 +824,34 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
 
     (supportSettings ?? []).forEach((support) => {
       supportByHouseholdId.set(support.household_id, support as AdminSupportSettings);
+    });
+
+    const applicationsResult = await supabase
+      .from("usam_missionary_applications")
+      .select("id, workspace_id, missionary_profile_id, profile_id, applicant_name, applicant_email, applicant_phone, location, story_testimony, profile_photo_url, calling_focus, monthly_budget, support_goal, prayer_needs, references_text, status, assigned_admin_email, admin_notes, submitted_at, reviewed_at, created_at, updated_at")
+      .or(ids.map((id) => `workspace_id.eq.${id},missionary_profile_id.eq.${id}`).join(","))
+      .order("submitted_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+
+    if (applicationsResult.error && !isMissingUsamApplicationsTable(applicationsResult.error)) {
+      return { error: applicationsResult.error.message, profiles: [] };
+    }
+
+    ((applicationsResult.data ?? []) as UsamApplicationRow[]).forEach((application) => {
+      const householdId = application.missionary_profile_id && ids.includes(application.missionary_profile_id)
+        ? application.missionary_profile_id
+        : application.workspace_id && ids.includes(application.workspace_id)
+          ? application.workspace_id
+          : null;
+
+      if (!householdId || applicationsByHouseholdId.has(householdId)) {
+        return;
+      }
+
+      applicationsByHouseholdId.set(householdId, {
+        ...application,
+        status: getUsamApplicationStatus(application.status),
+      });
     });
 
     const supportCommitmentsResult = await supabase
@@ -1406,6 +1502,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     profiles: (households ?? []).map((household) => ({
       ...(household as AdminHousehold),
       activePrayerRequestCount: activePrayerRequestCountByHouseholdId.get(household.id) ?? 0,
+      application: applicationsByHouseholdId.get(household.id) ?? null,
       connectionLogs: connectionLogsByHouseholdId.get(household.id) ?? [],
       encounterSubmissions: encounterSubmissionsByHouseholdId.get(household.id) ?? [],
       fieldPeople: fieldPeopleByHouseholdId.get(household.id) ?? [],
@@ -1431,6 +1528,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       schemaStatus: {
         hasPublishingFeatureColumns,
         hasStoryVersionColumns,
+        hasUsamWorkflowColumns,
       },
       tables: tablesByHouseholdId.get(household.id) ?? [],
       tableReviews: tableReviewsByHouseholdId.get(household.id) ?? [],
@@ -1447,12 +1545,12 @@ export default async function MissionaryProfilesAdminPage() {
   }
 
   const { error: loadError, profiles } = await getAdminProfiles();
-  const workspaceShellV2Enabled = isWorkspaceShellV2Enabled();
 
   return (
     <AdminShell
       active="missionary-profiles"
-      title="Missionary Workspace"
+      title="USA Missionaries Profiles"
+      description="Application, publishing, public profile, prayer, and support management for USA Missionaries."
     >
       {loadError ? (
         <p className="mb-6 border border-red-500/30 bg-red-950/20 p-4 text-sm text-red-200">
@@ -1461,7 +1559,6 @@ export default async function MissionaryProfilesAdminPage() {
       ) : null}
       <MissionaryProfilesAdminDashboard
         initialProfiles={profiles}
-        workspaceShellV2Enabled={workspaceShellV2Enabled}
       />
     </AdminShell>
   );

@@ -84,7 +84,7 @@ function prayerErrorMessage(error: { code?: string; message?: string }) {
   const lowerMessage = message.toLowerCase();
 
   if (error.code === "PGRST205" || lowerMessage.includes("schema cache")) {
-    return "Prayer request fields are missing. Apply the Missionary Workspace MVP migration.";
+    return "Prayer request fields are missing. Apply the USA Missionaries Profiles MVP migration.";
   }
 
   return message;

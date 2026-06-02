@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Activity, Building2, Globe, Heart, MessageSquare, Network, Settings, ShieldCheck, Upload, Users, type LucideIcon } from "lucide-react";
+import { Activity, Building2, Globe, Heart, LayoutGrid, MessageSquare, Network, Settings, ShieldCheck, Upload, Users, type LucideIcon } from "lucide-react";
 import { adminFont } from "./AdminUI";
 import { RolePreviewSelect } from "./RolePreviewSelect";
 
@@ -9,7 +9,8 @@ const adminNavGroups = [
     items: [
       { activeKey: "dashboard", href: "/admin", icon: Activity, label: "Command Center" },
       { activeKey: "organizations", href: "/admin/organizations", icon: Building2, label: "Organizations" },
-      { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", icon: Users, label: "Missionary Workspaces" },
+      { activeKey: "workspaces", href: "/admin/workspaces", icon: LayoutGrid, label: "Workspaces" },
+      { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", icon: Users, label: "USA Missionaries Profiles" },
       { activeKey: "circle-engine", href: "/admin/circle-engine", icon: Network, label: "Circle Engine" },
       { activeKey: "public-experience", href: "/admin/public-experience", icon: Globe, label: "Public Experience" },
       { activeKey: "prayer", href: "/admin/prayer-team", icon: Heart, label: "Prayer Team" },

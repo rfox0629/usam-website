@@ -54,11 +54,11 @@ export default async function WorkspacePreviewPage({
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link
             className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-stone-400 transition-colors hover:text-[#E4C465]"
-            href="/admin/organizations"
+            href="/admin/workspaces"
             style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            Command Center
+            Workspaces
           </Link>
           <div className="flex flex-wrap gap-2">
             <AdminBadge tone="amber">Workspace v2</AdminBadge>

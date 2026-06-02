@@ -43,7 +43,7 @@ export function resolveDosMeetingParticipantNames({
   return [...linkedNames, ...quickNames];
 }
 
-export function formatDosParticipantTitle(names: readonly string[], fallback = "Private meeting") {
+export function formatDosParticipantTitle(names: readonly string[], fallback = "Private table") {
   const cleanNames = normalizeDosParticipantNames(names);
 
   if (cleanNames.length === 0) {
@@ -61,7 +61,7 @@ export function formatDosParticipantTitle(names: readonly string[], fallback = "
   return `${cleanNames[0]} + ${cleanNames.length - 1} others`;
 }
 
-export function formatDosParticipantList(names: readonly string[], fallback = "Private meeting") {
+export function formatDosParticipantList(names: readonly string[], fallback = "Private table") {
   const cleanNames = normalizeDosParticipantNames(names);
 
   return cleanNames.length ? cleanNames.join(" + ") : fallback;

@@ -25,15 +25,15 @@ export const platformLayers = [
   },
   {
     key: "missionary_workspace",
-    label: "Missionary Workspace",
-    primaryAudience: "Workspace Leader",
+    label: "USA Missionaries Profiles",
+    primaryAudience: "USAM Profile Admin",
     routeScope: "/admin/missionary-profiles",
     summary:
-      "Private workspace for an individual, household, or missionary team covering People, Meetings, Fruit, Prayer, Library, In Season, and DOS activity.",
+      "Public, fundraising, prayer, publishing, and story records for USA Missionaries profiles.",
   },
   {
     key: "dos_field_app",
-    label: "DOS Field App",
+    label: "DOS Mobile App",
     primaryAudience: "DOS User",
     routeScope: "/dos/app",
     summary:

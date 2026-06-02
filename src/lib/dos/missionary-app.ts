@@ -21,6 +21,7 @@ import {
 } from "@/src/lib/dos/relationship-model";
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { isGoogleCalendarConfigured } from "@/src/lib/dos/google-calendar";
+import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -238,6 +239,17 @@ export type DosAppCalendarConnection = {
   lastSyncedAt: string | null;
 };
 
+export type DosAppOrganizationConnection = {
+  id: string;
+  name: string;
+  profileStatus?: string | null;
+  publicProfileHref?: string | null;
+  publicProfileLive?: boolean;
+  slug: string | null;
+  status: string;
+  type: "church" | "independent" | "ministry" | "other" | "usam";
+};
+
 export type DosAppExternalCalendarEvent = {
   allDay: boolean;
   calendarSourceId: string | null;
@@ -277,11 +289,13 @@ export type DosAppData = {
   fruitEvents: DosAppFruitEvent[];
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
+  organizations: DosAppOrganizationConnection[];
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
   prayerLogs: DosAppPrayerLog[];
   reminders: DosAppRelationshipReminder[];
+  usamApplication: DosUsamOrganizationApplication;
   stats: {
     approvedFruit: number;
     connectionsCount: number;
@@ -341,8 +355,16 @@ type HouseholdRow = {
   location?: string | null;
   primary_state?: string | null;
   profile_image_url: string | null;
+  public_visible?: boolean | null;
+  show_household?: boolean | null;
   short_mission: string | null;
   slug: string;
+  usam_application_id?: string | null;
+  usam_application_reviewed_at?: string | null;
+  usam_application_status?: string | null;
+  usam_application_submitted_at?: string | null;
+  usam_assigned_admin_email?: string | null;
+  usam_profile_status?: string | null;
 };
 
 type FieldPersonRow = {
@@ -1080,7 +1102,7 @@ async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<
 
   const supabase = createSupabaseAdminClient();
   const baseSelect = "id, slug, display_name, short_mission, profile_image_url, location";
-  const identitySelect = `${baseSelect}, primary_state`;
+  const identitySelect = `${baseSelect}, primary_state, public_visible, show_household, usam_application_id, usam_application_status, usam_profile_status, usam_application_submitted_at, usam_application_reviewed_at, usam_assigned_admin_email`;
   const runQuery = async (selectColumns: string) => {
     const query = supabase.from("missionary_households").select(selectColumns);
 
@@ -1152,6 +1174,83 @@ async function loadOrganizationForWorkspace(supabase: SupabaseAdminClient, works
     : null;
 }
 
+function organizationTypeFromBranding(organization: Awaited<ReturnType<typeof loadOrganizationForWorkspace>>): DosAppOrganizationConnection["type"] {
+  if (!organization) {
+    return "other";
+  }
+
+  if (organization.brandingMode === "usam" || organization.slug === "usa-missionaries") {
+    return "usam";
+  }
+
+  return organization.brandingMode === "affiliate" ? "church" : "ministry";
+}
+
+function buildOrganizationConnections({
+  organization,
+  usamApplication,
+  workspace,
+}: {
+  organization: Awaited<ReturnType<typeof loadOrganizationForWorkspace>>;
+  usamApplication: DosUsamOrganizationApplication;
+  workspace: HouseholdRow;
+}): DosAppOrganizationConnection[] {
+  const connections = new Map<string, DosAppOrganizationConnection>();
+  const addConnection = (connection: DosAppOrganizationConnection) => {
+    connections.set(connection.slug ?? connection.id, connection);
+  };
+
+  addConnection({
+    id: "independent",
+    name: "Independent DOS",
+    profileStatus: null,
+    publicProfileHref: null,
+    publicProfileLive: false,
+    slug: null,
+    status: "active",
+    type: "independent",
+  });
+
+  addConnection({
+    id: usamApplication.organizationId ?? "usa-missionaries",
+    name: usamApplication.organizationName,
+    profileStatus: usamApplication.profileStatus,
+    publicProfileHref: usamApplication.publicProfileHref,
+    publicProfileLive: usamApplication.publicProfileLive,
+    slug: "usa-missionaries",
+    status: usamApplication.status,
+    type: "usam",
+  });
+
+  if (organization?.name && organization.slug !== "usa-missionaries" && organization.brandingMode !== "usam") {
+    addConnection({
+      id: organization.slug ?? organization.name,
+      name: organization.name,
+      profileStatus: null,
+      publicProfileHref: null,
+      publicProfileLive: false,
+      slug: organization.slug,
+      status: "active",
+      type: organizationTypeFromBranding(organization),
+    });
+  }
+
+  if (workspace.public_visible === true && usamApplication.status === "not_connected") {
+    addConnection({
+      id: "usa-missionaries",
+      name: usamApplication.organizationName,
+      profileStatus: usamApplication.profileStatus,
+      publicProfileHref: usamApplication.publicProfileHref,
+      publicProfileLive: usamApplication.publicProfileLive,
+      slug: "usa-missionaries",
+      status: "active",
+      type: "usam",
+    });
+  }
+
+  return Array.from(connections.values());
+}
+
 export async function loadDosAppData(workspaceSlug?: string | null): Promise<LoadResult<DosAppData>> {
   const workspaceResult = await loadWorkspace(workspaceSlug);
 
@@ -1161,7 +1260,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, calendarConnectionResult, calendarEventLinksResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, organization] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, calendarConnectionResult, calendarEventLinksResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -1175,6 +1274,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadOrganizationForWorkspace(supabase, workspace.slug),
+    loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
   if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
@@ -1480,11 +1580,13 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       fruitEvents,
       leaderReflections,
       meetings,
+      organizations: buildOrganizationConnections({ organization, usamApplication, workspace }),
       participantReviews,
       participantTestimonies,
       people,
       prayerLogs,
       reminders,
+      usamApplication,
       stats: {
         approvedFruit: fruit.filter((item) => item.status === "approved").length,
         connectionsCount: connectionRows.length,
@@ -1502,7 +1604,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         displayName: workspace.display_name,
         greetingName: null,
         id: workspace.id,
-        isUsamWorkspace: organization?.brandingMode === "usam" || organization?.slug === "usa-missionaries" || isUsamKitchenTableGospelWorkspace({ publicProfileHref: organization?.brandingMode === "usam" ? `/missionaries/${workspace.slug}` : null, slug: workspace.slug }),
+        isUsamWorkspace: usamApplication.status === "approved" || usamApplication.status === "active" || usamApplication.publicProfileLive || organization?.brandingMode === "usam" || organization?.slug === "usa-missionaries" || isUsamKitchenTableGospelWorkspace({ publicProfileHref: organization?.brandingMode === "usam" ? `/missionaries/${workspace.slug}` : null, slug: workspace.slug }),
         organizationName: organization?.name ?? null,
         profileImageUrl: workspace.profile_image_url,
         publicProfileHref: `/missionaries/${workspace.slug}`,

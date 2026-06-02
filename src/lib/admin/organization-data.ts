@@ -249,7 +249,7 @@ function getOrganizationWorkspaces(
     name: household.display_name,
     previewHref: `/admin/workspaces/${household.id}/preview?viewAs=workspace_user`,
     slug: household.slug,
-    sourceLabel: "Missionary Workspace",
+    sourceLabel: "DOS Workspace",
     status: "active" as const,
   }));
   const foundationWorkspaces = orgCollectives

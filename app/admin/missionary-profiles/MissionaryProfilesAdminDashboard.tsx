@@ -94,10 +94,47 @@ export type AdminFruitStatus = "approved" | "archived" | "draft" | "pending_revi
 type FruitReviewModerationAction = "approve" | "archive" | "private";
 export type AdminTeamMemberStatus = "active" | "archived" | "declined" | "hidden" | "inactive" | "pending";
 export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
+export type AdminUsamApplicationStatus =
+  | "active"
+  | "application_started"
+  | "application_submitted"
+  | "approved"
+  | "archived"
+  | "independent"
+  | "not_connected"
+  | "pending_review"
+  | "rejected";
+
+export type AdminUsamProfileStatus = "approved" | "archived" | "draft" | "hidden" | "published" | "under_review";
+
+export type AdminUsamApplication = {
+  admin_notes: string | null;
+  applicant_email: string | null;
+  applicant_name: string | null;
+  applicant_phone: string | null;
+  assigned_admin_email: string | null;
+  calling_focus: string | null;
+  created_at: string;
+  id: string;
+  location: string | null;
+  missionary_profile_id: string | null;
+  monthly_budget: number | null;
+  prayer_needs: string | null;
+  profile_id: string | null;
+  profile_photo_url: string | null;
+  references_text: string | null;
+  reviewed_at: string | null;
+  status: AdminUsamApplicationStatus;
+  story_testimony: string | null;
+  submitted_at: string | null;
+  support_goal: number | null;
+  updated_at: string | null;
+  workspace_id: string;
+};
 
 // Profiles (PF) public read model. These fields control public profile
 // content: Profile, Features, Team roster, Media, Story, Support, and Prayer.
-// The Missionary Workspace owns review and publishing; public pages display
+// USA Missionaries Profiles own review and publishing; public pages display
 // only approved profile content.
 export type AdminHousehold = {
   id: string;
@@ -134,6 +171,12 @@ export type AdminHousehold = {
   support_public_label?: string | null;
   support_button_label?: string | null;
   support_explanation?: string | null;
+  usam_application_id?: string | null;
+  usam_application_reviewed_at?: string | null;
+  usam_application_status?: AdminUsamApplicationStatus | string | null;
+  usam_application_submitted_at?: string | null;
+  usam_assigned_admin_email?: string | null;
+  usam_profile_status?: AdminUsamProfileStatus | string | null;
   prayer_cta_label?: string | null;
   prayer_destination?: string | null;
   enable_prayer_team?: boolean | null;
@@ -222,8 +265,8 @@ export type AdminMajorGiftInquiry = {
   updated_at: string | null;
 };
 
-// Tables are the meeting layer for ministry activity. The Missionary Workspace
-// manages them now; future Field (FD) can create them quickly during daily work.
+// Tables are the meeting layer for ministry activity. USA Missionaries Profiles
+// manages them now; DOS can create them quickly during daily work.
 export type AdminMissionaryTable = {
   created_at: string;
   field_person_ids: string[];
@@ -238,8 +281,8 @@ export type AdminMissionaryTable = {
   workspace_id: string;
 };
 
-// Your Field (People) is the internal relationship map shared by the Missionary
-// Workspace and future Field. These records are not public Profile Team members.
+// People is the internal relationship map shared by USA Missionaries Profiles
+// and DOS. These records are not public Profile Team members.
 export type AdminFieldPerson = {
   church: string | null;
   created_at: string;
@@ -260,7 +303,7 @@ export type AdminFieldPerson = {
 };
 
 // Encounters are the raw intake layer for testimonies, forms, reviews, and
-// story material. Field (FD) can create these later; the Missionary Workspace
+// story material. DOS can create these later; USA Missionaries Profiles
 // reviews them before any approved Fruit is derived.
 export type AdminEncounterSubmission = {
   created_at: string;
@@ -427,6 +470,7 @@ export type AdminTeamMember = {
 
 export type AdminProfile = AdminHousehold & {
   activePrayerRequestCount?: number;
+  application?: AdminUsamApplication | null;
   connectionLogs?: AdminConnectionLog[];
   encounterSubmissions?: AdminEncounterSubmission[];
   fieldPeople?: AdminFieldPerson[];
@@ -447,12 +491,12 @@ export type AdminProfile = AdminHousehold & {
   schemaStatus?: {
     hasPublishingFeatureColumns: boolean;
     hasStoryVersionColumns: boolean;
+    hasUsamWorkflowColumns?: boolean;
   };
 };
 
 type MissionaryProfilesAdminDashboardProps = {
   initialProfiles: AdminProfile[];
-  workspaceShellV2Enabled?: boolean;
 };
 
 type StatusMessage = {
@@ -982,6 +1026,7 @@ const primaryNavGroups: Array<{
 ];
 
 const publishingEnabledByDefault = true;
+const profilePrimaryNavKeys = new Set<PrimaryNavKey>(["dashboard", "publishing"]);
 
 function normalizeEditorTab(tab: RawEditorTab): EditorTab {
   return tab === "tables" || tab === "connections" ? "meetings" : tab;
@@ -2307,14 +2352,10 @@ function DashboardActivityRow({ activity }: { activity: DashboardActivityItem })
 
 function DashboardRecentActivity({
   activities,
-  onAddContact,
   onAddPrayerRequest,
-  onLogMeeting,
 }: {
   activities: DashboardActivityItem[];
-  onAddContact: () => void;
   onAddPrayerRequest: () => void;
-  onLogMeeting: () => void;
 }) {
   return (
     <DashboardPanelCard>
@@ -2337,13 +2378,11 @@ function DashboardRecentActivity({
       ) : (
         <div className="py-6 text-center">
           <p className="text-sm font-semibold text-stone-100">No activity yet</p>
-          <p className="mt-1 text-sm text-stone-500">Start with one of these to get going</p>
+          <p className="mt-1 text-sm text-stone-500">Start by preparing the public profile.</p>
         </div>
       )}
 
       <div className="mt-4 flex flex-wrap justify-center gap-2">
-        <DashboardTinyButton onClick={onAddContact}>Add a contact</DashboardTinyButton>
-        <DashboardTinyButton onClick={onLogMeeting}>Log a meeting</DashboardTinyButton>
         <DashboardTinyButton onClick={onAddPrayerRequest}>Add prayer request</DashboardTinyButton>
       </div>
     </DashboardPanelCard>
@@ -2351,11 +2390,9 @@ function DashboardRecentActivity({
 }
 
 function WorkspaceOverview({
-  onNavigate,
   onOpenPrayerRequests,
   profile,
 }: {
-  onNavigate: (tab: RawEditorTab, primaryNav?: PrimaryNavKey, subnavId?: string) => void;
   onOpenPrayerRequests: () => void;
   profile: AdminProfile;
 }) {
@@ -2408,7 +2445,7 @@ function WorkspaceOverview({
       date: connection.connection_date,
       label: connection.interaction_type,
       meta: connection.follow_up_needed || "Connection logged",
-      type: "Field",
+      type: "Connection",
     })),
     ...(profile.fruitItems ?? []).slice(0, 2).map((fruit) => ({
       date: fruit.testimony_date ?? fruit.created_at,
@@ -2432,9 +2469,6 @@ function WorkspaceOverview({
     .sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime())
     .slice(0, 5);
   const mostRecentActivity = recentActivity[0];
-  const openPeople = () => onNavigate("people", "field");
-  const openMeetings = () => onNavigate("meetings", "field");
-
   return (
     <div className="space-y-4 text-stone-100">
       <div>
@@ -2453,9 +2487,8 @@ function WorkspaceOverview({
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.8fr)]">
         <DashboardPanelCard>
           <DashboardPanelHeader
-            action={<DashboardTinyButton onClick={openPeople}>View all</DashboardTinyButton>}
             icon={Users}
-            title="Field Activity"
+            title="Profile Activity"
           />
           <div className="grid gap-2 sm:grid-cols-4">
             <DashboardStatSegment active label="Contacts" value={peopleCount} />
@@ -2533,9 +2566,7 @@ function WorkspaceOverview({
 
       <DashboardRecentActivity
         activities={recentActivity}
-        onAddContact={openPeople}
         onAddPrayerRequest={onOpenPrayerRequests}
-        onLogMeeting={openMeetings}
       />
     </div>
   );
@@ -3371,7 +3402,7 @@ function PeopleManager({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-2xl">
           <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-            Your Field
+            People
           </h3>
           <p className="text-sm leading-5 text-[#7b746a]">
             People connected to this workspace
@@ -3482,7 +3513,7 @@ function PeopleManager({
 
             if (saved.ok) {
               setIsAddPersonOpen(false);
-              setSaveMessage({ text: "Person added to Your Field", tone: "success" });
+              setSaveMessage({ text: "Person added.", tone: "success" });
             } else if (saved.error) {
               setSaveMessage({ text: saved.error, tone: "error" });
             }
@@ -3614,7 +3645,7 @@ function PeopleCsvImportModal({
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Your Field Import
+              People Import
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
               Import PCO CSV
@@ -3830,7 +3861,7 @@ function PersonEditorModal({
         <div className="flex items-start justify-between gap-4 border-b border-[#e2ded5] pb-5">
           <div>
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Your Field
+              People
             </p>
             <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
               {mode === "add" ? "Add Person" : `Edit ${person?.name || "Person"}`}
@@ -5333,7 +5364,7 @@ function MeetingEditorModal({
               </div>
             ) : (
               <p className="mt-2 rounded-xl border border-[#e2ded5] bg-white p-3 text-sm leading-6 text-[#7b746a]">
-                Add people in Your Field first, or save this meeting without linked people for now.
+                Add people first, or save this meeting without linked people for now.
               </p>
             )}
           </div>
@@ -5730,7 +5761,7 @@ function TableDetailPanel({
                   Review
                 </p>
                 <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                  Internal notes about this meeting. These stay in the Missionary Workspace.
+                  Internal notes about this meeting. These stay in the admin profile record.
                 </p>
               </div>
               <TextArea
@@ -5764,7 +5795,7 @@ function TableDetailPanel({
                       What did you learn about this person?
                     </p>
                     <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-                      Update missing Person fields only. These save to Your Field, not this Table.
+                      Update missing Person fields only. These save to People, not this meeting.
                     </p>
                   </div>
                   {linkedPeople.map((person) => (
@@ -6126,7 +6157,7 @@ function FruitEditorModal({
               Fruit Summary
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-              Approved Fruit is the public-safe outcome layer. Raw Encounter text and internal notes stay in the Missionary Workspace.
+              Approved Fruit is the public-safe outcome layer. Raw Encounter text and internal notes stay in the admin profile record.
             </p>
           </div>
           <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
@@ -6170,7 +6201,7 @@ function FruitEditorModal({
             value={draft.summary}
           />
           <TextArea
-            helperText="Internal Missionary Workspace notes. Not public and not shown in future Field summaries."
+            helperText="Internal admin notes. Not public and not shown in public summaries."
             label="Internal Notes"
             onChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, internalNotes: value }))}
             rows={4}
@@ -6338,7 +6369,7 @@ function EncounterSubmissionManager({
           <p className="text-sm leading-6 text-[#7b746a]">
             Encounters are raw testimony records from ministry tables. Review the original, add a clean summary and outcome tags, then approve it into Fruit.
           </p>
-          <DataFlowLabels items={["RAW -> REVIEWED -> APPROVED", "Stored in Missionary Workspace", "Approved Fruit feeds Field"]} />
+          <DataFlowLabels items={["RAW -> REVIEWED -> APPROVED", "Stored in USA Missionaries Profiles", "Approved Fruit feeds public profile"]} />
         </div>
         <button
           className={lightPrimaryButtonClass}
@@ -6504,7 +6535,7 @@ function EncounterEditorModal({
               {encounter.submitter_name?.trim() || "Unnamed Encounter"}
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4b443b]">
-              Review raw Encounter intake, write a public-safe Fruit summary, then approve only what should feed Profile and future Field.
+              Review raw Encounter intake, write a public-safe Fruit summary, then approve only what should feed Profiles and DOS summaries.
             </p>
           </div>
           <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d7d2c8] bg-white text-lg leading-none text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]" onClick={onClose} type="button">
@@ -6566,7 +6597,7 @@ function EncounterEditorModal({
               Review Panel
             </p>
             <p className="mt-1 text-xs leading-5 text-[#7b746a]">
-              Write only what can become approved Fruit. Internal notes stay inside the Missionary Workspace.
+              Write only what can become approved Fruit. Internal notes stay inside the admin profile record.
             </p>
             <TextArea
               helperText="This is the only text that can publish after approval."
@@ -6577,7 +6608,7 @@ function EncounterEditorModal({
             />
             <div className="mt-4">
               <TextArea
-                helperText="Missionary Workspace only. Not synced to public Profile or future Field summaries."
+                helperText="Admin profile only. Not synced to the public profile or public summaries."
                 label="Internal Notes"
                 onChange={(value) => onUpdate(encounter.id, { internal_notes: value })}
                 rows={5}
@@ -6600,7 +6631,7 @@ function EncounterEditorModal({
                   Sensitive / Do Not Publish
                 </span>
                 <span className="mt-1 block text-xs leading-5 text-[#7b746a]">
-                  Keeps this Encounter out of approved Fruit, Profiles, and future Field summaries.
+                  Keeps this Encounter out of approved Fruit, Profiles, and DOS summaries.
                 </span>
               </span>
             </label>
@@ -6751,7 +6782,7 @@ function FruitManager({
               Fruit
             </p>
             <h3 className="mt-2 text-2xl font-bold leading-tight text-[#111111]">
-              Fruit from the field
+              Fruit from ministry
             </h3>
             <p className="mt-1 text-sm leading-5 text-[#4b443b]">
               Review, approve, and manage ministry outcomes.
@@ -9910,9 +9941,302 @@ function ProfileVisibilityBadge({ profile }: { profile: AdminProfile }) {
   );
 }
 
+type ProfileWorkflowFilter = "all" | "applications" | "approved" | "archived" | "published" | "under_review";
+type ProfileWorkflowAction = "approve" | "archive" | "hide" | "publish" | "reject" | "review";
+
+function applicationStatusLabel(status: AdminUsamApplicationStatus | string | null | undefined) {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "application_started":
+      return "Started";
+    case "application_submitted":
+      return "Submitted";
+    case "approved":
+      return "Approved";
+    case "archived":
+      return "Archived";
+    case "independent":
+      return "Independent";
+    case "pending_review":
+      return "Under Review";
+    case "rejected":
+      return "Rejected";
+    case "not_connected":
+    default:
+      return "Not Connected";
+  }
+}
+
+function profileWorkflowStatus(profile: AdminProfile): AdminUsamApplicationStatus {
+  if (profile.application?.status) {
+    return profile.application.status;
+  }
+
+  if (isProfilePublic(profile)) {
+    return "active";
+  }
+
+  switch (profile.usam_application_status) {
+    case "active":
+    case "application_started":
+    case "application_submitted":
+    case "approved":
+    case "archived":
+    case "independent":
+    case "pending_review":
+    case "rejected":
+      return profile.usam_application_status;
+    default:
+      return "not_connected";
+  }
+}
+
+function profileApplicantName(profile: AdminProfile) {
+  return profile.application?.applicant_name?.trim() || profile.display_name;
+}
+
+function profileApplicantContact(profile: AdminProfile) {
+  return profile.application?.applicant_email?.trim() || profile.application?.applicant_phone?.trim() || "No contact";
+}
+
+function profileAppliedDate(profile: AdminProfile) {
+  return profile.application?.submitted_at ?? profile.usam_application_submitted_at ?? null;
+}
+
+function profileAssignedAdmin(profile: AdminProfile) {
+  return profile.application?.assigned_admin_email?.trim() || profile.usam_assigned_admin_email?.trim() || "Unassigned";
+}
+
+function profilePublicStatusLabel(profile: AdminProfile) {
+  if (isProfilePublic(profile)) {
+    return "Published";
+  }
+
+  switch (profile.usam_profile_status) {
+    case "approved":
+      return "Approved Draft";
+    case "archived":
+      return "Archived";
+    case "hidden":
+      return "Hidden";
+    case "published":
+      return "Published";
+    case "under_review":
+      return "Draft Review";
+    case "draft":
+    default:
+      return "Draft";
+  }
+}
+
+function profileMatchesWorkflowFilter(profile: AdminProfile, filter: ProfileWorkflowFilter) {
+  const status = profileWorkflowStatus(profile);
+  const publicProfile = isProfilePublic(profile);
+
+  switch (filter) {
+    case "applications":
+      return Boolean(profile.application) || ["application_started", "application_submitted", "pending_review"].includes(status);
+    case "under_review":
+      return status === "application_submitted" || status === "pending_review";
+    case "approved":
+      return (status === "approved" || status === "active") && !publicProfile;
+    case "published":
+      return publicProfile;
+    case "archived":
+      return status === "archived" || status === "rejected";
+    case "all":
+    default:
+      return true;
+  }
+}
+
+function ApplicationStatusBadge({ status }: { status: AdminUsamApplicationStatus }) {
+  const tone = status === "active" || status === "approved"
+    ? "border-green-500/25 bg-green-950/30 text-green-300"
+    : status === "pending_review" || status === "application_submitted"
+      ? "border-[#D4A63D]/35 bg-[#D4A63D]/10 text-[#F5B942]"
+      : status === "rejected" || status === "archived"
+        ? "border-red-500/25 bg-red-950/30 text-red-300"
+        : "border-stone-700 bg-stone-900/70 text-stone-400";
+
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center border px-2 text-[9px] uppercase tracking-[0.16em] ${tone}`}
+      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+    >
+      {applicationStatusLabel(status)}
+    </span>
+  );
+}
+
+function profilePrimaryActionLabel(profile: AdminProfile) {
+  const status = profileWorkflowStatus(profile);
+
+  if (status === "pending_review" || status === "application_submitted") {
+    return "Review";
+  }
+
+  if (status === "approved" && !isProfilePublic(profile)) {
+    return "Build Profile";
+  }
+
+  if (isProfilePublic(profile)) {
+    return "Edit";
+  }
+
+  return "Edit";
+}
+
+function ApplicationReviewCard({
+  busyKey,
+  onAction,
+  onCreateFromWorkspace,
+  profile,
+}: {
+  busyKey: string;
+  onAction: (profile: AdminProfile, action: ProfileWorkflowAction) => void;
+  onCreateFromWorkspace: (profile: AdminProfile) => void;
+  profile: AdminProfile;
+}) {
+  const application = profile.application;
+  const workflowStatus = profileWorkflowStatus(profile);
+  const canCreateFromWorkspace = profile.schemaStatus?.hasUsamWorkflowColumns !== false;
+  const createKey = `${profile.id}:create_from_workspace`;
+
+  if (!application) {
+    return (
+      <div className="mt-5 rounded-xl border border-stone-800 bg-[#090909] p-4 text-sm text-stone-400">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          USA Missionaries Profile Link
+        </p>
+        <h3 className="mt-2 text-lg font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+          Attach this workspace to a profile workflow
+        </h3>
+        <p className="mt-2 max-w-2xl leading-6">
+          This workspace already exists. Create a USA Missionaries profile workflow from it so the application/profile layer points at the same household, people, meetings, prayer team, and support data instead of creating a duplicate profile.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            className={lightPrimaryButtonClass}
+            disabled={!canCreateFromWorkspace || busyKey === createKey}
+            onClick={() => onCreateFromWorkspace(profile)}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            {busyKey === createKey ? "Creating..." : "Create USA Missionaries Profile from Workspace"}
+          </button>
+          {!canCreateFromWorkspace ? (
+            <p className="max-w-md text-xs leading-5 text-amber-200">
+              Apply the USA Missionaries application workflow migration before attaching this workspace.
+            </p>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-5 rounded-xl border border-[#D4A63D]/30 bg-[#0f0d08] p-4 text-stone-100">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            USA Missionaries Application
+          </p>
+          <h3 className="mt-2 text-xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+            {application.applicant_name || profile.display_name}
+          </h3>
+          <p className="mt-2 text-sm text-stone-400">
+            Applied {formatProfileUpdatedDate(application.submitted_at ?? application.created_at)}
+          </p>
+        </div>
+        <ApplicationStatusBadge status={workflowStatus} />
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <DetailText label="Contact" value={[application.applicant_email, application.applicant_phone].filter(Boolean).join(" / ") || "Not provided"} />
+        <DetailText label="Location" value={application.location || profile.location || "Not provided"} />
+        <DetailText label="Assigned Admin" value={application.assigned_admin_email || profile.usam_assigned_admin_email || "Unassigned"} />
+        <DetailText label="Calling / Focus" value={application.calling_focus || profile.short_mission || "Not provided"} />
+        <DetailText label="Monthly Budget" value={application.monthly_budget ? `$${application.monthly_budget.toLocaleString()}` : "Not provided"} />
+        <DetailText label="Support Goal" value={application.support_goal ? `$${application.support_goal.toLocaleString()}` : "Not provided"} />
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <div className="rounded-xl border border-stone-800 bg-black/20 p-3 lg:col-span-2">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Story / Testimony
+          </p>
+          <p className="mt-2 whitespace-pre-line text-sm leading-6 text-stone-300">{application.story_testimony || "Not provided"}</p>
+        </div>
+        <div className="grid gap-3">
+          <div className="rounded-xl border border-stone-800 bg-black/20 p-3">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Prayer Needs
+            </p>
+            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-stone-300">{application.prayer_needs || "Not provided"}</p>
+          </div>
+          <div className="rounded-xl border border-stone-800 bg-black/20 p-3">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              References
+            </p>
+            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-stone-300">{application.references_text || "Not provided"}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {workflowStatus === "pending_review" || workflowStatus === "application_submitted" ? (
+          <>
+            <button
+              className={lightPrimaryButtonClass}
+              disabled={busyKey === `${application.id}:approve`}
+              onClick={() => onAction(profile, "approve")}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              Approve Application
+            </button>
+            <button
+              className={lightTertiaryButtonClass}
+              disabled={busyKey === `${application.id}:reject`}
+              onClick={() => onAction(profile, "reject")}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              Reject
+            </button>
+          </>
+        ) : null}
+        {workflowStatus === "approved" && !isProfilePublic(profile) ? (
+          <button
+            className={lightPrimaryButtonClass}
+            disabled={busyKey === `${application.id}:publish`}
+            onClick={() => onAction(profile, "publish")}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            Publish Profile
+          </button>
+        ) : null}
+        {isProfilePublic(profile) ? (
+          <button
+            className={lightSecondaryButtonClass}
+            disabled={busyKey === `${application.id}:hide`}
+            onClick={() => onAction(profile, "hide")}
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            type="button"
+          >
+            Hide Public Profile
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function MissionaryProfilesAdminDashboard({
   initialProfiles,
-  workspaceShellV2Enabled = false,
 }: MissionaryProfilesAdminDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -9926,8 +10250,10 @@ export function MissionaryProfilesAdminDashboard({
   const [activeSubnavId, setActiveSubnavId] = useState<string>(getSubnavIdForTab(normalizeEditorTab(initialTab), initialPrimaryNav));
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("overview");
   const [profileQuery, setProfileQuery] = useState("");
+  const [profileWorkflowFilter, setProfileWorkflowFilter] = useState<ProfileWorkflowFilter>("all");
   const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
   const [status, setStatus] = useState<StatusMessage>(null);
+  const [applicationActionKey, setApplicationActionKey] = useState("");
   const [profileLinkCopyState, setProfileLinkCopyState] = useState<ProfileLinkCopyState>("idle");
   const profileLinkCopyTimerRef = useRef<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -10034,6 +10360,9 @@ export function MissionaryProfilesAdminDashboard({
     return profiles.filter((profile) => {
       const publicProfile = isProfilePublic(profile);
       const searchable = [
+        profile.application?.applicant_email,
+        profile.application?.applicant_name,
+        profile.application?.applicant_phone,
         profile.display_name,
         profile.slug,
         profile.short_mission,
@@ -10043,13 +10372,15 @@ export function MissionaryProfilesAdminDashboard({
       ].filter(Boolean).join(" ").toLowerCase();
 
       return (!normalizedQuery || searchable.includes(normalizedQuery))
+        && profileMatchesWorkflowFilter(profile, profileWorkflowFilter)
         && (!profileVisibilityFilter
           || (profileVisibilityFilter === "live" && publicProfile)
           || (profileVisibilityFilter === "hidden" && !publicProfile));
     });
-  }, [profileQuery, profileVisibilityFilter, profiles]);
+  }, [profileQuery, profileVisibilityFilter, profileWorkflowFilter, profiles]);
   const liveProfiles = profiles.filter((profile) => isProfilePublic(profile)).length;
-  const hiddenProfiles = profiles.length - liveProfiles;
+  const applicationProfiles = profiles.filter((profile) => Boolean(profile.application)).length;
+  const underReviewProfiles = profiles.filter((profile) => profileMatchesWorkflowFilter(profile, "under_review")).length;
 
   useEffect(() => {
     if (!selectedProfile || selectedProfileSupportMode !== "household_nomination") {
@@ -10178,7 +10509,7 @@ export function MissionaryProfilesAdminDashboard({
         : [result.person, ...(selectedProfile.fieldPeople ?? [])],
     });
     setStatus({
-      text: personId ? "Person updated." : "Person added to Your Field",
+      text: personId ? "Person updated." : "Person added.",
       tone: "success",
     });
 
@@ -10259,6 +10590,161 @@ export function MissionaryProfilesAdminDashboard({
     setActivePrimaryNav("dashboard");
     setActiveSubnavId("");
     resetTransientEditorState();
+  }
+
+  async function handleProfileWorkflowAction(profile: AdminProfile, action: ProfileWorkflowAction) {
+    if (action === "review") {
+      openProfile(profile.id);
+      return;
+    }
+
+    if (!profile.application?.id) {
+      setStatus({
+        text: "This profile does not have an application record yet.",
+        tone: "error",
+      });
+      return;
+    }
+
+    const actionKey = `${profile.application.id}:${action}`;
+
+    setApplicationActionKey(actionKey);
+    setStatus(null);
+
+    try {
+      const response = await fetch(`/api/admin/missionary-profiles/applications/${profile.application.id}/status`, {
+        body: JSON.stringify({ action }),
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        status?: AdminUsamApplicationStatus;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to update application.");
+      }
+
+      setProfiles((currentProfiles) => currentProfiles.map((currentProfile) => {
+        if (currentProfile.id !== profile.id) {
+          return currentProfile;
+        }
+
+        const nextStatus = result.status ?? profileWorkflowStatus(currentProfile);
+        const nextIsPublished = action === "publish";
+        const nextIsHidden = action === "hide" || action === "reject" || action === "archive";
+
+        return {
+          ...currentProfile,
+          application: currentProfile.application
+            ? {
+              ...currentProfile.application,
+              status: nextStatus,
+            }
+            : currentProfile.application,
+          public_visible: nextIsPublished ? true : nextIsHidden ? false : currentProfile.public_visible,
+          show_household: nextIsPublished ? true : nextIsHidden ? false : currentProfile.show_household,
+          show_photos: nextIsPublished ? true : currentProfile.show_photos,
+          show_prayer: nextIsPublished ? true : currentProfile.show_prayer,
+          show_story: nextIsPublished ? true : currentProfile.show_story,
+          show_support: nextIsPublished ? true : currentProfile.show_support,
+          show_team: nextIsPublished ? true : currentProfile.show_team,
+          usam_application_status: nextStatus,
+          usam_profile_status: action === "publish"
+            ? "published"
+            : action === "hide" || action === "reject"
+              ? "hidden"
+              : action === "archive"
+                ? "archived"
+                : action === "approve"
+                  ? "approved"
+                  : currentProfile.usam_profile_status,
+        };
+      }));
+      setStatus({
+        text: action === "approve"
+          ? "Application approved."
+          : action === "reject"
+            ? "Application rejected."
+            : action === "publish"
+              ? "Profile published."
+              : action === "hide"
+                ? "Profile hidden."
+                : action === "archive"
+                  ? "Application archived."
+                  : "Application updated.",
+        tone: "success",
+      });
+      router.refresh();
+    } catch (error) {
+      setStatus({
+        text: error instanceof Error ? error.message : "Unable to update application.",
+        tone: "error",
+      });
+    } finally {
+      setApplicationActionKey("");
+    }
+  }
+
+  async function handleCreateUsamProfileFromWorkspace(profile: AdminProfile) {
+    const actionKey = `${profile.id}:create_from_workspace`;
+
+    setApplicationActionKey(actionKey);
+    setStatus(null);
+
+    try {
+      const response = await fetch("/api/admin/missionary-profiles/applications/from-workspace", {
+        body: JSON.stringify({ workspaceId: profile.id }),
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        application?: AdminUsamApplication;
+        applicationId?: string;
+        error?: string;
+        profileStatus?: AdminUsamProfileStatus;
+        status?: AdminUsamApplicationStatus;
+      };
+
+      if (!response.ok || !result.application?.id) {
+        throw new Error(result.error || "Unable to create USA Missionaries profile workflow.");
+      }
+
+      const application = result.application;
+
+      setProfiles((currentProfiles) => currentProfiles.map((currentProfile) => {
+        if (currentProfile.id !== profile.id) {
+          return currentProfile;
+        }
+
+        return {
+          ...currentProfile,
+          application,
+          usam_application_id: result.applicationId ?? application.id,
+          usam_application_status: result.status ?? application.status,
+          usam_profile_status: result.profileStatus ?? currentProfile.usam_profile_status ?? "draft",
+        };
+      }));
+      setStatus({
+        text: "USA Missionaries profile workflow attached to the existing workspace.",
+        tone: "success",
+      });
+      router.refresh();
+    } catch (error) {
+      setStatus({
+        text: error instanceof Error ? error.message : "Unable to create USA Missionaries profile workflow.",
+        tone: "error",
+      });
+    } finally {
+      setApplicationActionKey("");
+    }
   }
 
   function closeProfile() {
@@ -11389,7 +11875,7 @@ export function MissionaryProfilesAdminDashboard({
             `Source photo: ${selectedProfile.profile_image_url}.`,
             `Generation choices: ${requestedOptions}.`,
             "Future generation direction: masked editing, face preservation, style transfer, and approved USAM style reference conditioning.",
-            "Fallback path: create/upload the approved hero image through Missionary Workspace > Publishing > Profile Photos > Advanced Options.",
+            "Fallback path: create/upload the approved hero image through USA Missionaries Profiles > Publishing > Profile Photos > Advanced Options.",
           ].join("\n"),
           pagePath: `/admin/missionary-profiles?tab=media&profile=${selectedProfile.slug}`,
         }),
@@ -11573,9 +12059,9 @@ export function MissionaryProfilesAdminDashboard({
         method: "POST",
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unable to save missionary workspace.";
+      const errorMessage = error instanceof Error ? error.message : "Unable to save USA Missionaries profile.";
 
-      console.error("Missionary workspace save request failed:", error);
+      console.error("USA Missionaries profile save request failed:", error);
       setStatus({
         text: errorMessage,
         tone: "error",
@@ -11588,7 +12074,7 @@ export function MissionaryProfilesAdminDashboard({
 
     if (!response.ok) {
       setStatus({
-        text: typeof result.error === "string" ? result.error : "Unable to save missionary workspace.",
+        text: typeof result.error === "string" ? result.error : "Unable to save USA Missionaries profile.",
         tone: "error",
       });
       setSaving(false);
@@ -11596,7 +12082,7 @@ export function MissionaryProfilesAdminDashboard({
     }
 
     setStatus({
-      text: typeof result.message === "string" ? result.message : "Missionary workspace saved.",
+      text: typeof result.message === "string" ? result.message : "USA Missionaries profile saved.",
       tone: "success",
     });
     setLastSavedProfiles((currentProfiles) => currentProfiles.map((profile) => (
@@ -11609,21 +12095,37 @@ export function MissionaryProfilesAdminDashboard({
   if (!selectedProfile) {
     return (
       <div className="min-w-0 space-y-5">
-        <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-          <StatPreview label="Total Workspaces" value={String(profiles.length)} />
-          <StatPreview label="Live Profiles" value={String(liveProfiles)} />
-          <StatPreview label="Hidden Profiles" value={String(hiddenProfiles)} />
+        <div className="grid min-w-0 gap-3 sm:grid-cols-4">
+          <StatPreview label="Total Profiles" value={String(profiles.length)} />
+          <StatPreview label="Applications" value={String(applicationProfiles)} />
+          <StatPreview label="Under Review" value={String(underReviewProfiles)} />
+          <StatPreview label="Published" value={String(liveProfiles)} />
         </div>
 
-        <div className="grid min-w-0 gap-3 rounded-xl border border-[#222222] bg-[#0a0a0a] p-3 sm:p-4 lg:grid-cols-[minmax(280px,1fr)_220px_132px]">
+        <div className="grid min-w-0 gap-3 rounded-xl border border-[#222222] bg-[#0a0a0a] p-3 sm:p-4 lg:grid-cols-[minmax(260px,1fr)_180px_180px_132px]">
           <label className="block">
-            <span className="sr-only">Search missionary workspaces</span>
+            <span className="sr-only">Search USA Missionaries profiles</span>
             <input
               className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
               onChange={(event) => setProfileQuery(event.target.value)}
-              placeholder="Search workspaces, slugs, states, or mission"
+              placeholder="Search profiles, slugs, states, or mission"
               value={profileQuery}
             />
+          </label>
+          <label className="block">
+            <span className="sr-only">Filter by application workflow</span>
+            <select
+              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
+              onChange={(event) => setProfileWorkflowFilter(event.target.value as ProfileWorkflowFilter)}
+              value={profileWorkflowFilter}
+            >
+              <option value="all">All</option>
+              <option value="applications">Applications</option>
+              <option value="under_review">Under Review</option>
+              <option value="approved">Approved</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
           </label>
           <label className="block">
             <span className="sr-only">Filter by visibility</span>
@@ -11650,89 +12152,228 @@ export function MissionaryProfilesAdminDashboard({
 
         {profiles.length === 0 ? (
           <div className="rounded-xl border border-[#222222] bg-[#0a0a0a] p-8 text-stone-300">
-            No missionary households found yet.
+            No USA Missionaries profiles found yet.
           </div>
         ) : filteredProfiles.length === 0 ? (
           <div className="rounded-xl border border-[#222222] bg-[#0a0a0a] p-8 text-sm text-stone-400">
-            No missionary workspaces match these filters.
+            No USA Missionaries profiles match these filters.
           </div>
         ) : (
           <>
-            <div className="hidden overflow-hidden rounded-xl border border-[#222222] bg-[#0f0f0f] lg:block">
-              <table className="w-full table-fixed border-collapse text-left">
+            <div className="hidden overflow-x-auto rounded-xl border border-[#222222] bg-[#0f0f0f] lg:block">
+              <table className="w-full min-w-[1120px] table-fixed border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#222222] text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    <th className="w-[38%] px-4 py-3 font-bold">Missionary Workspace</th>
-                    <th className="w-[13%] px-4 py-3 font-bold">Visible</th>
-                    <th className="w-[20%] px-4 py-3 font-bold">Location</th>
-                    <th className="w-[18%] px-4 py-3 font-bold">Last Updated</th>
-                    <th className="w-[92px] px-4 py-3 text-right font-bold">Actions</th>
+                    <th className="w-[20%] px-4 py-3 font-bold">Name</th>
+                    <th className="w-[18%] px-4 py-3 font-bold">Applicant</th>
+                    <th className="w-[12%] px-4 py-3 font-bold">Location</th>
+                    <th className="w-[12%] px-4 py-3 font-bold">Status</th>
+                    <th className="w-[15%] px-4 py-3 font-bold">Assigned Admin</th>
+                    <th className="w-[11%] px-4 py-3 font-bold">Applied</th>
+                    <th className="w-[10%] px-4 py-3 font-bold">Public</th>
+                    <th className="w-[140px] px-4 py-3 text-right font-bold">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProfiles.map((profile) => (
-                    <tr className="border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515]" key={profile.id}>
-                      <td className="px-4 py-4">
-                        <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <ProfileVisibilityBadge profile={profile} />
-                      </td>
-                      <td className="px-4 py-4 text-sm text-stone-300">
-                        {getProfileLocationVisibility(profile) === "hidden"
-                          ? "Undisclosed"
-                          : getProfilePrimaryState(profile) || "Not set"}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-stone-300">
-                        {formatProfileUpdatedDate(profile.updated_at)}
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <button
-                          className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                          onClick={() => openProfile(profile.id)}
-                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                          type="button"
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredProfiles.map((profile) => {
+                    const workflowStatus = profileWorkflowStatus(profile);
+                    const application = profile.application;
+                    const primaryAction = profilePrimaryActionLabel(profile);
+                    const location = getProfileLocationVisibility(profile) === "hidden"
+                      ? "Undisclosed"
+                      : application?.location || getProfilePrimaryState(profile) || "Not set";
+                    const publishActionKey = application ? `${application.id}:publish` : "";
+                    const hideActionKey = application ? `${application.id}:hide` : "";
+                    const approveActionKey = application ? `${application.id}:approve` : "";
+                    const rejectActionKey = application ? `${application.id}:reject` : "";
+
+                    return (
+                      <tr className="border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515]" key={profile.id}>
+                        <td className="px-4 py-4">
+                          <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
+                          <p className="mt-1 truncate text-xs text-stone-500">{profile.slug}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="truncate text-sm text-stone-200">{profileApplicantName(profile)}</p>
+                          <p className="mt-1 truncate text-xs text-stone-500">{profileApplicantContact(profile)}</p>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-stone-300">{location}</td>
+                        <td className="px-4 py-4">
+                          <ApplicationStatusBadge status={workflowStatus} />
+                        </td>
+                        <td className="px-4 py-4 text-sm text-stone-300">
+                          <span className="block truncate">{profileAssignedAdmin(profile)}</span>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-stone-300">
+                          {formatProfileUpdatedDate(profileAppliedDate(profile))}
+                        </td>
+                        <td className="px-4 py-4">
+                          <ProfileVisibilityBadge profile={profile} />
+                          <p className="mt-1 text-[11px] text-stone-500">{profilePublicStatusLabel(profile)}</p>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <button
+                              className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                              onClick={() => handleProfileWorkflowAction(profile, "review")}
+                              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                              type="button"
+                            >
+                              {primaryAction}
+                            </button>
+                            {application && (workflowStatus === "pending_review" || workflowStatus === "application_submitted") ? (
+                              <>
+                                <button
+                                  className="inline-flex min-h-8 items-center justify-center rounded-md border border-green-500/30 bg-green-950/30 px-3 text-[10px] uppercase tracking-[0.14em] text-green-200 transition-colors hover:border-green-400"
+                                  disabled={applicationActionKey === approveActionKey}
+                                  onClick={() => handleProfileWorkflowAction(profile, "approve")}
+                                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                                  type="button"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  className="inline-flex min-h-8 items-center justify-center rounded-md border border-red-500/30 bg-red-950/30 px-3 text-[10px] uppercase tracking-[0.14em] text-red-200 transition-colors hover:border-red-400"
+                                  disabled={applicationActionKey === rejectActionKey}
+                                  onClick={() => handleProfileWorkflowAction(profile, "reject")}
+                                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                                  type="button"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            ) : null}
+                            {application && workflowStatus === "approved" && !isProfilePublic(profile) ? (
+                              <button
+                                className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#D4A63D]/45 bg-[#D4A63D]/15 px-3 text-[10px] uppercase tracking-[0.14em] text-[#F5B942] transition-colors hover:border-[#F5B942]"
+                                disabled={applicationActionKey === publishActionKey}
+                                onClick={() => handleProfileWorkflowAction(profile, "publish")}
+                                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                                type="button"
+                              >
+                                Publish
+                              </button>
+                            ) : null}
+                            {application && isProfilePublic(profile) ? (
+                              <button
+                                className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                                disabled={applicationActionKey === hideActionKey}
+                                onClick={() => handleProfileWorkflowAction(profile, "hide")}
+                                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                                type="button"
+                              >
+                                Hide
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
             <div className="grid min-w-0 gap-3 lg:hidden">
-              {filteredProfiles.map((profile) => (
-                <article className="min-w-0 rounded-xl border border-[#222222] bg-[#0f0f0f] p-4" key={profile.id}>
-                  <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
-                      <p className="mt-1 text-sm text-stone-400">
-                        {getProfileLocationVisibility(profile) === "hidden"
-                          ? "Undisclosed"
-                          : getProfilePrimaryState(profile) || "Not set"}
-                      </p>
+              {filteredProfiles.map((profile) => {
+                const workflowStatus = profileWorkflowStatus(profile);
+                const application = profile.application;
+                const location = getProfileLocationVisibility(profile) === "hidden"
+                  ? "Undisclosed"
+                  : application?.location || getProfilePrimaryState(profile) || "Not set";
+
+                return (
+                  <article className="min-w-0 rounded-xl border border-[#222222] bg-[#0f0f0f] p-4" key={profile.id}>
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
+                        <p className="mt-1 truncate text-sm text-stone-400">{profileApplicantName(profile)}</p>
+                        <p className="mt-1 truncate text-xs text-stone-500">{profileApplicantContact(profile)}</p>
+                      </div>
+                      <ApplicationStatusBadge status={workflowStatus} />
                     </div>
-                    <ProfileVisibilityBadge profile={profile} />
-                  </div>
-                  <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-[#222222] pt-3">
-                    <div>
-                      <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Last Updated
-                      </p>
-                      <p className="mt-1 text-sm text-stone-300">{formatProfileUpdatedDate(profile.updated_at)}</p>
+                    <div className="mt-4 grid gap-3 border-t border-[#222222] pt-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Location
+                        </p>
+                        <p className="mt-1 text-sm text-stone-300">{location}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Applied
+                        </p>
+                        <p className="mt-1 text-sm text-stone-300">{formatProfileUpdatedDate(profileAppliedDate(profile))}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Assigned
+                        </p>
+                        <p className="mt-1 truncate text-sm text-stone-300">{profileAssignedAdmin(profile)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          Public Profile
+                        </p>
+                        <p className="mt-1 text-sm text-stone-300">{profilePublicStatusLabel(profile)}</p>
+                      </div>
                     </div>
-                    <button
-                      className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                      onClick={() => openProfile(profile.id)}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </article>
-              ))}
+                    <div className="mt-4 flex min-w-0 flex-wrap items-center justify-end gap-2 border-t border-[#222222] pt-3">
+                      <button
+                        className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                        onClick={() => handleProfileWorkflowAction(profile, "review")}
+                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                        type="button"
+                      >
+                        {profilePrimaryActionLabel(profile)}
+                      </button>
+                      {application && (workflowStatus === "pending_review" || workflowStatus === "application_submitted") ? (
+                        <>
+                          <button
+                            className="inline-flex min-h-8 items-center justify-center rounded-md border border-green-500/30 bg-green-950/30 px-3 text-[10px] uppercase tracking-[0.14em] text-green-200 transition-colors hover:border-green-400"
+                            disabled={applicationActionKey === `${application.id}:approve`}
+                            onClick={() => handleProfileWorkflowAction(profile, "approve")}
+                            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                            type="button"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="inline-flex min-h-8 items-center justify-center rounded-md border border-red-500/30 bg-red-950/30 px-3 text-[10px] uppercase tracking-[0.14em] text-red-200 transition-colors hover:border-red-400"
+                            disabled={applicationActionKey === `${application.id}:reject`}
+                            onClick={() => handleProfileWorkflowAction(profile, "reject")}
+                            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                            type="button"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : null}
+                      {application && workflowStatus === "approved" && !isProfilePublic(profile) ? (
+                        <button
+                          className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#D4A63D]/45 bg-[#D4A63D]/15 px-3 text-[10px] uppercase tracking-[0.14em] text-[#F5B942] transition-colors hover:border-[#F5B942]"
+                          disabled={applicationActionKey === `${application.id}:publish`}
+                          onClick={() => handleProfileWorkflowAction(profile, "publish")}
+                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                          type="button"
+                        >
+                          Publish
+                        </button>
+                      ) : null}
+                      {application && isProfilePublic(profile) ? (
+                        <button
+                          className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+                          disabled={applicationActionKey === `${application.id}:hide`}
+                          onClick={() => handleProfileWorkflowAction(profile, "hide")}
+                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                          type="button"
+                        >
+                          Hide
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </>
         )}
@@ -11743,7 +12384,6 @@ export function MissionaryProfilesAdminDashboard({
   const support = selectedProfile.support ?? emptySupport(selectedProfile.id);
   const supportMode = selectedProfileSupportMode;
   const calculatedMonthlyGoal = calculateMonthlyGoal(support.annual_goal);
-  const workspaceV2Href = `/admin/workspaces/${selectedProfile.id}/preview?viewAs=workspace_user`;
   const publicProfileLink = getPublicMissionaryProfileUrl(selectedProfile.slug);
   const publicSupportLink = `${publicProfileLink}#support`;
   const publicFlyerLink = `${publicProfileLink}/flyer`;
@@ -11879,7 +12519,11 @@ export function MissionaryProfilesAdminDashboard({
     showingMessage: "Prayer is available on the public profile.",
   });
   const publishingEnabled = publishingEnabledByDefault;
-  const visiblePrimaryNavGroups = primaryNavGroups.filter((group) => publishingEnabled || group.key !== "publishing");
+  const visiblePrimaryNavGroups = primaryNavGroups.filter(
+    (group) =>
+      profilePrimaryNavKeys.has(group.key) &&
+      (publishingEnabled || group.key !== "publishing"),
+  );
   const activePrimaryGroup = visiblePrimaryNavGroups.find((group) => group.key === activePrimaryNav) ?? visiblePrimaryNavGroups[0] ?? primaryNavGroups[0];
   return (
     <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
@@ -11892,7 +12536,7 @@ export function MissionaryProfilesAdminDashboard({
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               type="button"
             >
-              ← All Missionary Workspaces
+              ← All USA Missionaries Profiles
             </button>
           </div>
 
@@ -11901,57 +12545,9 @@ export function MissionaryProfilesAdminDashboard({
               <h2 className="max-w-full break-words text-4xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
                 {selectedProfile.display_name}
               </h2>
-              {workspaceShellV2Enabled ? (
-                <div className="mt-4 inline-flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-stone-800 bg-[#080808] p-1.5">
-                  <span className="px-2 text-[10px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Workspace shell
-                  </span>
-                  <span
-                    className="inline-flex min-h-8 items-center rounded-xl bg-[#D4A63D] px-3 text-[10px] uppercase tracking-[0.14em] text-black"
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  >
-                    Classic
-                  </span>
-                  <Link
-                    className="inline-flex min-h-8 items-center rounded-xl border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-200 transition-colors hover:border-[#D4A63D]/70 hover:text-[#F5B942]"
-                    href={workspaceV2Href}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  >
-                    V2 Preview
-                  </Link>
-                </div>
-              ) : null}
             </div>
 
-            <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">
-              <Link
-                aria-label="Open mobile Field App for this workspace"
-                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D] bg-[#D4A63D] p-3.5 text-black shadow-[0_14px_34px_rgba(212,166,61,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#e7b742] hover:shadow-[0_18px_42px_rgba(212,166,61,0.24)] sm:min-h-24 sm:p-4"
-                href={`/dos/${encodeURIComponent(selectedProfile.slug)}`}
-                rel="noopener noreferrer"
-                target="_blank"
-                title="Open mobile Field App for this workspace"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <Smartphone className="h-5 w-5 shrink-0" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open DOS</p>
-                  </div>
-                </div>
-              </Link>
-              {workspaceShellV2Enabled ? (
-                <Link
-                  className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
-                  href={workspaceV2Href}
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Eye className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
-                    <div className="min-w-0">
-                      <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Open Workspace v2</p>
-                    </div>
-                  </div>
-                </Link>
-              ) : null}
+            <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3">
               <Link
                 className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
                 href={`/missionaries/${selectedProfile.slug}`}
@@ -11991,8 +12587,15 @@ export function MissionaryProfilesAdminDashboard({
           </p>
         ) : null}
 
+        <ApplicationReviewCard
+          busyKey={applicationActionKey}
+          onAction={handleProfileWorkflowAction}
+          onCreateFromWorkspace={handleCreateUsamProfileFromWorkspace}
+          profile={selectedProfile}
+        />
+
         <div className="mt-6 border-b border-stone-800/80 pb-5 md:mt-8">
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4" role="tablist" aria-label="Workspace primary sections">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2" role="tablist" aria-label="Profile primary sections">
             {visiblePrimaryNavGroups.map((group) => {
               const selected = activePrimaryNav === group.key;
               const Icon = group.icon;
@@ -12068,7 +12671,6 @@ export function MissionaryProfilesAdminDashboard({
             title="Dashboard"
           >
             <WorkspaceOverview
-              onNavigate={changeEditorTab}
               onOpenPrayerRequests={() => {
                 changeEditorTab("prayer", "publishing", "prayer");
               }}
@@ -12079,7 +12681,7 @@ export function MissionaryProfilesAdminDashboard({
 
           {activeTab === "people" ? (
           <SectionIntro
-            description="Internal contacts"
+            description="Profile people records"
             title="People"
           >
             <PeopleManager
@@ -12638,7 +13240,7 @@ export function MissionaryProfilesAdminDashboard({
           {activeTab === "fruit" ? (
           <SectionIntro
             description="Review, approve, and manage ministry outcomes."
-            title="Fruit from the field"
+            title="Fruit from ministry"
             wide
           >
             <FruitManager
@@ -12656,7 +13258,7 @@ export function MissionaryProfilesAdminDashboard({
 
           {activeTab === "library" ? (
           <SectionIntro
-            description="Feeds Field. Internal resources, notes, and ministry materials connected to this missionary household."
+            description="Internal resources, notes, and ministry materials connected to this missionary household."
             title="Library"
           >
             <LibraryManager
@@ -12669,7 +13271,7 @@ export function MissionaryProfilesAdminDashboard({
 
           {activeTab === "in-season" ? (
           <SectionIntro
-            description="Feeds Field. Timely focus, follow-up priorities, and current ministry activity for this missionary household."
+            description="Timely focus, follow-up priorities, and current ministry activity for this missionary household."
             title="In Season"
           >
             <InSeasonManager
