@@ -44,7 +44,7 @@ const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F1
 const dosPhoneShellClassName = "relative mx-auto flex h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[calc(100dvh-3rem)] md:max-h-none md:max-w-[1440px] md:rounded-none md:border-0 md:bg-transparent md:shadow-none";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
-type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "stewardship" | "support_team" | "table_flow";
+type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "stewardship" | "support_team" | "table_flow";
 type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "settings" | "upload";
 
 const mobileTabs: ReadonlyArray<{ icon: IconName; label: string; value: ActiveTab }> = [
@@ -190,7 +190,8 @@ const reminderRecurrenceOptions = [
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView;
-type MeetingsView = "agenda" | "calendar";
+type MeetingsView = "calendar" | "history" | "upcoming";
+type FruitView = "impact" | "stories" | "tree";
 type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
@@ -689,6 +690,13 @@ function captureFileName(type: MeetingCaptureType, extension: string) {
 
 function todayDateValue() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function dateValueFromToday(offsetDays: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+
+  return calendarDateKey(date);
 }
 
 function calendarDateKey(date: Date) {
@@ -1756,7 +1764,7 @@ function groupedUpcomingTimelineItems(items: UpcomingTimelineItem[]) {
     .filter((group) => group.items.length);
 }
 
-function todayFocusTitle(item: UpcomingTimelineItem) {
+function nextStepTitle(item: UpcomingTimelineItem) {
   if (item.meeting) {
     return item.personName ? `Meet with ${item.personName}` : item.title;
   }
@@ -2895,31 +2903,6 @@ function DesktopPanel({
   );
 }
 
-function DesktopMetricCard({
-  helper,
-  icon,
-  label,
-  value,
-}: {
-  helper: string;
-  icon: IconName;
-  label: string;
-  value: number | string;
-}) {
-  return (
-    <article className="min-w-0 rounded-[20px] border border-[#EAF2FF] bg-white p-3 shadow-[0_10px_28px_rgba(37,99,235,0.045)]">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-          <Icon name={icon} size={17} />
-        </span>
-        <span className="text-2xl font-black leading-none tracking-[-0.025em] text-[#0F172A]">{value}</span>
-      </div>
-      <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{label}</p>
-      <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{helper}</p>
-    </article>
-  );
-}
-
 function DesktopQuickActionButton({
   children,
   icon,
@@ -2997,7 +2980,7 @@ function DesktopUpcomingMeetingsCard({
   );
 }
 
-function DesktopTodayFocusPanel({
+function DesktopNextStepsPanel({
   items,
   onEditReminder,
   onLogMeetingForPerson,
@@ -3015,9 +2998,9 @@ function DesktopTodayFocusPanel({
   const primaryPersonId = items.find((item) => item.personId)?.personId ?? null;
 
   return (
-    <DesktopPanel eyebrow="Focus" title="Today's Focus / Prayer">
+    <DesktopPanel eyebrow="Next" title="Next Steps">
       <div className="grid gap-2">
-        {items.length ? items.slice(0, 3).map((item) => (
+        {items.length ? items.slice(0, 4).map((item) => (
           <button
             className="flex min-w-0 items-center gap-3 rounded-[18px] bg-[#F8FAFC] px-3 py-2.5 text-left transition-colors hover:bg-[#EBF2FF]"
             key={item.id}
@@ -3034,13 +3017,13 @@ function DesktopTodayFocusPanel({
               <TimelineIcon icon={item.icon} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold text-[#0F172A]">{todayFocusTitle(item)}</span>
+              <span className="block truncate text-sm font-bold text-[#0F172A]">{nextStepTitle(item)}</span>
               <span className="mt-1 block truncate text-xs text-[#64748B]">{item.label}</span>
             </span>
           </button>
         )) : (
           <p className="rounded-[20px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">
-            No scheduled reminders today. Ask the Lord who to encourage next.
+            No next steps queued. Ask the Lord who to encourage next.
           </p>
         )}
       </div>
@@ -3231,7 +3214,6 @@ function DesktopRecentActivityPanel({
 
 function DesktopHomeDashboard({
   circleGroups,
-  fruitStoryCount,
   greetingName,
   homeSubtitle,
   isUsamApplicationPending,
@@ -3256,12 +3238,10 @@ function DesktopHomeDashboard({
   people,
   profileImageUrl,
   profileName,
-  thisWeekStats,
-  todayFocusItems,
+  nextStepItems,
   upcomingMeetings,
 }: {
   circleGroups: CircleLayerGroups;
-  fruitStoryCount: number;
   greetingName: string;
   homeSubtitle: string;
   isUsamApplicationPending: boolean;
@@ -3286,13 +3266,9 @@ function DesktopHomeDashboard({
   people: DosAppPerson[];
   profileImageUrl?: string | null;
   profileName: string;
-  thisWeekStats: { label: string; meetings: number; newPeople: number; prayed: number };
-  todayFocusItems: UpcomingTimelineItem[];
+  nextStepItems: UpcomingTimelineItem[];
   upcomingMeetings: DosAppMeeting[];
 }) {
-  const my3Count = circleGroups.three.length;
-  const my12Count = circleGroups.three.length + circleGroups.twelve.length;
-
   return (
     <div className="hidden md:block">
       <header className="flex items-center justify-between gap-5">
@@ -3318,13 +3294,6 @@ function DesktopHomeDashboard({
         </div>
       </header>
 
-      <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <DesktopMetricCard helper="Highest focus" icon="people" label="My 3" value={my3Count} />
-        <DesktopMetricCard helper="Active discipleship" icon="people" label="My 12" value={my12Count} />
-        <DesktopMetricCard helper={thisWeekStats.label} icon="log" label="Tables" value={thisWeekStats.meetings} />
-        <DesktopMetricCard helper="Approved stories" icon="fruit" label="Recent Fruit" value={fruitStoryCount} />
-      </section>
-
       <section className="mt-4 flex flex-wrap gap-2">
         <DesktopQuickActionButton icon="add" onClick={onAddPerson}>Add Person</DesktopQuickActionButton>
         <DesktopQuickActionButton icon="log" onClick={onLogMeeting}>Log Table</DesktopQuickActionButton>
@@ -3346,8 +3315,8 @@ function DesktopHomeDashboard({
             onScheduleMeeting={() => onScheduleMeeting()}
             people={people}
           />
-          <DesktopTodayFocusPanel
-            items={todayFocusItems}
+          <DesktopNextStepsPanel
+            items={nextStepItems}
             onEditReminder={onEditReminder}
             onLogMeetingForPerson={onLogMeetingForPerson}
             onOpenMeeting={onOpenMeeting}
@@ -4343,8 +4312,9 @@ function SegmentedTabs<T extends string>({
 }
 
 const meetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
-  { label: "Agenda", value: "agenda" },
+  { label: "Upcoming", value: "upcoming" },
   { label: "Calendar", value: "calendar" },
+  { label: "History", value: "history" },
 ];
 
 const meetingCalendarFilterTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarFilter>> = [
@@ -4352,6 +4322,12 @@ const meetingCalendarFilterTabs: ReadonlyArray<SegmentedTabOption<MeetingCalenda
   { label: "DOS", value: "dos" },
   { label: "Google", value: "google" },
   { label: "Reminders", value: "reminders" },
+];
+
+const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
+  { label: "Stories", value: "stories" },
+  { label: "Tree", value: "tree" },
+  { label: "Impact", value: "impact" },
 ];
 
 const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
@@ -5044,19 +5020,6 @@ function WeekStatTile({
       <p className="mt-1.5 line-clamp-2 min-h-3 text-center text-[8px] font-bold uppercase leading-3 tracking-[0.1em] text-[#64748B] max-[350px]:tracking-[0.06em]" style={{ fontFamily: font.rajdhani }}>
         {label}
       </p>
-    </div>
-  );
-}
-
-function ThisWeekHeader({ label }: { label: string }) {
-  return (
-    <div className="mb-2.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-      <h2 className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-        This Week
-      </h2>
-      <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-2.5 py-1 text-[11px] font-semibold leading-none text-[#64748B] shadow-[0_6px_14px_rgba(37,99,235,0.04)]">
-        {label}
-      </span>
     </div>
   );
 }
@@ -6634,6 +6597,23 @@ function ScheduleMeetingForm({
   selectedPersonIds: string[];
   workspaceId: string;
 }) {
+  function applySchedulePreset(event: MouseEvent<HTMLButtonElement>, offsetDays: number | null) {
+    const form = event.currentTarget.form;
+    const dateInput = form?.elements.namedItem("scheduled_date") as HTMLInputElement | null;
+
+    if (!dateInput) {
+      return;
+    }
+
+    if (offsetDays === null) {
+      dateInput.focus();
+      return;
+    }
+
+    dateInput.value = dateValueFromToday(offsetDays);
+    dateInput.focus();
+  }
+
   return (
     <form className="space-y-3" onSubmit={onSubmit}>
       <CalendarConnectionCard
@@ -6654,6 +6634,32 @@ function ScheduleMeetingForm({
       />
       <div className="grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
         <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
+        <div>
+          <FieldLabel>Timing</FieldLabel>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {[
+              { label: "Tomorrow", offset: 1 },
+              { label: "This Week", offset: 2 },
+              { label: "Next Week", offset: 7 },
+            ].map((preset) => (
+              <button
+                className="min-h-8 rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-[11px] font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+                key={preset.label}
+                onClick={(event) => applySchedulePreset(event, preset.offset)}
+                type="button"
+              >
+                {preset.label}
+              </button>
+            ))}
+            <button
+              className="min-h-8 rounded-full border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#64748B] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
+              onClick={(event) => applySchedulePreset(event, null)}
+              type="button"
+            >
+              Custom
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <label className="block min-w-0">
             <FieldLabel>Date</FieldLabel>
@@ -6750,6 +6756,26 @@ function ReminderFormContent({
     }
   }
 
+  function applyReminderType(event: MouseEvent<HTMLButtonElement>, value: DosAppRelationshipReminder["reminderType"]) {
+    const form = event.currentTarget.form;
+    const typeInput = form?.elements.namedItem("reminder_type") as HTMLSelectElement | null;
+
+    if (typeInput) {
+      typeInput.value = value;
+      typeInput.focus();
+    }
+  }
+
+  function applyReminderRecurrence(event: MouseEvent<HTMLButtonElement>, value: DosAppRelationshipReminder["recurrence"]) {
+    const form = event.currentTarget.form;
+    const recurrenceInput = form?.elements.namedItem("recurrence") as HTMLSelectElement | null;
+
+    if (recurrenceInput) {
+      recurrenceInput.value = value;
+      recurrenceInput.focus();
+    }
+  }
+
   return (
     <form className="space-y-3" onSubmit={onSubmit}>
       <CalendarConnectionCard
@@ -6773,6 +6799,26 @@ function ReminderFormContent({
           name="reminder_type"
           options={reminderTypeOptions}
         />
+        <div>
+          <FieldLabel>Reminder Paths</FieldLabel>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {[
+              { label: "Birthday", value: "birthday" },
+              { label: "Anniversary", value: "anniversary" },
+              { label: "Follow-up", value: "follow_up" },
+              { label: "Prayer", value: "prayer" },
+            ].map((path) => (
+              <button
+                className="min-h-8 rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-[11px] font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+                key={path.value}
+                onClick={(event) => applyReminderType(event, path.value as DosAppRelationshipReminder["reminderType"])}
+                type="button"
+              >
+                {path.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <label className="block">
           <FieldLabel>Title</FieldLabel>
           <input className={FieldInputClass()} defaultValue={reminder?.title ?? ""} name="title" placeholder="Optional reminder title" type="text" />
@@ -6805,6 +6851,28 @@ function ReminderFormContent({
             name="recurrence"
             options={reminderRecurrenceOptions}
           />
+        </div>
+        <div>
+          <FieldLabel>Prayer Cadence</FieldLabel>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {[
+              { label: "Pray Once", value: "none" },
+              { label: "Weekly", value: "weekly" },
+              { label: "Monthly", value: "monthly" },
+            ].map((cadence) => (
+              <button
+                className="min-h-8 rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-[11px] font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+                key={cadence.value}
+                onClick={(event) => applyReminderRecurrence(event, cadence.value as DosAppRelationshipReminder["recurrence"])}
+                type="button"
+              >
+                {cadence.label}
+              </button>
+            ))}
+            <span className="inline-flex min-h-8 items-center rounded-full border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#94A3B8]">
+              Daily soon
+            </span>
+          </div>
         </div>
         <label className="block">
           <FieldLabel>Notes</FieldLabel>
@@ -6966,7 +7034,7 @@ function UpcomingTimelineRow({
   );
 }
 
-function TodayFocusCard({
+function NextStepsCard({
   items,
   onEditReminder,
   onLogMeetingForPerson,
@@ -6987,13 +7055,13 @@ function TodayFocusCard({
     <section className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_32px_rgba(37,99,235,0.07)]">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          Today's Focus
+          Next Steps
         </h2>
         <span className="rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">{items.length}</span>
       </div>
 
       <div className="mt-3 grid gap-2">
-        {items.length ? items.slice(0, 4).map((item) => (
+        {items.length ? items.map((item) => (
           <button
             className="flex min-w-0 items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5 text-left transition-colors hover:bg-[#EBF2FF]"
             key={item.id}
@@ -7010,13 +7078,13 @@ function TodayFocusCard({
               <TimelineIcon icon={item.icon} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-[#0F172A]">{todayFocusTitle(item)}</span>
+              <span className="block truncate text-sm font-semibold text-[#0F172A]">{nextStepTitle(item)}</span>
               <span className="mt-0.5 block truncate text-xs text-[#64748B]">{item.label}</span>
             </span>
           </button>
         )) : (
           <p className="rounded-2xl bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#64748B]">
-            No scheduled reminders today. Ask the Lord who to encourage next.
+            No next steps queued. Ask the Lord who to encourage next.
           </p>
         )}
       </div>
@@ -7035,17 +7103,6 @@ function TodayFocusCard({
     </section>
   );
 }
-
-const fruitThemeDefinitions = [
-  { keywords: ["joy", "rejoic", "glad", "delight"], label: "Joy" },
-  { keywords: ["encourag", "heard", "cared", "comfort", "peace"], label: "Encouragement" },
-  { keywords: ["faithful", "steady", "weekly", "committed", "follow-through", "follow through"], label: "Faithfulness" },
-  { keywords: ["bold", "gospel", "evangel", "shared", "preach", "testimony"], label: "Boldness" },
-  { keywords: ["hospital", "table", "home", "meal", "welcome"], label: "Hospitality" },
-  { keywords: ["generous", "giving", "tithe", "serve", "support"], label: "Generosity" },
-] as const;
-
-const demoFruitThemeChips = ["Joy", "Encouragement", "Faithfulness", "Boldness", "Hospitality", "Generosity"];
 
 type FruitDashboardStory = {
   date: string | null;
@@ -7122,16 +7179,65 @@ function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFrui
   });
 }
 
-function fruitThemeChips(stories: FruitDashboardStory[], isPreview: boolean) {
-  const derivedThemes = fruitThemeDefinitions
-    .filter((theme) => stories.some((story) => hasFruitKeyword(story, theme.keywords)))
-    .map((theme) => theme.label);
+function fieldFruitStories({
+  fruitEvents,
+  fruitItems,
+  leaderReflections,
+  participantReviews,
+  participantTestimonies,
+  people,
+}: {
+  fruitEvents: DosAppFruitEvent[];
+  fruitItems: DosAppFruit[];
+  leaderReflections: DosAppLeaderReflection[];
+  participantReviews: DosAppParticipantReview[];
+  participantTestimonies: DosAppParticipantTestimony[];
+  people: DosAppPerson[];
+}) {
+  const directStories = approvedFruitStories(fruitItems, fruitEvents, people);
+  const testimonyStories = participantTestimonies
+    .filter((testimony) => isSubmittedStatus(testimony.status))
+    .filter((testimony) => Boolean(testimony.story?.trim() || testimony.whatChanged?.trim() || testimony.decisionMade?.trim()))
+    .map((testimony) => ({
+      date: testimony.submittedAt,
+      id: `testimony-story-${testimony.id}`,
+      personId: testimony.personId,
+      personName: testimony.personId ? personName(people, testimony.personId) : testimony.publicDisplayName,
+      tags: uniqueFruitTags(["Testimony", testimony.decisionMade ?? "", testimony.nextStep ?? ""]),
+      text: [testimony.story, testimony.whatChanged, testimony.nextStep].filter(Boolean).join(" "),
+      title: fruitStoryTitle(testimony.whatChanged ?? testimony.story),
+    } satisfies FruitDashboardStory));
+  const reviewStories = participantReviews
+    .filter((review) => isSubmittedStatus(review.status))
+    .filter((review) => Boolean(review.comments?.trim() || review.conversationHelpful || review.feltCaredFor || review.feltHeard || review.wouldMeetAgain))
+    .map((review) => ({
+      date: review.submittedAt,
+      id: `review-story-${review.id}`,
+      personId: review.personId,
+      personName: review.personId ? personName(people, review.personId) : null,
+      tags: uniqueFruitTags(["Review", review.feltHeard ? "Felt heard" : "", review.feltCaredFor ? "Felt cared for" : "", review.wouldMeetAgain ? "Would meet again" : ""]),
+      text: review.comments ?? "Someone shared that the table helped them take a next step.",
+      title: review.comments ? fruitStoryTitle(review.comments) : "Review shared",
+    } satisfies FruitDashboardStory));
+  const reflectionStories = leaderReflections
+    .filter((reflection) => Boolean(reflection.observedFruit.length || reflection.whatHappened?.trim() || reflection.prayerNeeds?.trim()))
+    .map((reflection) => ({
+      date: reflection.createdAt,
+      id: `reflection-story-${reflection.id}`,
+      personId: reflection.personId,
+      personName: reflection.personId ? personName(people, reflection.personId) : null,
+      tags: uniqueFruitTags(["Answered prayer", ...reflection.observedFruit]),
+      text: [reflection.whatHappened, reflection.prayerNeeds, reflection.nextStep].filter(Boolean).join(" "),
+      title: reflection.observedFruit[0] ?? fruitStoryTitle(reflection.whatHappened ?? reflection.prayerNeeds),
+    } satisfies FruitDashboardStory));
 
-  if (derivedThemes.length) {
-    return derivedThemes;
-  }
+  return [...directStories, ...testimonyStories, ...reviewStories, ...reflectionStories]
+    .sort((first, second) => {
+      const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
+      const secondTime = parseDisplayDate(second.date)?.getTime() ?? 0;
 
-  return isPreview ? demoFruitThemeChips : [];
+      return secondTime - firstTime;
+    });
 }
 
 function fruitOutcomeCount(stories: FruitDashboardStory[], keywords: string[]) {
@@ -9513,8 +9619,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const isPreview = data.workspace.isPreview === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
-  const [meetingsView, setMeetingsView] = useState<MeetingsView>("agenda");
+  const [meetingsView, setMeetingsView] = useState<MeetingsView>("upcoming");
   const [meetingCalendarFilter, setMeetingCalendarFilter] = useState<MeetingCalendarFilter>("all");
+  const [fruitView, setFruitView] = useState<FruitView>("stories");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
@@ -9574,8 +9681,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ...quickAddedPeople.filter((person) => !loadedPersonIds.has(person.id)),
     ];
   }, [data.people, quickAddedPeople]);
-  const fruitDashboardStories = useMemo(() => approvedFruitStories(data.fruit, data.fruitEvents, people), [data.fruit, data.fruitEvents, people]);
-  const fruitMetrics = useMemo(() => kingdomFruitMetrics(fruitDashboardStories), [fruitDashboardStories]);
+  const fruitStoryEntries = useMemo(() => fieldFruitStories({
+    fruitEvents: data.fruitEvents,
+    fruitItems: data.fruit,
+    leaderReflections: data.leaderReflections,
+    participantReviews: data.participantReviews,
+    participantTestimonies: data.participantTestimonies,
+    people,
+  }), [data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, people]);
+  const fruitMetrics = useMemo(() => kingdomFruitMetrics(fruitStoryEntries), [fruitStoryEntries]);
   const latestMeeting = loggedMeetings[0];
   const latestFruitActivity = useMemo(() => {
     const fruitItems = [
@@ -9732,16 +9846,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       reminders: data.reminders,
     })
   ), [data.meetings, data.reminders, people]);
-  const todayFocusItems = useMemo(() => (
-    upcomingTimelineItems.filter((item) => isTodayDate(item.date)).slice(0, 4)
+  const nextStepItems = useMemo(() => (
+    upcomingTimelineItems.slice(0, 5)
   ), [upcomingTimelineItems]);
-  const upcomingScheduledMeetings = useMemo(() => (
+  const upcomingTableMeetings = useMemo(() => (
     data.meetings
       .filter((meeting) => meeting.meetingStatus === "scheduled")
       .filter((meeting) => isUpcomingDate(meeting.scheduledStartAt ?? meeting.date))
       .sort((first, second) => dateSortValue(first.scheduledStartAt ?? first.date) - dateSortValue(second.scheduledStartAt ?? second.date))
-      .slice(0, 4)
   ), [data.meetings]);
+  const tableHistoryMeetings = useMemo(() => (
+    data.meetings
+      .filter((meeting) => meeting.meetingStatus !== "scheduled" || !isUpcomingDate(meeting.scheduledStartAt ?? meeting.date))
+      .sort((first, second) => dateSortValue(second.scheduledStartAt ?? second.date) - dateSortValue(first.scheduledStartAt ?? first.date))
+  ), [data.meetings]);
+  const upcomingScheduledMeetings = useMemo(() => (
+    upcomingTableMeetings
+      .slice(0, 4)
+  ), [upcomingTableMeetings]);
   const meetingCalendarItems = useMemo(() => (
     buildMeetingCalendarItems({
       externalCalendarEvents: data.externalCalendarEvents,
@@ -9751,8 +9873,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       reminders: data.reminders,
     })
   ), [data.externalCalendarEvents, data.meetings, data.reminders, meetingsCalendarMonth, people]);
-  const visibleTableMeetings = useMemo(() => filteredTables(data.meetings, people, tableQuery), [data.meetings, people, tableQuery]);
+  const visibleUpcomingTableMeetings = useMemo(() => filteredTables(upcomingTableMeetings, people, tableQuery), [people, tableQuery, upcomingTableMeetings]);
+  const visibleHistoryTableMeetings = useMemo(() => filteredTables(tableHistoryMeetings, people, tableQuery), [people, tableHistoryMeetings, tableQuery]);
   const visibleMeetingCalendarItems = useMemo(() => filteredCalendarItems(meetingCalendarItems, tableQuery), [meetingCalendarItems, tableQuery]);
+  const tableResultCount = meetingsView === "calendar"
+    ? visibleMeetingCalendarItems.length
+    : meetingsView === "history"
+      ? visibleHistoryTableMeetings.length
+      : visibleUpcomingTableMeetings.length;
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
     const meetingsThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
@@ -11101,7 +11229,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           label: "Fruit",
           onClick: () => openMoreApp("fruit"),
           section: "installed",
-          status: `${fruitDashboardStories.length} stories`,
+          status: `${fruitStoryEntries.length} stories`,
         },
         {
           description: "Teachings and follow-up resources.",
@@ -11114,11 +11242,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ],
     },
     {
-      description: "Optional USA Missionaries profile, prayer, and support layer attached to this DOS workspace.",
-      label: "Missionary",
+      description: "Optional USA Missionaries tools attached to this DOS workspace after approval.",
+      label: "USA Missionaries",
       items: [
         {
-          description: "Application status, public profile, publishing, and profile link.",
+          description: "Application status, public profile, and profile link.",
           icon: <User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
           label: "Missionary Profile",
           onClick: () => openMoreApp("missionary_profile"),
@@ -11126,7 +11254,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           status: missionaryLayerStatus,
         },
         {
-          description: "Prayer partners and profile prayer visibility.",
+          description: "Prayer partners and public profile prayer needs.",
           icon: <HeartHandshake className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
           label: "Prayer Team",
           onClick: () => openMoreApp("prayer_team"),
@@ -11134,7 +11262,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           status: isMissionaryLayerActive ? "Available" : "Layer",
         },
         {
-          description: "Support partners, giving progress, and support visibility.",
+          description: "Support partners, giving progress, and support status.",
           icon: <Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
           label: "Support Team",
           onClick: () => openMoreApp("support_team"),
@@ -11168,6 +11296,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           icon: <GitBranch className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
           label: "Table Flow",
           onClick: () => openMoreApp("table_flow"),
+          section: "coming_soon",
+          status: "Soon",
+        },
+        {
+          description: "Analytics, multiplication reporting, state reporting, and dashboards.",
+          icon: <Megaphone className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Reports",
+          onClick: () => openMoreApp("reports"),
           section: "coming_soon",
           status: "Soon",
         },
@@ -11237,23 +11373,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {isUsamApplicationPending ? <UsamPendingHomeCard onViewStatus={viewUsamApplicationStatus} /> : null}
 
-                <TodayFocusCard
-                  items={todayFocusItems}
+                <NextStepsCard
+                  items={nextStepItems}
                   onEditReminder={openReminderEdit}
                   onLogMeetingForPerson={openMeetingForPerson}
                   onOpenMeeting={openMeetingDetail}
                   onOpenPerson={openPersonDetail}
                   onScheduleForPerson={openScheduleMeeting}
                 />
-
-                <section>
-                  <ThisWeekHeader label={thisWeekStats.label} />
-                  <div className="grid grid-cols-3 gap-2">
-                    <WeekStatTile icon="log" label="Tables" value={thisWeekStats.meetings} />
-                    <WeekStatTile icon="prayer" label="Prayed" value={thisWeekStats.prayed} />
-                    <WeekStatTile icon="people" label="New People" value={thisWeekStats.newPeople} />
-                  </div>
-                </section>
 
                 <section>
                   <SectionHeading title="Recent Activity" />
@@ -11293,7 +11420,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               </div>
               <DesktopHomeDashboard
                 circleGroups={circlePeopleByLayer}
-                fruitStoryCount={fruitDashboardStories.length}
                 greetingName={greetingName}
                 homeSubtitle={homeSubtitle}
                 isUsamApplicationPending={isUsamApplicationPending}
@@ -11318,8 +11444,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 people={people}
                 profileImageUrl={data.workspace.profileImageUrl}
                 profileName={profileName}
-                thisWeekStats={thisWeekStats}
-                todayFocusItems={todayFocusItems}
+                nextStepItems={nextStepItems}
                 upcomingMeetings={upcomingScheduledMeetings}
               />
               </>
@@ -11448,20 +11573,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <div>
                   <MeetingActionRow onLogMeeting={() => openForm("meeting")} onScheduleMeeting={() => openScheduleMeeting()} />
                 </div>
-                <div className="grid gap-3 md:grid-cols-[minmax(260px,1fr)_260px] md:items-center">
-                  <TableSearchBar onChange={setTableQuery} query={tableQuery} resultCount={meetingsView === "agenda" ? visibleTableMeetings.length : visibleMeetingCalendarItems.length} />
-                  <div className="md:justify-self-end md:w-[260px]">
+                <div className="grid gap-3 md:grid-cols-[minmax(260px,1fr)_340px] md:items-center">
+                  <TableSearchBar onChange={setTableQuery} query={tableQuery} resultCount={tableResultCount} />
+                  <div className="md:justify-self-end md:w-[340px]">
                     <SegmentedTabs onChange={setMeetingsView} options={meetingsViewTabs} value={meetingsView} />
                   </div>
                 </div>
                 <div>
-                  {meetingsView === "agenda" ? (
-                    visibleTableMeetings.length ? (
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                  {meetingsView === "upcoming" ? (
+                    visibleUpcomingTableMeetings.length ? (
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleUpcomingTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
                     ) : (
-                      <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Table</CompactButton>} text={tableQuery.trim() ? "Try another table type, note, person, or date." : "Capture the next conversation, table, call, or prayer moment."} title={tableQuery.trim() ? "No matching tables." : "No tables logged yet."} />
+                      <EmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text={tableQuery.trim() ? "Try another person, note, date, or table type." : "Schedule the next conversation or prayer moment."} title={tableQuery.trim() ? "No matching upcoming tables." : "Nothing upcoming."} />
                     )
-                  ) : (
+                  ) : meetingsView === "calendar" ? (
                     <MeetingCalendarView
                       calendarFilter={meetingCalendarFilter}
                       calendarSyncMessage={calendarSyncMessage}
@@ -11480,6 +11605,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onToday={jumpMeetingsCalendarToToday}
                       selectedDateKey={selectedMeetingsCalendarDate}
                     />
+                  ) : (
+                    visibleHistoryTableMeetings.length ? (
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleHistoryTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                    ) : (
+                      <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Table</CompactButton>} text={tableQuery.trim() ? "Try another table type, note, person, or date." : "Completed tables will land here after you log them."} title={tableQuery.trim() ? "No matching history." : "No table history yet."} />
+                    )
                   )}
                 </div>
               </div>
@@ -11568,19 +11699,42 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       icon={<Icon name="fruit" size={20} />}
                       onScriptureClick={openScriptureQuickView}
                       scripture={scriptureReferences.matthew716}
-                      subtitle="Track visible outcomes of faith, obedience, and multiplication."
+                      subtitle="Stories, visible outcomes, and multiplication signs."
                       title="Recognize the fruit."
                     />
-                    <FruitTreeCard storyCount={fruitDashboardStories.length} />
+                    <SegmentedTabs onChange={setFruitView} options={fruitViewTabs} value={fruitView} />
 
-                    <section>
-                      <SectionHeading title="Kingdom Fruit" />
-                      <div className="grid grid-cols-2 gap-2">
-                        {fruitMetrics.map((metric) => (
-                          <KingdomFruitMetricTile key={metric.label} label={metric.label} value={metric.value} />
-                        ))}
-                      </div>
-                    </section>
+                    {fruitView === "stories" ? (
+                      <section>
+                        <SectionHeading title="Stories" />
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          {fruitStoryEntries.length ? fruitStoryEntries.slice(0, 9).map((story) => (
+                            <RecentFruitStoryCard key={story.id} story={story} />
+                          )) : (
+                            <SectionEmptyState
+                              action={<CompactButton icon="fruit" onClick={() => openForm("fruit")}>Record Fruit</CompactButton>}
+                              text="Testimonies, reviews, answered prayers, baptisms, new believers, reconciliation, and visible outcomes will appear here."
+                              title="No fruit stories yet."
+                            />
+                          )}
+                        </div>
+                      </section>
+                    ) : null}
+
+                    {fruitView === "tree" ? (
+                      <FruitTreeCard storyCount={fruitStoryEntries.length} />
+                    ) : null}
+
+                    {fruitView === "impact" ? (
+                      <section>
+                        <SectionHeading title="Impact" />
+                        <div className="grid grid-cols-2 gap-2">
+                          {fruitMetrics.map((metric) => (
+                            <KingdomFruitMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                          ))}
+                        </div>
+                      </section>
+                    ) : null}
                   </>
                 ) : null}
 
@@ -11727,6 +11881,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       title="Coming soon."
                     />
                     <EmptyState text="Table Flow can become an installable guided conversation layer while Table remains the core capture flow." title="Table Flow is not installed yet." />
+                  </>
+                ) : null}
+
+                {moreAppView === "reports" ? (
+                  <>
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Reports" />
+                    <TabHero
+                      icon={<Megaphone className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      onScriptureClick={openScriptureQuickView}
+                      scripture={scriptureReferences.luke1610}
+                      subtitle="Future analytics, multiplication reporting, state reporting, and dashboards."
+                      title="Coming soon."
+                    />
+                    <EmptyState text="Reports belong in the Command Center layer. DOS will stay focused on people, tables, prayer, fruit, follow up, and next actions." title="Reports are coming soon." />
                   </>
                 ) : null}
 
