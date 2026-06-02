@@ -11542,7 +11542,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ];
   const mobileAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => item.label !== "Table Flow");
+    .filter((item) => !["Missionary Profile", "Prayer Team", "Support Team", "Table Flow"].includes(item.label));
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 
