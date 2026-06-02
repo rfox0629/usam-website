@@ -4379,21 +4379,21 @@ function TableSearchBar({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="rounded-[22px] border border-[#EAF2FF] bg-white p-2.5 shadow-[0_10px_28px_rgba(37,99,235,0.045)] md:flex md:items-center md:gap-3 md:p-3">
+    <div className="flex items-center gap-2 rounded-full border border-[#EAF2FF] bg-white p-1.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)] md:rounded-[22px] md:p-3">
       <label className="relative block min-w-0 flex-1">
         <span className="sr-only">Search tables</span>
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]">
-          <Icon name="search" size={15} />
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
+          <Icon name="search" size={14} />
         </span>
         <input
-          className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-[#F8FBFF] pl-10 pr-4 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+          className="min-h-10 w-full rounded-full border border-[#DCEBFF] bg-[#F8FBFF] pl-9 pr-3 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB] md:min-h-11 md:pl-10 md:pr-4"
           onChange={(event) => onChange(event.target.value)}
           placeholder="Search tables"
           type="search"
           value={query}
         />
       </label>
-      <span className="mt-2 block rounded-full bg-[#F8FAFC] px-3 py-1.5 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B] md:mt-0" style={{ fontFamily: font.rajdhani }}>
+      <span className="shrink-0 rounded-full bg-[#F8FAFC] px-2.5 py-1 text-center text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B] md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]" style={{ fontFamily: font.rajdhani }}>
         {resultCount} shown
       </span>
     </div>
@@ -4846,11 +4846,9 @@ function CircleTarget({
 function CircleFocusHero({
   circleGroups,
   onSelectCircle,
-  onViewCircles,
 }: {
   circleGroups: CircleLayerGroups;
   onSelectCircle: (circle: CircleFocusView) => void;
-  onViewCircles: () => void;
 }) {
   const my3Count = circleGroups.three.length;
   const my12Count = circleGroups.three.length + circleGroups.twelve.length;
@@ -4860,14 +4858,6 @@ function CircleFocusHero({
   return (
     <section className="-mt-1 px-1 pb-1">
       <CircleTarget my12Count={my12Count} my120Count={my120Count} my3Count={my3Count} my70Count={my70Count} onSelectCircle={onSelectCircle} />
-
-      <button
-        className="mx-auto mt-3 flex min-h-12 w-full max-w-[292px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-bold text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)]"
-        onClick={onViewCircles}
-        type="button"
-      >
-        See who's inside
-      </button>
     </section>
   );
 }
@@ -4922,29 +4912,6 @@ function CircleListRow({
         <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
       </button>
     </div>
-  );
-}
-
-function HomeActionPill({
-  children,
-  icon,
-  onClick,
-}: {
-  children: ReactNode;
-  icon: IconName;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-full border border-[#EAF2FF] bg-white/85 px-2 text-[11px] font-semibold leading-3 text-[#334155] shadow-[0_8px_20px_rgba(15,23,42,0.035)] transition-colors hover:border-[#D7E7FF] hover:bg-white max-[350px]:gap-1 max-[350px]:px-1.5 max-[350px]:text-[10px]"
-      onClick={onClick}
-      type="button"
-    >
-      <span className="shrink-0 text-[#2563EB]/90">
-        <Icon name={icon} size={14} />
-      </span>
-      <span className="min-w-0 text-center">{children}</span>
-    </button>
   );
 }
 
@@ -5323,27 +5290,6 @@ function MeetingCalendarView({
 
   return (
     <section className="space-y-3 md:grid md:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)] md:gap-4 md:space-y-0">
-      <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-2.5 shadow-[0_12px_30px_rgba(37,99,235,0.055)] md:col-span-2 md:flex md:items-center md:gap-3 md:space-y-0 md:p-3">
-        <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 px-1">
-          <p className="min-w-0 flex-1 text-xs font-medium leading-4 text-[#64748B]">
-            {calendarSyncMessage || (googleCalendarConnected ? "Google events are read-only." : "Connect Google to read events.")}
-          </p>
-          {googleCalendarConnected ? (
-            <button
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
-              disabled={isSyncingGoogleCalendar}
-              onClick={onSyncGoogleCalendar}
-              style={{ fontFamily: font.rajdhani }}
-              type="button"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isSyncingGoogleCalendar ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={1.9} />
-              Sync
-            </button>
-          ) : null}
-        </div>
-      </div>
-
       <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
         <header className="flex items-center justify-between gap-2 border-b border-[#EFF6FF] px-3 py-3">
           <button
@@ -5416,6 +5362,30 @@ function MeetingCalendarView({
               );
             })}
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-2.5 shadow-[0_12px_30px_rgba(37,99,235,0.055)] md:col-span-2 md:flex md:items-center md:gap-3 md:space-y-0 md:p-3">
+        <div className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB] md:shrink-0" style={{ fontFamily: font.rajdhani }}>
+          Sources
+        </div>
+        <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 px-1">
+          <p className="min-w-0 flex-1 text-xs font-medium leading-4 text-[#64748B]">
+            {calendarSyncMessage || (googleCalendarConnected ? "Google events are read-only." : "Connect Google to read events.")}
+          </p>
+          {googleCalendarConnected ? (
+            <button
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
+              disabled={isSyncingGoogleCalendar}
+              onClick={onSyncGoogleCalendar}
+              style={{ fontFamily: font.rajdhani }}
+              type="button"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isSyncingGoogleCalendar ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={1.9} />
+              Sync
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -7037,25 +7007,17 @@ function UpcomingTimelineRow({
 function NextStepsCard({
   items,
   onEditReminder,
-  onLogMeetingForPerson,
   onOpenMeeting,
-  onOpenPerson,
-  onScheduleForPerson,
 }: {
   items: UpcomingTimelineItem[];
   onEditReminder: (reminderId: string) => void;
-  onLogMeetingForPerson: (personId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
-  onOpenPerson: (personId: string) => void;
-  onScheduleForPerson: (personId?: string | string[]) => void;
 }) {
-  const primaryPersonId = items.find((item) => item.personId)?.personId ?? null;
-
   return (
     <section className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_32px_rgba(37,99,235,0.07)]">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          Next Steps
+          Upcoming
         </h2>
         <span className="rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">{items.length}</span>
       </div>
@@ -7088,18 +7050,6 @@ function NextStepsCard({
           </p>
         )}
       </div>
-
-      {primaryPersonId ? (
-        <div className="mt-3 grid grid-cols-3 gap-2 max-[350px]:gap-1.5">
-          <CompactButton icon="people" onClick={() => onOpenPerson(primaryPersonId)}>View person</CompactButton>
-          <CompactButton icon="log" onClick={() => onLogMeetingForPerson(primaryPersonId)}>Log Table</CompactButton>
-          <CompactButton icon="calendar" onClick={() => onScheduleForPerson(primaryPersonId)}>Schedule Table</CompactButton>
-        </div>
-      ) : (
-        <div className="mt-3">
-          <CompactButton icon="calendar" onClick={() => onScheduleForPerson()}>Schedule Table</CompactButton>
-        </div>
-      )}
     </section>
   );
 }
@@ -8410,6 +8360,69 @@ function BottomNavigation({
   );
 }
 
+type MobileFloatingActionItem = {
+  icon: IconName;
+  label: string;
+  onClick: () => void;
+};
+
+function MobileFloatingActions({
+  isOpen,
+  items,
+  onClose,
+  onToggle,
+}: {
+  isOpen: boolean;
+  items: MobileFloatingActionItem[];
+  onClose: () => void;
+  onToggle: () => void;
+}) {
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <div className="absolute inset-0 z-[70] pointer-events-none md:hidden">
+      {isOpen ? (
+        <button
+          aria-label="Close quick actions"
+          className="absolute inset-0 pointer-events-auto bg-transparent"
+          onClick={onClose}
+          type="button"
+        />
+      ) : null}
+      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-6 flex flex-col items-end gap-2 pointer-events-auto">
+        {isOpen ? (
+          <div className="flex flex-col items-end gap-2">
+            {items.map((item) => (
+              <button
+                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-xs font-bold text-[#0F172A] shadow-[0_14px_34px_rgba(15,23,42,0.14)] transition-transform active:scale-[0.98]"
+                key={item.label}
+                onClick={item.onClick}
+                type="button"
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
+                  <Icon name={item.icon} size={15} />
+                </span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <button
+          aria-expanded={isOpen}
+          aria-label={isOpen ? "Close quick actions" : "Open quick actions"}
+          className={`flex h-16 w-16 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_20px_44px_rgba(37,99,235,0.34)] transition-transform active:scale-[0.97] ${isOpen ? "rotate-45" : ""}`}
+          onClick={onToggle}
+          type="button"
+        >
+          <Icon name="add" size={28} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DesktopNavigation({
   activeTab,
   moreAppView,
@@ -9637,6 +9650,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
+  const [isMobileActionSheetOpen, setIsMobileActionSheetOpen] = useState(false);
   const [circleSheetView, setCircleSheetView] = useState<CircleFocusView | null>(null);
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -9980,6 +9994,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       window.clearInterval(interval);
     };
   }, []);
+
+  useEffect(() => {
+    setIsMobileActionSheetOpen(false);
+  }, [activeTab, formMode, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedReminderId]);
 
   function resetMeetingDraft(personIds: string[] = []) {
     setConversationResponses({});
@@ -11228,6 +11246,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       label: "Installed",
       items: [
         {
+          description: "People and relationships you are stewarding.",
+          icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Field",
+          onClick: () => openPeopleCircle("three"),
+          section: "installed",
+          status: `${people.length} people`,
+        },
+        {
+          description: "Upcoming and completed table conversations.",
+          icon: <MessageCircle className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Table",
+          onClick: () => selectTab("meetings"),
+          section: "installed",
+          status: `${upcomingTableMeetings.length} upcoming`,
+        },
+        {
           description: `${prayerReminderCount} reminders and recent prayer activity.`,
           icon: <Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
           label: "Prayer",
@@ -11326,6 +11360,35 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     .flatMap((section) => section.items)
     .filter((item) => item.section !== "coming_soon")
     .slice(0, 4);
+  const runMobileAction = (action: () => void) => () => {
+    setIsMobileActionSheetOpen(false);
+    action();
+  };
+  const mobileFloatingActionItems: MobileFloatingActionItem[] = activeTab === "meetings"
+    ? [
+        { icon: "log", label: "Log Table", onClick: runMobileAction(() => openForm("meeting")) },
+        { icon: "calendar", label: "Schedule Table", onClick: runMobileAction(() => openScheduleMeeting()) },
+      ]
+    : activeTab === "home" || activeTab === "more"
+      ? [
+          { icon: "people", label: "My Field", onClick: runMobileAction(() => openPeopleCircle("three")) },
+          { icon: "add", label: "Add Person", onClick: runMobileAction(() => openForm("person")) },
+          { icon: "log", label: "Log Table", onClick: runMobileAction(() => openForm("meeting")) },
+          { icon: "calendar", label: "Schedule", onClick: runMobileAction(() => openScheduleMeeting()) },
+        ]
+      : [];
+  const showMobileFloatingActions = mobileFloatingActionItems.length > 0
+    && !formMode
+    && !isCirclesOpen
+    && !isEditProfileOpen
+    && !isPeopleImportOpen
+    && !isProfileOpen
+    && !isUsamApplicationOpen
+    && !selectedExternalCalendarEventId
+    && !selectedMeetingId
+    && !selectedPersonId
+    && !selectedReminderId
+    && !selectedScripture;
 
   return (
     <div className={dosRootShellClassName}>
@@ -11374,24 +11437,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <CircleFocusHero
                   circleGroups={circlePeopleByLayer}
                   onSelectCircle={openPeopleCircle}
-                  onViewCircles={() => openPeopleCircle("three")}
                 />
-
-                <section className="grid grid-cols-3 gap-2">
-                  <HomeActionPill icon="add" onClick={() => openForm("person")}>Add Person</HomeActionPill>
-                  <HomeActionPill icon="log" onClick={() => openForm("meeting")}>Log Table</HomeActionPill>
-                  <HomeActionPill icon="calendar" onClick={() => openScheduleMeeting()}>Schedule</HomeActionPill>
-                </section>
 
                 {isUsamApplicationPending ? <UsamPendingHomeCard onViewStatus={viewUsamApplicationStatus} /> : null}
 
                 <NextStepsCard
                   items={nextStepItems}
                   onEditReminder={openReminderEdit}
-                  onLogMeetingForPerson={openMeetingForPerson}
                   onOpenMeeting={openMeetingDetail}
-                  onOpenPerson={openPersonDetail}
-                  onScheduleForPerson={openScheduleMeeting}
                 />
 
                 <section>
@@ -11574,7 +11627,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "meetings" ? (
               <div className="space-y-4">
-                <TabPageHeader title="Table" />
+                <div className="hidden md:block">
+                  <TabPageHeader title="Table" />
+                </div>
                 <TabHero
                   icon={<MessageCircle className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                   onScriptureClick={openScriptureQuickView}
@@ -11582,7 +11637,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   subtitle="Every conversation is an opportunity to motivate, encourage, and challenge."
                   title="Faithful at the table."
                 />
-                <div>
+                <div className="hidden md:block">
                   <MeetingActionRow onLogMeeting={() => openForm("meeting")} onScheduleMeeting={() => openScheduleMeeting()} />
                 </div>
                 <div className="grid gap-3 md:grid-cols-[minmax(260px,1fr)_340px] md:items-center">
@@ -11633,7 +11688,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {moreAppView === null || moreAppView === "apps" ? (
                   <>
                     <div className="space-y-5 md:hidden">
-                      <TabPageHeader title="Apps" />
                       <TabHero
                         icon={<Square className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                         onScriptureClick={openScriptureQuickView}
@@ -12141,6 +12195,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         ) : null}
 
         <BottomNavigation activeTab={activeTab} onSelect={selectTab} />
+        {showMobileFloatingActions ? (
+          <MobileFloatingActions
+            isOpen={isMobileActionSheetOpen}
+            items={mobileFloatingActionItems}
+            onClose={() => setIsMobileActionSheetOpen(false)}
+            onToggle={() => setIsMobileActionSheetOpen((current) => !current)}
+          />
+        ) : null}
       </div>
 
       {formMode === "person" ? (
