@@ -6,25 +6,25 @@ type UsamFlagLogoProps = {
 
 const sizeStyles = {
   footer: {
-    frame: "h-[22px] w-[61px] rounded-[4px]",
-    label: "pl-[7px] text-[11px]",
-    stripeGap: "gap-[2px]",
-    stripeHeight: "h-[2px]",
-    stripeWidth: "w-[20px]",
+    frame: "h-[24px] w-[70px] rounded-[4px]",
+    label: "text-[13px]",
+    stripeGap: "gap-[2.2px]",
+    stripeHeight: "h-[2.4px]",
+    stripeInset: "pl-[1px] pr-[6px]",
   },
   icon: {
-    frame: "h-[28px] w-[78px] rounded-[5px]",
-    label: "pl-[9px] text-[15px]",
-    stripeGap: "gap-[3px]",
-    stripeHeight: "h-[2px]",
-    stripeWidth: "w-[26px]",
+    frame: "h-[31px] w-[90px] rounded-[5px]",
+    label: "text-[18px]",
+    stripeGap: "gap-[2.5px]",
+    stripeHeight: "h-[2.6px]",
+    stripeInset: "pl-[1px] pr-[7px]",
   },
   nav: {
-    frame: "h-[27px] w-[76px] rounded-[5px]",
-    label: "pl-[9px] text-[15px]",
-    stripeGap: "gap-[3px]",
-    stripeHeight: "h-[2px]",
-    stripeWidth: "w-[25px]",
+    frame: "h-[30px] w-[87px] rounded-[5px]",
+    label: "text-[18px]",
+    stripeGap: "gap-[2.5px]",
+    stripeHeight: "h-[2.6px]",
+    stripeInset: "pl-[1px] pr-[7px]",
   },
 } as const;
 
@@ -34,19 +34,19 @@ export function UsamFlagLogo({ size = "nav" }: UsamFlagLogoProps) {
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex shrink-0 items-center justify-between overflow-hidden border border-white/90 bg-[var(--usam-black)] text-white ${styles.frame}`}
+      className={`inline-grid shrink-0 grid-cols-2 items-center overflow-hidden border-[1.1px] border-white/90 bg-[var(--usam-black)] text-white ${styles.frame}`}
     >
       <span
-        className={`flex h-full items-center font-bold uppercase leading-none tracking-[0.04em] ${styles.label}`}
-        style={{ fontFamily: font.oswald }}
+        className={`flex h-full items-center justify-center font-extrabold uppercase leading-none tracking-[0.01em] ${styles.label}`}
+        style={{ fontFamily: font.oswald, fontWeight: 800 }}
       >
         USAM
       </span>
-      <span className={`flex shrink-0 flex-col justify-center pr-[7px] ${styles.stripeGap}`}>
-        <span className={`block bg-white ${styles.stripeHeight} ${styles.stripeWidth}`} />
-        <span className={`block bg-white ${styles.stripeHeight} ${styles.stripeWidth}`} />
-        <span className={`block bg-white ${styles.stripeHeight} ${styles.stripeWidth}`} />
-        <span className={`block bg-white ${styles.stripeHeight} ${styles.stripeWidth}`} />
+      <span className={`flex h-full flex-col justify-center ${styles.stripeGap} ${styles.stripeInset}`}>
+        <span className={`block w-full bg-white ${styles.stripeHeight}`} />
+        <span className={`block w-full bg-white ${styles.stripeHeight}`} />
+        <span className={`block w-full bg-white ${styles.stripeHeight}`} />
+        <span className={`block w-full bg-white ${styles.stripeHeight}`} />
       </span>
     </span>
   );
