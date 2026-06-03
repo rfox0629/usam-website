@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { PrimaryNav } from "../../components/PrimaryNav";
 import { GeneralSupportGivingButton } from "./GeneralSupportGivingButton";
 import { ViewTeamComingSoonButton } from "./ViewTeamComingSoonButton";
+import { primaryDarkButtonClassName, secondaryDarkButtonClassName } from "@/components/brandButtons";
 import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
@@ -23,13 +24,13 @@ function ActionLink({
   variant?: "primary" | "secondary";
 }) {
   const className = variant === "primary"
-    ? "border border-transparent bg-usam-gold text-black hover:bg-usam-gold hover:shadow-[0_0_22px_rgba(var(--usam-gold-rgb),0.24)]"
-    : "border border-white/[0.3] bg-transparent text-white hover:border-usam-gold hover:bg-white/[0.04]";
+    ? primaryDarkButtonClassName
+    : secondaryDarkButtonClassName;
 
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-12 w-full items-center justify-center px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] transition-all duration-300 sm:w-auto ${className}`}
+      className={`${className} w-full sm:w-auto`}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}
@@ -47,15 +48,15 @@ function ExternalActionLink({
   variant?: "primary" | "secondary";
 }) {
   const className = variant === "primary"
-    ? "bg-stone-100 text-stone-950 hover:bg-usam-gold"
-    : "border border-stone-600 text-stone-300 hover:border-stone-400 hover:text-stone-100";
+    ? primaryDarkButtonClassName
+    : secondaryDarkButtonClassName;
 
   return (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
-      className={`inline-block px-7 py-3 text-sm uppercase tracking-[0.2em] transition-all duration-300 ${className}`}
+      className={`${className} w-full sm:w-auto`}
       style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
     >
       {children}

@@ -14,6 +14,7 @@ import {
   PublicTextInput,
 } from "@/components/forms/PublicForm";
 import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
+import { primaryDarkButtonClassName } from "@/components/brandButtons";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 const sourcePage = "/system/preview";
@@ -198,7 +199,7 @@ export function DosWalkthroughRequestModal({
   return (
     <>
       <button
-        className="inline-flex min-h-12 items-center justify-center border border-usam-gold bg-usam-gold px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-950 transition-colors hover:border-usam-gold hover:bg-usam-gold"
+        className={`${primaryDarkButtonClassName} px-6 tracking-[0.24em]`}
         onClick={openModal}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         type="button"

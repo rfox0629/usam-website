@@ -14,6 +14,7 @@ import {
   PublicTextInput,
 } from "@/components/forms/PublicForm";
 import { getAllStrings, getString, submitPublicForm } from "@/components/forms/submitPublicForm";
+import { primaryDarkButtonClassName, secondaryDarkButtonClassName } from "@/components/brandButtons";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -128,7 +129,7 @@ export function MissionReviewCTA() {
         <button
           type="button"
           onClick={() => openModal("experience")}
-          className="inline-block border-0 bg-usam-gold px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-200 ease-out hover:bg-usam-gold active:bg-usam-gold"
+          className={primaryDarkButtonClassName}
           style={{ fontFamily: font.rajdhani }}
         >
           Quick Review
@@ -136,7 +137,7 @@ export function MissionReviewCTA() {
         <button
           type="button"
           onClick={() => openModal("story")}
-          className="inline-block border border-white/25 bg-transparent px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-usam-gold hover:bg-[rgba(var(--usam-gold-rgb),0.08)] hover:text-usam-gold"
+          className={secondaryDarkButtonClassName}
           style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
         >
           Share Your Story

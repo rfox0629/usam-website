@@ -89,7 +89,7 @@ export function PersonRelationshipModal({
   return (
     <>
       <button
-        className={buttonClassName ?? "min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold"}
+        className={buttonClassName ?? "min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold-hover"}
         onClick={() => setIsOpen(true)}
         style={{ fontFamily: font.rajdhani }}
         type="button"
@@ -178,7 +178,7 @@ export function PersonRelationshipModal({
                       This is secondary relationship management for additional discipleship support.
                     </p>
                     <button
-                      className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
+                      className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isSubmitting}
                       style={{ fontFamily: font.rajdhani }}
                       type="submit"

@@ -62,7 +62,7 @@ type MajorGiftResponse = {
 };
 
 function subtleButtonClassName() {
-  return "inline-flex min-h-12 w-full items-center justify-center border border-white/[0.22] bg-white/[0.02] px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-stone-100 transition-all duration-300 hover:border-usam-gold hover:bg-white/[0.04] hover:text-usam-gold sm:w-auto";
+  return "inline-flex min-h-12 w-full items-center justify-center border border-usam-gold/65 bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-usam-gold hover:bg-usam-gold/12 sm:w-auto";
 }
 
 export function MajorGiftInquiryModal({

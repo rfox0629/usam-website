@@ -15,6 +15,7 @@ import {
   PublicTextInput,
 } from "@/components/forms/PublicForm";
 import { getAllStrings, getString, submitPublicForm } from "@/components/forms/submitPublicForm";
+import { primaryDarkButtonClassName, primaryLightButtonClassName, secondaryDarkButtonClassName } from "@/components/brandButtons";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -27,8 +28,8 @@ const availabilityOptions = [
 
 function triggerClassName(variant: "primary" | "secondary") {
   return variant === "primary"
-    ? "inline-flex min-h-[48px] items-center justify-center bg-stone-100 px-7 py-3.5 text-center text-sm uppercase tracking-[0.2em] text-stone-950 transition-all duration-300 hover:bg-usam-gold"
-    : "inline-flex min-h-[48px] items-center justify-center border border-stone-600 px-7 py-3.5 text-center text-sm uppercase tracking-[0.2em] text-stone-300 transition-all duration-300 hover:border-stone-400 hover:text-stone-100";
+    ? primaryDarkButtonClassName
+    : secondaryDarkButtonClassName;
 }
 
 export function PrayerTeamApplicationModal({
@@ -166,7 +167,7 @@ export function PrayerTeamApplicationModal({
                       Thank you for applying to join the USA Missionaries Prayer Team. Our team will review your request and follow up with next steps.
                     </PublicFormMessage>
                     <button
-                      className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-transparent bg-usam-gold px-7 py-4 text-center text-xs uppercase tracking-[0.22em] text-stone-950 transition-all duration-300 hover:bg-usam-gold"
+                      className={`${primaryLightButtonClassName} mt-5 w-full`}
                       onClick={closeModal}
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"

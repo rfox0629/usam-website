@@ -191,7 +191,7 @@ function HomePhoneScreen() {
             <span>2 tables ready to schedule</span>
             <span className="text-stone-400">Go</span>
           </div>
-          <div className="flex items-center justify-between rounded-xl bg-usam-gold px-3 py-2 text-xs font-bold text-usam-gold">
+          <div className="flex items-center justify-between rounded-xl bg-usam-gold px-3 py-2 text-xs font-bold text-[var(--usam-black)]">
             <span>3 tables need follow-up</span>
             <span>Now</span>
           </div>
@@ -246,7 +246,7 @@ function PeoplePhoneScreen() {
             <span
               className={`rounded-md px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${
                 status === "Active"
-                  ? "bg-usam-gold text-usam-gold"
+                  ? "bg-usam-gold text-[var(--usam-black)]"
                   : status === "New"
                     ? "bg-blue-100 text-blue-800"
                     : "bg-green-100 text-green-800"

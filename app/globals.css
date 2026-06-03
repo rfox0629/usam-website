@@ -5,6 +5,11 @@
 :root {
   --usam-gold: #C2A14E;
   --usam-gold-rgb: 194, 161, 78;
+  --usam-gold-channels: 194 161 78;
+  --usam-gold-hover-rgb: 211, 183, 111;
+  --usam-gold-hover-channels: 211 183 111;
+  --usam-gold-active-rgb: 179, 143, 61;
+  --usam-gold-active-channels: 179 143 61;
   --usam-black: #0D0D0D;
   --usam-navy: #0A1D3A;
   --usam-blue: #378ADD;

@@ -13,6 +13,7 @@ import {
   PublicSubmitButton,
   PublicTextInput,
 } from "@/components/forms/PublicForm";
+import { secondaryLightButtonClassName } from "@/components/brandButtons";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -291,7 +292,7 @@ export function AccessCodeModal({
               </form>
 
               <button
-                className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-5 text-center text-xs uppercase tracking-[0.18em] text-stone-700 transition-colors hover:border-usam-gold hover:text-stone-950"
+                className={`${secondaryLightButtonClassName} mt-4 w-full`}
                 onClick={handleSecondaryClick}
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 type="button"

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { primaryLightButtonClassName } from "@/components/brandButtons";
 import { submitFinancialFreedomInquiry } from "./actions";
 import { FinancialFreedomUploadField } from "./FinancialFreedomUploadField";
 
@@ -300,7 +301,7 @@ export function FinancialFreedomInquiryForm({
         </p>
         <button
           type="submit"
-          className="inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-usam-gold px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-usam-gold hover:shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.22)] sm:w-auto"
+          className={`${primaryLightButtonClassName} min-h-[54px] w-full sm:w-auto`}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
           Submit Inquiry

@@ -2,6 +2,7 @@
 
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { primaryLightButtonClassName } from "@/components/brandButtons";
 import { getGivingUrl } from "@/src/lib/giving";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
@@ -432,7 +433,7 @@ export function GivingCommitmentForm({
               <button
                 type="submit"
                 disabled={status === "submitting"}
-                className="mt-4 inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-usam-gold px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-usam-gold hover:shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+                className={`${primaryLightButtonClassName} mt-4 min-h-[54px] w-full`}
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               >
                 {status === "submitting" ? "Submitting..." : "Continue to Secure Giving"}

@@ -13,6 +13,7 @@ import {
   PublicTextInput,
 } from "@/components/forms/PublicForm";
 import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
+import { secondaryDarkButtonClassName } from "@/components/brandButtons";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -101,7 +102,7 @@ export function FieldReportsAccessCTA({ initialOpen = false }: { initialOpen?: b
       <button
         type="button"
         onClick={openModal}
-        className="inline-flex min-h-12 items-center justify-center border border-white/25 bg-transparent px-7 py-3 text-center text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-usam-gold hover:bg-[rgba(var(--usam-gold-rgb),0.08)] hover:text-usam-gold"
+        className={secondaryDarkButtonClassName}
         style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
       >
         Request Access to Field Reports

@@ -649,7 +649,7 @@ function MeetingLoggerSheet({
                 Meeting summaries, outcomes, and prayer context stay private to the owning organization.
               </p>
               <button
-                className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSubmitting}
                 style={{ fontFamily: font.rajdhani }}
                 type="submit"
@@ -690,7 +690,7 @@ export function MeetingsWorkspaceClient({
           </p>
         </div>
         <button
-          className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold"
+          className="min-h-12 border border-usam-gold/60 bg-usam-gold px-6 text-sm font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold-hover"
           onClick={() => setIsLoggerOpen(true)}
           style={{ fontFamily: font.rajdhani }}
           type="button"

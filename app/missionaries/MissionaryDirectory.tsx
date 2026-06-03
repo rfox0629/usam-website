@@ -122,7 +122,7 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
         <div className="mt-auto pt-8">
           <Link
             href={`/missionaries/${missionary.slug}`}
-            className="inline-flex min-h-11 w-full items-center justify-center bg-stone-950 px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] text-white transition-all duration-300 hover:bg-usam-gold hover:text-black"
+            className="inline-flex min-h-11 w-full items-center justify-center bg-stone-950 px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] text-white transition-all duration-300 hover:bg-usam-gold-hover hover:text-black"
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
             View Profile

@@ -193,7 +193,7 @@ export function RelationshipInsightsPanel({
       {canEdit ? (
         <div className="flex justify-end">
           <button
-            className="min-h-11 border border-usam-gold/60 bg-usam-gold px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 border border-usam-gold/60 bg-usam-gold px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
             style={{ fontFamily: font.rajdhani }}
             type="submit"
@@ -299,7 +299,7 @@ export function RelationshipNotesPanel({
       {canEdit ? (
         <div className="mt-3 flex justify-end">
           <button
-            className="min-h-10 border border-usam-gold/60 bg-usam-gold px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-10 border border-usam-gold/60 bg-usam-gold px-5 text-xs font-bold uppercase tracking-[0.18em] text-stone-950 transition-colors hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
             style={{ fontFamily: font.rajdhani }}
             type="submit"

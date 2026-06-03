@@ -45,7 +45,7 @@ const lightWidePanelClass = "max-w-[1240px] rounded-[18px] border border-[#e2ded
 const lightInputClass = "mt-2 min-h-12 w-full rounded-xl border border-[#d7d2c8] bg-white px-3.5 py-3 text-sm text-[#111111] outline-none transition-all placeholder:text-[#9a9488] focus:border-usam-gold focus:shadow-[0_0_0_3px_rgba(var(--usam-gold-rgb),0.16)]";
 const lightLabelClass = "text-[11px] uppercase tracking-[0.16em] text-[#6f6658]";
 const lightHelperClass = "mt-2 block text-[12px] leading-5 text-[#7b746a]";
-const lightPrimaryButtonClass = "inline-flex items-center justify-center rounded-md bg-usam-gold px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60";
+const lightPrimaryButtonClass = "inline-flex items-center justify-center rounded-md bg-usam-gold px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:opacity-60";
 const lightSecondaryButtonClass = "inline-flex items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]";
 const lightTertiaryButtonClass = "inline-flex items-center justify-center gap-1.5 rounded-md border border-[#e2ded5] bg-transparent px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] transition-colors hover:border-usam-gold hover:text-[var(--usam-black)]";
 const workspaceTabBaseClass = "inline-flex h-10 w-[156px] max-w-full shrink-0 items-center justify-center overflow-hidden whitespace-nowrap rounded-lg border px-3 text-center text-[10px] uppercase tracking-[0.16em] transition-colors";
@@ -1935,7 +1935,7 @@ function MissionaryCutoutGenerationModal({
                   Cancel
                 </button>
                 <button
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-usam-gold bg-usam-gold px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:border-white/[0.1] disabled:bg-white/[0.08] disabled:text-stone-500"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-usam-gold bg-usam-gold px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:border-white/[0.1] disabled:bg-white/[0.08] disabled:text-stone-500"
                   disabled={isGenerating}
                   onClick={onRequest}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -7790,7 +7790,7 @@ function ShareActionButton({
 }) {
   const className = `inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 text-[10px] uppercase tracking-[0.15em] transition-colors ${
     primary
-      ? "border-usam-gold bg-usam-gold text-[#111111] hover:bg-usam-gold"
+      ? "border-usam-gold bg-usam-gold text-[#111111] hover:bg-usam-gold-hover"
       : "border-[#d7d2c8] bg-white text-[#3f3932] hover:border-usam-gold hover:text-[var(--usam-black)]"
   }`;
   const content = (
@@ -8680,7 +8680,7 @@ function TeamMemberManager({
     <div className="space-y-5">
       <div className="flex justify-end">
         <button
-          className="inline-flex min-h-9 items-center justify-center rounded-md bg-usam-gold px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-usam-gold"
+          className="inline-flex min-h-9 items-center justify-center rounded-md bg-usam-gold px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-usam-gold-hover"
           onClick={() => {
             setShouldEditNewestMember(true);
             onAdd();
@@ -11916,7 +11916,7 @@ export function MissionaryProfilesAdminDashboard({
             <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">
               <Link
                 aria-label="Open mobile Field App for this workspace"
-                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-usam-gold bg-usam-gold p-3.5 text-black shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.18)] transition-all hover:-translate-y-0.5 hover:bg-usam-gold hover:shadow-[0_18px_42px_rgba(var(--usam-gold-rgb),0.24)] sm:min-h-24 sm:p-4"
+                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-usam-gold bg-usam-gold p-3.5 text-black shadow-[0_14px_34px_rgba(var(--usam-gold-rgb),0.18)] transition-all hover:-translate-y-0.5 hover:bg-usam-gold-hover hover:shadow-[0_18px_42px_rgba(var(--usam-gold-rgb),0.24)] sm:min-h-24 sm:p-4"
                 href={`/dos/${encodeURIComponent(selectedProfile.slug)}`}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -12373,7 +12373,7 @@ export function MissionaryProfilesAdminDashboard({
                   <div className="space-y-3">
                     <div>
                       <button
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-usam-gold bg-usam-gold px-4 py-2.5 text-center text-[11px] uppercase tracking-[0.18em] text-[#111111] shadow-[0_12px_26px_rgba(var(--usam-gold-rgb),0.14)] transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-usam-gold bg-usam-gold px-4 py-2.5 text-center text-[11px] uppercase tracking-[0.18em] text-[#111111] shadow-[0_12px_26px_rgba(var(--usam-gold-rgb),0.14)] transition-colors hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
                         disabled={!selectedProfile.profile_image_url?.trim()}
                         onClick={openCutoutModal}
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
@@ -12959,7 +12959,7 @@ export function MissionaryProfilesAdminDashboard({
               Discard
             </button>
             <button
-              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md bg-usam-gold px-5 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
+              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md bg-usam-gold px-5 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
               disabled={saving}
               onClick={saveSelectedProfile}
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}

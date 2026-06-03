@@ -38,7 +38,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
 const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
 const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold";
-const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold";
+const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-usam-gold bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold-hover";
 const tabButtonClassName = "inline-flex h-10 w-[132px] shrink-0 items-center justify-center rounded-lg border px-3 text-center text-[10px] uppercase tracking-[0.15em] transition-colors";
 
 const tabs = [
@@ -576,7 +576,7 @@ function ActionForm({
   tone?: "amber" | "green" | "outline" | "red";
 }) {
   const className = tone === "amber"
-    ? "border-transparent bg-usam-gold text-black hover:bg-usam-gold"
+    ? "border-usam-gold bg-usam-gold text-black hover:bg-usam-gold-hover"
     : tone === "green"
       ? "border-green-500/30 bg-green-950/25 text-green-200 hover:border-green-300"
       : tone === "red"

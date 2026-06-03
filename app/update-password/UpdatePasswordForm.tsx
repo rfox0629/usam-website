@@ -298,7 +298,7 @@ export function UpdatePasswordForm() {
         </label>
 
         <button
-          className="inline-flex min-h-12 w-full items-center justify-center bg-usam-gold px-6 py-3 text-xs uppercase tracking-[0.24em] text-black transition-all hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-12 w-full items-center justify-center border border-usam-gold bg-usam-gold px-6 py-3 text-xs uppercase tracking-[0.24em] text-black transition-all hover:border-usam-gold-hover hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:opacity-60"
           disabled={!isReady || isSubmitting}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="submit"

@@ -94,7 +94,7 @@ function DashboardPanel() {
                     className={`inline-flex px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${
                       row.status === "Active"
                         ? "bg-emerald-950/70 text-emerald-500"
-                        : "bg-usam-gold/60 text-usam-gold"
+                        : "bg-usam-gold/70 text-[var(--usam-black)]"
                     }`}
                     style={{ fontFamily: font.rajdhani }}
                   >

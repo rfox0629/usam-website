@@ -515,7 +515,7 @@ function ActionButton({
     <Link
       className={`inline-flex min-h-9 items-center justify-center rounded-lg border px-3 text-[10px] uppercase tracking-[0.14em] transition-colors ${
         primary
-          ? "border-usam-gold bg-usam-gold text-stone-950 hover:bg-usam-gold"
+          ? "border-usam-gold bg-usam-gold text-stone-950 hover:bg-usam-gold-hover"
           : "border-stone-700 text-stone-100 hover:border-usam-gold hover:text-usam-gold"
       }`}
       href={href}

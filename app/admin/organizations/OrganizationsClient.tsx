@@ -302,7 +302,7 @@ function AddOrganizationModal({
             Cancel
           </button>
           <button
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-usam-gold bg-usam-gold px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-usam-gold bg-usam-gold px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSaving}
             style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
             type="submit"
@@ -334,7 +334,7 @@ export function OrganizationsClient({
             </p>
           </div>
           <button
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-usam-gold bg-usam-gold px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-usam-gold"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-usam-gold bg-usam-gold px-4 text-[11px] uppercase tracking-[0.16em] text-black transition-colors hover:bg-usam-gold-hover"
             onClick={() => setIsAdding(true)}
             style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
             type="button"

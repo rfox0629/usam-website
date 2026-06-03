@@ -67,7 +67,7 @@ function PrayerCoverageBoard() {
               className={`inline-flex px-2.5 py-1.5 text-[10px] uppercase tracking-[0.16em] ${
                 row.tone === "emerald"
                   ? "bg-emerald-950/70 text-emerald-400"
-                  : "bg-usam-gold/60 text-usam-gold"
+                  : "bg-usam-gold/70 text-[var(--usam-black)]"
               }`}
               style={{ fontFamily: font.rajdhani }}
             >

@@ -38,14 +38,14 @@ function buttonClassName(variant: JoinPrayerTeamModalProps["variant"] = "gold", 
   }
 
   if (variant === "compact") {
-    return "inline-flex min-h-10 items-center justify-center border border-usam-gold/45 bg-usam-gold/10 px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-usam-gold transition-colors hover:border-usam-gold hover:bg-usam-gold/15";
+    return "inline-flex min-h-10 items-center justify-center border border-usam-gold/65 bg-usam-gold/10 px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-white transition-colors hover:border-usam-gold hover:bg-usam-gold/15";
   }
 
   if (variant === "outline") {
-    return "inline-flex min-h-12 w-full items-center justify-center border border-usam-gold/55 bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-usam-gold transition-all duration-300 hover:border-usam-gold hover:bg-usam-gold/10 sm:w-auto sm:min-w-[220px]";
+    return "inline-flex min-h-12 w-full items-center justify-center border border-usam-gold/65 bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-usam-gold hover:bg-usam-gold/12 sm:w-auto sm:min-w-[220px]";
   }
 
-  return "inline-flex min-h-12 w-full items-center justify-center border border-transparent bg-usam-gold px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-black transition-all duration-300 hover:bg-usam-gold hover:shadow-[0_0_22px_rgba(var(--usam-gold-rgb),0.24)] sm:w-auto sm:min-w-[220px]";
+  return "inline-flex min-h-12 w-full items-center justify-center border border-usam-gold bg-usam-gold px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-black transition-all duration-300 hover:border-usam-gold-hover hover:bg-usam-gold-hover hover:shadow-[0_0_22px_rgba(var(--usam-gold-rgb),0.24)] sm:w-auto sm:min-w-[220px]";
 }
 
 function formatPrayerDate(value: string) {

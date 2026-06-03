@@ -34,7 +34,7 @@ function AdminBlocked({
           {showSignOut ? (
             <form action={signOutAdmin}>
               <button
-                className="inline-flex min-h-12 w-full items-center justify-center bg-stone-100 px-6 py-3 text-sm uppercase tracking-[0.2em] text-stone-950 transition-colors hover:bg-usam-gold sm:w-auto"
+                className="inline-flex min-h-12 w-full items-center justify-center bg-stone-100 px-6 py-3 text-sm uppercase tracking-[0.2em] text-stone-950 transition-colors hover:bg-usam-gold-hover sm:w-auto"
                 style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
                 type="submit"
               >

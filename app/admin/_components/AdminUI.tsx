@@ -83,7 +83,7 @@ export function AdminActionLink({
   const className = {
     blue: "border-blue-400/25 bg-blue-950/30 text-blue-200 hover:border-blue-300/60",
     danger: "border-red-500/30 text-red-200 hover:bg-red-950/25",
-    gold: "border-transparent bg-usam-gold text-black hover:bg-usam-gold",
+    gold: "border-usam-gold bg-usam-gold text-black hover:bg-usam-gold-hover",
     outline: "border-stone-700 text-stone-100 hover:border-usam-gold hover:text-usam-gold",
   }[variant];
 

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { primaryLightButtonClassName } from "@/components/brandButtons";
 import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -415,7 +416,7 @@ export function MissionaryIntakeForm() {
           <button
             type="submit"
             disabled={status === "submitting"}
-            className="inline-flex min-h-12 w-full items-center justify-center border border-transparent bg-usam-gold px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-black transition-all duration-300 hover:bg-usam-gold hover:shadow-[0_0_22px_rgba(var(--usam-gold-rgb),0.24)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+            className={`${primaryLightButtonClassName} w-full md:w-auto`}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
             {status === "submitting" ? "Submitting..." : "Submit Profile Intake"}

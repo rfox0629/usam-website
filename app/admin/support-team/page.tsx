@@ -32,7 +32,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 const inputClassName = "mt-2 min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
 const toolbarInputClassName = "min-h-10 w-full rounded-lg border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-usam-gold";
 const secondaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-700 px-4 text-[11px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold";
-const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-transparent bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold";
+const primaryButtonClassName = "inline-flex min-h-10 items-center justify-center rounded-lg border border-usam-gold bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold-hover";
 const prayerFormTypes = new Set(["prayer_team_application", "prayer_request"]);
 
 const statuses = [
@@ -869,7 +869,7 @@ function ActionForm({
   variant?: "amber" | "blue" | "outline" | "danger";
 }) {
   const className = variant === "amber"
-    ? "border-transparent bg-usam-gold text-black hover:bg-usam-gold"
+    ? "border-usam-gold bg-usam-gold text-black hover:bg-usam-gold-hover"
     : variant === "blue"
       ? "border-blue-400/25 bg-blue-950/30 text-blue-200 hover:border-blue-300/60"
       : variant === "danger"
@@ -989,7 +989,7 @@ function SubmissionDetail({
           />
         </label>
         <button
-          className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-transparent bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold"
+          className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-usam-gold bg-usam-gold px-4 text-[11px] uppercase tracking-[0.14em] text-black transition-colors hover:bg-usam-gold-hover"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="submit"
         >

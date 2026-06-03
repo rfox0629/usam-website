@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AccessLogoutButton } from "../../components/forms/AccessLogoutButton";
 import { PrimaryNav } from "../../components/PrimaryNav";
+import { primaryDarkButtonClassName, secondaryDarkButtonClassName } from "@/components/brandButtons";
 import { MissionaryDirectory, type MissionaryDirectoryProfile } from "./MissionaryDirectory";
 import { getMissionaryHouseholdsResult, type MissionaryHouseholdDirectoryRow } from "@/src/lib/missionaries/queries";
 import { normalizeLocationVisibility, normalizePrimaryState } from "@/src/lib/missionaries/location";
@@ -74,13 +75,13 @@ function ActionLink({
   variant?: "primary" | "secondary";
 }) {
   const className = variant === "primary"
-    ? "border border-transparent bg-usam-gold text-black hover:bg-usam-gold hover:shadow-[0_0_22px_rgba(var(--usam-gold-rgb),0.24)]"
-    : "border border-white/[0.3] bg-transparent text-white hover:border-usam-gold hover:bg-white/[0.04]";
+    ? primaryDarkButtonClassName
+    : secondaryDarkButtonClassName;
 
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-12 w-full items-center justify-center px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] transition-all duration-300 sm:w-auto ${className}`}
+      className={`${className} w-full sm:w-auto`}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}

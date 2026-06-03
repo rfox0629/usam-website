@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { secondaryDarkButtonClassName } from "@/components/brandButtons";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -33,7 +34,7 @@ export function AccessLogoutButton({
 
   return (
     <button
-      className={className ?? "inline-flex min-h-10 items-center justify-center border border-stone-700 bg-transparent px-4 text-[11px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-usam-gold hover:text-usam-gold disabled:cursor-not-allowed disabled:opacity-60"}
+      className={className ?? `${secondaryDarkButtonClassName} min-h-10 px-4 text-[11px] tracking-[0.18em] disabled:opacity-60`}
       disabled={isLoggingOut}
       onClick={logOut}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}

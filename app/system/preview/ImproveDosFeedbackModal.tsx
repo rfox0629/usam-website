@@ -13,13 +13,14 @@ import {
   PublicSubmitButton,
   PublicTextarea,
 } from "@/components/forms/PublicForm";
+import { secondaryDarkButtonClassName } from "@/components/brandButtons";
 import { productFeedbackCategories, productFeedbackCategoryLabel } from "@/src/lib/dos/product-feedback";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 export function ImproveDosFeedbackModal({
   children = "Improve DOS",
-  className = "inline-flex min-h-12 items-center justify-center border border-stone-700 bg-transparent px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-100 transition-colors hover:border-usam-gold hover:text-usam-gold",
+  className = `${secondaryDarkButtonClassName} px-6 tracking-[0.24em]`,
   initialOpen = false,
 }: {
   children?: ReactNode;

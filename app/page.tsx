@@ -4,6 +4,7 @@ import Link from "next/link";
 import React, { useState, useEffect, useRef } from "react";
 import { PrimaryNav } from "../components/PrimaryNav";
 import { JoinMissionInterestModal } from "@/components/forms/JoinMissionInterestModal";
+import { primaryDarkButtonClassName, secondaryDarkButtonClassName } from "@/components/brandButtons";
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 function SectionHeading({ overline, headline, children, align = "center" }: {
@@ -30,9 +31,9 @@ function CTAButton({
   onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   const cls = variant === "primary"
-    ? "bg-stone-100 text-stone-950 hover:bg-usam-gold"
-    : "border border-stone-600 text-stone-400 hover:border-stone-400 hover:text-stone-200";
-  const className = `inline-block px-7 py-3 text-sm tracking-[0.2em] uppercase transition-all duration-300 cursor-pointer ${cls}`;
+    ? primaryDarkButtonClassName
+    : secondaryDarkButtonClassName;
+  const className = `${cls} w-full sm:w-auto`;
   const style = { fontFamily: font.rajdhani, fontWeight: 600 } as const;
 
   if (href) {
@@ -571,7 +572,7 @@ function DOSPanel() {
                 <td className="px-5 py-3 text-stone-300 font-mono text-xs">{r.op}</td>
                 <td className="px-5 py-3 text-stone-400 text-xs">{r.city}</td>
                 <td className="px-5 py-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-sm ${r.status==="Active"?"bg-green-900/30 text-green-400/80":"bg-usam-gold/30 text-usam-gold/80"}`} style={{fontFamily:font.rajdhani}}>{r.status}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-sm ${r.status==="Active"?"bg-green-900/30 text-green-400/80":"bg-usam-gold/70 text-[var(--usam-black)]"}`} style={{fontFamily:font.rajdhani}}>{r.status}</span>
                 </td>
                 <td className="px-5 py-3 text-stone-400 font-mono text-xs">{r.tables}</td>
               </tr>

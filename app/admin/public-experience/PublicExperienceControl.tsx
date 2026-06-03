@@ -89,7 +89,7 @@ function ActionLink({
     <Link
       className={`inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-lg border px-3 text-[10px] uppercase tracking-[0.14em] transition-colors ${
         variant === "gold"
-          ? "border-transparent bg-usam-gold text-black hover:bg-usam-gold"
+          ? "border-usam-gold bg-usam-gold text-black hover:bg-usam-gold-hover"
           : "border-stone-700 text-stone-100 hover:border-usam-gold hover:text-usam-gold"
       }`}
       href={href}

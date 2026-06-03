@@ -31,7 +31,7 @@ function compactButtonClassName(customClassName?: string) {
     return customClassName;
   }
 
-  return "inline-flex min-h-10 items-center justify-center border border-stone-700 bg-white/[0.03] px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-stone-200 transition-colors hover:border-usam-gold/70 hover:text-usam-gold";
+  return "inline-flex min-h-10 items-center justify-center border border-usam-gold/65 bg-white/[0.03] px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-white transition-colors hover:border-usam-gold hover:bg-usam-gold/12";
 }
 
 function inputClassName() {
@@ -156,7 +156,7 @@ export function SubmitPrayerRequestModal({
                     We will be praying with you.
                   </p>
                   <button
-                    className="mt-5 inline-flex min-h-10 items-center justify-center rounded-lg border border-usam-gold/45 bg-usam-gold px-4 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-usam-gold"
+                    className="mt-5 inline-flex min-h-10 items-center justify-center rounded-lg border border-usam-gold bg-usam-gold px-4 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:border-usam-gold-hover hover:bg-usam-gold-hover"
                     onClick={closeModal}
                     style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                     type="button"
@@ -246,7 +246,7 @@ export function SubmitPrayerRequestModal({
                   ) : null}
 
                   <button
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-transparent bg-usam-gold px-5 text-[11px] uppercase tracking-[0.2em] text-black transition-colors hover:bg-usam-gold disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-usam-gold bg-usam-gold px-5 text-[11px] uppercase tracking-[0.2em] text-black transition-colors hover:border-usam-gold-hover hover:bg-usam-gold-hover disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={status === "submitting"}
                     style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                     type="submit"

@@ -11,7 +11,9 @@ module.exports = {
         usam: {
           black: "var(--usam-black)",
           blue: "var(--usam-blue)",
-          gold: "rgb(var(--usam-gold-rgb) / <alpha-value>)",
+          gold: "rgb(var(--usam-gold-channels) / <alpha-value>)",
+          "gold-active": "rgb(var(--usam-gold-active-channels) / <alpha-value>)",
+          "gold-hover": "rgb(var(--usam-gold-hover-channels) / <alpha-value>)",
           navy: "var(--usam-navy)",
           surface: "var(--usam-surface)",
           white: "var(--usam-white)",

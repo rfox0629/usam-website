@@ -16,6 +16,7 @@ import {
   PublicTextInput,
 } from "@/components/forms/PublicForm";
 import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
+import { primaryDarkButtonClassName } from "@/components/brandButtons";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -232,7 +233,7 @@ export function JoinMissionInterestModal({
   return (
     <>
       <button
-        className="inline-block cursor-pointer bg-stone-100 px-7 py-3 text-sm uppercase tracking-[0.2em] text-stone-950 transition-all duration-300 hover:bg-usam-gold"
+        className={`${primaryDarkButtonClassName} cursor-pointer`}
         onClick={openModal}
         style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
         type="button"

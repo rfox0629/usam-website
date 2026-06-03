@@ -126,7 +126,7 @@ export default async function LoginPage({
             className={`inline-flex min-h-12 w-full items-center justify-center px-6 py-3 text-xs uppercase tracking-[0.24em] transition-all ${
               isDosLogin
                 ? "rounded-full bg-[#2563EB] text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] hover:bg-[#1D4ED8]"
-                : "bg-usam-gold text-black hover:bg-usam-gold"
+                : "border border-usam-gold bg-usam-gold text-black hover:border-usam-gold-hover hover:bg-usam-gold-hover"
             }`}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="submit"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { primaryDarkButtonClassName } from "@/components/brandButtons";
 import { SupportMissionModal } from "@/src/components/missionaries/SupportMissionModal";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
@@ -23,7 +24,7 @@ export function GeneralSupportGivingButton({
   return (
     <>
       <button
-        className="inline-block px-7 py-3 text-sm uppercase tracking-[0.2em] transition-all duration-300 bg-stone-100 text-stone-950 hover:bg-usam-gold"
+        className={primaryDarkButtonClassName}
         onClick={() => setIsOpen(true)}
         style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
         type="button"
