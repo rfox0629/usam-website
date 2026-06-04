@@ -65,18 +65,11 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
       { icon: "home", label: "Home", type: "tab", value: "home" },
       { icon: "people", label: "Field", type: "tab", value: "people" },
       { icon: "meetings", label: "Table", type: "tab", value: "meetings" },
-    ],
-  },
-  {
-    label: "Discipleship",
-    items: [
       { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
-      { icon: "fruit", label: "Fruit", type: "moreApp", value: "fruit" },
-      { icon: "library", label: "Library", type: "moreApp", value: "library" },
     ],
   },
   {
-    label: "Manage",
+    label: "Apps",
     items: [
       { icon: "apps", label: "Apps", type: "moreApp", value: "apps" },
       { icon: "settings", label: "Settings", type: "settings" },
@@ -1498,6 +1491,70 @@ function relationshipStatusLabel(person: DosAppPerson) {
   }
 
   return "Walking with";
+}
+
+function engagementLevelTableLabel(person: DosAppPerson) {
+  const score = relationshipScoreFromEngagementLevel(person.engagementLevel);
+
+  return `${relationshipScoreLabel(score)} ${overviewEngagementLabel(score)}`;
+}
+
+function tableDurationMinutes(meeting: DosAppMeeting) {
+  if (!meeting.scheduledStartAt || !meeting.scheduledEndAt) {
+    return 0;
+  }
+
+  const startTime = new Date(meeting.scheduledStartAt).getTime();
+  const endTime = new Date(meeting.scheduledEndAt).getTime();
+  const duration = Math.round((endTime - startTime) / 60_000);
+
+  return Number.isFinite(duration) && duration > 0 ? duration : 0;
+}
+
+function formatLoggedTime(minutes: number) {
+  if (!minutes) {
+    return "—";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (!hours) {
+    return `${remainingMinutes}m`;
+  }
+
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+type PersonTableStats = {
+  meetings: number;
+  timeMinutes: number;
+};
+
+function circleTableLabel(item: CircleListItem, fallbackIndex: number) {
+  const score = (item as Partial<CirclePersonItem>).score;
+
+  if (score?.circle) {
+    return circleDisplayName(score.circle);
+  }
+
+  if (fallbackIndex < 3) {
+    return "My 3";
+  }
+
+  if (fallbackIndex < 12) {
+    return "My 12";
+  }
+
+  if (fallbackIndex < 70) {
+    return "My 70";
+  }
+
+  if (fallbackIndex < 120) {
+    return "My 120";
+  }
+
+  return "Field";
 }
 
 function lastActivityLine(person: DosAppPerson) {
@@ -4371,6 +4428,7 @@ function DesktopPeopleIndex({
   latestMeetingDateByPersonId,
   onLogMeeting,
   onOpenPerson,
+  personTableStatsByPersonId,
   startIndex = 0,
 }: {
   empty: string;
@@ -4379,6 +4437,7 @@ function DesktopPeopleIndex({
   latestMeetingDateByPersonId: Map<string, string | null>;
   onLogMeeting: (personId: string) => void;
   onOpenPerson: (personId: string) => void;
+  personTableStatsByPersonId: Map<string, PersonTableStats>;
   startIndex?: number;
 }) {
   if (!items.length) {
@@ -4391,53 +4450,69 @@ function DesktopPeopleIndex({
 
   return (
     <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
-      <div className="grid grid-cols-[minmax(190px,1.4fr)_minmax(112px,0.72fr)_minmax(104px,0.68fr)] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8] lg:grid-cols-[minmax(220px,1.5fr)_minmax(130px,0.8fr)_minmax(130px,0.8fr)_90px_76px]" style={{ fontFamily: font.rajdhani }}>
-        <span>Person</span>
-        <span>Status</span>
-        <span>Last Table</span>
-        <span className="hidden lg:block">Fruit</span>
-        <span className="hidden text-right lg:block">Action</span>
-      </div>
-      <div className="divide-y divide-[#EFF6FF]">
-        {items.map(({ person }, index) => {
-          const lastTable = latestMeetingDateByPersonId.get(person.id) ?? null;
-          const fruitCount = fruitCountByPersonId.get(person.id) ?? 0;
+      <div className="overflow-x-auto">
+        <div className="min-w-[1180px]">
+          <div className="grid grid-cols-[minmax(210px,1.3fr)_88px_128px_136px_122px_112px_86px_110px_116px_68px_78px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            <span>Person</span>
+            <span>Circle</span>
+            <span>Relationship Type</span>
+            <span>Relationship Context</span>
+            <span>Engagement Level</span>
+            <span>Status</span>
+            <span>Meetings</span>
+            <span>Time Logged</span>
+            <span>Last Table</span>
+            <span>Fruit</span>
+            <span className="text-right">Action</span>
+          </div>
+          <div className="divide-y divide-[#EFF6FF]">
+            {items.map((item, index) => {
+              const { person } = item;
+              const rowIndex = startIndex + index;
+              const relationshipModel = personRelationshipModel(person);
+              const lastTable = latestMeetingDateByPersonId.get(person.id) ?? null;
+              const fruitCount = fruitCountByPersonId.get(person.id) ?? 0;
+              const tableStats = personTableStatsByPersonId.get(person.id) ?? { meetings: 0, timeMinutes: 0 };
 
-          return (
-            <div
-              className="grid grid-cols-[minmax(190px,1.4fr)_minmax(112px,0.72fr)_minmax(104px,0.68fr)] items-center gap-3 px-4 py-3 transition-colors hover:bg-[#F8FBFF] lg:grid-cols-[minmax(220px,1.5fr)_minmax(130px,0.8fr)_minmax(130px,0.8fr)_90px_76px]"
-              key={person.id}
-            >
-              <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => onOpenPerson(person.id)} type="button">
-                <CircleAvatar index={startIndex + index} person={person} size="sm" />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-black text-[#0F172A]">{person.name}</span>
-                  <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] font-semibold text-[#64748B] lg:hidden">
-                    <span className="truncate">{relationshipLine(person)}</span>
-                    <span className="rounded-full bg-[#F8FBFF] px-2 py-0.5 text-[10px] font-black text-[#2563EB]">{fruitCount} fruit</span>
+              return (
+                <div
+                  className="grid grid-cols-[minmax(210px,1.3fr)_88px_128px_136px_122px_112px_86px_110px_116px_68px_78px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                  key={person.id}
+                >
+                  <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => onOpenPerson(person.id)} type="button">
+                    <CircleAvatar index={rowIndex} person={person} size="sm" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-black text-[#0F172A]">{person.name}</span>
+                      <span className="mt-0.5 block truncate text-xs text-[#64748B]">{formatPhoneNumber(person.phone) || person.phone || "No phone"}</span>
+                    </span>
+                  </button>
+                  <span className="inline-flex w-fit rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
+                    {circleTableLabel(item, rowIndex)}
                   </span>
-                  <span className="mt-0.5 hidden truncate text-xs text-[#64748B] lg:block">{relationshipLine(person)}</span>
-                </span>
-              </button>
-              <span className="inline-flex w-fit rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
-                {relationshipStatusLabel(person)}
-              </span>
-              <span className="truncate text-xs font-semibold text-[#475569]">
-                {lastTable ? formatRelativeDate(lastTable) : "No table yet"}
-              </span>
-              <span className="hidden text-sm font-black text-[#0F172A] lg:block">
-                {fruitCount}
-              </span>
-              <button
-                className="hidden justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] lg:inline-flex"
-                onClick={() => onLogMeeting(person.id)}
-                type="button"
-              >
-                Log
-              </button>
-            </div>
-          );
-        })}
+                  <span className="truncate font-semibold text-[#0F172A]">{relationshipTypePillLabel(person) || "—"}</span>
+                  <span className="truncate text-[#475569]">{relationshipContextLabel(relationshipModel.relationshipContext) || "—"}</span>
+                  <span className="truncate font-semibold text-[#334155]">{engagementLevelTableLabel(person)}</span>
+                  <span className="inline-flex w-fit rounded-full bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold text-[#475569] ring-1 ring-[#EAF2FF]">
+                    {relationshipStatusLabel(person)}
+                  </span>
+                  <span className="font-black text-[#0F172A]">{tableStats.meetings}</span>
+                  <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableStats.timeMinutes)}</span>
+                  <span className="truncate font-semibold text-[#475569]">
+                    {lastTable ? formatRelativeDate(lastTable) : "—"}
+                  </span>
+                  <span className="font-black text-[#0F172A]">{fruitCount}</span>
+                  <button
+                    className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+                    onClick={() => onLogMeeting(person.id)}
+                    type="button"
+                  >
+                    Log
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -8924,9 +8999,10 @@ function PersonDetailOverlay({
   }, [person.id]);
 
   return (
-    <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
+    <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:bg-[#F8FBFF] md:px-6 md:pb-10 md:pt-6 xl:left-[260px]">
+      <div className="mx-auto w-full max-w-[960px] md:rounded-[32px] md:border md:border-[#EAF2FF] md:bg-white md:p-5 md:shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
       <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to people">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to field">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
         <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
@@ -8935,20 +9011,20 @@ function PersonDetailOverlay({
         </button>
       </header>
 
-      <section className="mt-5 text-center">
-        <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-base font-bold ${avatarTone(index)}`}>
+      <section className="mt-5 text-center md:mt-3">
+        <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-base font-bold md:h-14 md:w-14 ${avatarTone(index)}`}>
           {initials(person.name)}
         </div>
-        <h2 className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+        <h2 className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0F172A] md:text-[28px]" style={{ fontFamily: font.oswald }}>
           {person.name}
         </h2>
       </section>
 
-      <div className="mt-5">
+      <div className="mt-5 md:mx-auto md:max-w-md">
         <MeetingActionRow onLogMeeting={onLogMeeting} onScheduleMeeting={onScheduleMeeting} />
       </div>
 
-      <div className="sticky top-0 z-20 -mx-4 mt-4 bg-white/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-0 z-20 -mx-4 mt-4 bg-white/95 px-4 py-2 backdrop-blur md:mx-0 md:px-0">
         <div className="grid grid-cols-3 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
           {[
             { label: "Overview", value: "overview" },
@@ -9185,6 +9261,7 @@ function PersonDetailOverlay({
           </>
         ) : null}
 
+      </div>
       </div>
       {selectedOutcomeEntry ? (
         <OutcomeDetailSheet
@@ -9858,6 +9935,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return latestDates;
   }, [loggedMeetings]);
+  const personTableStatsByPersonId = useMemo(() => {
+    const stats = new Map<string, PersonTableStats>();
+
+    data.meetings.forEach((meeting) => {
+      meeting.fieldPersonIds.forEach((personId) => {
+        const current = stats.get(personId) ?? { meetings: 0, timeMinutes: 0 };
+
+        stats.set(personId, {
+          meetings: current.meetings + (meeting.meetingStatus === "logged" ? 1 : 0),
+          timeMinutes: current.timeMinutes + tableDurationMinutes(meeting),
+        });
+      });
+    });
+
+    return stats;
+  }, [data.meetings]);
   const fruitCountByPersonId = useMemo(() => {
     const counts = new Map<string, number>();
 
@@ -11649,7 +11742,40 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   subtitle="Steward the field God has entrusted to your care."
                   title="Faithful with a few."
                 />
-                <div className="flex items-center gap-2">
+                <div className="hidden items-center gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:flex">
+                  <button
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.22)] transition-colors hover:brightness-[0.98]"
+                    onClick={() => openForm("person")}
+                    type="button"
+                  >
+                    <Icon name="add" size={15} />
+                    Add Person
+                  </button>
+                  <label className="relative min-w-[260px] flex-1">
+                    <span className="sr-only">Search field</span>
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
+                      <Icon name="search" size={15} />
+                    </span>
+                    <input
+                      className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-[#F8FBFF] pl-10 pr-4 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white"
+                      onChange={(event) => setPeopleQuery(event.target.value)}
+                      placeholder="Search by name, phone, relationship, or context"
+                      type="search"
+                      value={peopleQuery}
+                    />
+                  </label>
+                  <button
+                    aria-label="Import CSV"
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[#D7E3F8] bg-white px-4 text-sm font-bold text-[#2563EB] shadow-[0_6px_14px_rgba(15,23,42,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
+                    onClick={() => setIsPeopleImportOpen(true)}
+                    title="Import CSV"
+                    type="button"
+                  >
+                    <Icon name="add" size={14} />
+                    Import
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 md:hidden">
                   <button
                     className="inline-flex h-12 min-w-0 flex-[1.35] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.24)] transition-colors hover:brightness-[0.98] max-[350px]:flex-[1.2] max-[350px]:px-3 max-[350px]:text-[12px]"
                     onClick={() => openForm("person")}
@@ -11691,7 +11817,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </button>
                 </div>
                 {isPeopleSearchOpen ? (
-                  <div className="relative">
+                  <div className="relative md:hidden">
                     <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]">
                       <Icon name="search" size={15} />
                     </span>
@@ -11737,6 +11863,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         latestMeetingDateByPersonId={latestMeetingDateByPersonId}
                         onLogMeeting={openMeetingForPerson}
                         onOpenPerson={openPersonDetail}
+                        personTableStatsByPersonId={personTableStatsByPersonId}
                         startIndex={peopleCircleContent.startIndex}
                       />
                     </>
