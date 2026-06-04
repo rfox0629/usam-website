@@ -7831,9 +7831,11 @@ type FruitDashboardStory = {
   id: string;
   personId: string | null;
   personName: string | null;
+  source: "Fruit" | "Prayer" | "Review" | "Testimony";
   tags: string[];
   text: string;
   title: string;
+  type: string;
 };
 
 function fruitSearchText(...values: Array<null | string | string[] | undefined>) {
@@ -7869,6 +7871,24 @@ function fruitStoryTitle(value: string | null | undefined) {
   return firstSentence.length > 82 ? `${firstSentence.slice(0, 79).trim()}...` : firstSentence;
 }
 
+function fruitEventSourceLabel(event: DosAppFruitEvent): FruitDashboardStory["source"] {
+  if (event.sourceType === "participant_review") {
+    return "Review";
+  }
+
+  if (event.sourceType === "testimony") {
+    return "Testimony";
+  }
+
+  const text = fruitSearchText(event.fruitType, event.title, event.description);
+
+  if (text.includes("prayer")) {
+    return "Prayer";
+  }
+
+  return "Fruit";
+}
+
 function isQaFruitStory(story: FruitDashboardStory) {
   const text = fruitSearchText(story.title, story.text, story.tags);
 
@@ -7889,9 +7909,11 @@ function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFrui
         id: `fruit-${fruit.id}`,
         personId: fruit.fieldPersonId,
         personName: fruit.fieldPersonId ? personName(people, fruit.fieldPersonId) : fruit.submittedByName,
+        source: "Fruit",
         tags: uniqueFruitTags(fruit.outcomeTags),
         text: fruit.summary,
         title: fruitStoryTitle(fruit.summary),
+        type: fruit.outcomeTags[0] ?? "Fruit",
       } satisfies FruitDashboardStory)),
     ...fruitEvents
       .filter((event) => event.status === "approved")
@@ -7900,9 +7922,11 @@ function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFrui
         id: `fruit-event-${event.id}`,
         personId: event.personId,
         personName: event.personId ? personName(people, event.personId) : null,
+        source: fruitEventSourceLabel(event),
         tags: uniqueFruitTags([event.fruitType]),
         text: event.description ?? event.title ?? event.fruitType,
         title: event.title?.trim() || event.fruitType || "Fruit recorded",
+        type: event.fruitType,
       } satisfies FruitDashboardStory)),
   ].sort((first, second) => {
     const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
@@ -7936,9 +7960,11 @@ function fieldFruitStories({
       id: `testimony-story-${testimony.id}`,
       personId: testimony.personId,
       personName: testimony.personId ? personName(people, testimony.personId) : testimony.publicDisplayName,
+      source: "Testimony",
       tags: uniqueFruitTags(["Testimony", testimony.decisionMade ?? "", testimony.nextStep ?? ""]),
       text: [testimony.story, testimony.whatChanged, testimony.nextStep].filter(Boolean).join(" "),
       title: fruitStoryTitle(testimony.whatChanged ?? testimony.story),
+      type: "Testimony",
     } satisfies FruitDashboardStory));
   const reviewStories = participantReviews
     .filter((review) => isSubmittedStatus(review.status))
@@ -7948,9 +7974,11 @@ function fieldFruitStories({
       id: `review-story-${review.id}`,
       personId: review.personId,
       personName: review.personId ? personName(people, review.personId) : null,
+      source: "Review",
       tags: uniqueFruitTags(["Review", review.feltHeard ? "Felt heard" : "", review.feltCaredFor ? "Felt cared for" : "", review.wouldMeetAgain ? "Would meet again" : ""]),
       text: review.comments ?? "Someone shared that the table helped them take a next step.",
       title: review.comments ? fruitStoryTitle(review.comments) : "Review shared",
+      type: "Quick Review",
     } satisfies FruitDashboardStory));
   const reflectionStories = leaderReflections
     .filter((reflection) => Boolean(reflection.observedFruit.length || reflection.whatHappened?.trim() || reflection.prayerNeeds?.trim()))
@@ -7959,9 +7987,11 @@ function fieldFruitStories({
       id: `reflection-story-${reflection.id}`,
       personId: reflection.personId,
       personName: reflection.personId ? personName(people, reflection.personId) : null,
+      source: reflection.prayerNeeds ? "Prayer" : "Fruit",
       tags: uniqueFruitTags(["Answered prayer", ...reflection.observedFruit]),
       text: [reflection.whatHappened, reflection.prayerNeeds, reflection.nextStep].filter(Boolean).join(" "),
       title: reflection.observedFruit[0] ?? fruitStoryTitle(reflection.whatHappened ?? reflection.prayerNeeds),
+      type: reflection.observedFruit[0] ?? (reflection.prayerNeeds ? "Prayer" : "Leader Reflection"),
     } satisfies FruitDashboardStory));
 
   return [...directStories, ...testimonyStories, ...reviewStories, ...reflectionStories]
@@ -8098,6 +8128,73 @@ function RecentFruitStoryCard({ story }: { story: FruitDashboardStory }) {
         </div>
       ) : null}
     </article>
+  );
+}
+
+function DesktopFruitStoriesTable({
+  onOpenPerson,
+  stories,
+}: {
+  onOpenPerson: (personId: string) => void;
+  stories: FruitDashboardStory[];
+}) {
+  return (
+    <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
+      <div className="overflow-x-auto">
+        <div className="min-w-[1120px]">
+          <div className="grid grid-cols-[118px_170px_150px_minmax(280px,1fr)_210px_116px_92px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            <span>Date</span>
+            <span>Person</span>
+            <span>Type</span>
+            <span>Story / Review / Testimony</span>
+            <span>Tags</span>
+            <span>Source</span>
+            <span className="text-right">Action</span>
+          </div>
+          <div className="divide-y divide-[#EFF6FF]">
+            {stories.map((story) => (
+              <div
+                className="grid grid-cols-[118px_170px_150px_minmax(280px,1fr)_210px_116px_92px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                key={story.id}
+              >
+                <span className="truncate font-semibold text-[#475569]">{story.date ? formatDate(story.date) : "—"}</span>
+                <span className="truncate font-bold text-[#0F172A]">{story.personName || "—"}</span>
+                <span className="truncate font-semibold text-[#334155]">{story.type || "—"}</span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black text-[#0F172A]">{story.title || "Fruit recorded"}</span>
+                  {story.text && story.text !== story.title ? (
+                    <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">{story.text}</span>
+                  ) : null}
+                </span>
+                <span className="flex min-w-0 flex-wrap gap-1.5">
+                  {story.tags.length ? story.tags.slice(0, 3).map((tag) => (
+                    <span className="max-w-[92px] truncate rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold text-[#64748B]" key={tag}>
+                      {tag}
+                    </span>
+                  )) : <span className="font-semibold text-[#94A3B8]">—</span>}
+                </span>
+                <span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold ${story.source === "Fruit" ? "bg-emerald-50 text-emerald-700" : "bg-[#EBF2FF] text-[#1D4ED8]"}`}>
+                  {story.source}
+                </span>
+                {/* TODO: Wire direct review/testimony/fruit record drawers when desktop record routes exist. */}
+                <button
+                  className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors enabled:hover:border-[#BFDBFE] enabled:hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:text-[#94A3B8]"
+                  disabled={!story.personId}
+                  onClick={() => {
+                    if (story.personId) {
+                      onOpenPerson(story.personId);
+                    }
+                  }}
+                  type="button"
+                >
+                  Open
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -12759,17 +12856,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     {fruitView === "stories" ? (
                       <section>
                         <SectionHeading title="Stories" />
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                          {visibleFruitStories.length ? visibleFruitStories.slice(0, 9).map((story) => (
-                            <RecentFruitStoryCard key={story.id} story={story} />
-                          )) : (
+                        {visibleFruitStories.length ? (
+                          <>
+                            <DesktopFruitStoriesTable onOpenPerson={openPersonDetail} stories={visibleFruitStories} />
+                            <div className="grid gap-3 md:hidden">
+                              {visibleFruitStories.slice(0, 9).map((story) => (
+                                <RecentFruitStoryCard key={story.id} story={story} />
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="grid gap-3">
                             <SectionEmptyState
                               action={<CompactButton icon="fruit" onClick={() => openForm("fruit")}>Record Fruit</CompactButton>}
                               text="Testimonies, reviews, answered prayers, baptisms, new believers, reconciliation, and visible outcomes will appear here."
                               title="No fruit stories yet."
                             />
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </section>
                     ) : null}
 
