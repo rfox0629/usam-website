@@ -186,6 +186,7 @@ type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView;
 type MeetingsView = "calendar" | "history" | "upcoming";
 type FruitView = "impact" | "stories" | "tree";
+type PrayerWorkspaceTab = "meeting_covering" | "my_requests" | "partners" | "praying_for";
 type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
 type MeetingCaptureType = "photo" | "screenshot" | "voice";
@@ -4954,6 +4955,13 @@ const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
   { label: "Impact", value: "impact" },
 ];
 
+const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>> = [
+  { label: "Partners", value: "partners" },
+  { label: "My Requests", value: "my_requests" },
+  { label: "Praying For", value: "praying_for" },
+  { label: "Meeting Covering", value: "meeting_covering" },
+];
+
 const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
   { label: "My 3", value: "three" },
   { label: "My 12", value: "twelve" },
@@ -7385,6 +7393,7 @@ function ScheduleMeetingForm({
 
 function ReminderFormContent({
   calendarConnection,
+  defaultReminderType,
   defaultPersonId,
   errorMessage,
   householdPerson,
@@ -7398,6 +7407,7 @@ function ReminderFormContent({
   workspaceId,
 }: {
   calendarConnection: DosAppCalendarConnection;
+  defaultReminderType?: DosAppRelationshipReminder["reminderType"];
   defaultPersonId?: string | null;
   errorMessage?: string;
   householdPerson?: DosAppPerson | null;
@@ -7411,8 +7421,8 @@ function ReminderFormContent({
   workspaceId: string;
 }) {
   const fallbackPersonId = defaultPersonId ?? people[0]?.id ?? "";
-  const defaultReminderType = reminder?.reminderType ?? "follow_up";
-  const defaultRecurrence = reminder?.recurrence ?? (["birthday", "anniversary", "baptism", "salvation"].includes(defaultReminderType) ? "yearly" : "none");
+  const resolvedReminderType = reminder?.reminderType ?? defaultReminderType ?? "follow_up";
+  const defaultRecurrence = reminder?.recurrence ?? (["birthday", "anniversary", "baptism", "salvation"].includes(resolvedReminderType) ? "yearly" : "none");
   const shortcutPerson = householdPerson ?? people.find((person) => person.id === (reminder?.personId ?? fallbackPersonId)) ?? null;
   const householdReminderTitles = Array.from(new Set([
     shortcutPerson?.spouseName ? "Spouse birthday" : null,
@@ -7468,7 +7478,7 @@ function ReminderFormContent({
           </select>
         </label>
         <FormOptionSelect
-          defaultValue={defaultReminderType}
+          defaultValue={resolvedReminderType}
           label="Reminder Type"
           name="reminder_type"
           options={reminderTypeOptions}
@@ -8194,6 +8204,258 @@ function DesktopFruitStoriesTable({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function prayerFrequencyLabel(value: DosAppRelationshipReminder["recurrence"]) {
+  switch (value) {
+    case "monthly":
+      return "Monthly";
+    case "weekly":
+      return "Weekly";
+    case "yearly":
+      return "Yearly";
+    case "none":
+    default:
+      return "One time";
+  }
+}
+
+function latestPrayerDateForPerson(prayerLogs: DosAppPrayerLog[], personId: string | null | undefined) {
+  if (!personId) {
+    return null;
+  }
+
+  return prayerLogs
+    .filter((log) => log.fieldPersonId === personId)
+    .sort((first, second) => dateSortValue(second.prayedAt) - dateSortValue(first.prayedAt))[0]?.prayedAt ?? null;
+}
+
+function DesktopPrayerActionButton({
+  children,
+  disabled = false,
+  onClick,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      aria-disabled={disabled}
+      className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors enabled:hover:border-[#BFDBFE] enabled:hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function DesktopPrayerEmptyTableState({
+  action,
+  text,
+  title,
+}: {
+  action?: ReactNode;
+  text: string;
+  title: string;
+}) {
+  return (
+    <div className="px-4 py-8 text-center">
+      <p className="text-sm font-black text-[#0F172A]">{title}</p>
+      <p className="mx-auto mt-1 max-w-xl text-sm leading-6 text-[#64748B]">{text}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  );
+}
+
+function DesktopPrayerTable({
+  children,
+  columns,
+  gridTemplateColumns,
+  minWidth = 960,
+}: {
+  children: ReactNode;
+  columns: string[];
+  gridTemplateColumns: string;
+  minWidth?: number;
+}) {
+  return (
+    <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
+      <div className="overflow-x-auto">
+        <div style={{ minWidth }}>
+          <div
+            className="grid gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]"
+            style={{ fontFamily: font.rajdhani, gridTemplateColumns }}
+          >
+            {columns.map((column, index) => (
+              <span className={index === columns.length - 1 ? "text-right" : ""} key={column}>{column}</span>
+            ))}
+          </div>
+          <div className="divide-y divide-[#EFF6FF]">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DesktopPrayerWorkspace({
+  onAddPrayerReminder,
+  onOpenMeeting,
+  onOpenReminder,
+  onScheduleMeeting,
+  people,
+  prayerLogs,
+  reminders,
+  tab,
+  upcomingMeetings,
+  onTabChange,
+}: {
+  onAddPrayerReminder: () => void;
+  onOpenMeeting: (meetingId: string) => void;
+  onOpenReminder: (reminderId: string) => void;
+  onScheduleMeeting: () => void;
+  onTabChange: (value: PrayerWorkspaceTab) => void;
+  people: DosAppPerson[];
+  prayerLogs: DosAppPrayerLog[];
+  reminders: DosAppRelationshipReminder[];
+  tab: PrayerWorkspaceTab;
+  upcomingMeetings: DosAppMeeting[];
+}) {
+  const prayerReminders = reminders
+    .filter((reminder) => reminder.reminderType === "prayer")
+    .sort((first, second) => dateSortValue(nextReminderDate(first)) - dateSortValue(nextReminderDate(second)));
+  const personById = new Map(people.map((person) => [person.id, person]));
+
+  return (
+    <div className="hidden space-y-4 md:block">
+      <SegmentedTabs onChange={onTabChange} options={prayerWorkspaceTabs} value={tab} />
+
+      {tab === "partners" ? (
+        <DesktopPanel
+          action={<DesktopPrayerActionButton disabled>Add Prayer Partner</DesktopPrayerActionButton>}
+          compact
+          eyebrow="Prayer Partners"
+        >
+          <DesktopPrayerTable
+            columns={["Name", "Phone", "Email", "Relationship", "Status", "Last Contacted", "Notes", "Action"]}
+            gridTemplateColumns="minmax(180px,1.2fr) 132px 190px 150px 112px 132px minmax(220px,1fr) 92px"
+            minWidth={1160}
+          >
+            <DesktopPrayerEmptyTableState
+              text="Prayer partners are not loaded into the DOS client yet. Later this table can use the prayer_partners table without creating a second people system."
+              title="No prayer partners connected."
+            />
+          </DesktopPrayerTable>
+        </DesktopPanel>
+      ) : null}
+
+      {tab === "my_requests" ? (
+        <DesktopPanel
+          action={<DesktopPrayerActionButton disabled>Add Prayer Request</DesktopPrayerActionButton>}
+          compact
+          eyebrow="My Requests"
+        >
+          <DesktopPrayerTable
+            columns={["Request", "Category", "Shared With", "Status", "Created", "Answered Date", "Action"]}
+            gridTemplateColumns="minmax(300px,1fr) 132px 150px 116px 126px 132px 92px"
+            minWidth={1040}
+          >
+            <DesktopPrayerEmptyTableState
+              text="Requests you share with others will appear here after prayer_requests are exposed to this workspace view."
+              title="No shared prayer requests yet."
+            />
+          </DesktopPrayerTable>
+        </DesktopPanel>
+      ) : null}
+
+      {tab === "praying_for" ? (
+        <DesktopPanel
+          action={<DesktopPrayerActionButton onClick={onAddPrayerReminder}>Log Prayer Request</DesktopPrayerActionButton>}
+          compact
+          eyebrow="Praying For"
+        >
+          <DesktopPrayerTable
+            columns={["Person", "Request", "Status", "Frequency", "Last Prayed", "Answered", "Action"]}
+            gridTemplateColumns="180px minmax(300px,1fr) 112px 120px 132px 104px 92px"
+            minWidth={1040}
+          >
+            {prayerReminders.length ? prayerReminders.map((reminder) => {
+              const person = personById.get(reminder.personId) ?? null;
+              const latestPrayedAt = latestPrayerDateForPerson(prayerLogs, reminder.personId);
+
+              return (
+                <div
+                  className="grid items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                  key={reminder.id}
+                  style={{ gridTemplateColumns: "180px minmax(300px,1fr) 112px 120px 132px 104px 92px" }}
+                >
+                  <span className="truncate font-bold text-[#0F172A]">{person?.name ?? "Unlinked person"}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#0F172A]">{reminderDisplayTitle(reminder, person)}</span>
+                    {reminder.notes ? <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">{reminder.notes}</span> : null}
+                  </span>
+                  <span className="w-fit rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">Praying</span>
+                  <span className="truncate font-semibold text-[#475569]">{prayerFrequencyLabel(reminder.recurrence)}</span>
+                  <span className="truncate font-semibold text-[#475569]">{latestPrayedAt ? formatRelativeDate(latestPrayedAt) : "—"}</span>
+                  <span className="font-semibold text-[#94A3B8]">—</span>
+                  <DesktopPrayerActionButton onClick={() => onOpenReminder(reminder.id)}>Open</DesktopPrayerActionButton>
+                </div>
+              );
+            }) : (
+              <DesktopPrayerEmptyTableState
+                action={<DesktopPrayerActionButton onClick={onAddPrayerReminder}>Log Prayer Request</DesktopPrayerActionButton>}
+                text="Prayer reminders from the existing relationship_reminders table will appear here."
+                title="No prayer requests logged."
+              />
+            )}
+          </DesktopPrayerTable>
+        </DesktopPanel>
+      ) : null}
+
+      {tab === "meeting_covering" ? (
+        <DesktopPanel
+          action={<DesktopPrayerActionButton onClick={onScheduleMeeting}>Schedule Table</DesktopPrayerActionButton>}
+          compact
+          eyebrow="Meeting Covering"
+        >
+          <DesktopPrayerTable
+            columns={["Meeting", "Person", "Date", "Prayer Team Sent To", "Status", "Action"]}
+            gridTemplateColumns="minmax(260px,1fr) 190px 210px 170px 116px 92px"
+            minWidth={980}
+          >
+            {upcomingMeetings.length ? upcomingMeetings.map((meeting) => (
+              <div
+                className="grid items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                key={meeting.id}
+                style={{ gridTemplateColumns: "minmax(260px,1fr) 190px 210px 170px 116px 92px" }}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black text-[#0F172A]">{meetingDisplayTitle(meeting, people)}</span>
+                  <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">{meetingActivityTitle(meeting)}</span>
+                </span>
+                <span className="truncate font-semibold text-[#475569]">{meetingPeopleTitle(meeting, people) || "—"}</span>
+                <span className="truncate font-semibold text-[#475569]">{formatMeetingTimeRange(meeting)}</span>
+                {/* TODO: Wire prayer team recipients when meeting covering send mechanics exist. */}
+                <span className="font-semibold text-[#94A3B8]">—</span>
+                <span className="w-fit rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold text-[#64748B]">Not sent</span>
+                <DesktopPrayerActionButton onClick={() => onOpenMeeting(meeting.id)}>Open</DesktopPrayerActionButton>
+              </div>
+            )) : (
+              <DesktopPrayerEmptyTableState
+                action={<DesktopPrayerActionButton onClick={onScheduleMeeting}>Schedule Table</DesktopPrayerActionButton>}
+                text="Upcoming scheduled tables will appear here so prayer covering can be tracked when that workflow is wired."
+                title="No upcoming meetings needing covering."
+              />
+            )}
+          </DesktopPrayerTable>
+        </DesktopPanel>
+      ) : null}
     </div>
   );
 }
@@ -10522,6 +10784,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("upcoming");
   const [meetingCalendarFilter, setMeetingCalendarFilter] = useState<MeetingCalendarFilter>("all");
   const [fruitView, setFruitView] = useState<FruitView>("stories");
+  const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("partners");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
@@ -10576,6 +10839,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedRelationshipScore, setSelectedRelationshipScore] = useState<RelationshipScoreValue>(0);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
   const [selectedScripture, setSelectedScripture] = useState<ScriptureQuickViewState | null>(null);
+  const [newReminderType, setNewReminderType] = useState<DosAppRelationshipReminder["reminderType"]>("follow_up");
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
@@ -10966,6 +11230,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setTestimonyShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedReminderId(null);
+    setNewReminderType("follow_up");
     setSelectedRelationshipModel(defaultRelationshipModel);
     setSelectedRelationshipScore(0);
     setIsUsamApplicationOpen(false);
@@ -11185,12 +11450,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     resetMeetingDraft(Array.isArray(personId) ? personId : personId ? [personId] : []);
   }
 
-  function openReminderForm(personId?: string) {
+  function openReminderForm(personId?: string, reminderType: DosAppRelationshipReminder["reminderType"] = "follow_up") {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedReminderId(null);
     setErrorMessage("");
     setFormMode("reminder");
+    setNewReminderType(reminderType);
     setSelectedMeetingPersonIds(personId ? [personId] : []);
   }
 
@@ -11201,6 +11467,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedReminderId(reminderId);
     setErrorMessage("");
     setFormMode("reminder");
+    setNewReminderType("follow_up");
   }
 
   function openScheduledDraftAsMeeting() {
@@ -12798,46 +13065,60 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       subtitle="Remember who to pray for and keep the next faithful step visible."
                       title="Pray with purpose."
                     />
-                    <LibrarySection title="Prayer Today">
-                      <div className="grid gap-3">
-                        {data.reminders.filter((reminder) => reminder.reminderType === "prayer").slice(0, 4).map((reminder) => {
-                          const person = people.find((item) => item.id === reminder.personId);
+                    <div className="space-y-5 md:hidden">
+                      <LibrarySection title="Prayer Today">
+                        <div className="grid gap-3">
+                          {data.reminders.filter((reminder) => reminder.reminderType === "prayer").slice(0, 4).map((reminder) => {
+                            const person = people.find((item) => item.id === reminder.personId);
 
-                          return (
-                            <button
-                              className="flex min-w-0 items-center gap-3 rounded-[22px] border border-[#EAF2FF] bg-white p-3 text-left shadow-[0_12px_30px_rgba(37,99,235,0.045)]"
-                              key={reminder.id}
-                              onClick={() => openReminderEdit(reminder.id)}
-                              type="button"
-                            >
-                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB]">
-                                <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-bold text-[#0F172A]">{reminder.title || "Prayer reminder"}</span>
-                                <span className="mt-1 block text-xs leading-5 text-[#64748B]">{person?.name ?? "Someone"} · {formatDate(reminder.reminderDate)}</span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                        {!data.reminders.some((reminder) => reminder.reminderType === "prayer") ? (
-                          <EmptyState text="No prayer reminders yet. Add one from a person profile when someone needs steady covering." title="No prayer reminders." />
-                        ) : null}
-                      </div>
-                    </LibrarySection>
-                    <LibrarySection title="Recent Prayer">
-                      <div className="grid gap-2">
-                        {latestPrayerActivity ? (
-                          <RecentActivityRow icon="prayer" onClick={() => openMeetingDetail(latestPrayerActivity.meetingId)} title="Latest prayer">
-                            {latestPrayerActivity.label}
-                          </RecentActivityRow>
-                        ) : null}
-                        <div className="grid grid-cols-2 gap-2">
-                          <WeekStatTile icon="prayer" label="This Week" value={thisWeekStats.prayed} />
-                          <WeekStatTile icon="bell" label="Reminders" value={data.reminders.filter((reminder) => reminder.reminderType === "prayer").length} />
+                            return (
+                              <button
+                                className="flex min-w-0 items-center gap-3 rounded-[22px] border border-[#EAF2FF] bg-white p-3 text-left shadow-[0_12px_30px_rgba(37,99,235,0.045)]"
+                                key={reminder.id}
+                                onClick={() => openReminderEdit(reminder.id)}
+                                type="button"
+                              >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB]">
+                                  <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-bold text-[#0F172A]">{reminder.title || "Prayer reminder"}</span>
+                                  <span className="mt-1 block text-xs leading-5 text-[#64748B]">{person?.name ?? "Someone"} · {formatDate(reminder.reminderDate)}</span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                          {!data.reminders.some((reminder) => reminder.reminderType === "prayer") ? (
+                            <EmptyState text="No prayer reminders yet. Add one from a person profile when someone needs steady covering." title="No prayer reminders." />
+                          ) : null}
                         </div>
-                      </div>
-                    </LibrarySection>
+                      </LibrarySection>
+                      <LibrarySection title="Recent Prayer">
+                        <div className="grid gap-2">
+                          {latestPrayerActivity ? (
+                            <RecentActivityRow icon="prayer" onClick={() => openMeetingDetail(latestPrayerActivity.meetingId)} title="Latest prayer">
+                              {latestPrayerActivity.label}
+                            </RecentActivityRow>
+                          ) : null}
+                          <div className="grid grid-cols-2 gap-2">
+                            <WeekStatTile icon="prayer" label="This Week" value={thisWeekStats.prayed} />
+                            <WeekStatTile icon="bell" label="Reminders" value={data.reminders.filter((reminder) => reminder.reminderType === "prayer").length} />
+                          </div>
+                        </div>
+                      </LibrarySection>
+                    </div>
+                    <DesktopPrayerWorkspace
+                      onAddPrayerReminder={() => openReminderForm(undefined, "prayer")}
+                      onOpenMeeting={openMeetingDetail}
+                      onOpenReminder={openReminderEdit}
+                      onScheduleMeeting={() => openScheduleMeeting()}
+                      onTabChange={setPrayerWorkspaceTab}
+                      people={people}
+                      prayerLogs={data.prayerLogs}
+                      reminders={data.reminders}
+                      tab={prayerWorkspaceTab}
+                      upcomingMeetings={upcomingTableMeetings}
+                    />
                   </>
                 ) : null}
 
@@ -13448,6 +13729,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <ReminderFormContent
             calendarConnection={data.calendarConnection}
             defaultPersonId={selectedMeetingPersonIds[0] ?? selectedPerson?.id ?? null}
+            defaultReminderType={newReminderType}
             errorMessage={errorMessage}
             householdPerson={selectedReminder ? people.find((person) => person.id === selectedReminder.personId) ?? null : selectedPerson}
             isCalendarDisconnecting={isCalendarDisconnecting}
