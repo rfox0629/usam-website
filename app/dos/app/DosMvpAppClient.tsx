@@ -3993,16 +3993,13 @@ function DesktopMoreLauncher({
 }) {
   return (
     <div className="hidden md:block">
-      <TabPageHeader title="Apps" />
-      <div className="mt-4">
-        <TabHero
-          icon={<Icon name="apps" size={20} />}
-          onScriptureClick={onScriptureClick}
-          scripture={scriptureReferences.secondPeter318}
-          subtitle="DOS core stays simple. Installable layers extend the workspace when needed."
-          title="Apps for the work."
-        />
-      </div>
+      <TabHero
+        icon={<Icon name="apps" size={20} />}
+        onScriptureClick={onScriptureClick}
+        scripture={scriptureReferences.secondPeter318}
+        subtitle="DOS core stays simple. Installable layers extend the workspace when needed."
+        title="Apps for the work."
+      />
       <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-3">
         {apps.map((item) => (
           <DesktopMoreAppCard item={item} key={item.label} />
@@ -5122,22 +5119,22 @@ function DesktopTableEmptyState({
 
 function DesktopPeopleIndex({
   empty,
-  fruitCountByPersonId,
   items,
   latestMeetingDateByPersonId,
   onLogMeeting,
   onOpenPerson,
   personTableStatsByPersonId,
   startIndex = 0,
+  storyCountByPersonId,
 }: {
   empty: string;
-  fruitCountByPersonId: Map<string, number>;
   items: CircleListItem[];
   latestMeetingDateByPersonId: Map<string, string | null>;
   onLogMeeting: (personId: string) => void;
   onOpenPerson: (personId: string) => void;
   personTableStatsByPersonId: Map<string, PersonTableStats>;
   startIndex?: number;
+  storyCountByPersonId: Map<string, number>;
 }) {
   if (!items.length) {
     return (
@@ -5150,16 +5147,28 @@ function DesktopPeopleIndex({
   return (
     <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
       <div className="overflow-x-auto">
-        <div className="min-w-[960px]">
-          <div className="grid grid-cols-[minmax(220px,1.45fr)_154px_132px_82px_112px_70px_118px_78px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="min-w-[1106px]">
+          <div className="grid grid-cols-[minmax(264px,1.6fr)_142px_122px_60px_100px_84px_104px_114px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             <span>Person</span>
-            <span>Relationship Context</span>
-            <span>Engagement Level</span>
+            <span className="leading-[0.82rem]">
+              <span className="block">Relationship</span>
+              <span className="block">Context</span>
+            </span>
+            <span className="leading-[0.82rem]">
+              <span className="block">Engagement</span>
+              <span className="block">Level</span>
+            </span>
             <span>Meetings</span>
-            <span>Time Logged</span>
-            <span>Fruit</span>
-            <span>Last Table</span>
-            <span className="text-right">Action</span>
+            <span className="leading-[0.82rem]">
+              <span className="block">Time</span>
+              <span className="block">Logged</span>
+            </span>
+            <span>Stories</span>
+            <span className="leading-[0.82rem]">
+              <span className="block">Last</span>
+              <span className="block">Table</span>
+            </span>
+            <span className="text-right">Next</span>
           </div>
           <div className="divide-y divide-[#EFF6FF]">
             {items.map((item, index) => {
@@ -5167,12 +5176,12 @@ function DesktopPeopleIndex({
               const rowIndex = startIndex + index;
               const relationshipModel = personRelationshipModel(person);
               const lastTable = latestMeetingDateByPersonId.get(person.id) ?? null;
-              const fruitCount = fruitCountByPersonId.get(person.id) ?? 0;
+              const storyCount = storyCountByPersonId.get(person.id) ?? 0;
               const tableStats = personTableStatsByPersonId.get(person.id) ?? { meetings: 0, timeMinutes: 0 };
 
               return (
                 <div
-                  className="grid grid-cols-[minmax(220px,1.45fr)_154px_132px_82px_112px_70px_118px_78px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                  className="grid grid-cols-[minmax(264px,1.6fr)_142px_122px_60px_100px_84px_104px_114px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
                   key={person.id}
                 >
                   <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => onOpenPerson(person.id)} type="button">
@@ -5186,16 +5195,16 @@ function DesktopPeopleIndex({
                   <span className="truncate font-semibold text-[#334155]">{engagementLevelTableLabel(person)}</span>
                   <span className="font-black text-[#0F172A]">{tableStats.meetings}</span>
                   <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableStats.timeMinutes)}</span>
-                  <span className="font-black text-[#0F172A]">{fruitCount}</span>
+                  <span className="truncate font-black text-[#0F172A]">{storyCount} {storyCount === 1 ? "Story" : "Stories"}</span>
                   <span className="truncate font-semibold text-[#475569]">
                     {lastTable ? formatRelativeDate(lastTable) : "—"}
                   </span>
                   <button
-                    className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+                    className="justify-self-end whitespace-nowrap rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
                     onClick={() => onLogMeeting(person.id)}
                     type="button"
                   >
-                    Log
+                    Log Table
                   </button>
                 </div>
               );
@@ -8167,45 +8176,26 @@ function DesktopFruitStoriesTable({
   return (
     <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
       <div className="overflow-x-auto">
-        <div className="min-w-[1120px]">
-          <div className="grid grid-cols-[118px_170px_150px_minmax(280px,1fr)_210px_116px_92px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="min-w-[960px]">
+          <div className="grid grid-cols-[118px_170px_118px_minmax(340px,1fr)_250px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             <span>Date</span>
             <span>Person</span>
-            <span>Type</span>
-            <span>Story / Review / Testimony</span>
-            <span>Tags</span>
             <span>Source</span>
-            <span className="text-right">Action</span>
+            <span>Story</span>
+            <span>Fruit</span>
           </div>
           <div className="divide-y divide-[#EFF6FF]">
-            {stories.map((story) => (
-              <div
-                className="grid grid-cols-[118px_170px_150px_minmax(280px,1fr)_210px_116px_92px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
-                key={story.id}
-              >
-                <span className="truncate font-semibold text-[#475569]">{story.date ? formatDate(story.date) : "—"}</span>
-                <span className="truncate font-bold text-[#0F172A]">{story.personName || "—"}</span>
-                <span className="truncate font-semibold text-[#334155]">{story.type || "—"}</span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-black text-[#0F172A]">{story.title || "Fruit recorded"}</span>
-                  {story.text && story.text !== story.title ? (
-                    <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">{story.text}</span>
-                  ) : null}
-                </span>
-                <span className="flex min-w-0 flex-wrap gap-1.5">
-                  {story.tags.length ? story.tags.slice(0, 3).map((tag) => (
-                    <span className="max-w-[92px] truncate rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold text-[#64748B]" key={tag}>
-                      {tag}
-                    </span>
-                  )) : <span className="font-semibold text-[#94A3B8]">—</span>}
-                </span>
-                <span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold ${story.source === "Fruit" ? "bg-emerald-50 text-emerald-700" : "bg-[#EBF2FF] text-[#1D4ED8]"}`}>
-                  {story.source}
-                </span>
-                {/* TODO: Wire direct review/testimony/fruit record drawers when desktop record routes exist. */}
+            {stories.map((story) => {
+              const sourceLabel = story.source === "Fruit" ? "Story" : story.source;
+              const storyActionLabel = story.personName ? `Open ${story.personName}` : "Story details pending";
+
+              return (
+                // TODO: Wire direct story/review/testimony/prayer detail drawers when desktop record routes exist.
                 <button
-                  className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors enabled:hover:border-[#BFDBFE] enabled:hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:text-[#94A3B8]"
+                  aria-label={storyActionLabel}
+                  className="grid w-full grid-cols-[118px_170px_118px_minmax(340px,1fr)_250px] items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-[#F8FBFF] disabled:cursor-default disabled:hover:bg-white"
                   disabled={!story.personId}
+                  key={story.id}
                   onClick={() => {
                     if (story.personId) {
                       onOpenPerson(story.personId);
@@ -8213,10 +8203,27 @@ function DesktopFruitStoriesTable({
                   }}
                   type="button"
                 >
-                  Open
+                  <span className="truncate font-semibold text-[#475569]">{story.date ? formatDate(story.date) : "—"}</span>
+                  <span className="truncate font-bold text-[#0F172A]">{story.personName || "—"}</span>
+                  <span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold ${story.source === "Prayer" ? "bg-[#EBF2FF] text-[#1D4ED8]" : story.source === "Testimony" ? "bg-[#F8FBFF] text-[#1D4ED8] ring-1 ring-[#DCEBFF]" : "bg-[#F1F5F9] text-[#475569]"}`}>
+                    {sourceLabel}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#0F172A]">{story.title || "Fruit recorded"}</span>
+                    {story.text && story.text !== story.title ? (
+                      <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">{story.text}</span>
+                    ) : null}
+                  </span>
+                  <span className="flex min-w-0 flex-wrap gap-1.5">
+                    {story.tags.length ? story.tags.slice(0, 3).map((tag) => (
+                      <span className="max-w-[112px] truncate rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold text-[#64748B]" key={tag}>
+                        {tag}
+                      </span>
+                    )) : <span className="font-semibold text-[#94A3B8]">—</span>}
+                  </span>
                 </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -10998,23 +11005,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return stats;
   }, [data.meetings]);
-  const fruitCountByPersonId = useMemo(() => {
+  const storyCountByPersonId = useMemo(() => {
     const counts = new Map<string, number>();
 
-    people.forEach((person) => {
-      const summary = selectPersonDetailFruitSummary({
-        fruitEvents: data.fruitEvents,
-        fruitItems: data.fruit,
-        leaderReflections: data.leaderReflections,
-        meetings: data.meetings,
-        person,
-      });
+    people.forEach((person) => counts.set(person.id, 0));
 
-      counts.set(person.id, summary.fruitEvents.length);
+    visibleFruitStories.forEach((story) => {
+      if (!story.personId) {
+        return;
+      }
+
+      counts.set(story.personId, (counts.get(story.personId) ?? 0) + 1);
     });
 
     return counts;
-  }, [data.fruit, data.fruitEvents, data.leaderReflections, data.meetings, people]);
+  }, [people, visibleFruitStories]);
   const latestPrayerActivity = useMemo(() => {
     const prayerMeetings = loggedMeetings
       .filter(isPrayerMeeting)
@@ -12785,9 +12790,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "people" ? (
               <div className="space-y-4">
-                <div className="md:hidden">
-                  <TabPageHeader title="Field" />
-                </div>
                 <TabHero
                   icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                   onScriptureClick={openScriptureQuickView}
@@ -12911,13 +12913,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       </div>
                       <DesktopPeopleIndex
                         empty={peopleCircleContent.empty}
-                        fruitCountByPersonId={fruitCountByPersonId}
                         items={visibleCirclePeople}
                         latestMeetingDateByPersonId={latestMeetingDateByPersonId}
                         onLogMeeting={openMeetingForPerson}
                         onOpenPerson={openPersonDetail}
                         personTableStatsByPersonId={personTableStatsByPersonId}
                         startIndex={peopleCircleContent.startIndex}
+                        storyCountByPersonId={storyCountByPersonId}
                       />
                     </>
                   ) : people.length ? (
@@ -12931,9 +12933,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "meetings" ? (
               <div className="space-y-4">
-                <div className="hidden md:block">
-                  <TabPageHeader title="Table" />
-                </div>
                 <TabHero
                   desktopCompact
                   icon={<Icon name="meetings" size={20} />}
@@ -13074,7 +13073,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {moreAppView === "prayer" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Prayer" />
+                    <div className="flex min-h-9 items-center">
+                      <MoreBackButton onClick={() => setMoreAppView(null)} />
+                    </div>
                     <TabHero
                       icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -13141,7 +13142,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {moreAppView === "fruit" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Fruit" />
+                    <div className="flex min-h-9 items-center">
+                      <MoreBackButton onClick={() => setMoreAppView(null)} />
+                    </div>
                     <TabHero
                       icon={<Icon name="fruit" size={20} />}
                       onScriptureClick={openScriptureQuickView}
@@ -13194,7 +13197,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {moreAppView === "library" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Library" />
+                    <div className="flex min-h-9 items-center">
+                      <MoreBackButton onClick={() => setMoreAppView(null)} />
+                    </div>
                     <TabHero
                       icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
