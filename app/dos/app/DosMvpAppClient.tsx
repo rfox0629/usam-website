@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
@@ -58,14 +58,15 @@ type DesktopNavItem =
   | { icon: IconName; label: string; type: "settings" }
   | { icon: IconName; label: string; type: "tab"; value: ActiveTab };
 
+const desktopDashboardNavItem: DesktopNavItem = { icon: "apps", label: "Dashboard", type: "tab", value: "home" };
+
 const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }> = [
   {
     label: "Core",
     items: [
-      { icon: "home", label: "Home", type: "tab", value: "home" },
+      { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
       { icon: "people", label: "Field", type: "tab", value: "people" },
       { icon: "meetings", label: "Table", type: "tab", value: "meetings" },
-      { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
     ],
   },
   {
@@ -1551,6 +1552,26 @@ function circleTableLabel(item: CircleListItem, fallbackIndex: number) {
   }
 
   if (fallbackIndex < 120) {
+    return "My 120";
+  }
+
+  return "Field";
+}
+
+function circleLayerLabelForPerson(personId: string, circleGroups: CircleLayerGroups) {
+  if (circleGroups.three.some((item) => item.person.id === personId)) {
+    return "My 3";
+  }
+
+  if (circleGroups.twelve.some((item) => item.person.id === personId)) {
+    return "My 12";
+  }
+
+  if (circleGroups.seventy.some((item) => item.person.id === personId)) {
+    return "My 70";
+  }
+
+  if (circleGroups.my120.some((item) => item.person.id === personId)) {
     return "My 120";
   }
 
@@ -3288,47 +3309,196 @@ function DesktopRecentActivityPanel({
   );
 }
 
+function currentMonthRange(referenceDate = new Date()) {
+  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
+  const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  return { end, start };
+}
+
+function monthKey(value: string | null | undefined) {
+  const date = value ? parseDisplayDate(value) : null;
+
+  return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : null;
+}
+
+function monthShortLabelFromKey(key: string) {
+  const [year, month] = key.split("-").map(Number);
+
+  return new Intl.DateTimeFormat("en-US", { month: "short" }).format(new Date(year, month - 1, 1));
+}
+
+function formatDashboardDuration(minutes: number) {
+  if (!minutes) {
+    return "0h";
+  }
+
+  return formatLoggedTime(minutes);
+}
+
+function dashboardTrendMonths(count = 12) {
+  const now = new Date();
+
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - (count - 1 - index), 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+    return {
+      key,
+      label: new Intl.DateTimeFormat("en-US", { month: "short" }).format(date),
+    };
+  });
+}
+
+function dashboardMetricRows(items: ReadonlyArray<{ icon: ReactNode; label: string; value: string | number }>) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {items.map((item) => (
+        <div className="flex min-w-0 items-center gap-3 rounded-[20px] bg-[#F8FBFF] px-3 py-3 ring-1 ring-[#EAF2FF]" key={item.label}>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+            {item.icon}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-xs font-semibold text-[#0F172A]">{item.label}</span>
+            <span className="mt-1 block text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{item.value}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type DashboardFruitItem = {
+  date: string | null;
+  description: string;
+  id: string;
+  title: string;
+};
+
 function DesktopHomeDashboard({
   circleGroups,
+  fruitEvents,
+  fruitItems,
   isUsamApplicationPending,
-  latestFruitActivity,
-  latestMeeting,
-  latestPrayerActivity,
-  moreApps,
-  onEditReminder,
-  onLogMeetingForPerson,
+  loggedMeetings,
   onOpenFruit,
   onOpenMeeting,
-  onOpenMeetings,
   onOpenPerson,
-  onScheduleMeeting,
+  onOpenTable,
+  onOpenTableCalendar,
   onSelectCircle,
-  onViewCircles,
+  onViewField,
   onViewUsamStatus,
   people,
-  nextStepItems,
+  personTableStatsByPersonId,
+  upcomingItems,
   upcomingMeetings,
 }: {
   circleGroups: CircleLayerGroups;
+  fruitEvents: DosAppFruitEvent[];
+  fruitItems: DosAppFruit[];
   isUsamApplicationPending: boolean;
-  latestFruitActivity: { label: string } | null;
-  latestMeeting: DosAppMeeting | undefined;
-  latestPrayerActivity: { label: string; meetingId: string } | null;
-  moreApps: DesktopMoreAppItem[];
-  onEditReminder: (reminderId: string) => void;
-  onLogMeetingForPerson: (personId: string) => void;
+  loggedMeetings: DosAppMeeting[];
   onOpenFruit: () => void;
   onOpenMeeting: (meetingId: string) => void;
-  onOpenMeetings: () => void;
   onOpenPerson: (personId: string) => void;
-  onScheduleMeeting: (personId?: string | string[]) => void;
+  onOpenTable: () => void;
+  onOpenTableCalendar: () => void;
   onSelectCircle: (circle: CircleFocusView) => void;
-  onViewCircles: () => void;
+  onViewField: () => void;
   onViewUsamStatus: () => void;
   people: DosAppPerson[];
-  nextStepItems: UpcomingTimelineItem[];
+  personTableStatsByPersonId: Map<string, PersonTableStats>;
+  upcomingItems: UpcomingTimelineItem[];
   upcomingMeetings: DosAppMeeting[];
 }) {
+  const { end: monthEnd, start: monthStart } = currentMonthRange();
+  const loggedThisMonth = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, monthStart, monthEnd));
+  const scheduledUpcomingCount = upcomingMeetings.length;
+  const monthDurationMinutes = loggedThisMonth.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
+  const totalDurationMinutes = loggedMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
+  const loggedWithDuration = loggedMeetings.filter((meeting) => tableDurationMinutes(meeting) > 0);
+  const activePersonIds = new Set<string>();
+
+  loggedThisMonth.forEach((meeting) => {
+    meeting.fieldPersonIds.forEach((personId) => activePersonIds.add(personId));
+  });
+
+  people.forEach((person) => {
+    if (isWithinLastDays(person.lastActivityAt, 30)) {
+      activePersonIds.add(person.id);
+    }
+  });
+
+  const circleCounts = {
+    my3: circleGroups.three.length,
+    my12: circleGroups.three.length + circleGroups.twelve.length,
+    my70: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length,
+    my120: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length + circleGroups.my120.length,
+  };
+  const activePeople = activePersonIds.size;
+  const newThisMonth = people.filter((person) => isDateWithinRange(person.createdAt, monthStart, monthEnd)).length;
+  const meetingsByMonth = loggedMeetings.reduce((map, meeting) => {
+    const key = monthKey(meeting.date);
+
+    if (!key) {
+      return map;
+    }
+
+    map.set(key, (map.get(key) ?? 0) + 1);
+    return map;
+  }, new Map<string, number>());
+  const mostActiveMonth = Array.from(meetingsByMonth.entries()).sort((first, second) => second[1] - first[1])[0] ?? null;
+  const recentFruitItems: DashboardFruitItem[] = [
+    ...fruitItems.map((fruit) => ({
+      date: fruit.testimonyDate,
+      description: fruit.submittedByName ? `${fruit.submittedByName} shared fruit` : "Fruit story recorded",
+      id: `fruit-${fruit.id}`,
+      title: fruit.summary || "Fruit recorded",
+    })),
+    ...fruitEvents.filter(isObservableFruitOutcome).map((event) => {
+      const person = people.find((item) => item.id === event.personId) ?? null;
+
+      return {
+        date: event.date,
+        description: person ? `${person.name} · ${formatDate(event.date)}` : formatDate(event.date),
+        id: `event-${event.id}`,
+        title: fruitOutcomeLabel(event),
+      };
+    }),
+  ].sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date)).slice(0, 4);
+  const topTimeInvestments = people
+    .map((person) => ({
+      person,
+      stats: personTableStatsByPersonId.get(person.id) ?? { meetings: 0, timeMinutes: 0 },
+    }))
+    .filter((item) => item.stats.timeMinutes > 0 || item.stats.meetings > 0)
+    .sort((first, second) => second.stats.timeMinutes - first.stats.timeMinutes || second.stats.meetings - first.stats.meetings)
+    .slice(0, 3);
+  const trendMonths = dashboardTrendMonths();
+  const trendData = trendMonths.map((month) => {
+    const monthMeetings = loggedMeetings.filter((meeting) => monthKey(meeting.date) === month.key);
+    const monthFruitCount = [
+      ...fruitItems.filter((fruit) => monthKey(fruit.testimonyDate) === month.key),
+      ...fruitEvents.filter((event) => monthKey(event.date) === month.key),
+    ].length;
+
+    return {
+      fruit: monthFruitCount,
+      hours: Math.round(monthMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0) / 60),
+      label: month.label,
+      tables: monthMeetings.length,
+    };
+  });
+  const trendMax = Math.max(1, ...trendData.flatMap((item) => [item.tables, item.hours, item.fruit]));
+  const trendWidth = 720;
+  const trendHeight = 190;
+  const trendY = (value: number) => trendHeight - 28 - (value / trendMax) * 128;
+  const trendX = (index: number) => 40 + index * ((trendWidth - 72) / Math.max(1, trendData.length - 1));
+  const trendPoints = (key: "fruit" | "hours" | "tables") => trendData.map((item, index) => `${trendX(index)},${trendY(item[key])}`).join(" ");
+  const averageDuration = loggedWithDuration.length ? Math.round(totalDurationMinutes / loggedWithDuration.length) : 0;
+  const averageThisMonthDuration = loggedThisMonth.length && monthDurationMinutes ? Math.round(monthDurationMinutes / loggedThisMonth.length) : 0;
+
   return (
     <div className="hidden md:block">
       {isUsamApplicationPending ? (
@@ -3337,40 +3507,225 @@ function DesktopHomeDashboard({
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(0,1.25fr)_minmax(330px,0.75fr)]">
-        <div className="grid gap-4">
-          <DesktopUpcomingMeetingsCard
-            meetings={upcomingMeetings}
-            onOpenMeeting={onOpenMeeting}
-            onScheduleMeeting={() => onScheduleMeeting()}
-            people={people}
-          />
-          <DesktopNextStepsPanel
-            items={nextStepItems}
-            onEditReminder={onEditReminder}
-            onLogMeetingForPerson={onLogMeetingForPerson}
-            onOpenMeeting={onOpenMeeting}
-            onOpenPerson={onOpenPerson}
-            onScheduleForPerson={onScheduleMeeting}
-          />
+      <header className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[30px] font-black leading-none tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+            Dashboard
+          </h1>
+          <p className="mt-2 text-sm text-[#334155]">Overview of your discipleship mission.</p>
         </div>
-        <div className="grid gap-4">
-          <DesktopCirclePanel circleGroups={circleGroups} onSelectCircle={onSelectCircle} onViewCircles={onViewCircles} />
-          <DesktopMoreAppsPreview apps={moreApps} />
-        </div>
+        <span className="inline-flex min-h-10 items-center gap-2 rounded-[16px] border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
+          <CalendarDays className="h-4 w-4 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          This Month
+        </span>
+      </header>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+        <DesktopPanel className="xl:min-h-[260px]" eyebrow="Field Health">
+          <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <div className="flex items-center gap-5">
+              <div className="-m-8 scale-[0.72]">
+                <CircleTarget
+                  my12Count={circleCounts.my12}
+                  my120Count={circleCounts.my120}
+                  my3Count={circleCounts.my3}
+                  my70Count={circleCounts.my70}
+                  onSelectCircle={onSelectCircle}
+                />
+              </div>
+              <div className="grid min-w-[84px] gap-2 text-sm font-bold text-[#0F172A]">
+                {[
+                  ["My 3", circleCounts.my3],
+                  ["My 12", circleCounts.my12],
+                  ["My 70", circleCounts.my70],
+                  ["My 120", circleCounts.my120],
+                ].map(([label, value]) => (
+                  <div className="flex items-center justify-between gap-5" key={label}>
+                    <span>{label}</span>
+                    <span className="text-[#1D4ED8]">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              {dashboardMetricRows([
+                { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Active People", value: activePeople },
+                { icon: <UserPlus className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "New This Month", value: newThisMonth },
+                { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Tables This Month", value: loggedThisMonth.length },
+                { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Hours This Month", value: formatDashboardDuration(monthDurationMinutes) },
+              ])}
+              <button className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onViewField} type="button">
+                View Field
+                <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              </button>
+            </div>
+          </div>
+        </DesktopPanel>
+
+        <DesktopPanel className="xl:min-h-[260px]" eyebrow="Table Activity">
+          <div className="grid h-full gap-4">
+            <div className="grid grid-cols-2 divide-x divide-y divide-[#EAF2FF] overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] xl:grid-cols-4 xl:divide-y-0">
+              {[
+                { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Scheduled", value: scheduledUpcomingCount },
+                { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Completed", value: loggedThisMonth.length },
+                { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Avg. Time / Table", value: averageThisMonthDuration ? formatLoggedTime(averageThisMonthDuration) : "—" },
+                { icon: <Sparkles className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Most Active Month", value: mostActiveMonth ? monthShortLabelFromKey(mostActiveMonth[0]) : "—" },
+              ].map((metric) => (
+                <div className="flex min-h-[150px] flex-col items-center justify-center px-3 py-4 text-center" key={metric.label}>
+                  <span className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                    {metric.icon}
+                  </span>
+                  <span className="mt-3 text-xs font-medium text-[#334155]">{metric.label}</span>
+                  <span className="mt-3 text-2xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
+                  {metric.label === "Most Active Month" && mostActiveMonth ? (
+                    <span className="mt-2 text-xs font-semibold text-[#64748B]">{mostActiveMonth[1]} tables</span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <button className="justify-self-end inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onOpenTable} type="button">
+              View Table
+              <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+            </button>
+          </div>
+        </DesktopPanel>
       </div>
 
-      <div className="mt-4">
-        <DesktopRecentActivityPanel
-          latestFruitActivity={latestFruitActivity}
-          latestMeeting={latestMeeting}
-          latestPrayerActivity={latestPrayerActivity}
-          onOpenFruit={onOpenFruit}
-          onOpenMeeting={onOpenMeeting}
-          onOpenMeetings={onOpenMeetings}
-          people={people}
-        />
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+        <DesktopPanel eyebrow="Upcoming">
+          <div className="grid gap-2">
+            {upcomingItems.slice(0, 3).length ? upcomingItems.slice(0, 3).map((item) => (
+              <button
+                className="flex min-w-0 items-center gap-3 border-b border-[#EAF2FF] px-1 py-3 text-left last:border-b-0"
+                key={item.id}
+                onClick={() => {
+                  if (item.meeting) {
+                    onOpenMeeting(item.meeting.id);
+                  } else {
+                    onOpenTableCalendar();
+                  }
+                }}
+                type="button"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                  <TimelineIcon icon={item.icon} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-[#0F172A]">{nextStepTitle(item)}</span>
+                  <span className="mt-1 block truncate text-xs text-[#64748B]">{item.label}</span>
+                </span>
+                <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                  {item.meeting ? "Scheduled" : item.icon === "birthday" ? "Birthday" : "Reminder"}
+                </span>
+              </button>
+            )) : (
+              <p className="rounded-[20px] bg-[#F8FAFC] px-4 py-5 text-sm leading-6 text-[#64748B]">Nothing upcoming.</p>
+            )}
+          </div>
+          <button className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onOpenTableCalendar} type="button">
+            View Calendar
+            <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+        </DesktopPanel>
+
+        <DesktopPanel eyebrow="Recent Fruit">
+          <div className="grid gap-1">
+            {recentFruitItems.length ? recentFruitItems.map((item) => (
+              <div className="flex min-w-0 items-center gap-3 border-b border-[#EAF2FF] px-1 py-3 last:border-b-0" key={item.id}>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#ECFDF3] text-[#16A34A] ring-1 ring-[#D7F3DD]">
+                  <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-[#0F172A]">{item.title}</span>
+                  <span className="mt-1 block truncate text-xs text-[#475569]">{item.description}</span>
+                </span>
+                <span className="shrink-0 text-xs font-semibold text-[#64748B]">{formatRelativeDate(item.date)}</span>
+              </div>
+            )) : (
+              <p className="rounded-[20px] bg-[#F8FAFC] px-4 py-5 text-sm leading-6 text-[#64748B]">No recent fruit recorded yet.</p>
+            )}
+          </div>
+          <button className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onOpenFruit} type="button">
+            View all
+            <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+        </DesktopPanel>
       </div>
+
+      <DesktopPanel className="mt-4" eyebrow="Top Time Investments">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(330px,0.65fr)] xl:items-center">
+          <div className="overflow-hidden rounded-[20px] border border-[#EAF2FF]">
+            <div className="grid grid-cols-[64px_minmax(180px,1fr)_120px_140px] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+              <span>Rank</span>
+              <span>Person</span>
+              <span>Circle</span>
+              <span>Time Invested</span>
+            </div>
+            {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
+              <button
+                className="grid w-full grid-cols-[64px_minmax(180px,1fr)_120px_140px] items-center gap-3 border-b border-[#EAF2FF] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF]"
+                key={item.person.id}
+                onClick={() => onOpenPerson(item.person.id)}
+                type="button"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2563EB] text-xs font-black text-white">{index + 1}</span>
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold ${avatarTone(index)}`}>{initials(item.person.name)}</span>
+                  <span className="truncate text-sm font-bold text-[#0F172A]">{item.person.name}</span>
+                </span>
+                <span className="text-sm font-semibold text-[#0F172A]">{circleLayerLabelForPerson(item.person.id, circleGroups)}</span>
+                <span className="text-sm font-black text-[#0F172A]">{item.stats.timeMinutes ? formatLoggedTime(item.stats.timeMinutes) : "—"}</span>
+              </button>
+            )) : (
+              <p className="px-4 py-6 text-sm text-[#64748B]">No persisted table duration yet.</p>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { icon: <Icon name="meetings" size={18} />, label: "Tables", value: loggedMeetings.length },
+              { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total Time", value: formatDashboardDuration(totalDurationMinutes) },
+              { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Avg. Time / Table", value: averageDuration ? formatLoggedTime(averageDuration) : "—" },
+            ].map((metric) => (
+              <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-4 text-center" key={metric.label}>
+                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">{metric.icon}</span>
+                <span className="mt-3 block text-xl font-black text-[#0F172A]">{metric.value}</span>
+                <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </DesktopPanel>
+
+      <DesktopPanel className="mt-4" eyebrow="Activity Trends">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-4 text-xs font-semibold text-[#334155]">
+            <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#2563EB]" />Tables</span>
+            <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#60A5FA]" />Time (Hours)</span>
+            <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#10B981]" />Fruit</span>
+          </div>
+          <span className="rounded-[14px] border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#0F172A]">Last 12 Months</span>
+        </div>
+        <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-4">
+          <svg className="h-[220px] w-full" viewBox={`0 0 ${trendWidth} ${trendHeight}`} role="img" aria-label="Activity trends for tables, hours, and fruit">
+            {[0, 1, 2, 3].map((line) => {
+              const y = 34 + line * 36;
+
+              return <line key={line} x1="34" x2={trendWidth - 18} y1={y} y2={y} stroke="#DCEBFF" strokeWidth="1" />;
+            })}
+            <polyline fill="none" points={trendPoints("tables")} stroke="#2563EB" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+            <polyline fill="none" points={trendPoints("hours")} stroke="#60A5FA" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+            <polyline fill="none" points={trendPoints("fruit")} stroke="#10B981" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+            {trendData.map((item, index) => (
+              <g key={item.label}>
+                <circle cx={trendX(index)} cy={trendY(item.tables)} fill="#2563EB" r="4" />
+                <circle cx={trendX(index)} cy={trendY(item.hours)} fill="#60A5FA" r="4" />
+                <circle cx={trendX(index)} cy={trendY(item.fruit)} fill="#10B981" r="4" />
+                <text fill="#475569" fontSize="11" fontWeight="700" textAnchor="middle" x={trendX(index)} y={trendHeight - 8}>{item.label}</text>
+              </g>
+            ))}
+          </svg>
+        </div>
+      </DesktopPanel>
     </div>
   );
 }
@@ -8658,6 +9013,31 @@ function DesktopNavigation({
     }
   }
 
+  function renderNavButton(item: DesktopNavItem, key: string) {
+    const selected = isNavItemActive(item);
+
+    return (
+      <button
+        aria-current={selected ? "page" : undefined}
+        className={`flex min-h-11 items-center gap-3 rounded-[18px] px-3 text-sm font-bold transition-colors ${
+          selected
+            ? "bg-[#EBF2FF] text-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_8px_22px_rgba(37,99,235,0.08)]"
+            : "text-[#64748B] hover:bg-[#F8FBFF] hover:text-[#0F172A]"
+        }`}
+        key={key}
+        onClick={() => selectNavItem(item)}
+        type="button"
+      >
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[14px] ${
+          selected ? "bg-white text-[#2563EB]" : "bg-[#F8FAFC] text-[#94A3B8]"
+        }`}>
+          <Icon name={item.icon} size={17} />
+        </span>
+        <span>{item.label}</span>
+      </button>
+    );
+  }
+
   return (
     <aside className="hidden h-full w-[232px] shrink-0 border-r border-[#EAF2FF] bg-white px-4 py-6 md:flex md:flex-col xl:w-[260px]">
       <div className="rounded-[26px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
@@ -8668,36 +9048,16 @@ function DesktopNavigation({
         <p className="mt-3 line-clamp-2 text-sm font-black leading-5 text-[#0F172A]">{workspaceName}</p>
       </div>
       <nav className="mt-5 grid gap-5" aria-label="DOS sections">
+        <div className="grid gap-1.5">
+          {renderNavButton(desktopDashboardNavItem, "dashboard")}
+        </div>
         {desktopNavGroups.map((group) => (
           <div key={group.label}>
             <p className="px-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
               {group.label}
             </p>
             <div className="mt-2 grid gap-1.5">
-              {group.items.map((item) => {
-                const selected = isNavItemActive(item);
-
-                return (
-                  <button
-                    aria-current={selected ? "page" : undefined}
-                    className={`flex min-h-11 items-center gap-3 rounded-[18px] px-3 text-sm font-bold transition-colors ${
-                      selected
-                        ? "bg-[#EBF2FF] text-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_8px_22px_rgba(37,99,235,0.08)]"
-                        : "text-[#64748B] hover:bg-[#F8FBFF] hover:text-[#0F172A]"
-                    }`}
-                    key={`${group.label}-${item.label}`}
-                    onClick={() => selectNavItem(item)}
-                    type="button"
-                  >
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[14px] ${
-                      selected ? "bg-white text-[#2563EB]" : "bg-[#F8FAFC] text-[#94A3B8]"
-                    }`}>
-                      <Icon name={item.icon} size={17} />
-                    </span>
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
+              {group.items.map((item) => renderNavButton(item, `${group.label}-${item.label}`))}
             </div>
           </div>
         ))}
@@ -11680,10 +12040,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return `${item.label} ${item.description} ${item.status}`.toLowerCase().includes(query);
   });
-  const desktopAppsPreview = appCatalogSections
-    .flatMap((section) => section.items)
-    .filter((item) => item.section !== "coming_soon")
-    .slice(0, 4);
   const runMobileAction = (action: () => void) => () => {
     setIsMobileActionSheetOpen(false);
     action();
@@ -11791,23 +12147,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               </div>
               <DesktopHomeDashboard
                 circleGroups={circlePeopleByLayer}
+                fruitEvents={data.fruitEvents}
+                fruitItems={data.fruit}
                 isUsamApplicationPending={isUsamApplicationPending}
-                latestFruitActivity={latestFruitActivity}
-                latestMeeting={latestMeeting}
-                latestPrayerActivity={latestPrayerActivity}
-                moreApps={desktopAppsPreview}
-                onEditReminder={openReminderEdit}
-                onLogMeetingForPerson={openMeetingForPerson}
+                loggedMeetings={loggedMeetings}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenMeeting={openMeetingDetail}
-                onOpenMeetings={() => setActiveTab("meetings")}
                 onOpenPerson={openPersonDetail}
-                onScheduleMeeting={openScheduleMeeting}
+                onOpenTable={() => setActiveTab("meetings")}
+                onOpenTableCalendar={() => {
+                  setActiveTab("meetings");
+                  setMeetingsView("calendar");
+                }}
                 onSelectCircle={openPeopleCircle}
-                onViewCircles={() => openPeopleCircle("three")}
+                onViewField={() => setActiveTab("people")}
                 onViewUsamStatus={viewUsamApplicationStatus}
                 people={people}
-                nextStepItems={nextStepItems}
+                personTableStatsByPersonId={personTableStatsByPersonId}
+                upcomingItems={upcomingTimelineItems}
                 upcomingMeetings={upcomingScheduledMeetings}
               />
               </>
