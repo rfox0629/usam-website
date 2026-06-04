@@ -1532,32 +1532,6 @@ type PersonTableStats = {
   timeMinutes: number;
 };
 
-function circleTableLabel(item: CircleListItem, fallbackIndex: number) {
-  const score = (item as Partial<CirclePersonItem>).score;
-
-  if (score?.circle) {
-    return circleDisplayName(score.circle);
-  }
-
-  if (fallbackIndex < 3) {
-    return "My 3";
-  }
-
-  if (fallbackIndex < 12) {
-    return "My 12";
-  }
-
-  if (fallbackIndex < 70) {
-    return "My 70";
-  }
-
-  if (fallbackIndex < 120) {
-    return "My 120";
-  }
-
-  return "Field";
-}
-
 function circleLayerLabelForPerson(personId: string, circleGroups: CircleLayerGroups) {
   if (circleGroups.three.some((item) => item.person.id === personId)) {
     return "My 3";
@@ -5150,18 +5124,15 @@ function DesktopPeopleIndex({
   return (
     <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
       <div className="overflow-x-auto">
-        <div className="min-w-[1180px]">
-          <div className="grid grid-cols-[minmax(210px,1.3fr)_88px_128px_136px_122px_112px_86px_110px_116px_68px_78px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="min-w-[960px]">
+          <div className="grid grid-cols-[minmax(220px,1.45fr)_154px_132px_82px_112px_70px_118px_78px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             <span>Person</span>
-            <span>Circle</span>
-            <span>Relationship Type</span>
             <span>Relationship Context</span>
             <span>Engagement Level</span>
-            <span>Status</span>
             <span>Meetings</span>
             <span>Time Logged</span>
-            <span>Last Table</span>
             <span>Fruit</span>
+            <span>Last Table</span>
             <span className="text-right">Action</span>
           </div>
           <div className="divide-y divide-[#EFF6FF]">
@@ -5175,31 +5146,24 @@ function DesktopPeopleIndex({
 
               return (
                 <div
-                  className="grid grid-cols-[minmax(210px,1.3fr)_88px_128px_136px_122px_112px_86px_110px_116px_68px_78px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                  className="grid grid-cols-[minmax(220px,1.45fr)_154px_132px_82px_112px_70px_118px_78px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
                   key={person.id}
                 >
                   <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => onOpenPerson(person.id)} type="button">
                     <CircleAvatar index={rowIndex} person={person} size="sm" />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-black text-[#0F172A]">{person.name}</span>
-                      <span className="mt-0.5 block truncate text-xs text-[#64748B]">{formatPhoneNumber(person.phone) || person.phone || "No phone"}</span>
+                      <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{relationshipTypePillLabel(person) || "—"}</span>
                     </span>
                   </button>
-                  <span className="inline-flex w-fit rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
-                    {circleTableLabel(item, rowIndex)}
-                  </span>
-                  <span className="truncate font-semibold text-[#0F172A]">{relationshipTypePillLabel(person) || "—"}</span>
                   <span className="truncate text-[#475569]">{relationshipContextLabel(relationshipModel.relationshipContext) || "—"}</span>
                   <span className="truncate font-semibold text-[#334155]">{engagementLevelTableLabel(person)}</span>
-                  <span className="inline-flex w-fit rounded-full bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold text-[#475569] ring-1 ring-[#EAF2FF]">
-                    {relationshipStatusLabel(person)}
-                  </span>
                   <span className="font-black text-[#0F172A]">{tableStats.meetings}</span>
                   <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableStats.timeMinutes)}</span>
+                  <span className="font-black text-[#0F172A]">{fruitCount}</span>
                   <span className="truncate font-semibold text-[#475569]">
                     {lastTable ? formatRelativeDate(lastTable) : "—"}
                   </span>
-                  <span className="font-black text-[#0F172A]">{fruitCount}</span>
                   <button
                     className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
                     onClick={() => onLogMeeting(person.id)}
@@ -12439,7 +12403,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "people" ? (
               <div className="space-y-4">
-                <TabPageHeader title="Field" />
+                <div className="md:hidden">
+                  <TabPageHeader title="Field" />
+                </div>
                 <TabHero
                   icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                   onScriptureClick={openScriptureQuickView}
