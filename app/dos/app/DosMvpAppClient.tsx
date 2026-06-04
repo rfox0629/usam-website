@@ -63,7 +63,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
     label: "Core",
     items: [
       { icon: "home", label: "Home", type: "tab", value: "home" },
-      { icon: "people", label: "People", type: "tab", value: "people" },
+      { icon: "people", label: "Field", type: "tab", value: "people" },
       { icon: "meetings", label: "Table", type: "tab", value: "meetings" },
     ],
   },
@@ -4150,7 +4150,7 @@ function ProfileSheet({
             {workspaceName}
           </ProfileRow>
           <ProfileRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} isLast onClick={onOpenCircles}>
-            People & circles
+            Field & circles
           </ProfileRow>
         </ProfileGroup>
 
@@ -11384,7 +11384,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       label: "Installed",
       items: [
         {
-          description: "People and relationships you are stewarding.",
+          description: "Field relationships you are stewarding.",
           icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
           label: "Field",
           onClick: () => openPeopleCircle("three"),
@@ -11641,7 +11641,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "people" ? (
               <div className="space-y-4">
-                <TabPageHeader title="People" />
+                <TabPageHeader title="Field" />
                 <TabHero
                   icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                   onScriptureClick={openScriptureQuickView}
@@ -11659,7 +11659,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </button>
                   <button
                     aria-expanded={isPeopleSearchOpen}
-                    aria-label="Search people"
+                    aria-label="Search field"
                     className={`inline-flex h-12 min-w-0 flex-[0.9] items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.08)] transition-colors max-[350px]:flex-[0.88] max-[350px]:gap-1 max-[350px]:px-2 max-[350px]:text-[12px] ${
                       isPeopleSearchOpen
                         ? "border-[#2563EB] bg-[#EBF2FF]"
@@ -11674,7 +11674,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         return !current;
                       });
                     }}
-                    title="Search people"
+                    title="Search field"
                     type="button"
                   >
                     <Icon name="search" size={18} />
@@ -11741,9 +11741,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       />
                     </>
                   ) : people.length ? (
-                    <EmptyState text={peopleQuery.trim() ? `Try a different search inside ${circleDisplayName(peopleCircleView)}.` : peopleCircleContent.empty} title={peopleQuery.trim() ? "No matching people." : `No people in ${circleDisplayName(peopleCircleView)}.`} />
+                    <EmptyState text={peopleQuery.trim() ? `Try a different search inside ${circleDisplayName(peopleCircleView)}.` : peopleCircleContent.empty} title={peopleQuery.trim() ? "No matching field results." : `No one in ${circleDisplayName(peopleCircleView)}.`} />
                   ) : (
-                    <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No people added yet." />
+                    <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No field added yet." />
                   )}
                 </div>
               </div>
@@ -12006,7 +12006,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       subtitle="A simple place for seasonal focus once those rhythms are ready."
                       title="What is next?"
                     />
-                    <EmptyState text="Seasonal prompts will live here without changing your core People and Table flow." title="In Season is coming soon." />
+                    <EmptyState text="Seasonal prompts will live here without changing your core Field and Table flow." title="In Season is coming soon." />
                   </>
                 ) : null}
 
@@ -12032,7 +12032,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 text-sm leading-6 text-[#64748B] shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
                         <p className="font-bold text-[#0F172A]">DOS Workspace → Optional Missionary Layer</p>
                         <p className="mt-2">
-                          People, tables, prayer, fruit, and library stay in this DOS workspace. USA Missionaries can attach a public profile, prayer team, and support team to the same workspace after approval.
+                          Field, tables, prayer, fruit, and library stay in this DOS workspace. USA Missionaries can attach a public profile, prayer team, and support team to the same workspace after approval.
                         </p>
                       </div>
                     </LibrarySection>

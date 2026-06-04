@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function DosOnboardingPage() {
+export default function JoinUsamPage() {
   redirect("/join");
 }
