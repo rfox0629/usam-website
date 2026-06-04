@@ -3061,11 +3061,12 @@ function DesktopSettingsProfileView({
   onOpenPrayerTeam,
   onOpenSupportTeam,
   onViewApplicationStatus,
+  organizationName,
   phone,
   photoUrl,
   publicProfileHref,
+  stateName,
   workspaceName,
-  workspaceSublabel,
 }: {
   application: DosAppData["usamApplication"];
   email: string;
@@ -3077,13 +3078,16 @@ function DesktopSettingsProfileView({
   onOpenPrayerTeam: () => void;
   onOpenSupportTeam: () => void;
   onViewApplicationStatus: () => void;
+  organizationName?: string | null;
   phone: string;
   photoUrl?: string | null;
   publicProfileHref: string;
+  stateName?: string | null;
   workspaceName: string;
-  workspaceSublabel: string;
 }) {
   const formattedPhone = formatPhoneNumber(phone) || phone;
+  const workspaceStateLabel = cleanIdentitySegment(stateName) ?? "Not set";
+  const workspaceOrganizationLabel = cleanIdentitySegment(organizationName) ?? cleanIdentitySegment(application.organizationName) ?? "Not attached";
   const organizationDescription = application.organizationName
     ? `${application.organizationName} layer`
     : "Optional organization layer";
@@ -3092,10 +3096,10 @@ function DesktopSettingsProfileView({
     <div className="hidden md:block">
       <TabPageHeader title="Settings" />
 
-      <div className="mx-auto mt-4 grid max-w-[1180px] gap-4">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div className="mx-auto mt-4 grid max-w-[1100px] gap-3">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)]">
           <DesktopPanel action={<DashboardHeaderAction onClick={onEditProfile}>Edit Profile</DashboardHeaderAction>} compact eyebrow="Profile">
-            <div className="flex min-w-0 items-center gap-4 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+            <div className="flex min-w-0 items-center gap-4 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
               <UserProfileAvatar imageUrl={photoUrl} name={name} size="lg" />
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-[24px] font-black leading-tight tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
@@ -3104,42 +3108,52 @@ function DesktopSettingsProfileView({
                 <p className="mt-1 truncate text-sm font-semibold text-[#64748B]">{email || "No email added"}</p>
               </div>
             </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Email</p>
-                <p className="mt-1 truncate text-sm font-bold text-[#0F172A]">{email || "No email added"}</p>
-              </div>
-              <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Phone</p>
-                <p className="mt-1 truncate text-sm font-bold text-[#0F172A]">{formattedPhone || "No phone added"}</p>
-              </div>
+            <div className="mt-3 grid gap-2">
+              <DesktopSettingsRow
+                description="DOS app profile photo."
+                icon={<Camera className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Photo"
+                meta={photoUrl ? "Added" : "Initials"}
+                onClick={onEditProfile}
+              />
+              <DesktopSettingsRow
+                description={name || "No name added"}
+                icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Name"
+                onClick={onEditProfile}
+              />
+              <DesktopSettingsRow
+                description={email || "No email added"}
+                icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Email"
+                onClick={onEditProfile}
+              />
+              <DesktopSettingsRow
+                description={formattedPhone || "No phone added"}
+                icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Phone"
+                onClick={onEditProfile}
+              />
             </div>
           </DesktopPanel>
 
-          <DesktopPanel compact eyebrow="Current Rhythm">
-            <div className="flex h-full min-h-[156px] items-center justify-between gap-6 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
-              <div>
-                <p className="text-sm font-bold text-[#64748B]">Daily field rhythm</p>
-                <p className="mt-2 text-[34px] font-black leading-none tracking-[-0.04em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-                  Day {currentRhythmDay}
-                </p>
-                <p className="mt-2 max-w-[260px] text-sm leading-6 text-[#64748B]">Keep prayer, field, and table rhythms close without leaving DOS.</p>
-              </div>
-              <div className="rounded-[18px] border border-[#DCEBFF] bg-white px-4 py-3">
-                <RhythmBars />
-              </div>
-            </div>
-          </DesktopPanel>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
           <DesktopPanel compact eyebrow="Workspace">
             <div className="grid gap-2">
               <DesktopSettingsRow
-                description={workspaceSublabel || "Independent DOS workspace"}
+                description="Workspace Name"
                 icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                 label={workspaceName}
                 meta="Current"
+              />
+              <DesktopSettingsRow
+                description={workspaceStateLabel}
+                icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="State"
+              />
+              <DesktopSettingsRow
+                description={workspaceOrganizationLabel}
+                icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Organization"
               />
               <DesktopSettingsRow
                 description="View My 3, My 12, My 70, and My 120."
@@ -3147,9 +3161,17 @@ function DesktopSettingsProfileView({
                 label="Field & circles"
                 onClick={onOpenCircles}
               />
+              <DesktopSettingsRow
+                description="Choose another DOS workspace."
+                href="/dos"
+                icon={<RefreshCw className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Switch Workspace"
+              />
             </div>
           </DesktopPanel>
+        </div>
 
+        <div className="grid gap-3">
           {/* TODO: Later conditionally show this section only after USA Missionaries onboarding/application approval or organization attachment. */}
           <DesktopPanel compact eyebrow="USA Missionaries">
             <div className="grid gap-2">
@@ -3194,15 +3216,9 @@ function DesktopSettingsProfileView({
           </DesktopPanel>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          <DesktopPanel compact eyebrow="Account">
+        <div className="grid gap-3 xl:grid-cols-2">
+          <DesktopPanel compact eyebrow="Preferences">
             <div className="grid gap-2">
-              <DesktopSettingsRow
-                description="Name, email, phone, and photo."
-                icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                label="Profile details"
-                onClick={onEditProfile}
-              />
               <DesktopSettingsRow
                 description="Prayer, meeting, and follow-up nudges."
                 icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
@@ -3215,17 +3231,17 @@ function DesktopSettingsProfileView({
                 label="Appearance"
                 meta="System"
               />
+            </div>
+          </DesktopPanel>
+
+          <DesktopPanel compact eyebrow="Account">
+            <div className="grid gap-2">
               <DesktopSettingsRow
                 description="End this DOS session."
                 href="/api/access/logout"
                 icon={<LogOut className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                 label="Sign out"
               />
-            </div>
-          </DesktopPanel>
-
-          <DesktopPanel compact eyebrow="Support">
-            <div className="grid gap-2">
               <DesktopSettingsRow
                 description="Get help with your DOS workspace."
                 icon={<HelpCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
@@ -13047,11 +13063,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onOpenPrayerTeam={() => openMoreApp("prayer_team")}
                     onOpenSupportTeam={() => openMoreApp("support_team")}
                     onViewApplicationStatus={viewUsamApplicationStatus}
+                    organizationName={data.workspace.organizationName}
                     phone={profilePhone}
                     photoUrl={data.workspace.profileImageUrl}
                     publicProfileHref={data.workspace.publicProfileHref}
+                    stateName={data.workspace.stateName}
                     workspaceName={workspaceName}
-                    workspaceSublabel={workspaceSublabel}
                   />
                 ) : null}
 
