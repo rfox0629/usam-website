@@ -4651,24 +4651,26 @@ function UserProfileAvatar({
 
 function ProfileSheetFrame({
   children,
+  desktopMaxWidthClassName = "md:max-w-[520px]",
   onClose,
   rightAction,
   title,
 }: {
   children: ReactNode;
+  desktopMaxWidthClassName?: string;
   onClose: () => void;
   rightAction?: ReactNode;
   title: string;
 }) {
   return (
     <div
-      className="absolute inset-0 z-[90] box-border flex items-end overflow-y-auto bg-[#0F172A]/18 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-[calc(env(safe-area-inset-top)+0.85rem)] backdrop-blur-[3px]"
+      className="absolute inset-0 z-[90] box-border flex items-end overflow-y-auto bg-[#0F172A]/18 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-[calc(env(safe-area-inset-top)+0.85rem)] backdrop-blur-[3px] md:items-center md:justify-center md:p-6"
       onMouseDown={onClose}
       role="presentation"
     >
       <section
         aria-modal="true"
-        className="flex max-h-full min-h-0 w-full flex-col overflow-hidden rounded-[30px] border border-white/70 bg-[#F4F6FB] p-3 shadow-[0_28px_85px_rgba(32,27,20,0.22)]"
+        className={`flex max-h-full min-h-0 w-full flex-col overflow-hidden rounded-[30px] border border-white/70 bg-[#F4F6FB] p-3 shadow-[0_28px_85px_rgba(32,27,20,0.22)] md:max-h-[min(760px,calc(100dvh-3rem))] md:border-[#EAF2FF] md:bg-[#F8FBFF] md:p-4 ${desktopMaxWidthClassName}`}
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
@@ -4863,16 +4865,16 @@ function EditProfileSheet({
   const [stateName, organizationName] = workspaceSublabel.split(" · ");
 
   return (
-    <ProfileSheetFrame onClose={onClose} title="Edit profile">
-      <div className="px-1">
+    <ProfileSheetFrame desktopMaxWidthClassName="md:max-w-[720px]" onClose={onClose} title="Edit Profile">
+      <div className="px-1 md:px-0">
         <button
-          className="mb-4 flex min-h-[52px] w-full items-center justify-center rounded-[16px] border border-dashed border-[#BFDBFE] bg-white text-sm font-bold text-[#2563EB]"
+          className="mb-4 flex min-h-[52px] w-full items-center justify-center rounded-[16px] border border-dashed border-[#BFDBFE] bg-white text-sm font-bold text-[#2563EB] md:mb-5"
           type="button"
         >
           Change photo
         </button>
 
-        <div className="grid gap-3">
+        <div className="grid gap-3 md:grid-cols-2 md:gap-4">
           {[
             ["Name", name],
             ["Email", email],
@@ -4892,7 +4894,7 @@ function EditProfileSheet({
         </div>
 
         <button
-          className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)]"
+          className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)] md:mt-6"
           onClick={onClose}
           type="button"
         >
