@@ -2470,26 +2470,35 @@ function TabPageHeader({
 }
 
 function TabHero({
+  desktopCompact = false,
   icon,
   onScriptureClick,
   scripture,
   subtitle,
   title,
 }: {
+  desktopCompact?: boolean;
   icon: ReactNode;
   onScriptureClick: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
   scripture: ScriptureReference;
   subtitle?: string;
   title: string;
 }) {
+  const sectionClassName = desktopCompact
+    ? "overflow-hidden rounded-[34px] bg-white px-5 py-5 shadow-[0_24px_70px_rgba(37,99,235,0.075)] md:rounded-[22px] md:px-4 md:py-3 md:shadow-[0_10px_26px_rgba(37,99,235,0.04)] xl:px-4"
+    : "overflow-hidden rounded-[34px] bg-white px-5 py-5 shadow-[0_24px_70px_rgba(37,99,235,0.075)] md:rounded-[24px] md:px-4 md:py-3 md:shadow-[0_12px_34px_rgba(37,99,235,0.045)] xl:px-5";
+  const titleClassName = desktopCompact
+    ? "text-[24px] font-black leading-[1.02] tracking-[-0.035em] text-[#0F172A] max-[350px]:text-[22px] md:text-[19px]"
+    : "text-[24px] font-black leading-[1.02] tracking-[-0.035em] text-[#0F172A] max-[350px]:text-[22px] md:text-[20px]";
+
   return (
-    <section className="overflow-hidden rounded-[34px] bg-white px-5 py-5 shadow-[0_24px_70px_rgba(37,99,235,0.075)] md:rounded-[24px] md:px-4 md:py-3 md:shadow-[0_12px_34px_rgba(37,99,235,0.045)] xl:px-5">
+    <section className={sectionClassName}>
       <div className="flex items-center gap-3.5">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF] md:h-10 md:w-10 md:rounded-[16px]">
           {icon}
         </span>
         <span className="min-w-0">
-          <h2 className="text-[24px] font-black leading-[1.02] tracking-[-0.035em] text-[#0F172A] max-[350px]:text-[22px] md:text-[20px]" style={{ fontFamily: font.oswald }}>{title}</h2>
+          <h2 className={titleClassName} style={{ fontFamily: font.oswald }}>{title}</h2>
           {subtitle ? <p className="mt-1 text-[13px] leading-5 text-[#64748B] md:line-clamp-1">{subtitle}</p> : null}
           <button
             className="mt-3 inline-flex rounded-full text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB] transition-colors hover:text-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25 md:mt-1.5"
@@ -4417,6 +4426,78 @@ function TableSearchBar({
       <span className="shrink-0 rounded-full bg-[#F8FAFC] px-2.5 py-1 text-center text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B] md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]" style={{ fontFamily: font.rajdhani }}>
         {resultCount} shown
       </span>
+    </div>
+  );
+}
+
+function DesktopTableToolbar({
+  meetingsView,
+  onLogMeeting,
+  onMeetingsViewChange,
+  onScheduleMeeting,
+  onSearchChange,
+  query,
+  resultCount,
+}: {
+  meetingsView: MeetingsView;
+  onLogMeeting: () => void;
+  onMeetingsViewChange: (value: MeetingsView) => void;
+  onScheduleMeeting: () => void;
+  onSearchChange: (value: string) => void;
+  query: string;
+  resultCount: number;
+}) {
+  return (
+    <div className="hidden rounded-[26px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:grid md:grid-cols-[minmax(260px,1fr)_minmax(300px,340px)] md:items-center md:gap-3 xl:grid-cols-[minmax(300px,1fr)_340px_auto]">
+      <TableSearchBar onChange={onSearchChange} query={query} resultCount={resultCount} />
+      <div className="min-w-0">
+        <SegmentedTabs onChange={onMeetingsViewChange} options={meetingsViewTabs} value={meetingsView} />
+      </div>
+      <div className="grid grid-cols-2 gap-2 md:col-span-2 xl:col-span-1 xl:min-w-[260px]">
+        <button
+          className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.20)] transition-transform active:scale-[0.99]"
+          onClick={onLogMeeting}
+          type="button"
+        >
+          <Icon name="log" size={14} />
+          <span className="truncate">Log Table</span>
+        </button>
+        <button
+          className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] shadow-[0_8px_20px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] active:scale-[0.99]"
+          onClick={onScheduleMeeting}
+          type="button"
+        >
+          <CalendarDays className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          <span className="truncate">Schedule Table</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DesktopTableEmptyState({
+  action,
+  text,
+  title,
+}: {
+  action: ReactNode;
+  text: string;
+  title: string;
+}) {
+  return (
+    <div className="hidden rounded-[28px] border border-[#EAF2FF] bg-white p-7 text-center shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-[18px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF]">
+        <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+      </span>
+      <h2 className="mt-4 text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+        {title}
+      </h2>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#64748B]">
+        {text}
+      </p>
+      <div className="mx-auto mt-5 max-w-[220px]">
+        {action}
+      </div>
     </div>
   );
 }
@@ -11882,29 +11963,35 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <TabPageHeader title="Table" />
                 </div>
                 <TabHero
+                  desktopCompact
                   icon={<Icon name="meetings" size={20} />}
                   onScriptureClick={openScriptureQuickView}
                   scripture={scriptureReferences.hebrews1025}
                   subtitle="Every conversation is an opportunity to motivate, encourage, and challenge."
                   title="Faithful at the table."
                 />
-                <div className="hidden md:block">
-                  <MeetingActionRow onLogMeeting={() => openForm("meeting")} onScheduleMeeting={() => openScheduleMeeting()} />
-                </div>
-                <div className="grid gap-3 md:grid-cols-[minmax(260px,1fr)_340px] md:items-center">
-                  <div className="hidden md:block">
-                    <TableSearchBar onChange={setTableQuery} query={tableQuery} resultCount={tableResultCount} />
-                  </div>
-                  <div className="md:justify-self-end md:w-[340px]">
-                    <SegmentedTabs onChange={setMeetingsView} options={meetingsViewTabs} value={meetingsView} />
-                  </div>
-                </div>
+                <DesktopTableToolbar
+                  meetingsView={meetingsView}
+                  onLogMeeting={() => openForm("meeting")}
+                  onMeetingsViewChange={setMeetingsView}
+                  onScheduleMeeting={() => openScheduleMeeting()}
+                  onSearchChange={setTableQuery}
+                  query={tableQuery}
+                  resultCount={tableResultCount}
+                />
                 <div>
                   {meetingsView === "upcoming" ? (
                     visibleUpcomingTableMeetings.length ? (
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleUpcomingTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                      <div className="md:rounded-[28px] md:border md:border-[#EAF2FF] md:bg-white md:p-3 md:shadow-[0_12px_34px_rgba(37,99,235,0.045)]">
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleUpcomingTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                      </div>
                     ) : (
-                      <EmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text={tableQuery.trim() ? "Try another person, note, date, or table type." : "Schedule the next conversation or prayer moment."} title={tableQuery.trim() ? "No matching upcoming tables." : "Nothing upcoming."} />
+                      <>
+                        <div className="md:hidden">
+                          <EmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text={tableQuery.trim() ? "Try another person, note, date, or table type." : "Schedule the next conversation or prayer moment."} title={tableQuery.trim() ? "No matching upcoming tables." : "Nothing upcoming."} />
+                        </div>
+                        <DesktopTableEmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text={tableQuery.trim() ? "Try another person, note, date, or table type." : "Schedule the next conversation or prayer moment."} title={tableQuery.trim() ? "No matching upcoming tables." : "Nothing upcoming."} />
+                      </>
                     )
                   ) : meetingsView === "calendar" ? (
                     <MeetingCalendarView
@@ -11927,9 +12014,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     />
                   ) : (
                     visibleHistoryTableMeetings.length ? (
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleHistoryTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                      <div className="md:rounded-[28px] md:border md:border-[#EAF2FF] md:bg-white md:p-3 md:shadow-[0_12px_34px_rgba(37,99,235,0.045)]">
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleHistoryTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                      </div>
                     ) : (
-                      <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Table</CompactButton>} text={tableQuery.trim() ? "Try another table type, note, person, or date." : "Completed tables will land here after you log them."} title={tableQuery.trim() ? "No matching history." : "No table history yet."} />
+                      <>
+                        <div className="md:hidden">
+                          <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Table</CompactButton>} text={tableQuery.trim() ? "Try another table type, note, person, or date." : "Completed tables will land here after you log them."} title={tableQuery.trim() ? "No matching history." : "No table history yet."} />
+                        </div>
+                        <DesktopTableEmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Table</CompactButton>} text={tableQuery.trim() ? "Try another table type, note, person, or date." : "Completed tables will land here after you log them."} title={tableQuery.trim() ? "No matching history." : "No table history yet."} />
+                      </>
                     )
                   )}
                 </div>
