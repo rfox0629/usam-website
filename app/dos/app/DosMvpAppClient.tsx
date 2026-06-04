@@ -44,7 +44,7 @@ const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F1
 const dosPhoneShellClassName = "relative isolate mx-auto flex h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[calc(100dvh-3rem)] md:max-h-none md:max-w-[1440px] md:rounded-none md:border-0 md:bg-[#F8FBFF] md:shadow-none";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
-type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "stewardship" | "support_team" | "table_flow";
+type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
 type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "settings" | "upload";
 
 const mobileTabs: ReadonlyArray<{ icon: IconName; label: string; value: ActiveTab }> = [
@@ -3023,6 +3023,251 @@ function DashboardHeaderAction({
       {children}
       <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
     </button>
+  );
+}
+
+function DesktopSettingsRow({
+  description,
+  href,
+  icon,
+  label,
+  meta,
+  onClick,
+}: {
+  description?: string;
+  href?: string;
+  icon: ReactNode;
+  label: string;
+  meta?: ReactNode;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold text-[#0F172A]">{label}</span>
+        {description ? <span className="mt-0.5 block truncate text-xs font-medium text-[#64748B]">{description}</span> : null}
+      </span>
+      {meta ? <span className="shrink-0 text-xs font-bold text-[#64748B]">{meta}</span> : null}
+      {onClick || href ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} /> : null}
+    </>
+  );
+  const className = "flex min-h-[58px] min-w-0 items-center gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5 text-left transition-colors hover:border-[#BFDBFE] hover:bg-white";
+
+  if (href) {
+    return (
+      <Link className={className} href={href}>
+        {content}
+      </Link>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button className={className} onClick={onClick} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
+}
+
+function DesktopSettingsProfileView({
+  application,
+  email,
+  missionaryLayerStatus,
+  name,
+  onEditProfile,
+  onOpenCircles,
+  onOpenMissionaryProfile,
+  onOpenPrayerTeam,
+  onOpenSupportTeam,
+  onViewApplicationStatus,
+  phone,
+  photoUrl,
+  publicProfileHref,
+  workspaceName,
+  workspaceSublabel,
+}: {
+  application: DosAppData["usamApplication"];
+  email: string;
+  missionaryLayerStatus: string;
+  name: string;
+  onEditProfile: () => void;
+  onOpenCircles: () => void;
+  onOpenMissionaryProfile: () => void;
+  onOpenPrayerTeam: () => void;
+  onOpenSupportTeam: () => void;
+  onViewApplicationStatus: () => void;
+  phone: string;
+  photoUrl?: string | null;
+  publicProfileHref: string;
+  workspaceName: string;
+  workspaceSublabel: string;
+}) {
+  const formattedPhone = formatPhoneNumber(phone) || phone;
+  const organizationDescription = application.organizationName
+    ? `${application.organizationName} layer`
+    : "Optional organization layer";
+
+  return (
+    <div className="hidden md:block">
+      <TabPageHeader title="Settings" />
+
+      <div className="mx-auto mt-4 grid max-w-[1180px] gap-4">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <DesktopPanel action={<DashboardHeaderAction onClick={onEditProfile}>Edit Profile</DashboardHeaderAction>} compact eyebrow="Profile">
+            <div className="flex min-w-0 items-center gap-4 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+              <UserProfileAvatar imageUrl={photoUrl} name={name} size="lg" />
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-[24px] font-black leading-tight tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+                  {name}
+                </h2>
+                <p className="mt-1 truncate text-sm font-semibold text-[#64748B]">{email || "No email added"}</p>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Email</p>
+                <p className="mt-1 truncate text-sm font-bold text-[#0F172A]">{email || "No email added"}</p>
+              </div>
+              <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Phone</p>
+                <p className="mt-1 truncate text-sm font-bold text-[#0F172A]">{formattedPhone || "No phone added"}</p>
+              </div>
+            </div>
+          </DesktopPanel>
+
+          <DesktopPanel compact eyebrow="Current Rhythm">
+            <div className="flex h-full min-h-[156px] items-center justify-between gap-6 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+              <div>
+                <p className="text-sm font-bold text-[#64748B]">Daily field rhythm</p>
+                <p className="mt-2 text-[34px] font-black leading-none tracking-[-0.04em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+                  Day {currentRhythmDay}
+                </p>
+                <p className="mt-2 max-w-[260px] text-sm leading-6 text-[#64748B]">Keep prayer, field, and table rhythms close without leaving DOS.</p>
+              </div>
+              <div className="rounded-[18px] border border-[#DCEBFF] bg-white px-4 py-3">
+                <RhythmBars />
+              </div>
+            </div>
+          </DesktopPanel>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <DesktopPanel compact eyebrow="Workspace">
+            <div className="grid gap-2">
+              <DesktopSettingsRow
+                description={workspaceSublabel || "Independent DOS workspace"}
+                icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label={workspaceName}
+                meta="Current"
+              />
+              <DesktopSettingsRow
+                description="View My 3, My 12, My 70, and My 120."
+                icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Field & circles"
+                onClick={onOpenCircles}
+              />
+            </div>
+          </DesktopPanel>
+
+          {/* TODO: Later conditionally show this section only after USA Missionaries onboarding/application approval or organization attachment. */}
+          <DesktopPanel compact eyebrow="USA Missionaries">
+            <div className="grid gap-2">
+              <DesktopSettingsRow
+                description={organizationDescription}
+                icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Missionary Profile"
+                meta={missionaryLayerStatus}
+                onClick={onOpenMissionaryProfile}
+              />
+              <DesktopSettingsRow
+                description="Prayer partners and public profile prayer needs."
+                icon={<HeartHandshake className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Prayer Team"
+                meta={application.publicProfileLive ? "Live" : "Layer"}
+                onClick={onOpenPrayerTeam}
+              />
+              <DesktopSettingsRow
+                description="Support partners, giving progress, and support status."
+                icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Support Team"
+                meta={application.publicProfileLive ? "Live" : "Layer"}
+                onClick={onOpenSupportTeam}
+              />
+              <DesktopSettingsRow
+                description={application.appliedAt ? `Submitted ${formatDate(application.appliedAt)}` : "No application submitted yet."}
+                icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Application Status"
+                meta={usamStatusLabel(application.status)}
+                onClick={onViewApplicationStatus}
+              />
+              {application.publicProfileLive ? (
+                <DesktopSettingsRow
+                  description="Open the public missionary profile."
+                  href={publicProfileHref}
+                  icon={<ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Public Profile"
+                  meta={usamProfileStatusLabel(application.profileStatus)}
+                />
+              ) : null}
+            </div>
+          </DesktopPanel>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <DesktopPanel compact eyebrow="Account">
+            <div className="grid gap-2">
+              <DesktopSettingsRow
+                description="Name, email, phone, and photo."
+                icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Profile details"
+                onClick={onEditProfile}
+              />
+              <DesktopSettingsRow
+                description="Prayer, meeting, and follow-up nudges."
+                icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Notifications"
+                meta="On"
+              />
+              <DesktopSettingsRow
+                description="Use system appearance."
+                icon={<Palette className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Appearance"
+                meta="System"
+              />
+              <DesktopSettingsRow
+                description="End this DOS session."
+                href="/api/access/logout"
+                icon={<LogOut className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Sign out"
+              />
+            </div>
+          </DesktopPanel>
+
+          <DesktopPanel compact eyebrow="Support">
+            <div className="grid gap-2">
+              <DesktopSettingsRow
+                description="Get help with your DOS workspace."
+                icon={<HelpCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Help and Support"
+                meta={<ExternalLink className="h-3.5 w-3.5 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />}
+              />
+              <DesktopSettingsRow
+                description="Review privacy and terms."
+                icon={<Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label="Privacy & terms"
+                meta={<ExternalLink className="h-3.5 w-3.5 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />}
+              />
+            </div>
+          </DesktopPanel>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -9018,7 +9263,7 @@ function DesktopNavigation({
       return activeTab === "more" && moreAppView === item.value;
     }
 
-    return false;
+    return activeTab === "more" && moreAppView === "settings";
   }
 
   function selectNavItem(item: DesktopNavItem) {
@@ -12112,7 +12357,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           activeTab={activeTab}
           moreAppView={moreAppView}
           onOpenMoreApp={openMoreApp}
-          onOpenProfile={() => setIsProfileOpen(true)}
+          onOpenProfile={() => openMoreApp("settings")}
           onSelect={selectTab}
           profileEmail={profileEmail}
           profileImageUrl={data.workspace.profileImageUrl}
@@ -12456,6 +12701,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     </div>
                     <DesktopMoreLauncher apps={desktopAppCatalogItems} onScriptureClick={openScriptureQuickView} />
                   </>
+                ) : null}
+
+                {moreAppView === "settings" ? (
+                  <DesktopSettingsProfileView
+                    application={usamApplication}
+                    email={profileEmail}
+                    missionaryLayerStatus={missionaryLayerStatus}
+                    name={profileName}
+                    onEditProfile={() => setIsEditProfileOpen(true)}
+                    onOpenCircles={() => setIsCirclesOpen(true)}
+                    onOpenMissionaryProfile={() => openMoreApp("missionary_profile")}
+                    onOpenPrayerTeam={() => openMoreApp("prayer_team")}
+                    onOpenSupportTeam={() => openMoreApp("support_team")}
+                    onViewApplicationStatus={viewUsamApplicationStatus}
+                    phone={profilePhone}
+                    photoUrl={data.workspace.profileImageUrl}
+                    publicProfileHref={data.workspace.publicProfileHref}
+                    workspaceName={workspaceName}
+                    workspaceSublabel={workspaceSublabel}
+                  />
                 ) : null}
 
                 {moreAppView === "prayer" ? (
