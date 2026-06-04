@@ -3352,15 +3352,15 @@ function dashboardTrendMonths(count = 12) {
 
 function dashboardMetricRows(items: ReadonlyArray<{ icon: ReactNode; label: string; value: string | number }>) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-2 sm:grid-cols-2">
       {items.map((item) => (
-        <div className="flex min-w-0 items-center gap-3 rounded-[20px] bg-[#F8FBFF] px-3 py-3 ring-1 ring-[#EAF2FF]" key={item.label}>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+        <div className="flex min-h-[58px] min-w-0 items-center gap-2.5 rounded-[17px] bg-[#F8FBFF] px-3 py-2 ring-1 ring-[#EAF2FF]" key={item.label}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
             {item.icon}
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-xs font-semibold text-[#0F172A]">{item.label}</span>
-            <span className="mt-1 block text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{item.value}</span>
+            <span className="block text-lg font-black leading-none tracking-[-0.02em] text-[#0F172A]">{item.value}</span>
+            <span className="mt-1 block text-[9px] font-bold uppercase leading-[1.05] tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{item.label}</span>
           </span>
         </div>
       ))}
@@ -3492,8 +3492,8 @@ function DesktopHomeDashboard({
   });
   const trendMax = Math.max(1, ...trendData.flatMap((item) => [item.tables, item.hours, item.fruit]));
   const trendWidth = 720;
-  const trendHeight = 190;
-  const trendY = (value: number) => trendHeight - 28 - (value / trendMax) * 128;
+  const trendHeight = 154;
+  const trendY = (value: number) => trendHeight - 24 - (value / trendMax) * 102;
   const trendX = (index: number) => 40 + index * ((trendWidth - 72) / Math.max(1, trendData.length - 1));
   const trendPoints = (key: "fruit" | "hours" | "tables") => trendData.map((item, index) => `${trendX(index)},${trendY(item[key])}`).join(" ");
   const averageDuration = loggedWithDuration.length ? Math.round(totalDurationMinutes / loggedWithDuration.length) : 0;
@@ -3502,29 +3502,30 @@ function DesktopHomeDashboard({
   return (
     <div className="hidden md:block">
       {isUsamApplicationPending ? (
-        <div className="mb-4">
+        <div className="mb-3">
           <UsamPendingHomeCard onViewStatus={onViewUsamStatus} />
         </div>
       ) : null}
 
       <header className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[30px] font-black leading-none tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+          <h1 className="text-[32px] font-black leading-none tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
             Dashboard
           </h1>
-          <p className="mt-2 text-sm text-[#334155]">Overview of your discipleship mission.</p>
+          <p className="mt-1.5 text-sm text-[#334155]">Overview of your discipleship mission.</p>
         </div>
-        <span className="inline-flex min-h-10 items-center gap-2 rounded-[16px] border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
+        <span className="inline-flex min-h-10 items-center gap-2 rounded-[15px] border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
           <CalendarDays className="h-4 w-4 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
           This Month
         </span>
       </header>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-        <DesktopPanel className="xl:min-h-[260px]" eyebrow="Field Health">
-          <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <div className="flex items-center gap-5">
-              <div className="-m-8 scale-[0.72]">
+      <div className="mx-auto grid max-w-[1320px] gap-3.5">
+      <div className="grid gap-3.5 min-[1180px]:grid-cols-[minmax(0,1.28fr)_minmax(0,0.72fr)] min-[1360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+        <DesktopPanel className="min-h-[228px] xl:min-h-[238px]" eyebrow="Field Health">
+          <div className="grid h-full gap-4 min-[1180px]:grid-cols-[230px_minmax(0,1fr)] min-[1180px]:items-center min-[1360px]:grid-cols-[260px_minmax(0,1fr)]">
+            <div className="flex items-center gap-4">
+              <div className="-m-12 scale-[0.62] min-[1360px]:-m-10 min-[1360px]:scale-[0.68]">
                 <CircleTarget
                   my12Count={circleCounts.my12}
                   my120Count={circleCounts.my120}
@@ -3533,7 +3534,7 @@ function DesktopHomeDashboard({
                   onSelectCircle={onSelectCircle}
                 />
               </div>
-              <div className="grid min-w-[84px] gap-2 text-sm font-bold text-[#0F172A]">
+              <div className="grid min-w-[82px] gap-1.5 text-sm font-bold text-[#0F172A]">
                 {[
                   ["My 3", circleCounts.my3],
                   ["My 12", circleCounts.my12],
@@ -3542,7 +3543,7 @@ function DesktopHomeDashboard({
                 ].map(([label, value]) => (
                   <div className="flex items-center justify-between gap-5" key={label}>
                     <span>{label}</span>
-                    <span className="text-[#1D4ED8]">{value}</span>
+                    <span className="font-black text-[#1D4ED8]">{value}</span>
                   </div>
                 ))}
               </div>
@@ -3554,7 +3555,7 @@ function DesktopHomeDashboard({
                 { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Tables This Month", value: loggedThisMonth.length },
                 { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Hours This Month", value: formatDashboardDuration(monthDurationMinutes) },
               ])}
-              <button className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onViewField} type="button">
+              <button className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onViewField} type="button">
                 View Field
                 <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
               </button>
@@ -3562,21 +3563,21 @@ function DesktopHomeDashboard({
           </div>
         </DesktopPanel>
 
-        <DesktopPanel className="xl:min-h-[260px]" eyebrow="Table Activity">
-          <div className="grid h-full gap-4">
-            <div className="grid grid-cols-2 divide-x divide-y divide-[#EAF2FF] overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] xl:grid-cols-4 xl:divide-y-0">
+        <DesktopPanel className="min-h-[228px] xl:min-h-[238px]" eyebrow="Table Activity">
+          <div className="flex h-full flex-col justify-between gap-3">
+            <div className="grid min-h-[200px] grid-cols-2 divide-x divide-y divide-[#EAF2FF] overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] min-[1360px]:min-h-[126px] min-[1360px]:grid-cols-4 min-[1360px]:divide-y-0">
               {[
                 { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Scheduled", value: scheduledUpcomingCount },
                 { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Completed", value: loggedThisMonth.length },
                 { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Avg. Time / Table", value: averageThisMonthDuration ? formatLoggedTime(averageThisMonthDuration) : "—" },
                 { icon: <Sparkles className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Most Active Month", value: mostActiveMonth ? monthShortLabelFromKey(mostActiveMonth[0]) : "—" },
               ].map((metric) => (
-                <div className="flex min-h-[150px] flex-col items-center justify-center px-3 py-4 text-center" key={metric.label}>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                <div className="flex min-h-[100px] flex-col items-center justify-center px-2.5 py-3 text-center min-[1360px]:min-h-[126px]" key={metric.label}>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
                     {metric.icon}
                   </span>
-                  <span className="mt-3 text-xs font-medium text-[#334155]">{metric.label}</span>
-                  <span className="mt-3 text-2xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
+                  <span className="mt-3 text-[11px] font-semibold leading-4 text-[#334155]">{metric.label}</span>
+                  <span className="mt-2 text-2xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
                   {metric.label === "Most Active Month" && mostActiveMonth ? (
                     <span className="mt-2 text-xs font-semibold text-[#64748B]">{mostActiveMonth[1]} tables</span>
                   ) : null}
@@ -3591,12 +3592,12 @@ function DesktopHomeDashboard({
         </DesktopPanel>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-        <DesktopPanel eyebrow="Upcoming">
-          <div className="grid gap-2">
+      <div className="grid gap-3.5 min-[1180px]:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+        <DesktopPanel className="min-h-[206px]" eyebrow="Upcoming">
+          <div className="grid gap-1">
             {upcomingItems.slice(0, 3).length ? upcomingItems.slice(0, 3).map((item) => (
               <button
-                className="flex min-w-0 items-center gap-3 border-b border-[#EAF2FF] px-1 py-3 text-left last:border-b-0"
+                className="flex min-w-0 items-center gap-3 border-b border-[#EAF2FF] px-1 py-2.5 text-left last:border-b-0"
                 key={item.id}
                 onClick={() => {
                   if (item.meeting) {
@@ -3622,16 +3623,16 @@ function DesktopHomeDashboard({
               <p className="rounded-[20px] bg-[#F8FAFC] px-4 py-5 text-sm leading-6 text-[#64748B]">Nothing upcoming.</p>
             )}
           </div>
-          <button className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onOpenTableCalendar} type="button">
+          <button className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onOpenTableCalendar} type="button">
             View Calendar
             <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
           </button>
         </DesktopPanel>
 
-        <DesktopPanel eyebrow="Recent Fruit">
+        <DesktopPanel className="min-h-[206px]" eyebrow="Recent Fruit">
           <div className="grid gap-1">
             {recentFruitItems.length ? recentFruitItems.map((item) => (
-              <div className="flex min-w-0 items-center gap-3 border-b border-[#EAF2FF] px-1 py-3 last:border-b-0" key={item.id}>
+              <div className="flex min-w-0 items-center gap-3 border-b border-[#EAF2FF] px-1 py-2.5 last:border-b-0" key={item.id}>
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#ECFDF3] text-[#16A34A] ring-1 ring-[#D7F3DD]">
                   <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
                 </span>
@@ -3645,15 +3646,15 @@ function DesktopHomeDashboard({
               <p className="rounded-[20px] bg-[#F8FAFC] px-4 py-5 text-sm leading-6 text-[#64748B]">No recent fruit recorded yet.</p>
             )}
           </div>
-          <button className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onOpenFruit} type="button">
+          <button className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-[#2563EB]" onClick={onOpenFruit} type="button">
             View all
             <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
           </button>
         </DesktopPanel>
       </div>
 
-      <DesktopPanel className="mt-4" eyebrow="Top Time Investments">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(330px,0.65fr)] xl:items-center">
+      <DesktopPanel eyebrow="Top Time Investments">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)] xl:items-center">
           <div className="overflow-hidden rounded-[20px] border border-[#EAF2FF]">
             <div className="grid grid-cols-[64px_minmax(180px,1fr)_120px_140px] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
               <span>Rank</span>
@@ -3663,7 +3664,7 @@ function DesktopHomeDashboard({
             </div>
             {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
               <button
-                className="grid w-full grid-cols-[64px_minmax(180px,1fr)_120px_140px] items-center gap-3 border-b border-[#EAF2FF] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF]"
+                className="grid w-full grid-cols-[64px_minmax(180px,1fr)_120px_140px] items-center gap-3 border-b border-[#EAF2FF] px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF]"
                 key={item.person.id}
                 onClick={() => onOpenPerson(item.person.id)}
                 type="button"
@@ -3680,15 +3681,15 @@ function DesktopHomeDashboard({
               <p className="px-4 py-6 text-sm text-[#64748B]">No persisted table duration yet.</p>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             {[
               { icon: <Icon name="meetings" size={18} />, label: "Tables", value: loggedMeetings.length },
               { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total Time", value: formatDashboardDuration(totalDurationMinutes) },
               { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Avg. Time / Table", value: averageDuration ? formatLoggedTime(averageDuration) : "—" },
             ].map((metric) => (
-              <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-4 text-center" key={metric.label}>
-                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">{metric.icon}</span>
-                <span className="mt-3 block text-xl font-black text-[#0F172A]">{metric.value}</span>
+              <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3 text-center" key={metric.label}>
+                <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">{metric.icon}</span>
+                <span className="mt-2.5 block text-lg font-black text-[#0F172A]">{metric.value}</span>
                 <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
               </div>
             ))}
@@ -3696,8 +3697,8 @@ function DesktopHomeDashboard({
         </div>
       </DesktopPanel>
 
-      <DesktopPanel className="mt-4" eyebrow="Activity Trends">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <DesktopPanel eyebrow="Activity Trends">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-4 text-xs font-semibold text-[#334155]">
             <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#2563EB]" />Tables</span>
             <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#60A5FA]" />Time (Hours)</span>
@@ -3705,8 +3706,8 @@ function DesktopHomeDashboard({
           </div>
           <span className="rounded-[14px] border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#0F172A]">Last 12 Months</span>
         </div>
-        <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-4">
-          <svg className="h-[220px] w-full" viewBox={`0 0 ${trendWidth} ${trendHeight}`} role="img" aria-label="Activity trends for tables, hours, and fruit">
+        <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3">
+          <svg className="h-[170px] w-full" viewBox={`0 0 ${trendWidth} ${trendHeight}`} role="img" aria-label="Activity trends for tables, hours, and fruit">
             {[0, 1, 2, 3].map((line) => {
               const y = 34 + line * 36;
 
@@ -3726,6 +3727,7 @@ function DesktopHomeDashboard({
           </svg>
         </div>
       </DesktopPanel>
+      </div>
     </div>
   );
 }
