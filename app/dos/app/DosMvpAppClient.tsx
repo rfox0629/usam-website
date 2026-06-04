@@ -3733,10 +3733,10 @@ function DesktopHomeDashboard({
 }
 
 function DesktopMoreLauncher({
-  sections,
+  apps,
   onScriptureClick,
 }: {
-  sections: DosAppCatalogSection[];
+  apps: DesktopMoreAppItem[];
   onScriptureClick: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
@@ -3751,9 +3751,9 @@ function DesktopMoreLauncher({
           title="Apps for the work."
         />
       </div>
-      <div className="mt-5 space-y-6">
-        {sections.map((section) => (
-          <AppsCatalogSection key={section.label} section={section} />
+      <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-3">
+        {apps.map((item) => (
+          <DesktopMoreAppCard item={item} key={item.label} />
         ))}
       </div>
     </div>
@@ -12033,6 +12033,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const mobileAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
     .filter((item) => !["Missionary Profile", "Prayer Team", "Support Team", "Table Flow"].includes(item.label));
+  const desktopAppCatalogItems = appCatalogSections
+    .flatMap((section) => section.items)
+    .filter((item) => ["Fruit", "Library", "Reports", "Stewardship", "In Season"].includes(item.label));
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 
@@ -12434,7 +12437,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         <EmptyState text="Try a different app name." title="No apps found." />
                       )}
                     </div>
-                    <DesktopMoreLauncher onScriptureClick={openScriptureQuickView} sections={appCatalogSections} />
+                    <DesktopMoreLauncher apps={desktopAppCatalogItems} onScriptureClick={openScriptureQuickView} />
                   </>
                 ) : null}
 
