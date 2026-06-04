@@ -3224,100 +3224,54 @@ function DesktopRecentActivityPanel({
 
 function DesktopHomeDashboard({
   circleGroups,
-  greetingName,
-  homeSubtitle,
   isUsamApplicationPending,
   latestFruitActivity,
   latestMeeting,
   latestPrayerActivity,
   moreApps,
-  onAddPerson,
   onEditReminder,
-  onLogMeeting,
   onLogMeetingForPerson,
   onOpenFruit,
   onOpenMeeting,
   onOpenMeetings,
   onOpenPerson,
-  onOpenPrayer,
-  onOpenProfile,
   onScheduleMeeting,
   onSelectCircle,
   onViewCircles,
   onViewUsamStatus,
   people,
-  profileImageUrl,
-  profileName,
   nextStepItems,
   upcomingMeetings,
 }: {
   circleGroups: CircleLayerGroups;
-  greetingName: string;
-  homeSubtitle: string;
   isUsamApplicationPending: boolean;
   latestFruitActivity: { label: string } | null;
   latestMeeting: DosAppMeeting | undefined;
   latestPrayerActivity: { label: string; meetingId: string } | null;
   moreApps: DesktopMoreAppItem[];
-  onAddPerson: () => void;
   onEditReminder: (reminderId: string) => void;
-  onLogMeeting: () => void;
   onLogMeetingForPerson: (personId: string) => void;
   onOpenFruit: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenMeetings: () => void;
   onOpenPerson: (personId: string) => void;
-  onOpenPrayer: () => void;
-  onOpenProfile: () => void;
   onScheduleMeeting: (personId?: string | string[]) => void;
   onSelectCircle: (circle: CircleFocusView) => void;
   onViewCircles: () => void;
   onViewUsamStatus: () => void;
   people: DosAppPerson[];
-  profileImageUrl?: string | null;
-  profileName: string;
   nextStepItems: UpcomingTimelineItem[];
   upcomingMeetings: DosAppMeeting[];
 }) {
   return (
     <div className="hidden md:block">
-      <header className="flex items-center justify-between gap-5">
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-[#2563EB] xl:text-sm">Good afternoon, {greetingName}.</p>
-          <h1 className="mt-1 text-[30px] font-black leading-[0.95] tracking-[-0.035em] text-[#020617] xl:text-[36px]" style={{ fontFamily: font.oswald }}>
-            Discipleship on the go.
-          </h1>
-          <span className="mt-2 inline-flex rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-semibold leading-none text-[#64748B] shadow-[0_6px_14px_rgba(37,99,235,0.045)]">
-            {homeSubtitle}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <DesktopQuickActionButton icon="log" onClick={onLogMeeting} primary>Log Table</DesktopQuickActionButton>
-          <button
-            aria-label="Open profile"
-            className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/35"
-            onClick={onOpenProfile}
-            type="button"
-          >
-            <UserProfileAvatar imageUrl={profileImageUrl} name={profileName} />
-          </button>
-        </div>
-      </header>
-
-      <section className="mt-4 flex flex-wrap gap-2">
-        <DesktopQuickActionButton icon="add" onClick={onAddPerson}>Add Person</DesktopQuickActionButton>
-        <DesktopQuickActionButton icon="log" onClick={onLogMeeting}>Log Table</DesktopQuickActionButton>
-        <DesktopQuickActionButton icon="calendar" onClick={() => onScheduleMeeting()}>Schedule Table</DesktopQuickActionButton>
-        <DesktopQuickActionButton icon="prayer" onClick={onOpenPrayer}>Prayer Alert</DesktopQuickActionButton>
-      </section>
-
       {isUsamApplicationPending ? (
-        <div className="mt-4">
+        <div className="mb-4">
           <UsamPendingHomeCard onViewStatus={onViewUsamStatus} />
         </div>
       ) : null}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(0,1.25fr)_minmax(330px,0.75fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(0,1.25fr)_minmax(330px,0.75fr)]">
         <div className="grid gap-4">
           <DesktopUpcomingMeetingsCard
             meetings={upcomingMeetings}
@@ -11663,30 +11617,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               </div>
               <DesktopHomeDashboard
                 circleGroups={circlePeopleByLayer}
-                greetingName={greetingName}
-                homeSubtitle={homeSubtitle}
                 isUsamApplicationPending={isUsamApplicationPending}
                 latestFruitActivity={latestFruitActivity}
                 latestMeeting={latestMeeting}
                 latestPrayerActivity={latestPrayerActivity}
                 moreApps={desktopAppsPreview}
-                onAddPerson={() => openForm("person")}
                 onEditReminder={openReminderEdit}
-                onLogMeeting={() => openForm("meeting")}
                 onLogMeetingForPerson={openMeetingForPerson}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenMeeting={openMeetingDetail}
                 onOpenMeetings={() => setActiveTab("meetings")}
                 onOpenPerson={openPersonDetail}
-                onOpenPrayer={() => openMoreApp("prayer")}
-                onOpenProfile={() => setIsProfileOpen(true)}
                 onScheduleMeeting={openScheduleMeeting}
                 onSelectCircle={openPeopleCircle}
                 onViewCircles={() => openPeopleCircle("three")}
                 onViewUsamStatus={viewUsamApplicationStatus}
                 people={people}
-                profileImageUrl={data.workspace.profileImageUrl}
-                profileName={profileName}
                 nextStepItems={nextStepItems}
                 upcomingMeetings={upcomingScheduledMeetings}
               />
