@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Children, isValidElement, useEffect, useId, useMemo, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { ArrowRight, CheckCircle2, ChevronDown, Plus, Save, Trash2, Upload, Video } from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronDown, Eye, EyeOff, Plus, Save, Trash2, Upload, Video } from "lucide-react";
 import { relationshipContextOptions, roleInMyLifeOptions, type RelationshipContextValue, type RoleInMyLifeValue } from "@/src/lib/dos/relationship-model";
 
 type DependentStatus = "dependent" | "independent";
@@ -136,6 +136,17 @@ type ApplicationDraft = {
   setupPath: SetupPath;
   workspaceName: string;
   zip: string;
+};
+
+type PersistedApplicationDraft = Omit<ApplicationDraft, "confirmPassword" | "password">;
+
+type JoinSubmitResponse = {
+  applicationId?: string;
+  error?: string;
+  status?: string;
+  workspaceHref?: string;
+  workspaceId?: string;
+  workspaceSlug?: string;
 };
 
 type StepId =
@@ -333,6 +344,13 @@ const initialDraft: ApplicationDraft = {
   zip: "",
 };
 
+function draftForPersistence(draft: ApplicationDraft): PersistedApplicationDraft {
+  const { confirmPassword: _confirmPassword, password: _password, ...persistedDraft } = draft;
+
+  // Regression guard: account passwords are intentionally excluded from every localStorage draft/submission payload.
+  return persistedDraft;
+}
+
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.round(Math.random() * 10000)}`;
 }
@@ -376,10 +394,11 @@ function mergeDraft(value: Partial<ApplicationDraft> | null): ApplicationDraft {
     return initialDraft;
   }
 
+  const { confirmPassword: _confirmPassword, password: _password, ...persistedValue } = value;
   const supportNeed = normalizeSupportNeed(value.supportNeed);
   const supportBudget = {
     ...initialDraft.supportBudget,
-    ...(value.supportBudget ?? {}),
+    ...(persistedValue.supportBudget ?? {}),
   };
 
   if (!supportBudget.savings && supportBudget.retirement) {
@@ -388,10 +407,12 @@ function mergeDraft(value: Partial<ApplicationDraft> | null): ApplicationDraft {
 
   return {
     ...initialDraft,
-    ...value,
+    ...persistedValue,
+    confirmPassword: "",
     donationLinkPreference: donationLinkForSupportNeed(supportNeed, value.donationLinkPreference),
     familyMembers: Array.isArray(value.familyMembers) ? value.familyMembers : initialDraft.familyMembers,
     my3People: Array.isArray(value.my3People) ? value.my3People : initialDraft.my3People,
+    password: "",
     prayerPartners: Array.isArray(value.prayerPartners) && value.prayerPartners.length ? value.prayerPartners : initialDraft.prayerPartners,
     prayerRequests: normalizePrayerRequests(value.prayerRequests),
     references: Array.isArray(value.references) && value.references.length ? value.references : initialDraft.references,
@@ -407,6 +428,57 @@ function progressPercent(stepIndex: number, totalSteps: number) {
 
 function cleanMoney(value: string) {
   return value.replace(/[^\d.]/g, "");
+}
+
+function passwordRequirements(password: string) {
+  return [
+    {
+      label: "At least 8 characters",
+      met: password.length >= 8,
+    },
+    {
+      label: "Includes a number",
+      met: /\d/.test(password),
+    },
+    {
+      label: "Includes uppercase or symbol",
+      met: /[A-Z]/.test(password) || /[^A-Za-z0-9]/.test(password),
+    },
+  ];
+}
+
+function passwordStrength(password: string) {
+  const score = passwordRequirements(password).filter((requirement) => requirement.met).length;
+
+  if (score >= 3 && password.length >= 12) {
+    return {
+      barClassName: "bg-[#16A34A]",
+      label: "Strong",
+      width: "100%",
+    };
+  }
+
+  if (score >= 3) {
+    return {
+      barClassName: "bg-[#2563EB]",
+      label: "Good",
+      width: "76%",
+    };
+  }
+
+  if (score >= 2) {
+    return {
+      barClassName: "bg-[#F59E0B]",
+      label: "Fair",
+      width: "52%",
+    };
+  }
+
+  return {
+    barClassName: "bg-[#EF4444]",
+    label: "Weak",
+    width: password ? "28%" : "0%",
+  };
 }
 
 function moneyNumber(value: string) {
@@ -766,12 +838,16 @@ function validateStep(stepId: StepId, draft: ApplicationDraft) {
       return "Create a password.";
     }
 
-    if (draft.password.length < 6) {
-      return "Use at least 6 characters for your password.";
+    if (passwordRequirements(draft.password).some((requirement) => !requirement.met)) {
+      return "Use at least 8 characters, include a number, and include uppercase or a symbol.";
+    }
+
+    if (!draft.confirmPassword.trim()) {
+      return "Confirm your password.";
     }
 
     if (draft.password !== draft.confirmPassword) {
-      return "Password and confirmation must match.";
+      return "Passwords do not match yet.";
     }
   }
 
@@ -880,12 +956,14 @@ function OnboardingActionBar({
   backLabel = "Back",
   onBack,
   onPrimary,
+  primaryDisabled = false,
   primaryHref,
   primaryLabel,
 }: {
   backLabel?: string;
   onBack: () => void;
   onPrimary?: () => void;
+  primaryDisabled?: boolean;
   primaryHref?: string;
   primaryLabel: string;
 }) {
@@ -907,7 +985,7 @@ function OnboardingActionBar({
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         ) : (
-          <button className={primaryClassName} onClick={onPrimary} type="button">
+          <button className={`${primaryClassName} disabled:cursor-not-allowed disabled:opacity-60`} disabled={primaryDisabled} onClick={onPrimary} type="button">
             {primaryLabel}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -959,6 +1037,7 @@ function OnboardingFlowShell({
   onBack,
   onPrimary,
   percent,
+  primaryDisabled,
   primaryHref,
   primaryLabel,
   saveState,
@@ -973,6 +1052,7 @@ function OnboardingFlowShell({
   onBack: () => void;
   onPrimary?: () => void;
   percent: number;
+  primaryDisabled?: boolean;
   primaryHref?: string;
   primaryLabel: string;
   saveState: SaveState;
@@ -1004,6 +1084,7 @@ function OnboardingFlowShell({
         backLabel={backLabel}
         onBack={onBack}
         onPrimary={onPrimary}
+        primaryDisabled={primaryDisabled}
         primaryHref={primaryHref}
         primaryLabel={primaryLabel}
       />
@@ -1077,6 +1158,9 @@ function ReviewSection({
 
 export function UsamJoinClient() {
   const [draft, setDraft] = useState<ApplicationDraft>(initialDraft);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [stage, setStage] = useState<FlowStage>("welcome");
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
@@ -1084,6 +1168,7 @@ export function UsamJoinClient() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState("");
+  const [submittedWorkspaceHref, setSubmittedWorkspaceHref] = useState("");
   const stepDefinitions = useMemo(() => stepDefinitionsFor(draft.setupPath), [draft.setupPath]);
   const currentStep = stepDefinitions[stepIndex] ?? stepDefinitions[0];
   const currentProgress = progressPercent(Math.min(stepIndex, stepDefinitions.length - 1), stepDefinitions.length);
@@ -1099,6 +1184,7 @@ export function UsamJoinClient() {
     setHasSavedDraft(false);
     setSaveState("saved");
     setLastSavedAt(new Date());
+    setSubmittedWorkspaceHref("");
     setError("");
     window.scrollTo({ behavior: "smooth", top: 0 });
   }
@@ -1116,6 +1202,7 @@ export function UsamJoinClient() {
       setSaveState("saved");
       setLastSavedAt(new Date());
       setHasLoadedDraft(true);
+      setSubmittedWorkspaceHref("");
 
       return;
     }
@@ -1135,6 +1222,7 @@ export function UsamJoinClient() {
       setSaveState("saved");
       setLastSavedAt(new Date());
       setHasLoadedDraft(true);
+      setSubmittedWorkspaceHref("");
 
       return;
     }
@@ -1162,6 +1250,14 @@ export function UsamJoinClient() {
     }
 
     if (submittedDraft) {
+      try {
+        const submitted = JSON.parse(submittedDraft) as { workspaceHref?: string };
+
+        setSubmittedWorkspaceHref(typeof submitted.workspaceHref === "string" ? submitted.workspaceHref : "");
+      } catch {
+        setSubmittedWorkspaceHref("");
+      }
+
       setStage("submitted");
     }
 
@@ -1179,7 +1275,7 @@ export function UsamJoinClient() {
 
     setSaveState("saving");
     const timeout = window.setTimeout(() => {
-      window.localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+      window.localStorage.setItem(draftStorageKey, JSON.stringify(draftForPersistence(draft)));
       window.localStorage.setItem(stepStorageKey, currentStep.id);
       setHasSavedDraft(true);
       setSaveState("saved");
@@ -1391,7 +1487,11 @@ export function UsamJoinClient() {
     });
   }
 
-  function submit() {
+  async function submit() {
+    if (isSubmitting) {
+      return;
+    }
+
     const validationError = validateStep(currentStep.id, draft);
 
     if (validationError) {
@@ -1408,7 +1508,7 @@ export function UsamJoinClient() {
     const submittedSupportGoal = submittedSupportSummary.selectedGoal > 0
       ? draft.supportGoal.trim()
       : String(submittedSupportSummary.roundedGoal);
-    const applicationDraft = {
+    const applicationDraft: ApplicationDraft = {
       ...draft,
       donationLinkPreference: donationLinkForSupportNeed(draft.supportNeed, draft.donationLinkPreference),
       prayerRequests: draft.prayerRequests.map((request) => ({
@@ -1419,22 +1519,80 @@ export function UsamJoinClient() {
       supportMonthlyNeed: draft.supportNeed === "yes" ? String(submittedSupportSummary.personalTotal + submittedSupportSummary.ministryTotal) : "",
       workspaceName: generatedWorkspaceName(draft),
     };
+    const persistedApplicationDraft = draftForPersistence(applicationDraft);
+
+    if (applicationDraft.setupPath === "usam") {
+      setIsSubmitting(true);
+      setError("");
+
+      try {
+        const response = await fetch("/api/join/submit", {
+          body: JSON.stringify({
+            ...applicationDraft,
+            selectedPath: "usam",
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const result = await response.json() as JoinSubmitResponse;
+
+        if (!response.ok) {
+          setError(result.error ?? "Unable to submit the application right now.");
+          return;
+        }
+
+        const submittedDraft = {
+          application: persistedApplicationDraft,
+          applicationId: result.applicationId ?? null,
+          persistence: {
+            apiEndpoint: "/api/join/submit",
+            fallback: false,
+            photoStorage: "metadata_only",
+            schemaVersion: 1,
+            table: "usam_missionary_applications",
+          },
+          status: result.status ?? "pending_review",
+          submittedAt: new Date().toISOString(),
+          workspaceHref: result.workspaceHref ?? "",
+          workspaceId: result.workspaceId ?? "",
+          workspaceSlug: result.workspaceSlug ?? "",
+        };
+
+        window.localStorage.setItem(draftStorageKey, JSON.stringify(persistedApplicationDraft));
+        window.localStorage.setItem(submittedStorageKey, JSON.stringify(submittedDraft));
+        window.localStorage.setItem(stepStorageKey, currentStep.id);
+        setDraft({ ...applicationDraft, confirmPassword: "", password: "" });
+        setSubmittedWorkspaceHref(result.workspaceHref ?? "");
+        setStage("submitted");
+        setSaveState("saved");
+        setLastSavedAt(new Date());
+        setError("");
+        window.scrollTo({ behavior: "smooth", top: 0 });
+      } catch {
+        setError("Unable to submit the application right now. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
+
+      return;
+    }
 
     const submittedDraft = {
-      application: applicationDraft,
+      application: persistedApplicationDraft,
       persistence: {
         fallback: "localStorage",
-        // TODO: Replace this fallback with Supabase Auth account creation, Resend invite/email confirmation, Supabase application persistence, and Supabase Storage uploads for photos.
-        futureSupabaseTable: applicationDraft.setupPath === "organization" ? "organization_interests" : applicationDraft.setupPath === "usam" ? "usam_applications" : "dos_workspace_setups",
+        // TODO: Wire organization-interest persistence, applicant confirmation email, admin notification email, approval email, request-more-info email, and Supabase Storage uploads.
+        futureSupabaseTable: applicationDraft.setupPath === "organization" ? "organization_interests" : "dos_workspace_setups",
         schemaVersion: 1,
       },
       status: submittedStatus,
       submittedAt: new Date().toISOString(),
     };
 
-    window.localStorage.setItem(draftStorageKey, JSON.stringify(applicationDraft));
+    window.localStorage.setItem(draftStorageKey, JSON.stringify(persistedApplicationDraft));
     window.localStorage.setItem(submittedStorageKey, JSON.stringify(submittedDraft));
     window.localStorage.setItem(stepStorageKey, currentStep.id);
+    setDraft({ ...applicationDraft, confirmPassword: "", password: "" });
     setStage("submitted");
     setError("");
     window.scrollTo({ behavior: "smooth", top: 0 });
@@ -1442,6 +1600,10 @@ export function UsamJoinClient() {
 
   function renderStep() {
     if (currentStep.id === "account") {
+      const requirements = passwordRequirements(draft.password);
+      const strength = passwordStrength(draft.password);
+      const passwordsDoNotMatch = Boolean(draft.confirmPassword) && draft.password !== draft.confirmPassword;
+
       return (
         <SectionCard eyebrow="Account" title="Create your account">
           <div className="grid gap-3">
@@ -1450,14 +1612,75 @@ export function UsamJoinClient() {
               <input className={inputClassName} onChange={(event) => updateDraft({ accountEmail: event.target.value, contactEmail: event.target.value })} required type="email" value={draft.accountEmail} />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
+              <div className="block">
                 {fieldLabel("Password")}
-                <input className={inputClassName} onChange={(event) => updateDraft({ password: event.target.value })} required type="password" value={draft.password} />
-              </label>
-              <label className="block">
+                <div className="relative">
+                  <input
+                    className={`${inputClassName} pr-20`}
+                    onChange={(event) => updateDraft({ password: event.target.value })}
+                    required
+                    type={showPassword ? "text" : "password"}
+                    value={draft.password}
+                  />
+                  <button
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-2 top-1/2 inline-flex h-8 -translate-y-1/2 items-center gap-1.5 rounded-full px-2.5 text-xs font-black text-[#2563EB] hover:bg-white"
+                    onClick={() => setShowPassword((current) => !current)}
+                    type="button"
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+                <div className="mt-2 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-black text-[#0F172A]">Strength: {strength.label}</p>
+                    <p className="text-[11px] font-bold text-[#64748B]">{requirements.filter((requirement) => requirement.met).length}/3</p>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E2E8F0]">
+                    <div className={`h-full rounded-full transition-all ${strength.barClassName}`} style={{ width: strength.width }} />
+                  </div>
+                  <div className="mt-2 grid gap-1.5">
+                    {requirements.map((requirement) => (
+                      <div className={`flex items-center gap-2 text-xs font-bold ${requirement.met ? "text-[#166534]" : "text-[#64748B]"}`} key={requirement.label}>
+                        <CheckCircle2 className={`h-3.5 w-3.5 ${requirement.met ? "text-[#16A34A]" : "text-[#CBD5E1]"}`} aria-hidden="true" />
+                        {requirement.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="block">
                 {fieldLabel("Confirm password")}
-                <input className={inputClassName} onChange={(event) => updateDraft({ confirmPassword: event.target.value })} required type="password" value={draft.confirmPassword} />
-              </label>
+                <div className="relative">
+                  <input
+                    className={`${inputClassName} pr-20 ${passwordsDoNotMatch ? "border-red-300 bg-red-50 focus:border-red-400 focus:bg-white" : ""}`}
+                    onChange={(event) => updateDraft({ confirmPassword: event.target.value })}
+                    required
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={draft.confirmPassword}
+                  />
+                  <button
+                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    className="absolute right-2 top-1/2 inline-flex h-8 -translate-y-1/2 items-center gap-1.5 rounded-full px-2.5 text-xs font-black text-[#2563EB] hover:bg-white"
+                    onClick={() => setShowConfirmPassword((current) => !current)}
+                    type="button"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
+                    {showConfirmPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+                {passwordsDoNotMatch ? (
+                  <p className="mt-2 rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                    Passwords do not match yet.
+                  </p>
+                ) : draft.confirmPassword && draft.password === draft.confirmPassword ? (
+                  <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#166534]">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-[#16A34A]" aria-hidden="true" />
+                    Passwords match.
+                  </p>
+                ) : null}
+              </div>
             </div>
             <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
               <p className="font-bold text-[#0F172A]">Account setup pending activation.</p>
@@ -1968,20 +2191,20 @@ export function UsamJoinClient() {
         <SectionCard eyebrow="Photos" title="Add your profile photos">
           <div className="grid gap-3 sm:grid-cols-2">
             <UploadPlaceholder
-              helper="Used inside DOS and your profile review."
+              helper="Choose the image you want reviewed for DOS and your application profile."
               label="Profile Photo"
               name={draft.profilePhotoName}
               onChange={(name) => updateDraft({ profilePhotoName: name })}
             />
             <UploadPlaceholder
-              helper="Used on your public USA Missionaries profile if approved."
+              helper="Choose the public-facing image you want reviewed if your profile is approved."
               label="Family / Public Profile Photo"
               name={draft.familyPhotoName}
               onChange={(name) => updateDraft({ familyPhotoName: name })}
             />
           </div>
           <p className="mt-3.5 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-            You can upload the same image in both slots if it should serve both purposes. Public publishing still requires USA Missionaries approval.
+            We save the selected file names for review right now. Private photo storage will be connected before anything is published, and public publishing still requires USA Missionaries approval.
           </p>
         </SectionCard>
       );
@@ -2398,7 +2621,7 @@ export function UsamJoinClient() {
       ? "Your organization setup interest has been submitted. You can begin using DOS personally while the organization path is prepared."
       : "Your DOS setup is ready. Start stewarding the people God has placed in front of you.";
   const dosEntryHref = draft.setupPath === "usam"
-    ? "/dos/app?workspace=ryan-brooke-fox&walkthrough=usam"
+    ? submittedWorkspaceHref || "/dos/app?workspace=ryan-brooke-fox&walkthrough=usam"
     : "/dos/app?workspace=ryan-brooke-fox";
   const isSubmitStep = currentStep.id === "review" || currentStep.id === "organization_interest" || currentStep.id === "personal_finish";
   const submitLabel = currentStep.id === "review"
@@ -2406,7 +2629,7 @@ export function UsamJoinClient() {
     : currentStep.id === "organization_interest"
       ? "Submit organization interest"
       : "Finish Setup";
-  const primaryActionLabel = isSubmitStep ? submitLabel : "Continue";
+  const primaryActionLabel = isSubmitting && isSubmitStep ? "Submitting..." : isSubmitStep ? submitLabel : "Continue";
 
   function handleOnboardingKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (stage !== "flow" || event.key !== "Enter" || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -2510,7 +2733,7 @@ export function UsamJoinClient() {
             primaryHref={dosEntryHref}
             primaryLabel="Enter DOS and Begin"
             saveState={saveState}
-            subtitle="Saved locally for review handoff."
+            subtitle={draft.setupPath === "usam" ? "Submitted for USA Missionaries review." : "Saved locally for review handoff."}
           >
             <section className="rounded-[30px] border border-[#DCEBFF] bg-white p-5 shadow-[0_22px_62px_rgba(37,99,235,0.10)] sm:rounded-[32px] sm:p-7">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
@@ -2534,6 +2757,7 @@ export function UsamJoinClient() {
             onBack={back}
             onPrimary={isSubmitStep ? submit : next}
             percent={currentProgress}
+            primaryDisabled={isSubmitting}
             primaryLabel={primaryActionLabel}
             saveState={saveState}
             subtitle="You can leave and come back anytime."

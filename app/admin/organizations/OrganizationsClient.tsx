@@ -78,10 +78,14 @@ function StatusPill({ status }: { status: OrganizationSummary["status"] }) {
 }
 
 function OrganizationCard({ organization }: { organization: OrganizationSummary }) {
+  const href = organization.brandingMode === "usam" || organization.slug === "usa-missionaries"
+    ? "/admin/organizations/usam"
+    : `/admin/organizations/${organization.id}`;
+
   return (
     <Link
       className="group flex min-h-56 flex-col justify-between rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4 transition-colors hover:border-[#C9A24A]/60 hover:bg-[#C9A24A]/[0.04]"
-      href={`/admin/organizations/${organization.id}`}
+      href={href}
     >
       <span>
         <span className="flex items-start justify-between gap-3">

@@ -74,6 +74,7 @@ export type UsamApplicationSubmitPayload = {
   applicantName: string;
   applicantPhone: string;
   callingFocus: string;
+  contactPayload?: Record<string, unknown>;
   location: string;
   monthlyBudget: number | null;
   prayerNeeds: string;
@@ -378,16 +379,18 @@ export async function submitUsamApplication({
 }
 
 export async function submitUsamApplicationForSetup({
+  applicantUserId = null,
   payload,
   profileId,
   supabase,
 }: {
+  applicantUserId?: string | null;
   payload: UsamApplicationSubmitPayload;
   profileId: string;
   supabase: SupabaseAdminClient;
 }) {
   return writeUsamApplication({
-    applicantUserId: null,
+    applicantUserId,
     payload,
     profileId,
     supabase,
@@ -427,6 +430,7 @@ async function writeUsamApplication({
     applicant_user_id: applicantUserId,
     calling_focus: cleanText(payload.callingFocus),
     contact_payload: {
+      ...(payload.contactPayload ?? {}),
       email: cleanText(payload.applicantEmail),
       phone: cleanText(payload.applicantPhone),
     },
