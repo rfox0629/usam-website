@@ -6649,15 +6649,24 @@ function questionResponseLabel(question: DosConversationQuestion, value: DosConv
   return answerLabel(value as DosConversationAnswer | undefined);
 }
 
+function conversationFlowPreviewPrompts(flow: NonNullable<ReturnType<typeof getConversationFlowDefinition>>) {
+  return flow.sections
+    .flatMap((section) => section.questions)
+    .map((question) => question.prompt ?? question.label)
+    .slice(0, 3);
+}
+
 function ConversationFlowExperience({
   flowKey,
   onResponseChange,
   onToggleFollowUpAction,
+  recommendedResources,
   responses,
 }: {
   flowKey: DosConversationFlowKey;
   onResponseChange: (questionId: string, value: DosConversationResponseValue | undefined) => void;
   onToggleFollowUpAction: (actionId: string) => void;
+  recommendedResources: DosRecommendedResource[];
   responses: DosConversationResponses;
 }) {
   const flow = getConversationFlowDefinition(flowKey);
@@ -6670,75 +6679,123 @@ function ConversationFlowExperience({
     return null;
   }
 
-  return (
-    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold text-[#0F172A]">{flow.title}</p>
-          <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{flow.description}</p>
-        </div>
-        {temperature ? (
-          <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-            {temperature}
-          </span>
-        ) : null}
-      </div>
+  const guideResource = dosTableTeachingResources.find((resource) => resource.title === flow.title) ?? null;
+  const previewPrompts = conversationFlowPreviewPrompts(flow);
 
-      <div className="mt-3 grid gap-3">
-        {flow.sections.map((section) => (
-          <div className="grid gap-2" key={section.id}>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-                {section.title}
-              </p>
-              {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
-            </div>
-            {section.questions.map((question) => (
-              <ConversationQuestionCard
-                key={question.id}
-                onResponseChange={onResponseChange}
-                question={question}
-                value={responses[question.id]}
-              />
+  return (
+    <section className="grid gap-2.5 rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-2.5 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
+      <div className="rounded-[20px] border border-[#DCEBFF] bg-white p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+              Conversation Flow
+            </p>
+            <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{flow.title}</p>
+            <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.description}</p>
+          </div>
+          {temperature ? (
+            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              {temperature}
+            </span>
+          ) : null}
+        </div>
+
+        {previewPrompts.length ? (
+          <div className="mt-3 grid gap-1.5">
+            {previewPrompts.map((prompt, index) => (
+              <div className="flex gap-2 rounded-2xl bg-[#F8FAFC] p-2.5 text-xs leading-5 text-[#475569]" key={`${flow.id}-prompt-${index}`}>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[10px] font-black text-[#1D4ED8]">
+                  {index + 1}
+                </span>
+                <span>{prompt}</span>
+              </div>
             ))}
           </div>
-        ))}
-
-        {flow.closingPrompt || flow.gospelInvitation ? (
-          <div className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              Gospel Invitation
-            </p>
-            {flow.closingPrompt ? <p className="mt-2 text-sm font-semibold leading-5 text-[#0F172A]">{flow.closingPrompt}</p> : null}
-            {flow.gospelInvitation ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.gospelInvitation}</p> : null}
-          </div>
         ) : null}
 
-        {flow.followUpActions?.length ? (
-          <div className="rounded-2xl bg-[#F1F5F9] p-2.5">
-            <p className="text-sm font-semibold text-[#0F172A]">Follow-up</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {flow.followUpActions.map((action) => {
-                const selected = selectedFollowUpActions.includes(action.id);
-
-                return (
-                  <button
-                    aria-pressed={selected}
-                    className={`min-h-8 rounded-full border px-3 text-xs font-bold ${
-                      selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#0F172A]"
-                    }`}
-                    key={action.id}
-                    onClick={() => onToggleFollowUpAction(action.id)}
-                    type="button"
-                  >
-                    {action.label}
-                  </button>
-                );
-              })}
-            </div>
+        {guideResource || recommendedResources.length ? (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {guideResource ? (
+              <a
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]"
+                href={guideResource.href}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+                Open guide
+              </a>
+            ) : null}
+            {recommendedResources.slice(0, 3).map((resource) => (
+              <span className="inline-flex min-h-8 items-center rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#0F172A]" key={resource.id}>
+                {resource.title}
+              </span>
+            ))}
           </div>
         ) : null}
       </div>
+
+      <details className="group rounded-[20px] border border-[#E2E8F0] bg-white p-3">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-[#0F172A] [&::-webkit-details-marker]:hidden">
+          <span>Capture guided responses</span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.9} />
+        </summary>
+        <div className="mt-3 grid gap-3">
+          {flow.sections.map((section) => (
+            <div className="grid gap-2" key={section.id}>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+                  {section.title}
+                </p>
+                {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
+              </div>
+              {section.questions.map((question) => (
+                <ConversationQuestionCard
+                  key={question.id}
+                  onResponseChange={onResponseChange}
+                  question={question}
+                  value={responses[question.id]}
+                />
+              ))}
+            </div>
+          ))}
+
+          {flow.closingPrompt || flow.gospelInvitation ? (
+            <div className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                Gospel Invitation
+              </p>
+              {flow.closingPrompt ? <p className="mt-2 text-sm font-semibold leading-5 text-[#0F172A]">{flow.closingPrompt}</p> : null}
+              {flow.gospelInvitation ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.gospelInvitation}</p> : null}
+            </div>
+          ) : null}
+
+          {flow.followUpActions?.length ? (
+            <div className="rounded-2xl bg-[#F1F5F9] p-2.5">
+              <p className="text-sm font-semibold text-[#0F172A]">Follow-up</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {flow.followUpActions.map((action) => {
+                  const selected = selectedFollowUpActions.includes(action.id);
+
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`min-h-8 rounded-full border px-3 text-xs font-bold ${
+                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#0F172A]"
+                      }`}
+                      key={action.id}
+                      onClick={() => onToggleFollowUpAction(action.id)}
+                      type="button"
+                    >
+                      {action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </details>
     </section>
   );
 }
@@ -7471,6 +7528,7 @@ function MeetingFormContent({
           flowKey={selectedConversationFlow}
           onResponseChange={onConversationResponse}
           onToggleFollowUpAction={onToggleFollowUpAction}
+          recommendedResources={recommendedResources}
           responses={conversationResponses}
         />
       ) : null}
@@ -7483,7 +7541,7 @@ function MeetingFormContent({
       ) : (
         <MeetingCaptureNotes defaultValue={notesDefault} />
       )}
-      <MeetingRecommendationsPreview resources={recommendedResources} />
+      {selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
     </form>
@@ -12395,6 +12453,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     void (async () => {
       const result = await submitJson("/api/dos/app/meetings", {
+        // TODO: Later allow scheduling with a planned conversation flow; capture responses during Log Table.
         conversationFlowKey: "none",
         conversationResponses: {},
         fieldPersonIds: selectedMeetingPersonIds,
