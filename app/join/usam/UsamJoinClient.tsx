@@ -1,19 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
-import { ArrowRight, CheckCircle2, ChevronDown, Home, Plus, Save, ShieldCheck, Smartphone, Sparkles, Trash2, Upload, Video } from "lucide-react";
+import { Children, isValidElement, useEffect, useId, useMemo, useState } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
+import { ArrowRight, CheckCircle2, ChevronDown, Plus, Save, Trash2, Upload, Video } from "lucide-react";
 import { relationshipContextOptions, roleInMyLifeOptions, type RelationshipContextValue, type RoleInMyLifeValue } from "@/src/lib/dos/relationship-model";
 
 type DependentStatus = "dependent" | "independent";
-type PrayerCategory = "Family" | "Financial" | "Health" | "Ministry" | "Other" | "Personal";
-type PrayerVisibility = "prayer_team" | "private" | "public_profile";
+type PrayerVisibility = "prayer_team";
 type StoryVersionKey = "original" | "polished" | "profile" | "short";
 type DonationLinkChoice = "general_usam" | "missionary_support" | "none";
 type SetupPath = "" | "organization" | "personal" | "usam";
-type SupportNeed = "no" | "not_sure" | "yes";
+type SupportNeed = "no" | "yes";
 type SupportGoalOption = "1000" | "2500" | "3500" | "5000" | "custom";
+
+type SupportBudgetDraft = {
+  childrenEducation: string;
+  communicationsSoftware: string;
+  debtPayments: string;
+  eventsGatherings: string;
+  foodHousehold: string;
+  givingTithe: string;
+  hospitalityMeals: string;
+  housing: string;
+  insuranceMedical: string;
+  localTravel: string;
+  otherMinistryNeeds: string;
+  otherPersonalNeeds: string;
+  retirement: string;
+  savings: string;
+  trainingResources: string;
+  transportation: string;
+  utilities: string;
+};
+
+type SupportBudgetKey = keyof SupportBudgetDraft;
 
 type My3PersonDraft = {
   email: string;
@@ -34,7 +55,6 @@ type FamilyMemberDraft = {
 };
 
 type PrayerRequestDraft = {
-  category: PrayerCategory;
   id: string;
   text: string;
   visibility: PrayerVisibility;
@@ -75,7 +95,6 @@ type ApplicationDraft = {
   currentlyRaisingSupport: string;
   donationLinkPreference: DonationLinkChoice;
   familyMembers: FamilyMemberDraft[];
-  familyPhotoId: string;
   familyPhotoName: string;
   firstName: string;
   fullAddress: string;
@@ -89,11 +108,9 @@ type ApplicationDraft = {
   password: string;
   prayerPartners: PrayerPartnerDraft[];
   prayerRequests: PrayerRequestDraft[];
-  profilePhotoId: string;
   profilePhotoName: string;
   polishedStoryDraft: string;
   references: ReferenceDraft[];
-  selectedPublicPhotoId: string;
   selectedStoryVersion: StoryVersionKey;
   spouseEmail: string;
   spouseFirstName: string;
@@ -101,13 +118,21 @@ type ApplicationDraft = {
   spouseName: string;
   spousePhone: string;
   state: string;
+  storyCallingToward: string;
+  storyDraftAccepted: boolean;
+  storyImpact: string;
+  storyJesus: string;
+  storyRecentTeaching: string;
   storyTestimony: string;
+  storyWhyUsam: string;
+  supportBudget: SupportBudgetDraft;
   supportCoverage: string;
   supportCommittedAmount: string;
   supportGoal: string;
   supportGoalOption: SupportGoalOption;
   supportMonthlyNeed: string;
   supportNeed: SupportNeed;
+  supportOtherMonthlyIncome: string;
   setupPath: SetupPath;
   workspaceName: string;
   zip: string;
@@ -141,7 +166,7 @@ const submittedStorageKey = "dos-unified-setup-submitted-v1";
 const baseStepDefinitions: ReadonlyArray<{ id: StepId; label: string; title: string }> = [
   { id: "account", label: "Login", title: "Create your login." },
   { id: "workspace", label: "Workspace", title: "Set up your workspace." },
-  { id: "path", label: "Path", title: "Choose your path." },
+  { id: "path", label: "Path", title: "What are you setting up?" },
 ];
 
 const usamStepDefinitions: ReadonlyArray<{ id: StepId; label: string; title: string }> = [
@@ -149,7 +174,7 @@ const usamStepDefinitions: ReadonlyArray<{ id: StepId; label: string; title: str
   { id: "photos", label: "Photos", title: "Add profile photos." },
   { id: "prayer", label: "Prayer", title: "Prayer partners and requests." },
   { id: "support", label: "Support", title: "Monthly support." },
-  { id: "references", label: "References", title: "Character references." },
+  { id: "references", label: "References", title: "Character References." },
   { id: "review", label: "Review", title: "Review your application." },
 ];
 
@@ -177,127 +202,206 @@ function stepDefinitionsFor(path: SetupPath) {
   return baseStepDefinitions;
 }
 
-const inputClassName = "mt-2 h-12 w-full rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-4 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white";
-const textareaClassName = "mt-2 min-h-36 w-full rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4 text-sm leading-7 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white";
-const selectClassName = `${inputClassName} appearance-none bg-white pr-11`;
+const inputClassName = "mt-2 h-11 w-full rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] px-3.5 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white";
+const supportInputClassName = "mt-1.5 h-10 w-full rounded-[14px] border border-[#DCEBFF] bg-white px-3 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-[#F8FBFF]";
+const textareaClassName = "mt-2 min-h-32 w-full rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5 text-sm leading-6 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white";
+const storyTextareaClassName = "mt-2 min-h-[84px] w-full rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white";
+const pageShellClassName = "mx-auto flex min-h-screen w-full max-w-[960px] flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-8";
+const contentWidthClassName = "mx-auto w-full max-w-[920px]";
+const joinDawnShellClassName = "bg-[radial-gradient(circle_at_78%_8%,rgba(219,234,254,0.92),transparent_34%),radial-gradient(circle_at_86%_92%,rgba(254,215,170,0.54),transparent_36%),radial-gradient(circle_at_48%_62%,rgba(221,214,254,0.48),transparent_42%),linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_48%,#FFF4EC_100%)]";
+
+type OptionElementProps = {
+  children?: ReactNode;
+  disabled?: boolean;
+  value?: number | string;
+};
+
+function optionText(value: ReactNode) {
+  return Children.toArray(value).join("");
+}
 
 const initialMy3People: My3PersonDraft[] = [
   {
-    email: "",
+    email: "jason.waage@example.com",
     id: "my3-seed-1",
-    name: "",
-    phone: "",
+    name: "Jason Waage",
+    phone: "612-555-0198",
     relationshipContext: "friend",
     roleInMyLife: "walking_with_them",
   },
   {
-    email: "",
+    email: "erica.morgan@example.com",
     id: "my3-seed-2",
-    name: "",
-    phone: "",
+    name: "Erica Morgan",
+    phone: "612-555-0144",
     relationshipContext: "family",
     roleInMyLife: "walking_with_them",
   },
   {
-    email: "",
+    email: "daniel.reyes@example.com",
     id: "my3-seed-3",
-    name: "",
-    phone: "",
+    name: "Daniel Reyes",
+    phone: "612-555-0182",
     relationshipContext: "church",
     roleInMyLife: "mentoring_me",
   },
 ];
 
 const initialDraft: ApplicationDraft = {
-  accountEmail: "",
-  addressLine1: "",
+  accountEmail: "brian.morgan@example.com",
+  addressLine1: "2146 Lyndale Ave S",
   addressLine2: "",
-  agreement: false,
-  basedIn: "",
-  callingFocus: "",
-  cellPhone: "",
-  city: "",
-  confirmPassword: "",
-  contactEmail: "",
+  agreement: true,
+  basedIn: "Minneapolis, MN",
+  callingFocus: "I want to help everyday disciples gather around tables, hear the gospel clearly, and keep walking with people after the first conversation.",
+  cellPhone: "612-555-0136",
+  city: "Minneapolis",
+  confirmPassword: "usam2026",
+  contactEmail: "brian.morgan@example.com",
   country: "United States",
   currentlyRaisingSupport: "starting",
-  donationLinkPreference: "none",
-  familyMembers: [],
-  familyPhotoId: "family-public-photo",
-  familyPhotoName: "",
-  firstName: "",
-  fullAddress: "",
-  lastName: "",
-  my3People: initialMy3People,
-  organizationContactEmail: "",
-  organizationContactPerson: "",
-  organizationMessage: "",
-  organizationName: "",
-  organizationType: "Church / ministry",
-  password: "",
-  prayerPartners: [
+  donationLinkPreference: "missionary_support",
+  familyMembers: [
     {
-      email: "",
-      firstName: "",
-      id: "prayer-partner-1",
-      lastName: "",
-      phone: "",
-      relationship: "",
+      age: "9",
+      dependentStatus: "dependent",
+      firstName: "Mia",
+      id: "family-demo-1",
+      lastName: "Morgan",
+      relationship: "Child",
     },
     {
-      email: "",
-      firstName: "",
-      id: "prayer-partner-2",
-      lastName: "",
-      phone: "",
-      relationship: "",
+      age: "6",
+      dependentStatus: "dependent",
+      firstName: "Eli",
+      id: "family-demo-2",
+      lastName: "Morgan",
+      relationship: "Child",
     },
   ],
-  polishedStoryDraft: "",
+  familyPhotoName: "morgan-family-public-photo.jpg",
+  firstName: "Brian",
+  fullAddress: "2146 Lyndale Ave S",
+  lastName: "Morgan",
+  my3People: initialMy3People,
+  organizationContactEmail: "brian.morgan@example.com",
+  organizationContactPerson: "Brian Morgan",
+  organizationMessage: "Our church is interested in using DOS to help small group leaders follow up with people faithfully.",
+  organizationName: "River Valley Church",
+  organizationType: "Church / ministry",
+  password: "usam2026",
+  prayerPartners: [
+    {
+      email: "aaron.meyers@example.com",
+      firstName: "Aaron",
+      id: "prayer-partner-1",
+      lastName: "Meyers",
+      phone: "612-555-0151",
+      relationship: "Pastor",
+    },
+  ],
+  polishedStoryDraft: "I met Jesus through ordinary people who kept showing up. Over time, kitchen-table conversations became the place where faith moved from theory into practice for me. I believe God is calling our family to help others learn the same simple rhythm: identify who is in front of us, walk with them, and disciple faithfully over time.",
   prayerRequests: [
     {
-      category: "Personal",
       id: "prayer-request-primary",
-      text: "",
+      text: "Pray for courage, consistency, and open doors as we begin gathering people around tables and training others to do the same.",
       visibility: "prayer_team",
     },
   ],
-  profilePhotoId: "profile-photo",
-  profilePhotoName: "",
+  profilePhotoName: "brian-morgan-headshot.jpg",
   references: [
     {
-      churchOrganization: "",
-      description: "",
-      email: "",
-      firstName: "",
+      churchOrganization: "River Valley Church",
+      description: "Aaron has known our family for several years and can speak to our character, church involvement, and desire to disciple faithfully.",
+      email: "aaron.meyers@example.com",
+      firstName: "Aaron",
       id: "reference-primary",
-      lastName: "",
-      phone: "",
-      relationship: "",
+      lastName: "Meyers",
+      phone: "612-555-0151",
+      relationship: "Pastor",
     },
   ],
-  selectedPublicPhotoId: "profile-photo",
-  selectedStoryVersion: "original",
-  spouseEmail: "",
-  spouseFirstName: "",
-  spouseLastName: "",
-  spouseName: "",
-  spousePhone: "",
-  state: "",
-  storyTestimony: "",
-  supportCoverage: "",
-  supportCommittedAmount: "",
-  supportGoal: "",
-  supportGoalOption: "custom",
-  supportMonthlyNeed: "",
-  supportNeed: "not_sure",
-  setupPath: "",
-  workspaceName: "",
-  zip: "",
+  selectedStoryVersion: "polished",
+  spouseEmail: "anna.morgan@example.com",
+  spouseFirstName: "Anna",
+  spouseLastName: "Morgan",
+  spouseName: "Anna Morgan",
+  spousePhone: "612-555-0162",
+  state: "MN",
+  storyCallingToward: "a life of hospitality, disciple-making, and training everyday believers to keep the gospel moving through ordinary relationships.",
+  storyDraftAccepted: true,
+  storyImpact: "I hope to impact families, neighbors, young adults, and church members who need someone to pray with them, sit at the table with them, and keep walking after the first conversation.",
+  storyJesus: "I came to know Jesus through ordinary people who faithfully showed up, opened Scripture, prayed with me, and helped faith move from ideas into real trust.",
+  storyRecentTeaching: "Recently God has been teaching me that discipleship is usually formed through consistency, humility, and small acts of obedience over time.",
+  storyTestimony: "I met Jesus through ordinary people who kept showing up. Over time, kitchen-table conversations became the place where faith moved from theory into practice for me. I believe God is calling our family to help others learn the same simple rhythm: identify who is in front of us, walk with them, and disciple faithfully over time.",
+  storyWhyUsam: "USA Missionaries gives language and structure to the mission I already feel stirring: meet people where they are, minister with prayer and presence, multiply discipleship rhythms, and make disciples who do the same.",
+  supportBudget: {
+    childrenEducation: "250",
+    communicationsSoftware: "",
+    debtPayments: "",
+    eventsGatherings: "250",
+    foodHousehold: "700",
+    givingTithe: "",
+    hospitalityMeals: "300",
+    housing: "1600",
+    insuranceMedical: "350",
+    localTravel: "250",
+    otherMinistryNeeds: "250",
+    otherPersonalNeeds: "400",
+    retirement: "",
+    savings: "200",
+    trainingResources: "200",
+    transportation: "350",
+    utilities: "300",
+  },
+  supportCoverage: "Monthly support would help cover local ministry time, training gatherings, travel, hospitality, and discipleship resources.",
+  supportCommittedAmount: "1750",
+  supportGoal: "3500",
+  supportGoalOption: "3500",
+  supportMonthlyNeed: "5000",
+  supportNeed: "yes",
+  supportOtherMonthlyIncome: "",
+  setupPath: "usam",
+  workspaceName: "Brian Morgan DOS",
+  zip: "55405",
 };
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.round(Math.random() * 10000)}`;
+}
+
+function normalizeSupportNeed(value: unknown): SupportNeed {
+  return value === "no" ? "no" : "yes";
+}
+
+function normalizeSetupPath(value: unknown): SetupPath {
+  return value === "organization" ? "organization" : "usam";
+}
+
+function donationLinkForSupportNeed(supportNeed: SupportNeed, currentChoice: unknown): DonationLinkChoice {
+  if (supportNeed === "yes") {
+    return "missionary_support";
+  }
+
+  return currentChoice === "none" || currentChoice === "general_usam"
+    ? currentChoice
+    : "general_usam";
+}
+
+function normalizePrayerRequests(value: unknown): PrayerRequestDraft[] {
+  if (!Array.isArray(value) || !value.length) {
+    return initialDraft.prayerRequests;
+  }
+
+  return value.map((request, index) => {
+    const draftRequest = request as Partial<PrayerRequestDraft>;
+
+    return {
+      id: typeof draftRequest.id === "string" && draftRequest.id ? draftRequest.id : createId(`prayer-request-${index}`),
+      text: typeof draftRequest.text === "string" ? draftRequest.text : "",
+      visibility: "prayer_team",
+    };
+  });
 }
 
 function mergeDraft(value: Partial<ApplicationDraft> | null): ApplicationDraft {
@@ -305,14 +409,28 @@ function mergeDraft(value: Partial<ApplicationDraft> | null): ApplicationDraft {
     return initialDraft;
   }
 
+  const supportNeed = normalizeSupportNeed(value.supportNeed);
+  const supportBudget = {
+    ...initialDraft.supportBudget,
+    ...(value.supportBudget ?? {}),
+  };
+
+  if (!supportBudget.savings && supportBudget.retirement) {
+    supportBudget.savings = supportBudget.retirement;
+  }
+
   return {
     ...initialDraft,
     ...value,
+    donationLinkPreference: donationLinkForSupportNeed(supportNeed, value.donationLinkPreference),
     familyMembers: Array.isArray(value.familyMembers) ? value.familyMembers : initialDraft.familyMembers,
     my3People: Array.isArray(value.my3People) ? value.my3People : initialDraft.my3People,
-    prayerPartners: Array.isArray(value.prayerPartners) && value.prayerPartners.length >= 2 ? value.prayerPartners : initialDraft.prayerPartners,
-    prayerRequests: Array.isArray(value.prayerRequests) && value.prayerRequests.length ? value.prayerRequests : initialDraft.prayerRequests,
+    prayerPartners: Array.isArray(value.prayerPartners) && value.prayerPartners.length ? value.prayerPartners : initialDraft.prayerPartners,
+    prayerRequests: normalizePrayerRequests(value.prayerRequests),
     references: Array.isArray(value.references) && value.references.length ? value.references : initialDraft.references,
+    setupPath: normalizeSetupPath(value.setupPath),
+    supportBudget,
+    supportNeed,
   };
 }
 
@@ -336,8 +454,109 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
+const householdBudgetFields: ReadonlyArray<{ key: SupportBudgetKey; label: string }> = [
+  { key: "housing", label: "Housing" },
+  { key: "foodHousehold", label: "Food / household" },
+  { key: "utilities", label: "Utilities" },
+  { key: "transportation", label: "Transportation" },
+  { key: "insuranceMedical", label: "Insurance / medical" },
+  { key: "childrenEducation", label: "Children / education" },
+  { key: "savings", label: "Savings / retirement" },
+  { key: "otherPersonalNeeds", label: "Other" },
+];
+
+const ministryBudgetFields: ReadonlyArray<{ key: SupportBudgetKey; label: string }> = [
+  { key: "hospitalityMeals", label: "Hospitality / meals" },
+  { key: "localTravel", label: "Travel" },
+  { key: "trainingResources", label: "Training / resources" },
+  { key: "eventsGatherings", label: "Events / gatherings" },
+  { key: "otherMinistryNeeds", label: "Other ministry" },
+];
+
+function supportBudgetTotal(budget: SupportBudgetDraft, fields: ReadonlyArray<{ key: SupportBudgetKey }>) {
+  return fields.reduce((total, field) => total + moneyNumber(budget[field.key]), 0);
+}
+
+function supportSummary(draft: ApplicationDraft) {
+  const personalTotal = supportBudgetTotal(draft.supportBudget, householdBudgetFields);
+  const ministryTotal = supportBudgetTotal(draft.supportBudget, ministryBudgetFields);
+  const currentCommittedSupport = moneyNumber(draft.supportCommittedAmount);
+  const otherMonthlyIncome = moneyNumber(draft.supportOtherMonthlyIncome);
+  const currentSupportAndIncome = currentCommittedSupport + otherMonthlyIncome;
+  const estimatedGap = Math.max(0, personalTotal + ministryTotal - currentCommittedSupport - otherMonthlyIncome);
+  const roundedGoal = estimatedGap > 0 ? Math.ceil(estimatedGap / 500) * 500 : 0;
+  const selectedGoal = moneyNumber(draft.supportGoal);
+  const suggestedGoal = selectedGoal || roundedGoal;
+
+  return {
+    currentCommittedSupport,
+    currentSupportAndIncome,
+    estimatedGap,
+    ministryTotal,
+    otherMonthlyIncome,
+    personalTotal,
+    roundedGoal,
+    selectedGoal,
+    suggestedGoal,
+  };
+}
+
+function generatedWorkspaceName(draft: ApplicationDraft) {
+  const firstName = draft.firstName.trim();
+  const lastName = draft.lastName.trim();
+  const spouseLastName = draft.spouseLastName.trim();
+
+  if (lastName && spouseLastName && spouseLastName.toLowerCase() === lastName.toLowerCase()) {
+    return `${lastName} Family`;
+  }
+
+  const personName = [firstName, lastName].filter(Boolean).join(" ");
+
+  return personName ? `${personName} DOS` : "Your DOS workspace";
+}
+
 function fieldLabel(value: string) {
   return <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2563EB]">{value}</span>;
+}
+
+function supportFieldLabel(value: string) {
+  return <span className="text-xs font-bold text-[#334155]">{value}</span>;
+}
+
+function OptionCard({
+  description,
+  onClick,
+  selected,
+  title,
+}: {
+  description: string;
+  onClick: () => void;
+  selected: boolean;
+  title: string;
+}) {
+  return (
+    <button
+      className={`min-h-[78px] rounded-[18px] border p-3 text-left transition-colors sm:p-3.5 ${
+        selected
+          ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_16px_34px_rgba(37,99,235,0.10)] ring-2 ring-[#BFDBFE]"
+          : "border-[#DCEBFF] bg-white hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block text-sm font-black leading-5 text-[#0F172A]">{title}</span>
+          <span className="mt-2 block text-xs leading-5 text-[#64748B]">{description}</span>
+        </span>
+        <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-black ${
+          selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#BFDBFE] bg-white text-transparent"
+        }`}>
+          ✓
+        </span>
+      </span>
+    </button>
+  );
 }
 
 function SelectField({
@@ -351,60 +570,147 @@ function SelectField({
   onChange: (value: string) => void;
   value: string;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const listboxId = useId();
+  const options = Children.toArray(children).flatMap((child) => {
+    if (!isValidElement<OptionElementProps>(child) || child.props.value === undefined) {
+      return [];
+    }
+
+    return [{
+      disabled: Boolean(child.props.disabled),
+      label: optionText(child.props.children) || String(child.props.value),
+      value: String(child.props.value),
+    }];
+  });
+  const selectedOption = options.find((option) => option.value === value) ?? options[0];
+
   return (
-    <label className="block">
+    <div
+      className="relative block"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsOpen(false);
+        }
+      }}
+    >
       {label ? fieldLabel(label) : null}
-      <span className="relative block">
-        <select className={selectClassName} onChange={(event) => onChange(event.target.value)} value={value}>
-          {children}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2563EB]" aria-hidden="true" />
-      </span>
-    </label>
+      <button
+        aria-controls={listboxId}
+        aria-expanded={isOpen}
+        className={`${inputClassName} flex items-center justify-between bg-white pr-4 text-left shadow-[0_8px_20px_rgba(37,99,235,0.04)]`}
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span className="truncate">{selectedOption?.label ?? "Select"}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-[#2563EB] transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+      {isOpen ? (
+        <div
+          className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-[22px] border border-[#BFDBFE] bg-white p-2 shadow-[0_24px_60px_rgba(37,99,235,0.18)]"
+          id={listboxId}
+          role="listbox"
+        >
+          <div className="max-h-64 overflow-y-auto pr-1">
+            {options.map((option) => {
+              const isSelected = option.value === value;
+
+              return (
+                <button
+                  aria-selected={isSelected}
+                  className={`flex min-h-11 w-full items-center justify-between rounded-[16px] px-3 text-left text-sm font-bold transition-colors ${
+                    isSelected
+                      ? "bg-[#EBF2FF] text-[#1D4ED8]"
+                      : "text-[#0F172A] hover:bg-[#F8FBFF]"
+                  } ${option.disabled ? "cursor-not-allowed opacity-45" : ""}`}
+                  disabled={option.disabled}
+                  key={option.value}
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                  role="option"
+                  type="button"
+                >
+                  <span>{option.label}</span>
+                  {isSelected ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2563EB] text-[11px] font-black text-white">✓</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
-function storyVersions(story: string) {
-  const cleanStory = story.trim() || "";
-  const shortStory = cleanStory.length > 210 ? `${cleanStory.slice(0, 210).trim()}...` : cleanStory;
-  const polishedStory = cleanStory
-    ? `Improved story draft: ${cleanStory}`
-    : "";
-
-  return {
-    original: cleanStory,
-    polished: polishedStory,
-    profile: shortStory,
-    short: shortStory,
-  } satisfies Record<StoryVersionKey, string>;
+function selectedStoryText(draft: ApplicationDraft) {
+  return draft.storyTestimony.trim() || draft.polishedStoryDraft.trim();
 }
 
-function selectedStoryText(draft: ApplicationDraft, versions: Record<StoryVersionKey, string>) {
-  return draft.polishedStoryDraft.trim() || versions.original;
+function sentence(value: string) {
+  const trimmed = value.trim();
+
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+function createMissionaryStoryDraft(draft: ApplicationDraft) {
+  const storyJesus = draft.storyJesus.trim() || "Jesus met me through faithful people who helped me see the gospel clearly.";
+  const recentTeaching = draft.storyRecentTeaching.trim() || "God has been teaching me to walk faithfully with people in ordinary, consistent ways.";
+  const whyUsam = draft.storyWhyUsam.trim() || "I want to join USA Missionaries because I believe in meeting, ministering, multiplying, and making disciples.";
+  const impact = draft.storyImpact.trim() || "I hope to impact the people God has placed in front of me.";
+  const calling = draft.storyCallingToward.trim() || "I believe God is calling me toward deeper discipleship, prayer, and mission.";
+
+  return [
+    `My story with Jesus began here: ${storyJesus}`,
+    `Recently, God has been teaching me this: ${recentTeaching}`,
+    `I want to join USA Missionaries because ${whyUsam}`,
+    `The people I hope to impact are ${impact}`,
+    `I believe God is calling me toward this next step: ${sentence(calling)} This is the story I want my life, ministry, public profile, and support page to tell: Jesus is still meeting people, forming disciples, and sending ordinary followers to keep the mission moving.`,
+  ].join("\n\n");
 }
 
 function supportNeedLabel(value: SupportNeed) {
   return {
-    no: "No, I am fully funded / do not need personal support",
-    not_sure: "Not sure yet",
-    yes: "Yes, I need monthly support",
+    no: "No, I do not need personal support",
+    yes: "Yes, help me estimate support",
   }[value];
 }
 
 function donationLinkLabel(value: DonationLinkChoice) {
   return {
-    general_usam: "Yes, but direct gifts to USA Missionaries / underfunded missionaries",
+    general_usam: "Support USA Missionaries",
     missionary_support: "Yes, for my missionary support",
-    none: "No donation link for now",
+    none: "No Giving Link",
   }[value];
 }
 
-function prayerVisibilityLabel(value: PrayerVisibility) {
-  return {
-    prayer_team: "Prayer team only",
-    private: "Private",
-    public_profile: "Public profile if approved",
-  }[value];
+const supportNeedOptions: ReadonlyArray<{ description: string; title: string; value: SupportNeed }> = [
+  {
+    description: "I want to estimate a monthly goal for household needs and ministry expenses.",
+    title: "Yes, help me estimate support",
+    value: "yes",
+  },
+  {
+    description: "I do not need a personal support goal right now.",
+    title: "No, I do not need personal support",
+    value: "no",
+  },
+];
+
+function donationLinkOptionsForNoSupport() {
+  return [
+    {
+      description: "Help direct supporters toward the broader mission and underfunded missionaries.",
+      title: "Support USA Missionaries",
+      value: "general_usam" as const,
+    },
+    {
+      description: "Do not display a giving option on your profile.",
+      title: "No Giving Link",
+      value: "none" as const,
+    },
+  ];
 }
 
 function autosaveLabel(saveState: SaveState, lastSavedAt: Date | null) {
@@ -419,13 +725,21 @@ function autosaveLabel(saveState: SaveState, lastSavedAt: Date | null) {
   return Date.now() - lastSavedAt.getTime() < 15_000 ? "Saved just now" : "All changes saved";
 }
 
+function shouldRestartJoinFlow() {
+  const searchParams = new URLSearchParams(window.location.search);
+
+  return searchParams.has("restart") || searchParams.has("reset") || searchParams.has("fresh") || searchParams.get("demo") === "1";
+}
+
 function ProgressStatusCard({
+  compact = false,
   label,
   lastSavedAt,
   percent,
   saveState,
   subtitle,
 }: {
+  compact?: boolean;
   label: string;
   lastSavedAt: Date | null;
   percent: number;
@@ -433,20 +747,20 @@ function ProgressStatusCard({
   subtitle: string;
 }) {
   return (
-    <div className="rounded-[28px] border border-[#DCEBFF] bg-white p-4 shadow-[0_18px_50px_rgba(37,99,235,0.07)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_14px_40px_rgba(37,99,235,0.06)] sm:rounded-[24px] ${compact ? "p-3 sm:p-3.5" : "p-3.5 sm:p-4"}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2563EB]">
             {percent}% complete · {label}
           </p>
-          <p className="mt-1 text-xs leading-5 text-[#64748B]">{subtitle}</p>
+          <p className={`${compact ? "mt-0.5" : "mt-1"} text-xs leading-5 text-[#64748B]`}>{subtitle}</p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#F8FBFF] px-3 py-2 text-xs font-bold text-[#64748B]">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#F8FBFF] px-3 py-1.5 text-xs font-bold text-[#64748B]">
           <Save className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" />
           {autosaveLabel(saveState, lastSavedAt)}
         </span>
       </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EBF2FF]">
+      <div className={`${compact ? "mt-2" : "mt-3"} h-1.5 overflow-hidden rounded-full bg-[#EBF2FF]`}>
         <div className="h-full rounded-full bg-[#2563EB] transition-all" style={{ width: `${percent}%` }} />
       </div>
     </div>
@@ -473,8 +787,8 @@ function validateStep(stepId: StepId, draft: ApplicationDraft) {
   }
 
   if (stepId === "workspace") {
-    if (!draft.firstName.trim() || !draft.lastName.trim() || !draft.contactEmail.trim() || !draft.cellPhone.trim() || !draft.workspaceName.trim()) {
-      return "Add your name, email, phone, and workspace name.";
+    if (!draft.firstName.trim() || !draft.lastName.trim() || !draft.contactEmail.trim() || !draft.cellPhone.trim()) {
+      return "Add your name, email, and phone.";
     }
 
     if (!draft.city.trim() || !draft.state.trim()) {
@@ -482,7 +796,7 @@ function validateStep(stepId: StepId, draft: ApplicationDraft) {
     }
   }
 
-  if (stepId === "path" && !draft.setupPath) {
+  if (stepId === "path" && draft.setupPath !== "usam" && draft.setupPath !== "organization") {
     return "Choose what you are setting up.";
   }
 
@@ -510,25 +824,33 @@ function validateStep(stepId: StepId, draft: ApplicationDraft) {
     return "Share why you feel called to USA Missionaries.";
   }
 
-  if (stepId === "story" && !draft.storyTestimony.trim()) {
-    return "Share at least a few sentences of your story.";
+  if (stepId === "story" && (!draft.storyDraftAccepted || !draft.storyTestimony.trim())) {
+    return "Create and accept your missionary story draft.";
+  }
+
+  if (stepId === "photos") {
+    if (!draft.profilePhotoName.trim() || !draft.familyPhotoName.trim()) {
+      return "Add both a profile photo and a family / public profile photo.";
+    }
   }
 
   if (stepId === "prayer") {
     const primaryPartner = draft.prayerPartners[0];
 
     if (!primaryPartner?.firstName.trim() || !primaryPartner.lastName.trim() || !primaryPartner.email.trim()) {
-      return "Add prayer partner 1 with first name, last name, and email.";
+      return "Add at least one prayer partner with first name, last name, and email.";
     }
 
     if (!draft.prayerRequests.some((request) => request.text.trim())) {
-      return "Add a prayer request.";
+      return "Add at least one prayer request.";
     }
   }
 
   if (stepId === "support") {
-    if (draft.supportNeed === "yes" && !draft.supportGoal.trim()) {
-      return "Add your suggested monthly support goal.";
+    const summary = supportSummary(draft);
+
+    if (draft.supportNeed === "yes" && summary.selectedGoal <= 0 && summary.roundedGoal <= 0) {
+      return "Add budget amounts or choose a monthly support goal.";
     }
   }
 
@@ -536,7 +858,7 @@ function validateStep(stepId: StepId, draft: ApplicationDraft) {
     const primaryReference = draft.references[0];
 
     if (!primaryReference?.firstName.trim() || !primaryReference.lastName.trim() || !primaryReference.email.trim() || !primaryReference.phone.trim() || !primaryReference.relationship.trim() || !primaryReference.description.trim()) {
-      return "Add reference 1 with name, email, phone, relationship, and a brief description.";
+      return "Add one character reference with name, email, phone, relationship, and a brief description.";
     }
   }
 
@@ -547,12 +869,155 @@ function validateStep(stepId: StepId, draft: ApplicationDraft) {
   return "";
 }
 
-function SectionCard({ children, eyebrow, title }: { children: ReactNode; eyebrow?: string; title: string }) {
+function SectionCard({ children, eyebrow, title }: { children: ReactNode; eyebrow?: string; title?: string }) {
   return (
-    <section className="rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(37,99,235,0.08)]">
+    <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_16px_42px_rgba(37,99,235,0.07)] sm:rounded-[24px] sm:p-4">
       {eyebrow ? <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2563EB]">{eyebrow}</p> : null}
-      <h2 className={`${eyebrow ? "mt-2" : ""} text-2xl font-black tracking-[-0.035em] text-[#020617]`}>{title}</h2>
-      <div className="mt-5">{children}</div>
+      {title ? <h2 className={`${eyebrow ? "mt-2" : ""} text-[22px] font-black leading-tight tracking-[-0.035em] text-[#020617] sm:text-2xl`}>{title}</h2> : null}
+      <div className={title || eyebrow ? "mt-3.5" : ""}>{children}</div>
+    </section>
+  );
+}
+
+function OnboardingFooter() {
+  return (
+    <footer className={`${contentWidthClassName} mt-auto py-4 text-center text-xs font-bold text-[#64748B] sm:py-5`}>
+      DOS <span className="px-1.5 text-[#93C5FD]">·</span> Powered by USA Missionaries
+    </footer>
+  );
+}
+
+function OnboardingActionBar({
+  backLabel = "Back",
+  onBack,
+  onPrimary,
+  primaryHref,
+  primaryLabel,
+}: {
+  backLabel?: string;
+  onBack: () => void;
+  onPrimary?: () => void;
+  primaryHref?: string;
+  primaryLabel: string;
+}) {
+  const primaryClassName = "inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] sm:w-48";
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#DCEBFF] bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 shadow-[0_-18px_42px_rgba(37,99,235,0.08)] backdrop-blur sm:px-6">
+      <div className={`${contentWidthClassName} grid grid-cols-2 gap-3 sm:flex sm:items-center sm:justify-between`}>
+        <button
+          className="inline-flex h-12 w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-5 text-sm font-black text-[#0F172A] sm:w-48"
+          onClick={onBack}
+          type="button"
+        >
+          {backLabel}
+        </button>
+        {primaryHref ? (
+          <Link className={primaryClassName} href={primaryHref}>
+            {primaryLabel}
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        ) : (
+          <button className={primaryClassName} onClick={onPrimary} type="button">
+            {primaryLabel}
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WelcomeActionBar({
+  hasSavedDraft,
+  onContinueDraft,
+  onStart,
+}: {
+  hasSavedDraft: boolean;
+  onContinueDraft: () => void;
+  onStart: () => void;
+}) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#DCEBFF] bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 shadow-[0_-18px_42px_rgba(37,99,235,0.08)] backdrop-blur sm:px-6">
+      <div className={`${contentWidthClassName} grid gap-3 ${hasSavedDraft ? "grid-cols-2" : "sm:flex sm:justify-end"}`}>
+        {hasSavedDraft ? (
+          <button
+            className="inline-flex h-12 w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-5 text-sm font-black text-[#2563EB] sm:w-48"
+            onClick={onContinueDraft}
+            type="button"
+          >
+            Continue saved draft
+          </button>
+        ) : null}
+        <button
+          className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] sm:w-48"
+          onClick={onStart}
+          type="button"
+        >
+          Start Setup
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OnboardingFlowShell({
+  backLabel,
+  children,
+  error,
+  label,
+  lastSavedAt,
+  onBack,
+  onPrimary,
+  percent,
+  primaryHref,
+  primaryLabel,
+  saveState,
+  subtitle,
+  title,
+}: {
+  backLabel?: string;
+  children: ReactNode;
+  error?: string;
+  label: string;
+  lastSavedAt: Date | null;
+  onBack: () => void;
+  onPrimary?: () => void;
+  percent: number;
+  primaryHref?: string;
+  primaryLabel: string;
+  saveState: SaveState;
+  subtitle: string;
+  title?: string;
+}) {
+  return (
+    <section className={`${contentWidthClassName} flex flex-1 flex-col pb-32`}>
+      <div className="sticky top-0 z-40 bg-white/45 pb-3 pt-3 backdrop-blur-md">
+        <ProgressStatusCard
+          compact
+          label={label}
+          lastSavedAt={lastSavedAt}
+          percent={percent}
+          saveState={saveState}
+          subtitle={subtitle}
+        />
+      </div>
+      <div className="py-4 sm:py-5">
+        {title ? (
+          <div className="mb-4">
+            <h1 className="text-[30px] font-black leading-[0.95] tracking-[-0.045em] text-[#020617] max-[360px]:text-[26px] sm:text-[40px]">{title}</h1>
+          </div>
+        ) : null}
+        {children}
+        {error ? <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      </div>
+      <OnboardingActionBar
+        backLabel={backLabel}
+        onBack={onBack}
+        onPrimary={onPrimary}
+        primaryHref={primaryHref}
+        primaryLabel={primaryLabel}
+      />
     </section>
   );
 }
@@ -562,26 +1027,19 @@ function UploadPlaceholder({
   label,
   name,
   onChange,
-  onSelectPublic,
-  photoId,
-  selectedPublicPhotoId,
 }: {
   helper: string;
   label: string;
   name: string;
   onChange: (name: string) => void;
-  onSelectPublic: () => void;
-  photoId: string;
-  selectedPublicPhotoId: string;
 }) {
   return (
-    <div className="flex h-full flex-col rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
-      <label className="block">
-        <span className="flex items-center gap-3">
+    <label className="flex h-full min-h-[252px] cursor-pointer flex-col rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5 transition-colors hover:border-[#BFDBFE] hover:bg-white">
+        <span className="grid min-h-[78px] grid-cols-[44px_1fr] items-start gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.08)]">
             <Upload className="h-5 w-5" aria-hidden="true" />
           </span>
-          <span>
+          <span className="min-w-0 pt-0.5">
             <span className="block text-sm font-black text-[#0F172A]">{label}</span>
             <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span>
           </span>
@@ -592,29 +1050,17 @@ function UploadPlaceholder({
           onChange={(event) => onChange(event.target.files?.[0]?.name ?? "")}
           type="file"
         />
-        <span className="mt-4 flex min-h-32 items-center justify-center rounded-[20px] border border-dashed border-[#BFDBFE] bg-white px-3 py-4 text-center text-sm font-semibold text-[#64748B]">
+        <span className="mt-3.5 flex h-32 shrink-0 items-center justify-center overflow-hidden rounded-[20px] border border-dashed border-[#BFDBFE] bg-white px-3 py-4 text-center text-sm font-semibold text-[#64748B]">
           {name ? (
-            <span>
+            <span className="min-w-0">
               <span className="block font-black text-[#0F172A]">Selected</span>
-              <span className="mt-1 block break-all text-xs">{name}</span>
+              <span className="mt-1 block break-all text-xs leading-5">{name}</span>
             </span>
           ) : (
             <span>Choose image file</span>
           )}
         </span>
       </label>
-      <button
-        className={`mt-auto inline-flex min-h-10 w-full items-center justify-center rounded-full border px-4 text-xs font-black ${
-          selectedPublicPhotoId === photoId
-            ? "border-[#2563EB] bg-[#2563EB] text-white"
-            : "border-[#BFDBFE] bg-white text-[#2563EB]"
-        }`}
-        onClick={onSelectPublic}
-        type="button"
-      >
-        {selectedPublicPhotoId === photoId ? "Selected for public profile" : "Use for public profile"}
-      </button>
-    </div>
   );
 }
 
@@ -628,7 +1074,7 @@ function ReviewSection({
   title: string;
 }) {
   return (
-    <section className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+    <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-black text-[#0F172A]">{title}</h3>
         <button className="rounded-full border border-[#BFDBFE] bg-white px-3 py-1.5 text-xs font-black text-[#2563EB]" onClick={onEdit} type="button">
@@ -649,13 +1095,42 @@ export function UsamJoinClient() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState("");
-  const [showImprovedStory, setShowImprovedStory] = useState(false);
   const stepDefinitions = useMemo(() => stepDefinitionsFor(draft.setupPath), [draft.setupPath]);
   const currentStep = stepDefinitions[stepIndex] ?? stepDefinitions[0];
   const currentProgress = progressPercent(Math.min(stepIndex, stepDefinitions.length - 1), stepDefinitions.length);
-  const versions = useMemo(() => storyVersions(draft.storyTestimony), [draft.storyTestimony]);
+
+  function resetJoinFlow() {
+    window.localStorage.removeItem(draftStorageKey);
+    window.localStorage.removeItem(stepStorageKey);
+    window.localStorage.removeItem(submittedStorageKey);
+    window.history.replaceState(null, "", "/join");
+    setDraft(initialDraft);
+    setStepIndex(0);
+    setStage("welcome");
+    setHasSavedDraft(false);
+    setSaveState("saved");
+    setLastSavedAt(new Date());
+    setError("");
+    window.scrollTo({ behavior: "smooth", top: 0 });
+  }
 
   useEffect(() => {
+    if (shouldRestartJoinFlow()) {
+      window.localStorage.removeItem(draftStorageKey);
+      window.localStorage.removeItem(stepStorageKey);
+      window.localStorage.removeItem(submittedStorageKey);
+      window.history.replaceState(null, "", "/join");
+      setDraft(initialDraft);
+      setStepIndex(0);
+      setStage("welcome");
+      setHasSavedDraft(false);
+      setSaveState("saved");
+      setLastSavedAt(new Date());
+      setHasLoadedDraft(true);
+
+      return;
+    }
+
     const savedDraft = window.localStorage.getItem(draftStorageKey);
     const savedStepId = window.localStorage.getItem(stepStorageKey);
     const submittedDraft = window.localStorage.getItem(submittedStorageKey);
@@ -694,7 +1169,7 @@ export function UsamJoinClient() {
   }, [stepDefinitions.length]);
 
   useEffect(() => {
-    if (!hasLoadedDraft) {
+    if (!hasLoadedDraft || stage === "welcome") {
       return;
     }
 
@@ -710,7 +1185,7 @@ export function UsamJoinClient() {
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [currentStep.id, draft, hasLoadedDraft]);
+  }, [currentStep.id, draft, hasLoadedDraft, stage]);
 
   function updateDraft(patch: Partial<ApplicationDraft>) {
     setDraft((current) => ({ ...current, ...patch }));
@@ -750,7 +1225,20 @@ export function UsamJoinClient() {
 
   function back() {
     setError("");
-    setStepIndex((current) => Math.max(current - 1, 0));
+
+    if (stepIndex === 0) {
+      setStage("welcome");
+      window.scrollTo({ behavior: "smooth", top: 0 });
+      return;
+    }
+
+    setStepIndex((current) => current - 1);
+    window.scrollTo({ behavior: "smooth", top: 0 });
+  }
+
+  function backFromSubmitted() {
+    setStage("flow");
+    setError("");
     window.scrollTo({ behavior: "smooth", top: 0 });
   }
 
@@ -794,17 +1282,82 @@ export function UsamJoinClient() {
     });
   }
 
-  function updatePrayerRequest(id: string, patch: Partial<PrayerRequestDraft>) {
+  function addPrayerPartner() {
     updateDraft({
-      prayerRequests: draft.prayerRequests.map((request) => request.id === id ? { ...request, ...patch } : request),
+      prayerPartners: [
+        ...draft.prayerPartners,
+        {
+          email: "",
+          firstName: "",
+          id: createId("prayer-partner"),
+          lastName: "",
+          phone: "",
+          relationship: "",
+        },
+      ],
     });
   }
 
-  function addReference() {
-    if (draft.references.length >= 2) {
-      return;
-    }
+  function removePrayerPartner(id: string) {
+    updateDraft({
+      prayerPartners: draft.prayerPartners.filter((partner) => partner.id !== id),
+    });
+  }
 
+  function updatePrayerRequest(id: string, patch: Partial<PrayerRequestDraft>) {
+    updateDraft({
+      prayerRequests: draft.prayerRequests.map((request) => request.id === id ? { ...request, ...patch, visibility: "prayer_team" } : request),
+    });
+  }
+
+  function addPrayerRequest() {
+    updateDraft({
+      prayerRequests: [
+        ...draft.prayerRequests,
+        {
+          id: createId("prayer-request"),
+          text: "",
+          visibility: "prayer_team",
+        },
+      ],
+    });
+  }
+
+  function removePrayerRequest(id: string) {
+    updateDraft({
+      prayerRequests: draft.prayerRequests.filter((request) => request.id !== id),
+    });
+  }
+
+  function updateSupportBudget(key: SupportBudgetKey, value: string) {
+    const nextBudget = {
+      ...draft.supportBudget,
+      [key]: cleanMoney(value),
+    };
+    const nextMonthlyNeed = supportBudgetTotal(nextBudget, householdBudgetFields) + supportBudgetTotal(nextBudget, ministryBudgetFields);
+
+    updateDraft({
+      supportBudget: nextBudget,
+      supportMonthlyNeed: String(nextMonthlyNeed),
+    });
+  }
+
+  function selectSupportNeed(value: SupportNeed) {
+    updateDraft(value === "yes"
+      ? {
+        donationLinkPreference: "missionary_support",
+        supportNeed: "yes",
+      }
+      : {
+        donationLinkPreference: donationLinkForSupportNeed("no", draft.donationLinkPreference),
+        supportGoal: "",
+        supportGoalOption: "custom",
+        supportMonthlyNeed: "",
+        supportNeed: "no",
+      });
+  }
+
+  function addReference() {
     updateDraft({
       references: [
         ...draft.references,
@@ -847,19 +1400,34 @@ export function UsamJoinClient() {
       : draft.setupPath === "organization"
         ? "organization_interest_submitted"
         : "dos_ready";
+    const submittedSupportSummary = supportSummary(draft);
+    const submittedSupportGoal = submittedSupportSummary.selectedGoal > 0
+      ? draft.supportGoal.trim()
+      : String(submittedSupportSummary.roundedGoal);
+    const applicationDraft = {
+      ...draft,
+      donationLinkPreference: donationLinkForSupportNeed(draft.supportNeed, draft.donationLinkPreference),
+      prayerRequests: draft.prayerRequests.map((request) => ({
+        ...request,
+        visibility: "prayer_team" as const,
+      })),
+      supportGoal: draft.supportNeed === "yes" ? submittedSupportGoal : "",
+      supportMonthlyNeed: draft.supportNeed === "yes" ? String(submittedSupportSummary.personalTotal + submittedSupportSummary.ministryTotal) : "",
+      workspaceName: generatedWorkspaceName(draft),
+    };
 
     const submittedDraft = {
-      application: draft,
+      application: applicationDraft,
       persistence: {
         fallback: "localStorage",
-        futureSupabaseTable: draft.setupPath === "organization" ? "organization_interests" : draft.setupPath === "usam" ? "usam_applications" : "dos_workspace_setups",
+        futureSupabaseTable: applicationDraft.setupPath === "organization" ? "organization_interests" : applicationDraft.setupPath === "usam" ? "usam_applications" : "dos_workspace_setups",
         schemaVersion: 1,
       },
       status: submittedStatus,
       submittedAt: new Date().toISOString(),
     };
 
-    window.localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+    window.localStorage.setItem(draftStorageKey, JSON.stringify(applicationDraft));
     window.localStorage.setItem(submittedStorageKey, JSON.stringify(submittedDraft));
     window.localStorage.setItem(stepStorageKey, currentStep.id);
     setStage("submitted");
@@ -871,12 +1439,12 @@ export function UsamJoinClient() {
     if (currentStep.id === "account") {
       return (
         <SectionCard eyebrow="Login" title="Create your DOS login">
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             <label className="block">
               {fieldLabel("Email")}
               <input className={inputClassName} onChange={(event) => updateDraft({ accountEmail: event.target.value, contactEmail: event.target.value })} required type="email" value={draft.accountEmail} />
             </label>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 {fieldLabel("Password")}
                 <input className={inputClassName} onChange={(event) => updateDraft({ password: event.target.value })} required type="password" value={draft.password} />
@@ -886,7 +1454,7 @@ export function UsamJoinClient() {
                 <input className={inputClassName} onChange={(event) => updateDraft({ confirmPassword: event.target.value })} required type="password" value={draft.confirmPassword} />
               </label>
             </div>
-            <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4 text-sm leading-7 text-[#475569]">
+            <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
               <p className="font-bold text-[#0F172A]">One login. One DOS workspace.</p>
               <p className="mt-1">Organizations and USA Missionaries can connect later as optional paths inside DOS.</p>
             </div>
@@ -898,96 +1466,107 @@ export function UsamJoinClient() {
     if (currentStep.id === "workspace") {
       return (
         <SectionCard eyebrow="Workspace" title="Create your DOS workspace">
-          <div className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+              <label className="block lg:col-span-3">
                 {fieldLabel("First name")}
                 <input className={inputClassName} onChange={(event) => updateDraft({ firstName: event.target.value })} required value={draft.firstName} />
               </label>
-              <label className="block">
+              <label className="block lg:col-span-3">
                 {fieldLabel("Last name")}
                 <input className={inputClassName} onChange={(event) => updateDraft({ lastName: event.target.value })} required value={draft.lastName} />
               </label>
-              <label className="block sm:col-span-2">
-                {fieldLabel("Workspace name")}
-                <input className={inputClassName} onChange={(event) => updateDraft({ workspaceName: event.target.value })} required value={draft.workspaceName} />
-              </label>
-              <label className="block">
+              <label className="block lg:col-span-3">
                 {fieldLabel("Email")}
                 <input className={inputClassName} onChange={(event) => updateDraft({ contactEmail: event.target.value, accountEmail: event.target.value })} required type="email" value={draft.contactEmail} />
               </label>
-              <label className="block">
+              <label className="block lg:col-span-3">
                 {fieldLabel("Phone")}
                 <input className={inputClassName} onChange={(event) => updateDraft({ cellPhone: event.target.value })} required type="tel" value={draft.cellPhone} />
               </label>
-              <label className="block sm:col-span-2">
+              <label className="block sm:col-span-2 lg:col-span-6">
                 {fieldLabel("Street address optional")}
                 <input className={inputClassName} onChange={(event) => updateDraft({ addressLine1: event.target.value, fullAddress: event.target.value })} value={draft.addressLine1 || draft.fullAddress} />
               </label>
-              <label className="block">
+              <label className="block lg:col-span-3">
                 {fieldLabel("City")}
                 <input className={inputClassName} onChange={(event) => updateDraft({ city: event.target.value })} required value={draft.city} />
               </label>
-              <label className="block">
+              <label className="block lg:col-span-1">
                 {fieldLabel("State")}
                 <input className={inputClassName} maxLength={2} onChange={(event) => updateDraft({ state: event.target.value.toUpperCase() })} required value={draft.state} />
               </label>
-              <label className="block">
+              <label className="block lg:col-span-2">
                 {fieldLabel("ZIP optional")}
                 <input className={inputClassName} onChange={(event) => updateDraft({ zip: event.target.value })} value={draft.zip} />
               </label>
             </div>
 
-            <div className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
-              <p className="text-sm font-black text-[#0F172A]">Spouse optional</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <input
-                  className={inputClassName}
-                  onChange={(event) => updateDraft({
-                    spouseFirstName: event.target.value,
-                    spouseName: [event.target.value, draft.spouseLastName].filter(Boolean).join(" "),
-                  })}
-                  placeholder="First name"
-                  value={draft.spouseFirstName}
-                />
-                <input
-                  className={inputClassName}
-                  onChange={(event) => updateDraft({
-                    spouseLastName: event.target.value,
-                    spouseName: [draft.spouseFirstName, event.target.value].filter(Boolean).join(" "),
-                  })}
-                  placeholder="Last name"
-                  value={draft.spouseLastName}
-                />
-                <input className={inputClassName} onChange={(event) => updateDraft({ spouseEmail: event.target.value })} placeholder="Email optional" type="email" value={draft.spouseEmail} />
-                <input className={inputClassName} onChange={(event) => updateDraft({ spousePhone: event.target.value })} placeholder="Phone optional" type="tel" value={draft.spousePhone} />
+            <div className="space-y-2">
+              {fieldLabel("Spouse")}
+              <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
+                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                  <label className="block">
+                    {fieldLabel("First name")}
+                    <input
+                      className={inputClassName}
+                      onChange={(event) => updateDraft({
+                        spouseFirstName: event.target.value,
+                        spouseName: [event.target.value, draft.spouseLastName].filter(Boolean).join(" "),
+                      })}
+                      value={draft.spouseFirstName}
+                    />
+                  </label>
+                  <label className="block">
+                    {fieldLabel("Last name")}
+                    <input
+                      className={inputClassName}
+                      onChange={(event) => updateDraft({
+                        spouseLastName: event.target.value,
+                        spouseName: [draft.spouseFirstName, event.target.value].filter(Boolean).join(" "),
+                      })}
+                      value={draft.spouseLastName}
+                    />
+                  </label>
+                  <label className="block">
+                    {fieldLabel("Email")}
+                    <input className={inputClassName} onChange={(event) => updateDraft({ spouseEmail: event.target.value })} type="email" value={draft.spouseEmail} />
+                  </label>
+                  <label className="block">
+                    {fieldLabel("Phone")}
+                    <input className={inputClassName} onChange={(event) => updateDraft({ spousePhone: event.target.value })} type="tel" value={draft.spousePhone} />
+                  </label>
+                </div>
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-black text-[#0F172A]">Children / dependents optional</p>
-                <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#2563EB]" onClick={addFamilyMember} type="button">
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  Add
-                </button>
-              </div>
+              {fieldLabel("Children")}
               {draft.familyMembers.length ? (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {draft.familyMembers.map((member, index) => (
-                    <div className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4" key={member.id}>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-black text-[#0F172A]">Child / dependent {index + 1}</p>
-                        <button aria-label="Remove child or dependent" className="rounded-full p-2 text-[#64748B] hover:bg-white hover:text-red-600" onClick={() => removeFamilyMember(member.id)} type="button">
-                          <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        </button>
-                      </div>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { firstName: event.target.value })} placeholder="First name" value={member.firstName} />
-                        <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { lastName: event.target.value })} placeholder="Last name" value={member.lastName} />
-                        <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { age: event.target.value })} placeholder="Age optional" value={member.age} />
-                        <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { relationship: event.target.value })} placeholder="Relationship" value={member.relationship} />
-                        <SelectField onChange={(value) => updateFamilyMember(member.id, { dependentStatus: value as DependentStatus })} value={member.dependentStatus}>
+                    <div className="relative rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-2.5 pr-9 sm:p-3 sm:pr-10" key={member.id}>
+                      <button aria-label={`Remove child ${index + 1}`} className="absolute right-2 top-2 rounded-full p-1.5 text-[#94A3B8] hover:bg-white hover:text-red-600" onClick={() => removeFamilyMember(member.id)} type="button">
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_74px_1fr_140px]">
+                        <label className="block">
+                          {fieldLabel("First name")}
+                          <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { firstName: event.target.value })} value={member.firstName} />
+                        </label>
+                        <label className="block">
+                          {fieldLabel("Last name")}
+                          <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { lastName: event.target.value })} value={member.lastName} />
+                        </label>
+                        <label className="block">
+                          {fieldLabel("Age")}
+                          <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { age: event.target.value })} value={member.age} />
+                        </label>
+                        <label className="block">
+                          {fieldLabel("Relationship")}
+                          <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { relationship: event.target.value })} value={member.relationship} />
+                        </label>
+                        <SelectField label="Dependent / Independent" onChange={(value) => updateFamilyMember(member.id, { dependentStatus: value as DependentStatus })} value={member.dependentStatus}>
                           <option value="dependent">Dependent</option>
                           <option value="independent">Independent</option>
                         </SelectField>
@@ -997,9 +1576,13 @@ export function UsamJoinClient() {
                 </div>
               ) : (
                 <p className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-                  You can skip this and add household members later.
+                  You can skip this and add children later.
                 </p>
               )}
+              <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#2563EB]" onClick={addFamilyMember} type="button">
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Add child
+              </button>
             </div>
           </div>
         </SectionCard>
@@ -1014,9 +1597,9 @@ export function UsamJoinClient() {
               Add the first three people you want to steward in DOS. You can edit these later.
             </p>
             {draft.my3People.map((person, index) => (
-              <div className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4" key={person.id}>
+              <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={person.id}>
                 <p className="text-sm font-black text-[#0F172A]">Person {index + 1}</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
                   <label className="block sm:col-span-2">
                     {fieldLabel("Name")}
                     <input className={inputClassName} onChange={(event) => updateMy3Person(person.id, { name: event.target.value })} value={person.name} />
@@ -1046,36 +1629,32 @@ export function UsamJoinClient() {
     if (currentStep.id === "path") {
       const pathOptions: Array<{ description: string; label: string; value: SetupPath }> = [
         {
-          description: "For individuals or households who want to steward relationships, prayer, meetings, and follow-up.",
-          label: "Use DOS Personally",
-          value: "personal",
-        },
-        {
-          description: "For people joining USA Missionaries as missionary disciple makers. Includes application, support, prayer, and profile review.",
-          label: "Apply with USA Missionaries",
+          description: "For invited missionary candidates completing their USA Missionaries onboarding, profile, prayer, support, and review process.",
+          label: "Complete USA Missionaries Setup",
           value: "usam",
         },
         {
-          description: "For churches, ministries, and teams interested in using DOS across their people.",
-          label: "Bring DOS to an Organization",
+          description: "For church, ministry, or team leaders interested in setting up DOS for their organization.",
+          label: "Bring DOS to My Organization",
           value: "organization",
         },
       ];
 
       return (
-        <SectionCard eyebrow="Path" title="Choose your path.">
-          <div className="grid gap-3">
+        <SectionCard eyebrow="Path" title="What are you setting up?">
+          <div className="space-y-3">
+            <p className="text-sm leading-6 text-[#475569]">Choose the path that matches your invitation.</p>
+            <div className="grid gap-3 md:grid-cols-2">
             {pathOptions.map((option) => (
-              <button
-                className={`rounded-[24px] border p-4 text-left transition-colors ${draft.setupPath === option.value ? "border-[#2563EB] bg-[#EBF2FF]" : "border-[#DCEBFF] bg-white hover:border-[#BFDBFE]"}`}
+              <OptionCard
+                description={option.description}
                 key={option.value}
                 onClick={() => updateDraft({ setupPath: option.value })}
-                type="button"
-              >
-                <span className="block text-base font-black text-[#0F172A]">{option.label}</span>
-                <span className="mt-2 block text-sm leading-6 text-[#64748B]">{option.description}</span>
-              </button>
+                selected={draft.setupPath === option.value}
+                title={option.label}
+              />
             ))}
+            </div>
           </div>
         </SectionCard>
       );
@@ -1084,10 +1663,10 @@ export function UsamJoinClient() {
     if (currentStep.id === "personal_finish") {
       return (
         <SectionCard eyebrow="DOS" title="Your DOS setup is ready">
-          <div className="space-y-3 text-sm leading-7 text-[#475569]">
+          <div className="space-y-3 text-sm leading-6 text-[#475569]">
             <p>Your workspace is ready. DOS will help you identify relationships, choose circles, pray, meet, and follow up once you enter.</p>
             <div className="grid gap-2">
-              <div className="rounded-2xl bg-[#F8FBFF] px-3 py-2"><span className="font-black text-[#0F172A]">Workspace:</span> {draft.workspaceName}</div>
+              <div className="rounded-2xl bg-[#F8FBFF] px-3 py-2"><span className="font-black text-[#0F172A]">Workspace:</span> {generatedWorkspaceName(draft)}</div>
               <div className="rounded-2xl bg-[#F8FBFF] px-3 py-2"><span className="font-black text-[#0F172A]">Path:</span> Use DOS personally</div>
             </div>
           </div>
@@ -1098,7 +1677,7 @@ export function UsamJoinClient() {
     if (currentStep.id === "organization_interest") {
       return (
         <SectionCard eyebrow="Organization Interest" title="Tell us about your organization">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="block sm:col-span-2">
               {fieldLabel("Organization name")}
               <input className={inputClassName} onChange={(event) => updateDraft({ organizationName: event.target.value })} required value={draft.organizationName} />
@@ -1133,7 +1712,7 @@ export function UsamJoinClient() {
     if (currentStep.id === "contact") {
       return (
         <SectionCard eyebrow="Contact/Profile" title="Contact and profile information">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               {fieldLabel("First name")}
               <input className={inputClassName} onChange={(event) => updateDraft({ firstName: event.target.value })} required value={draft.firstName} />
@@ -1178,11 +1757,11 @@ export function UsamJoinClient() {
     if (currentStep.id === "household") {
       return (
         <SectionCard eyebrow="Household" title="Your family is part of your field">
-          <div className="space-y-5">
-            <p className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4 text-sm leading-7 text-[#475569]">
+          <div className="space-y-4">
+            <p className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
               Your family is part of your field. These people can be added to your DOS contacts and organized into your discipleship circles later: My 3, My 12, My 70, or My 120.
             </p>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 {fieldLabel("Spouse first name")}
                 <input className={inputClassName} onChange={(event) => updateDraft({ spouseFirstName: event.target.value })} value={draft.spouseFirstName} />
@@ -1202,14 +1781,14 @@ export function UsamJoinClient() {
             </div>
             <div className="space-y-3">
               {draft.familyMembers.map((member, index) => (
-                <div className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4" key={member.id}>
+                <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={member.id}>
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-black text-[#0F172A]">Family member {index + 1}</p>
                     <button aria-label="Remove family member" className="rounded-full p-2 text-[#64748B] hover:bg-white hover:text-red-600" onClick={() => removeFamilyMember(member.id)} type="button">
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
                     <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { firstName: event.target.value })} placeholder="First name" value={member.firstName} />
                     <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { lastName: event.target.value })} placeholder="Last name" value={member.lastName} />
                     <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { age: event.target.value })} placeholder="Age optional" value={member.age} />
@@ -1222,8 +1801,8 @@ export function UsamJoinClient() {
                 </div>
               ))}
             </div>
-            <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-black text-[#2563EB]" onClick={addFamilyMember} type="button">
-              <Plus className="h-4 w-4" aria-hidden="true" />
+            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#2563EB]" onClick={addFamilyMember} type="button">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               Add another family member
             </button>
           </div>
@@ -1234,15 +1813,15 @@ export function UsamJoinClient() {
     if (currentStep.id === "phone") {
       return (
         <SectionCard eyebrow="Web app" title="Save DOS to your phone">
-          <div className="space-y-4">
-            <div className="flex min-h-44 items-center justify-center rounded-[24px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] text-center">
+          <div className="space-y-3">
+            <div className="flex min-h-36 items-center justify-center rounded-[22px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] text-center">
               <div>
                 <Video className="mx-auto h-8 w-8 text-[#2563EB]" aria-hidden="true" />
                 <p className="mt-3 text-sm font-black text-[#0F172A]">Tutorial: How to save DOS to your phone</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+              <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
                 <p className="font-black text-[#0F172A]">Apple</p>
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-[#475569]">
                   <li>Open this page in Safari</li>
@@ -1251,7 +1830,7 @@ export function UsamJoinClient() {
                   <li>Tap Add</li>
                 </ol>
               </div>
-              <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+              <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
                 <p className="font-black text-[#0F172A]">Android</p>
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-[#475569]">
                   <li>Open this page in Chrome</li>
@@ -1270,58 +1849,108 @@ export function UsamJoinClient() {
       return (
         <SectionCard eyebrow="Calling" title="Why do you feel called to USA Missionaries?">
           <p className="text-sm leading-7 text-[#64748B]">Keep this simple and honest. Tell us why this work feels timely and what field God has put on your heart.</p>
-          <textarea className={`${textareaClassName} min-h-56`} onChange={(event) => updateDraft({ callingFocus: event.target.value })} value={draft.callingFocus} />
+          <textarea className={`${textareaClassName} min-h-40`} onChange={(event) => updateDraft({ callingFocus: event.target.value })} value={draft.callingFocus} />
         </SectionCard>
       );
     }
 
     if (currentStep.id === "story") {
       return (
-        <SectionCard eyebrow="Testimony" title="Start with what God has done">
-          <div className="space-y-4">
-            <p className="text-sm leading-7 text-[#64748B]">
-              Do not worry about making this perfect. Start with what God has done in your life. You can improve and review your story before submitting.
+        <SectionCard>
+          <div className="space-y-3.5">
+            <p className="text-sm leading-6 text-[#334155]">
+              Tell us a little about your journey. Answer a few simple questions and we&apos;ll help organize them into a clear missionary story.
             </p>
-            <textarea className={`${textareaClassName} min-h-64`} onChange={(event) => updateDraft({ storyTestimony: event.target.value })} placeholder="Share your story or testimony..." value={draft.storyTestimony} />
-            <div className="grid gap-2 sm:grid-cols-3">
-              <button className="cursor-not-allowed rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-4 py-3 text-sm font-black text-[#94A3B8]" disabled type="button">Record coming soon</button>
-              <label className="rounded-full border border-[#DCEBFF] bg-white px-4 py-3 text-center text-sm font-black text-[#0F172A]">
-                Upload written testimony
-                <input
-                  accept=".txt,.md,text/plain"
-                  className="sr-only"
-                  onChange={async (event) => {
-                    const file = event.target.files?.[0];
 
-                    if (file) {
-                      updateDraft({ storyTestimony: await file.text() });
-                    }
-                  }}
-                  type="file"
-                />
-              </label>
+            <div className="space-y-3">
+              {[
+                {
+                  key: "storyJesus",
+                  onChange: (value: string) => updateDraft({ storyJesus: value, storyDraftAccepted: false }),
+                  placeholder: "Tell us about your faith journey, salvation experience, or the people God used in your life.",
+                  question: "How did you come to know Jesus?",
+                  value: draft.storyJesus,
+                },
+                {
+                  key: "storyRecentTeaching",
+                  onChange: (value: string) => updateDraft({ storyRecentTeaching: value, storyDraftAccepted: false }),
+                  placeholder: "Share a lesson, challenge, breakthrough, or season of growth.",
+                  question: "What has God been teaching you recently?",
+                  value: draft.storyRecentTeaching,
+                },
+                {
+                  key: "storyWhyUsam",
+                  onChange: (value: string) => updateDraft({ storyWhyUsam: value, storyDraftAccepted: false }),
+                  placeholder: "What about the mission of meeting, ministering, multiplying, and making disciples resonates with you?",
+                  question: "Why do you want to join USA Missionaries?",
+                  value: draft.storyWhyUsam,
+                },
+                {
+                  key: "storyImpact",
+                  onChange: (value: string) => updateDraft({ storyImpact: value, storyDraftAccepted: false }),
+                  placeholder: "Families, neighbors, young adults, church members, coworkers, a specific community, etc.",
+                  question: "Who are you hoping to impact?",
+                  value: draft.storyImpact,
+                },
+                {
+                  key: "storyCallingToward",
+                  onChange: (value: string) => updateDraft({ storyCallingToward: value, storyDraftAccepted: false }),
+                  placeholder: "Describe any calling, burden, vision, or ministry direction you sense.",
+                  question: "What do you believe God is calling you toward?",
+                  value: draft.storyCallingToward,
+                },
+              ].map((prompt) => (
+                <label className="block" key={prompt.key}>
+                  <span className="block text-sm font-black text-[#0F172A]">{prompt.question}</span>
+                  <textarea
+                    className={storyTextareaClassName}
+                    onChange={(event) => prompt.onChange(event.target.value)}
+                    placeholder={prompt.placeholder}
+                    value={prompt.value}
+                  />
+                </label>
+              ))}
+            </div>
+
+            <div className="flex">
               <button
-                className="rounded-full bg-[#0F172A] px-4 py-3 text-sm font-black text-white"
-                onClick={() => {
-                  updateDraft({ polishedStoryDraft: draft.polishedStoryDraft || versions.polished, selectedStoryVersion: "polished" });
-                  setShowImprovedStory(true);
-                }}
+                className="h-11 w-full rounded-full bg-[#0F172A] px-5 text-sm font-black text-white sm:w-auto"
+                onClick={() => updateDraft({
+                  polishedStoryDraft: createMissionaryStoryDraft(draft),
+                  storyDraftAccepted: false,
+                  storyTestimony: "",
+                })}
                 type="button"
               >
-                Improve Story
+                Create My Story
               </button>
             </div>
-            {showImprovedStory ? (
-              <div className="grid gap-3">
-                <div className="rounded-[22px] border border-[#BFDBFE] bg-[#EBF2FF] p-4">
-                  <p className="text-sm font-black text-[#0F172A]">Improved Story Draft</p>
-                  <p className="mt-1 text-xs leading-5 text-[#64748B]">Review or edit this draft before continuing.</p>
-                  <textarea
-                    className={`${textareaClassName} min-h-44 bg-white`}
-                    onChange={(event) => updateDraft({ polishedStoryDraft: event.target.value, selectedStoryVersion: "polished" })}
-                    value={draft.polishedStoryDraft || versions.polished}
-                  />
-                </div>
+
+            {draft.polishedStoryDraft.trim() ? (
+              <div className="space-y-2.5 border-t border-[#DCEBFF] pt-3.5">
+                <p className="text-sm font-black text-[#0F172A]">Missionary Story Draft</p>
+                <textarea
+                  className={`${storyTextareaClassName} min-h-40 bg-white`}
+                  onChange={(event) => updateDraft({
+                    polishedStoryDraft: event.target.value,
+                    storyDraftAccepted: false,
+                  })}
+                  value={draft.polishedStoryDraft}
+                />
+                <button
+                  className="h-11 w-full rounded-full bg-[#2563EB] px-5 text-sm font-black text-white sm:w-auto"
+                  onClick={() => updateDraft({
+                    selectedStoryVersion: "polished",
+                    storyDraftAccepted: true,
+                    storyTestimony: draft.polishedStoryDraft,
+                  })}
+                  type="button"
+                >
+                  Accept Draft
+                </button>
+                {draft.storyDraftAccepted ? (
+                  <p className="mt-2 text-xs font-bold text-[#2563EB]">Draft accepted and saved as your application story.</p>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -1332,134 +1961,240 @@ export function UsamJoinClient() {
     if (currentStep.id === "photos") {
       return (
         <SectionCard eyebrow="Photos" title="Add your profile photos">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <UploadPlaceholder
-              helper="Used inside DOS, Command Center, and profile review screens."
-              label="Profile Photo / Headshot"
+              helper="Used inside DOS and your profile review."
+              label="Profile Photo"
               name={draft.profilePhotoName}
               onChange={(name) => updateDraft({ profilePhotoName: name })}
-              onSelectPublic={() => updateDraft({ selectedPublicPhotoId: draft.profilePhotoId })}
-              photoId={draft.profilePhotoId}
-              selectedPublicPhotoId={draft.selectedPublicPhotoId}
             />
             <UploadPlaceholder
-              helper="Used for the public/fundraising profile if approved."
+              helper="Used on your public USA Missionaries profile if approved."
               label="Family / Public Profile Photo"
               name={draft.familyPhotoName}
               onChange={(name) => updateDraft({ familyPhotoName: name })}
-              onSelectPublic={() => updateDraft({ selectedPublicPhotoId: draft.familyPhotoId })}
-              photoId={draft.familyPhotoId}
-              selectedPublicPhotoId={draft.selectedPublicPhotoId}
             />
           </div>
-          <p className="mt-4 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-            Selected public photo ID: <span className="font-black text-[#0F172A]">{draft.selectedPublicPhotoId}</span>. Public publishing still requires USA Missionaries approval.
+          <p className="mt-3.5 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
+            You can upload the same image in both slots if it should serve both purposes. Public publishing still requires USA Missionaries approval.
           </p>
         </SectionCard>
       );
     }
 
     if (currentStep.id === "prayer") {
-      const primaryPrayerRequest = draft.prayerRequests[0] ?? initialDraft.prayerRequests[0];
-
       return (
-        <SectionCard eyebrow="Prayer" title="Prayer partners and requests">
-          <div className="space-y-4">
-            {draft.prayerPartners.slice(0, 2).map((partner, index) => (
-              <div className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4" key={partner.id}>
-                <p className="text-sm font-black text-[#0F172A]">Prayer Partner {index + 1}{index === 0 ? " required" : " optional"}</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <input className={inputClassName} onChange={(event) => updatePrayerPartner(partner.id, { firstName: event.target.value })} placeholder="First name" value={partner.firstName} />
-                  <input className={inputClassName} onChange={(event) => updatePrayerPartner(partner.id, { lastName: event.target.value })} placeholder="Last name" value={partner.lastName} />
-                  <input className={inputClassName} onChange={(event) => updatePrayerPartner(partner.id, { email: event.target.value })} placeholder="Email" type="email" value={partner.email} />
-                  <input className={inputClassName} onChange={(event) => updatePrayerPartner(partner.id, { phone: event.target.value })} placeholder="Phone optional" type="tel" value={partner.phone} />
-                  <input className={`${inputClassName} sm:col-span-2`} onChange={(event) => updatePrayerPartner(partner.id, { relationship: event.target.value })} placeholder="Relationship optional" value={partner.relationship} />
-                </div>
+        <SectionCard>
+          <div className="space-y-3.5">
+            <section className="space-y-2.5">
+              <div>
+                <h2 className="text-base font-black text-[#0F172A]">Prayer Partners</h2>
+                <p className="mt-1 text-sm leading-6 text-[#475569]">Who should be praying with you as you begin?</p>
               </div>
-            ))}
+              <div className="space-y-3">
+                {draft.prayerPartners.map((partner, index) => (
+                  <div className={`${index > 0 ? "border-t border-[#DCEBFF] pt-3" : ""}`} key={partner.id}>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <label className="block">
+                        {fieldLabel("First name")}
+                        <input className={inputClassName} onChange={(event) => updatePrayerPartner(partner.id, { firstName: event.target.value })} value={partner.firstName} />
+                      </label>
+                      <label className="block">
+                        {fieldLabel("Last name")}
+                        <input className={inputClassName} onChange={(event) => updatePrayerPartner(partner.id, { lastName: event.target.value })} value={partner.lastName} />
+                      </label>
+                      <label className="block">
+                        {fieldLabel("Email")}
+                        <input className={inputClassName} onChange={(event) => updatePrayerPartner(partner.id, { email: event.target.value })} type="email" value={partner.email} />
+                      </label>
+                      <label className="block">
+                        {fieldLabel("Phone")}
+                        <input className={inputClassName} onChange={(event) => updatePrayerPartner(partner.id, { phone: event.target.value })} type="tel" value={partner.phone} />
+                      </label>
+                      <label className="block sm:col-span-2 lg:col-span-4">
+                        {fieldLabel("Relationship")}
+                        <input className={inputClassName} onChange={(event) => updatePrayerPartner(partner.id, { relationship: event.target.value })} value={partner.relationship} />
+                      </label>
+                      {index > 0 ? (
+                        <div className="flex items-end sm:col-span-2 lg:col-span-4">
+                          <button aria-label="Remove prayer partner" className="inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-xs font-black text-[#94A3B8] hover:bg-[#F8FBFF] hover:text-red-600" onClick={() => removePrayerPartner(partner.id)} type="button">
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            Remove
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#2563EB]" onClick={addPrayerPartner} type="button">
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Add prayer partner
+              </button>
+            </section>
 
-            <div className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
-              <p className="text-sm font-black text-[#0F172A]">Prayer Request</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <SelectField label="Category optional" onChange={(value) => updatePrayerRequest(primaryPrayerRequest.id, { category: value as PrayerCategory })} value={primaryPrayerRequest.category}>
-                  {["Personal", "Family", "Financial", "Ministry", "Health", "Other"].map((category) => <option key={category} value={category}>{category}</option>)}
-                </SelectField>
-                <SelectField label="Visibility" onChange={(value) => updatePrayerRequest(primaryPrayerRequest.id, { visibility: value as PrayerVisibility })} value={primaryPrayerRequest.visibility}>
-                  <option value="prayer_team">Prayer team only</option>
-                  <option value="public_profile">Public profile if approved</option>
-                  <option value="private">Private</option>
-                </SelectField>
-                <textarea className={`${textareaClassName} sm:col-span-2`} onChange={(event) => updatePrayerRequest(primaryPrayerRequest.id, { text: event.target.value })} placeholder="How can people be praying for you?" value={primaryPrayerRequest.text} />
+            <section className="space-y-2.5 border-t border-[#DCEBFF] pt-3.5">
+              <div>
+                <h2 className="text-base font-black text-[#0F172A]">Prayer Requests</h2>
+                <p className="mt-1 text-sm leading-6 text-[#475569]">What would you like people praying for right now?</p>
               </div>
-            </div>
+              <div className="space-y-3">
+                {draft.prayerRequests.map((request, index) => (
+                  <div className={`${index > 0 ? "border-t border-[#DCEBFF] pt-3" : ""}`} key={request.id}>
+                    <div className="mt-2 grid gap-2">
+                      <label className="block">
+                        {fieldLabel("Prayer request")}
+                        <textarea className={storyTextareaClassName} onChange={(event) => updatePrayerRequest(request.id, { text: event.target.value })} placeholder="How can people be praying for you?" value={request.text} />
+                      </label>
+                      {index > 0 ? (
+                        <div className="flex items-end">
+                          <button aria-label="Remove prayer request" className="inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-xs font-black text-[#94A3B8] hover:bg-[#F8FBFF] hover:text-red-600" onClick={() => removePrayerRequest(request.id)} type="button">
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            Remove
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#2563EB]" onClick={addPrayerRequest} type="button">
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Add prayer request
+              </button>
+            </section>
           </div>
         </SectionCard>
       );
     }
 
     if (currentStep.id === "support") {
-      const supportGap = Math.max(0, moneyNumber(draft.supportMonthlyNeed) - moneyNumber(draft.supportCommittedAmount));
-      const donationOptions: Array<[DonationLinkChoice, string]> = draft.supportNeed === "yes"
-        ? [
-            ["missionary_support", "Personal support"],
-            ["general_usam", "USA Missionaries / underfunded missionaries"],
-            ["none", "No donation link for now"],
-          ]
-        : [
-            ["general_usam", "USA Missionaries / underfunded missionaries"],
-            ["none", "No donation link for now"],
-          ];
+      const budgetSummary = supportSummary(draft);
+      const donationOptions = donationLinkOptionsForNoSupport();
+      const selectedDonationLink = donationLinkForSupportNeed(draft.supportNeed, draft.donationLinkPreference);
 
       return (
-        <SectionCard eyebrow="Support" title="Will you need to raise monthly support?">
-          <div className="space-y-5">
-            <div className="grid gap-2">
-              {[
-                ["yes", "Yes, I need monthly support"],
-                ["no", "No, I am fully funded / do not need personal support"],
-                ["not_sure", "Not sure yet"],
-              ].map(([value, label]) => (
-                <button
-                  className={`rounded-[18px] border px-4 py-3 text-left text-sm font-black ${draft.supportNeed === value ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#DCEBFF] bg-white text-[#0F172A]"}`}
-                  key={value}
-                  onClick={() => updateDraft({
-                    donationLinkPreference: value === "yes" ? draft.donationLinkPreference : draft.donationLinkPreference === "missionary_support" ? "none" : draft.donationLinkPreference,
-                    supportNeed: value as SupportNeed,
-                  })}
-                  type="button"
-                >
-                  {label}
-                </button>
+        <SectionCard title="Will you need to raise monthly support?">
+          <div className="space-y-4">
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {supportNeedOptions.map((option) => (
+                <OptionCard
+                  description={option.description}
+                  key={option.value}
+                  onClick={() => selectSupportNeed(option.value)}
+                  selected={draft.supportNeed === option.value}
+                  title={option.title}
+                />
               ))}
             </div>
             {draft.supportNeed === "yes" ? (
-              <div className="grid gap-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    {fieldLabel("Monthly household / ministry need")}
-                    <input className={inputClassName} onChange={(event) => updateDraft({ supportMonthlyNeed: cleanMoney(event.target.value) })} placeholder="$5,000" value={draft.supportMonthlyNeed} />
-                  </label>
-                  <label className="block">
-                    {fieldLabel("Current committed support")}
-                    <input className={inputClassName} onChange={(event) => updateDraft({ supportCommittedAmount: cleanMoney(event.target.value) })} placeholder="$1,250" value={draft.supportCommittedAmount} />
-                  </label>
-                  <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4 sm:col-span-2">
-                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2563EB]">Estimated gap</p>
-                    <p className="mt-1 text-2xl font-black tracking-[-0.035em] text-[#0F172A]">{formatMoney(supportGap)}/mo</p>
-                  </div>
-                </div>
+              <div className="space-y-4 border-t border-[#EAF2FF] pt-4">
                 <div>
-                  {fieldLabel("Suggested monthly support goal")}
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <p className="text-sm font-black text-[#0F172A]">Budget Helper</p>
+                  <p className="mt-1 text-sm leading-6 text-[#64748B]">Add simple monthly estimates. Round numbers are fine.</p>
+                </div>
+
+                <section className="space-y-2.5 rounded-[18px] border border-[#EAF2FF] bg-[#FBFDFF] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2563EB]">Step 1</p>
+                    <p className="text-sm font-black text-[#0F172A]">Household needs</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {householdBudgetFields.map((field) => (
+                      <label className="block" key={field.key}>
+                        {supportFieldLabel(field.label)}
+                        <input
+                          className={supportInputClassName}
+                          inputMode="decimal"
+                          onChange={(event) => updateSupportBudget(field.key, event.target.value)}
+                          placeholder="$0"
+                          value={draft.supportBudget[field.key]}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-2.5 rounded-[18px] border border-[#EAF2FF] bg-[#FBFDFF] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2563EB]">Step 2</p>
+                    <p className="text-sm font-black text-[#0F172A]">Ministry needs</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {ministryBudgetFields.map((field) => (
+                      <label className="block" key={field.key}>
+                        {supportFieldLabel(field.label)}
+                        <input
+                          className={supportInputClassName}
+                          inputMode="decimal"
+                          onChange={(event) => updateSupportBudget(field.key, event.target.value)}
+                          placeholder="$0"
+                          value={draft.supportBudget[field.key]}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-2.5 rounded-[18px] border border-[#EAF2FF] bg-[#FBFDFF] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2563EB]">Step 3</p>
+                    <p className="text-sm font-black text-[#0F172A]">Current support</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="block">
+                      {supportFieldLabel("Current monthly committed support")}
+                      <input className={supportInputClassName} inputMode="decimal" onChange={(event) => updateDraft({ supportCommittedAmount: cleanMoney(event.target.value) })} placeholder="$0" value={draft.supportCommittedAmount} />
+                    </label>
+                    <label className="block">
+                      {supportFieldLabel("Other monthly income")}
+                      <input className={supportInputClassName} inputMode="decimal" onChange={(event) => updateDraft({ supportOtherMonthlyIncome: cleanMoney(event.target.value) })} placeholder="$0" value={draft.supportOtherMonthlyIncome} />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="rounded-[22px] border border-[#BFDBFE] bg-white p-4 shadow-[0_16px_34px_rgba(37,99,235,0.08)]">
+                  <p className="text-sm font-black text-[#0F172A]">Estimated Monthly Support Goal</p>
+                  <p className="mt-2 text-[34px] font-black tracking-[-0.045em] text-[#0F172A]">
+                    {formatMoney(budgetSummary.suggestedGoal)}
+                    <span className="text-base tracking-normal text-[#64748B]">/mo</span>
+                  </p>
+                  <div className="mt-3 space-y-2 text-sm text-[#475569]">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Household needs</span>
+                      <span className="font-bold text-[#0F172A]">{formatMoney(budgetSummary.personalTotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Ministry needs</span>
+                      <span className="font-bold text-[#0F172A]">{formatMoney(budgetSummary.ministryTotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Current support/income</span>
+                      <span className="font-bold text-[#0F172A]">-{formatMoney(budgetSummary.currentSupportAndIncome)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 border-t border-[#EAF2FF] pt-2">
+                      <span>Estimated gap</span>
+                      <span className="font-bold text-[#0F172A]">{formatMoney(budgetSummary.estimatedGap)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Suggested rounded goal</span>
+                      <span className="font-black text-[#2563EB]">{formatMoney(budgetSummary.roundedGoal)}</span>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-2.5">
+                  <p className="text-sm font-black text-[#0F172A]">Choose a support goal to submit.</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     {[
-                      ["1000", "$1,000/mo"],
-                      ["2500", "$2,500/mo"],
-                      ["3500", "$3,500/mo"],
-                      ["5000", "$5,000/mo"],
-                      ["custom", "Custom amount"],
+                      ["1000", "$1,000"],
+                      ["2500", "$2,500"],
+                      ["3500", "$3,500"],
+                      ["5000", "$5,000"],
+                      ["custom", "Custom"],
                     ].map(([value, label]) => (
                       <button
-                        className={`rounded-[18px] border px-4 py-3 text-sm font-black ${draft.supportGoalOption === value ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#DCEBFF] bg-white text-[#0F172A]"}`}
+                        className={`rounded-[14px] border px-3 py-2.5 text-xs font-black ${draft.supportGoalOption === value ? "border-[#2563EB] bg-[#2563EB] text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)]" : "border-[#DCEBFF] bg-white text-[#0F172A]"}`}
                         key={value}
                         onClick={() => updateDraft({
                           supportGoal: value === "custom" ? draft.supportGoal : value,
@@ -1472,37 +2207,38 @@ export function UsamJoinClient() {
                     ))}
                   </div>
                   {draft.supportGoalOption === "custom" ? (
-                    <input className={inputClassName} onChange={(event) => updateDraft({ supportGoal: cleanMoney(event.target.value) })} placeholder="Custom monthly amount" value={draft.supportGoal} />
+                    <label className="block">
+                      {supportFieldLabel("Custom monthly support goal")}
+                      <input className={supportInputClassName} inputMode="decimal" onChange={(event) => updateDraft({ supportGoal: cleanMoney(event.target.value) })} placeholder="Custom monthly amount" value={draft.supportGoal} />
+                    </label>
                   ) : null}
-                </div>
-                <SelectField label="Are you currently raising support?" onChange={(value) => updateDraft({ currentlyRaisingSupport: value })} value={draft.currentlyRaisingSupport}>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                  <option value="starting">Starting soon</option>
-                </SelectField>
-                <p className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
+                </section>
+
+                <p className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
                   10% of donations are allocated to USA Missionaries operational overhead / general fund.
                 </p>
               </div>
-            ) : null}
-            <div>
-              <p className="text-sm font-black text-[#0F172A]">Donation link preference</p>
-              <div className="mt-3 grid gap-2">
-                {donationOptions.map(([value, label]) => (
-                  <button
-                    className={`rounded-[18px] border px-4 py-3 text-left text-sm font-black ${draft.donationLinkPreference === value ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#DCEBFF] bg-white text-[#0F172A]"}`}
-                    key={value}
-                    onClick={() => updateDraft({ donationLinkPreference: value as DonationLinkChoice })}
-                    type="button"
-                  >
-                    {label}
-                  </button>
-                ))}
+            ) : (
+              <div className="grid gap-3 border-t border-[#EAF2FF] pt-4">
+                <div>
+                  <p className="text-sm font-black text-[#0F172A]">No personal support needed.</p>
+                  <p className="mt-1 text-sm leading-6 text-[#64748B]">
+                    Since you are already funded, choose whether your public profile should include a giving option.
+                  </p>
+                </div>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {donationOptions.map((option) => (
+                    <OptionCard
+                      description={option.description}
+                      key={option.value}
+                      onClick={() => updateDraft({ donationLinkPreference: option.value })}
+                      selected={selectedDonationLink === option.value}
+                      title={option.title}
+                    />
+                  ))}
+                </div>
               </div>
-              <p className="mt-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-                A public giving page or donation link can only be activated after USA Missionaries approval.
-              </p>
-            </div>
+            )}
           </div>
         </SectionCard>
       );
@@ -1510,40 +2246,67 @@ export function UsamJoinClient() {
 
     if (currentStep.id === "references") {
       return (
-        <SectionCard eyebrow="References" title="Character References">
+        <SectionCard>
           <div className="space-y-3">
-            <p className="text-sm leading-7 text-[#64748B]">
-              If we reached out, who could speak into your life, character, and calling?
+            <p className="text-sm leading-6 text-[#475569]">
+              If we reached out, who could speak into your life, character, calling, and discipleship?
             </p>
             {draft.references.map((reference, index) => (
-              <div className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4" key={reference.id}>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-black text-[#0F172A]">Reference {index + 1}{index === 0 ? " required" : " optional"}</p>
+              <div className={`${index > 0 ? "border-t border-[#DCEBFF] pt-3" : ""}`} key={reference.id}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="block">
+                    {fieldLabel("First Name")}
+                    <input className={inputClassName} onChange={(event) => updateReference(reference.id, { firstName: event.target.value })} value={reference.firstName} />
+                  </label>
+                  <label className="block">
+                    {fieldLabel("Last Name")}
+                    <input className={inputClassName} onChange={(event) => updateReference(reference.id, { lastName: event.target.value })} value={reference.lastName} />
+                  </label>
+                  <label className="block">
+                    {fieldLabel("Email")}
+                    <input className={inputClassName} onChange={(event) => updateReference(reference.id, { email: event.target.value })} type="email" value={reference.email} />
+                  </label>
+                  <label className="block">
+                    {fieldLabel("Phone")}
+                    <input className={inputClassName} onChange={(event) => updateReference(reference.id, { phone: event.target.value })} value={reference.phone} />
+                  </label>
+                  <label className="block">
+                    {fieldLabel("Relationship")}
+                    <input className={inputClassName} onChange={(event) => updateReference(reference.id, { relationship: event.target.value })} value={reference.relationship} />
+                  </label>
+                  <label className="block">
+                    {fieldLabel("Church / Organization")}
+                    <input className={inputClassName} onChange={(event) => updateReference(reference.id, { churchOrganization: event.target.value })} value={reference.churchOrganization} />
+                  </label>
+                  <label className="block sm:col-span-2">
+                    {fieldLabel("Why can this person speak into your life?")}
+                    <textarea className={storyTextareaClassName} onChange={(event) => updateReference(reference.id, { description: event.target.value })} placeholder="Share the life, character, calling, or discipleship context they know." value={reference.description} />
+                  </label>
                   {index > 0 ? (
-                    <button aria-label="Remove reference" className="rounded-full p-2 text-[#64748B] hover:bg-white hover:text-red-600" onClick={() => removeReference(reference.id)} type="button">
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </button>
+                    <div className="flex items-end sm:col-span-2">
+                      <button aria-label="Remove reference" className="inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-xs font-black text-[#94A3B8] hover:bg-[#F8FBFF] hover:text-red-600" onClick={() => removeReference(reference.id)} type="button">
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        Remove
+                      </button>
+                    </div>
                   ) : null}
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <input className={inputClassName} onChange={(event) => updateReference(reference.id, { firstName: event.target.value })} placeholder="First name" value={reference.firstName} />
-                  <input className={inputClassName} onChange={(event) => updateReference(reference.id, { lastName: event.target.value })} placeholder="Last name" value={reference.lastName} />
-                  <input className={inputClassName} onChange={(event) => updateReference(reference.id, { email: event.target.value })} placeholder="Email" type="email" value={reference.email} />
-                  <input className={inputClassName} onChange={(event) => updateReference(reference.id, { phone: event.target.value })} placeholder="Phone" value={reference.phone} />
-                  <input className={inputClassName} onChange={(event) => updateReference(reference.id, { relationship: event.target.value })} placeholder="Relationship" value={reference.relationship} />
-                  <input className={inputClassName} onChange={(event) => updateReference(reference.id, { churchOrganization: event.target.value })} placeholder="Church / org optional" value={reference.churchOrganization} />
-                  <textarea className={`${textareaClassName} sm:col-span-2`} onChange={(event) => updateReference(reference.id, { description: event.target.value })} placeholder="Why can they speak into your life?" value={reference.description} />
                 </div>
               </div>
             ))}
-            <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-black text-[#2563EB] disabled:opacity-45" disabled={draft.references.length >= 2} onClick={addReference} type="button">
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              Add optional second reference
+            <button className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#2563EB]" onClick={addReference} type="button">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Add Reference
             </button>
           </div>
         </SectionCard>
       );
     }
+
+    const reviewPrayerPartners = draft.prayerPartners.filter((partner) => (
+      partner.firstName.trim() || partner.lastName.trim() || partner.email.trim() || partner.phone.trim() || partner.relationship.trim()
+    ));
+    const reviewPrayerRequests = draft.prayerRequests.filter((request) => request.text.trim());
+    const reviewSupportSummary = supportSummary(draft);
 
     return (
       <SectionCard eyebrow="Review" title="Confirm before submitting">
@@ -1554,7 +2317,7 @@ export function UsamJoinClient() {
             One login for your DOS workspace.
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("workspace")} title="Workspace / Household">
-            Workspace: {draft.workspaceName || "Not added"}
+            Workspace: {generatedWorkspaceName(draft)}
             <br />
             {draft.firstName} {draft.lastName}
             <br />
@@ -1564,48 +2327,53 @@ export function UsamJoinClient() {
             <br />
             Spouse: {draft.spouseName || [draft.spouseFirstName, draft.spouseLastName].filter(Boolean).join(" ") || "Not added"}
             <br />
-            Children / dependents: {draft.familyMembers.length}
+            Children: {draft.familyMembers.length}
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("path")} title="Selected path">
-            {draft.setupPath === "usam" ? "Apply with USA Missionaries" : draft.setupPath === "organization" ? "Bring DOS to an Organization" : "Use DOS Personally"}
+            {draft.setupPath === "organization" ? "Bring DOS to My Organization" : "Complete USA Missionaries Setup"}
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("story")} title="Testimony">
-            {selectedStoryText(draft, versions)}
+            {selectedStoryText(draft)}
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("photos")} title="Photos">
-            Profile Photo / Headshot: {draft.profilePhotoName || "Not uploaded"}
+            Profile Photo: {draft.profilePhotoName || "Not uploaded"}
             <br />
             Family / Public Profile Photo: {draft.familyPhotoName || "Not uploaded"}
-            <br />
-            Selected public photo: {draft.selectedPublicPhotoId}
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("prayer")} title="Prayer">
-            Prayer Partner 1: {[draft.prayerPartners[0]?.firstName, draft.prayerPartners[0]?.lastName].filter(Boolean).join(" ") || "Not added"} · {draft.prayerPartners[0]?.email || "No email"}
-            {draft.prayerPartners[1]?.firstName || draft.prayerPartners[1]?.lastName || draft.prayerPartners[1]?.email ? (
-              <>
-                <br />
-                Prayer Partner 2: {[draft.prayerPartners[1]?.firstName, draft.prayerPartners[1]?.lastName].filter(Boolean).join(" ")} · {draft.prayerPartners[1]?.email}
-              </>
-            ) : null}
-            <br />
-            {draft.prayerRequests.filter((request) => request.text.trim()).map((request) => `${request.category}: ${request.text} (${prayerVisibilityLabel(request.visibility)})`).join(" / ") || "No prayer request added"}
+            <p>
+              {reviewPrayerPartners.length
+                ? reviewPrayerPartners.map((partner, index) => {
+                  const partnerName = [partner.firstName, partner.lastName].filter(Boolean).join(" ") || "Unnamed partner";
+                  return `Partner ${index + 1}: ${partnerName}${partner.relationship ? ` · ${partner.relationship}` : ""} · ${partner.email || "No email"}${partner.phone ? ` · ${partner.phone}` : ""}`;
+                }).join(" / ")
+                : "No prayer partner added"}
+            </p>
+            <p className="mt-2">
+              {reviewPrayerRequests.length
+                ? reviewPrayerRequests.map((request, index) => `Request ${index + 1}: ${request.text}`).join(" / ")
+                : "No prayer request added"}
+            </p>
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("support")} title="Support">
             Need support: {supportNeedLabel(draft.supportNeed)}
-            {draft.supportNeed === "yes" ? ` · Goal: $${draft.supportGoal}/mo` : ""}
+            {draft.supportNeed === "yes" ? ` · Goal: ${formatMoney(reviewSupportSummary.suggestedGoal)}/mo` : ""}
             <br />
             {draft.supportNeed === "yes" ? (
               <>
-                Monthly need: {draft.supportMonthlyNeed ? `$${draft.supportMonthlyNeed}` : "Not added"} · Current support: {draft.supportCommittedAmount ? `$${draft.supportCommittedAmount}` : "Not added"}
+                Personal: {formatMoney(reviewSupportSummary.personalTotal)}/mo · Ministry: {formatMoney(reviewSupportSummary.ministryTotal)}/mo
+                <br />
+                Current committed support: {formatMoney(reviewSupportSummary.currentCommittedSupport)}/mo · Estimated gap: {formatMoney(reviewSupportSummary.estimatedGap)}/mo
                 <br />
               </>
-            ) : null}
-            Donation link: {donationLinkLabel(draft.donationLinkPreference)}
+            ) : (
+              <>Giving preference: {donationLinkLabel(draft.donationLinkPreference)}</>
+            )}
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("references")} title="References">
             {draft.references.filter((reference) => reference.firstName.trim() || reference.lastName.trim() || reference.email.trim()).map((reference, index) => `Reference ${index + 1}: ${reference.firstName} ${reference.lastName} · ${reference.relationship} · ${reference.email}${reference.phone ? ` · ${reference.phone}` : ""}`).join(" / ")}
           </ReviewSection>
-          <label className="flex items-start gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-sm leading-6 text-[#475569]">
+          <label className="flex items-start gap-3 rounded-[22px] border border-[#DCEBFF] bg-white p-3 text-sm leading-6 text-[#475569]">
             <input checked={draft.agreement} className="mt-1 h-4 w-4 accent-[#2563EB]" onChange={(event) => updateDraft({ agreement: event.target.checked })} type="checkbox" />
             <span>I understand USA Missionaries will review this application, prepare a public profile preview, and let me review/request changes before anything is shared publicly.</span>
           </label>
@@ -1633,14 +2401,41 @@ export function UsamJoinClient() {
     : currentStep.id === "organization_interest"
       ? "Submit organization interest"
       : "Finish Setup";
+  const primaryActionLabel = isSubmitStep ? submitLabel : "Continue";
+
+  function handleOnboardingKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (stage !== "flow" || event.key !== "Enter" || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+
+    const target = event.target as HTMLElement | null;
+    const tagName = target?.tagName;
+
+    if (!tagName || ["A", "BUTTON", "SELECT", "TEXTAREA"].includes(tagName)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (isSubmitStep) {
+      submit();
+      return;
+    }
+
+    next();
+  }
 
   return (
-    <main className="usam-join-route min-h-screen bg-[#F8FBFF] text-[#0F172A]">
+    <main className={`usam-join-route min-h-screen ${joinDawnShellClassName} text-[#0F172A]`} onKeyDown={handleOnboardingKeyDown}>
       <style
         dangerouslySetInnerHTML={{
           __html: `
             body:has(.usam-join-route) {
-              background: #F8FBFF !important;
+              background:
+                radial-gradient(circle at 78% 8%, rgba(219,234,254,0.92), transparent 34%),
+                radial-gradient(circle at 86% 92%, rgba(254,215,170,0.54), transparent 36%),
+                radial-gradient(circle at 48% 62%, rgba(221,214,254,0.48), transparent 42%),
+                linear-gradient(135deg, #F8FBFF 0%, #F6F8FF 48%, #FFF4EC 100%) !important;
               color: #0F172A;
               font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             }
@@ -1651,151 +2446,98 @@ export function UsamJoinClient() {
           `,
         }}
       />
-      <div className="mx-auto flex min-h-screen max-w-4xl flex-col px-5 py-6 sm:px-8">
-        <header className="flex items-center justify-between gap-4">
-          <Link className="text-[18px] font-black tracking-[-0.035em] text-[#2563EB]" href="/join">
-            DOS
-          </Link>
-          <span className="rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-[11px] font-black text-[#2563EB]">
-            Powered by USA Missionaries
-          </span>
-        </header>
-
-        {stage !== "flow" ? (
-          <div className="mt-5">
-            <ProgressStatusCard
-              label={stage === "submitted" ? "Submitted" : "Welcome"}
-              lastSavedAt={lastSavedAt}
-              percent={stage === "submitted" ? 100 : 0}
-              saveState={saveState}
-              subtitle={stage === "submitted" ? "Saved locally for review handoff." : "Progress autosaves in this browser and can be continued later."}
-            />
-          </div>
-        ) : null}
-
+      <div className={pageShellClassName}>
         {stage === "welcome" ? (
-          <section className="my-auto grid gap-5 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
-            <div className="rounded-[34px] border border-[#DCEBFF] bg-white p-6 shadow-[0_24px_70px_rgba(37,99,235,0.11)] sm:p-8">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#2563EB]">DOS</p>
-              <h1 className="mt-4 text-[46px] font-black leading-[0.92] tracking-[-0.055em] text-[#020617] sm:text-[68px]">
+          <section className={`${contentWidthClassName} flex flex-1 flex-col justify-center space-y-3 pb-32 pt-4 sm:pt-5`}>
+            <div className="rounded-[30px] border border-[#DCEBFF] bg-white p-4 text-center shadow-[0_22px_62px_rgba(37,99,235,0.10)] sm:rounded-[34px] sm:p-6">
+              <h1 className="mx-auto max-w-3xl text-[38px] font-black leading-[0.92] tracking-[-0.055em] text-[#020617] max-[360px]:text-[34px] sm:text-[54px]">
                 Discipleship on the go.
               </h1>
-              <p className="mt-5 max-w-2xl text-base leading-8 text-[#475569]">
-                DOS helps you identify who God has placed in front of you, walk with them faithfully, and keep discipleship simple enough to practice in real life.
-              </p>
-              <div className="mt-7 grid gap-3 sm:grid-cols-3">
-                {[
-                  ["Identify", "Name the first few people you are called to steward."],
-                  ["Walk", "Pray, meet, follow up, and keep the relationship warm."],
-                  ["Disciple", "Track fruit without turning people into a database."],
-                ].map(([title, text]) => (
-                  <article className="rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] p-4" key={title}>
-                    <h2 className="text-sm font-black uppercase tracking-[0.13em] text-[#2563EB]">{title}</h2>
-                    <p className="mt-2 text-xs leading-5 text-[#64748B]">{text}</p>
-                  </article>
-                ))}
+
+              <div className="relative mt-4">
+                <div className="relative grid gap-2.5 text-left sm:grid-cols-3">
+                  {[
+                    ["1", "Meet", "Begin with the people God has already placed in front of you."],
+                    ["2", "Minister", "Pray, follow up, and walk with people in real relationship."],
+                    ["3", "Multiply", "Track fruit, form discipleship rhythms, and keep the mission moving."],
+                  ].map(([number, title, text], index) => (
+                    <article className="relative flex items-start gap-3 rounded-[20px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_34px_rgba(37,99,235,0.06)]" key={title}>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-xs font-black text-white shadow-[0_10px_22px_rgba(37,99,235,0.18)]">{number}</span>
+                      <span>
+                        <h2 className="text-sm font-black uppercase tracking-[0.12em] text-[#2563EB]">{title}</h2>
+                        <p className="mt-1 text-xs leading-5 text-[#64748B]">{text}</p>
+                      </span>
+                      {index < 2 ? (
+                        <span className="pointer-events-none absolute -right-[18px] top-1/2 z-10 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#93C5FD] shadow-[0_8px_20px_rgba(37,99,235,0.08)] sm:flex" aria-hidden="true">
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </span>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
               </div>
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <button className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#2563EB] px-6 text-sm font-black text-white shadow-[0_18px_36px_rgba(37,99,235,0.32)]" onClick={() => startFlow("account")} type="button">
-                  Start Setup
-                </button>
-              </div>
-              <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#64748B]">
-                <Save className="h-3.5 w-3.5" aria-hidden="true" />
-                Your setup autosaves and can be continued later.
-              </p>
             </div>
-            <div className="rounded-[34px] border border-[#DCEBFF] bg-white p-5 shadow-[0_24px_70px_rgba(37,99,235,0.11)]">
-              <div className="flex min-h-72 items-center justify-center rounded-[26px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] text-center">
+
+            <div className="rounded-[26px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_20px_56px_rgba(37,99,235,0.09)] sm:rounded-[28px] sm:p-4">
+              <div className="flex min-h-36 items-center justify-center rounded-[22px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-4 py-8 text-center sm:min-h-44">
                 <div>
                   <Video className="mx-auto h-10 w-10 text-[#2563EB]" aria-hidden="true" />
-                  <p className="mt-4 text-lg font-black text-[#0F172A]">Watch the 2-minute welcome</p>
+                  <p className="mt-3 text-lg font-black text-[#0F172A]">Watch the 2-minute welcome</p>
                   <p className="mt-2 text-sm text-[#64748B]">Ryan / USA Missionaries video placeholder</p>
                 </div>
               </div>
-              {hasSavedDraft ? (
-                <button className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-5 text-sm font-black text-[#2563EB]" onClick={() => startFlow(currentStep.id)} type="button">
-                  Continue saved draft
-                </button>
-              ) : null}
             </div>
+
+            <WelcomeActionBar
+              hasSavedDraft={hasSavedDraft}
+              onContinueDraft={() => startFlow(currentStep.id)}
+              onStart={() => startFlow("account")}
+            />
           </section>
         ) : null}
 
         {stage === "submitted" ? (
-          <section className="my-auto rounded-[32px] border border-[#DCEBFF] bg-white p-6 shadow-[0_24px_70px_rgba(37,99,235,0.11)] sm:p-8">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
-              <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
-            </span>
-            <h1 className="mt-6 text-[42px] font-black leading-[0.95] tracking-[-0.045em] text-[#020617] sm:text-[58px]">
-              {submittedTitle}
-            </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-[#475569]">
-              {submittedMessage}
-            </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link
-                className="inline-flex min-h-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)]"
-                href={dosEntryHref}
-              >
-                Enter DOS and Begin
-              </Link>
-            </div>
-          </section>
+          <OnboardingFlowShell
+            label="Submitted"
+            lastSavedAt={lastSavedAt}
+            onBack={backFromSubmitted}
+            percent={100}
+            primaryHref={dosEntryHref}
+            primaryLabel="Enter DOS and Begin"
+            saveState={saveState}
+            subtitle="Saved locally for review handoff."
+          >
+            <section className="rounded-[30px] border border-[#DCEBFF] bg-white p-5 shadow-[0_22px_62px_rgba(37,99,235,0.10)] sm:rounded-[32px] sm:p-7">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
+                <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <h1 className="mt-5 text-[34px] font-black leading-[0.95] tracking-[-0.045em] text-[#020617] max-[360px]:text-[30px] sm:text-[50px]">
+                {submittedTitle}
+              </h1>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-[#475569]">
+                {submittedMessage}
+              </p>
+            </section>
+          </OnboardingFlowShell>
         ) : null}
 
         {stage === "flow" ? (
-          <div className="my-auto py-8">
-            <div className="mb-5">
-              <ProgressStatusCard
-                label={currentStep.label}
-                lastSavedAt={lastSavedAt}
-                percent={currentProgress}
-                saveState={saveState}
-                subtitle="You can leave and come back anytime."
-              />
-            </div>
-
-            <div className="mb-4 flex items-center gap-2 text-[#64748B]">
-              {currentStep.id === "phone" ? <Smartphone className="h-5 w-5 text-[#2563EB]" aria-hidden="true" /> : currentStep.id === "review" ? <ShieldCheck className="h-5 w-5 text-[#2563EB]" aria-hidden="true" /> : currentStep.id === "story" ? <Sparkles className="h-5 w-5 text-[#2563EB]" aria-hidden="true" /> : <Home className="h-5 w-5 text-[#2563EB]" aria-hidden="true" />}
-              <h1 className="text-[36px] font-black leading-[0.95] tracking-[-0.045em] text-[#020617] sm:text-[50px]">{currentStep.title}</h1>
-            </div>
-
+          <OnboardingFlowShell
+            error={error}
+            label={currentStep.label}
+            lastSavedAt={lastSavedAt}
+            onBack={back}
+            onPrimary={isSubmitStep ? submit : next}
+            percent={currentProgress}
+            primaryLabel={primaryActionLabel}
+            saveState={saveState}
+            subtitle="You can leave and come back anytime."
+            title={currentStep.title}
+          >
             {renderStep()}
-
-            {error ? <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-
-            <div className="mt-6 flex items-center justify-between gap-3">
-              <button
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-5 text-sm font-black text-[#0F172A] disabled:opacity-40"
-                disabled={stepIndex === 0}
-                onClick={back}
-                type="button"
-              >
-                Back
-              </button>
-              {isSubmitStep ? (
-                <button
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)]"
-                  onClick={submit}
-                  type="button"
-                >
-                  {submitLabel}
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </button>
-              ) : (
-                <button
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)]"
-                  onClick={next}
-                  type="button"
-                >
-                  Continue
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </button>
-              )}
-            </div>
-          </div>
+          </OnboardingFlowShell>
         ) : null}
+        <OnboardingFooter />
       </div>
     </main>
   );
