@@ -99,8 +99,23 @@ function photosSummary(payload: Record<string, unknown> | null) {
   const record = photos as Record<string, unknown>;
   const profilePhotoName = typeof record.profilePhotoName === "string" ? record.profilePhotoName : "";
   const familyPhotoName = typeof record.familyPhotoName === "string" ? record.familyPhotoName : "";
+  const profileUpload = record.profilePhotoUpload;
+  const familyUpload = record.familyPhotoUpload;
+  const hasStoragePath = (
+    profileUpload
+    && typeof profileUpload === "object"
+    && !Array.isArray(profileUpload)
+    && typeof (profileUpload as Record<string, unknown>).path === "string"
+  ) || (
+    familyUpload
+    && typeof familyUpload === "object"
+    && !Array.isArray(familyUpload)
+    && typeof (familyUpload as Record<string, unknown>).path === "string"
+  );
 
-  return [profilePhotoName, familyPhotoName].filter(Boolean).join(" · ") || "Photo metadata submitted";
+  const names = [profilePhotoName, familyPhotoName].filter(Boolean).join(" · ") || "Photo metadata submitted";
+
+  return hasStoragePath ? `Private upload: ${names}` : names;
 }
 
 async function loadUsamApplications() {

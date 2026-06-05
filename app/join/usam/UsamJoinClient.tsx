@@ -13,6 +13,17 @@ type DonationLinkChoice = "general_usam" | "missionary_support" | "none";
 type SetupPath = "" | "organization" | "personal" | "usam";
 type SupportNeed = "no" | "yes";
 type SupportGoalOption = "1000" | "2500" | "3500" | "5000" | "custom";
+type PhotoKind = "family" | "profile";
+
+type UploadedJoinPhoto = {
+  bucket: string;
+  contentType: string;
+  fileName: string;
+  kind: PhotoKind;
+  path: string;
+  size: number;
+  uploadedAt?: string;
+};
 
 type SupportBudgetDraft = {
   childrenEducation: string;
@@ -96,6 +107,7 @@ type ApplicationDraft = {
   donationLinkPreference: DonationLinkChoice;
   familyMembers: FamilyMemberDraft[];
   familyPhotoName: string;
+  familyPhotoUpload: UploadedJoinPhoto | null;
   firstName: string;
   fullAddress: string;
   lastName: string;
@@ -109,6 +121,7 @@ type ApplicationDraft = {
   prayerPartners: PrayerPartnerDraft[];
   prayerRequests: PrayerRequestDraft[];
   profilePhotoName: string;
+  profilePhotoUpload: UploadedJoinPhoto | null;
   polishedStoryDraft: string;
   references: ReferenceDraft[];
   selectedStoryVersion: StoryVersionKey;
@@ -142,11 +155,23 @@ type PersistedApplicationDraft = Omit<ApplicationDraft, "confirmPassword" | "pas
 
 type JoinSubmitResponse = {
   applicationId?: string;
+  emailSent?: boolean;
+  emails?: {
+    admin?: boolean;
+    applicant?: boolean;
+  };
   error?: string;
+  photoStorage?: string;
   status?: string;
   workspaceHref?: string;
   workspaceId?: string;
   workspaceSlug?: string;
+};
+
+type JoinPhotoUploadResponse = {
+  error?: string;
+  photo?: UploadedJoinPhoto;
+  storageConfigured?: boolean;
 };
 
 type StepId =
@@ -173,6 +198,8 @@ type SaveState = "idle" | "saved" | "saving";
 const draftStorageKey = "dos-unified-setup-draft-v1";
 const stepStorageKey = "dos-unified-setup-step-v1";
 const submittedStorageKey = "dos-unified-setup-submitted-v1";
+const maxJoinPhotoSize = 5 * 1024 * 1024;
+const allowedJoinPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const baseStepDefinitions: ReadonlyArray<{ id: StepId; label: string; title: string }> = [
   { id: "account", label: "Account", title: "Create your account." },
@@ -258,6 +285,7 @@ const initialDraft: ApplicationDraft = {
     },
   ],
   familyPhotoName: "",
+  familyPhotoUpload: null,
   firstName: "",
   fullAddress: "",
   lastName: "",
@@ -287,6 +315,7 @@ const initialDraft: ApplicationDraft = {
     },
   ],
   profilePhotoName: "",
+  profilePhotoUpload: null,
   references: [
     {
       churchOrganization: "",
@@ -389,6 +418,36 @@ function normalizePrayerRequests(value: unknown): PrayerRequestDraft[] {
   });
 }
 
+function normalizeUploadedPhoto(value: unknown, expectedKind: PhotoKind): UploadedJoinPhoto | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Partial<UploadedJoinPhoto>;
+  const size = typeof record.size === "number" && Number.isFinite(record.size) ? record.size : 0;
+
+  if (
+    record.kind !== expectedKind
+    || typeof record.bucket !== "string"
+    || typeof record.contentType !== "string"
+    || typeof record.fileName !== "string"
+    || typeof record.path !== "string"
+    || size <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    bucket: record.bucket,
+    contentType: record.contentType,
+    fileName: record.fileName,
+    kind: expectedKind,
+    path: record.path,
+    size,
+    uploadedAt: typeof record.uploadedAt === "string" ? record.uploadedAt : undefined,
+  };
+}
+
 function mergeDraft(value: Partial<ApplicationDraft> | null): ApplicationDraft {
   if (!value) {
     return initialDraft;
@@ -411,10 +470,12 @@ function mergeDraft(value: Partial<ApplicationDraft> | null): ApplicationDraft {
     confirmPassword: "",
     donationLinkPreference: donationLinkForSupportNeed(supportNeed, value.donationLinkPreference),
     familyMembers: Array.isArray(value.familyMembers) ? value.familyMembers : initialDraft.familyMembers,
+    familyPhotoUpload: normalizeUploadedPhoto(value.familyPhotoUpload, "family"),
     my3People: Array.isArray(value.my3People) ? value.my3People : initialDraft.my3People,
     password: "",
     prayerPartners: Array.isArray(value.prayerPartners) && value.prayerPartners.length ? value.prayerPartners : initialDraft.prayerPartners,
     prayerRequests: normalizePrayerRequests(value.prayerRequests),
+    profilePhotoUpload: normalizeUploadedPhoto(value.profilePhotoUpload, "profile"),
     references: Array.isArray(value.references) && value.references.length ? value.references : initialDraft.references,
     setupPath: normalizeSetupPath(value.setupPath),
     supportBudget,
@@ -894,8 +955,8 @@ function validateStep(stepId: StepId, draft: ApplicationDraft) {
   }
 
   if (stepId === "photos") {
-    if (!draft.profilePhotoName.trim() || !draft.familyPhotoName.trim()) {
-      return "Add both a profile photo and a family / public profile photo.";
+    if (!draft.profilePhotoName.trim() || !draft.familyPhotoName.trim() || !draft.profilePhotoUpload?.path || !draft.familyPhotoUpload?.path) {
+      return "Upload both a profile photo and a family / public profile photo.";
     }
   }
 
@@ -1093,16 +1154,24 @@ function OnboardingFlowShell({
 }
 
 function UploadPlaceholder({
+  error,
   helper,
+  isUploading = false,
   label,
   name,
   onChange,
+  upload,
 }: {
+  error?: string;
   helper: string;
+  isUploading?: boolean;
   label: string;
   name: string;
-  onChange: (name: string) => void;
+  onChange: (file: File | null) => void;
+  upload?: UploadedJoinPhoto | null;
 }) {
+  const displayName = upload?.fileName || name;
+
   return (
     <label className="flex h-full min-h-[252px] cursor-pointer flex-col rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5 transition-colors hover:border-[#BFDBFE] hover:bg-white">
         <span className="grid min-h-[78px] grid-cols-[44px_1fr] items-start gap-3">
@@ -1115,21 +1184,31 @@ function UploadPlaceholder({
           </span>
         </span>
         <input
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           className="sr-only"
-          onChange={(event) => onChange(event.target.files?.[0]?.name ?? "")}
+          onChange={(event) => {
+            onChange(event.target.files?.[0] ?? null);
+            event.target.value = "";
+          }}
           type="file"
         />
         <span className="mt-3.5 flex h-32 shrink-0 items-center justify-center overflow-hidden rounded-[20px] border border-dashed border-[#BFDBFE] bg-white px-3 py-4 text-center text-sm font-semibold text-[#64748B]">
-          {name ? (
+          {isUploading ? (
+            <span className="font-black text-[#2563EB]">Uploading...</span>
+          ) : displayName ? (
             <span className="min-w-0">
-              <span className="block font-black text-[#0F172A]">Selected</span>
-              <span className="mt-1 block break-all text-xs leading-5">{name}</span>
+              <span className="block font-black text-[#0F172A]">{upload?.path ? "Uploaded privately" : "Selected"}</span>
+              <span className="mt-1 block break-all text-xs leading-5">{displayName}</span>
             </span>
           ) : (
-            <span>Choose image file</span>
+            <span>Choose JPG, PNG, or WebP</span>
           )}
         </span>
+        {error ? (
+          <span className="mt-2 rounded-2xl border border-red-200 bg-red-50 p-2 text-xs font-bold leading-5 text-red-700">
+            {error}
+          </span>
+        ) : null}
       </label>
   );
 }
@@ -1169,6 +1248,10 @@ export function UsamJoinClient() {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState("");
   const [submittedWorkspaceHref, setSubmittedWorkspaceHref] = useState("");
+  const [photoUploadState, setPhotoUploadState] = useState<Record<PhotoKind, { error: string; isUploading: boolean }>>({
+    family: { error: "", isUploading: false },
+    profile: { error: "", isUploading: false },
+  });
   const stepDefinitions = useMemo(() => stepDefinitionsFor(draft.setupPath), [draft.setupPath]);
   const currentStep = stepDefinitions[stepIndex] ?? stepDefinitions[0];
   const currentProgress = progressPercent(Math.min(stepIndex, stepDefinitions.length - 1), stepDefinitions.length);
@@ -1289,6 +1372,73 @@ export function UsamJoinClient() {
 
   function updateDraft(patch: Partial<ApplicationDraft>) {
     setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  async function uploadJoinPhoto(kind: PhotoKind, file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    if (!allowedJoinPhotoTypes.has(file.type)) {
+      setPhotoUploadState((current) => ({
+        ...current,
+        [kind]: { error: "Use a JPG, PNG, or WebP image.", isUploading: false },
+      }));
+      return;
+    }
+
+    if (file.size <= 0 || file.size > maxJoinPhotoSize) {
+      setPhotoUploadState((current) => ({
+        ...current,
+        [kind]: { error: "Use an image smaller than 5 MB.", isUploading: false },
+      }));
+      return;
+    }
+
+    setError("");
+    setPhotoUploadState((current) => ({
+      ...current,
+      [kind]: { error: "", isUploading: true },
+    }));
+
+    const formData = new FormData();
+    formData.append("kind", kind);
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/join/photos", {
+        body: formData,
+        method: "POST",
+      });
+      const result = await response.json() as JoinPhotoUploadResponse;
+
+      if (!response.ok || !result.photo) {
+        setPhotoUploadState((current) => ({
+          ...current,
+          [kind]: { error: result.error ?? "Unable to upload that photo right now.", isUploading: false },
+        }));
+        return;
+      }
+
+      updateDraft(kind === "profile"
+        ? {
+          profilePhotoName: result.photo.fileName,
+          profilePhotoUpload: result.photo,
+        }
+        : {
+          familyPhotoName: result.photo.fileName,
+          familyPhotoUpload: result.photo,
+        });
+      setPhotoUploadState((current) => ({
+        ...current,
+        [kind]: { error: "", isUploading: false },
+      }));
+    } catch {
+      setPhotoUploadState((current) => ({
+        ...current,
+        [kind]: { error: "Unable to upload that photo right now.", isUploading: false },
+      }));
+    }
   }
 
   function startFlow(stepId: StepId = "account") {
@@ -1547,7 +1697,7 @@ export function UsamJoinClient() {
           persistence: {
             apiEndpoint: "/api/join/submit",
             fallback: false,
-            photoStorage: "metadata_only",
+            photoStorage: result.photoStorage ?? "supabase_storage",
             schemaVersion: 1,
             table: "usam_missionary_applications",
           },
@@ -2199,20 +2349,26 @@ export function UsamJoinClient() {
         <SectionCard eyebrow="Photos" title="Add your profile photos">
           <div className="grid gap-3 sm:grid-cols-2">
             <UploadPlaceholder
+              error={photoUploadState.profile.error}
               helper="Choose the image you want reviewed for DOS and your application profile."
+              isUploading={photoUploadState.profile.isUploading}
               label="Profile Photo"
               name={draft.profilePhotoName}
-              onChange={(name) => updateDraft({ profilePhotoName: name })}
+              onChange={(file) => uploadJoinPhoto("profile", file)}
+              upload={draft.profilePhotoUpload}
             />
             <UploadPlaceholder
+              error={photoUploadState.family.error}
               helper="Choose the public-facing image you want reviewed if your profile is approved."
+              isUploading={photoUploadState.family.isUploading}
               label="Family / Public Profile Photo"
               name={draft.familyPhotoName}
-              onChange={(name) => updateDraft({ familyPhotoName: name })}
+              onChange={(file) => uploadJoinPhoto("family", file)}
+              upload={draft.familyPhotoUpload}
             />
           </div>
           <p className="mt-3.5 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-            We save the selected file names for review right now. Private photo storage will be connected before anything is published, and public publishing still requires USA Missionaries approval.
+            Photos upload privately for application review. Nothing is published unless USA Missionaries approves and prepares your public profile.
           </p>
         </SectionCard>
       );
@@ -2572,9 +2728,9 @@ export function UsamJoinClient() {
             {selectedStoryText(draft)}
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("photos")} title="Photos">
-            Profile Photo: {draft.profilePhotoName || "Not uploaded"}
+            Profile Photo: {draft.profilePhotoUpload?.fileName || draft.profilePhotoName || "Not uploaded"}
             <br />
-            Family / Public Profile Photo: {draft.familyPhotoName || "Not uploaded"}
+            Family / Public Profile Photo: {draft.familyPhotoUpload?.fileName || draft.familyPhotoName || "Not uploaded"}
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("prayer")} title="Prayer">
             <p>

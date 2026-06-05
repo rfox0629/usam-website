@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { slugify } from "@/src/lib/admin/organization-shared";
 import { submitUsamApplicationForSetup, type UsamApplicationSubmitPayload } from "@/src/lib/dos/usam-application";
+import { sendAdminNewApplicationNotificationEmail, sendApplicantApplicationSubmittedEmail } from "@/src/lib/email/resend";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ type JoinSubmitPayload = {
   donationLinkPreference?: unknown;
   familyMembers?: unknown;
   familyPhotoName?: unknown;
+  familyPhotoUpload?: unknown;
   firstName?: unknown;
   fullAddress?: unknown;
   lastName?: unknown;
@@ -27,6 +29,7 @@ type JoinSubmitPayload = {
   prayerPartners?: unknown;
   prayerRequests?: unknown;
   profilePhotoName?: unknown;
+  profilePhotoUpload?: unknown;
   references?: unknown;
   selectedPath?: unknown;
   spouseEmail?: unknown;
@@ -61,6 +64,20 @@ type CreatedResourceIds = {
   profileId?: string;
 };
 
+type PhotoUploadMetadata = {
+  bucket: string;
+  contentType: string;
+  fileName: string;
+  kind: "family" | "profile";
+  path: string;
+  size: number;
+  uploadedAt?: string;
+};
+
+const applicationPhotoBucket = "usam-application-photos";
+const allowedPhotoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxPhotoSize = 5 * 1024 * 1024;
+
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -77,6 +94,39 @@ function asArray(value: unknown): JsonRecord[] {
   return Array.isArray(value)
     ? value.filter((item): item is JsonRecord => Boolean(item) && typeof item === "object" && !Array.isArray(item))
     : [];
+}
+
+function photoUploadMetadata(value: unknown, expectedKind: "family" | "profile"): PhotoUploadMetadata | null {
+  const record = asRecord(value);
+  const bucket = asString(record.bucket);
+  const contentType = asString(record.contentType);
+  const fileName = asString(record.fileName);
+  const kind = asString(record.kind);
+  const path = asString(record.path);
+  const size = typeof record.size === "number" && Number.isFinite(record.size) ? record.size : 0;
+  const uploadedAt = asString(record.uploadedAt);
+
+  if (
+    bucket !== applicationPhotoBucket
+    || kind !== expectedKind
+    || !fileName
+    || !path.startsWith(`pending/${expectedKind}/`)
+    || !allowedPhotoMimeTypes.has(contentType)
+    || size <= 0
+    || size > maxPhotoSize
+  ) {
+    return null;
+  }
+
+  return {
+    bucket,
+    contentType,
+    fileName,
+    kind: expectedKind,
+    path,
+    size,
+    uploadedAt: uploadedAt || undefined,
+  };
 }
 
 function nullableString(value: unknown) {
@@ -274,6 +324,8 @@ function validatePayload(payload: JoinSubmitPayload) {
   const acceptedStoryDraft = asBoolean(payload.storyDraftAccepted) && (asString(payload.storyTestimony) || asString(payload.polishedStoryDraft));
   const profilePhotoName = asString(payload.profilePhotoName);
   const familyPhotoName = asString(payload.familyPhotoName);
+  const profilePhotoUpload = photoUploadMetadata(payload.profilePhotoUpload, "profile");
+  const familyPhotoUpload = photoUploadMetadata(payload.familyPhotoUpload, "family");
   const references = asArray(payload.references);
   const validReferences = references.filter((reference) => (
     asString(reference.firstName)
@@ -305,8 +357,8 @@ function validatePayload(payload: JoinSubmitPayload) {
     return "Answer the story questions or accept your missionary story draft.";
   }
 
-  if (!profilePhotoName || !familyPhotoName) {
-    return "Add both profile photo and family / public photo metadata.";
+  if (!profilePhotoName || !familyPhotoName || !profilePhotoUpload || !familyPhotoUpload) {
+    return "Upload both a profile photo and family / public photo.";
   }
 
   if (!validReferences.length) {
@@ -384,6 +436,8 @@ function onboardingContactPayload(payload: JoinSubmitPayload) {
     text: asString(request.text),
     visibility: "prayer_team",
   })).filter((request) => request.text);
+  const profilePhotoUpload = photoUploadMetadata(payload.profilePhotoUpload, "profile");
+  const familyPhotoUpload = photoUploadMetadata(payload.familyPhotoUpload, "family");
 
   return {
     household_json: {
@@ -408,10 +462,10 @@ function onboardingContactPayload(payload: JoinSubmitPayload) {
     },
     photos_json: {
       familyPhotoName: asString(payload.familyPhotoName),
-      // TODO: Replace metadata-only photo capture with private Supabase Storage object paths.
-      note: "Metadata only. Supabase Storage upload is not wired yet.",
+      familyPhotoUpload,
       profilePhotoName: asString(payload.profilePhotoName),
-      storage: "metadata_only",
+      profilePhotoUpload,
+      storage: "supabase_storage",
     },
     prayer_json: {
       partners: asArray(payload.prayerPartners),
@@ -699,11 +753,29 @@ export async function POST(request: Request) {
       profileId: profile.id,
       supabase,
     });
-
-    // TODO: Send applicant confirmation, admin notification, approval, and request-more-info emails once transactional email is configured.
+    const submittedAt = new Date().toISOString();
+    const emailInput = {
+      adminUrl: "https://new.usamissionaries.org/admin/organizations/usam",
+      applicantEmail: email,
+      applicantName,
+      applicationId: applicationResult.applicationId,
+      location,
+      status: "pending_review",
+      submittedAt,
+    };
+    const [applicantEmailResult, adminEmailResult] = await Promise.all([
+      sendApplicantApplicationSubmittedEmail(emailInput),
+      sendAdminNewApplicationNotificationEmail(emailInput),
+    ]);
 
     return NextResponse.json({
       applicationId: applicationResult.applicationId,
+      emailSent: applicantEmailResult.sent && adminEmailResult.sent,
+      emails: {
+        admin: adminEmailResult.sent,
+        applicant: applicantEmailResult.sent,
+      },
+      photoStorage: "supabase_storage",
       status: "pending_review",
       workspaceHref: `/dos/app?workspace=${encodeURIComponent(fallbackHouseholdResult.data.slug)}&walkthrough=usam`,
       workspaceId: fallbackHouseholdResult.data.id,
