@@ -188,6 +188,7 @@ type PeopleCircleView = CircleFocusView;
 type MeetingsView = "availability" | "calendar" | "history" | "upcoming";
 type MobileMeetingsView = Exclude<MeetingsView, "availability">;
 type FruitView = "impact" | "stories" | "tree";
+type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "meeting_covering" | "my_requests" | "partners" | "praying_for";
 type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
@@ -5063,6 +5064,11 @@ const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>>
   { label: "Meeting Covering", value: "meeting_covering" },
 ];
 
+const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>> = [
+  { label: "Praying", value: "praying" },
+  { label: "Answered", value: "answered" },
+];
+
 // TODO: Replace UI-only sample rows with prayer_partners/prayer_requests data once those tables are exposed to the DOS client.
 const desktopPrayerPartnerSamples = [
   { action: "View", lastContacted: "2 days ago", name: "Brooke Fox", notes: "Prays over family and field rhythm.", relationship: "Spouse", status: "Active" },
@@ -5071,15 +5077,18 @@ const desktopPrayerPartnerSamples = [
 ] as const;
 
 const desktopPrayerRequestSamples = [
-  { action: "View", answered: "—", category: "Ministry", created: "Jun 4", request: "Wisdom for upcoming Kitchen Table", sharedWith: "Prayer Team", status: "Praying" },
-  { action: "View", answered: "—", category: "Family", created: "Jun 3", request: "Family strength and covering", sharedWith: "Brooke", status: "Praying" },
-  { action: "View", answered: "Jun 5", category: "Support", created: "May 31", request: "Support conversations this week", sharedWith: "3 partners", status: "Answered" },
+  { action: "View", answered: "—", category: "Ministry", created: "Jun 4", request: "Wisdom for upcoming Kitchen Table", sharedWith: "Prayer Team", status: "Praying", view: "praying" },
+  { action: "View", answered: "—", category: "Family", created: "Jun 3", request: "Family strength and covering", sharedWith: "Brooke", status: "Praying", view: "praying" },
+  { action: "View", answered: "—", category: "Support", created: "Jun 2", request: "Open doors for support conversations", sharedWith: "3 partners", status: "Praying", view: "praying" },
+  { action: "View", answered: "Jun 5", category: "Support", created: "May 31", request: "Support conversations this week", sharedWith: "3 partners", status: "Answered", view: "answered" },
+  { action: "View", answered: "Jun 4", category: "Ministry", created: "Jun 3", request: "Peace before meeting with Naomi", sharedWith: "Brooke", status: "Answered", view: "answered" },
+  { action: "View", answered: "May 31", category: "Provision", created: "May 28", request: "Provision for ministry needs", sharedWith: "Prayer Team", status: "Answered", view: "answered" },
 ] as const;
 
 const desktopPrayingForSamples = [
-  { action: "Mark Prayed", frequency: "Weekly", lastPrayed: "Yesterday", person: "Aaron Meyers", request: "Job transition and peace", status: "Praying" },
-  { action: "Mark Prayed", frequency: "Weekly", lastPrayed: "2 days ago", person: "Jason Waage", request: "Family discipleship rhythm", status: "Praying" },
-  { action: "Mark Prayed", frequency: "One time", lastPrayed: "Today", person: "Naomi Lee", request: "Upcoming table conversation", status: "Praying" },
+  { frequency: "Weekly", lastPrayed: "Yesterday", person: "Aaron Meyers", request: "Job transition and peace", status: "Praying" },
+  { frequency: "Ongoing", lastPrayed: "2 days ago", person: "Jason Waage", request: "Family discipleship rhythm", status: "Praying" },
+  { frequency: "One time", lastPrayed: "Today", person: "Naomi Lee", request: "Upcoming table conversation", status: "Praying" },
 ] as const;
 
 const desktopMeetingCoveringSamples = [
@@ -8798,6 +8807,87 @@ function DesktopPrayerTable({
   );
 }
 
+function DesktopPrayerActionGroup({
+  onAnswered,
+  onPrayNow,
+}: {
+  onAnswered: () => void;
+  onPrayNow: () => void;
+}) {
+  return (
+    <div className="flex justify-end gap-2">
+      <DesktopPrayerActionButton onClick={onPrayNow}>Pray Now</DesktopPrayerActionButton>
+      <DesktopPrayerActionButton onClick={onAnswered}>Answered</DesktopPrayerActionButton>
+    </div>
+  );
+}
+
+function AddPrayerRequestPlaceholderSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <Sheet description="Prayer request capture is being prepared. This preview shows the fields without writing data yet." onClose={onClose} showEyebrow={false} title="Add Prayer Request">
+      <form className="space-y-4">
+        <label className="block">
+          <FieldLabel>Request</FieldLabel>
+          <textarea className={`${FieldTextareaClass()} min-h-28 bg-white`} placeholder="What should your partners pray for?" />
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <FieldLabel>Category</FieldLabel>
+            <select className={`${FieldInputClass()} bg-white`} defaultValue="Ministry">
+              <option>Ministry</option>
+              <option>Family</option>
+              <option>Support</option>
+              <option>Provision</option>
+              <option>Health</option>
+            </select>
+          </label>
+          <label className="block">
+            <FieldLabel>Frequency</FieldLabel>
+            <select className={`${FieldInputClass()} bg-white`} defaultValue="Weekly">
+              <option>One time</option>
+              <option>Weekly</option>
+              <option>Monthly</option>
+              <option>Ongoing</option>
+            </select>
+          </label>
+        </div>
+        <label className="block">
+          <FieldLabel>Share With</FieldLabel>
+          <input className={`${FieldInputClass()} bg-white`} placeholder="Prayer Team, Brooke, 3 partners..." />
+        </label>
+        <div className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs leading-5 text-[#64748B]">
+          This is UI-only for now. Persistence will be wired when prayer request creation is connected to the DOS data model.
+        </div>
+        <div className="grid gap-2">
+          <AppButton disabled tone="black" type="button">Coming soon</AppButton>
+          <AppButton onClick={onClose} tone="white">Close</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+function DesktopPrayerPlaceholderSheet({
+  description,
+  onClose,
+  title,
+}: {
+  description: string;
+  onClose: () => void;
+  title: string;
+}) {
+  return (
+    <Sheet description={description} onClose={onClose} showEyebrow={false} title={title}>
+      <div className="grid gap-3">
+        <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4 text-sm leading-6 text-[#64748B]">
+          This action is ready for UI review. Data persistence and send/log behavior will be wired in a later prayer workflow pass.
+        </div>
+        <AppButton onClick={onClose} tone="black">Done</AppButton>
+      </div>
+    </Sheet>
+  );
+}
+
 function DesktopPrayerWorkspace({
   onAddPrayerReminder,
   onOpenMeeting,
@@ -8825,6 +8915,11 @@ function DesktopPrayerWorkspace({
     .filter((reminder) => reminder.reminderType === "prayer")
     .sort((first, second) => dateSortValue(nextReminderDate(first)) - dateSortValue(nextReminderDate(second)));
   const personById = new Map(people.map((person) => [person.id, person]));
+  const [prayerRequestView, setPrayerRequestView] = useState<PrayerRequestView>("praying");
+  const [isAddPrayerRequestOpen, setIsAddPrayerRequestOpen] = useState(false);
+  const [prayerPlaceholder, setPrayerPlaceholder] = useState<{ description: string; title: string } | null>(null);
+  const visiblePrayerRequests = desktopPrayerRequestSamples.filter((request) => request.view === prayerRequestView);
+  const openPrayerPlaceholder = (title: string, description: string) => setPrayerPlaceholder({ description, title });
 
   return (
     <div className="hidden space-y-4 md:block">
@@ -8832,7 +8927,7 @@ function DesktopPrayerWorkspace({
 
       {tab === "partners" ? (
         <DesktopPanel
-          action={<DesktopPrayerActionButton disabled>Add Prayer Partner</DesktopPrayerActionButton>}
+          action={<DesktopPrayerActionButton onClick={() => openPrayerPlaceholder("Add Prayer Partner", "Prayer partner creation will connect to the partner directory in a later pass.")}>Add Prayer Partner</DesktopPrayerActionButton>}
           compact
           eyebrow="Prayer Partners"
         >
@@ -8851,7 +8946,7 @@ function DesktopPrayerWorkspace({
                 <DesktopPrayerStatusPill>{partner.status}</DesktopPrayerStatusPill>
                 <span className="truncate font-semibold text-[#475569]">{partner.lastContacted}</span>
                 <span className="truncate leading-5 text-[#64748B]">{partner.notes}</span>
-                <DesktopPrayerActionButton disabled>{partner.action}</DesktopPrayerActionButton>
+                <DesktopPrayerActionButton onClick={() => openPrayerPlaceholder(`${partner.name}`, "Prayer partner detail review is a placeholder for now.")}>{partner.action}</DesktopPrayerActionButton>
               </DesktopPrayerTableRow>
             ))}
           </DesktopPrayerTable>
@@ -8860,16 +8955,19 @@ function DesktopPrayerWorkspace({
 
       {tab === "my_requests" ? (
         <DesktopPanel
-          action={<DesktopPrayerActionButton disabled>Add Prayer Request</DesktopPrayerActionButton>}
+          action={<DesktopPrayerActionButton onClick={() => setIsAddPrayerRequestOpen(true)}>Add Prayer Request</DesktopPrayerActionButton>}
           compact
           eyebrow="My Requests"
         >
+          <div className="mb-3 max-w-xs">
+            <SegmentedTabs onChange={setPrayerRequestView} options={prayerRequestViewTabs} value={prayerRequestView} />
+          </div>
           <DesktopPrayerTable
             columns={["Request", "Category", "Shared With", "Status", "Created", "Answered", "Action"]}
             gridTemplateColumns="minmax(280px,1fr) 126px 150px 116px 104px 104px 110px"
             minWidth={990}
           >
-            {desktopPrayerRequestSamples.map((request) => (
+            {visiblePrayerRequests.map((request) => (
               <DesktopPrayerTableRow
                 gridTemplateColumns="minmax(280px,1fr) 126px 150px 116px 104px 104px 110px"
                 key={request.request}
@@ -8880,7 +8978,7 @@ function DesktopPrayerWorkspace({
                 <DesktopPrayerStatusPill>{request.status}</DesktopPrayerStatusPill>
                 <span className="truncate font-semibold text-[#475569]">{request.created}</span>
                 <span className="truncate font-semibold text-[#475569]">{request.answered}</span>
-                <DesktopPrayerActionButton disabled>{request.action}</DesktopPrayerActionButton>
+                <DesktopPrayerActionButton onClick={() => openPrayerPlaceholder(request.request, prayerRequestView === "answered" ? "Answered prayer details are UI-only examples until prayer request records are wired." : "Prayer request details are UI-only examples until prayer request records are wired.")}>{request.action}</DesktopPrayerActionButton>
               </DesktopPrayerTableRow>
             ))}
           </DesktopPrayerTable>
@@ -8895,8 +8993,8 @@ function DesktopPrayerWorkspace({
         >
           <DesktopPrayerTable
             columns={["Person", "Request", "Status", "Frequency", "Last Prayed", "Action"]}
-            gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 110px"
-            minWidth={910}
+            gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 176px"
+            minWidth={980}
           >
             {prayerReminders.length ? prayerReminders.map((reminder) => {
               const person = personById.get(reminder.personId) ?? null;
@@ -8905,7 +9003,7 @@ function DesktopPrayerWorkspace({
               return (
                 <DesktopPrayerTableRow
                   key={reminder.id}
-                  gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 110px"
+                  gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 176px"
                 >
                   <span className="truncate font-bold text-[#0F172A]">{person?.name ?? "Unlinked person"}</span>
                   <span className="min-w-0">
@@ -8915,13 +9013,16 @@ function DesktopPrayerWorkspace({
                   <DesktopPrayerStatusPill>Praying</DesktopPrayerStatusPill>
                   <span className="truncate font-semibold text-[#475569]">{prayerFrequencyLabel(reminder.recurrence)}</span>
                   <span className="truncate font-semibold text-[#475569]">{latestPrayedAt ? formatRelativeDate(latestPrayedAt) : "—"}</span>
-                  <DesktopPrayerActionButton onClick={() => onOpenReminder(reminder.id)}>View</DesktopPrayerActionButton>
+                  <DesktopPrayerActionGroup
+                    onAnswered={() => openPrayerPlaceholder("Mark Answered", "Answered prayer tracking will be wired to prayer request records in a later pass.")}
+                    onPrayNow={() => onOpenReminder(reminder.id)}
+                  />
                 </DesktopPrayerTableRow>
               );
             }) : (
               desktopPrayingForSamples.map((request) => (
                 <DesktopPrayerTableRow
-                  gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 110px"
+                  gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 176px"
                   key={request.person}
                 >
                   <span className="truncate text-sm font-black text-[#0F172A]">{request.person}</span>
@@ -8929,7 +9030,10 @@ function DesktopPrayerWorkspace({
                   <DesktopPrayerStatusPill>{request.status}</DesktopPrayerStatusPill>
                   <span className="truncate font-semibold text-[#475569]">{request.frequency}</span>
                   <span className="truncate font-semibold text-[#475569]">{request.lastPrayed}</span>
-                  <DesktopPrayerActionButton disabled>{request.action}</DesktopPrayerActionButton>
+                  <DesktopPrayerActionGroup
+                    onAnswered={() => openPrayerPlaceholder("Mark Answered", "Answered prayer tracking is shown as a UI placeholder until persistence is wired.")}
+                    onPrayNow={() => openPrayerPlaceholder("Pray Now", "Prayer logging is shown as a UI placeholder until prayer_logs actions are wired.")}
+                  />
                 </DesktopPrayerTableRow>
               ))
             )}
@@ -8975,12 +9079,21 @@ function DesktopPrayerWorkspace({
                   <span className="truncate font-semibold text-[#475569]">{meeting.date}</span>
                   <span className="truncate font-semibold text-[#475569]">{meeting.prayerTeam}</span>
                   <DesktopPrayerStatusPill>{meeting.status}</DesktopPrayerStatusPill>
-                  <DesktopPrayerActionButton disabled>{meeting.action}</DesktopPrayerActionButton>
+                  <DesktopPrayerActionButton onClick={() => openPrayerPlaceholder(meeting.meeting, "Meeting covering send/draft actions are placeholders until prayer team send mechanics are wired.")}>{meeting.action}</DesktopPrayerActionButton>
                 </DesktopPrayerTableRow>
               ))
             )}
           </DesktopPrayerTable>
         </DesktopPanel>
+      ) : null}
+
+      {isAddPrayerRequestOpen ? <AddPrayerRequestPlaceholderSheet onClose={() => setIsAddPrayerRequestOpen(false)} /> : null}
+      {prayerPlaceholder ? (
+        <DesktopPrayerPlaceholderSheet
+          description={prayerPlaceholder.description}
+          onClose={() => setPrayerPlaceholder(null)}
+          title={prayerPlaceholder.title}
+        />
       ) : null}
     </div>
   );
