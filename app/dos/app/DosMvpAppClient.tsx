@@ -184,7 +184,7 @@ const reminderRecurrenceOptions = [
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView;
-type MeetingsView = "calendar" | "history" | "upcoming";
+type MeetingsView = "availability" | "calendar" | "history" | "upcoming";
 type FruitView = "impact" | "stories" | "tree";
 type PrayerWorkspaceTab = "meeting_covering" | "my_requests" | "partners" | "praying_for";
 type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
@@ -4949,10 +4949,11 @@ function SegmentedTabs<T extends string>({
   );
 }
 
-const meetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
-  { label: "Upcoming", value: "upcoming" },
+const desktopMeetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
+  { label: "Schedule", value: "upcoming" },
   { label: "Calendar", value: "calendar" },
   { label: "History", value: "history" },
+  { label: "Availability", value: "availability" },
 ];
 
 const meetingCalendarFilterTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarFilter>> = [
@@ -5066,7 +5067,7 @@ function DesktopTableToolbar({
     <div className="hidden rounded-[26px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:grid md:grid-cols-[minmax(260px,1fr)_minmax(300px,340px)] md:items-center md:gap-3 xl:grid-cols-[minmax(300px,1fr)_340px_auto]">
       <TableSearchBar onChange={onSearchChange} query={query} resultCount={resultCount} />
       <div className="min-w-0">
-        <SegmentedTabs onChange={onMeetingsViewChange} options={meetingsViewTabs} value={meetingsView} />
+        <SegmentedTabs onChange={onMeetingsViewChange} options={desktopMeetingsViewTabs} value={meetingsView} />
       </div>
       <div className="grid grid-cols-2 gap-2 md:col-span-2 xl:col-span-1 xl:min-w-[260px]">
         <button
@@ -5113,6 +5114,282 @@ function DesktopTableEmptyState({
       <div className="mx-auto mt-5 max-w-[220px]">
         {action}
       </div>
+    </div>
+  );
+}
+
+function tablePersonColumnLabel(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  return meetingParticipantTitle(meeting, people) || "—";
+}
+
+function tableMethodColumnLabel(meeting: DosAppMeeting) {
+  switch (meeting.type) {
+    case "phone":
+      return "Phone";
+    case "text":
+      return "Text";
+    case "zoom":
+      return "Zoom";
+    default:
+      return "—";
+  }
+}
+
+function tableStatusColumnLabel(meeting: DosAppMeeting) {
+  if (meeting.meetingStatus === "scheduled") {
+    return isUpcomingDate(meeting.scheduledStartAt ?? meeting.date) ? "Scheduled" : "Past scheduled";
+  }
+
+  return "Logged";
+}
+
+function tableStoriesLabel(count: number) {
+  return `${count} ${count === 1 ? "Story" : "Stories"}`;
+}
+
+function tableTimeLabel(value: string | null | undefined) {
+  return value?.includes("T") ? formatTime(value) : "";
+}
+
+function DesktopTableActionButton({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function DesktopScheduleTable({
+  meetings,
+  onOpenMeeting,
+  people,
+}: {
+  meetings: DosAppMeeting[];
+  onOpenMeeting: (meetingId: string) => void;
+  people: DosAppPerson[];
+}) {
+  return (
+    <div className="hidden overflow-hidden rounded-[28px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
+      <div className="overflow-x-auto">
+        <div className="min-w-[980px]">
+          <div className="grid grid-cols-[150px_minmax(190px,1.2fr)_150px_150px_110px_116px_96px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            <span>Date</span>
+            <span>Person</span>
+            <span>Type</span>
+            <span>Location / Method</span>
+            <span>Duration</span>
+            <span>Status</span>
+            <span className="text-right">Action</span>
+          </div>
+          <div className="divide-y divide-[#EFF6FF]">
+            {meetings.map((meeting) => (
+              <div
+                className="grid grid-cols-[150px_minmax(190px,1.2fr)_150px_150px_110px_116px_96px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                key={meeting.id}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-black text-[#0F172A]">{formatDate(meeting.scheduledStartAt ?? meeting.date)}</span>
+                  <span className="mt-0.5 block truncate font-semibold text-[#64748B]">{tableTimeLabel(meeting.scheduledStartAt ?? meeting.date) || "—"}</span>
+                </span>
+                <span className="truncate font-black text-[#0F172A]">{tablePersonColumnLabel(meeting, people)}</span>
+                <span className="truncate font-semibold text-[#475569]">{meetingActivityTitle(meeting)}</span>
+                <span className="truncate text-[#64748B]">{tableMethodColumnLabel(meeting)}</span>
+                <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableDurationMinutes(meeting))}</span>
+                <span className="truncate">
+                  <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                    {tableStatusColumnLabel(meeting)}
+                  </span>
+                </span>
+                <span className="justify-self-end">
+                  <DesktopTableActionButton onClick={() => onOpenMeeting(meeting.id)}>Open</DesktopTableActionButton>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DesktopHistoryTable({
+  meetings,
+  onOpenMeeting,
+  people,
+  storyCountByMeetingId,
+}: {
+  meetings: DosAppMeeting[];
+  onOpenMeeting: (meetingId: string) => void;
+  people: DosAppPerson[];
+  storyCountByMeetingId: Map<string, number>;
+}) {
+  return (
+    <div className="hidden overflow-hidden rounded-[28px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
+      <div className="overflow-x-auto">
+        <div className="min-w-[1060px]">
+          <div className="grid grid-cols-[142px_minmax(190px,1.05fr)_132px_96px_minmax(260px,1.35fr)_112px_90px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            <span>Date</span>
+            <span>Person</span>
+            <span>Type</span>
+            <span>Duration</span>
+            <span>Notes / Reflection</span>
+            <span>Stories / Fruit</span>
+            <span className="text-right">Action</span>
+          </div>
+          <div className="divide-y divide-[#EFF6FF]">
+            {meetings.map((meeting) => {
+              const notesPreview = meeting.notes?.trim() || "No reflection yet";
+              const storyCount = storyCountByMeetingId.get(meeting.id) ?? 0;
+
+              return (
+                <div
+                  className="grid grid-cols-[142px_minmax(190px,1.05fr)_132px_96px_minmax(260px,1.35fr)_112px_90px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                  key={meeting.id}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-black text-[#0F172A]">{formatDate(meeting.date)}</span>
+                    <span className="mt-0.5 block truncate font-semibold text-[#64748B]">{tableTimeLabel(meeting.date) || "—"}</span>
+                  </span>
+                  <span className="truncate font-black text-[#0F172A]">{tablePersonColumnLabel(meeting, people)}</span>
+                  <span className="truncate font-semibold text-[#475569]">{meetingActivityTitle(meeting)}</span>
+                  <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableDurationMinutes(meeting))}</span>
+                  <span className="truncate text-[#64748B]">{notesPreview}</span>
+                  <span className="truncate font-bold text-[#0F172A]">{tableStoriesLabel(storyCount)}</span>
+                  <span className="justify-self-end">
+                    <DesktopTableActionButton onClick={() => onOpenMeeting(meeting.id)}>Open</DesktopTableActionButton>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function calendarSourceSummaries(events: DosAppExternalCalendarEvent[]) {
+  const summaries = new Map<string, { count: number; id: string; imported: number; name: string }>();
+
+  events.forEach((event) => {
+    const key = event.calendarSourceId ?? event.externalCalendarId ?? "google";
+    const current = summaries.get(key) ?? {
+      count: 0,
+      id: key,
+      imported: 0,
+      name: event.sourceName ?? event.externalCalendarId ?? "Google Calendar",
+    };
+
+    summaries.set(key, {
+      ...current,
+      count: current.count + 1,
+      imported: current.imported + (event.importedMeetingId ? 1 : 0),
+    });
+  });
+
+  return Array.from(summaries.values()).sort((first, second) => first.name.localeCompare(second.name));
+}
+
+function DesktopAvailabilityPanel({
+  calendarConnection,
+  externalCalendarEvents,
+  isDisconnecting,
+  onDisconnectCalendar,
+  onScheduleMeeting,
+  workspaceId,
+}: {
+  calendarConnection: DosAppCalendarConnection;
+  externalCalendarEvents: DosAppExternalCalendarEvent[];
+  isDisconnecting: boolean;
+  onDisconnectCalendar: () => void;
+  onScheduleMeeting: () => void;
+  workspaceId: string;
+}) {
+  const sourceSummaries = calendarSourceSummaries(externalCalendarEvents);
+  const futureSections = ["Meeting types", "Availability rules", "Booking links", "Team/spouse calendars"];
+
+  return (
+    <div className="hidden gap-4 md:grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.62fr)]">
+      <section className="rounded-[28px] border border-[#EAF2FF] bg-white p-5 shadow-[0_12px_34px_rgba(37,99,235,0.045)]">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+            <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+              Availability is coming next.
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
+              Availability and booking links are coming next. Connected calendars are already available for calendar sync.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {futureSections.map((section) => (
+            <div className="rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] p-4" key={section}>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              </span>
+              <h3 className="mt-3 text-sm font-black text-[#0F172A]">{section}</h3>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">Planned for the next scheduling phase.</p>
+            </div>
+          ))}
+        </div>
+
+        <button
+          className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]"
+          onClick={onScheduleMeeting}
+          type="button"
+        >
+          <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          Schedule Table
+        </button>
+      </section>
+
+      <aside className="space-y-3">
+        <CalendarConnectionCard
+          calendarConnection={calendarConnection}
+          isDisconnecting={isDisconnecting}
+          onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
+          workspaceId={workspaceId}
+        />
+        <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-black text-[#0F172A]">Calendar Sources</h3>
+            <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              {sourceSummaries.length} sources
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {sourceSummaries.length ? sourceSummaries.map((source) => (
+              <div className="rounded-[18px] border border-[#EFF6FF] bg-[#F8FBFF] p-3" key={source.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate text-sm font-bold text-[#0F172A]">{source.name}</span>
+                  <span className="shrink-0 text-xs font-semibold text-[#64748B]">{source.count} events</span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-[#64748B]">
+                  {source.imported} added to DOS. Availability selection will use calendar source settings in the next phase.
+                </p>
+              </div>
+            )) : (
+              <p className="rounded-[18px] border border-dashed border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#64748B]">
+                No imported Google sources loaded yet.
+              </p>
+            )}
+          </div>
+        </section>
+      </aside>
     </div>
   );
 }
@@ -6026,7 +6303,7 @@ function MeetingCalendarView({
   const selectedItems = itemsByDay.get(selectedDateKey) ?? [];
 
   return (
-    <section className="space-y-3 md:grid md:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)] md:gap-4 md:space-y-0">
+    <section className="space-y-3 md:grid md:grid-cols-[minmax(0,1.16fr)_minmax(300px,0.84fr)] md:gap-4 md:space-y-0">
       <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
         <header className="flex items-center justify-between gap-2 border-b border-[#EFF6FF] px-3 py-3">
           <button
@@ -6102,52 +6379,54 @@ function MeetingCalendarView({
         </div>
       </div>
 
-      <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-2.5 shadow-[0_12px_30px_rgba(37,99,235,0.055)] md:col-span-2 md:flex md:items-center md:gap-3 md:space-y-0 md:p-3">
-        <div className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB] md:shrink-0" style={{ fontFamily: font.rajdhani }}>
-          Sources
-        </div>
-        <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 px-1">
-          <p className="min-w-0 flex-1 text-xs font-medium leading-4 text-[#64748B]">
+      <aside className="min-w-0 space-y-3">
+        <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.055)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+              Sources
+            </div>
+            {googleCalendarConnected ? (
+              <button
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
+                disabled={isSyncingGoogleCalendar}
+                onClick={onSyncGoogleCalendar}
+                style={{ fontFamily: font.rajdhani }}
+                type="button"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isSyncingGoogleCalendar ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={1.9} />
+                Sync
+              </button>
+            ) : null}
+          </div>
+          <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
+          <p className="px-1 text-xs font-medium leading-5 text-[#64748B]">
             {calendarSyncMessage || (googleCalendarConnected ? "Google events are read-only." : "Connect Google to read events.")}
           </p>
-          {googleCalendarConnected ? (
-            <button
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
-              disabled={isSyncingGoogleCalendar}
-              onClick={onSyncGoogleCalendar}
-              style={{ fontFamily: font.rajdhani }}
-              type="button"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isSyncingGoogleCalendar ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={1.9} />
-              Sync
-            </button>
-          ) : null}
         </div>
-      </div>
 
-      <section className="min-w-0">
-        <SectionHeading
-          title={calendarSelectedDayLabel(selectedDateKey)}
-        />
-        <div className="grid gap-2.5">
-          {selectedItems.length ? selectedItems.map((item) => (
-            <CalendarAgendaItem
-              item={item}
-              key={item.id}
-              onOpenExternalEvent={onOpenExternalEvent}
-              onOpenMeeting={onOpenMeeting}
-              onOpenReminder={onOpenReminder}
-            />
-          )) : (
-            <SectionEmptyState
-              action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>}
-              text="Scheduled tables and reminders for the selected day will appear here."
-              title="Nothing on this day."
-            />
-          )}
-        </div>
-      </section>
+        <section className="min-w-0 rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+          <SectionHeading
+            title={calendarSelectedDayLabel(selectedDateKey)}
+          />
+          <div className="grid gap-2.5">
+            {selectedItems.length ? selectedItems.map((item) => (
+              <CalendarAgendaItem
+                item={item}
+                key={item.id}
+                onOpenExternalEvent={onOpenExternalEvent}
+                onOpenMeeting={onOpenMeeting}
+                onOpenReminder={onOpenReminder}
+              />
+            )) : (
+              <SectionEmptyState
+                action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>}
+                text="Scheduled tables and reminders for the selected day will appear here."
+                title="Nothing on this day."
+              />
+            )}
+          </div>
+        </section>
+      </aside>
     </section>
   );
 }
@@ -11020,6 +11299,29 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return counts;
   }, [people, visibleFruitStories]);
+  const storyCountByMeetingId = useMemo(() => {
+    const counts = new Map<string, number>();
+    const addStory = (meetingId: string | null | undefined) => {
+      if (!meetingId) {
+        return;
+      }
+
+      counts.set(meetingId, (counts.get(meetingId) ?? 0) + 1);
+    };
+
+    data.leaderReflections
+      .filter((reflection) => Boolean(reflection.observedFruit.length || reflection.whatHappened?.trim() || reflection.prayerNeeds?.trim()))
+      .forEach((reflection) => addStory(reflection.meetingId));
+    data.participantReviews
+      .filter((review) => isSubmittedStatus(review.status))
+      .forEach((review) => addStory(review.meetingId));
+    data.participantTestimonies
+      .filter((testimony) => isSubmittedStatus(testimony.status))
+      .forEach((testimony) => addStory(testimony.meetingId));
+    data.fruitEvents.forEach((event) => addStory(event.meetingId));
+
+    return counts;
+  }, [data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies]);
   const latestPrayerActivity = useMemo(() => {
     const prayerMeetings = loggedMeetings
       .filter(isPrayerMeeting)
@@ -11135,11 +11437,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const visibleUpcomingTableMeetings = useMemo(() => filteredTables(upcomingTableMeetings, people, tableQuery), [people, tableQuery, upcomingTableMeetings]);
   const visibleHistoryTableMeetings = useMemo(() => filteredTables(tableHistoryMeetings, people, tableQuery), [people, tableHistoryMeetings, tableQuery]);
   const visibleMeetingCalendarItems = useMemo(() => filteredCalendarItems(meetingCalendarItems, tableQuery), [meetingCalendarItems, tableQuery]);
-  const tableResultCount = meetingsView === "calendar"
-    ? visibleMeetingCalendarItems.length
-    : meetingsView === "history"
-      ? visibleHistoryTableMeetings.length
-      : visibleUpcomingTableMeetings.length;
+  const tableResultCount = meetingsView === "availability"
+    ? data.externalCalendarEvents.length
+    : meetingsView === "calendar"
+      ? visibleMeetingCalendarItems.length
+      : meetingsView === "history"
+        ? visibleHistoryTableMeetings.length
+        : visibleUpcomingTableMeetings.length;
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
     const meetingsThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
@@ -12631,14 +12935,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           section: "coming_soon",
           status: "Coming Soon",
         },
-        {
-          description: "Guided table conversation flows and follow-up paths.",
-          icon: <GitBranch className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "Table Flow",
-          onClick: () => openMoreApp("table_flow"),
-          section: "coming_soon",
-          status: "Coming Soon",
-        },
       ],
     },
   ];
@@ -12953,9 +13249,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <div>
                   {meetingsView === "upcoming" ? (
                     visibleUpcomingTableMeetings.length ? (
-                      <div className="md:rounded-[28px] md:border md:border-[#EAF2FF] md:bg-white md:p-3 md:shadow-[0_12px_34px_rgba(37,99,235,0.045)]">
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleUpcomingTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
-                      </div>
+                      <>
+                        <div className="grid gap-3 md:hidden">{visibleUpcomingTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                        <DesktopScheduleTable meetings={visibleUpcomingTableMeetings} onOpenMeeting={openMeetingDetail} people={people} />
+                      </>
                     ) : (
                       <>
                         <div className="md:hidden">
@@ -12983,11 +13280,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onToday={jumpMeetingsCalendarToToday}
                       selectedDateKey={selectedMeetingsCalendarDate}
                     />
+                  ) : meetingsView === "availability" ? (
+                    <>
+                      <div className="md:hidden">
+                        <EmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text="Availability and booking links are coming next. Connected calendars already sync into Table." title="Availability is coming next." />
+                      </div>
+                      <DesktopAvailabilityPanel
+                        calendarConnection={data.calendarConnection}
+                        externalCalendarEvents={data.externalCalendarEvents}
+                        isDisconnecting={isCalendarDisconnecting}
+                        onDisconnectCalendar={handleDisconnectCalendar}
+                        onScheduleMeeting={() => openScheduleMeeting()}
+                        workspaceId={data.workspace.id}
+                      />
+                    </>
                   ) : (
                     visibleHistoryTableMeetings.length ? (
-                      <div className="md:rounded-[28px] md:border md:border-[#EAF2FF] md:bg-white md:p-3 md:shadow-[0_12px_34px_rgba(37,99,235,0.045)]">
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">{visibleHistoryTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
-                      </div>
+                      <>
+                        <div className="grid gap-3 md:hidden">{visibleHistoryTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
+                        <DesktopHistoryTable meetings={visibleHistoryTableMeetings} onOpenMeeting={openMeetingDetail} people={people} storyCountByMeetingId={storyCountByMeetingId} />
+                      </>
                     ) : (
                       <>
                         <div className="md:hidden">
@@ -13329,6 +13641,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
+                {/* TODO: Fold Table Flow into Table later as Guided Flow templates. */}
                 {moreAppView === "table_flow" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Table Flow" />
