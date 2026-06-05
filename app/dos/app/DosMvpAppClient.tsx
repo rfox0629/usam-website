@@ -4984,6 +4984,31 @@ const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>>
   { label: "Meeting Covering", value: "meeting_covering" },
 ];
 
+// TODO: Replace UI-only sample rows with prayer_partners/prayer_requests data once those tables are exposed to the DOS client.
+const desktopPrayerPartnerSamples = [
+  { action: "View", lastContacted: "2 days ago", name: "Brooke Fox", notes: "Prays over family and field rhythm.", relationship: "Spouse", status: "Active" },
+  { action: "View", lastContacted: "1 week ago", name: "Dirk Bond", notes: "Mentor covering table conversations.", relationship: "Mentor", status: "Active" },
+  { action: "View", lastContacted: "3 days ago", name: "Prayer Team Group", notes: "Shared covering for upcoming meetings.", relationship: "Group", status: "Active" },
+] as const;
+
+const desktopPrayerRequestSamples = [
+  { action: "View", answered: "—", category: "Ministry", created: "Jun 4", request: "Wisdom for upcoming Kitchen Table", sharedWith: "Prayer Team", status: "Praying" },
+  { action: "View", answered: "—", category: "Family", created: "Jun 3", request: "Family strength and covering", sharedWith: "Brooke", status: "Praying" },
+  { action: "View", answered: "Jun 5", category: "Support", created: "May 31", request: "Support conversations this week", sharedWith: "3 partners", status: "Answered" },
+] as const;
+
+const desktopPrayingForSamples = [
+  { action: "Mark Prayed", frequency: "Weekly", lastPrayed: "Yesterday", person: "Aaron Meyers", request: "Job transition and peace", status: "Praying" },
+  { action: "Mark Prayed", frequency: "Weekly", lastPrayed: "2 days ago", person: "Jason Waage", request: "Family discipleship rhythm", status: "Praying" },
+  { action: "Mark Prayed", frequency: "One time", lastPrayed: "Today", person: "Naomi Lee", request: "Upcoming table conversation", status: "Praying" },
+] as const;
+
+const desktopMeetingCoveringSamples = [
+  { action: "View", date: "Jun 6, 6:00 PM", meeting: "Kitchen Table with Naomi Lee", person: "Naomi Lee", prayerTeam: "Brooke, Dirk", status: "Not sent" },
+  { action: "View", date: "Jun 8, 9:00 AM", meeting: "Coffee with Jason Waage", person: "Jason Waage", prayerTeam: "Prayer Team Group", status: "Sent" },
+  { action: "View", date: "Jun 10, 7:00 PM", meeting: "Follow-up with Aaron Meyers", person: "Aaron Meyers", prayerTeam: "Brooke", status: "Draft" },
+] as const;
+
 const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
   { label: "My 3", value: "three" },
   { label: "My 12", value: "twelve" },
@@ -8612,13 +8637,38 @@ function DesktopPrayerActionButton({
   return (
     <button
       aria-disabled={disabled}
-      className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors enabled:hover:border-[#BFDBFE] enabled:hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]"
+      className="inline-flex min-h-8 items-center justify-center justify-self-end whitespace-nowrap rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors enabled:hover:border-[#BFDBFE] enabled:hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]"
       disabled={disabled}
       onClick={onClick}
       type="button"
     >
       {children}
     </button>
+  );
+}
+
+function DesktopPrayerStatusPill({ children }: { children: ReactNode }) {
+  return (
+    <span className="w-fit rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
+      {children}
+    </span>
+  );
+}
+
+function DesktopPrayerTableRow({
+  children,
+  gridTemplateColumns,
+}: {
+  children: ReactNode;
+  gridTemplateColumns: string;
+}) {
+  return (
+    <div
+      className="grid items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-[#F8FBFF]"
+      style={{ gridTemplateColumns }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -8652,11 +8702,11 @@ function DesktopPrayerTable({
   minWidth?: number;
 }) {
   return (
-    <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
+    <div className="hidden w-full overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
       <div className="overflow-x-auto">
         <div style={{ minWidth }}>
           <div
-            className="grid gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]"
+            className="grid gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]"
             style={{ fontFamily: font.rajdhani, gridTemplateColumns }}
           >
             {columns.map((column, index) => (
@@ -8711,14 +8761,23 @@ function DesktopPrayerWorkspace({
           eyebrow="Prayer Partners"
         >
           <DesktopPrayerTable
-            columns={["Name", "Phone", "Email", "Relationship", "Status", "Last Contacted", "Notes", "Action"]}
-            gridTemplateColumns="minmax(180px,1.2fr) 132px 190px 150px 112px 132px minmax(220px,1fr) 92px"
-            minWidth={1160}
+            columns={["Name", "Relationship", "Status", "Last Contacted", "Notes", "Action"]}
+            gridTemplateColumns="minmax(190px,1.1fr) 150px 116px 150px minmax(260px,1fr) 110px"
+            minWidth={920}
           >
-            <DesktopPrayerEmptyTableState
-              text="Prayer partners are not loaded into the DOS client yet. Later this table can use the prayer_partners table without creating a second people system."
-              title="No prayer partners connected."
-            />
+            {desktopPrayerPartnerSamples.map((partner) => (
+              <DesktopPrayerTableRow
+                gridTemplateColumns="minmax(190px,1.1fr) 150px 116px 150px minmax(260px,1fr) 110px"
+                key={partner.name}
+              >
+                <span className="truncate text-sm font-black text-[#0F172A]">{partner.name}</span>
+                <span className="truncate font-semibold text-[#475569]">{partner.relationship}</span>
+                <DesktopPrayerStatusPill>{partner.status}</DesktopPrayerStatusPill>
+                <span className="truncate font-semibold text-[#475569]">{partner.lastContacted}</span>
+                <span className="truncate leading-5 text-[#64748B]">{partner.notes}</span>
+                <DesktopPrayerActionButton disabled>{partner.action}</DesktopPrayerActionButton>
+              </DesktopPrayerTableRow>
+            ))}
           </DesktopPrayerTable>
         </DesktopPanel>
       ) : null}
@@ -8730,14 +8789,24 @@ function DesktopPrayerWorkspace({
           eyebrow="My Requests"
         >
           <DesktopPrayerTable
-            columns={["Request", "Category", "Shared With", "Status", "Created", "Answered Date", "Action"]}
-            gridTemplateColumns="minmax(300px,1fr) 132px 150px 116px 126px 132px 92px"
-            minWidth={1040}
+            columns={["Request", "Category", "Shared With", "Status", "Created", "Answered", "Action"]}
+            gridTemplateColumns="minmax(280px,1fr) 126px 150px 116px 104px 104px 110px"
+            minWidth={990}
           >
-            <DesktopPrayerEmptyTableState
-              text="Requests you share with others will appear here after prayer_requests are exposed to this workspace view."
-              title="No shared prayer requests yet."
-            />
+            {desktopPrayerRequestSamples.map((request) => (
+              <DesktopPrayerTableRow
+                gridTemplateColumns="minmax(280px,1fr) 126px 150px 116px 104px 104px 110px"
+                key={request.request}
+              >
+                <span className="truncate text-sm font-black text-[#0F172A]">{request.request}</span>
+                <span className="truncate font-semibold text-[#475569]">{request.category}</span>
+                <span className="truncate font-semibold text-[#475569]">{request.sharedWith}</span>
+                <DesktopPrayerStatusPill>{request.status}</DesktopPrayerStatusPill>
+                <span className="truncate font-semibold text-[#475569]">{request.created}</span>
+                <span className="truncate font-semibold text-[#475569]">{request.answered}</span>
+                <DesktopPrayerActionButton disabled>{request.action}</DesktopPrayerActionButton>
+              </DesktopPrayerTableRow>
+            ))}
           </DesktopPrayerTable>
         </DesktopPanel>
       ) : null}
@@ -8749,38 +8818,44 @@ function DesktopPrayerWorkspace({
           eyebrow="Praying For"
         >
           <DesktopPrayerTable
-            columns={["Person", "Request", "Status", "Frequency", "Last Prayed", "Answered", "Action"]}
-            gridTemplateColumns="180px minmax(300px,1fr) 112px 120px 132px 104px 92px"
-            minWidth={1040}
+            columns={["Person", "Request", "Status", "Frequency", "Last Prayed", "Action"]}
+            gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 110px"
+            minWidth={910}
           >
             {prayerReminders.length ? prayerReminders.map((reminder) => {
               const person = personById.get(reminder.personId) ?? null;
               const latestPrayedAt = latestPrayerDateForPerson(prayerLogs, reminder.personId);
 
               return (
-                <div
-                  className="grid items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                <DesktopPrayerTableRow
                   key={reminder.id}
-                  style={{ gridTemplateColumns: "180px minmax(300px,1fr) 112px 120px 132px 104px 92px" }}
+                  gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 110px"
                 >
                   <span className="truncate font-bold text-[#0F172A]">{person?.name ?? "Unlinked person"}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[#0F172A]">{reminderDisplayTitle(reminder, person)}</span>
                     {reminder.notes ? <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">{reminder.notes}</span> : null}
                   </span>
-                  <span className="w-fit rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">Praying</span>
+                  <DesktopPrayerStatusPill>Praying</DesktopPrayerStatusPill>
                   <span className="truncate font-semibold text-[#475569]">{prayerFrequencyLabel(reminder.recurrence)}</span>
                   <span className="truncate font-semibold text-[#475569]">{latestPrayedAt ? formatRelativeDate(latestPrayedAt) : "—"}</span>
-                  <span className="font-semibold text-[#94A3B8]">—</span>
-                  <DesktopPrayerActionButton onClick={() => onOpenReminder(reminder.id)}>Open</DesktopPrayerActionButton>
-                </div>
+                  <DesktopPrayerActionButton onClick={() => onOpenReminder(reminder.id)}>View</DesktopPrayerActionButton>
+                </DesktopPrayerTableRow>
               );
             }) : (
-              <DesktopPrayerEmptyTableState
-                action={<DesktopPrayerActionButton onClick={onAddPrayerReminder}>Log Prayer Request</DesktopPrayerActionButton>}
-                text="Prayer reminders from the existing relationship_reminders table will appear here."
-                title="No prayer requests logged."
-              />
+              desktopPrayingForSamples.map((request) => (
+                <DesktopPrayerTableRow
+                  gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 110px"
+                  key={request.person}
+                >
+                  <span className="truncate text-sm font-black text-[#0F172A]">{request.person}</span>
+                  <span className="truncate text-sm font-black text-[#0F172A]">{request.request}</span>
+                  <DesktopPrayerStatusPill>{request.status}</DesktopPrayerStatusPill>
+                  <span className="truncate font-semibold text-[#475569]">{request.frequency}</span>
+                  <span className="truncate font-semibold text-[#475569]">{request.lastPrayed}</span>
+                  <DesktopPrayerActionButton disabled>{request.action}</DesktopPrayerActionButton>
+                </DesktopPrayerTableRow>
+              ))
             )}
           </DesktopPrayerTable>
         </DesktopPanel>
@@ -8793,15 +8868,14 @@ function DesktopPrayerWorkspace({
           eyebrow="Meeting Covering"
         >
           <DesktopPrayerTable
-            columns={["Meeting", "Person", "Date", "Prayer Team Sent To", "Status", "Action"]}
-            gridTemplateColumns="minmax(260px,1fr) 190px 210px 170px 116px 92px"
-            minWidth={980}
+            columns={["Meeting", "Person", "Date", "Prayer Team", "Status", "Action"]}
+            gridTemplateColumns="minmax(260px,1fr) 170px 190px 180px 116px 110px"
+            minWidth={960}
           >
             {upcomingMeetings.length ? upcomingMeetings.map((meeting) => (
-              <div
-                className="grid items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+              <DesktopPrayerTableRow
                 key={meeting.id}
-                style={{ gridTemplateColumns: "minmax(260px,1fr) 190px 210px 170px 116px 92px" }}
+                gridTemplateColumns="minmax(260px,1fr) 170px 190px 180px 116px 110px"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-black text-[#0F172A]">{meetingDisplayTitle(meeting, people)}</span>
@@ -8811,15 +8885,23 @@ function DesktopPrayerWorkspace({
                 <span className="truncate font-semibold text-[#475569]">{formatMeetingTimeRange(meeting)}</span>
                 {/* TODO: Wire prayer team recipients when meeting covering send mechanics exist. */}
                 <span className="font-semibold text-[#94A3B8]">—</span>
-                <span className="w-fit rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold text-[#64748B]">Not sent</span>
-                <DesktopPrayerActionButton onClick={() => onOpenMeeting(meeting.id)}>Open</DesktopPrayerActionButton>
-              </div>
+                <DesktopPrayerStatusPill>Not sent</DesktopPrayerStatusPill>
+                <DesktopPrayerActionButton onClick={() => onOpenMeeting(meeting.id)}>View</DesktopPrayerActionButton>
+              </DesktopPrayerTableRow>
             )) : (
-              <DesktopPrayerEmptyTableState
-                action={<DesktopPrayerActionButton onClick={onScheduleMeeting}>Schedule Table</DesktopPrayerActionButton>}
-                text="Upcoming scheduled tables will appear here so prayer covering can be tracked when that workflow is wired."
-                title="No upcoming meetings needing covering."
-              />
+              desktopMeetingCoveringSamples.map((meeting) => (
+                <DesktopPrayerTableRow
+                  gridTemplateColumns="minmax(260px,1fr) 170px 190px 180px 116px 110px"
+                  key={meeting.meeting}
+                >
+                  <span className="truncate text-sm font-black text-[#0F172A]">{meeting.meeting}</span>
+                  <span className="truncate font-semibold text-[#475569]">{meeting.person}</span>
+                  <span className="truncate font-semibold text-[#475569]">{meeting.date}</span>
+                  <span className="truncate font-semibold text-[#475569]">{meeting.prayerTeam}</span>
+                  <DesktopPrayerStatusPill>{meeting.status}</DesktopPrayerStatusPill>
+                  <DesktopPrayerActionButton disabled>{meeting.action}</DesktopPrayerActionButton>
+                </DesktopPrayerTableRow>
+              ))
             )}
           </DesktopPrayerTable>
         </DesktopPanel>
@@ -13459,7 +13541,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {moreAppView === "prayer" ? (
                   <>
-                    <div className="flex min-h-9 items-center">
+                    <div className="flex min-h-9 items-center md:hidden">
                       <MoreBackButton onClick={() => setMoreAppView(null)} />
                     </div>
                     <TabHero
