@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
+import type { ChangeEvent, ComponentProps, FormEvent, MouseEvent, ReactNode } from "react";
 import {
   buildMeetingRecommendations,
   dosConversationFlowDefinitions,
@@ -203,6 +203,7 @@ type MobileMeetingsView = Exclude<MeetingsView, "availability">;
 type FruitView = "activity" | "forms" | "impact";
 type FruitActivitySource = "Answered Prayer" | "Prayer" | "Quick Review" | "Story" | "Testimony Review";
 type FruitFormKey = "answered_prayer" | "prayer_update" | "quick_review" | "testimony_review";
+type FruitFormStatus = "coming_soon" | "live";
 type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "meeting_covering" | "my_requests" | "partners" | "praying_for";
@@ -5208,38 +5209,43 @@ const fruitFormCards: ReadonlyArray<{
   icon: IconName;
   key: FruitFormKey;
   outcomes: string[];
+  status: FruitFormStatus;
   title: string;
 }> = [
   {
-    cta: "Start Quick Review",
-    description: "Capture what happened after a meeting and identify fruit.",
+    cta: "Send",
+    description: "Send this after a meeting so someone can quickly share what happened, how they felt, and any fruit that came from the meeting.",
     icon: "send",
     key: "quick_review",
     outcomes: ["Felt heard", "Felt cared for", "Joined discipleship", "Started discipling others"],
+    status: "live",
     title: "Quick Review",
   },
   {
-    cta: "Submit Testimony",
-    description: "Record a testimony and connect it to visible fruit.",
+    cta: "Send",
+    description: "Send this when someone has a testimony to share so it can be reviewed and connected to visible fruit.",
     icon: "fruit",
     key: "testimony_review",
     outcomes: ["Answered prayer", "Reconciliation", "Marriage restoration", "Baptism", "New believer"],
+    status: "live",
     title: "Testimony Review",
   },
   {
-    cta: "Update Prayer",
+    cta: "Coming Soon",
     description: "Follow up on prayer requests and track what God has done.",
     icon: "prayer",
     key: "prayer_update",
     outcomes: ["Prayer request", "Answered prayer"],
+    status: "coming_soon",
     title: "Prayer Update",
   },
   {
-    cta: "Log Answered Prayer",
+    cta: "Coming Soon",
     description: "Quickly record answered prayer.",
     icon: "prayer",
     key: "answered_prayer",
     outcomes: ["Answered prayer"],
+    status: "coming_soon",
     title: "Answered Prayer",
   },
 ];
@@ -8987,12 +8993,25 @@ function FruitActivityDetailSheet({
 }
 
 function FruitFormCard({
+  action,
   form,
-  onOpen,
+  onComingSoon,
 }: {
+  action?: {
+    disabledReason?: string;
+    isBusy?: boolean;
+    meetingLabel?: string;
+    message?: string;
+    onCopy: () => void;
+    onOpen: () => void;
+    onSend: () => void;
+  };
   form: (typeof fruitFormCards)[number];
-  onOpen: (form: (typeof fruitFormCards)[number]) => void;
+  onComingSoon: (form: (typeof fruitFormCards)[number]) => void;
 }) {
+  const isLive = form.status === "live";
+  const actionDisabled = !action || Boolean(action.disabledReason) || action.isBusy;
+
   return (
     <article className="flex min-w-0 flex-col rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
       <div className="flex items-start gap-3">
@@ -9000,7 +9019,18 @@ function FruitFormCard({
           <Icon name={form.icon} size={17} />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-black leading-5 tracking-[-0.01em] text-[#0F172A]">{form.title}</h3>
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <h3 className="text-base font-black leading-5 tracking-[-0.01em] text-[#0F172A]">{form.title}</h3>
+            {isLive ? (
+              <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                Sendable
+              </span>
+            ) : (
+              <span className="shrink-0 rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                Coming Soon
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-xs leading-5 text-[#64748B]">{form.description}</p>
         </div>
       </div>
@@ -9011,52 +9041,87 @@ function FruitFormCard({
           </span>
         ))}
       </div>
-      <div className="mt-4">
-        <AppButton icon={form.icon} onClick={() => onOpen(form)} tone="white">{form.cta}</AppButton>
-      </div>
+      {isLive ? (
+        <div className="mt-4 space-y-3">
+          <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Form link for</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#0F172A]">{action?.meetingLabel ?? "No logged table selected"}</p>
+            {action?.disabledReason ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{action.disabledReason}</p> : null}
+          </div>
+          {action?.message ? (
+            <p className="rounded-2xl border border-[#DCEBFF] bg-[#EBF2FF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">{action.message}</p>
+          ) : null}
+          <div className="grid grid-cols-3 gap-2 max-[350px]:grid-cols-1">
+            <FruitFormActionButton disabled={actionDisabled} isBusy={action?.isBusy} label="Copy Link" onClick={action?.onCopy} />
+            <FruitFormActionButton disabled={actionDisabled} isBusy={action?.isBusy} label="Open Form" onClick={action?.onOpen} />
+            <FruitFormActionButton disabled={actionDisabled} isBusy={action?.isBusy} label={form.cta} onClick={action?.onSend} primary />
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4">
+          <AppButton icon={form.icon} onClick={() => onComingSoon(form)} tone="soft">{form.cta}</AppButton>
+        </div>
+      )}
     </article>
   );
 }
 
-function FruitFormsGrid({
-  onOpenForm,
+function FruitFormActionButton({
+  disabled,
+  isBusy,
+  label,
+  onClick,
+  primary = false,
 }: {
-  onOpenForm: (form: (typeof fruitFormCards)[number]) => void;
+  disabled?: boolean;
+  isBusy?: boolean;
+  label: string;
+  onClick?: () => void;
+  primary?: boolean;
 }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {fruitFormCards.map((form) => (
-        <FruitFormCard form={form} key={form.key} onOpen={onOpenForm} />
-      ))}
-    </div>
+    <button
+      className={`inline-flex min-h-10 min-w-0 items-center justify-center rounded-full px-2.5 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+        primary
+          ? "bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_10px_22px_rgba(37,99,235,0.2)]"
+          : "border border-[#BFDBFE] bg-white text-[#1D4ED8] hover:bg-[#EBF2FF]"
+      }`}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="truncate">{isBusy ? "Preparing..." : label}</span>
+    </button>
   );
 }
 
-function FruitFormPlaceholderSheet({
-  form,
-  onClose,
+function FruitFormsGrid({
+  comingSoonMessage,
+  onOpenForm,
+  quickReviewAction,
+  testimonyReviewAction,
 }: {
-  form: (typeof fruitFormCards)[number];
-  onClose: () => void;
+  comingSoonMessage?: string;
+  onOpenForm: (form: (typeof fruitFormCards)[number]) => void;
+  quickReviewAction?: ComponentProps<typeof FruitFormCard>["action"];
+  testimonyReviewAction?: ComponentProps<typeof FruitFormCard>["action"];
 }) {
   return (
-    <Sheet description={form.description} onClose={onClose} showEyebrow={false} title={form.title}>
-      <div className="space-y-4">
-        <section className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Outcomes</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {form.outcomes.map((outcome) => (
-              <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#1D4ED8] ring-1 ring-[#DCEBFF]" key={outcome}>{outcome}</span>
-            ))}
-          </div>
-        </section>
-        <div className="rounded-[22px] border border-[#EAF2FF] bg-white p-4 text-sm leading-6 text-[#64748B]">
-          {/* TODO: Wire this CTA into the existing review, testimony, prayer update, and answered prayer submission flows. */}
-          This form is coming next. Fruit is already reading from existing reviews, testimonies, prayer updates, and approved fruit records.
-        </div>
-        <AppButton onClick={onClose} tone="black">Done</AppButton>
+    <div className="space-y-3">
+      {comingSoonMessage ? (
+        <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">{comingSoonMessage}</p>
+      ) : null}
+      <div className="grid gap-3 md:grid-cols-2">
+        {fruitFormCards.map((form) => (
+          <FruitFormCard
+            action={form.key === "quick_review" ? quickReviewAction : form.key === "testimony_review" ? testimonyReviewAction : undefined}
+            form={form}
+            key={form.key}
+            onComingSoon={onOpenForm}
+          />
+        ))}
       </div>
-    </Sheet>
+    </div>
   );
 }
 
@@ -12263,7 +12328,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedConversationFlow, setSelectedConversationFlow] = useState<DosConversationFlowKey>("none");
   const [selectedExternalCalendarEventId, setSelectedExternalCalendarEventId] = useState<string | null>(null);
   const [selectedFruitActivity, setSelectedFruitActivity] = useState<FruitDashboardStory | null>(null);
-  const [selectedFruitFormKey, setSelectedFruitFormKey] = useState<FruitFormKey | null>(null);
+  const [fruitFormsNotice, setFruitFormsNotice] = useState("");
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
@@ -12298,10 +12363,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }), [answeredPrayerByReminderId, data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, data.prayerLogs, data.reminders, people]);
   const visibleFruitStories = useMemo(() => fruitStoryEntries.filter((story) => !isQaFruitStory(story)), [fruitStoryEntries]);
   const fruitMetrics = useMemo(() => kingdomFruitMetrics(visibleFruitStories), [visibleFruitStories]);
-  const selectedFruitForm = useMemo(() => (
-    fruitFormCards.find((form) => form.key === selectedFruitFormKey) ?? null
-  ), [selectedFruitFormKey]);
   const latestMeeting = loggedMeetings[0];
+  const latestLoggedTableMeeting = useMemo(() => (
+    loggedMeetings.find((meeting) => meeting.source === "table") ?? null
+  ), [loggedMeetings]);
+  const latestTestimonyReviewMeeting = useMemo(() => (
+    loggedMeetings.find((meeting) => meeting.source === "table" && canSendMeetingTestimonyRequest(meeting, people)) ?? null
+  ), [loggedMeetings, people]);
   const latestFruitActivity = useMemo(() => {
     const fruitItems = [
       ...visibleFruit.map((fruit) => ({
@@ -13971,6 +14039,90 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  function fruitFormMeetingLabel(meeting: DosAppMeeting | null) {
+    if (!meeting) {
+      return "No logged table available";
+    }
+
+    return `${meetingDisplayTitle(meeting, people)} · ${formatDate(meeting.date)}`;
+  }
+
+  function handleComingSoonFruitForm(form: (typeof fruitFormCards)[number]) {
+    setFruitView("forms");
+    setFruitFormsNotice(`${form.title} is coming next. Fruit already reads from existing reviews, testimonies, prayer updates, and approved fruit records.`);
+  }
+
+  async function handleFruitFormLinkAction(formKey: Extract<FruitFormKey, "quick_review" | "testimony_review">, meeting: DosAppMeeting | null, action: "copy" | "open" | "send") {
+    const isTestimony = formKey === "testimony_review";
+    const title = isTestimony ? "Testimony Review" : "Quick Review";
+    const setBusyMeetingId = isTestimony ? setTestimonyLinkMeetingId : setReviewLinkMeetingId;
+    const setMessage = isTestimony ? setTestimonyShareMessage : setReviewShareMessage;
+    const ensureLink = isTestimony ? ensureTestimonyLink : ensureReviewLink;
+
+    setFruitFormsNotice("");
+
+    if (!meeting) {
+      setMessage(isTestimony
+        ? "Log a table with a person before sending a testimony review."
+        : "Log a table before sending a quick review.");
+      return;
+    }
+
+    if (action === "send") {
+      if (isTestimony) {
+        await handleShareTestimony(meeting);
+      } else {
+        await handleShareReview(meeting);
+      }
+      return;
+    }
+
+    setErrorMessage("");
+    setBusyMeetingId(meeting.id);
+    setMessage("");
+
+    try {
+      const url = await ensureLink(meeting);
+
+      if (!url) {
+        return;
+      }
+
+      if (action === "copy") {
+        const copied = await copyReviewUrl(url);
+
+        setMessage(copied ? `${title} link copied.` : url);
+        return;
+      }
+
+      if (typeof window !== "undefined") {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+
+      setMessage(`${title} form opened.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Unable to prepare ${title.toLowerCase()} link.`);
+    } finally {
+      setBusyMeetingId(null);
+    }
+  }
+
+  function handleMobileFruitFormAction(form: (typeof fruitFormCards)[number]) {
+    setFruitView("forms");
+
+    if (form.key === "quick_review") {
+      void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "send");
+      return;
+    }
+
+    if (form.key === "testimony_review") {
+      void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "send");
+      return;
+    }
+
+    handleComingSoonFruitForm(form);
+  }
+
   async function handleConfirmMeetingSendAction() {
     if (!pendingMeetingSendAction) {
       return;
@@ -14178,6 +14330,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsMobileActionSheetOpen(false);
     action();
   };
+  const quickReviewFruitFormAction = {
+    disabledReason: latestLoggedTableMeeting ? undefined : "Log a table before sending a quick review.",
+    isBusy: latestLoggedTableMeeting ? reviewLinkMeetingId === latestLoggedTableMeeting.id : false,
+    meetingLabel: fruitFormMeetingLabel(latestLoggedTableMeeting),
+    message: reviewShareMessage,
+    onCopy: () => void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "copy"),
+    onOpen: () => void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "open"),
+    onSend: () => void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "send"),
+  };
+  const testimonyReviewFruitFormAction = {
+    disabledReason: latestTestimonyReviewMeeting ? undefined : "Log a table with a person before sending a testimony review.",
+    isBusy: latestTestimonyReviewMeeting ? testimonyLinkMeetingId === latestTestimonyReviewMeeting.id : false,
+    meetingLabel: fruitFormMeetingLabel(latestTestimonyReviewMeeting),
+    message: testimonyShareMessage,
+    onCopy: () => void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "copy"),
+    onOpen: () => void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "open"),
+    onSend: () => void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "send"),
+  };
   const mobileFloatingActionItems: MobileFloatingActionItem[] = activeTab === "meetings"
     ? [
         { icon: "log", label: "Log Table", onClick: runMobileAction(() => openForm("meeting")) },
@@ -14189,7 +14359,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ? fruitFormCards.map((form) => ({
           icon: form.icon,
           label: form.title,
-          onClick: runMobileAction(() => setSelectedFruitFormKey(form.key)),
+          onClick: runMobileAction(() => handleMobileFruitFormAction(form)),
         }))
     : activeTab === "more"
       ? [
@@ -14223,7 +14393,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isUsamApplicationOpen
     && !selectedExternalCalendarEventId
     && !selectedFruitActivity
-    && !selectedFruitFormKey
     && !selectedMeetingId
     && !selectedPersonId
     && !selectedPrayerResourceSlug
@@ -14735,7 +14904,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         ) : (
                           <div className="grid gap-3">
                             <SectionEmptyState
-                              action={<CompactButton icon="fruit" onClick={() => setSelectedFruitFormKey("quick_review")}>Open Forms</CompactButton>}
+                              action={<CompactButton icon="fruit" onClick={() => setFruitView("forms")}>Open Forms</CompactButton>}
                               text="Testimonies, reviews, answered prayers, baptisms, new believers, reconciliation, and visible outcomes will appear here."
                               title="No fruit activity yet."
                             />
@@ -14771,7 +14940,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     {fruitView === "forms" ? (
                       <section>
                         <SectionHeading title="Forms" />
-                        <FruitFormsGrid onOpenForm={(form) => setSelectedFruitFormKey(form.key)} />
+                        <FruitFormsGrid
+                          comingSoonMessage={fruitFormsNotice}
+                          onOpenForm={handleComingSoonFruitForm}
+                          quickReviewAction={quickReviewFruitFormAction}
+                          testimonyReviewAction={testimonyReviewFruitFormAction}
+                        />
                       </section>
                     ) : null}
                   </>
@@ -15238,13 +15412,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               openPersonDetail(personId);
             }}
             story={selectedFruitActivity}
-          />
-        ) : null}
-
-        {selectedFruitForm ? (
-          <FruitFormPlaceholderSheet
-            form={selectedFruitForm}
-            onClose={() => setSelectedFruitFormKey(null)}
           />
         ) : null}
 
