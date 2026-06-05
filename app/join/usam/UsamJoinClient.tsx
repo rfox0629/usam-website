@@ -164,7 +164,7 @@ const stepStorageKey = "dos-unified-setup-step-v1";
 const submittedStorageKey = "dos-unified-setup-submitted-v1";
 
 const baseStepDefinitions: ReadonlyArray<{ id: StepId; label: string; title: string }> = [
-  { id: "account", label: "Login", title: "Create your login." },
+  { id: "account", label: "Account", title: "Create your account." },
   { id: "workspace", label: "Workspace", title: "Set up your workspace." },
   { id: "path", label: "Path", title: "What are you setting up?" },
 ];
@@ -220,150 +220,117 @@ function optionText(value: ReactNode) {
   return Children.toArray(value).join("");
 }
 
-const initialMy3People: My3PersonDraft[] = [
-  {
-    email: "jason.waage@example.com",
-    id: "my3-seed-1",
-    name: "Jason Waage",
-    phone: "612-555-0198",
-    relationshipContext: "friend",
-    roleInMyLife: "walking_with_them",
-  },
-  {
-    email: "erica.morgan@example.com",
-    id: "my3-seed-2",
-    name: "Erica Morgan",
-    phone: "612-555-0144",
-    relationshipContext: "family",
-    roleInMyLife: "walking_with_them",
-  },
-  {
-    email: "daniel.reyes@example.com",
-    id: "my3-seed-3",
-    name: "Daniel Reyes",
-    phone: "612-555-0182",
-    relationshipContext: "church",
-    roleInMyLife: "mentoring_me",
-  },
-];
+const initialMy3People: My3PersonDraft[] = [];
 
 const initialDraft: ApplicationDraft = {
-  accountEmail: "brian.morgan@example.com",
-  addressLine1: "2146 Lyndale Ave S",
+  accountEmail: "",
+  addressLine1: "",
   addressLine2: "",
-  agreement: true,
-  basedIn: "Minneapolis, MN",
-  callingFocus: "I want to help everyday disciples gather around tables, hear the gospel clearly, and keep walking with people after the first conversation.",
-  cellPhone: "612-555-0136",
-  city: "Minneapolis",
-  confirmPassword: "usam2026",
-  contactEmail: "brian.morgan@example.com",
-  country: "United States",
-  currentlyRaisingSupport: "starting",
+  agreement: false,
+  basedIn: "",
+  callingFocus: "",
+  cellPhone: "",
+  city: "",
+  confirmPassword: "",
+  contactEmail: "",
+  country: "",
+  currentlyRaisingSupport: "",
   donationLinkPreference: "missionary_support",
   familyMembers: [
     {
-      age: "9",
+      age: "",
       dependentStatus: "dependent",
-      firstName: "Mia",
-      id: "family-demo-1",
-      lastName: "Morgan",
-      relationship: "Child",
-    },
-    {
-      age: "6",
-      dependentStatus: "dependent",
-      firstName: "Eli",
-      id: "family-demo-2",
-      lastName: "Morgan",
-      relationship: "Child",
+      firstName: "",
+      id: "family-initial",
+      lastName: "",
+      relationship: "",
     },
   ],
-  familyPhotoName: "morgan-family-public-photo.jpg",
-  firstName: "Brian",
-  fullAddress: "2146 Lyndale Ave S",
-  lastName: "Morgan",
+  familyPhotoName: "",
+  firstName: "",
+  fullAddress: "",
+  lastName: "",
   my3People: initialMy3People,
-  organizationContactEmail: "brian.morgan@example.com",
-  organizationContactPerson: "Brian Morgan",
-  organizationMessage: "Our church is interested in using DOS to help small group leaders follow up with people faithfully.",
-  organizationName: "River Valley Church",
-  organizationType: "Church / ministry",
-  password: "usam2026",
+  organizationContactEmail: "",
+  organizationContactPerson: "",
+  organizationMessage: "",
+  organizationName: "",
+  organizationType: "",
+  password: "",
   prayerPartners: [
     {
-      email: "aaron.meyers@example.com",
-      firstName: "Aaron",
-      id: "prayer-partner-1",
-      lastName: "Meyers",
-      phone: "612-555-0151",
-      relationship: "Pastor",
+      email: "",
+      firstName: "",
+      id: "prayer-partner-initial",
+      lastName: "",
+      phone: "",
+      relationship: "",
     },
   ],
-  polishedStoryDraft: "I met Jesus through ordinary people who kept showing up. Over time, kitchen-table conversations became the place where faith moved from theory into practice for me. I believe God is calling our family to help others learn the same simple rhythm: identify who is in front of us, walk with them, and disciple faithfully over time.",
+  polishedStoryDraft: "",
   prayerRequests: [
     {
-      id: "prayer-request-primary",
-      text: "Pray for courage, consistency, and open doors as we begin gathering people around tables and training others to do the same.",
+      id: "prayer-request-initial",
+      text: "",
       visibility: "prayer_team",
     },
   ],
-  profilePhotoName: "brian-morgan-headshot.jpg",
+  profilePhotoName: "",
   references: [
     {
-      churchOrganization: "River Valley Church",
-      description: "Aaron has known our family for several years and can speak to our character, church involvement, and desire to disciple faithfully.",
-      email: "aaron.meyers@example.com",
-      firstName: "Aaron",
-      id: "reference-primary",
-      lastName: "Meyers",
-      phone: "612-555-0151",
-      relationship: "Pastor",
+      churchOrganization: "",
+      description: "",
+      email: "",
+      firstName: "",
+      id: "reference-initial",
+      lastName: "",
+      phone: "",
+      relationship: "",
     },
   ],
   selectedStoryVersion: "polished",
-  spouseEmail: "anna.morgan@example.com",
-  spouseFirstName: "Anna",
-  spouseLastName: "Morgan",
-  spouseName: "Anna Morgan",
-  spousePhone: "612-555-0162",
-  state: "MN",
-  storyCallingToward: "a life of hospitality, disciple-making, and training everyday believers to keep the gospel moving through ordinary relationships.",
-  storyDraftAccepted: true,
-  storyImpact: "I hope to impact families, neighbors, young adults, and church members who need someone to pray with them, sit at the table with them, and keep walking after the first conversation.",
-  storyJesus: "I came to know Jesus through ordinary people who faithfully showed up, opened Scripture, prayed with me, and helped faith move from ideas into real trust.",
-  storyRecentTeaching: "Recently God has been teaching me that discipleship is usually formed through consistency, humility, and small acts of obedience over time.",
-  storyTestimony: "I met Jesus through ordinary people who kept showing up. Over time, kitchen-table conversations became the place where faith moved from theory into practice for me. I believe God is calling our family to help others learn the same simple rhythm: identify who is in front of us, walk with them, and disciple faithfully over time.",
-  storyWhyUsam: "USA Missionaries gives language and structure to the mission I already feel stirring: meet people where they are, minister with prayer and presence, multiply discipleship rhythms, and make disciples who do the same.",
+  spouseEmail: "",
+  spouseFirstName: "",
+  spouseLastName: "",
+  spouseName: "",
+  spousePhone: "",
+  state: "",
+  storyCallingToward: "",
+  storyDraftAccepted: false,
+  storyImpact: "",
+  storyJesus: "",
+  storyRecentTeaching: "",
+  storyTestimony: "",
+  storyWhyUsam: "",
   supportBudget: {
-    childrenEducation: "250",
+    childrenEducation: "",
     communicationsSoftware: "",
     debtPayments: "",
-    eventsGatherings: "250",
-    foodHousehold: "700",
+    eventsGatherings: "",
+    foodHousehold: "",
     givingTithe: "",
-    hospitalityMeals: "300",
-    housing: "1600",
-    insuranceMedical: "350",
-    localTravel: "250",
-    otherMinistryNeeds: "250",
-    otherPersonalNeeds: "400",
+    hospitalityMeals: "",
+    housing: "",
+    insuranceMedical: "",
+    localTravel: "",
+    otherMinistryNeeds: "",
+    otherPersonalNeeds: "",
     retirement: "",
-    savings: "200",
-    trainingResources: "200",
-    transportation: "350",
-    utilities: "300",
+    savings: "",
+    trainingResources: "",
+    transportation: "",
+    utilities: "",
   },
-  supportCoverage: "Monthly support would help cover local ministry time, training gatherings, travel, hospitality, and discipleship resources.",
-  supportCommittedAmount: "1750",
-  supportGoal: "3500",
-  supportGoalOption: "3500",
-  supportMonthlyNeed: "5000",
+  supportCoverage: "",
+  supportCommittedAmount: "",
+  supportGoal: "",
+  supportGoalOption: "custom",
+  supportMonthlyNeed: "",
   supportNeed: "yes",
   supportOtherMonthlyIncome: "",
   setupPath: "usam",
-  workspaceName: "Brian Morgan DOS",
-  zip: "55405",
+  workspaceName: "",
+  zip: "",
 };
 
 function createId(prefix: string) {
@@ -729,6 +696,28 @@ function shouldRestartJoinFlow() {
   const searchParams = new URLSearchParams(window.location.search);
 
   return searchParams.has("restart") || searchParams.has("reset") || searchParams.has("fresh") || searchParams.get("demo") === "1";
+}
+
+function isSeededDraftPayload(value: string) {
+  try {
+    const parsed = JSON.parse(value) as { application?: Partial<ApplicationDraft> } & Partial<ApplicationDraft>;
+    const possibleDraft = parsed.application ?? parsed;
+    const serialized = JSON.stringify(possibleDraft).toLowerCase();
+    const emailFields = [
+      possibleDraft.accountEmail,
+      possibleDraft.contactEmail,
+      possibleDraft.organizationContactEmail,
+    ].filter((field): field is string => typeof field === "string");
+    const hasExampleEmail = emailFields.some((email) => email.toLowerCase().endsWith("@example.com"));
+    const hasLegacySeedIds = ["my3-seed-", "family-demo-", "reference-primary", "prayer-partner-1"].some((token) => serialized.includes(token));
+    const hasLegacyDemoUploads = ["-headshot.jpg", "-public-photo.jpg"].some((token) => serialized.includes(token));
+
+    return hasExampleEmail || hasLegacySeedIds || hasLegacyDemoUploads;
+  } catch {
+    const normalized = value.toLowerCase();
+
+    return normalized.includes("@example.com") || normalized.includes("my3-seed-") || normalized.includes("family-demo-");
+  }
 }
 
 function ProgressStatusCard({
@@ -1135,6 +1124,21 @@ export function UsamJoinClient() {
     const savedStepId = window.localStorage.getItem(stepStorageKey);
     const submittedDraft = window.localStorage.getItem(submittedStorageKey);
 
+    if ((savedDraft && isSeededDraftPayload(savedDraft)) || (submittedDraft && isSeededDraftPayload(submittedDraft))) {
+      window.localStorage.removeItem(draftStorageKey);
+      window.localStorage.removeItem(stepStorageKey);
+      window.localStorage.removeItem(submittedStorageKey);
+      setDraft(initialDraft);
+      setStepIndex(0);
+      setStage("welcome");
+      setHasSavedDraft(false);
+      setSaveState("saved");
+      setLastSavedAt(new Date());
+      setHasLoadedDraft(true);
+
+      return;
+    }
+
     let loadedDraft = initialDraft;
 
     if (savedDraft) {
@@ -1420,6 +1424,7 @@ export function UsamJoinClient() {
       application: applicationDraft,
       persistence: {
         fallback: "localStorage",
+        // TODO: Replace this fallback with Supabase Auth account creation, Resend invite/email confirmation, Supabase application persistence, and Supabase Storage uploads for photos.
         futureSupabaseTable: applicationDraft.setupPath === "organization" ? "organization_interests" : applicationDraft.setupPath === "usam" ? "usam_applications" : "dos_workspace_setups",
         schemaVersion: 1,
       },
@@ -1438,7 +1443,7 @@ export function UsamJoinClient() {
   function renderStep() {
     if (currentStep.id === "account") {
       return (
-        <SectionCard eyebrow="Login" title="Create your DOS login">
+        <SectionCard eyebrow="Account" title="Create your account">
           <div className="grid gap-3">
             <label className="block">
               {fieldLabel("Email")}
@@ -1455,8 +1460,8 @@ export function UsamJoinClient() {
               </label>
             </div>
             <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
-              <p className="font-bold text-[#0F172A]">One login. One DOS workspace.</p>
-              <p className="mt-1">Organizations and USA Missionaries can connect later as optional paths inside DOS.</p>
+              <p className="font-bold text-[#0F172A]">Account setup pending activation.</p>
+              <p className="mt-1">Your account will be activated after your application is submitted and reviewed.</p>
             </div>
           </div>
         </SectionCard>

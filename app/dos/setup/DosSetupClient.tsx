@@ -585,7 +585,7 @@ function OrganizationsStep({
       </div>
       {choice === "other" ? (
         <div className="grid gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-3">
-          <Input label="Church or organization name" onChange={onUpdateOrganizationName} placeholder="River Valley Church" required value={organizationName} />
+          <Input label="Church or organization name" onChange={onUpdateOrganizationName} placeholder="Church or organization name" required value={organizationName} />
           <Input label="Your role" onChange={onUpdateOrganizationRole} placeholder="Volunteer, pastor, leader..." value={organizationRole} />
         </div>
       ) : null}
@@ -645,7 +645,7 @@ function UsamSetupApplicationStep({
     case "usam_budget":
       return (
         <ApplicationQuestion eyebrow={stepLabel} title="What is your monthly support goal?">
-          <Input inputMode="decimal" label="Monthly support goal" onChange={(value) => onUpdate("monthlyBudget", value)} placeholder="3500" required value={application.monthlyBudget} />
+          <Input inputMode="decimal" label="Monthly support goal" onChange={(value) => onUpdate("monthlyBudget", value)} placeholder="Monthly amount" required value={application.monthlyBudget} />
         </ApplicationQuestion>
       );
     case "usam_prayer":
