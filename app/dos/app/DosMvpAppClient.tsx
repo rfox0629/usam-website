@@ -5052,13 +5052,15 @@ function TableSearchBar({
   query,
   resultCount,
   onChange,
+  showCount = true,
 }: {
   query: string;
   resultCount: number;
   onChange: (value: string) => void;
+  showCount?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-full border border-[#EAF2FF] bg-white p-1.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)] md:rounded-[22px] md:p-3">
+    <div className="flex items-center gap-2 rounded-full border border-[#EAF2FF] bg-white p-1.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)] md:rounded-[22px] md:p-2">
       <label className="relative block min-w-0 flex-1">
         <span className="sr-only">Search tables</span>
         <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
@@ -5072,9 +5074,11 @@ function TableSearchBar({
           value={query}
         />
       </label>
-      <span className="shrink-0 rounded-full bg-[#F8FAFC] px-2.5 py-1 text-center text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B] md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]" style={{ fontFamily: font.rajdhani }}>
-        {resultCount} shown
-      </span>
+      {showCount ? (
+        <span className="shrink-0 rounded-full bg-[#F8FAFC] px-2.5 py-1 text-center text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B] md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]" style={{ fontFamily: font.rajdhani }}>
+          {resultCount} shown
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -5097,27 +5101,27 @@ function DesktopTableToolbar({
   resultCount: number;
 }) {
   return (
-    <div className="hidden rounded-[26px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:grid md:grid-cols-[minmax(260px,1fr)_minmax(300px,340px)] md:items-center md:gap-3 xl:grid-cols-[minmax(300px,1fr)_340px_auto]">
-      <TableSearchBar onChange={onSearchChange} query={query} resultCount={resultCount} />
+    <div className="hidden rounded-[26px] border border-[#EAF2FF] bg-white/92 p-3 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:grid md:grid-cols-1 md:items-center md:gap-3 xl:grid-cols-[minmax(220px,300px)_minmax(390px,1fr)_auto]">
+      <TableSearchBar onChange={onSearchChange} query={query} resultCount={resultCount} showCount={false} />
       <div className="min-w-0">
         <SegmentedTabs onChange={onMeetingsViewChange} options={desktopMeetingsViewTabs} value={meetingsView} />
       </div>
-      <div className="grid grid-cols-2 gap-2 md:col-span-2 xl:col-span-1 xl:min-w-[260px]">
+      <div className="grid grid-cols-2 gap-2 xl:min-w-[294px] xl:justify-self-end">
         <button
-          className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.20)] transition-transform active:scale-[0.99]"
+          className="inline-flex min-h-11 min-w-[124px] items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.20)] transition-transform active:scale-[0.99]"
           onClick={onLogMeeting}
           type="button"
         >
           <Icon name="log" size={14} />
-          <span className="truncate">Log Table</span>
+          <span>Log Table</span>
         </button>
         <button
-          className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] shadow-[0_8px_20px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] active:scale-[0.99]"
+          className="inline-flex min-h-11 min-w-[150px] items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] shadow-[0_8px_20px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] active:scale-[0.99]"
           onClick={onScheduleMeeting}
           type="button"
         >
           <CalendarDays className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-          <span className="truncate">Schedule Table</span>
+          <span>Schedule Table</span>
         </button>
       </div>
     </div>
@@ -5134,17 +5138,21 @@ function DesktopTableEmptyState({
   title: string;
 }) {
   return (
-    <div className="hidden rounded-[28px] border border-[#EAF2FF] bg-white p-7 text-center shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
-      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-[18px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF]">
-        <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
-      </span>
-      <h2 className="mt-4 text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-        {title}
-      </h2>
-      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#64748B]">
-        {text}
-      </p>
-      <div className="mx-auto mt-5 max-w-[220px]">
+    <div className="hidden items-center justify-between gap-4 rounded-[26px] border border-[#EAF2FF] bg-white/92 p-4 text-left shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:flex">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF]">
+          <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <span className="min-w-0">
+          <h2 className="truncate text-lg font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+            {title}
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-[#64748B]">
+            {text}
+          </p>
+        </span>
+      </div>
+      <div className="shrink-0">
         {action}
       </div>
     </div>
@@ -5153,19 +5161,6 @@ function DesktopTableEmptyState({
 
 function tablePersonColumnLabel(meeting: DosAppMeeting, people: DosAppPerson[]) {
   return meetingParticipantTitle(meeting, people) || "—";
-}
-
-function tableMethodColumnLabel(meeting: DosAppMeeting) {
-  switch (meeting.type) {
-    case "phone":
-      return "Phone";
-    case "text":
-      return "Text";
-    case "zoom":
-      return "Zoom";
-    default:
-      return "—";
-  }
 }
 
 function tableStatusColumnLabel(meeting: DosAppMeeting) {
@@ -5193,7 +5188,7 @@ function DesktopTableActionButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+      className="inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
       onClick={onClick}
       type="button"
     >
@@ -5212,14 +5207,13 @@ function DesktopScheduleTable({
   people: DosAppPerson[];
 }) {
   return (
-    <div className="hidden overflow-hidden rounded-[28px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
+    <div className="hidden overflow-hidden rounded-[26px] border border-[#EAF2FF] bg-white/92 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:block">
       <div className="overflow-x-auto">
-        <div className="min-w-[980px]">
-          <div className="grid grid-cols-[150px_minmax(190px,1.2fr)_150px_150px_110px_116px_96px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="min-w-[760px]">
+          <div className="grid grid-cols-[150px_minmax(190px,1fr)_150px_112px_120px_104px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             <span>Date</span>
             <span>Person</span>
             <span>Type</span>
-            <span>Location / Method</span>
             <span>Duration</span>
             <span>Status</span>
             <span className="text-right">Action</span>
@@ -5227,7 +5221,7 @@ function DesktopScheduleTable({
           <div className="divide-y divide-[#EFF6FF]">
             {meetings.map((meeting) => (
               <div
-                className="grid grid-cols-[150px_minmax(190px,1.2fr)_150px_150px_110px_116px_96px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                className="grid grid-cols-[150px_minmax(190px,1fr)_150px_112px_120px_104px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
                 key={meeting.id}
               >
                 <span className="min-w-0">
@@ -5236,7 +5230,6 @@ function DesktopScheduleTable({
                 </span>
                 <span className="truncate font-black text-[#0F172A]">{tablePersonColumnLabel(meeting, people)}</span>
                 <span className="truncate font-semibold text-[#475569]">{meetingActivityTitle(meeting)}</span>
-                <span className="truncate text-[#64748B]">{tableMethodColumnLabel(meeting)}</span>
                 <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableDurationMinutes(meeting))}</span>
                 <span className="truncate">
                   <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
@@ -5267,17 +5260,16 @@ function DesktopHistoryTable({
   storyCountByMeetingId: Map<string, number>;
 }) {
   return (
-    <div className="hidden overflow-hidden rounded-[28px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
+    <div className="hidden overflow-hidden rounded-[26px] border border-[#EAF2FF] bg-white/92 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:block">
       <div className="overflow-x-auto">
-        <div className="min-w-[1060px]">
-          <div className="grid grid-cols-[142px_minmax(190px,1.05fr)_132px_96px_minmax(260px,1.35fr)_112px_90px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="min-w-[860px]">
+          <div className="grid grid-cols-[142px_minmax(180px,1fr)_132px_104px_minmax(240px,1.35fr)_112px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             <span>Date</span>
             <span>Person</span>
             <span>Type</span>
             <span>Duration</span>
             <span>Notes / Reflection</span>
-            <span>Stories / Fruit</span>
-            <span className="text-right">Action</span>
+            <span>Stories</span>
           </div>
           <div className="divide-y divide-[#EFF6FF]">
             {meetings.map((meeting) => {
@@ -5285,9 +5277,11 @@ function DesktopHistoryTable({
               const storyCount = storyCountByMeetingId.get(meeting.id) ?? 0;
 
               return (
-                <div
-                  className="grid grid-cols-[142px_minmax(190px,1.05fr)_132px_96px_minmax(260px,1.35fr)_112px_90px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                <button
+                  className="grid w-full grid-cols-[142px_minmax(180px,1fr)_132px_104px_minmax(240px,1.35fr)_112px] items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-[#F8FBFF]"
                   key={meeting.id}
+                  onClick={() => onOpenMeeting(meeting.id)}
+                  type="button"
                 >
                   <span className="min-w-0">
                     <span className="block truncate font-black text-[#0F172A]">{formatDate(meeting.date)}</span>
@@ -5298,10 +5292,7 @@ function DesktopHistoryTable({
                   <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableDurationMinutes(meeting))}</span>
                   <span className="truncate text-[#64748B]">{notesPreview}</span>
                   <span className="truncate font-bold text-[#0F172A]">{tableStoriesLabel(storyCount)}</span>
-                  <span className="justify-self-end">
-                    <DesktopTableActionButton onClick={() => onOpenMeeting(meeting.id)}>Open</DesktopTableActionButton>
-                  </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -5352,25 +5343,35 @@ function DesktopAvailabilityPanel({
   const futureSections = ["Meeting types", "Availability rules", "Booking links", "Team/spouse calendars"];
 
   return (
-    <div className="hidden gap-4 md:grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.62fr)]">
-      <section className="rounded-[28px] border border-[#EAF2FF] bg-white p-5 shadow-[0_12px_34px_rgba(37,99,235,0.045)]">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-            <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-              Availability is coming next.
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
-              Availability and booking links are coming next. Connected calendars are already available for calendar sync.
-            </p>
+    <div className="hidden gap-4 md:grid lg:grid-cols-[minmax(0,1fr)_minmax(310px,360px)]">
+      <section className="rounded-[26px] border border-[#EAF2FF] bg-white/92 p-5 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur">
+        <div className="flex min-w-0 items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+              <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+                Availability is coming next.
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
+                Connected calendars are already available for calendar sync. Availability rules and booking links are next.
+              </p>
+            </div>
           </div>
+          <button
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]"
+            onClick={onScheduleMeeting}
+            type="button"
+          >
+            <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+            Schedule Table
+          </button>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           {futureSections.map((section) => (
-            <div className="rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] p-4" key={section}>
+            <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4" key={section}>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#2563EB] ring-1 ring-[#DCEBFF]">
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
               </span>
@@ -5379,15 +5380,6 @@ function DesktopAvailabilityPanel({
             </div>
           ))}
         </div>
-
-        <button
-          className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]"
-          onClick={onScheduleMeeting}
-          type="button"
-        >
-          <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-          Schedule Table
-        </button>
       </section>
 
       <aside className="space-y-3">
@@ -6336,8 +6328,8 @@ function MeetingCalendarView({
   const selectedItems = itemsByDay.get(selectedDateKey) ?? [];
 
   return (
-    <section className="space-y-3 md:grid md:grid-cols-[minmax(0,1.16fr)_minmax(300px,0.84fr)] md:gap-4 md:space-y-0">
-      <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
+    <section className="space-y-3 md:grid md:grid-cols-[minmax(0,1fr)] md:gap-4 md:space-y-0 lg:grid-cols-[minmax(0,1.42fr)_minmax(300px,360px)]">
+      <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)] md:rounded-[26px] md:bg-white/92 md:backdrop-blur">
         <header className="flex items-center justify-between gap-2 border-b border-[#EFF6FF] px-3 py-3">
           <button
             aria-label="Previous month"
@@ -6413,7 +6405,7 @@ function MeetingCalendarView({
       </div>
 
       <aside className="min-w-0 space-y-3">
-        <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.055)]">
+        <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.055)] md:bg-white/92 md:backdrop-blur">
           <div className="flex items-center justify-between gap-3">
             <div className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
               Sources
@@ -6437,10 +6429,15 @@ function MeetingCalendarView({
           </p>
         </div>
 
-        <section className="min-w-0 rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
-          <SectionHeading
-            title={calendarSelectedDayLabel(selectedDateKey)}
-          />
+        <section className="min-w-0 rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.045)] md:bg-white/92 md:backdrop-blur">
+          <div className="mb-3 px-1">
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+              Selected Day Agenda
+            </div>
+            <h3 className="mt-1 truncate text-base font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+              {calendarSelectedDayLabel(selectedDateKey)}
+            </h3>
+          </div>
           <div className="grid gap-2.5">
             {selectedItems.length ? selectedItems.map((item) => (
               <CalendarAgendaItem
@@ -13414,7 +13411,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         <div className="md:hidden">
                           <EmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text={tableQuery.trim() ? "Try another person, note, date, or table type." : "Schedule the next conversation or prayer moment."} title={tableQuery.trim() ? "No matching upcoming tables." : "Nothing upcoming."} />
                         </div>
-                        <DesktopTableEmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text={tableQuery.trim() ? "Try another person, note, date, or table type." : "Schedule the next conversation or prayer moment."} title={tableQuery.trim() ? "No matching upcoming tables." : "Nothing upcoming."} />
+                        <DesktopTableEmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text={tableQuery.trim() ? "Try another person, note, date, or table type." : "Schedule your next table or prayer moment."} title={tableQuery.trim() ? "No matching upcoming tables." : "Nothing scheduled."} />
                       </>
                     )
                   ) : meetingsView === "calendar" ? (
