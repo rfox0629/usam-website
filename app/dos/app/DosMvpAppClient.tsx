@@ -3616,30 +3616,76 @@ function dashboardTrendMonths(count = 12) {
   });
 }
 
-function dashboardMetricRows(items: ReadonlyArray<{ icon: ReactNode; label: string; value: string | number }>) {
-  return (
-    <div className="grid gap-2 min-[1200px]:grid-cols-2">
-      {items.map((item) => (
-        <div className="flex min-h-[52px] min-w-0 items-center gap-2.5 rounded-[16px] bg-[#F8FBFF] px-2.5 py-2 ring-1 ring-[#EAF2FF]" key={item.label}>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-            {item.icon}
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[17px] font-black leading-none tracking-[-0.02em] text-[#0F172A]">{item.value}</span>
-            <span className="mt-0.5 block text-[9px] font-bold uppercase leading-[1.05] tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{item.label}</span>
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 type DashboardFruitItem = {
   date: string | null;
   description: string;
   id: string;
   title: string;
 };
+
+type DashboardPersonRow = {
+  id: string | null;
+  meta: string;
+  name: string;
+};
+
+type DashboardUpcomingRow = {
+  badge: string;
+  icon: UpcomingTimelineIcon;
+  id: string;
+  label: string;
+  meeting: DosAppMeeting | null;
+  title: string;
+};
+
+function dashboardPersonRows(people: DosAppPerson[], fallbackNames: string[], metaFallback: string) {
+  const realRows = people.slice(0, 3).map((person) => ({
+    id: person.id,
+    meta: person.relationshipType || metaFallback,
+    name: person.name,
+  }));
+
+  if (realRows.length) {
+    return realRows;
+  }
+
+  // UI-only fallback for visual review when the workspace has no rows for this dashboard slice.
+  return fallbackNames.slice(0, 3).map((name) => ({
+    id: null,
+    meta: metaFallback,
+    name,
+  }));
+}
+
+function DashboardPersonMiniRow({ onOpenPerson, row }: { onOpenPerson: (personId: string) => void; row: DashboardPersonRow }) {
+  const content = (
+    <>
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[11px] font-black text-[#2563EB] ring-1 ring-[#DCEBFF]">
+        {initials(row.name)}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black leading-tight text-[#0F172A]">{row.name}</span>
+        <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#64748B]">{row.meta}</span>
+      </span>
+    </>
+  );
+
+  if (!row.id) {
+    return <div className="flex min-w-0 items-center gap-2 rounded-[16px] bg-[#F8FBFF] px-2.5 py-2">{content}</div>;
+  }
+
+  const personId = row.id;
+
+  return (
+    <button
+      className="flex min-w-0 items-center gap-2 rounded-[16px] bg-[#F8FBFF] px-2.5 py-2 text-left transition-colors hover:bg-[#EBF2FF]"
+      onClick={() => onOpenPerson(personId)}
+      type="button"
+    >
+      {content}
+    </button>
+  );
+}
 
 function DesktopHomeDashboard({
   circleGroups,
@@ -3653,7 +3699,6 @@ function DesktopHomeDashboard({
   onOpenReports,
   onOpenTable,
   onOpenTableCalendar,
-  onSelectCircle,
   onViewField,
   onViewUsamStatus,
   people,
@@ -3672,7 +3717,6 @@ function DesktopHomeDashboard({
   onOpenReports: () => void;
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
-  onSelectCircle: (circle: CircleFocusView) => void;
   onViewField: () => void;
   onViewUsamStatus: () => void;
   people: DosAppPerson[];
@@ -3698,6 +3742,9 @@ function DesktopHomeDashboard({
     }
   });
 
+  const newestPeople = people
+    .slice()
+    .sort((first, second) => dateSortValue(second.createdAt ?? second.lastActivityAt) - dateSortValue(first.createdAt ?? first.lastActivityAt));
   const circleCounts = {
     my3: circleGroups.three.length,
     my12: circleGroups.three.length + circleGroups.twelve.length,
@@ -3766,6 +3813,35 @@ function DesktopHomeDashboard({
   const trendPoints = (key: "fruit" | "hours" | "tables") => trendData.map((item, index) => `${trendX(index)},${trendY(item[key])}`).join(" ");
   const averageDuration = loggedWithDuration.length ? Math.round(totalDurationMinutes / loggedWithDuration.length) : 0;
   const averageThisMonthDuration = loggedThisMonth.length && monthDurationMinutes ? Math.round(monthDurationMinutes / loggedThisMonth.length) : 0;
+  const fieldHealthLists = [
+    {
+      label: "New",
+      rows: dashboardPersonRows(newestPeople, ["Naomi Lee", "George Jenko", "Jason Waage"], "Recently added"),
+    },
+    {
+      label: "My 3",
+      rows: dashboardPersonRows(circleGroups.three.map((item) => item.person), ["Dirk Bond", "Brooke Fox", "Jason Waage"], "Focus relationship"),
+    },
+    {
+      label: "My 12",
+      rows: dashboardPersonRows(circleGroups.twelve.map((item) => item.person), ["Aaron Meyers", "George Jenko", "Naomi Lee"], "Active discipleship"),
+    },
+  ];
+  const realUpcomingRows: DashboardUpcomingRow[] = upcomingItems.slice(0, 3).map((item) => ({
+    badge: item.meeting ? "Scheduled" : item.icon === "birthday" ? "Birthday" : "Reminder",
+    icon: item.icon,
+    id: item.id,
+    label: item.label,
+    meeting: item.meeting ?? null,
+    title: nextStepTitle(item),
+  }));
+  // UI-only fallback rows for visual QA; these are never written to Supabase.
+  const dashboardSampleUpcomingRows: DashboardUpcomingRow[] = [
+    { badge: "Scheduled", icon: "meeting", id: "sample-naomi-table", label: "Jun 6, 2026 · 6:00 PM", meeting: null, title: "Meet with Naomi Lee" },
+    { badge: "Coffee", icon: "meeting", id: "sample-jason-coffee", label: "Jun 8, 2026 · 9:00 AM", meeting: null, title: "Coffee with Jason Waage" },
+    { badge: "Follow Up", icon: "reminder", id: "sample-family-follow-up", label: "Jun 10, 2026 · 7:00 PM", meeting: null, title: "Family follow-up" },
+  ];
+  const dashboardUpcomingRows = realUpcomingRows.length >= 3 ? realUpcomingRows : dashboardSampleUpcomingRows;
 
   return (
     <div className="hidden md:block">
@@ -3780,7 +3856,6 @@ function DesktopHomeDashboard({
           <h1 className="text-[32px] font-black leading-none tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
             Dashboard
           </h1>
-          <p className="mt-1.5 text-sm text-[#334155]">Overview of your discipleship mission.</p>
         </div>
         <span className="inline-flex min-h-10 items-center gap-2 rounded-[15px] border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
           <CalendarDays className="h-4 w-4 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
@@ -3790,60 +3865,65 @@ function DesktopHomeDashboard({
 
       <div className="grid w-full gap-3">
       <div className="grid gap-3 min-[1200px]:grid-cols-[minmax(560px,1.18fr)_minmax(332px,0.82fr)] min-[1360px]:grid-cols-[minmax(620px,1.15fr)_minmax(420px,0.85fr)]">
-        <DesktopPanel action={<DashboardHeaderAction onClick={onViewField}>View Field</DashboardHeaderAction>} className="min-h-[198px] min-w-0 xl:min-h-[210px]" compact eyebrow="Field Health">
-          <div className="grid h-full gap-3 min-[1200px]:grid-cols-[170px_94px_minmax(240px,1fr)] min-[1200px]:items-center min-[1360px]:grid-cols-[188px_104px_minmax(280px,1fr)]">
-            <div className="flex justify-center min-[1200px]:justify-start">
-              <div className="-m-9 scale-[0.68] min-[1360px]:-m-7 min-[1360px]:scale-[0.78]">
-                <CircleTarget
-                  my12Count={circleCounts.my12}
-                  my120Count={circleCounts.my120}
-                  my3Count={circleCounts.my3}
-                  my70Count={circleCounts.my70}
-                  onSelectCircle={onSelectCircle}
-                />
+        <DesktopPanel action={<DashboardHeaderAction onClick={onViewField}>View Field</DashboardHeaderAction>} className="min-h-[198px] min-w-0" compact eyebrow="Field Health">
+          <div className="grid gap-3 min-[1180px]:grid-cols-[1.05fr_1.8fr]">
+            <section className="min-w-0 rounded-[20px] border border-[#EAF2FF] bg-white/80 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>New</h3>
+                <span className="text-[11px] font-bold text-[#64748B]">{newThisMonth} this month</span>
               </div>
-            </div>
-              <div className="grid min-w-0 gap-1.5 text-sm font-bold text-[#0F172A]">
-                {[
-                  ["My 3", circleCounts.my3],
-                  ["My 12", circleCounts.my12],
-                  ["My 70", circleCounts.my70],
-                  ["My 120", circleCounts.my120],
-                ].map(([label, value]) => (
-                  <div className="flex items-center justify-between gap-3" key={label}>
-                    <span>{label}</span>
-                    <span className="font-black text-[#1D4ED8]">{value}</span>
+              <div className="grid gap-2">
+                {fieldHealthLists[0].rows.map((row) => <DashboardPersonMiniRow key={`${fieldHealthLists[0].label}-${row.name}`} onOpenPerson={onOpenPerson} row={row} />)}
+              </div>
+            </section>
+            <div className="grid gap-3 min-[1180px]:grid-cols-2">
+              {fieldHealthLists.slice(1).map((list) => (
+                <section className="min-w-0 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={list.label}>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{list.label}</h3>
+                    <span className="text-[11px] font-bold text-[#64748B]">{list.label === "My 3" ? circleCounts.my3 : circleCounts.my12}</span>
                   </div>
-                ))}
-              </div>
-            <div className="min-w-0">
-              {dashboardMetricRows([
-                { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Active People", value: activePeople },
-                { icon: <UserPlus className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "New This Month", value: newThisMonth },
-                { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Tables This Month", value: loggedThisMonth.length },
-                { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Hours This Month", value: formatDashboardDuration(monthDurationMinutes) },
-              ])}
+                  <div className="grid gap-2">
+                    {list.rows.map((row) => <DashboardPersonMiniRow key={`${list.label}-${row.name}`} onOpenPerson={onOpenPerson} row={row} />)}
+                  </div>
+                </section>
+              ))}
+            </div>
+            <div className="min-[1180px]:col-span-2 grid gap-2 min-[1180px]:grid-cols-4">
+              {[
+                { label: "My 70", value: circleCounts.my70 },
+                { label: "My 120", value: circleCounts.my120 },
+                { label: "Active People", value: activePeople },
+                { label: "Hours This Month", value: formatDashboardDuration(monthDurationMinutes) },
+              ].map((metric) => (
+                <div className="flex items-center justify-between gap-3 rounded-[16px] bg-[#F8FBFF] px-3 py-2 ring-1 ring-[#EAF2FF]" key={metric.label}>
+                  <span className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
+                  <span className="shrink-0 text-sm font-black text-[#0F172A]">{metric.value}</span>
+                </div>
+              ))}
             </div>
           </div>
         </DesktopPanel>
 
-        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Table</DashboardHeaderAction>} className="min-h-[198px] min-w-0 xl:min-h-[210px]" compact eyebrow="Table Activity">
-          <div className="grid h-full min-h-[126px] grid-cols-2 gap-px overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-[#EAF2FF] min-[1360px]:grid-cols-4">
+        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Table</DashboardHeaderAction>} className="min-h-[198px] min-w-0" compact eyebrow="Table Activity">
+          <div className="grid gap-2 min-[1200px]:grid-cols-2 min-[1380px]:grid-cols-4">
               {[
                 { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Scheduled", value: scheduledUpcomingCount },
                 { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Completed", value: loggedThisMonth.length },
                 { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Avg. Time / Table", value: averageThisMonthDuration ? formatLoggedTime(averageThisMonthDuration) : "—" },
                 { icon: <Sparkles className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Most Active Month", value: mostActiveMonth ? monthShortLabelFromKey(mostActiveMonth[0]) : "—" },
               ].map((metric) => (
-                <div className="flex min-h-[88px] flex-col items-center justify-center bg-[#F8FBFF] px-2.5 py-3 text-center min-[1360px]:min-h-[118px]" key={metric.label}>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                <div className="flex min-h-[82px] min-w-0 items-center gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={metric.label}>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
                     {metric.icon}
                   </span>
-                  <span className="mt-2 max-w-[96px] text-[10px] font-semibold leading-4 text-[#334155]">{metric.label}</span>
-                  <span className="mt-1.5 text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
-                  {metric.label === "Most Active Month" && mostActiveMonth ? (
-                    <span className="mt-1.5 text-[11px] font-semibold text-[#64748B]">{mostActiveMonth[1]} tables</span>
-                  ) : null}
+                  <span className="min-w-0">
+                    <span className="block text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
+                    <span className="mt-1.5 block truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
+                    {metric.label === "Most Active Month" && mostActiveMonth ? (
+                      <span className="mt-1 block text-[11px] font-semibold text-[#64748B]">{mostActiveMonth[1]} tables</span>
+                    ) : null}
+                  </span>
                 </div>
               ))}
           </div>
@@ -3853,7 +3933,7 @@ function DesktopHomeDashboard({
       <div className="grid gap-3 min-[1180px]:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Upcoming">
           <div className="grid gap-1">
-            {upcomingItems.slice(0, 3).length ? upcomingItems.slice(0, 3).map((item) => (
+            {dashboardUpcomingRows.map((item) => (
               <button
                 className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2 text-left last:border-b-0"
                 key={item.id}
@@ -3870,16 +3950,14 @@ function DesktopHomeDashboard({
                   <TimelineIcon icon={item.icon} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-[#0F172A]">{nextStepTitle(item)}</span>
+                  <span className="block truncate text-sm font-bold text-[#0F172A]">{item.title}</span>
                   <span className="mt-1 block truncate text-xs text-[#64748B]">{item.label}</span>
                 </span>
                 <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                  {item.meeting ? "Scheduled" : item.icon === "birthday" ? "Birthday" : "Reminder"}
+                  {item.badge}
                 </span>
               </button>
-            )) : (
-              <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">Nothing upcoming.</p>
-            )}
+            ))}
           </div>
         </DesktopPanel>
 
@@ -13220,7 +13298,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   setActiveTab("meetings");
                   setMeetingsView("calendar");
                 }}
-                onSelectCircle={openPeopleCircle}
                 onViewField={() => setActiveTab("people")}
                 onViewUsamStatus={viewUsamApplicationStatus}
                 people={people}
