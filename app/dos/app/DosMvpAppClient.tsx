@@ -22,6 +22,14 @@ import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
+import { dosPrayerResourceAttribution, dosPrayerResourceCategories, dosPrayerResources, getDosPrayerResourceBySlug, type DosPrayerResource, type DosPrayerResourceCategory } from "@/src/lib/dos/prayer-resources";
+import {
+  dosSendableResourceCategories,
+  getDosResourcesByCategory,
+  getSendableDosResources,
+  type DosResource,
+  type DosResourceIcon,
+} from "@/src/lib/dos/resource-catalog";
 import {
   defaultRelationshipModel,
   discipleshipStageLabel,
@@ -46,13 +54,14 @@ const dosDawnShellClassName = "bg-[radial-gradient(circle_at_78%_8%,rgba(219,234
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
 type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
-type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "settings" | "upload";
+type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
 
 const mobileTabs: ReadonlyArray<{ icon: IconName; label: string; value: ActiveTab }> = [
   { icon: "home", label: "Home", value: "home" },
   { icon: "meetings", label: "Table", value: "meetings" },
   { icon: "apps", label: "Apps", value: "more" },
 ];
+
 
 type DesktopNavItem =
   | { icon: IconName; label: string; type: "moreApp"; value: MoreAppView }
@@ -78,6 +87,10 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
     ],
   },
 ];
+
+const dosCommandResourceItems = getDosResourcesByCategory("Commands of Jesus");
+const dosRelationshipResourceItems = getDosResourcesByCategory("Relationships");
+const dosSendableResourceItems = getSendableDosResources();
 
 const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppMeetingType }> = [
   { helper: "Around the table", label: "Kitchen Table", value: "kitchen_table" },
@@ -188,6 +201,7 @@ type PeopleCircleView = CircleFocusView;
 type MeetingsView = "availability" | "calendar" | "history" | "upcoming";
 type MobileMeetingsView = Exclude<MeetingsView, "availability">;
 type FruitView = "impact" | "stories" | "tree";
+type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "meeting_covering" | "my_requests" | "partners" | "praying_for";
 type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
@@ -461,6 +475,13 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
         <svg {...commonProps}>
           <circle cx="11" cy="11" r="6" />
           <path d="m16 16 4 4" />
+        </svg>
+      );
+    case "send":
+      return (
+        <svg {...commonProps}>
+          <path d="m4 12 16-7-7 16-2-7-7-2Z" />
+          <path d="m13 11-4 4" />
         </svg>
       );
     case "settings":
@@ -2615,6 +2636,128 @@ function followUpResourceIcon(title: string) {
     default:
       return { className: "bg-[#F1F5F9] text-[#64748B]", IconComponent: BookOpen };
   }
+}
+
+function catalogResourceIcon(icon: DosResourceIcon) {
+  switch (icon) {
+    case "church":
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Church };
+    case "bible":
+    case "book":
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: BookOpen };
+    case "baptism":
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Droplet };
+    case "giving":
+      return { className: "bg-[#EBF2FF] text-[#1D4ED8]", IconComponent: Gift };
+    case "discipleship":
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Users };
+    case "fasting":
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Flame };
+    case "sabbath":
+      return { className: "bg-[#EBF2FF] text-[#1D4ED8]", IconComponent: Moon };
+    case "sparkles":
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Sparkles };
+    case "heart":
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Heart };
+    case "relationship":
+      return { className: "bg-[#EBF2FF] text-[#1D4ED8]", IconComponent: HeartHandshake };
+    case "prayer":
+      return { className: "bg-[#EBF2FF] text-[#2563EB]", IconComponent: Heart };
+    case "send":
+      return { className: "bg-[#EBF2FF] text-[#1D4ED8]", IconComponent: Send };
+    case "hospitality":
+    default:
+      return { className: "bg-[#F1F5F9] text-[#64748B]", IconComponent: BookOpen };
+  }
+}
+
+function CatalogResourceRow({
+  actionLabel = "Open",
+  onClick,
+  resource,
+}: {
+  actionLabel?: string;
+  onClick?: () => void;
+  resource: DosResource;
+}) {
+  const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
+  const typeLabel = resourceTypeLabel(resource);
+  const rowContent = (
+    <>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
+        <IconComponent className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="block text-sm font-semibold leading-tight text-[#0F172A]">{resource.title}</span>
+          <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+            {typeLabel}
+          </span>
+        </span>
+        <span className="mt-0.5 block line-clamp-2 text-xs leading-4 text-[#64748B]">{resource.description}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+        {actionLabel}
+        <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+      </span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        className="group flex min-h-[64px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-[#FFFFFF]"
+        onClick={onClick}
+        type="button"
+      >
+        {rowContent}
+      </button>
+    );
+  }
+
+  return (
+    <a
+      className="group flex min-h-[64px] items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[#FFFFFF]"
+      href={resource.path}
+      rel={resource.path.endsWith(".pdf") ? "noopener noreferrer" : undefined}
+      target={resource.path.endsWith(".pdf") ? "_blank" : undefined}
+    >
+      {rowContent}
+    </a>
+  );
+}
+
+function resourceTypeLabel(resource: DosResource) {
+  switch (resource.type) {
+    case "assessment":
+      return "Assessment";
+    case "prayer":
+      return "Prayer";
+    case "challenge":
+      return "Challenge";
+    case "guide":
+    case "teaching":
+    default:
+      return "Teaching";
+  }
+}
+
+function CatalogResourceList({
+  actionLabel,
+  resources,
+}: {
+  actionLabel?: string;
+  resources: readonly DosResource[];
+}) {
+  return (
+    <article className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+      <div className="divide-y divide-[#EBF2FF]">
+        {resources.map((resource) => (
+          <CatalogResourceRow actionLabel={actionLabel} key={resource.id} resource={resource} />
+        ))}
+      </div>
+    </article>
+  );
 }
 
 function FeaturedTeachingCard({
@@ -10522,8 +10665,312 @@ function CirclesDetailOverlay({
   );
 }
 
+function PrayerRequestCard({
+  answered,
+  onMarkAnswered,
+  onPrayNow,
+  reminder,
+}: {
+  answered?: boolean;
+  onMarkAnswered?: () => void;
+  onPrayNow?: () => void;
+  reminder: DosAppRelationshipReminder;
+}) {
+  const requestTitle = reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request";
+  const reminderDate = nextReminderDate(reminder);
+
+  return (
+    <article className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          {answered ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black leading-5 text-[#0F172A]">{requestTitle}</p>
+          {reminder.notes ? <p className="mt-1 whitespace-pre-line text-xs leading-5 text-[#475569]">{reminder.notes}</p> : <p className="mt-1 text-xs leading-5 text-[#64748B]">No prayer details added yet.</p>}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] ring-1 ring-[#DCEBFF]" style={{ fontFamily: font.rajdhani }}>
+              {prayerFrequencyLabel(reminder.recurrence)}
+            </span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B] ring-1 ring-[#E2E8F0]" style={{ fontFamily: font.rajdhani }}>
+              {formatDate(reminderDate)}
+            </span>
+          </div>
+        </div>
+      </div>
+      {!answered ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8]" onClick={onPrayNow} type="button">
+            Pray Now
+          </button>
+          <button className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-bold text-white shadow-[0_10px_22px_rgba(37,99,235,0.18)]" onClick={onMarkAnswered} type="button">
+            Mark Answered
+          </button>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function AnsweredPrayerCard({
+  answeredAt,
+  reminder,
+}: {
+  answeredAt: string;
+  reminder: DosAppRelationshipReminder;
+}) {
+  return (
+    <PrayerRequestCard answered reminder={{ ...reminder, reminderDate: answeredAt }} />
+  );
+}
+
+function PrayerResourceMiniCard({
+  onOpen,
+  resource,
+}: {
+  onOpen: () => void;
+  resource: DosPrayerResource;
+}) {
+  return (
+    <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-white p-3 text-left shadow-[0_10px_24px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE]" onClick={onOpen} type="button">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="mb-1 inline-flex max-w-full rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>{resource.category}</span>
+        <span className="block text-sm font-black leading-5 text-[#0F172A]">{resource.title}</span>
+        <span className="mt-1 block text-xs leading-5 text-[#64748B]">{resource.description}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+    </button>
+  );
+}
+
+function PrayerResourcesLibrarySheet({
+  activeCategory,
+  onCategoryChange,
+  onClose,
+  onOpenResource,
+  onQueryChange,
+  query,
+}: {
+  activeCategory: DosPrayerResourceCategory;
+  onCategoryChange: (category: DosPrayerResourceCategory) => void;
+  onClose: () => void;
+  onOpenResource: (resource: DosPrayerResource) => void;
+  onQueryChange: (value: string) => void;
+  query: string;
+}) {
+  const search = query.trim().toLowerCase();
+  const resources = dosPrayerResources.filter((resource) => {
+    if (!search) {
+      return resource.category === activeCategory;
+    }
+
+    const searchable = [
+      resource.title,
+      resource.category,
+      resource.description,
+      ...resource.keyScriptures,
+      ...resource.reflectionQuestions,
+    ].join(" ").toLowerCase();
+
+    return searchable.includes(search);
+  });
+
+  return (
+    <Sheet description="Open a prayer, share a simple public link, or save it to follow-up for this relationship." onClose={onClose} showEyebrow={false} title="Prayer Resources">
+      <div className="space-y-4">
+        <label className="relative block">
+          <span className="sr-only">Search prayer resources</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+          <input
+            className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-white pl-9 pr-4 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Search prayers"
+            value={query}
+          />
+        </label>
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+          {dosPrayerResourceCategories.map((category) => {
+            const selected = category === activeCategory;
+
+            return (
+              <button
+                className={`shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors ${selected ? "bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.18)]" : "border border-[#DCEBFF] bg-white text-[#475569]"}`}
+                key={category}
+                onClick={() => onCategoryChange(category)}
+                type="button"
+              >
+                {category}
+              </button>
+            );
+          })}
+        </div>
+        <div className="grid gap-2.5">
+          {resources.length ? (
+            resources.map((resource) => (
+              <PrayerResourceMiniCard key={resource.slug} onOpen={() => onOpenResource(resource)} resource={resource} />
+            ))
+          ) : (
+            <p className="rounded-[20px] border border-[#EAF2FF] bg-white px-4 py-5 text-sm font-semibold leading-6 text-[#64748B]">
+              No matching prayers found.
+            </p>
+          )}
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function PrayerResourceDetailSheet({
+  fallbackUrl,
+  message,
+  onClose,
+  onPrayNow,
+  onSaveToFollowUp,
+  onSendLink,
+  publicHref,
+  resource,
+}: {
+  fallbackUrl: string;
+  message: string;
+  onClose: () => void;
+  onPrayNow: () => void;
+  onSaveToFollowUp: () => void;
+  onSendLink: () => void;
+  publicHref: string;
+  resource: DosPrayerResource;
+}) {
+  return (
+    <Sheet description={resource.description} onClose={onClose} showEyebrow={false} title={resource.title}>
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+            {resource.category}
+          </span>
+          <a className="inline-flex items-center gap-1 rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" href={publicHref} rel="noopener noreferrer" target="_blank" style={{ fontFamily: font.rajdhani }}>
+            Public Link
+            <ExternalLink className="h-3 w-3" aria-hidden="true" strokeWidth={1.8} />
+          </a>
+        </div>
+
+        <p className="rounded-2xl border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-semibold leading-5 text-[#475569]">{dosPrayerResourceAttribution}</p>
+
+        {message ? <p className="rounded-2xl border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-xs font-semibold leading-5 text-[#9A3412]">{message}</p> : null}
+
+        {fallbackUrl ? (
+          <label className="block rounded-2xl border border-[#DCEBFF] bg-white p-3">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Public URL</span>
+            <input
+              className="mt-2 w-full rounded-xl border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]"
+              readOnly
+              value={fallbackUrl}
+            />
+          </label>
+        ) : null}
+
+        <section className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Prayer</p>
+          <p className="mt-3 whitespace-pre-line text-sm leading-7 text-[#0F172A]">{resource.prayerText}</p>
+        </section>
+
+        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Key Scriptures</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {resource.keyScriptures.map((scripture) => (
+              <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-bold text-[#1D4ED8]" key={scripture}>{scripture}</span>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Reflection Questions</p>
+          <ol className="mt-3 grid gap-2 text-sm leading-6 text-[#0F172A]">
+            {resource.reflectionQuestions.map((question, index) => (
+              <li className="flex gap-2" key={question}>
+                <span className="font-bold text-[#2563EB]">{index + 1}.</span>
+                <span>{question}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Follow-Up Suggestions</p>
+          <ul className="mt-3 grid gap-2 text-sm leading-6 text-[#0F172A]">
+            {resource.followUpSuggestions.map((suggestion) => (
+              <li className="flex gap-2" key={suggestion}>
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2563EB]" aria-hidden="true" />
+                <span>{suggestion}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <div className="grid gap-2">
+          <AppButton icon="prayer" onClick={onPrayNow} tone="black">Pray Now</AppButton>
+          <div className="grid grid-cols-2 gap-2">
+            <AppButton icon="arrow" onClick={onSendLink} tone="white">Send Link</AppButton>
+            <AppButton icon="bell" onClick={onSaveToFollowUp} tone="white">Save to Follow-Up</AppButton>
+          </div>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function ResourcePickerSheet({
+  message,
+  onClose,
+  onSelectResource,
+}: {
+  message: string;
+  onClose: () => void;
+  onSelectResource: (resource: DosResource) => void;
+}) {
+  const groupedResources = dosSendableResourceCategories
+    .map((category) => ({
+      category,
+      resources: dosSendableResourceItems.filter((resource) => resource.category === category),
+    }))
+    .filter((group) => group.resources.length);
+
+  return (
+    <Sheet description="Choose a resource from the DOS Library. Sending can be wired to text or email later; for now DOS prepares the share link." onClose={onClose} showEyebrow={false} title="Send Resource">
+      <div className="max-h-[68dvh] overflow-y-auto pr-1 [scrollbar-width:none]">
+        <div className="space-y-5">
+          {message ? (
+            <p className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2 text-xs font-bold leading-5 text-[#1D4ED8]">
+              {message}
+            </p>
+          ) : null}
+
+          {groupedResources.map(({ category, resources }) => (
+            <LibrarySection key={category} title={category}>
+              <article className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+                <div className="divide-y divide-[#EBF2FF]">
+                  {resources.map((resource) => (
+                    <CatalogResourceRow
+                      actionLabel="Ready"
+                      key={resource.id}
+                      onClick={() => onSelectResource(resource)}
+                      resource={resource}
+                    />
+                  ))}
+                </div>
+              </article>
+            </LibrarySection>
+          ))}
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
 function PersonDetailOverlay({
   calendarConnection,
+  answeredPrayerByReminderId,
   circleScore,
   fruitEvents,
   fruitItems,
@@ -10534,9 +10981,12 @@ function PersonDetailOverlay({
   reminders,
   onBack,
   onAddReminder,
+  onAddPrayerRequest,
   onDisconnectCalendar,
   onEditReminder,
   onEdit,
+  onMarkPrayerAnswered,
+  onOpenPrayerResources,
   onOpenMeeting,
   onLogMeeting,
   onScheduleMeeting,
@@ -10546,6 +10996,7 @@ function PersonDetailOverlay({
   workspaceId,
 }: {
   calendarConnection: DosAppCalendarConnection;
+  answeredPrayerByReminderId: Record<string, string>;
   circleScore?: DosRelationshipScore | null;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
@@ -10556,9 +11007,12 @@ function PersonDetailOverlay({
   reminders: DosAppRelationshipReminder[];
   onBack: () => void;
   onAddReminder: () => void;
+  onAddPrayerRequest: () => void;
   onDisconnectCalendar?: () => void;
   onEditReminder: (reminderId: string) => void;
   onEdit: () => void;
+  onMarkPrayerAnswered: (reminderId: string) => void;
+  onOpenPrayerResources: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onLogMeeting: () => void;
   onScheduleMeeting: () => void;
@@ -10568,7 +11022,8 @@ function PersonDetailOverlay({
   workspaceId: string;
 }) {
   const detailScrollRef = useRef<HTMLDivElement | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<"activity" | "fruit" | "overview">("overview");
+  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>("overview");
+  const [prayedPrayerReminderIds, setPrayedPrayerReminderIds] = useState<Record<string, boolean>>({});
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
   const defaults = personFormDefaults(person);
@@ -10586,6 +11041,11 @@ function PersonDetailOverlay({
   const personReminders = reminders
     .filter((reminder) => reminder.personId === person.id)
     .sort((first, second) => dateSortValue(nextReminderDate(first)) - dateSortValue(nextReminderDate(second)));
+  const personPrayerReminders = personReminders.filter((reminder) => reminder.reminderType === "prayer");
+  const activePrayerReminders = personPrayerReminders.filter((reminder) => !answeredPrayerByReminderId[reminder.id]);
+  const answeredPrayerReminders = personPrayerReminders
+    .filter((reminder) => Boolean(answeredPrayerByReminderId[reminder.id]))
+    .sort((first, second) => dateSortValue(answeredPrayerByReminderId[second.id]) - dateSortValue(answeredPrayerByReminderId[first.id]));
   const upcomingReminders = personReminders.filter((reminder) => isUpcomingDate(nextReminderDate(reminder)));
   const upcomingTimelineItems = buildUpcomingTimelineItems({
     meetings,
@@ -10693,10 +11153,11 @@ function PersonDetailOverlay({
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-4 bg-white/95 px-4 py-2 backdrop-blur md:mx-0 md:px-0">
-        <div className="grid grid-cols-3 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
+        <div className="grid grid-cols-4 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
           {[
             { label: "Overview", value: "overview" },
             { label: "Activity", value: "activity" },
+            { label: "Prayer", value: "prayer" },
             { label: "Fruit", value: "fruit" },
           ].map((tab) => (
             <button
@@ -10899,6 +11360,72 @@ function PersonDetailOverlay({
                   <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
                 </button>
               )) : <SectionEmptyState action={<CompactButton icon="log" onClick={onLogMeeting}>Log Table</CompactButton>} text="Log the next conversation when it happens." title="No tables yet." />}
+            </DetailCard>
+
+            <DetailCard icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Resources Sent">
+              <SectionEmptyState
+                text="Sent date, opened date, completed date, and scores can be tracked later."
+                title="No resources sent yet."
+              />
+            </DetailCard>
+          </>
+        ) : null}
+
+        {activeDetailTab === "prayer" ? (
+          <>
+            <DetailCard icon={<Heart className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Prayer Requests">
+              {activePrayerReminders.length ? (
+                <div className="grid gap-2.5">
+                  {activePrayerReminders.map((reminder) => (
+                    <PrayerRequestCard
+                      key={reminder.id}
+                      onMarkAnswered={() => onMarkPrayerAnswered(reminder.id)}
+                      onPrayNow={() => setPrayedPrayerReminderIds((current) => ({ ...current, [reminder.id]: true }))}
+                      reminder={reminder}
+                    />
+                  ))}
+                  {activePrayerReminders.some((reminder) => prayedPrayerReminderIds[reminder.id]) ? (
+                    <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">
+                      Prayer noted for this session. Durable prayer logging can be wired later.
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <SectionEmptyState
+                  action={(
+                    <div className="grid grid-cols-2 gap-2">
+                      <CompactButton icon="prayer" onClick={onAddPrayerRequest}>Add Request</CompactButton>
+                      <CompactButton icon="library" onClick={onOpenPrayerResources}>Resources</CompactButton>
+                    </div>
+                  )}
+                  text="No active prayer requests yet. Add one from a meeting or start with a prayer resource."
+                  title="No active prayer requests yet."
+                />
+              )}
+            </DetailCard>
+
+            <DetailCard icon={<CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Answered Prayer">
+              {answeredPrayerReminders.length ? (
+                <div className="grid gap-2.5">
+                  {answeredPrayerReminders.map((reminder) => (
+                    <AnsweredPrayerCard answeredAt={answeredPrayerByReminderId[reminder.id]} key={reminder.id} reminder={reminder} />
+                  ))}
+                </div>
+              ) : (
+                <SectionEmptyState text="Answered prayers will appear here when requests are marked answered." title="No answered prayers yet." />
+              )}
+            </DetailCard>
+
+            <DetailCard icon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Prayer Resources">
+              <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+                <p className="text-sm font-black leading-5 text-[#0F172A]">Pray through a guided resource.</p>
+                <p className="mt-1 text-xs leading-5 text-[#64748B]">
+                  Open a categorized prayer, share a public link, or save it to follow-up for the next meeting.
+                </p>
+                <div className="mt-3">
+                  <CompactButton icon="library" onClick={onOpenPrayerResources}>Open Prayer Resources</CompactButton>
+                </div>
+              </div>
             </DetailCard>
           </>
         ) : null}
@@ -11431,6 +11958,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isMobileActionSheetOpen, setIsMobileActionSheetOpen] = useState(false);
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
   const [isUpcomingSheetOpen, setIsUpcomingSheetOpen] = useState(false);
+  const [isPrayerResourceLibraryOpen, setIsPrayerResourceLibraryOpen] = useState(false);
+  const [isResourcePickerOpen, setIsResourcePickerOpen] = useState(false);
+  const [resourcePickerMessage, setResourcePickerMessage] = useState("");
+  const [selectedPrayerResourceSlug, setSelectedPrayerResourceSlug] = useState<string | null>(null);
+  const [prayerResourceCategory, setPrayerResourceCategory] = useState<DosPrayerResourceCategory>("Identity & Freedom");
+  const [prayerResourceSearchQuery, setPrayerResourceSearchQuery] = useState("");
+  const [prayerResourceMessage, setPrayerResourceMessage] = useState("");
+  const [prayerResourceFallbackUrl, setPrayerResourceFallbackUrl] = useState("");
+  const [, setSavedPrayerResourceKeys] = useState<string[]>([]);
+  const [answeredPrayerByReminderId, setAnsweredPrayerByReminderId] = useState<Record<string, string>>({});
   const [circleSheetView, setCircleSheetView] = useState<CircleFocusView | null>(null);
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -11564,6 +12101,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, [reviewLinksByMeetingId, selectedMeeting]);
   const selectedPerson = useMemo(() => people.find((person) => person.id === selectedPersonId) ?? null, [people, selectedPersonId]);
+  const selectedPrayerResource = useMemo(() => (
+    selectedPrayerResourceSlug ? getDosPrayerResourceBySlug(selectedPrayerResourceSlug) : null
+  ), [selectedPrayerResourceSlug]);
   const selectedReminder = useMemo(() => data.reminders.find((reminder) => reminder.id === selectedReminderId) ?? null, [data.reminders, selectedReminderId]);
   const selectedExternalCalendarEvent = useMemo(() => (
     data.externalCalendarEvents.find((event) => event.id === selectedExternalCalendarEventId) ?? null
@@ -11869,9 +12409,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, []);
 
+
   useEffect(() => {
     setIsMobileActionSheetOpen(false);
-  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedReminderId]);
+  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
 
   function resetMeetingDraft(personIds: string[] = []) {
     setConversationResponses({});
@@ -12069,6 +12610,84 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     } catch {
       setUsamApplicationMessage({ text: publicUrl, tone: "success" });
     }
+  }
+
+  function openPrayerResourceLibrary() {
+    setPrayerResourceMessage("");
+    setPrayerResourceFallbackUrl("");
+    setPrayerResourceSearchQuery("");
+    setSelectedPrayerResourceSlug(null);
+    setIsPrayerResourceLibraryOpen(true);
+  }
+
+  function openPrayerResource(resource: DosPrayerResource) {
+    setPrayerResourceMessage("");
+    setPrayerResourceFallbackUrl("");
+    setIsPrayerResourceLibraryOpen(false);
+    setSelectedPrayerResourceSlug(resource.slug);
+  }
+
+  function prayerResourcePublicHref(resource: DosPrayerResource) {
+    return `/prayer/${resource.slug}`;
+  }
+
+  function prayerResourcePublicUrl(resource: DosPrayerResource) {
+    const href = prayerResourcePublicHref(resource);
+
+    return typeof window !== "undefined" ? new URL(href, window.location.origin).toString() : href;
+  }
+
+  async function sendPrayerResourceLink(resource: DosPrayerResource) {
+    const publicUrl = prayerResourcePublicUrl(resource);
+    setPrayerResourceFallbackUrl(publicUrl);
+
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setPrayerResourceMessage("Prayer link copied");
+      setPrayerResourceFallbackUrl("");
+      window.setTimeout(() => {
+        setPrayerResourceMessage((current) => current === "Prayer link copied" ? "" : current);
+      }, 2400);
+    } catch {
+      setPrayerResourceMessage("Copy failed. Select and copy the link below.");
+      setPrayerResourceFallbackUrl(publicUrl);
+    }
+  }
+
+  function savePrayerResourceToFollowUp(resource: DosPrayerResource) {
+    const resourceKey = `${selectedPersonId ?? "workspace"}:${resource.slug}`;
+
+    // TODO: Persist saved prayer resources to Supabase follow-up/reminder notes when that workflow is wired.
+    setSavedPrayerResourceKeys((current) => current.includes(resourceKey) ? current : [...current, resourceKey]);
+    setPrayerResourceFallbackUrl("");
+    setPrayerResourceMessage(selectedPerson ? "Saved to this person's follow-up notes" : "Saved to follow-up notes");
+  }
+
+  function openResourcePicker() {
+    setResourcePickerMessage("");
+    setIsResourcePickerOpen(true);
+  }
+
+  function resourcePublicUrl(resource: DosResource) {
+    return typeof window !== "undefined" ? new URL(resource.path, window.location.origin).toString() : resource.path;
+  }
+
+  async function prepareResourceToSend(resource: DosResource) {
+    const publicUrl = resourcePublicUrl(resource);
+
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setResourcePickerMessage(`Resource ready to send. Link copied: ${publicUrl}`);
+    } catch {
+      setResourcePickerMessage(publicUrl);
+    }
+  }
+
+  function markPrayerReminderAnswered(reminderId: string) {
+    setAnsweredPrayerByReminderId((current) => current[reminderId] ? current : {
+      ...current,
+      [reminderId]: new Date().toISOString(),
+    });
   }
 
   function openPersonDetail(personId: string) {
@@ -13206,7 +13825,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           status: `${visibleFruitStories.length} stories`,
         },
         {
-          description: "Teachings and follow-up resources.",
+          description: "Teachings and sendable resources.",
           icon: <BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
           label: "Library",
           onClick: () => openMoreApp("library"),
@@ -13300,6 +13919,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         { icon: "log", label: "Log Table", onClick: runMobileAction(() => openForm("meeting")) },
         { icon: "calendar", label: "Schedule Table", onClick: runMobileAction(() => openScheduleMeeting()) },
         { icon: "search", label: "Search Tables", onClick: runMobileAction(openTableSearch) },
+        { icon: "send", label: "Send Resource", onClick: runMobileAction(openResourcePicker) },
       ]
     : activeTab === "more"
       ? [
@@ -13324,6 +13944,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isCirclesOpen
     && !isEditProfileOpen
     && !isPeopleImportOpen
+    && !isPrayerResourceLibraryOpen
+    && !isResourcePickerOpen
     && !isProfileOpen
     && !isActivitySheetOpen
     && !isTableSearchOpen
@@ -13332,6 +13954,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedExternalCalendarEventId
     && !selectedMeetingId
     && !selectedPersonId
+    && !selectedPrayerResourceSlug
     && !selectedReminderId
     && !selectedScripture;
 
@@ -13779,6 +14402,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                           </div>
                         </div>
                       </LibrarySection>
+                      <LibrarySection title="Prayer Resources">
+                        <button
+                          className="flex min-w-0 items-center gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_12px_30px_rgba(37,99,235,0.055)]"
+                          onClick={openPrayerResourceLibrary}
+                          type="button"
+                        >
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB]">
+                            <BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-black text-[#0F172A]">Open prayer library</span>
+                            <span className="mt-1 block text-xs leading-5 text-[#64748B]">Identity, healing, relationships, freedom, and life challenges.</span>
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+                        </button>
+                      </LibrarySection>
                     </div>
                     <DesktopPrayerWorkspace
                       onAddPrayerReminder={() => openReminderForm(undefined, "prayer")}
@@ -13882,10 +14521,30 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       </LibrarySection>
 
                       <LibrarySection
-                        subtext="To send after a conversation."
-                        title="Follow Up Resources"
+                        title="Commands of Jesus"
                       >
-                        <FollowUpGuideList />
+                        <CatalogResourceList resources={dosCommandResourceItems} />
+                      </LibrarySection>
+
+                      <LibrarySection title="Relationships">
+                        <CatalogResourceList resources={dosRelationshipResourceItems} />
+                      </LibrarySection>
+
+                      <LibrarySection title="Prayer">
+                        <button
+                          className="flex min-w-0 items-center gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_12px_30px_rgba(37,99,235,0.055)]"
+                          onClick={openPrayerResourceLibrary}
+                          type="button"
+                        >
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB]">
+                            <Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-black text-[#0F172A]">Prayer Resources</span>
+                            <span className="mt-1 block text-xs leading-5 text-[#64748B]">Identity, healing, relationships, freedom, and life challenges.</span>
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+                        </button>
                       </LibrarySection>
                     </div>
                   </>
@@ -14110,6 +14769,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {selectedPerson ? (
             <PersonDetailOverlay
+              answeredPrayerByReminderId={answeredPrayerByReminderId}
               calendarConnection={data.calendarConnection}
               fruitEvents={data.fruitEvents}
               fruitItems={data.fruit}
@@ -14120,11 +14780,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               reminders={data.reminders}
             onBack={() => setSelectedPersonId(null)}
             onAddReminder={() => openReminderForm(selectedPerson.id)}
+            onAddPrayerRequest={() => openReminderForm(selectedPerson.id, "prayer")}
             onDisconnectCalendar={handleDisconnectCalendar}
             onEdit={() => openPersonEdit(selectedPerson)}
             onEditReminder={openReminderEdit}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
+            onMarkPrayerAnswered={markPrayerReminderAnswered}
             onOpenMeeting={openMeetingDetail}
+            onOpenPrayerResources={openPrayerResourceLibrary}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -14245,6 +14908,48 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onClose={() => setPendingMeetingSendAction(null)}
             onConfirm={handleConfirmMeetingSendAction}
             people={people}
+          />
+        ) : null}
+
+        {isPrayerResourceLibraryOpen ? (
+          <PrayerResourcesLibrarySheet
+            activeCategory={prayerResourceCategory}
+            onCategoryChange={setPrayerResourceCategory}
+            onClose={() => {
+              setIsPrayerResourceLibraryOpen(false);
+              setPrayerResourceSearchQuery("");
+            }}
+            onOpenResource={openPrayerResource}
+            onQueryChange={setPrayerResourceSearchQuery}
+            query={prayerResourceSearchQuery}
+          />
+        ) : null}
+
+        {selectedPrayerResource ? (
+          <PrayerResourceDetailSheet
+            fallbackUrl={prayerResourceFallbackUrl}
+            message={prayerResourceMessage}
+            onClose={() => {
+              setSelectedPrayerResourceSlug(null);
+              setPrayerResourceMessage("");
+              setPrayerResourceFallbackUrl("");
+            }}
+            onPrayNow={() => setPrayerResourceMessage("Pray through the prayer below, then use the reflection questions to listen together.")}
+            onSaveToFollowUp={() => savePrayerResourceToFollowUp(selectedPrayerResource)}
+            onSendLink={() => sendPrayerResourceLink(selectedPrayerResource)}
+            publicHref={prayerResourcePublicHref(selectedPrayerResource)}
+            resource={selectedPrayerResource}
+          />
+        ) : null}
+
+        {isResourcePickerOpen ? (
+          <ResourcePickerSheet
+            message={resourcePickerMessage}
+            onClose={() => {
+              setIsResourcePickerOpen(false);
+              setResourcePickerMessage("");
+            }}
+            onSelectResource={prepareResourceToSend}
           />
         ) : null}
 
