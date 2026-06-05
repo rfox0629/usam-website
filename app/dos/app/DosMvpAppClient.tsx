@@ -40,8 +40,9 @@ import {
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
-const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-6 md:py-6 xl:px-8";
-const dosPhoneShellClassName = "relative isolate mx-auto flex h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[calc(100dvh-3rem)] md:max-h-none md:max-w-[1440px] md:rounded-none md:border-0 md:bg-[#F8FBFF] md:shadow-none";
+const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
+const dosPhoneShellClassName = "relative isolate mx-auto flex h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[100dvh] md:max-h-none md:max-w-none md:rounded-none md:border-0 md:bg-[#F8FBFF] md:shadow-none";
+const dosDawnShellClassName = "bg-[radial-gradient(circle_at_78%_8%,rgba(219,234,254,0.92),transparent_34%),radial-gradient(circle_at_86%_92%,rgba(254,215,170,0.54),transparent_36%),radial-gradient(circle_at_48%_62%,rgba(221,214,254,0.48),transparent_42%),linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_48%,#FFF4EC_100%)]";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
 type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
@@ -3615,7 +3616,7 @@ function dashboardTrendMonths(count = 12) {
 
 function dashboardMetricRows(items: ReadonlyArray<{ icon: ReactNode; label: string; value: string | number }>) {
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <div className="grid gap-2 min-[1200px]:grid-cols-2">
       {items.map((item) => (
         <div className="flex min-h-[52px] min-w-0 items-center gap-2.5 rounded-[16px] bg-[#F8FBFF] px-2.5 py-2 ring-1 ring-[#EAF2FF]" key={item.label}>
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
@@ -3785,12 +3786,12 @@ function DesktopHomeDashboard({
         </span>
       </header>
 
-      <div className="mx-auto grid max-w-[1320px] gap-3">
-      <div className="grid gap-3 min-[1180px]:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)] min-[1360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-        <DesktopPanel action={<DashboardHeaderAction onClick={onViewField}>View Field</DashboardHeaderAction>} className="min-h-[198px] xl:min-h-[210px]" compact eyebrow="Field Health">
-          <div className="grid h-full gap-3 min-[1180px]:grid-cols-[245px_minmax(0,1fr)] min-[1180px]:items-center min-[1360px]:grid-cols-[275px_minmax(0,1fr)]">
-            <div className="flex items-center gap-3.5">
-              <div className="-m-8 scale-[0.74] min-[1360px]:-m-7 min-[1360px]:scale-[0.8]">
+      <div className="grid w-full gap-3">
+      <div className="grid gap-3 min-[1200px]:grid-cols-[minmax(560px,1.18fr)_minmax(332px,0.82fr)] min-[1360px]:grid-cols-[minmax(620px,1.15fr)_minmax(420px,0.85fr)]">
+        <DesktopPanel action={<DashboardHeaderAction onClick={onViewField}>View Field</DashboardHeaderAction>} className="min-h-[198px] min-w-0 xl:min-h-[210px]" compact eyebrow="Field Health">
+          <div className="grid h-full gap-3 min-[1200px]:grid-cols-[170px_94px_minmax(240px,1fr)] min-[1200px]:items-center min-[1360px]:grid-cols-[188px_104px_minmax(280px,1fr)]">
+            <div className="flex justify-center min-[1200px]:justify-start">
+              <div className="-m-9 scale-[0.68] min-[1360px]:-m-7 min-[1360px]:scale-[0.78]">
                 <CircleTarget
                   my12Count={circleCounts.my12}
                   my120Count={circleCounts.my120}
@@ -3799,21 +3800,21 @@ function DesktopHomeDashboard({
                   onSelectCircle={onSelectCircle}
                 />
               </div>
-              <div className="grid min-w-[82px] gap-1 text-sm font-bold text-[#0F172A]">
+            </div>
+              <div className="grid min-w-0 gap-1.5 text-sm font-bold text-[#0F172A]">
                 {[
                   ["My 3", circleCounts.my3],
                   ["My 12", circleCounts.my12],
                   ["My 70", circleCounts.my70],
                   ["My 120", circleCounts.my120],
                 ].map(([label, value]) => (
-                  <div className="flex items-center justify-between gap-5" key={label}>
+                  <div className="flex items-center justify-between gap-3" key={label}>
                     <span>{label}</span>
                     <span className="font-black text-[#1D4ED8]">{value}</span>
                   </div>
                 ))}
               </div>
-            </div>
-            <div>
+            <div className="min-w-0">
               {dashboardMetricRows([
                 { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Active People", value: activePeople },
                 { icon: <UserPlus className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "New This Month", value: newThisMonth },
@@ -3824,19 +3825,19 @@ function DesktopHomeDashboard({
           </div>
         </DesktopPanel>
 
-        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Table</DashboardHeaderAction>} className="min-h-[198px] xl:min-h-[210px]" compact eyebrow="Table Activity">
-          <div className="grid h-full min-h-[126px] grid-cols-4 divide-x divide-[#EAF2FF] overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF]">
+        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Table</DashboardHeaderAction>} className="min-h-[198px] min-w-0 xl:min-h-[210px]" compact eyebrow="Table Activity">
+          <div className="grid h-full min-h-[126px] grid-cols-2 gap-px overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-[#EAF2FF] min-[1360px]:grid-cols-4">
               {[
                 { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Scheduled", value: scheduledUpcomingCount },
                 { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Completed", value: loggedThisMonth.length },
                 { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Avg. Time / Table", value: averageThisMonthDuration ? formatLoggedTime(averageThisMonthDuration) : "—" },
                 { icon: <Sparkles className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Most Active Month", value: mostActiveMonth ? monthShortLabelFromKey(mostActiveMonth[0]) : "—" },
               ].map((metric) => (
-                <div className="flex min-h-[118px] flex-col items-center justify-center px-2 py-2.5 text-center" key={metric.label}>
+                <div className="flex min-h-[88px] flex-col items-center justify-center bg-[#F8FBFF] px-2.5 py-3 text-center min-[1360px]:min-h-[118px]" key={metric.label}>
                   <span className="flex h-8 w-8 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
                     {metric.icon}
                   </span>
-                  <span className="mt-2 text-[10px] font-semibold leading-4 text-[#334155]">{metric.label}</span>
+                  <span className="mt-2 max-w-[96px] text-[10px] font-semibold leading-4 text-[#334155]">{metric.label}</span>
                   <span className="mt-1.5 text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
                   {metric.label === "Most Active Month" && mostActiveMonth ? (
                     <span className="mt-1.5 text-[11px] font-semibold text-[#64748B]">{mostActiveMonth[1]} tables</span>
@@ -9834,7 +9835,7 @@ function BottomNavigation({
 }) {
   return (
     <nav aria-label="Primary" className="absolute inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] md:hidden">
-      <div className="mx-auto grid w-full grid-cols-3 gap-1 rounded-full border border-white/75 bg-white/82 p-1.5 shadow-[0_18px_48px_rgba(42,37,29,0.16)] backdrop-blur-xl">
+      <div className="mx-auto grid w-full grid-cols-3 gap-1 rounded-full border border-white/75 bg-white/62 p-1.5 shadow-[0_24px_55px_rgba(148,163,184,0.22)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/58">
         {mobileTabs.map((tab) => {
           const selected = activeTab === tab.value || (tab.value === "more" && activeTab === "people");
 
@@ -9994,7 +9995,7 @@ function DesktopNavigation({
   }
 
   return (
-    <aside className="hidden h-full w-[232px] shrink-0 border-r border-[#EAF2FF] bg-white px-4 py-6 md:flex md:flex-col xl:w-[260px]">
+    <aside className="hidden h-full w-[232px] shrink-0 border-r border-white/65 bg-white/58 px-4 py-6 shadow-[18px_0_55px_rgba(148,163,184,0.14)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/52 md:flex md:flex-col xl:w-[260px]">
       <div className="rounded-[26px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
         <p className="text-[20px] font-black leading-none tracking-[-0.035em] text-[#1D4ED8]" style={{ fontFamily: font.oswald }}>
           DOS
@@ -13065,7 +13066,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   return (
     <div className={dosRootShellClassName}>
-      <div ref={appShellRef} className={dosPhoneShellClassName}>
+      <div ref={appShellRef} className={`${dosPhoneShellClassName} ${dosDawnShellClassName}`}>
         <DesktopNavigation
           activeTab={activeTab}
           moreAppView={moreAppView}
@@ -13077,7 +13078,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           profileName={profileName}
           workspaceName={workspaceName}
         />
-        <div ref={appScrollRef} className={`h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white px-4 pt-11 [scrollbar-width:none] md:bg-[#F8FBFF] md:px-8 md:pb-10 md:pt-6 xl:px-10 ${activeTab === "more" ? "pb-40" : "pb-28"}`}>
+        <div ref={appScrollRef} className={`h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent px-4 pt-11 [scrollbar-width:none] md:bg-transparent md:px-8 md:pb-10 md:pt-6 xl:px-10 ${activeTab === "more" ? "pb-40" : "pb-28"}`}>
           {activeTab === "home" ? (
             <header className="relative md:hidden">
               <div className="min-w-0 pr-16">
