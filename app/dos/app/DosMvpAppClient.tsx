@@ -200,7 +200,9 @@ type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView;
 type MeetingsView = "availability" | "calendar" | "history" | "upcoming";
 type MobileMeetingsView = Exclude<MeetingsView, "availability">;
-type FruitView = "impact" | "stories" | "tree";
+type FruitView = "activity" | "forms" | "impact";
+type FruitActivitySource = "Answered Prayer" | "Prayer" | "Quick Review" | "Story" | "Testimony Review";
+type FruitFormKey = "answered_prayer" | "prayer_update" | "quick_review" | "testimony_review";
 type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "meeting_covering" | "my_requests" | "partners" | "praying_for";
@@ -5195,9 +5197,51 @@ const meetingCalendarFilterTabs: ReadonlyArray<SegmentedTabOption<MeetingCalenda
 ];
 
 const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
-  { label: "Stories", value: "stories" },
-  { label: "Tree", value: "tree" },
+  { label: "Activity", value: "activity" },
   { label: "Impact", value: "impact" },
+  { label: "Forms", value: "forms" },
+];
+
+const fruitFormCards: ReadonlyArray<{
+  cta: string;
+  description: string;
+  icon: IconName;
+  key: FruitFormKey;
+  outcomes: string[];
+  title: string;
+}> = [
+  {
+    cta: "Start Quick Review",
+    description: "Capture what happened after a meeting and identify fruit.",
+    icon: "send",
+    key: "quick_review",
+    outcomes: ["Felt heard", "Felt cared for", "Joined discipleship", "Started discipling others"],
+    title: "Quick Review",
+  },
+  {
+    cta: "Submit Testimony",
+    description: "Record a testimony and connect it to visible fruit.",
+    icon: "fruit",
+    key: "testimony_review",
+    outcomes: ["Answered prayer", "Reconciliation", "Marriage restoration", "Baptism", "New believer"],
+    title: "Testimony Review",
+  },
+  {
+    cta: "Update Prayer",
+    description: "Follow up on prayer requests and track what God has done.",
+    icon: "prayer",
+    key: "prayer_update",
+    outcomes: ["Prayer request", "Answered prayer"],
+    title: "Prayer Update",
+  },
+  {
+    cta: "Log Answered Prayer",
+    description: "Quickly record answered prayer.",
+    icon: "prayer",
+    key: "answered_prayer",
+    outcomes: ["Answered prayer"],
+    title: "Answered Prayer",
+  },
 ];
 
 const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>> = [
@@ -8464,7 +8508,7 @@ type FruitDashboardStory = {
   id: string;
   personId: string | null;
   personName: string | null;
-  source: "Fruit" | "Prayer" | "Review" | "Testimony";
+  source: FruitActivitySource;
   tags: string[];
   text: string;
   title: string;
@@ -8504,22 +8548,77 @@ function fruitStoryTitle(value: string | null | undefined) {
   return firstSentence.length > 82 ? `${firstSentence.slice(0, 79).trim()}...` : firstSentence;
 }
 
-function fruitEventSourceLabel(event: DosAppFruitEvent): FruitDashboardStory["source"] {
+function isAnsweredPrayerText(...values: Array<null | string | string[] | undefined>) {
+  const text = fruitSearchText(...values);
+
+  return text.includes("answered prayer")
+    || text.includes("prayer answered")
+    || text.includes("answered prayers")
+    || text.includes("prayer received");
+}
+
+function fruitEventSourceLabel(event: DosAppFruitEvent): FruitActivitySource {
   if (event.sourceType === "participant_review") {
-    return "Review";
+    return "Quick Review";
   }
 
   if (event.sourceType === "testimony") {
-    return "Testimony";
+    return "Testimony Review";
   }
 
   const text = fruitSearchText(event.fruitType, event.title, event.description);
+
+  if (isAnsweredPrayerText(event.fruitType, event.title, event.description)) {
+    return "Answered Prayer";
+  }
 
   if (text.includes("prayer")) {
     return "Prayer";
   }
 
-  return "Fruit";
+  return "Story";
+}
+
+function leaderReflectionFruitSource(reflection: DosAppLeaderReflection): FruitActivitySource {
+  if (isAnsweredPrayerText(reflection.observedFruit, reflection.whatHappened, reflection.prayerNeeds, reflection.nextStep)) {
+    return "Answered Prayer";
+  }
+
+  if (reflection.prayerNeeds) {
+    return "Prayer";
+  }
+
+  return "Story";
+}
+
+function fruitActivitySourceClassName(source: FruitActivitySource) {
+  switch (source) {
+    case "Answered Prayer":
+      return "bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]";
+    case "Prayer":
+      return "bg-[#F8FBFF] text-[#1D4ED8] ring-1 ring-[#DCEBFF]";
+    case "Quick Review":
+      return "bg-[#EEF6FF] text-[#2563EB]";
+    case "Testimony Review":
+      return "bg-[#F1F5F9] text-[#0F172A]";
+    case "Story":
+    default:
+      return "bg-[#F1F5F9] text-[#475569]";
+  }
+}
+
+function fruitActivityIconName(source: FruitActivitySource): IconName {
+  switch (source) {
+    case "Answered Prayer":
+    case "Prayer":
+      return "prayer";
+    case "Quick Review":
+      return "send";
+    case "Testimony Review":
+    case "Story":
+    default:
+      return "fruit";
+  }
 }
 
 function isQaFruitStory(story: FruitDashboardStory) {
@@ -8542,7 +8641,7 @@ function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFrui
         id: `fruit-${fruit.id}`,
         personId: fruit.fieldPersonId,
         personName: fruit.fieldPersonId ? personName(people, fruit.fieldPersonId) : fruit.submittedByName,
-        source: "Fruit",
+        source: "Story",
         tags: uniqueFruitTags(fruit.outcomeTags),
         text: fruit.summary,
         title: fruitStoryTitle(fruit.summary),
@@ -8576,13 +8675,19 @@ function fieldFruitStories({
   participantReviews,
   participantTestimonies,
   people,
+  prayerLogs,
+  relationshipReminders,
+  answeredPrayerByReminderId,
 }: {
+  answeredPrayerByReminderId: Record<string, string>;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   leaderReflections: DosAppLeaderReflection[];
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
+  prayerLogs: DosAppPrayerLog[];
+  relationshipReminders: DosAppRelationshipReminder[];
 }) {
   const directStories = approvedFruitStories(fruitItems, fruitEvents, people);
   const testimonyStories = participantTestimonies
@@ -8593,8 +8698,8 @@ function fieldFruitStories({
       id: `testimony-story-${testimony.id}`,
       personId: testimony.personId,
       personName: testimony.personId ? personName(people, testimony.personId) : testimony.publicDisplayName,
-      source: "Testimony",
-      tags: uniqueFruitTags(["Testimony", testimony.decisionMade ?? "", testimony.nextStep ?? ""]),
+      source: "Testimony Review",
+      tags: uniqueFruitTags(["Testimony Review", testimony.decisionMade ?? "", testimony.nextStep ?? ""]),
       text: [testimony.story, testimony.whatChanged, testimony.nextStep].filter(Boolean).join(" "),
       title: fruitStoryTitle(testimony.whatChanged ?? testimony.story),
       type: "Testimony",
@@ -8607,8 +8712,8 @@ function fieldFruitStories({
       id: `review-story-${review.id}`,
       personId: review.personId,
       personName: review.personId ? personName(people, review.personId) : null,
-      source: "Review",
-      tags: uniqueFruitTags(["Review", review.feltHeard ? "Felt heard" : "", review.feltCaredFor ? "Felt cared for" : "", review.wouldMeetAgain ? "Would meet again" : ""]),
+      source: "Quick Review",
+      tags: uniqueFruitTags(["Quick Review", review.feltHeard ? "Felt heard" : "", review.feltCaredFor ? "Felt cared for" : "", review.wouldMeetAgain ? "Would meet again" : ""]),
       text: review.comments ?? "Someone shared that the table helped them take a next step.",
       title: review.comments ? fruitStoryTitle(review.comments) : "Review shared",
       type: "Quick Review",
@@ -8620,14 +8725,46 @@ function fieldFruitStories({
       id: `reflection-story-${reflection.id}`,
       personId: reflection.personId,
       personName: reflection.personId ? personName(people, reflection.personId) : null,
-      source: reflection.prayerNeeds ? "Prayer" : "Fruit",
+      source: leaderReflectionFruitSource(reflection),
       tags: uniqueFruitTags(["Answered prayer", ...reflection.observedFruit]),
       text: [reflection.whatHappened, reflection.prayerNeeds, reflection.nextStep].filter(Boolean).join(" "),
       title: reflection.observedFruit[0] ?? fruitStoryTitle(reflection.whatHappened ?? reflection.prayerNeeds),
       type: reflection.observedFruit[0] ?? (reflection.prayerNeeds ? "Prayer" : "Leader Reflection"),
     } satisfies FruitDashboardStory));
+  const prayerLogStories = prayerLogs
+    .filter((log) => Boolean(log.note?.trim() || log.prayedAt))
+    .map((log) => ({
+      date: log.prayedAt ?? log.createdAt,
+      id: `prayer-log-${log.id}`,
+      personId: log.fieldPersonId,
+      personName: log.fieldPersonId ? personName(people, log.fieldPersonId) : null,
+      source: isAnsweredPrayerText(log.note) ? "Answered Prayer" : "Prayer",
+      tags: uniqueFruitTags([isAnsweredPrayerText(log.note) ? "Answered prayer" : "Prayer update"]),
+      text: log.note?.trim() || "Prayer was logged for this relationship.",
+      title: isAnsweredPrayerText(log.note) ? "Answered prayer recorded" : "Prayer update recorded",
+      type: isAnsweredPrayerText(log.note) ? "Answered Prayer" : "Prayer Update",
+    } satisfies FruitDashboardStory));
+  const prayerReminderStories = relationshipReminders
+    .filter((reminder) => reminder.reminderType === "prayer")
+    .filter((reminder) => Boolean(reminder.title?.trim() || reminder.notes?.trim() || answeredPrayerByReminderId[reminder.id]))
+    .map((reminder) => {
+      const answeredAt = answeredPrayerByReminderId[reminder.id] ?? null;
+      const title = reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request";
 
-  return [...directStories, ...testimonyStories, ...reviewStories, ...reflectionStories]
+      return {
+        date: answeredAt ?? reminder.updatedAt ?? reminder.reminderDate,
+        id: answeredAt ? `answered-prayer-${reminder.id}` : `prayer-request-${reminder.id}`,
+        personId: reminder.personId,
+        personName: personName(people, reminder.personId),
+        source: answeredAt ? "Answered Prayer" : "Prayer",
+        tags: uniqueFruitTags([answeredAt ? "Answered prayer" : "Prayer request", prayerFrequencyLabel(reminder.recurrence)]),
+        text: reminder.notes?.trim() || (answeredAt ? "This request was marked answered." : "Prayer request is being tracked."),
+        title: answeredAt ? `Answered: ${title}` : title,
+        type: answeredAt ? "Answered Prayer" : "Prayer Update",
+      } satisfies FruitDashboardStory;
+    });
+
+  return [...directStories, ...testimonyStories, ...reviewStories, ...reflectionStories, ...prayerLogStories, ...prayerReminderStories]
     .sort((first, second) => {
       const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
       const secondTime = parseDisplayDate(second.date)?.getTime() ?? 0;
@@ -8669,38 +8806,6 @@ function kingdomFruitMetrics(stories: FruitDashboardStory[]) {
   ];
 }
 
-function FruitTreeCard({
-  storyCount,
-}: {
-  storyCount: number;
-}) {
-  return (
-    <section className="overflow-hidden rounded-[34px] bg-white p-5 shadow-[0_24px_70px_rgba(37,99,235,0.075)]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-            Fruit Tree
-          </p>
-          <h2 className="mt-1 text-xl font-black leading-tight tracking-[-0.015em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>What God is Growing</h2>
-        </div>
-        <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1 text-[11px] font-bold text-[#1D4ED8]">
-          {storyCount} {storyCount === 1 ? "story" : "stories"}
-        </span>
-      </div>
-
-      <div className="relative mx-auto mt-5 flex h-44 max-w-[310px] items-center justify-center">
-        <div className="absolute h-40 w-40 rounded-full border border-[#DCEBFF] bg-[#F8FBFF]" />
-        <div className="absolute h-32 w-32 rounded-full border border-[#BFDBFE] bg-[#EFF6FF]" />
-        <div className="absolute h-24 w-24 rounded-full border border-[#93C5FD] bg-white/70" />
-        <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF]" />
-        <div className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_18px_34px_rgba(37,99,235,0.28)]">
-          <Icon name="fruit" size={22} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function KingdomFruitMetricTile({
   label,
   value,
@@ -8734,14 +8839,23 @@ function KingdomFruitMetricTile({
   );
 }
 
-function RecentFruitStoryCard({ story }: { story: FruitDashboardStory }) {
+function RecentFruitStoryCard({
+  onOpen,
+  story,
+}: {
+  onOpen?: () => void;
+  story: FruitDashboardStory;
+}) {
   return (
-    <article className="rounded-[22px] border border-[#E2E8F0] bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,0.04)]">
+    <button className="rounded-[22px] border border-[#E2E8F0] bg-white p-4 text-left shadow-[0_8px_22px_rgba(15,23,42,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]" onClick={onOpen} type="button">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
-          <Icon name="fruit" size={15} />
+          <Icon name={fruitActivityIconName(story.source)} size={15} />
         </span>
         <div className="min-w-0 flex-1">
+          <span className={`mb-2 inline-flex w-fit rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] ${fruitActivitySourceClassName(story.source)}`} style={{ fontFamily: font.rajdhani }}>
+            {story.source}
+          </span>
           <p className="text-sm font-bold leading-5 text-[#0F172A]">{story.title}</p>
           <p className="mt-1 text-xs leading-5 text-[#64748B]">
             {[story.personName, formatDate(story.date)].filter(Boolean).join(" · ")}
@@ -8760,22 +8874,22 @@ function RecentFruitStoryCard({ story }: { story: FruitDashboardStory }) {
           ))}
         </div>
       ) : null}
-    </article>
+    </button>
   );
 }
 
 function DesktopFruitStoriesTable({
-  onOpenPerson,
+  onOpenActivity,
   stories,
 }: {
-  onOpenPerson: (personId: string) => void;
+  onOpenActivity: (story: FruitDashboardStory) => void;
   stories: FruitDashboardStory[];
 }) {
   return (
     <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
       <div className="overflow-x-auto">
         <div className="min-w-[960px]">
-          <div className="grid grid-cols-[118px_170px_118px_minmax(340px,1fr)_250px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          <div className="grid grid-cols-[118px_170px_136px_minmax(320px,1fr)_250px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             <span>Date</span>
             <span>Person</span>
             <span>Source</span>
@@ -8784,27 +8898,20 @@ function DesktopFruitStoriesTable({
           </div>
           <div className="divide-y divide-[#EFF6FF]">
             {stories.map((story) => {
-              const sourceLabel = story.source === "Fruit" ? "Story" : story.source;
-              const storyActionLabel = story.personName ? `Open ${story.personName}` : "Story details pending";
+              const storyActionLabel = `Open ${story.source.toLowerCase()} details`;
 
               return (
-                // TODO: Wire direct story/review/testimony/prayer detail drawers when desktop record routes exist.
                 <button
                   aria-label={storyActionLabel}
-                  className="grid w-full grid-cols-[118px_170px_118px_minmax(340px,1fr)_250px] items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-[#F8FBFF] disabled:cursor-default disabled:hover:bg-white"
-                  disabled={!story.personId}
+                  className="grid w-full grid-cols-[118px_170px_136px_minmax(320px,1fr)_250px] items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-[#F8FBFF]"
                   key={story.id}
-                  onClick={() => {
-                    if (story.personId) {
-                      onOpenPerson(story.personId);
-                    }
-                  }}
+                  onClick={() => onOpenActivity(story)}
                   type="button"
                 >
                   <span className="truncate font-semibold text-[#475569]">{story.date ? formatDate(story.date) : "—"}</span>
                   <span className="truncate font-bold text-[#0F172A]">{story.personName || "—"}</span>
-                  <span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold ${story.source === "Prayer" ? "bg-[#EBF2FF] text-[#1D4ED8]" : story.source === "Testimony" ? "bg-[#F8FBFF] text-[#1D4ED8] ring-1 ring-[#DCEBFF]" : "bg-[#F1F5F9] text-[#475569]"}`}>
-                    {sourceLabel}
+                  <span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold ${fruitActivitySourceClassName(story.source)}`}>
+                    {story.source}
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[#0F172A]">{story.title || "Fruit recorded"}</span>
@@ -8826,6 +8933,155 @@ function DesktopFruitStoriesTable({
         </div>
       </div>
     </div>
+  );
+}
+
+function FruitActivityDetailSheet({
+  onClose,
+  onOpenPerson,
+  story,
+}: {
+  onClose: () => void;
+  onOpenPerson: (personId: string) => void;
+  story: FruitDashboardStory;
+}) {
+  return (
+    <Sheet description="Fruit-generating activity from reviews, testimonies, prayer updates, and stories." onClose={onClose} showEyebrow={false} title={story.title || "Fruit activity"}>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${fruitActivitySourceClassName(story.source)}`} style={{ fontFamily: font.rajdhani }}>
+            {story.source}
+          </span>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+            {formatDate(story.date)}
+          </span>
+        </div>
+
+        <section className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Details</p>
+          <p className="mt-3 whitespace-pre-line text-sm leading-7 text-[#0F172A]">{story.text || story.title}</p>
+          {story.personName ? (
+            <p className="mt-3 text-xs font-semibold leading-5 text-[#64748B]">
+              Person: <span className="text-[#0F172A]">{story.personName}</span>
+            </p>
+          ) : null}
+        </section>
+
+        {story.tags.length ? (
+          <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Outcomes</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {story.tags.map((tag) => (
+                <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-bold text-[#1D4ED8]" key={tag}>{tag}</span>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {story.personId ? (
+          <AppButton icon="people" onClick={() => onOpenPerson(story.personId!)} tone="black">Open Person</AppButton>
+        ) : null}
+      </div>
+    </Sheet>
+  );
+}
+
+function FruitFormCard({
+  form,
+  onOpen,
+}: {
+  form: (typeof fruitFormCards)[number];
+  onOpen: (form: (typeof fruitFormCards)[number]) => void;
+}) {
+  return (
+    <article className="flex min-w-0 flex-col rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <Icon name={form.icon} size={17} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-black leading-5 tracking-[-0.01em] text-[#0F172A]">{form.title}</h3>
+          <p className="mt-1 text-xs leading-5 text-[#64748B]">{form.description}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {form.outcomes.map((outcome) => (
+          <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold text-[#64748B]" key={outcome}>
+            {outcome}
+          </span>
+        ))}
+      </div>
+      <div className="mt-4">
+        <AppButton icon={form.icon} onClick={() => onOpen(form)} tone="white">{form.cta}</AppButton>
+      </div>
+    </article>
+  );
+}
+
+function FruitFormsGrid({
+  onOpenForm,
+}: {
+  onOpenForm: (form: (typeof fruitFormCards)[number]) => void;
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {fruitFormCards.map((form) => (
+        <FruitFormCard form={form} key={form.key} onOpen={onOpenForm} />
+      ))}
+    </div>
+  );
+}
+
+function FruitFormPlaceholderSheet({
+  form,
+  onClose,
+}: {
+  form: (typeof fruitFormCards)[number];
+  onClose: () => void;
+}) {
+  return (
+    <Sheet description={form.description} onClose={onClose} showEyebrow={false} title={form.title}>
+      <div className="space-y-4">
+        <section className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Outcomes</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {form.outcomes.map((outcome) => (
+              <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#1D4ED8] ring-1 ring-[#DCEBFF]" key={outcome}>{outcome}</span>
+            ))}
+          </div>
+        </section>
+        <div className="rounded-[22px] border border-[#EAF2FF] bg-white p-4 text-sm leading-6 text-[#64748B]">
+          {/* TODO: Wire this CTA into the existing review, testimony, prayer update, and answered prayer submission flows. */}
+          This form is coming next. Fruit is already reading from existing reviews, testimonies, prayer updates, and approved fruit records.
+        </div>
+        <AppButton onClick={onClose} tone="black">Done</AppButton>
+      </div>
+    </Sheet>
+  );
+}
+
+function MultiplicationTreeTeaser({ storyCount }: { storyCount: number }) {
+  return (
+    <section className="rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+      <div className="flex items-start gap-4">
+        <div className="relative flex h-24 w-24 shrink-0 items-center justify-center">
+          <span className="absolute h-24 w-24 rounded-full border border-[#DCEBFF] bg-[#F8FBFF]" />
+          <span className="absolute h-[72px] w-[72px] rounded-full border border-[#BFDBFE] bg-[#EFF6FF]" />
+          <span className="absolute h-12 w-12 rounded-full border border-[#93C5FD] bg-white/70" />
+          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)]">
+            <Icon name="fruit" size={17} />
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Multiplication Tree</p>
+          <h3 className="mt-1 text-lg font-black leading-tight tracking-[-0.01em] text-[#0F172A]">Coming Soon</h3>
+          <p className="mt-2 text-sm leading-6 text-[#64748B]">
+            As reviews, testimonies, and prayer updates are recorded, this will grow into a visual multiplication tree.
+          </p>
+          <p className="mt-3 text-xs font-bold text-[#1D4ED8]">{storyCount} {storyCount === 1 ? "activity record" : "activity records"} ready</p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -11949,7 +12205,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("upcoming");
   const [meetingCalendarFilter, setMeetingCalendarFilter] = useState<MeetingCalendarFilter>("all");
-  const [fruitView, setFruitView] = useState<FruitView>("stories");
+  const [fruitView, setFruitView] = useState<FruitView>("activity");
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("partners");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
@@ -12006,6 +12262,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [testimonyShareMessage, setTestimonyShareMessage] = useState("");
   const [selectedConversationFlow, setSelectedConversationFlow] = useState<DosConversationFlowKey>("none");
   const [selectedExternalCalendarEventId, setSelectedExternalCalendarEventId] = useState<string | null>(null);
+  const [selectedFruitActivity, setSelectedFruitActivity] = useState<FruitDashboardStory | null>(null);
+  const [selectedFruitFormKey, setSelectedFruitFormKey] = useState<FruitFormKey | null>(null);
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
@@ -12028,15 +12286,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ];
   }, [data.people, quickAddedPeople]);
   const fruitStoryEntries = useMemo(() => fieldFruitStories({
+    answeredPrayerByReminderId,
     fruitEvents: data.fruitEvents,
     fruitItems: data.fruit,
     leaderReflections: data.leaderReflections,
     participantReviews: data.participantReviews,
     participantTestimonies: data.participantTestimonies,
     people,
-  }), [data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, people]);
+    prayerLogs: data.prayerLogs,
+    relationshipReminders: data.reminders,
+  }), [answeredPrayerByReminderId, data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, data.prayerLogs, data.reminders, people]);
   const visibleFruitStories = useMemo(() => fruitStoryEntries.filter((story) => !isQaFruitStory(story)), [fruitStoryEntries]);
   const fruitMetrics = useMemo(() => kingdomFruitMetrics(visibleFruitStories), [visibleFruitStories]);
+  const selectedFruitForm = useMemo(() => (
+    fruitFormCards.find((form) => form.key === selectedFruitFormKey) ?? null
+  ), [selectedFruitFormKey]);
   const latestMeeting = loggedMeetings[0];
   const latestFruitActivity = useMemo(() => {
     const fruitItems = [
@@ -13822,7 +14086,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           label: "Fruit",
           onClick: () => openMoreApp("fruit"),
           section: "installed",
-          status: `${visibleFruitStories.length} stories`,
+          status: `${visibleFruitStories.length} records`,
         },
         {
           description: "Teachings and sendable resources.",
@@ -13921,6 +14185,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         { icon: "search", label: "Search Tables", onClick: runMobileAction(openTableSearch) },
         { icon: "send", label: "Send Resource", onClick: runMobileAction(openResourcePicker) },
       ]
+    : activeTab === "more" && moreAppView === "fruit"
+      ? fruitFormCards.map((form) => ({
+          icon: form.icon,
+          label: form.title,
+          onClick: runMobileAction(() => setSelectedFruitFormKey(form.key)),
+        }))
     : activeTab === "more"
       ? [
           { icon: "people", label: "USA Missionaries", onClick: runMobileAction(openUsamAppsLayer) },
@@ -13952,6 +14222,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isUpcomingSheetOpen
     && !isUsamApplicationOpen
     && !selectedExternalCalendarEventId
+    && !selectedFruitActivity
+    && !selectedFruitFormKey
     && !selectedMeetingId
     && !selectedPersonId
     && !selectedPrayerResourceSlug
@@ -14443,47 +14715,63 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       icon={<Icon name="fruit" size={20} />}
                       onScriptureClick={openScriptureQuickView}
                       scripture={scriptureReferences.matthew716}
-                      subtitle="Stories, visible outcomes, and multiplication signs."
+                      subtitle="Activity, visible outcomes, and fruit forms."
                       title="Recognize the fruit."
                     />
                     <SegmentedTabs onChange={setFruitView} options={fruitViewTabs} value={fruitView} />
 
-                    {fruitView === "stories" ? (
+                    {fruitView === "activity" ? (
                       <section>
-                        <SectionHeading title="Stories" />
+                        <SectionHeading title="Activity" />
                         {visibleFruitStories.length ? (
                           <>
-                            <DesktopFruitStoriesTable onOpenPerson={openPersonDetail} stories={visibleFruitStories} />
+                            <DesktopFruitStoriesTable onOpenActivity={setSelectedFruitActivity} stories={visibleFruitStories} />
                             <div className="grid gap-3 md:hidden">
                               {visibleFruitStories.slice(0, 9).map((story) => (
-                                <RecentFruitStoryCard key={story.id} story={story} />
+                                <RecentFruitStoryCard key={story.id} onOpen={() => setSelectedFruitActivity(story)} story={story} />
                               ))}
                             </div>
                           </>
                         ) : (
                           <div className="grid gap-3">
                             <SectionEmptyState
-                              action={<CompactButton icon="fruit" onClick={() => openForm("fruit")}>Record Fruit</CompactButton>}
+                              action={<CompactButton icon="fruit" onClick={() => setSelectedFruitFormKey("quick_review")}>Open Forms</CompactButton>}
                               text="Testimonies, reviews, answered prayers, baptisms, new believers, reconciliation, and visible outcomes will appear here."
-                              title="No fruit stories yet."
+                              title="No fruit activity yet."
                             />
                           </div>
                         )}
                       </section>
                     ) : null}
 
-                    {fruitView === "tree" ? (
-                      <FruitTreeCard storyCount={visibleFruitStories.length} />
+                    {fruitView === "impact" ? (
+                      <div className="space-y-5">
+                        <section>
+                          <SectionHeading title="Impact" />
+                          <div className="grid grid-cols-2 gap-2">
+                            {fruitMetrics.map((metric) => (
+                              <KingdomFruitMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                            ))}
+                          </div>
+                        </section>
+                        {visibleFruitStories.length ? (
+                          <section>
+                            <SectionHeading title="Recent Fruit" />
+                            <div className="grid gap-3 md:grid-cols-3">
+                              {visibleFruitStories.slice(0, 3).map((story) => (
+                                <RecentFruitStoryCard key={story.id} onOpen={() => setSelectedFruitActivity(story)} story={story} />
+                              ))}
+                            </div>
+                          </section>
+                        ) : null}
+                        <MultiplicationTreeTeaser storyCount={visibleFruitStories.length} />
+                      </div>
                     ) : null}
 
-                    {fruitView === "impact" ? (
+                    {fruitView === "forms" ? (
                       <section>
-                        <SectionHeading title="Impact" />
-                        <div className="grid grid-cols-2 gap-2">
-                          {fruitMetrics.map((metric) => (
-                            <KingdomFruitMetricTile key={metric.label} label={metric.label} value={metric.value} />
-                          ))}
-                        </div>
+                        <SectionHeading title="Forms" />
+                        <FruitFormsGrid onOpenForm={(form) => setSelectedFruitFormKey(form.key)} />
                       </section>
                     ) : null}
                   </>
@@ -14939,6 +15227,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onSendLink={() => sendPrayerResourceLink(selectedPrayerResource)}
             publicHref={prayerResourcePublicHref(selectedPrayerResource)}
             resource={selectedPrayerResource}
+          />
+        ) : null}
+
+        {selectedFruitActivity ? (
+          <FruitActivityDetailSheet
+            onClose={() => setSelectedFruitActivity(null)}
+            onOpenPerson={(personId) => {
+              setSelectedFruitActivity(null);
+              openPersonDetail(personId);
+            }}
+            story={selectedFruitActivity}
+          />
+        ) : null}
+
+        {selectedFruitForm ? (
+          <FruitFormPlaceholderSheet
+            form={selectedFruitForm}
+            onClose={() => setSelectedFruitFormKey(null)}
           />
         ) : null}
 
