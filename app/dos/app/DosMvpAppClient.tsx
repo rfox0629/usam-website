@@ -2478,7 +2478,7 @@ function TabHero({
   desktopCompact?: boolean;
   icon: ReactNode;
   onScriptureClick: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
-  scripture: ScriptureReference;
+  scripture?: ScriptureReference;
   subtitle?: string;
   title: string;
 }) {
@@ -2498,14 +2498,16 @@ function TabHero({
         <span className="min-w-0">
           <h2 className={titleClassName} style={{ fontFamily: font.oswald }}>{title}</h2>
           {subtitle ? <p className="mt-1 text-[13px] leading-5 text-[#64748B] md:line-clamp-1">{subtitle}</p> : null}
-          <button
-            className="mt-3 inline-flex rounded-full text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB] transition-colors hover:text-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25 md:mt-1.5"
-            onClick={(event) => onScriptureClick(scripture, event)}
-            style={{ fontFamily: font.rajdhani }}
-            type="button"
-          >
-            {scripture.reference}
-          </button>
+          {scripture ? (
+            <button
+              className="mt-3 inline-flex rounded-full text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB] transition-colors hover:text-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25 md:mt-1.5"
+              onClick={(event) => onScriptureClick(scripture, event)}
+              style={{ fontFamily: font.rajdhani }}
+              type="button"
+            >
+              {scripture.reference}
+            </button>
+          ) : null}
         </span>
       </div>
     </section>
@@ -3998,7 +4000,6 @@ function DesktopMoreLauncher({
       <TabHero
         icon={<Icon name="apps" size={20} />}
         onScriptureClick={onScriptureClick}
-        scripture={scriptureReferences.secondPeter318}
         subtitle="DOS core stays simple. Installable layers extend the workspace when needed."
         title="Apps for the work."
       />
@@ -13074,9 +13075,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           status: "Coming Soon",
         },
         {
-          description: "Seasonal next steps for relationships.",
-          icon: <Flame className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "In Season",
+          description: "Everyone has a testimony. Practice yours and get coach feedback.",
+          icon: <Mic className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Testimony Practice",
           onClick: () => openMoreApp("in_season"),
           section: "coming_soon",
           status: "Coming Soon",
@@ -13089,7 +13090,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     .filter((item) => !["Missionary Profile", "Prayer Team", "Support Team", "Table Flow"].includes(item.label));
   const desktopAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => ["Fruit", "Library", "Reports", "Stewardship", "In Season"].includes(item.label));
+    .filter((item) => ["Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 
@@ -13474,8 +13475,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <TabHero
                         icon={<Icon name="apps" size={20} />}
                         onScriptureClick={openScriptureQuickView}
-                        scripture={scriptureReferences.secondPeter318}
-                        subtitle="Open the rhythms and layers you need."
+                        subtitle="DOS core stays simple. Installable layers extend the workspace when needed."
                         title="Apps for the work."
                       />
                       {isAppsSearchOpen ? (
@@ -13703,15 +13703,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {moreAppView === "in_season" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="In Season" />
+                    {/* TODO: Later rename the internal in_season app key after migration/route plan. */}
+                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Testimony Practice" />
                     <TabHero
-                      icon={<Flame className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                      icon={<Mic className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
-                      scripture={scriptureReferences.luke1610}
-                      subtitle="A simple place for seasonal focus once those rhythms are ready."
-                      title="What is next?"
+                      subtitle="Practice sharing yours on camera and invite a coach to help you grow."
+                      title="Everyone has a testimony."
                     />
-                    <EmptyState text="Seasonal prompts will live here without changing your core Field and Table flow." title="In Season is coming soon." />
+                    <article className="rounded-[28px] border border-[#EAF2FF] bg-white p-5 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+                      <h2 className="text-base font-black text-[#0F172A]">Coming soon</h2>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
+                        Record or draft your testimony, practice it out loud, and get feedback before you share it.
+                      </p>
+                    </article>
                   </>
                 ) : null}
 
