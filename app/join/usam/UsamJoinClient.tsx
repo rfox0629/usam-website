@@ -1602,7 +1602,9 @@ export function UsamJoinClient() {
     if (currentStep.id === "account") {
       const requirements = passwordRequirements(draft.password);
       const strength = passwordStrength(draft.password);
-      const passwordsDoNotMatch = Boolean(draft.confirmPassword) && draft.password !== draft.confirmPassword;
+      const hasPassword = draft.password.length > 0;
+      const hasConfirmPassword = draft.confirmPassword.length > 0;
+      const passwordsDoNotMatch = hasConfirmPassword && draft.password !== draft.confirmPassword;
 
       return (
         <SectionCard eyebrow="Account" title="Create your account">
@@ -1632,23 +1634,6 @@ export function UsamJoinClient() {
                     {showPassword ? "Hide" : "Show"}
                   </button>
                 </div>
-                <div className="mt-2 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-black text-[#0F172A]">Strength: {strength.label}</p>
-                    <p className="text-[11px] font-bold text-[#64748B]">{requirements.filter((requirement) => requirement.met).length}/3</p>
-                  </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E2E8F0]">
-                    <div className={`h-full rounded-full transition-all ${strength.barClassName}`} style={{ width: strength.width }} />
-                  </div>
-                  <div className="mt-2 grid gap-1.5">
-                    {requirements.map((requirement) => (
-                      <div className={`flex items-center gap-2 text-xs font-bold ${requirement.met ? "text-[#166534]" : "text-[#64748B]"}`} key={requirement.label}>
-                        <CheckCircle2 className={`h-3.5 w-3.5 ${requirement.met ? "text-[#16A34A]" : "text-[#CBD5E1]"}`} aria-hidden="true" />
-                        {requirement.label}
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
               <div className="block">
                 {fieldLabel("Confirm password")}
@@ -1674,7 +1659,7 @@ export function UsamJoinClient() {
                   <p className="mt-2 rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
                     Passwords do not match yet.
                   </p>
-                ) : draft.confirmPassword && draft.password === draft.confirmPassword ? (
+                ) : hasConfirmPassword && draft.password === draft.confirmPassword ? (
                   <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#166534]">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[#16A34A]" aria-hidden="true" />
                     Passwords match.
@@ -1682,9 +1667,32 @@ export function UsamJoinClient() {
                 ) : null}
               </div>
             </div>
-            <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
+            {hasPassword ? (
+              <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] sm:items-center">
+                  <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-black text-[#0F172A]">Strength: {strength.label}</p>
+                      <p className="text-[11px] font-bold text-[#64748B]">{requirements.filter((requirement) => requirement.met).length}/3</p>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E2E8F0]">
+                      <div className={`h-full rounded-full transition-all ${strength.barClassName}`} style={{ width: strength.width }} />
+                    </div>
+                  </div>
+                  <div className="grid gap-1.5">
+                    {requirements.map((requirement) => (
+                      <div className={`flex items-center gap-2 text-xs font-bold ${requirement.met ? "text-[#166534]" : "text-[#64748B]"}`} key={requirement.label}>
+                        <CheckCircle2 className={`h-3.5 w-3.5 ${requirement.met ? "text-[#16A34A]" : "text-[#CBD5E1]"}`} aria-hidden="true" />
+                        {requirement.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#334155]">
               <p className="font-bold text-[#0F172A]">Account setup pending activation.</p>
-              <p className="mt-1">Your account will be activated after your application is submitted and reviewed.</p>
+              <p className="mt-1 text-[#334155]">Your account will be activated after your application is submitted and reviewed.</p>
             </div>
           </div>
         </SectionCard>
