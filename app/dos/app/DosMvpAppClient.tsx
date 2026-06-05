@@ -185,6 +185,7 @@ type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView;
 type MeetingsView = "availability" | "calendar" | "history" | "upcoming";
+type MobileMeetingsView = Exclude<MeetingsView, "availability">;
 type FruitView = "impact" | "stories" | "tree";
 type PrayerWorkspaceTab = "meeting_covering" | "my_requests" | "partners" | "praying_for";
 type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
@@ -4954,6 +4955,12 @@ const desktopMeetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> =
   { label: "Calendar", value: "calendar" },
   { label: "History", value: "history" },
   { label: "Availability", value: "availability" },
+];
+
+const mobileMeetingsViewTabs: ReadonlyArray<SegmentedTabOption<MobileMeetingsView>> = [
+  { label: "Upcoming", value: "upcoming" },
+  { label: "Calendar", value: "calendar" },
+  { label: "History", value: "history" },
 ];
 
 const meetingCalendarFilterTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarFilter>> = [
@@ -13246,6 +13253,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   query={tableQuery}
                   resultCount={tableResultCount}
                 />
+                <div className="md:hidden">
+                  <SegmentedTabs
+                    onChange={(value) => setMeetingsView(value)}
+                    options={mobileMeetingsViewTabs}
+                    value={meetingsView === "availability" ? "upcoming" : meetingsView}
+                  />
+                </div>
                 <div>
                   {meetingsView === "upcoming" ? (
                     visibleUpcomingTableMeetings.length ? (
