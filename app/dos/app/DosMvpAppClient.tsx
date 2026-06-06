@@ -158,27 +158,250 @@ const conversationUnsureAnswerOptions = [
   { label: "Unsure", value: "unsure" },
 ] as const satisfies ReadonlyArray<{ label: string; value: DosConversationAnswer }>;
 
-const fruitOutcomeOptions = [
-  "Reconciliation",
-  "New Believers",
-  "Marriage Restoration",
-  "Baptized",
-  "Discipling",
-  "Started Discipling Others",
-  "Gospel Conversation",
-  "Prayer Received",
-  "Church Connection",
-  "Testimony Shared",
-  "Joined Discipleship",
-  "Bible Study Started",
-  "Prayer Request",
-  "Church Visit",
-  "Serving",
-  "Disciple Maker",
+type FruitOutcomeGroupKey = "discipleship" | "relational" | "spiritual" | "testimony_processing";
+type FruitOutcomeSourceKey = "leader_review" | "quick_review" | "testimony_review";
+type FruitOutcomeDefinition = {
+  aliases: readonly string[];
+  formLabel?: string;
+  group?: FruitOutcomeGroupKey;
+  key: string;
+  label: string;
+  sources: readonly FruitOutcomeSourceKey[];
+};
+
+const fruitOutcomeConfig = [
+  {
+    aliases: ["closer to god", "feel closer to god", "i feel closer to god", "deeper trust", "nearer to god"],
+    formLabel: "I feel closer to God",
+    group: "spiritual",
+    key: "closer_to_god",
+    label: "Closer to God",
+    sources: ["quick_review", "testimony_review"],
+  },
+  {
+    aliases: ["surrendered something", "i surrendered something", "surrender", "repentance", "obedience"],
+    formLabel: "I surrendered something",
+    group: "spiritual",
+    key: "surrendered_something",
+    label: "Surrendered something",
+    sources: ["quick_review", "testimony_review"],
+  },
+  {
+    aliases: ["decision to follow jesus", "i made a decision to follow jesus", "follow jesus", "followed jesus"],
+    formLabel: "I made a decision to follow Jesus",
+    group: "spiritual",
+    key: "decision_to_follow_jesus",
+    label: "Decision to follow Jesus",
+    sources: ["quick_review", "testimony_review"],
+  },
+  {
+    aliases: ["baptism requested", "i requested baptism", "requested baptism", "baptism", "baptized"],
+    formLabel: "I requested baptism",
+    group: "spiritual",
+    key: "baptism_requested",
+    label: "Baptism requested",
+    sources: ["quick_review", "leader_review", "testimony_review"],
+  },
+  {
+    aliases: ["encouraging", "felt encouraged", "encouragement", "felt heard", "felt cared for", "cared for"],
+    formLabel: "Encouraging",
+    group: "relational",
+    key: "felt_encouraged",
+    label: "Felt encouraged",
+    sources: ["quick_review", "leader_review"],
+  },
+  {
+    aliases: ["peaceful", "peace", "received peace"],
+    group: "relational",
+    key: "peaceful",
+    label: "Peaceful",
+    sources: ["quick_review", "testimony_review"],
+  },
+  {
+    aliases: ["reconciled relationship", "i reconciled a relationship", "reconciliation", "restored relationship", "restored relationships", "forgiveness", "forgave"],
+    formLabel: "I reconciled a relationship",
+    group: "relational",
+    key: "reconciled_relationship",
+    label: "Reconciled relationship",
+    sources: ["quick_review", "leader_review", "testimony_review"],
+  },
+  {
+    aliases: ["marriage restoration", "marriage restored", "marriage healing", "marriage healed", "restored marriage", "healed marriage"],
+    group: "relational",
+    key: "marriage_restoration",
+    label: "Marriage restoration",
+    sources: ["leader_review", "testimony_review"],
+  },
+  {
+    aliases: ["joined a group", "i joined a group", "joined discipleship", "church connection", "church visit"],
+    formLabel: "I joined a group",
+    group: "discipleship",
+    key: "joined_group",
+    label: "Joined a group",
+    sources: ["quick_review", "leader_review"],
+  },
+  {
+    aliases: ["started discipling others", "disciple maker", "multiplying", "multiplication"],
+    group: "discipleship",
+    key: "started_discipling_others",
+    label: "Started discipling others",
+    sources: ["leader_review", "testimony_review"],
+  },
+  {
+    aliases: ["new believer", "new believers", "new birth", "born again", "salvation", "received christ", "gave their life"],
+    group: "discipleship",
+    key: "new_believer",
+    label: "New believer",
+    sources: ["leader_review", "testimony_review"],
+  },
+  {
+    aliases: ["discipling", "discipleship", "bible study started", "walking with", "disciple"],
+    group: "discipleship",
+    key: "discipling",
+    label: "Discipling",
+    sources: ["leader_review"],
+  },
+  {
+    aliases: ["life giving", "life-giving"],
+    group: "testimony_processing",
+    key: "life_giving",
+    label: "Life giving",
+    sources: ["quick_review"],
+  },
+  {
+    aliases: ["transformational", "transformation", "changed my life"],
+    group: "testimony_processing",
+    key: "transformational",
+    label: "Transformational",
+    sources: ["quick_review", "testimony_review"],
+  },
+  {
+    aliases: ["challenging in a good way", "challenging good", "challenged in a good way"],
+    group: "testimony_processing",
+    key: "challenging_good",
+    label: "Challenging in a good way",
+    sources: ["quick_review"],
+  },
+  {
+    aliases: ["still processing", "processing"],
+    formLabel: "Still processing",
+    group: "testimony_processing",
+    key: "still_processing",
+    label: "Still processing",
+    sources: ["quick_review", "testimony_review"],
+  },
+  {
+    aliases: ["other"],
+    group: "testimony_processing",
+    key: "other",
+    label: "Other",
+    sources: ["quick_review"],
+  },
+  {
+    aliases: ["not sure yet", "not sure"],
+    formLabel: "Not sure yet",
+    group: "testimony_processing",
+    key: "not_sure_yet",
+    label: "Not sure yet",
+    sources: ["quick_review"],
+  },
+  {
+    aliases: ["gospel conversation"],
+    key: "gospel_conversation",
+    label: "Gospel Conversation",
+    sources: ["leader_review"],
+  },
+  {
+    aliases: ["prayer received"],
+    key: "prayer_received",
+    label: "Prayer Received",
+    sources: ["leader_review"],
+  },
+  {
+    aliases: ["testimony shared"],
+    key: "testimony_shared",
+    label: "Testimony Shared",
+    sources: ["leader_review", "testimony_review"],
+  },
+  {
+    aliases: ["prayer request"],
+    key: "prayer_request",
+    label: "Prayer Request",
+    sources: ["leader_review"],
+  },
+  {
+    aliases: ["serving"],
+    key: "serving",
+    label: "Serving",
+    sources: ["leader_review"],
+  },
+] as const satisfies ReadonlyArray<FruitOutcomeDefinition>;
+const fruitOutcomeDefinitions: readonly FruitOutcomeDefinition[] = fruitOutcomeConfig;
+
+const quickReviewExperienceOutcomeKeys = [
+  "life_giving",
+  "felt_encouraged",
+  "peaceful",
+  "challenging_good",
+  "transformational",
+  "not_sure_yet",
+] as const;
+const quickReviewLifeChangeOutcomeKeys = [
+  "closer_to_god",
+  "reconciled_relationship",
+  "surrendered_something",
+  "decision_to_follow_jesus",
+  "joined_group",
+  "baptism_requested",
+  "still_processing",
+  "other",
+] as const;
+const testimonyReviewSharingPermissionOptions = [
+  "I give permission for USA Missionaries to share my testimony publicly (written or verbal) in an anonymized form.",
+  "I give permission for USA Missionaries to share my testimony publicly with my name included.",
+  "I do not give permission for my responses to be shared publicly.",
+] as const;
+const fruitImpactGroupConfig = [
+  {
+    key: "spiritual",
+    sourceHint: "Quick Review · Testimony Review",
+    title: "Spiritual Fruit",
+    outcomeKeys: ["closer_to_god", "surrendered_something", "decision_to_follow_jesus", "baptism_requested"],
+  },
+  {
+    key: "relational",
+    sourceHint: "Quick Review · Leader Review",
+    title: "Relational Fruit",
+    outcomeKeys: ["felt_encouraged", "peaceful", "reconciled_relationship", "marriage_restoration"],
+  },
+  {
+    key: "discipleship",
+    sourceHint: "Leader Review · Testimony Review",
+    title: "Discipleship Fruit",
+    outcomeKeys: ["joined_group", "started_discipling_others", "new_believer", "discipling"],
+  },
+  {
+    key: "testimony_processing",
+    sourceHint: "Quick Review · Testimony Review",
+    title: "Testimony / Processing",
+    outcomeKeys: ["transformational", "challenging_good", "still_processing", "not_sure_yet", "other"],
+  },
 ] as const;
 
-const outcomeTagOptions = fruitOutcomeOptions;
-const meetingObservedFruitOptions = fruitOutcomeOptions.map((label) => ({ label, value: label }));
+const fruitOutcomeByKey: ReadonlyMap<string, FruitOutcomeDefinition> = new Map(fruitOutcomeDefinitions.map((outcome) => [outcome.key, outcome]));
+const outcomeTagOptions = fruitOutcomeDefinitions
+  .filter((outcome) => outcome.sources.includes("leader_review"))
+  .map((outcome) => outcome.label);
+const meetingObservedFruitOptions = outcomeTagOptions.map((label) => ({ label, value: label }));
+
+function fruitOutcomeFormLabels(outcomeKeys: readonly string[]) {
+  return outcomeKeys.map((key) => {
+    const outcome = fruitOutcomeByKey.get(key);
+
+    return outcome?.formLabel ?? outcome?.label ?? key;
+  });
+}
+
 const reminderTypeOptions = [
   { helper: "Yearly", label: "Birthday", value: "birthday" },
   { helper: "Yearly", label: "Anniversary", value: "anniversary" },
@@ -284,14 +507,7 @@ const quickReviewFormPreview: {
     },
     {
       label: "How would you describe your experience?",
-      options: [
-        "Life giving",
-        "Encouraging",
-        "Peaceful",
-        "Challenging in a good way",
-        "Transformational",
-        "Not sure yet",
-      ],
+      options: fruitOutcomeFormLabels(quickReviewExperienceOutcomeKeys),
       type: "choice",
     },
     {
@@ -301,16 +517,7 @@ const quickReviewFormPreview: {
     },
     {
       label: "Did anything change in your life because of this gathering?",
-      options: [
-        "I feel closer to God",
-        "I reconciled a relationship",
-        "I surrendered something",
-        "I made a decision to follow Jesus",
-        "I joined a group",
-        "I requested baptism",
-        "Still processing",
-        "Other",
-      ],
+      options: fruitOutcomeFormLabels(quickReviewLifeChangeOutcomeKeys),
       type: "choice",
     },
     {
@@ -384,11 +591,7 @@ const testimonyReviewFormPreview: SendableFormPreview = {
     {
       choiceType: "checkbox",
       label: "Sharing Permission",
-      options: [
-        "I give permission for USA Missionaries to share my testimony publicly (written or verbal) in an anonymized form.",
-        "I give permission for USA Missionaries to share my testimony publicly with my name included.",
-        "I do not give permission for my responses to be shared publicly.",
-      ],
+      options: testimonyReviewSharingPermissionOptions,
       type: "choice",
     },
   ],
@@ -8631,6 +8834,8 @@ function HomeActivitySheetRow({ item, onClick }: { item: HomeActivityItem; onCli
 type FruitDashboardStory = {
   date: string | null;
   id: string;
+  impactSource: "Leader Review" | "Quick Review" | "Story" | "Testimony Review";
+  outcomeKeys: string[];
   personId: string | null;
   personName: string | null;
   source: FruitActivitySource;
@@ -8651,14 +8856,72 @@ function fruitSearchText(...values: Array<null | string | string[] | undefined>)
     .trim();
 }
 
-function hasFruitKeyword(story: FruitDashboardStory, keywords: ReadonlyArray<string>) {
-  const text = fruitSearchText(story.title, story.text, story.tags);
+function normalizeFruitOutcomeText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
 
-  return keywords.some((keyword) => text.includes(keyword));
+function fruitOutcomeMatchesValue(outcome: FruitOutcomeDefinition, value: string) {
+  const normalizedValue = normalizeFruitOutcomeText(value);
+  const searchableLabels = [
+    outcome.label,
+    outcome.formLabel,
+    ...outcome.aliases,
+  ].filter((label): label is string => Boolean(label));
+
+  return searchableLabels.some((label) => normalizeFruitOutcomeText(label) === normalizedValue);
+}
+
+function fruitOutcomeMatchesText(outcome: FruitOutcomeDefinition, value: string) {
+  const text = fruitSearchText(value);
+  const searchableLabels = [
+    outcome.label,
+    outcome.formLabel,
+    ...outcome.aliases,
+  ].filter((label): label is string => Boolean(label));
+
+  return searchableLabels.some((label) => {
+    const normalizedLabel = normalizeFruitOutcomeText(label);
+
+    return normalizedLabel.length > 3 && normalizedLabel !== "other" && text.includes(normalizedLabel);
+  });
+}
+
+function fruitOutcomesFromValues(...values: Array<null | string | string[] | undefined>) {
+  const directValues = values
+    .flatMap((value) => Array.isArray(value) ? value : [value])
+    .filter((value): value is string => Boolean(value?.trim()));
+  const outcomes = new Map<string, FruitOutcomeDefinition>();
+
+  directValues.forEach((value) => {
+    fruitOutcomeDefinitions.forEach((outcome) => {
+      if (fruitOutcomeMatchesValue(outcome, value) || fruitOutcomeMatchesText(outcome, value)) {
+        outcomes.set(outcome.key, outcome);
+      }
+    });
+  });
+
+  return Array.from(outcomes.values());
+}
+
+function fruitOutcomeLabelsFromKeys(outcomeKeys: string[]) {
+  return uniqueFruitTags(outcomeKeys.map((key) => fruitOutcomeByKey.get(key)?.label ?? ""));
 }
 
 function uniqueFruitTags(tags: string[]) {
   return Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean)));
+}
+
+function fruitStoryOutcomeFields(outcomes: FruitOutcomeDefinition[]) {
+  const outcomeKeys = uniqueFruitTags(outcomes.map((outcome) => outcome.key));
+
+  return {
+    outcomeKeys,
+    tags: fruitOutcomeLabelsFromKeys(outcomeKeys),
+  };
 }
 
 function fruitStoryTitle(value: string | null | undefined) {
@@ -8761,30 +9024,41 @@ function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFrui
   return [
     ...fruitItems
       .filter((fruit) => fruit.status === "approved")
-      .map((fruit) => ({
-        date: fruit.testimonyDate,
-        id: `fruit-${fruit.id}`,
-        personId: fruit.fieldPersonId,
-        personName: fruit.fieldPersonId ? personName(people, fruit.fieldPersonId) : fruit.submittedByName,
-        source: "Story",
-        tags: uniqueFruitTags(fruit.outcomeTags),
-        text: fruit.summary,
-        title: fruitStoryTitle(fruit.summary),
-        type: fruit.outcomeTags[0] ?? "Fruit",
-      } satisfies FruitDashboardStory)),
+      .map((fruit) => {
+        const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(fruit.outcomeTags, fruit.summary));
+
+        return {
+          date: fruit.testimonyDate,
+          id: `fruit-${fruit.id}`,
+          impactSource: "Story",
+          personId: fruit.fieldPersonId,
+          personName: fruit.fieldPersonId ? personName(people, fruit.fieldPersonId) : fruit.submittedByName,
+          source: "Story",
+          ...outcomeFields,
+          text: fruit.summary,
+          title: fruitStoryTitle(fruit.summary),
+          type: outcomeFields.tags[0] ?? fruit.outcomeTags[0] ?? "Fruit",
+        } satisfies FruitDashboardStory;
+      }),
     ...fruitEvents
       .filter((event) => event.status === "approved")
-      .map((event) => ({
-        date: event.date,
-        id: `fruit-event-${event.id}`,
-        personId: event.personId,
-        personName: event.personId ? personName(people, event.personId) : null,
-        source: fruitEventSourceLabel(event),
-        tags: uniqueFruitTags([event.fruitType]),
-        text: event.description ?? event.title ?? event.fruitType,
-        title: event.title?.trim() || event.fruitType || "Fruit recorded",
-        type: event.fruitType,
-      } satisfies FruitDashboardStory)),
+      .map((event) => {
+        const source = fruitEventSourceLabel(event);
+        const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(event.fruitType, event.title, event.description));
+
+        return {
+          date: event.date,
+          id: `fruit-event-${event.id}`,
+          impactSource: source === "Quick Review" || source === "Testimony Review" ? source : "Story",
+          personId: event.personId,
+          personName: event.personId ? personName(people, event.personId) : null,
+          source,
+          ...outcomeFields,
+          text: event.description ?? event.title ?? event.fruitType,
+          title: event.title?.trim() || event.fruitType || "Fruit recorded",
+          type: outcomeFields.tags[0] ?? event.fruitType,
+        } satisfies FruitDashboardStory;
+      }),
   ].sort((first, second) => {
     const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
     const secondTime = parseDisplayDate(second.date)?.getTime() ?? 0;
@@ -8818,53 +9092,85 @@ function fieldFruitStories({
   const testimonyStories = participantTestimonies
     .filter((testimony) => isSubmittedStatus(testimony.status))
     .filter((testimony) => Boolean(testimony.story?.trim() || testimony.whatChanged?.trim() || testimony.decisionMade?.trim()))
-    .map((testimony) => ({
-      date: testimony.submittedAt,
-      id: `testimony-story-${testimony.id}`,
-      personId: testimony.personId,
-      personName: testimony.personId ? personName(people, testimony.personId) : testimony.publicDisplayName,
-      source: "Testimony Review",
-      tags: uniqueFruitTags(["Testimony Review", testimony.decisionMade ?? "", testimony.nextStep ?? ""]),
-      text: [testimony.story, testimony.whatChanged, testimony.nextStep].filter(Boolean).join(" "),
-      title: fruitStoryTitle(testimony.whatChanged ?? testimony.story),
-      type: "Testimony",
-    } satisfies FruitDashboardStory));
+    .map((testimony) => {
+      const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(
+        testimony.decisionMade,
+        testimony.nextStep,
+        testimony.whatChanged,
+        testimony.story,
+      ));
+
+      return {
+        date: testimony.submittedAt,
+        id: `testimony-story-${testimony.id}`,
+        impactSource: "Testimony Review",
+        personId: testimony.personId,
+        personName: testimony.personId ? personName(people, testimony.personId) : testimony.publicDisplayName,
+        source: "Testimony Review",
+        ...outcomeFields,
+        text: [testimony.story, testimony.whatChanged, testimony.nextStep].filter(Boolean).join(" "),
+        title: fruitStoryTitle(testimony.whatChanged ?? testimony.story),
+        type: outcomeFields.tags[0] ?? "Testimony",
+      } satisfies FruitDashboardStory;
+    });
   const reviewStories = participantReviews
     .filter((review) => isSubmittedStatus(review.status))
     .filter((review) => Boolean(review.comments?.trim() || review.conversationHelpful || review.feltCaredFor || review.feltHeard || review.wouldMeetAgain))
-    .map((review) => ({
-      date: review.submittedAt,
-      id: `review-story-${review.id}`,
-      personId: review.personId,
-      personName: review.personId ? personName(people, review.personId) : null,
-      source: "Quick Review",
-      tags: uniqueFruitTags(["Quick Review", review.feltHeard ? "Felt heard" : "", review.feltCaredFor ? "Felt cared for" : "", review.wouldMeetAgain ? "Would meet again" : ""]),
-      text: review.comments ?? "Someone shared that the table helped them take a next step.",
-      title: review.comments ? fruitStoryTitle(review.comments) : "Review shared",
-      type: "Quick Review",
-    } satisfies FruitDashboardStory));
+    .map((review) => {
+      const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(
+        review.conversationHelpful,
+        review.feltHeard ? "Felt heard" : "",
+        review.feltCaredFor ? "Felt cared for" : "",
+        review.wouldMeetAgain ? "Life giving" : "",
+        review.comments,
+      ));
+
+      return {
+        date: review.submittedAt,
+        id: `review-story-${review.id}`,
+        impactSource: "Quick Review",
+        personId: review.personId,
+        personName: review.personId ? personName(people, review.personId) : null,
+        source: "Quick Review",
+        ...outcomeFields,
+        text: review.comments ?? "Someone shared that the table helped them take a next step.",
+        title: review.comments ? fruitStoryTitle(review.comments) : "Review shared",
+        type: outcomeFields.tags[0] ?? "Quick Review",
+      } satisfies FruitDashboardStory;
+    });
   const reflectionStories = leaderReflections
     .filter((reflection) => Boolean(reflection.observedFruit.length || reflection.whatHappened?.trim() || reflection.prayerNeeds?.trim()))
-    .map((reflection) => ({
-      date: reflection.createdAt,
-      id: `reflection-story-${reflection.id}`,
-      personId: reflection.personId,
-      personName: reflection.personId ? personName(people, reflection.personId) : null,
-      source: leaderReflectionFruitSource(reflection),
-      tags: uniqueFruitTags(["Answered prayer", ...reflection.observedFruit]),
-      text: [reflection.whatHappened, reflection.prayerNeeds, reflection.nextStep].filter(Boolean).join(" "),
-      title: reflection.observedFruit[0] ?? fruitStoryTitle(reflection.whatHappened ?? reflection.prayerNeeds),
-      type: reflection.observedFruit[0] ?? (reflection.prayerNeeds ? "Prayer" : "Leader Reflection"),
-    } satisfies FruitDashboardStory));
+    .map((reflection) => {
+      const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(
+        reflection.observedFruit,
+        reflection.whatHappened,
+        reflection.nextStep,
+      ));
+
+      return {
+        date: reflection.createdAt,
+        id: `reflection-story-${reflection.id}`,
+        impactSource: "Leader Review",
+        personId: reflection.personId,
+        personName: reflection.personId ? personName(people, reflection.personId) : null,
+        source: leaderReflectionFruitSource(reflection),
+        ...outcomeFields,
+        text: [reflection.whatHappened, reflection.prayerNeeds, reflection.nextStep].filter(Boolean).join(" "),
+        title: outcomeFields.tags[0] ?? reflection.observedFruit[0] ?? fruitStoryTitle(reflection.whatHappened ?? reflection.prayerNeeds),
+        type: outcomeFields.tags[0] ?? (reflection.prayerNeeds ? "Prayer" : "Leader Reflection"),
+      } satisfies FruitDashboardStory;
+    });
   const prayerLogStories = prayerLogs
     .filter((log) => Boolean(log.note?.trim() || log.prayedAt))
     .map((log) => ({
       date: log.prayedAt ?? log.createdAt,
       id: `prayer-log-${log.id}`,
+      impactSource: "Story",
+      outcomeKeys: [],
       personId: log.fieldPersonId,
       personName: log.fieldPersonId ? personName(people, log.fieldPersonId) : null,
       source: isAnsweredPrayerText(log.note) ? "Answered Prayer" : "Prayer",
-      tags: uniqueFruitTags([isAnsweredPrayerText(log.note) ? "Answered prayer" : "Prayer update"]),
+      tags: [],
       text: log.note?.trim() || "Prayer was logged for this relationship.",
       title: isAnsweredPrayerText(log.note) ? "Answered prayer recorded" : "Prayer update recorded",
       type: isAnsweredPrayerText(log.note) ? "Answered Prayer" : "Prayer Update",
@@ -8879,10 +9185,12 @@ function fieldFruitStories({
       return {
         date: answeredAt ?? reminder.updatedAt ?? reminder.reminderDate,
         id: answeredAt ? `answered-prayer-${reminder.id}` : `prayer-request-${reminder.id}`,
+        impactSource: "Story",
+        outcomeKeys: [],
         personId: reminder.personId,
         personName: personName(people, reminder.personId),
         source: answeredAt ? "Answered Prayer" : "Prayer",
-        tags: uniqueFruitTags([answeredAt ? "Answered prayer" : "Prayer request", prayerFrequencyLabel(reminder.recurrence)]),
+        tags: [],
         text: reminder.notes?.trim() || (answeredAt ? "This request was marked answered." : "Prayer request is being tracked."),
         title: answeredAt ? `Answered: ${title}` : title,
         type: answeredAt ? "Answered Prayer" : "Prayer Update",
@@ -8898,69 +9206,54 @@ function fieldFruitStories({
     });
 }
 
-function fruitOutcomeCount(stories: FruitDashboardStory[], keywords: string[]) {
-  return stories.filter((story) => hasFruitKeyword(story, keywords)).length;
+function fruitImpactGroups(stories: FruitDashboardStory[]) {
+  return fruitImpactGroupConfig.map((group) => ({
+    ...group,
+    outcomes: group.outcomeKeys.map((outcomeKey) => {
+      const outcome = fruitOutcomeByKey.get(outcomeKey);
+      const matchingStories = stories.filter((story) => story.outcomeKeys.includes(outcomeKey));
+      const sources = uniqueFruitTags(matchingStories.map((story) => story.impactSource));
+
+      return {
+        key: outcomeKey,
+        label: outcome?.label ?? outcomeKey,
+        sources,
+        value: matchingStories.length,
+      };
+    }),
+  }));
 }
 
-function kingdomFruitMetrics(stories: FruitDashboardStory[]) {
-  return [
-    {
-      label: "Reconciliation",
-      value: fruitOutcomeCount(stories, ["reconciliation", "reconciled", "restored relationship", "restored relationships", "forgiveness", "forgave", "restored family", "restored friendship"]),
-    },
-    {
-      label: "New Believers",
-      value: fruitOutcomeCount(stories, ["salvation", "new believer", "new believers", "gave their life", "born again", "follow jesus", "commitment to jesus", "received christ"]),
-    },
-    {
-      label: "Marriage Restoration",
-      value: fruitOutcomeCount(stories, ["marriage restoration", "marriage restored", "marriage healing", "marriage healed", "restored marriage", "healed marriage"]),
-    },
-    {
-      label: "Baptized",
-      value: fruitOutcomeCount(stories, ["baptism", "baptized"]),
-    },
-    {
-      label: "Discipling",
-      value: fruitOutcomeCount(stories, ["discipling", "joined discipleship", "discipleship started", "started discipleship", "discipleship relationship", "walking with"]),
-    },
-    {
-      label: "Started Discipling Others",
-      value: fruitOutcomeCount(stories, ["started discipling others", "disciple maker", "multiplying", "multiplication"]),
-    },
-  ];
-}
-
-function KingdomFruitMetricTile({
-  label,
-  value,
+function FruitImpactGroupCard({
+  group,
 }: {
-  label: string;
-  value: number;
+  group: ReturnType<typeof fruitImpactGroups>[number];
 }) {
-  const icon = {
-    Baptized: <Droplet className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-    Discipling: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-    "Marriage Restoration": <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-    "New Believers": <UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-    Reconciliation: <HeartHandshake className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-    "Started Discipling Others": <GitBranch className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-  }[label] ?? <Icon name="fruit" size={14} />;
+  const groupTotal = group.outcomes.reduce((total, outcome) => total + outcome.value, 0);
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-white px-3 py-3 shadow-[0_12px_30px_rgba(37,99,235,0.045)] max-[350px]:rounded-[18px] max-[350px]:px-2.5">
-      <div className="flex min-h-[54px] min-w-0 items-center gap-2.5 max-[350px]:gap-2">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-8 max-[350px]:w-8">
-          {icon}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[25px] font-bold leading-none text-[#0F172A] max-[350px]:text-[22px]">{value}</span>
-          <span className="mt-1 block text-[8px] font-bold uppercase leading-[0.8rem] tracking-[0.08em] text-[#64748B] max-[350px]:text-[7.5px] max-[350px]:tracking-[0.04em]" style={{ fontFamily: font.rajdhani }}>
-            {label}
-          </span>
-        </span>
+    <article className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{group.title}</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{group.sourceHint}</p>
+        </div>
+        <span className="rounded-full bg-[#EBF2FF] px-3 py-1 text-sm font-black text-[#1D4ED8]">{groupTotal}</span>
       </div>
-    </div>
+      <div className="mt-4 divide-y divide-[#EFF6FF]">
+        {group.outcomes.map((outcome) => (
+          <div className="flex items-center justify-between gap-3 py-2.5" key={outcome.key}>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-[#0F172A]">{outcome.label}</p>
+              <p className="mt-0.5 truncate text-[11px] font-semibold text-[#94A3B8]">
+                {outcome.sources.length ? outcome.sources.join(" · ") : "No records yet"}
+              </p>
+            </div>
+            <span className="shrink-0 text-xl font-black leading-none text-[#0F172A]">{outcome.value}</span>
+          </div>
+        ))}
+      </div>
+    </article>
   );
 }
 
@@ -12593,7 +12886,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     relationshipReminders: data.reminders,
   }), [answeredPrayerByReminderId, data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, data.prayerLogs, data.reminders, people]);
   const visibleFruitStories = useMemo(() => fruitStoryEntries.filter((story) => !isQaFruitStory(story)), [fruitStoryEntries]);
-  const fruitMetrics = useMemo(() => kingdomFruitMetrics(visibleFruitStories), [visibleFruitStories]);
+  const fruitImpactOutcomeGroups = useMemo(() => fruitImpactGroups(visibleFruitStories), [visibleFruitStories]);
   const latestMeeting = loggedMeetings[0];
   const latestLoggedTableMeeting = useMemo(() => (
     loggedMeetings.find((meeting) => meeting.source === "table") ?? null
@@ -15130,7 +15423,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                           <div className="grid gap-3">
                             <SectionEmptyState
                               action={<CompactButton icon="fruit" onClick={() => setFruitView("forms")}>Open Forms</CompactButton>}
-                              text="Testimonies, reviews, answered prayers, baptisms, new believers, reconciliation, and visible outcomes will appear here."
+                              text="Testimonies, quick reviews, leader reviews, baptisms, new believers, reconciliation, and visible outcomes will appear here."
                               title="No fruit activity yet."
                             />
                           </div>
@@ -15142,9 +15435,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <div className="space-y-5">
                         <section>
                           <SectionHeading title="Impact" />
-                          <div className="grid grid-cols-2 gap-2">
-                            {fruitMetrics.map((metric) => (
-                              <KingdomFruitMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {fruitImpactOutcomeGroups.map((group) => (
+                              <FruitImpactGroupCard group={group} key={group.key} />
                             ))}
                           </div>
                         </section>
