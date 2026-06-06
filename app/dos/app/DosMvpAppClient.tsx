@@ -166,6 +166,7 @@ type FruitOutcomeDefinition = {
   group?: FruitOutcomeGroupKey;
   key: string;
   label: string;
+  leaderLabel?: string;
   sources: readonly FruitOutcomeSourceKey[];
 };
 
@@ -200,7 +201,15 @@ const fruitOutcomeConfig = [
     group: "spiritual",
     key: "baptism_requested",
     label: "Baptism requested",
+    leaderLabel: "Baptized",
     sources: ["quick_review", "leader_review", "testimony_review"],
+  },
+  {
+    aliases: ["answered prayer", "prayer answered", "answered prayers", "god answered prayer"],
+    group: "spiritual",
+    key: "answered_prayer",
+    label: "Answered Prayer",
+    sources: ["leader_review", "testimony_review"],
   },
   {
     aliases: ["encouraging", "felt encouraged", "encouragement", "felt heard", "felt cared for", "cared for"],
@@ -223,6 +232,7 @@ const fruitOutcomeConfig = [
     group: "relational",
     key: "reconciled_relationship",
     label: "Reconciled relationship",
+    leaderLabel: "Reconciliation",
     sources: ["quick_review", "leader_review", "testimony_review"],
   },
   {
@@ -230,6 +240,7 @@ const fruitOutcomeConfig = [
     group: "relational",
     key: "marriage_restoration",
     label: "Marriage restoration",
+    leaderLabel: "Marriage Restoration",
     sources: ["leader_review", "testimony_review"],
   },
   {
@@ -238,6 +249,7 @@ const fruitOutcomeConfig = [
     group: "discipleship",
     key: "joined_group",
     label: "Joined a group",
+    leaderLabel: "Joined Discipleship",
     sources: ["quick_review", "leader_review"],
   },
   {
@@ -245,6 +257,7 @@ const fruitOutcomeConfig = [
     group: "discipleship",
     key: "started_discipling_others",
     label: "Started discipling others",
+    leaderLabel: "Started Discipling Others",
     sources: ["leader_review", "testimony_review"],
   },
   {
@@ -252,6 +265,7 @@ const fruitOutcomeConfig = [
     group: "discipleship",
     key: "new_believer",
     label: "New believer",
+    leaderLabel: "New Believers",
     sources: ["leader_review", "testimony_review"],
   },
   {
@@ -364,9 +378,9 @@ const testimonyReviewSharingPermissionOptions = [
 const fruitImpactGroupConfig = [
   {
     key: "spiritual",
-    sourceHint: "Quick Review · Testimony Review",
+    sourceHint: "Quick Review · Leader Review",
     title: "Spiritual Fruit",
-    outcomeKeys: ["closer_to_god", "surrendered_something", "decision_to_follow_jesus", "baptism_requested"],
+    outcomeKeys: ["closer_to_god", "surrendered_something", "decision_to_follow_jesus", "baptism_requested", "answered_prayer"],
   },
   {
     key: "relational",
@@ -391,7 +405,7 @@ const fruitImpactGroupConfig = [
 const fruitOutcomeByKey: ReadonlyMap<string, FruitOutcomeDefinition> = new Map(fruitOutcomeDefinitions.map((outcome) => [outcome.key, outcome]));
 const outcomeTagOptions = fruitOutcomeDefinitions
   .filter((outcome) => outcome.sources.includes("leader_review"))
-  .map((outcome) => outcome.label);
+  .map((outcome) => outcome.leaderLabel ?? outcome.label);
 const meetingObservedFruitOptions = outcomeTagOptions.map((label) => ({ label, value: label }));
 
 function fruitOutcomeFormLabels(outcomeKeys: readonly string[]) {
@@ -8869,6 +8883,7 @@ function fruitOutcomeMatchesValue(outcome: FruitOutcomeDefinition, value: string
   const searchableLabels = [
     outcome.label,
     outcome.formLabel,
+    outcome.leaderLabel,
     ...outcome.aliases,
   ].filter((label): label is string => Boolean(label));
 
@@ -8880,6 +8895,7 @@ function fruitOutcomeMatchesText(outcome: FruitOutcomeDefinition, value: string)
   const searchableLabels = [
     outcome.label,
     outcome.formLabel,
+    outcome.leaderLabel,
     ...outcome.aliases,
   ].filter((label): label is string => Boolean(label));
 
