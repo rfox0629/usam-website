@@ -243,13 +243,84 @@ type UsamApplicationDraft = {
   storyTestimony: string;
   supportGoal: string;
 };
-const quickReviewQuestionPreview = [
-  "I felt heard",
-  "I felt cared for",
-  "This conversation helped me",
-  "I would meet again",
-  "Optional note",
-] as const;
+type QuickReviewPreviewSection = {
+  copy?: string;
+  fieldType?: "email" | "text" | "textarea";
+  label: string;
+  options?: readonly string[];
+  required?: boolean;
+  type: "choice" | "field" | "notice";
+};
+const quickReviewFormPreview: {
+  title: string;
+  sections: readonly QuickReviewPreviewSection[];
+} = {
+  title: "2 Minute Reflection",
+  sections: [
+    {
+      fieldType: "text",
+      label: "Your name",
+      required: true,
+      type: "field",
+    },
+    {
+      fieldType: "text",
+      label: "Last name",
+      type: "field",
+    },
+    {
+      fieldType: "email",
+      label: "Email address",
+      required: true,
+      type: "field",
+    },
+    {
+      label: "How would you describe your experience?",
+      options: [
+        "Life giving",
+        "Encouraging",
+        "Peaceful",
+        "Challenging in a good way",
+        "Transformational",
+        "Not sure yet",
+      ],
+      type: "choice",
+    },
+    {
+      fieldType: "textarea",
+      label: "What impact did the evening have on you? Any encouragement you want to share with USA Missionaries?",
+      type: "field",
+    },
+    {
+      label: "Did anything change in your life because of this gathering?",
+      options: [
+        "I feel closer to God",
+        "I reconciled a relationship",
+        "I surrendered something",
+        "I made a decision to follow Jesus",
+        "I joined a group",
+        "I requested baptism",
+        "Still processing",
+        "Other",
+      ],
+      type: "choice",
+    },
+    {
+      copy: "Your responses to this reflection form are kept confidential and stewarded with care. We may use parts of what you share here to encourage others, but only with your permission.",
+      label: "Your Reflection & Privacy",
+      type: "notice",
+    },
+    {
+      label: "May we share your testimony?",
+      options: [
+        "Yes, anonymously",
+        "Yes, with my name included",
+        "No, please keep my story private",
+      ],
+      type: "choice",
+    },
+  ],
+};
 const testimonyQuestionPreview = [
   "What happened?",
   "What changed?",
@@ -9161,7 +9232,7 @@ function FruitFormPreviewSheet({
   const description = isTestimony
     ? "This is what someone sees when they are invited to share a testimony."
     : "This is what someone sees when they are invited to send a quick review after a meeting.";
-  const questions = isTestimony ? testimonyQuestionPreview : quickReviewQuestionPreview;
+  const questions = testimonyQuestionPreview;
 
   return (
     <Sheet description={description} onClose={onClose} showEyebrow={false} title={`${title} Preview`}>
@@ -9170,28 +9241,32 @@ function FruitFormPreviewSheet({
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Recipient Form
           </p>
-          <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{title}</h3>
+          <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{isTestimony ? title : quickReviewFormPreview.title}</h3>
           <p className="mt-1 text-sm leading-6 text-[#64748B]">
             {isTestimony
               ? "Share what happened, what changed, and whether this story can be reviewed for visible fruit."
-              : "Share what happened, how the meeting felt, and whether there was any visible next step."}
+              : "A short reflection form someone can complete after a meeting or gathering."}
           </p>
         </section>
-        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
-          <div className="grid gap-3">
-            {questions.map((question, index) => (
-              <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FAFC] p-3" key={question}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-                  Question {index + 1}
-                </p>
-                <p className="mt-1 text-sm font-semibold leading-5 text-[#0F172A]">{question}</p>
-                <div className="mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-white px-3 py-2 text-xs text-[#94A3B8]">
-                  Recipient response field
+        {isTestimony ? (
+          <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+            <div className="grid gap-3">
+              {questions.map((question, index) => (
+                <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FAFC] p-3" key={question}>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+                    Question {index + 1}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold leading-5 text-[#0F172A]">{question}</p>
+                  <div className="mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-white px-3 py-2 text-xs text-[#94A3B8]">
+                    Recipient response field
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <QuickReviewFormPreview />
+        )}
         <AppButton onClick={onClose} tone="black">Done</AppButton>
       </div>
     </Sheet>
@@ -11914,6 +11989,44 @@ function RequestQuestionPreview({
   );
 }
 
+function QuickReviewFormPreview() {
+  return (
+    <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+        Quick Review
+      </p>
+      <h3 className="mt-2 text-lg font-black leading-tight text-[#0F172A]">{quickReviewFormPreview.title}</h3>
+      <div className="mt-3 grid gap-3">
+        {quickReviewFormPreview.sections.map((section) => (
+          <div className="rounded-2xl bg-white px-3 py-3 shadow-[0_8px_18px_rgba(37,99,235,0.035)]" key={section.label}>
+            <p className="text-sm font-bold leading-5 text-[#0F172A]">
+              {section.label}
+              {section.required ? <span className="text-[#2563EB]"> *</span> : null}
+            </p>
+            {section.type === "notice" ? (
+              <p className="mt-2 text-xs leading-5 text-[#64748B]">{section.copy}</p>
+            ) : null}
+            {section.type === "field" ? (
+              <div className={`mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-3 py-2 text-xs text-[#94A3B8] ${section.fieldType === "textarea" ? "min-h-20" : ""}`}>
+                {section.fieldType === "textarea" ? "Long answer" : section.fieldType === "email" ? "Email field" : "Text field"}
+              </div>
+            ) : null}
+            {section.type === "choice" && section.options?.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {section.options.map((option) => (
+                  <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-1.5 text-xs font-semibold text-[#475569]" key={option}>
+                    {option}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function MeetingSendConfirmationSheet({
   isSending,
   onClose,
@@ -11955,10 +12068,14 @@ function MeetingSendConfirmationSheet({
             ? "Add a person to this table before sending a testimony request."
             : "DOS will create a share link for this request. You can use the phone share sheet or copy the link if sharing is not available."}
         </p>
+        {isTestimony ? (
           <RequestQuestionPreview
-            questions={isTestimony ? testimonyQuestionPreview : quickReviewQuestionPreview}
-            title={isTestimony ? "Testimony Questions" : "Review Questions"}
+            questions={testimonyQuestionPreview}
+            title="Testimony Questions"
           />
+        ) : (
+          <QuickReviewFormPreview />
+        )}
         <div className="grid gap-2">
           <AppButton disabled={isSending || cannotSendTestimony} onClick={onConfirm} tone="black">
             {isSending ? "Preparing..." : isTestimony ? "Send Testimony Request" : "Send Review"}
