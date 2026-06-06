@@ -202,7 +202,7 @@ type MeetingsView = "availability" | "calendar" | "history" | "upcoming";
 type MobileMeetingsView = Exclude<MeetingsView, "availability">;
 type FruitView = "activity" | "forms" | "impact";
 type FruitActivitySource = "Answered Prayer" | "Prayer" | "Quick Review" | "Story" | "Testimony Review";
-type FruitFormKey = "answered_prayer" | "prayer_update" | "quick_review" | "testimony_review";
+type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
 type FruitFormStatus = "coming_soon" | "live";
 type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
 type PrayerRequestView = "answered" | "praying";
@@ -5204,49 +5204,32 @@ const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
 ];
 
 const fruitFormCards: ReadonlyArray<{
-  cta: string;
   description: string;
   icon: IconName;
   key: FruitFormKey;
-  outcomes: string[];
   status: FruitFormStatus;
   title: string;
 }> = [
   {
-    cta: "Send",
-    description: "Send this after a meeting so someone can quickly share what happened, how they felt, and any fruit that came from the meeting.",
+    description: "Send after a meeting so someone can share what happened and how the meeting impacted them.",
     icon: "send",
     key: "quick_review",
-    outcomes: ["Felt heard", "Felt cared for", "Joined discipleship", "Started discipling others"],
     status: "live",
     title: "Quick Review",
   },
   {
-    cta: "Send",
     description: "Send this when someone has a testimony to share so it can be reviewed and connected to visible fruit.",
     icon: "fruit",
     key: "testimony_review",
-    outcomes: ["Answered prayer", "Reconciliation", "Marriage restoration", "Baptism", "New believer"],
     status: "live",
     title: "Testimony Review",
   },
   {
-    cta: "Coming Soon",
-    description: "Follow up on prayer requests and track what God has done.",
+    description: "Send when someone wants to submit a prayer request connected to a meeting or follow-up.",
     icon: "prayer",
-    key: "prayer_update",
-    outcomes: ["Prayer request", "Answered prayer"],
+    key: "prayer_request",
     status: "coming_soon",
-    title: "Prayer Update",
-  },
-  {
-    cta: "Coming Soon",
-    description: "Quickly record answered prayer.",
-    icon: "prayer",
-    key: "answered_prayer",
-    outcomes: ["Answered prayer"],
-    status: "coming_soon",
-    title: "Answered Prayer",
+    title: "Prayer Request",
   },
 ];
 
@@ -8998,19 +8981,15 @@ function FruitFormCard({
   onComingSoon,
 }: {
   action?: {
-    disabledReason?: string;
     isBusy?: boolean;
-    meetingLabel?: string;
-    message?: string;
     onCopy: () => void;
-    onOpen: () => void;
+    onPreview: () => void;
     onSend: () => void;
   };
   form: (typeof fruitFormCards)[number];
   onComingSoon: (form: (typeof fruitFormCards)[number]) => void;
 }) {
   const isLive = form.status === "live";
-  const actionDisabled = !action || Boolean(action.disabledReason) || action.isBusy;
 
   return (
     <article className="flex min-w-0 flex-col rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
@@ -9034,35 +9013,37 @@ function FruitFormCard({
           <p className="mt-1 text-xs leading-5 text-[#64748B]">{form.description}</p>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {form.outcomes.map((outcome) => (
-          <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold text-[#64748B]" key={outcome}>
-            {outcome}
-          </span>
-        ))}
-      </div>
       {isLive ? (
-        <div className="mt-4 space-y-3">
-          <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Form link for</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-[#0F172A]">{action?.meetingLabel ?? "No logged table selected"}</p>
-            {action?.disabledReason ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{action.disabledReason}</p> : null}
-          </div>
-          {action?.message ? (
-            <p className="rounded-2xl border border-[#DCEBFF] bg-[#EBF2FF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">{action.message}</p>
-          ) : null}
-          <div className="grid grid-cols-3 gap-2 max-[350px]:grid-cols-1">
-            <FruitFormActionButton disabled={actionDisabled} isBusy={action?.isBusy} label="Copy Link" onClick={action?.onCopy} />
-            <FruitFormActionButton disabled={actionDisabled} isBusy={action?.isBusy} label="Open Form" onClick={action?.onOpen} />
-            <FruitFormActionButton disabled={actionDisabled} isBusy={action?.isBusy} label={form.cta} onClick={action?.onSend} primary />
-          </div>
-        </div>
+        <FruitFormActions action={action} className="mt-4 grid-cols-3" />
       ) : (
         <div className="mt-4">
-          <AppButton icon={form.icon} onClick={() => onComingSoon(form)} tone="soft">{form.cta}</AppButton>
+          <AppButton icon={form.icon} onClick={() => onComingSoon(form)} tone="soft">Coming Soon</AppButton>
         </div>
       )}
     </article>
+  );
+}
+
+function FruitFormActions({
+  action,
+  className = "",
+}: {
+  action?: {
+    isBusy?: boolean;
+    onCopy: () => void;
+    onPreview: () => void;
+    onSend: () => void;
+  };
+  className?: string;
+}) {
+  const disabled = !action || action.isBusy;
+
+  return (
+    <div className={`grid gap-2 max-[350px]:grid-cols-1 ${className}`}>
+      <FruitFormActionButton disabled={disabled} isBusy={action?.isBusy} label="Preview" onClick={action?.onPreview} />
+      <FruitFormActionButton disabled={disabled} isBusy={action?.isBusy} label="Copy Link" onClick={action?.onCopy} />
+      <FruitFormActionButton disabled={disabled} isBusy={action?.isBusy} label="Send" onClick={action?.onSend} primary />
+    </div>
   );
 }
 
@@ -9106,22 +9087,114 @@ function FruitFormsGrid({
   quickReviewAction?: ComponentProps<typeof FruitFormCard>["action"];
   testimonyReviewAction?: ComponentProps<typeof FruitFormCard>["action"];
 }) {
+  const actionForForm = (form: (typeof fruitFormCards)[number]) => (
+    form.key === "quick_review" ? quickReviewAction : form.key === "testimony_review" ? testimonyReviewAction : undefined
+  );
+
   return (
     <div className="space-y-3">
       {comingSoonMessage ? (
         <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">{comingSoonMessage}</p>
       ) : null}
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:hidden">
         {fruitFormCards.map((form) => (
           <FruitFormCard
-            action={form.key === "quick_review" ? quickReviewAction : form.key === "testimony_review" ? testimonyReviewAction : undefined}
+            action={actionForForm(form)}
             form={form}
             key={form.key}
             onComingSoon={onOpenForm}
           />
         ))}
       </div>
+      <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_30px_rgba(37,99,235,0.045)] md:block">
+        <div className="grid grid-cols-[1.05fr_1.55fr_0.65fr_1.2fr] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          <span>Form</span>
+          <span>Purpose</span>
+          <span>Status</span>
+          <span>Actions</span>
+        </div>
+        {fruitFormCards.map((form) => {
+          const isLive = form.status === "live";
+          const action = actionForForm(form);
+
+          return (
+            <div className="grid grid-cols-[1.05fr_1.55fr_0.65fr_1.2fr] items-center gap-3 border-b border-[#F1F5F9] px-4 py-3 last:border-b-0" key={form.key}>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+                  <Icon name={form.icon} size={16} />
+                </span>
+                <p className="truncate text-sm font-black text-[#0F172A]">{form.title}</p>
+              </div>
+              <p className="text-xs leading-5 text-[#64748B]">{form.description}</p>
+              <span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] ${isLive ? "bg-[#EBF2FF] text-[#1D4ED8]" : "bg-[#F1F5F9] text-[#64748B]"}`} style={{ fontFamily: font.rajdhani }}>
+                {isLive ? "Sendable" : "Coming Soon"}
+              </span>
+              {isLive ? (
+                <FruitFormActions action={action} className="grid-cols-3" />
+              ) : (
+                <button
+                  className="inline-flex min-h-10 w-fit items-center justify-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[11px] font-bold text-[#64748B]"
+                  onClick={() => onOpenForm(form)}
+                  type="button"
+                >
+                  Coming Soon
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="px-1 text-xs leading-5 text-[#94A3B8]">Custom forms are coming later.</p>
     </div>
+  );
+}
+
+function FruitFormPreviewSheet({
+  formKey,
+  onClose,
+}: {
+  formKey: Extract<FruitFormKey, "quick_review" | "testimony_review">;
+  onClose: () => void;
+}) {
+  const isTestimony = formKey === "testimony_review";
+  const title = isTestimony ? "Testimony Review" : "Quick Review";
+  const description = isTestimony
+    ? "This is what someone sees when they are invited to share a testimony."
+    : "This is what someone sees when they are invited to send a quick review after a meeting.";
+  const questions = isTestimony ? testimonyQuestionPreview : quickReviewQuestionPreview;
+
+  return (
+    <Sheet description={description} onClose={onClose} showEyebrow={false} title={`${title} Preview`}>
+      <div className="space-y-4">
+        <section className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+            Recipient Form
+          </p>
+          <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{title}</h3>
+          <p className="mt-1 text-sm leading-6 text-[#64748B]">
+            {isTestimony
+              ? "Share what happened, what changed, and whether this story can be reviewed for visible fruit."
+              : "Share what happened, how the meeting felt, and whether there was any visible next step."}
+          </p>
+        </section>
+        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+          <div className="grid gap-3">
+            {questions.map((question, index) => (
+              <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FAFC] p-3" key={question}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+                  Question {index + 1}
+                </p>
+                <p className="mt-1 text-sm font-semibold leading-5 text-[#0F172A]">{question}</p>
+                <div className="mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-white px-3 py-2 text-xs text-[#94A3B8]">
+                  Recipient response field
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+        <AppButton onClick={onClose} tone="black">Done</AppButton>
+      </div>
+    </Sheet>
   );
 }
 
@@ -12328,6 +12401,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedConversationFlow, setSelectedConversationFlow] = useState<DosConversationFlowKey>("none");
   const [selectedExternalCalendarEventId, setSelectedExternalCalendarEventId] = useState<string | null>(null);
   const [selectedFruitActivity, setSelectedFruitActivity] = useState<FruitDashboardStory | null>(null);
+  const [selectedFruitFormPreviewKey, setSelectedFruitFormPreviewKey] = useState<Extract<FruitFormKey, "quick_review" | "testimony_review"> | null>(null);
   const [fruitFormsNotice, setFruitFormsNotice] = useState("");
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
@@ -14039,47 +14113,34 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  function fruitFormMeetingLabel(meeting: DosAppMeeting | null) {
-    if (!meeting) {
-      return "No logged table available";
-    }
-
-    return `${meetingDisplayTitle(meeting, people)} · ${formatDate(meeting.date)}`;
-  }
-
   function handleComingSoonFruitForm(form: (typeof fruitFormCards)[number]) {
     setFruitView("forms");
-    setFruitFormsNotice(`${form.title} is coming next. Fruit already reads from existing reviews, testimonies, prayer updates, and approved fruit records.`);
+    setFruitFormsNotice(`${form.title} is coming soon. Prayer request forms will connect to Prayer later.`);
   }
 
-  async function handleFruitFormLinkAction(formKey: Extract<FruitFormKey, "quick_review" | "testimony_review">, meeting: DosAppMeeting | null, action: "copy" | "open" | "send") {
+  function handlePreviewFruitForm(formKey: Extract<FruitFormKey, "quick_review" | "testimony_review">) {
+    setFruitView("forms");
+    setFruitFormsNotice("");
+    setSelectedFruitFormPreviewKey(formKey);
+  }
+
+  async function handleFruitFormLinkAction(formKey: Extract<FruitFormKey, "quick_review" | "testimony_review">, meeting: DosAppMeeting | null, action: "copy" | "send") {
     const isTestimony = formKey === "testimony_review";
     const title = isTestimony ? "Testimony Review" : "Quick Review";
     const setBusyMeetingId = isTestimony ? setTestimonyLinkMeetingId : setReviewLinkMeetingId;
-    const setMessage = isTestimony ? setTestimonyShareMessage : setReviewShareMessage;
     const ensureLink = isTestimony ? ensureTestimonyLink : ensureReviewLink;
 
     setFruitFormsNotice("");
 
     if (!meeting) {
-      setMessage(isTestimony
+      setFruitFormsNotice(isTestimony
         ? "Log a table with a person before sending a testimony review."
         : "Log a table before sending a quick review.");
       return;
     }
 
-    if (action === "send") {
-      if (isTestimony) {
-        await handleShareTestimony(meeting);
-      } else {
-        await handleShareReview(meeting);
-      }
-      return;
-    }
-
     setErrorMessage("");
     setBusyMeetingId(meeting.id);
-    setMessage("");
 
     try {
       const url = await ensureLink(meeting);
@@ -14091,17 +14152,29 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       if (action === "copy") {
         const copied = await copyReviewUrl(url);
 
-        setMessage(copied ? `${title} link copied.` : url);
+        setFruitFormsNotice(copied ? `${title} link copied.` : url);
         return;
       }
 
-      if (typeof window !== "undefined") {
-        window.open(url, "_blank", "noopener,noreferrer");
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({
+            text: isTestimony ? "Share your story from our conversation." : "Quick check-in for our conversation.",
+            title: isTestimony ? "DOS Testimony Request" : "DOS Quick Review",
+            url,
+          });
+          setFruitFormsNotice(isTestimony ? "Testimony review link shared." : "Quick review link shared.");
+          return;
+        } catch {
+          // Fall through to clipboard for browsers that cancel or block sharing.
+        }
       }
 
-      setMessage(`${title} form opened.`);
+      const copied = await copyReviewUrl(url);
+
+      setFruitFormsNotice(copied ? `${title} link copied.` : url);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : `Unable to prepare ${title.toLowerCase()} link.`);
+      setFruitFormsNotice(error instanceof Error ? error.message : `Unable to prepare ${title.toLowerCase()} link.`);
     } finally {
       setBusyMeetingId(null);
     }
@@ -14331,21 +14404,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     action();
   };
   const quickReviewFruitFormAction = {
-    disabledReason: latestLoggedTableMeeting ? undefined : "Log a table before sending a quick review.",
     isBusy: latestLoggedTableMeeting ? reviewLinkMeetingId === latestLoggedTableMeeting.id : false,
-    meetingLabel: fruitFormMeetingLabel(latestLoggedTableMeeting),
-    message: reviewShareMessage,
     onCopy: () => void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "copy"),
-    onOpen: () => void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "open"),
+    onPreview: () => handlePreviewFruitForm("quick_review"),
     onSend: () => void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "send"),
   };
   const testimonyReviewFruitFormAction = {
-    disabledReason: latestTestimonyReviewMeeting ? undefined : "Log a table with a person before sending a testimony review.",
     isBusy: latestTestimonyReviewMeeting ? testimonyLinkMeetingId === latestTestimonyReviewMeeting.id : false,
-    meetingLabel: fruitFormMeetingLabel(latestTestimonyReviewMeeting),
-    message: testimonyShareMessage,
     onCopy: () => void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "copy"),
-    onOpen: () => void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "open"),
+    onPreview: () => handlePreviewFruitForm("testimony_review"),
     onSend: () => void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "send"),
   };
   const mobileFloatingActionItems: MobileFloatingActionItem[] = activeTab === "meetings"
@@ -14393,6 +14460,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isUsamApplicationOpen
     && !selectedExternalCalendarEventId
     && !selectedFruitActivity
+    && !selectedFruitFormPreviewKey
     && !selectedMeetingId
     && !selectedPersonId
     && !selectedPrayerResourceSlug
@@ -15412,6 +15480,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               openPersonDetail(personId);
             }}
             story={selectedFruitActivity}
+          />
+        ) : null}
+
+        {selectedFruitFormPreviewKey ? (
+          <FruitFormPreviewSheet
+            formKey={selectedFruitFormPreviewKey}
+            onClose={() => setSelectedFruitFormPreviewKey(null)}
           />
         ) : null}
 
