@@ -243,17 +243,25 @@ type UsamApplicationDraft = {
   storyTestimony: string;
   supportGoal: string;
 };
-type QuickReviewPreviewSection = {
+type FormPreviewSection = {
+  choiceType?: "checkbox" | "pill" | "radio";
   copy?: string;
   fieldType?: "email" | "text" | "textarea";
+  helper?: string;
   label: string;
   options?: readonly string[];
+  placeholder?: string;
   required?: boolean;
   type: "choice" | "field" | "notice";
 };
+type SendableFormPreview = {
+  intro?: string;
+  sections: readonly FormPreviewSection[];
+  title: string;
+};
 const quickReviewFormPreview: {
   title: string;
-  sections: readonly QuickReviewPreviewSection[];
+  sections: readonly FormPreviewSection[];
 } = {
   title: "2 Minute Reflection",
   sections: [
@@ -321,13 +329,70 @@ const quickReviewFormPreview: {
     },
   ],
 };
-const testimonyQuestionPreview = [
-  "What happened?",
-  "What changed?",
-  "Did you take a next step?",
-  "May we share this story publicly?",
-  "Public display name, if sharing publicly",
-] as const;
+const testimonyReviewFormPreview: SendableFormPreview = {
+  intro: "Thank you for welcoming us into your home and allowing space for the Holy Spirit to move. Every table looks different, and we believe the Lord often continues His work long after our time together ends. Your reflections help us give glory to God and steward this ministry with humility and care.",
+  title: "Kitchen Table Reflection",
+  sections: [
+    {
+      fieldType: "text",
+      label: "Your name",
+      placeholder: "First name",
+      required: true,
+      type: "field",
+    },
+    {
+      fieldType: "text",
+      label: "Last name",
+      type: "field",
+    },
+    {
+      fieldType: "email",
+      label: "Email address",
+      placeholder: "name@example.com",
+      required: true,
+      type: "field",
+    },
+    {
+      fieldType: "textarea",
+      helper: "A moment, a word, a prayer, a conversation, or something the Lord impressed on your heart.",
+      label: "What stood out to you most from our time together at the table?",
+      type: "field",
+    },
+    {
+      fieldType: "textarea",
+      helper: "If so, what was it, and how did it impact you?",
+      label: "Did you sense the Lord speaking, revealing, or stirring anything in you during or after our time together?",
+      type: "field",
+    },
+    {
+      fieldType: "textarea",
+      helper: "This could be obedience, repentance, rest, prayer, reconciliation, or simply deeper trust.",
+      label: "As you reflect on the evening, is there anything you feel the Lord is inviting you to step into or respond to next?",
+      type: "field",
+    },
+    {
+      fieldType: "textarea",
+      helper: "Please feel free to share any additional thoughts or feedback.",
+      label: "Is there anything else you would like to share or that feels important to add?",
+      type: "field",
+    },
+    {
+      copy: "Your responses are shared in confidence and will be stewarded with care. What you share may be used internally for prayer, reflection, and to help us steward this ministry well. Any testimony or story shared publicly will only be done with your clear permission, and identifying details will be removed unless you explicitly approve otherwise. Our desire is to honor your trust, protect what the Lord is doing in your life, and give glory to God through stories that encourage others.",
+      label: "Your Reflection and Privacy",
+      type: "notice",
+    },
+    {
+      choiceType: "checkbox",
+      label: "Sharing Permission",
+      options: [
+        "I give permission for USA Missionaries to share my testimony publicly (written or verbal) in an anonymized form.",
+        "I give permission for USA Missionaries to share my testimony publicly with my name included.",
+        "I do not give permission for my responses to be shared publicly.",
+      ],
+      type: "choice",
+    },
+  ],
+};
 type ScriptureReference = {
   reference: string;
   text: string;
@@ -9232,7 +9297,6 @@ function FruitFormPreviewSheet({
   const description = isTestimony
     ? "This is what someone sees when they are invited to share a testimony."
     : "This is what someone sees when they are invited to send a quick review after a meeting.";
-  const questions = testimonyQuestionPreview;
 
   return (
     <Sheet description={description} onClose={onClose} showEyebrow={false} title={`${title} Preview`}>
@@ -9241,31 +9305,17 @@ function FruitFormPreviewSheet({
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Recipient Form
           </p>
-          <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{isTestimony ? title : quickReviewFormPreview.title}</h3>
+          <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{isTestimony ? testimonyReviewFormPreview.title : quickReviewFormPreview.title}</h3>
           <p className="mt-1 text-sm leading-6 text-[#64748B]">
             {isTestimony
-              ? "Share what happened, what changed, and whether this story can be reviewed for visible fruit."
+              ? "Taking a moment to reflect on what the Lord did at your kitchen table."
               : "A short reflection form someone can complete after a meeting or gathering."}
           </p>
         </section>
         {isTestimony ? (
-          <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
-            <div className="grid gap-3">
-              {questions.map((question, index) => (
-                <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FAFC] p-3" key={question}>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-                    Question {index + 1}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold leading-5 text-[#0F172A]">{question}</p>
-                  <div className="mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-white px-3 py-2 text-xs text-[#94A3B8]">
-                    Recipient response field
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+          <SendableFormPreviewCard eyebrow="Testimony Review" form={testimonyReviewFormPreview} />
         ) : (
-          <QuickReviewFormPreview />
+          <SendableFormPreviewCard eyebrow="Quick Review" form={quickReviewFormPreview} />
         )}
         <AppButton onClick={onClose} tone="black">Done</AppButton>
       </div>
@@ -11963,60 +12013,53 @@ function ReviewActionButton({
   );
 }
 
-function RequestQuestionPreview({
-  questions,
-  title,
+function SendableFormPreviewCard({
+  eyebrow,
+  form,
 }: {
-  questions: ReadonlyArray<string>;
-  title: string;
+  eyebrow: string;
+  form: SendableFormPreview;
 }) {
   return (
     <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
       <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-        {title}
+        {eyebrow}
       </p>
-      <ol className="mt-3 grid gap-2">
-        {questions.map((question, index) => (
-          <li className="flex items-start gap-2.5 rounded-2xl bg-white px-3 py-2 text-sm leading-5 text-[#0F172A] shadow-[0_8px_18px_rgba(37,99,235,0.035)]" key={question}>
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[11px] font-bold text-[#1D4ED8]">
-              {index + 1}
-            </span>
-            <span>{question}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function QuickReviewFormPreview() {
-  return (
-    <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-        Quick Review
-      </p>
-      <h3 className="mt-2 text-lg font-black leading-tight text-[#0F172A]">{quickReviewFormPreview.title}</h3>
+      <h3 className="mt-2 text-lg font-black leading-tight text-[#0F172A]">{form.title}</h3>
+      {form.intro ? (
+        <p className="mt-2 text-xs leading-5 text-[#64748B]">{form.intro}</p>
+      ) : null}
       <div className="mt-3 grid gap-3">
-        {quickReviewFormPreview.sections.map((section) => (
+        {form.sections.map((section) => (
           <div className="rounded-2xl bg-white px-3 py-3 shadow-[0_8px_18px_rgba(37,99,235,0.035)]" key={section.label}>
             <p className="text-sm font-bold leading-5 text-[#0F172A]">
               {section.label}
               {section.required ? <span className="text-[#2563EB]"> *</span> : null}
             </p>
+            {section.helper ? (
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">{section.helper}</p>
+            ) : null}
             {section.type === "notice" ? (
               <p className="mt-2 text-xs leading-5 text-[#64748B]">{section.copy}</p>
             ) : null}
             {section.type === "field" ? (
               <div className={`mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-3 py-2 text-xs text-[#94A3B8] ${section.fieldType === "textarea" ? "min-h-20" : ""}`}>
-                {section.fieldType === "textarea" ? "Long answer" : section.fieldType === "email" ? "Email field" : "Text field"}
+                {section.placeholder ?? (section.fieldType === "textarea" ? "Long answer" : section.fieldType === "email" ? "Email field" : "Text field")}
               </div>
             ) : null}
             {section.type === "choice" && section.options?.length ? (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className={section.choiceType === "checkbox" || section.choiceType === "radio" ? "mt-3 grid gap-2" : "mt-3 flex flex-wrap gap-2"}>
                 {section.options.map((option) => (
-                  <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-1.5 text-xs font-semibold text-[#475569]" key={option}>
-                    {option}
-                  </span>
+                  section.choiceType === "checkbox" || section.choiceType === "radio" ? (
+                    <span className="flex items-start gap-2 rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#475569]" key={option}>
+                      <span className={`mt-0.5 h-3.5 w-3.5 shrink-0 border border-[#93C5FD] bg-white ${section.choiceType === "radio" ? "rounded-full" : "rounded-[4px]"}`} aria-hidden="true" />
+                      <span>{option}</span>
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-1.5 text-xs font-semibold text-[#475569]" key={option}>
+                      {option}
+                    </span>
+                  )
                 ))}
               </div>
             ) : null}
@@ -12069,12 +12112,9 @@ function MeetingSendConfirmationSheet({
             : "DOS will create a share link for this request. You can use the phone share sheet or copy the link if sharing is not available."}
         </p>
         {isTestimony ? (
-          <RequestQuestionPreview
-            questions={testimonyQuestionPreview}
-            title="Testimony Questions"
-          />
+          <SendableFormPreviewCard eyebrow="Testimony Review" form={testimonyReviewFormPreview} />
         ) : (
-          <QuickReviewFormPreview />
+          <SendableFormPreviewCard eyebrow="Quick Review" form={quickReviewFormPreview} />
         )}
         <div className="grid gap-2">
           <AppButton disabled={isSending || cannotSendTestimony} onClick={onConfirm} tone="black">
