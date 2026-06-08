@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-
 const navItems = [
   { key: "mission", label: "Mission", href: "/" },
   { key: "briefing", label: "Briefing", href: "/mission" },
@@ -66,8 +65,12 @@ export function PrimaryNav({ active, fixed = false, labelOverrides }: PrimaryNav
       style={{ backdropFilter: "blur(12px)" }}
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-7 py-3 md:px-10 md:py-3.5">
-        <Link href="/" className="flex min-h-[32px] items-center gap-3 md:gap-3.5">
-          <div className="h-2.5 w-2.5 rotate-45 bg-amber-500/70" />
+        <Link href="/" className="flex min-h-[32px] items-center gap-3.5 md:gap-4">
+          <img
+            src="/brand/logo/usam-website-logo.png"
+            alt="USA Missionaries"
+            className="h-auto w-[84px] object-contain md:w-[90px]"
+          />
           <span
             className="text-sm font-medium tracking-[0.35em] text-stone-300"
             style={{ fontFamily: font.oswald }}
