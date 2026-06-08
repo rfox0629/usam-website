@@ -24,7 +24,7 @@ export default async function AdminWorkspacesPage() {
     <AdminShell
       active="workspaces"
       title="Workspaces"
-      description="Read-only admin view of DOS workspaces, organization connections, and recent activity."
+      description="Admin intelligence view of DOS workspaces, organization connections, and ministry activity."
     >
       <WorkspacesAdminClient data={data} />
     </AdminShell>

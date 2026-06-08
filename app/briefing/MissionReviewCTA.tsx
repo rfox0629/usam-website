@@ -109,7 +109,7 @@ export function MissionReviewCTA() {
           review: getString(formData, "review"),
           submission_kind: submissionKind,
         },
-        sourcePage: "/mission",
+        sourcePage: "/briefing",
       });
 
       form.reset();
@@ -128,7 +128,7 @@ export function MissionReviewCTA() {
         <button
           type="button"
           onClick={() => openModal("experience")}
-          className="inline-block border-0 bg-[#d4a017] px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-200 ease-out hover:bg-[#e0ad2f] active:bg-[#c89514]"
+          className="inline-block border-0 bg-[#C2A14E] px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-black transition-all duration-200 ease-out hover:bg-[#C2A14E] active:bg-[#C2A14E]"
           style={{ fontFamily: font.rajdhani }}
         >
           Quick Review
@@ -136,7 +136,7 @@ export function MissionReviewCTA() {
         <button
           type="button"
           onClick={() => openModal("story")}
-          className="inline-block border border-white/25 bg-transparent px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-[#d4a017] hover:bg-[rgba(212,160,23,0.08)] hover:text-[#d4a017]"
+          className="inline-block border border-white/25 bg-transparent px-7 py-3 text-sm font-semibold uppercase tracking-[1px] text-white transition-all duration-200 ease-out hover:border-[#C2A14E] hover:bg-[rgba(194,161,78,0.08)] hover:text-[#C2A14E]"
           style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
         >
           Share Your Story
@@ -159,7 +159,7 @@ export function MissionReviewCTA() {
               <button
                 type="button"
                 onClick={closeModal}
-                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#C2A14E] hover:text-stone-950"
                 aria-label="Close form"
               >
                 &times;
@@ -311,8 +311,8 @@ function PermissionField({
         <PublicFieldLabel>{legend}</PublicFieldLabel>
         <div className="mt-3 grid gap-3">
           {["Yes, anonymously", "Yes, with my name included", privateOption].map((option) => (
-            <label key={option} className="flex min-h-12 items-start gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-[#D4A63D]/55">
-              <input type="radio" name="permission" value={option} required className="mt-1 h-4 w-4 accent-[#D4A63D]" />
+            <label key={option} className="flex min-h-12 items-start gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-[#C2A14E]/55">
+              <input type="radio" name="permission" value={option} required className="mt-1 h-4 w-4 accent-[#C2A14E]" />
               <span>{option}</span>
             </label>
           ))}

@@ -2,8 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --usam-black: #0D0D0D;
+  --usam-white: #FFFFFF;
+  --usam-gold: #C2A14E;
+  --usam-success: #0F9D76;
+}
+
 body {
-  background: #050505;
+  background: var(--usam-black);
   color: #d1d5db;
 }
 
@@ -44,7 +51,7 @@ body {
 }
 
 :where(input, textarea, select):focus {
-  border-color: #facc15;
+  border-color: var(--usam-gold);
 }
 
 .placeholder\:text-stone-400::placeholder,
@@ -84,12 +91,12 @@ body {
     text-shadow: 0 0 6px rgba(255, 255, 255, 0.08);
   }
 
-  .tactical-amber-label {
-    color: #f2b544;
+  .tactical-gold-label {
+    color: var(--usam-gold);
     opacity: 1;
     font-weight: 600;
     letter-spacing: 0.14em;
-    text-shadow: 0 0 8px rgba(245, 166, 35, 0.25);
+    text-shadow: 0 0 8px rgba(194, 161, 78, 0.25);
   }
 
   .tactical-muted-label {

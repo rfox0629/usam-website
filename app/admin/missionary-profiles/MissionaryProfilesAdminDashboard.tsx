@@ -48,6 +48,11 @@ const lightHelperClass = "mt-2 block text-[12px] leading-5 text-[#7b746a]";
 const lightPrimaryButtonClass = "inline-flex items-center justify-center rounded-md bg-[#D4A63D] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-black transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60";
 const lightSecondaryButtonClass = "inline-flex items-center justify-center rounded-md border border-[#d7d2c8] bg-white px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#111111] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
 const lightTertiaryButtonClass = "inline-flex items-center justify-center gap-1.5 rounded-md border border-[#e2ded5] bg-transparent px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] transition-colors hover:border-[#c8952d] hover:text-[#8a5a00]";
+const darkInputClass = "mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-600 focus:border-[#C2A14E]/70";
+const darkLabelClass = "text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500";
+const darkPrimaryButtonClass = "inline-flex min-h-10 items-center justify-center rounded-lg border border-[#C2A14E] bg-[#C2A14E] px-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#d2b66d] disabled:cursor-not-allowed disabled:opacity-60";
+const darkSecondaryButtonClass = "inline-flex min-h-10 items-center justify-center rounded-lg border border-white/10 bg-black/30 px-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-100 transition-colors hover:border-[#C2A14E]/60 hover:text-[#C2A14E] disabled:cursor-not-allowed disabled:opacity-60";
+const darkDangerButtonClass = "inline-flex min-h-10 items-center justify-center rounded-lg border border-red-500/35 bg-red-950/25 px-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-red-200 transition-colors hover:border-red-400 disabled:cursor-not-allowed disabled:opacity-60";
 const workspaceTabBaseClass = "inline-flex h-10 w-[156px] max-w-full shrink-0 items-center justify-center overflow-hidden whitespace-nowrap rounded-lg border px-3 text-center text-[10px] uppercase tracking-[0.16em] transition-colors";
 const workspaceDarkTabActiveClass = "border-[#D4A63D] bg-[#D4A63D] text-black";
 const workspaceDarkTabInactiveClass = "border-stone-700 bg-stone-900/70 text-stone-200 hover:border-[#D4A63D] hover:text-[#F5B942]";
@@ -9891,17 +9896,53 @@ function PrayerSettingRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatPreview({ label, tone = "dark", value }: { label: string; tone?: "dark" | "light"; value: string }) {
-  const isLight = tone === "light";
-
+function DirectoryStatButton({
+  active,
+  helper,
+  label,
+  onClick,
+  value,
+}: {
+  active: boolean;
+  helper: string;
+  label: string;
+  onClick: () => void;
+  value: string;
+}) {
   return (
-    <div className={`flex min-h-[94px] flex-col justify-between rounded-xl border p-4 ${isLight ? "border-[#e2ded5] bg-white" : "border-[#242424] bg-[#101010]"}`}>
-      <p className={`text-[10px] uppercase tracking-[0.18em] ${isLight ? "text-[#6f6658]" : "text-stone-400"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-        {label}
-      </p>
-      <p className={`mt-3 text-3xl font-bold uppercase leading-none ${isLight ? "text-[#111111]" : "text-stone-100"}`} style={{ fontFamily: font.oswald }}>
+    <button
+      className={`flex min-h-[104px] flex-col justify-between rounded-xl border p-4 text-left transition-colors ${
+        active
+          ? "border-[#C2A14E] bg-[#C2A14E] text-black"
+          : "border-[#242424] bg-[#101010] text-stone-100 hover:border-[#C2A14E]/60 hover:bg-[#141414]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <span>
+        <span className={`block text-[10px] uppercase tracking-[0.18em] ${active ? "text-black/70" : "text-stone-400"}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          {label}
+        </span>
+        <span className={`mt-1 block text-[11px] leading-4 ${active ? "text-black/65" : "text-stone-500"}`}>
+          {helper}
+        </span>
+      </span>
+      <span className="mt-4 block text-3xl font-bold uppercase leading-none" style={{ fontFamily: font.oswald }}>
         {value}
+      </span>
+    </button>
+  );
+}
+
+function DirectoryEmptyState({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <div className="rounded-xl border border-[#222222] bg-[#0a0a0a] p-8 text-sm leading-6 text-stone-400">
+      <p className="text-lg font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+        {title}
       </p>
+      <div className="mt-3 max-w-2xl">
+        {children}
+      </div>
     </div>
   );
 }
@@ -9941,13 +9982,40 @@ function ProfileVisibilityBadge({ profile }: { profile: AdminProfile }) {
   );
 }
 
-type ProfileWorkflowFilter = "all" | "applications" | "approved" | "archived" | "published" | "under_review";
 type ProfileWorkflowAction = "approve" | "archive" | "hide" | "publish" | "reject" | "review";
+type ProfileWorkflowActionOptions = {
+  adminNotes?: string;
+  assignedAdminEmail?: string;
+};
+type MissionaryDirectorySection = "applications" | "published";
+type ApplicationDisplayStatus = AdminUsamApplicationStatus | "needs_info";
+type ApplicationStatusFilter = "all" | "approved" | "needs_info" | "new" | "rejected" | "under_review";
+type SelectedProfileMode = "application-review" | "publishing";
+
+const missionaryDirectorySections: Array<{
+  description: string;
+  icon: LucideIcon;
+  id: MissionaryDirectorySection;
+  label: string;
+}> = [
+  {
+    description: "Submitted intake records and admin review.",
+    icon: FileText,
+    id: "applications",
+    label: "Applications",
+  },
+  {
+    description: "Household and unit profiles for public publishing.",
+    icon: Globe,
+    id: "published",
+    label: "Approved Profiles",
+  },
+];
 
 function applicationStatusLabel(status: AdminUsamApplicationStatus | string | null | undefined) {
   switch (status) {
     case "active":
-      return "Active";
+      return "Approved";
     case "application_started":
       return "Started";
     case "application_submitted":
@@ -9960,12 +10028,35 @@ function applicationStatusLabel(status: AdminUsamApplicationStatus | string | nu
       return "Independent";
     case "pending_review":
       return "Under Review";
+    case "needs_info":
+      return "Needs Info";
     case "rejected":
       return "Rejected";
     case "not_connected":
     default:
       return "Not Connected";
   }
+}
+
+function isDirectoryApplicationStatus(status: AdminUsamApplicationStatus | string | null | undefined) {
+  return status === "application_submitted"
+    || status === "pending_review"
+    || status === "approved"
+    || status === "rejected";
+}
+
+function isNewApplicationProfile(profile: AdminProfile) {
+  return profileWorkflowStatus(profile) === "application_submitted";
+}
+
+function isNeedsInfoProfile(profile: AdminProfile) {
+  return profile.application?.admin_notes?.trim().toLowerCase().startsWith("[needs info]") === true;
+}
+
+function needsInfoAdminNote(value: string) {
+  const cleanedValue = value.replace(/^\[needs info\]\s*/i, "").trim();
+
+  return ["[Needs Info]", cleanedValue].filter(Boolean).join("\n");
 }
 
 function profileWorkflowStatus(profile: AdminProfile): AdminUsamApplicationStatus {
@@ -9992,6 +10083,14 @@ function profileWorkflowStatus(profile: AdminProfile): AdminUsamApplicationStatu
   }
 }
 
+function applicationDisplayStatus(profile: AdminProfile): ApplicationDisplayStatus {
+  if (isNeedsInfoProfile(profile)) {
+    return "needs_info";
+  }
+
+  return profileWorkflowStatus(profile);
+}
+
 function profileApplicantName(profile: AdminProfile) {
   return profile.application?.applicant_name?.trim() || profile.display_name;
 }
@@ -10008,54 +10107,129 @@ function profileAssignedAdmin(profile: AdminProfile) {
   return profile.application?.assigned_admin_email?.trim() || profile.usam_assigned_admin_email?.trim() || "Unassigned";
 }
 
-function profilePublicStatusLabel(profile: AdminProfile) {
-  if (isProfilePublic(profile)) {
-    return "Published";
+function profileVisibilityState(profile: AdminProfile): "archived" | "draft" | "hidden" | "live" {
+  if (profile.usam_profile_status === "archived") {
+    return "archived";
   }
 
-  switch (profile.usam_profile_status) {
-    case "approved":
-      return "Approved Draft";
+  if (isProfilePublic(profile)) {
+    return "live";
+  }
+
+  if (profile.usam_profile_status === "hidden" || profile.show_household === false) {
+    return "hidden";
+  }
+
+  return "draft";
+}
+
+function profileVisibilityStateLabel(profile: AdminProfile) {
+  switch (profileVisibilityState(profile)) {
     case "archived":
       return "Archived";
     case "hidden":
       return "Hidden";
-    case "published":
-      return "Published";
-    case "under_review":
-      return "Draft Review";
+    case "live":
+      return "Live";
     case "draft":
     default:
       return "Draft";
   }
 }
 
-function profileMatchesWorkflowFilter(profile: AdminProfile, filter: ProfileWorkflowFilter) {
-  const status = profileWorkflowStatus(profile);
-  const publicProfile = isProfilePublic(profile);
+function profileDirectoryLocation(profile: AdminProfile) {
+  const applicationLocation = profile.application?.location?.trim();
 
-  switch (filter) {
-    case "applications":
-      return Boolean(profile.application) || ["application_started", "application_submitted", "pending_review"].includes(status);
-    case "under_review":
-      return status === "application_submitted" || status === "pending_review";
-    case "approved":
-      return (status === "approved" || status === "active") && !publicProfile;
-    case "published":
-      return publicProfile;
-    case "archived":
-      return status === "archived" || status === "rejected";
-    case "all":
-    default:
-      return true;
+  if (applicationLocation) {
+    return applicationLocation;
   }
+
+  if (getProfileLocationVisibility(profile) === "hidden") {
+    return "Undisclosed";
+  }
+
+  return getProfilePrimaryState(profile) || profile.location || "Not set";
 }
 
-function ApplicationStatusBadge({ status }: { status: AdminUsamApplicationStatus }) {
+function isApplicationProfile(profile: AdminProfile) {
+  return Boolean(profile.application) && isDirectoryApplicationStatus(profileWorkflowStatus(profile));
+}
+
+function isUnderReviewProfile(profile: AdminProfile) {
+  const status = profileWorkflowStatus(profile);
+
+  return !isNeedsInfoProfile(profile) && (status === "application_submitted" || status === "pending_review");
+}
+
+function isApplicantMirrorProfile(profile: AdminProfile) {
+  const applicantName = profile.application?.applicant_name?.trim().toLowerCase();
+  const publicName = profile.display_name.trim().toLowerCase();
+
+  return Boolean(
+    applicantName
+      && applicantName === publicName
+      && !isProfilePublic(profile)
+      && !hasRenderableMedia(profile)
+      && !hasRenderableStory(profile)
+      && profile.usam_profile_status !== "published",
+  );
+}
+
+function isPublishedProfileRecord(profile: AdminProfile) {
+  if (isApplicantMirrorProfile(profile)) {
+    return false;
+  }
+
+  if (isProfilePublic(profile)) {
+    return true;
+  }
+
+  if (
+    profile.usam_profile_status === "approved"
+    || profile.usam_profile_status === "published"
+    || profile.usam_profile_status === "hidden"
+    || profile.usam_profile_status === "archived"
+  ) {
+    return true;
+  }
+
+  const workflowStatus = profileWorkflowStatus(profile);
+
+  if (workflowStatus === "approved" || workflowStatus === "active") {
+    return true;
+  }
+
+  return false;
+}
+
+function profileMatchesSearch(profile: AdminProfile, normalizedQuery: string) {
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const searchable = [
+    profile.application?.applicant_email,
+    profile.application?.applicant_name,
+    profile.application?.applicant_phone,
+    profile.display_name,
+    profile.location,
+    profile.slug,
+    profile.short_mission,
+    getProfilePrimaryState(profile),
+    getProfileServingScope(profile),
+    getProfileRegion(profile),
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  return searchable.includes(normalizedQuery);
+}
+
+function ApplicationStatusBadge({ status }: { status: ApplicationDisplayStatus }) {
   const tone = status === "active" || status === "approved"
     ? "border-green-500/25 bg-green-950/30 text-green-300"
+    : status === "needs_info"
+      ? "border-orange-400/30 bg-orange-950/25 text-orange-200"
     : status === "pending_review" || status === "application_submitted"
-      ? "border-[#D4A63D]/35 bg-[#D4A63D]/10 text-[#F5B942]"
+      ? "border-[#C2A14E]/35 bg-[#C2A14E]/10 text-[#C2A14E]"
       : status === "rejected" || status === "archived"
         ? "border-red-500/25 bg-red-950/30 text-red-300"
         : "border-stone-700 bg-stone-900/70 text-stone-400";
@@ -10070,167 +10244,520 @@ function ApplicationStatusBadge({ status }: { status: AdminUsamApplicationStatus
   );
 }
 
-function profilePrimaryActionLabel(profile: AdminProfile) {
-  const status = profileWorkflowStatus(profile);
-
-  if (status === "pending_review" || status === "application_submitted") {
-    return "Review";
-  }
-
-  if (status === "approved" && !isProfilePublic(profile)) {
-    return "Build Profile";
-  }
-
-  if (isProfilePublic(profile)) {
-    return "Edit";
-  }
-
-  return "Edit";
+function DarkDetailText({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+      <p className={darkLabelClass} style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </p>
+      <div className="mt-2 text-sm leading-6 text-stone-200">
+        {value || "Not provided"}
+      </div>
+    </div>
+  );
 }
 
-function ApplicationReviewCard({
+function DarkTextSection({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-[#101010] p-4">
+      <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
+        {title}
+      </h3>
+      <div className="mt-3 text-sm leading-7 text-stone-300">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function DarkInputField({
+  helper,
+  label,
+  onChange,
+  type = "text",
+  value,
+}: {
+  helper?: string;
+  label: string;
+  onChange: (value: string) => void;
+  type?: string;
+  value: number | string | null | undefined;
+}) {
+  return (
+    <label className="block">
+      <span className={darkLabelClass} style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </span>
+      <input
+        className={darkInputClass}
+        onChange={(event) => onChange(event.target.value)}
+        type={type}
+        value={value ?? ""}
+      />
+      {helper ? (
+        <span className="mt-2 block text-xs leading-5 text-stone-500">
+          {helper}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function DarkTextAreaField({
+  helper,
+  label,
+  onChange,
+  rows = 5,
+  value,
+}: {
+  helper?: string;
+  label: string;
+  onChange: (value: string) => void;
+  rows?: number;
+  value: string | null | undefined;
+}) {
+  return (
+    <label className="block">
+      <span className={darkLabelClass} style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </span>
+      <textarea
+        className={`${darkInputClass} leading-6`}
+        onChange={(event) => onChange(event.target.value)}
+        rows={rows}
+        value={value ?? ""}
+      />
+      {helper ? (
+        <span className="mt-2 block text-xs leading-5 text-stone-500">
+          {helper}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function DarkSelectField({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  value: string | null | undefined;
+}) {
+  return (
+    <label className="block">
+      <span className={darkLabelClass} style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </span>
+      <select
+        className={darkInputClass}
+        onChange={(event) => onChange(event.target.value)}
+        value={value ?? ""}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ApplicationReviewDetail({
   busyKey,
   onAction,
-  onCreateFromWorkspace,
+  onBack,
   profile,
 }: {
   busyKey: string;
-  onAction: (profile: AdminProfile, action: ProfileWorkflowAction) => void;
-  onCreateFromWorkspace: (profile: AdminProfile) => void;
+  onAction: (profile: AdminProfile, action: ProfileWorkflowAction, options?: ProfileWorkflowActionOptions) => void;
+  onBack: () => void;
   profile: AdminProfile;
 }) {
   const application = profile.application;
   const workflowStatus = profileWorkflowStatus(profile);
-  const canCreateFromWorkspace = profile.schemaStatus?.hasUsamWorkflowColumns !== false;
-  const createKey = `${profile.id}:create_from_workspace`;
+  const displayStatus = applicationDisplayStatus(profile);
+  const [assignedAdminDraft, setAssignedAdminDraft] = useState(application?.assigned_admin_email ?? profile.usam_assigned_admin_email ?? "");
+  const [adminNotesDraft, setAdminNotesDraft] = useState(application?.admin_notes ?? "");
+  const applicantName = application?.applicant_name?.trim() || profile.display_name;
+  const reviewOptions = {
+    adminNotes: adminNotesDraft,
+    assignedAdminEmail: assignedAdminDraft,
+  };
+  const teamNames = (profile.teamMembers ?? [])
+    .map((member) => member.display_name?.trim())
+    .filter(Boolean)
+    .join(", ");
+
+  useEffect(() => {
+    setAssignedAdminDraft(application?.assigned_admin_email ?? profile.usam_assigned_admin_email ?? "");
+    setAdminNotesDraft(application?.admin_notes ?? "");
+  }, [application?.admin_notes, application?.assigned_admin_email, application?.id, profile.usam_assigned_admin_email]);
 
   if (!application) {
     return (
-      <div className="mt-5 rounded-xl border border-stone-800 bg-[#090909] p-4 text-sm text-stone-400">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          USA Missionaries Profile Link
-        </p>
-        <h3 className="mt-2 text-lg font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-          Attach this workspace to a profile workflow
-        </h3>
-        <p className="mt-2 max-w-2xl leading-6">
-          This workspace already exists. Create a USA Missionaries profile workflow from it so the application/profile layer points at the same household, people, meetings, prayer team, and support data instead of creating a duplicate profile.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            className={lightPrimaryButtonClass}
-            disabled={!canCreateFromWorkspace || busyKey === createKey}
-            onClick={() => onCreateFromWorkspace(profile)}
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            type="button"
-          >
-            {busyKey === createKey ? "Creating..." : "Create USA Missionaries Profile from Workspace"}
-          </button>
-          {!canCreateFromWorkspace ? (
-            <p className="max-w-md text-xs leading-5 text-amber-200">
-              Apply the USA Missionaries application workflow migration before attaching this workspace.
-            </p>
-          ) : null}
-        </div>
+      <div className="rounded-2xl border border-white/10 bg-[#101010] p-6 text-stone-300">
+        <button
+          className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400 transition hover:text-[#C2A14E]"
+          onClick={onBack}
+          type="button"
+        >
+          Back to Applications
+        </button>
+        <p className="mt-5 text-sm">This record does not have an application attached.</p>
       </div>
     );
   }
 
   return (
-    <div className="mt-5 rounded-xl border border-[#D4A63D]/30 bg-[#0f0d08] p-4 text-stone-100">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            USA Missionaries Application
-          </p>
-          <h3 className="mt-2 text-xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-            {application.applicant_name || profile.display_name}
-          </h3>
-          <p className="mt-2 text-sm text-stone-400">
-            Applied {formatProfileUpdatedDate(application.submitted_at ?? application.created_at)}
-          </p>
-        </div>
-        <ApplicationStatusBadge status={workflowStatus} />
-      </div>
+    <div className="space-y-5">
+      <section className="rounded-[1.5rem] border border-[#C2A14E]/20 bg-[#0f0f0f] p-4 md:p-5">
+        <button
+          className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400 transition hover:text-[#C2A14E]"
+          onClick={onBack}
+          type="button"
+        >
+          Back to Applications
+        </button>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <DetailText label="Contact" value={[application.applicant_email, application.applicant_phone].filter(Boolean).join(" / ") || "Not provided"} />
-        <DetailText label="Location" value={application.location || profile.location || "Not provided"} />
-        <DetailText label="Assigned Admin" value={application.assigned_admin_email || profile.usam_assigned_admin_email || "Unassigned"} />
-        <DetailText label="Calling / Focus" value={application.calling_focus || profile.short_mission || "Not provided"} />
-        <DetailText label="Monthly Budget" value={application.monthly_budget ? `$${application.monthly_budget.toLocaleString()}` : "Not provided"} />
-        <DetailText label="Support Goal" value={application.support_goal ? `$${application.support_goal.toLocaleString()}` : "Not provided"} />
-      </div>
-
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        <div className="rounded-xl border border-stone-800 bg-black/20 p-3 lg:col-span-2">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Story / Testimony
-          </p>
-          <p className="mt-2 whitespace-pre-line text-sm leading-6 text-stone-300">{application.story_testimony || "Not provided"}</p>
-        </div>
-        <div className="grid gap-3">
-          <div className="rounded-xl border border-stone-800 bg-black/20 p-3">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Prayer Needs
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.58fr)] lg:items-start">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <ApplicationStatusBadge status={displayStatus} />
+              <span className="text-xs text-stone-500">
+                Submitted {formatProfileUpdatedDate(application.submitted_at ?? application.created_at)}
+              </span>
+            </div>
+            <h2 className="mt-3 break-words text-3xl font-semibold leading-tight text-white md:text-4xl">
+              {applicantName}
+            </h2>
+            <p className="mt-2 text-sm text-stone-400">
+              {profile.display_name} · {application.location || profile.location || "Location not provided"}
             </p>
-            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-stone-300">{application.prayer_needs || "Not provided"}</p>
           </div>
-          <div className="rounded-xl border border-stone-800 bg-black/20 p-3">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              References
-            </p>
-            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-stone-300">{application.references_text || "Not provided"}</p>
+
+          <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
+            <label className="block">
+              <span className={darkLabelClass} style={{ fontFamily: font.rajdhani }}>
+                Assigned Admin
+              </span>
+              <input
+                className={darkInputClass}
+                onChange={(event) => setAssignedAdminDraft(event.target.value)}
+                placeholder="admin@example.com"
+                type="email"
+                value={assignedAdminDraft}
+              />
+            </label>
           </div>
         </div>
-      </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {workflowStatus === "pending_review" || workflowStatus === "application_submitted" ? (
-          <>
+        <div className="sticky top-0 z-10 -mx-4 mt-5 border-y border-white/10 bg-[#0f0f0f]/95 px-4 py-3 backdrop-blur md:-mx-5 md:px-5">
+          <div className="flex flex-wrap gap-2">
             <button
-              className={lightPrimaryButtonClass}
+              className={darkPrimaryButtonClass}
               disabled={busyKey === `${application.id}:approve`}
-              onClick={() => onAction(profile, "approve")}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              onClick={() => onAction(profile, "approve", reviewOptions)}
               type="button"
             >
               Approve Application
             </button>
             <button
-              className={lightTertiaryButtonClass}
+              className={darkDangerButtonClass}
               disabled={busyKey === `${application.id}:reject`}
-              onClick={() => onAction(profile, "reject")}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              onClick={() => onAction(profile, "reject", reviewOptions)}
               type="button"
             >
               Reject
             </button>
-          </>
-        ) : null}
-        {workflowStatus === "approved" && !isProfilePublic(profile) ? (
-          <button
-            className={lightPrimaryButtonClass}
-            disabled={busyKey === `${application.id}:publish`}
-            onClick={() => onAction(profile, "publish")}
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            type="button"
-          >
-            Publish Profile
-          </button>
-        ) : null}
-        {isProfilePublic(profile) ? (
-          <button
-            className={lightSecondaryButtonClass}
-            disabled={busyKey === `${application.id}:hide`}
-            onClick={() => onAction(profile, "hide")}
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            type="button"
-          >
-            Hide Public Profile
-          </button>
-        ) : null}
-      </div>
+            <button
+              className={darkSecondaryButtonClass}
+              disabled={busyKey === `${application.id}:review`}
+              onClick={() => onAction(profile, "review", {
+                ...reviewOptions,
+                adminNotes: needsInfoAdminNote(adminNotesDraft),
+              })}
+              type="button"
+            >
+              Needs Info
+            </button>
+            <button
+              className={darkSecondaryButtonClass}
+              disabled={busyKey === `${application.id}:review`}
+              onClick={() => onAction(profile, "review", reviewOptions)}
+              type="button"
+            >
+              Assign Admin
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <DarkTextSection title="Applicant Info">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DarkDetailText label="Name" value={applicantName} />
+            <DarkDetailText label="Email" value={application.applicant_email || "Not provided"} />
+            <DarkDetailText label="Phone" value={application.applicant_phone || "Not provided"} />
+            <DarkDetailText label="Location" value={application.location || profile.location || "Not provided"} />
+            <DarkDetailText label="Household / Spouse" value={teamNames || profile.display_name} />
+            <DarkDetailText label="Assigned Admin" value={profileAssignedAdmin(profile)} />
+          </div>
+        </DarkTextSection>
+
+        <DarkTextSection title="Calling / Focus">
+          <div className="grid gap-3">
+            <DarkDetailText label="Calling Statement" value={application.calling_focus || profile.short_mission || "Not provided"} />
+            <DarkDetailText label="Mission Focus" value={profile.short_mission || application.calling_focus || "Not provided"} />
+            <DarkDetailText label="Organization Interest" value="USA Missionaries" />
+          </div>
+        </DarkTextSection>
+      </section>
+
+      <DarkTextSection title="Testimony / Story">
+        <p className="whitespace-pre-line">{application.story_testimony || profile.original_story || profile.public_story || "Not provided"}</p>
+      </DarkTextSection>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <DarkTextSection title="Support / Budget">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DarkDetailText label="Monthly Budget" value={application.monthly_budget ? `$${application.monthly_budget.toLocaleString()}` : "Not provided"} />
+            <DarkDetailText label="Support Goal" value={application.support_goal ? `$${application.support_goal.toLocaleString()}` : "Not provided"} />
+          </div>
+          <div className="mt-3">
+            <DarkDetailText label="Notes" value={profile.support_explanation || "Not provided"} />
+          </div>
+        </DarkTextSection>
+
+        <DarkTextSection title="Prayer Needs">
+          <p className="whitespace-pre-line">{application.prayer_needs || "Not provided"}</p>
+        </DarkTextSection>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <DarkTextSection title="References">
+          <p className="whitespace-pre-line">{application.references_text || "Not provided"}</p>
+        </DarkTextSection>
+
+        <DarkTextSection title="Photos / Assets">
+          {application.profile_photo_url ? (
+            <div className="grid gap-3 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center">
+              <div className="aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-black">
+                <img alt="" className="h-full w-full object-cover" src={application.profile_photo_url} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">Application photo</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Pending Review
+                </p>
+                <p className="mt-2 text-sm leading-6 text-stone-400">
+                  Future branded Army attire / USAM logo photo editing pending.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p>No application photos uploaded yet. Future branded Army attire / USAM logo photo editing will live here.</p>
+          )}
+        </DarkTextSection>
+      </section>
+
+      <DarkTextSection title="Internal Notes">
+        <label className="block">
+          <span className={darkLabelClass} style={{ fontFamily: font.rajdhani }}>
+            Admin Notes
+          </span>
+          <textarea
+            className={`${darkInputClass} leading-6`}
+            onChange={(event) => setAdminNotesDraft(event.target.value)}
+            rows={6}
+            value={adminNotesDraft}
+          />
+        </label>
+        <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-stone-400">
+          Review history will appear here when workflow events are stored.
+        </div>
+      </DarkTextSection>
+    </div>
+  );
+}
+
+function PublishingEditor({
+  busyKey,
+  copyLink,
+  hasUnsavedChanges,
+  onAction,
+  onBack,
+  onSave,
+  onUpdateFeature,
+  onUpdateHouseholdField,
+  onUpdatePrimaryState,
+  onUpdateSupportField,
+  profile,
+  saving,
+}: {
+  busyKey: string;
+  copyLink: () => void;
+  hasUnsavedChanges: boolean;
+  onAction: (profile: AdminProfile, action: ProfileWorkflowAction, options?: ProfileWorkflowActionOptions) => void;
+  onBack: () => void;
+  onSave: () => void;
+  onUpdateFeature: (field: PublishingFeatureField, value: boolean) => void;
+  onUpdateHouseholdField: (field: keyof AdminHousehold, value: boolean | number | string | null) => void;
+  onUpdatePrimaryState: (value: string) => void;
+  onUpdateSupportField: (field: keyof AdminSupportSettings, value: boolean | number | string) => void;
+  profile: AdminProfile;
+  saving: boolean;
+}) {
+  const publicProfileLink = getPublicMissionaryProfileUrl(profile.slug);
+  const isPublic = isProfilePublic(profile);
+  const support = profile.support ?? emptySupport(profile.id);
+  const publishAction = isPublic ? "hide" : "publish";
+
+  return (
+    <div className="space-y-5">
+      <section className="rounded-[1.5rem] border border-[#C2A14E]/20 bg-[#0f0f0f] p-4 md:p-5">
+        <button
+          className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400 transition hover:text-[#C2A14E]"
+          onClick={onBack}
+          type="button"
+        >
+          Back to Approved Profiles
+        </button>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <ProfileVisibilityBadge profile={profile} />
+              <ApplicationStatusBadge status={profileWorkflowStatus(profile)} />
+            </div>
+            <h2 className="mt-3 break-words text-3xl font-semibold leading-tight text-white md:text-4xl">
+              {profile.display_name}
+            </h2>
+            <p className="mt-2 text-sm text-stone-400">
+              /missionaries/{profile.slug}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className={darkPrimaryButtonClass}
+              disabled={saving}
+              onClick={onSave}
+              type="button"
+            >
+              {saving ? "Saving" : hasUnsavedChanges ? "Save Changes" : "Saved"}
+            </button>
+            <Link className={darkSecondaryButtonClass} href={`/missionaries/${profile.slug}`} target="_blank">
+              Preview Public Page
+            </Link>
+            <button className={darkSecondaryButtonClass} onClick={copyLink} type="button">
+              Copy Public Link
+            </button>
+            {profile.application ? (
+              <button
+                className={isPublic ? darkSecondaryButtonClass : darkPrimaryButtonClass}
+                disabled={busyKey === `${profile.application.id}:${publishAction}`}
+                onClick={() => onAction(profile, publishAction)}
+                type="button"
+              >
+                {isPublic ? "Hide" : "Publish"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <DarkTextSection title="Publishing Status">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DarkSelectField
+              label="Public profile status"
+              onChange={(value) => onUpdateHouseholdField("usam_profile_status", value)}
+              options={[
+                { label: "Draft", value: "draft" },
+                { label: "Hidden", value: "hidden" },
+                { label: "Live", value: "published" },
+              ]}
+              value={profile.usam_profile_status ?? (isPublic ? "published" : "draft")}
+            />
+            <DarkSelectField
+              label="Visibility"
+              onChange={(value) => onUpdateFeature("show_household", value === "live")}
+              options={[
+                { label: "Draft / Hidden", value: "hidden" },
+                { label: "Live", value: "live" },
+              ]}
+              value={isPublic ? "live" : "hidden"}
+            />
+          </div>
+        </DarkTextSection>
+
+        <DarkTextSection title="Public Profile">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DarkInputField label="Public name" onChange={(value) => onUpdateHouseholdField("display_name", value)} value={profile.display_name} />
+            <DarkInputField label="Slug" onChange={(value) => onUpdateHouseholdField("slug", value)} value={profile.slug} />
+            <DarkInputField label="Location" onChange={onUpdatePrimaryState} value={getProfilePrimaryState(profile)} />
+            <DarkInputField label="Support goal" onChange={(value) => onUpdateSupportField("annual_goal", Number(value))} type="number" value={support.annual_goal} />
+          </div>
+        </DarkTextSection>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <DarkTextSection title="Public Story / Bio">
+          <DarkTextAreaField
+            label="Public story"
+            onChange={(value) => onUpdateHouseholdField("public_story", value)}
+            rows={9}
+            value={profile.public_story ?? profile.story ?? ""}
+          />
+        </DarkTextSection>
+
+        <DarkTextSection title="Prayer / Support">
+          <div className="grid gap-3">
+            <DarkTextAreaField
+              label="Prayer needs"
+              onChange={(value) => onUpdateHouseholdField("prayer_section_description", value)}
+              rows={5}
+              value={profile.prayer_section_description}
+            />
+            <DarkTextAreaField
+              label="Support explanation"
+              onChange={(value) => onUpdateHouseholdField("support_explanation", value)}
+              rows={5}
+              value={profile.support_explanation}
+            />
+          </div>
+        </DarkTextSection>
+      </section>
+
+      <DarkTextSection title="Approved Photos / Assets">
+        <div className="grid gap-3 md:grid-cols-2">
+          {[profile.profile_image_url, profile.hero_image_url].filter(Boolean).map((url, index) => (
+            <div className="grid gap-3 rounded-xl border border-white/10 bg-black/20 p-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center" key={`${url}-${index}`}>
+              <div className="aspect-[4/3] overflow-hidden rounded-lg border border-white/10 bg-black">
+                <img alt="" className="h-full w-full object-cover" src={url ?? ""} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">{index === 0 ? "Primary profile photo" : "Hero image"}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  Approved / Available
+                </p>
+              </div>
+            </div>
+          ))}
+          {!profile.profile_image_url && !profile.hero_image_url ? (
+            <p className="text-sm text-stone-400">No approved photos available yet.</p>
+          ) : null}
+        </div>
+      </DarkTextSection>
     </div>
   );
 }
@@ -10250,8 +10777,9 @@ export function MissionaryProfilesAdminDashboard({
   const [activeSubnavId, setActiveSubnavId] = useState<string>(getSubnavIdForTab(normalizeEditorTab(initialTab), initialPrimaryNav));
   const [supportSubsection, setSupportSubsection] = useState<SupportSubsection>("overview");
   const [profileQuery, setProfileQuery] = useState("");
-  const [profileWorkflowFilter, setProfileWorkflowFilter] = useState<ProfileWorkflowFilter>("all");
-  const [profileVisibilityFilter, setProfileVisibilityFilter] = useState("");
+  const [activeDirectorySection, setActiveDirectorySection] = useState<MissionaryDirectorySection>("applications");
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState<ApplicationStatusFilter>("all");
+  const [selectedProfileMode, setSelectedProfileMode] = useState<SelectedProfileMode>("application-review");
   const [status, setStatus] = useState<StatusMessage>(null);
   const [applicationActionKey, setApplicationActionKey] = useState("");
   const [profileLinkCopyState, setProfileLinkCopyState] = useState<ProfileLinkCopyState>("idle");
@@ -10354,33 +10882,41 @@ export function MissionaryProfilesAdminDashboard({
 
   const selectedProfileSupportMode = selectedProfile ? getSupportMode(selectedProfile) : "household";
   const selectedGeneratedHeroImageUrl = selectedProfile ? getGeneratedHeroImageUrl(selectedProfile.hero_image_url) : "";
-  const filteredProfiles = useMemo(() => {
-    const normalizedQuery = profileQuery.trim().toLowerCase();
-
-    return profiles.filter((profile) => {
-      const publicProfile = isProfilePublic(profile);
-      const searchable = [
-        profile.application?.applicant_email,
-        profile.application?.applicant_name,
-        profile.application?.applicant_phone,
-        profile.display_name,
-        profile.slug,
-        profile.short_mission,
-        getProfilePrimaryState(profile),
-        getProfileServingScope(profile),
-        getProfileRegion(profile),
-      ].filter(Boolean).join(" ").toLowerCase();
-
-      return (!normalizedQuery || searchable.includes(normalizedQuery))
-        && profileMatchesWorkflowFilter(profile, profileWorkflowFilter)
-        && (!profileVisibilityFilter
-          || (profileVisibilityFilter === "live" && publicProfile)
-          || (profileVisibilityFilter === "hidden" && !publicProfile));
-    });
-  }, [profileQuery, profileVisibilityFilter, profileWorkflowFilter, profiles]);
-  const liveProfiles = profiles.filter((profile) => isProfilePublic(profile)).length;
-  const applicationProfiles = profiles.filter((profile) => Boolean(profile.application)).length;
-  const underReviewProfiles = profiles.filter((profile) => profileMatchesWorkflowFilter(profile, "under_review")).length;
+  const normalizedDirectoryQuery = profileQuery.trim().toLowerCase();
+  const applicationProfiles = useMemo(
+    () => profiles.filter(isApplicationProfile),
+    [profiles],
+  );
+  const newApplicationProfiles = useMemo(
+    () => applicationProfiles.filter(isNewApplicationProfile),
+    [applicationProfiles],
+  );
+  const underReviewProfiles = useMemo(
+    () => applicationProfiles.filter(isUnderReviewProfile),
+    [applicationProfiles],
+  );
+  const publishedProfiles = useMemo(
+    () => profiles.filter(isPublishedProfileRecord),
+    [profiles],
+  );
+  const filteredApplicationProfiles = useMemo(
+    () => applicationProfiles.filter((profile) => (
+      profileMatchesSearch(profile, normalizedDirectoryQuery)
+      && (
+        applicationStatusFilter === "all"
+        || (applicationStatusFilter === "new" && isNewApplicationProfile(profile))
+        || (applicationStatusFilter === "under_review" && isUnderReviewProfile(profile))
+        || (applicationStatusFilter === "needs_info" && isNeedsInfoProfile(profile))
+        || (applicationStatusFilter === "approved" && profileWorkflowStatus(profile) === "approved")
+        || (applicationStatusFilter === "rejected" && profileWorkflowStatus(profile) === "rejected")
+      )
+    )),
+    [applicationProfiles, applicationStatusFilter, normalizedDirectoryQuery],
+  );
+  const filteredPublishedProfiles = useMemo(
+    () => publishedProfiles.filter((profile) => profileMatchesSearch(profile, normalizedDirectoryQuery)),
+    [normalizedDirectoryQuery, publishedProfiles],
+  );
 
   useEffect(() => {
     if (!selectedProfile || selectedProfileSupportMode !== "household_nomination") {
@@ -10586,18 +11122,21 @@ export function MissionaryProfilesAdminDashboard({
 
   function openProfile(profileId: string) {
     setSelectedId(profileId);
+    setSelectedProfileMode("application-review");
     setActiveTab("overview");
     setActivePrimaryNav("dashboard");
     setActiveSubnavId("");
     resetTransientEditorState();
   }
 
-  async function handleProfileWorkflowAction(profile: AdminProfile, action: ProfileWorkflowAction) {
-    if (action === "review") {
-      openProfile(profile.id);
-      return;
-    }
+  function openPublishedProfile(profile: AdminProfile) {
+    setSelectedId(profile.id);
+    setSelectedProfileMode("publishing");
+    changeEditorTab("profile", "publishing", "profile");
+    resetTransientEditorState();
+  }
 
+  async function handleProfileWorkflowAction(profile: AdminProfile, action: ProfileWorkflowAction, options: ProfileWorkflowActionOptions = {}) {
     if (!profile.application?.id) {
       setStatus({
         text: "This profile does not have an application record yet.",
@@ -10613,7 +11152,11 @@ export function MissionaryProfilesAdminDashboard({
 
     try {
       const response = await fetch(`/api/admin/missionary-profiles/applications/${profile.application.id}/status`, {
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({
+          action,
+          adminNotes: options.adminNotes,
+          assignedAdminEmail: options.assignedAdminEmail,
+        }),
         credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
@@ -10635,6 +11178,7 @@ export function MissionaryProfilesAdminDashboard({
         }
 
         const nextStatus = result.status ?? profileWorkflowStatus(currentProfile);
+        const nextAssignedAdminEmail = options.assignedAdminEmail?.trim() || currentProfile.application?.assigned_admin_email || currentProfile.usam_assigned_admin_email;
         const nextIsPublished = action === "publish";
         const nextIsHidden = action === "hide" || action === "reject" || action === "archive";
 
@@ -10643,6 +11187,8 @@ export function MissionaryProfilesAdminDashboard({
           application: currentProfile.application
             ? {
               ...currentProfile.application,
+              admin_notes: options.adminNotes !== undefined ? options.adminNotes.trim() || null : currentProfile.application.admin_notes,
+              assigned_admin_email: nextAssignedAdminEmail ?? null,
               status: nextStatus,
             }
             : currentProfile.application,
@@ -10653,6 +11199,7 @@ export function MissionaryProfilesAdminDashboard({
           show_story: nextIsPublished ? true : currentProfile.show_story,
           show_support: nextIsPublished ? true : currentProfile.show_support,
           show_team: nextIsPublished ? true : currentProfile.show_team,
+          usam_assigned_admin_email: nextAssignedAdminEmail ?? currentProfile.usam_assigned_admin_email,
           usam_application_status: nextStatus,
           usam_profile_status: action === "publish"
             ? "published"
@@ -10676,7 +11223,7 @@ export function MissionaryProfilesAdminDashboard({
                 ? "Profile hidden."
                 : action === "archive"
                   ? "Application archived."
-                  : "Application updated.",
+                  : "Application review notes saved.",
         tone: "success",
       });
       router.refresh();
@@ -10688,71 +11235,6 @@ export function MissionaryProfilesAdminDashboard({
     } finally {
       setApplicationActionKey("");
     }
-  }
-
-  async function handleCreateUsamProfileFromWorkspace(profile: AdminProfile) {
-    const actionKey = `${profile.id}:create_from_workspace`;
-
-    setApplicationActionKey(actionKey);
-    setStatus(null);
-
-    try {
-      const response = await fetch("/api/admin/missionary-profiles/applications/from-workspace", {
-        body: JSON.stringify({ workspaceId: profile.id }),
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      });
-      const result = await response.json().catch(() => ({})) as {
-        application?: AdminUsamApplication;
-        applicationId?: string;
-        error?: string;
-        profileStatus?: AdminUsamProfileStatus;
-        status?: AdminUsamApplicationStatus;
-      };
-
-      if (!response.ok || !result.application?.id) {
-        throw new Error(result.error || "Unable to create USA Missionaries profile workflow.");
-      }
-
-      const application = result.application;
-
-      setProfiles((currentProfiles) => currentProfiles.map((currentProfile) => {
-        if (currentProfile.id !== profile.id) {
-          return currentProfile;
-        }
-
-        return {
-          ...currentProfile,
-          application,
-          usam_application_id: result.applicationId ?? application.id,
-          usam_application_status: result.status ?? application.status,
-          usam_profile_status: result.profileStatus ?? currentProfile.usam_profile_status ?? "draft",
-        };
-      }));
-      setStatus({
-        text: "USA Missionaries profile workflow attached to the existing workspace.",
-        tone: "success",
-      });
-      router.refresh();
-    } catch (error) {
-      setStatus({
-        text: error instanceof Error ? error.message : "Unable to create USA Missionaries profile workflow.",
-        tone: "error",
-      });
-    } finally {
-      setApplicationActionKey("");
-    }
-  }
-
-  function closeProfile() {
-    setSelectedId("");
-    setActiveTab("overview");
-    setActivePrimaryNav("dashboard");
-    setActiveSubnavId("");
-    resetTransientEditorState();
   }
 
   async function copySelectedProfileLink() {
@@ -10865,6 +11347,9 @@ export function MissionaryProfilesAdminDashboard({
       return;
     }
 
+    const storyPublishingAvailable = selectedProfile.schemaStatus?.hasStoryVersionColumns !== false
+      && selectedProfile.schemaStatus?.hasPublishingFeatureColumns !== false;
+
     if (!storyPublishingAvailable) {
       setStoryRefinementState({
         message: "Story publishing unavailable until story schema migration is applied.",
@@ -10894,6 +11379,9 @@ export function MissionaryProfilesAdminDashboard({
     if (!selectedProfile) {
       return;
     }
+
+    const storyPublishingAvailable = selectedProfile.schemaStatus?.hasStoryVersionColumns !== false
+      && selectedProfile.schemaStatus?.hasPublishingFeatureColumns !== false;
 
     if (!storyPublishingAvailable) {
       setStoryRefinementState({
@@ -12093,1495 +12581,363 @@ export function MissionaryProfilesAdminDashboard({
   }
 
   if (!selectedProfile) {
+    const currentSectionLabel = activeDirectorySection === "applications" ? "applications" : "approved profiles";
+
     return (
       <div className="min-w-0 space-y-5">
-        <div className="grid min-w-0 gap-3 sm:grid-cols-4">
-          <StatPreview label="Total Profiles" value={String(profiles.length)} />
-          <StatPreview label="Applications" value={String(applicationProfiles)} />
-          <StatPreview label="Under Review" value={String(underReviewProfiles)} />
-          <StatPreview label="Published" value={String(liveProfiles)} />
-        </div>
-
-        <div className="grid min-w-0 gap-3 rounded-xl border border-[#222222] bg-[#0a0a0a] p-3 sm:p-4 lg:grid-cols-[minmax(260px,1fr)_180px_180px_132px]">
-          <label className="block">
-            <span className="sr-only">Search USA Missionaries profiles</span>
-            <input
-              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-500 focus:border-[#D4A63D]"
-              onChange={(event) => setProfileQuery(event.target.value)}
-              placeholder="Search profiles, slugs, states, or mission"
-              value={profileQuery}
-            />
-          </label>
-          <label className="block">
-            <span className="sr-only">Filter by application workflow</span>
-            <select
-              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
-              onChange={(event) => setProfileWorkflowFilter(event.target.value as ProfileWorkflowFilter)}
-              value={profileWorkflowFilter}
-            >
-              <option value="all">All</option>
-              <option value="applications">Applications</option>
-              <option value="under_review">Under Review</option>
-              <option value="approved">Approved</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="sr-only">Filter by visibility</span>
-            <select
-              className="min-h-11 w-full rounded-lg border border-[#333333] bg-[#111111] px-3.5 py-2.5 text-sm text-stone-100 outline-none transition-colors focus:border-[#D4A63D]"
-              onChange={(event) => setProfileVisibilityFilter(event.target.value)}
-              value={profileVisibilityFilter}
-            >
-              <option value="">All Visibility</option>
-              <option value="live">Live</option>
-              <option value="hidden">Hidden</option>
-            </select>
-          </label>
-          <button
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-stone-700 bg-stone-950/70 px-5 text-xs uppercase tracking-[0.18em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-            disabled={isRefreshing}
-            onClick={refreshProfiles}
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            type="button"
-          >
-            {isRefreshing ? "Refreshing" : "Refresh"}
-          </button>
-        </div>
-
-        {profiles.length === 0 ? (
-          <div className="rounded-xl border border-[#222222] bg-[#0a0a0a] p-8 text-stone-300">
-            No USA Missionaries profiles found yet.
-          </div>
-        ) : filteredProfiles.length === 0 ? (
-          <div className="rounded-xl border border-[#222222] bg-[#0a0a0a] p-8 text-sm text-stone-400">
-            No USA Missionaries profiles match these filters.
-          </div>
-        ) : (
-          <>
-            <div className="hidden overflow-x-auto rounded-xl border border-[#222222] bg-[#0f0f0f] lg:block">
-              <table className="w-full min-w-[1120px] table-fixed border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-[#222222] text-[10px] uppercase tracking-[0.16em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    <th className="w-[20%] px-4 py-3 font-bold">Name</th>
-                    <th className="w-[18%] px-4 py-3 font-bold">Applicant</th>
-                    <th className="w-[12%] px-4 py-3 font-bold">Location</th>
-                    <th className="w-[12%] px-4 py-3 font-bold">Status</th>
-                    <th className="w-[15%] px-4 py-3 font-bold">Assigned Admin</th>
-                    <th className="w-[11%] px-4 py-3 font-bold">Applied</th>
-                    <th className="w-[10%] px-4 py-3 font-bold">Public</th>
-                    <th className="w-[140px] px-4 py-3 text-right font-bold">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredProfiles.map((profile) => {
-                    const workflowStatus = profileWorkflowStatus(profile);
-                    const application = profile.application;
-                    const primaryAction = profilePrimaryActionLabel(profile);
-                    const location = getProfileLocationVisibility(profile) === "hidden"
-                      ? "Undisclosed"
-                      : application?.location || getProfilePrimaryState(profile) || "Not set";
-                    const publishActionKey = application ? `${application.id}:publish` : "";
-                    const hideActionKey = application ? `${application.id}:hide` : "";
-                    const approveActionKey = application ? `${application.id}:approve` : "";
-                    const rejectActionKey = application ? `${application.id}:reject` : "";
-
-                    return (
-                      <tr className="border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515]" key={profile.id}>
-                        <td className="px-4 py-4">
-                          <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
-                          <p className="mt-1 truncate text-xs text-stone-500">{profile.slug}</p>
-                        </td>
-                        <td className="px-4 py-4">
-                          <p className="truncate text-sm text-stone-200">{profileApplicantName(profile)}</p>
-                          <p className="mt-1 truncate text-xs text-stone-500">{profileApplicantContact(profile)}</p>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-stone-300">{location}</td>
-                        <td className="px-4 py-4">
-                          <ApplicationStatusBadge status={workflowStatus} />
-                        </td>
-                        <td className="px-4 py-4 text-sm text-stone-300">
-                          <span className="block truncate">{profileAssignedAdmin(profile)}</span>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-stone-300">
-                          {formatProfileUpdatedDate(profileAppliedDate(profile))}
-                        </td>
-                        <td className="px-4 py-4">
-                          <ProfileVisibilityBadge profile={profile} />
-                          <p className="mt-1 text-[11px] text-stone-500">{profilePublicStatusLabel(profile)}</p>
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <div className="flex flex-wrap justify-end gap-2">
-                            <button
-                              className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                              onClick={() => handleProfileWorkflowAction(profile, "review")}
-                              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                              type="button"
-                            >
-                              {primaryAction}
-                            </button>
-                            {application && (workflowStatus === "pending_review" || workflowStatus === "application_submitted") ? (
-                              <>
-                                <button
-                                  className="inline-flex min-h-8 items-center justify-center rounded-md border border-green-500/30 bg-green-950/30 px-3 text-[10px] uppercase tracking-[0.14em] text-green-200 transition-colors hover:border-green-400"
-                                  disabled={applicationActionKey === approveActionKey}
-                                  onClick={() => handleProfileWorkflowAction(profile, "approve")}
-                                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                                  type="button"
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  className="inline-flex min-h-8 items-center justify-center rounded-md border border-red-500/30 bg-red-950/30 px-3 text-[10px] uppercase tracking-[0.14em] text-red-200 transition-colors hover:border-red-400"
-                                  disabled={applicationActionKey === rejectActionKey}
-                                  onClick={() => handleProfileWorkflowAction(profile, "reject")}
-                                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                                  type="button"
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            ) : null}
-                            {application && workflowStatus === "approved" && !isProfilePublic(profile) ? (
-                              <button
-                                className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#D4A63D]/45 bg-[#D4A63D]/15 px-3 text-[10px] uppercase tracking-[0.14em] text-[#F5B942] transition-colors hover:border-[#F5B942]"
-                                disabled={applicationActionKey === publishActionKey}
-                                onClick={() => handleProfileWorkflowAction(profile, "publish")}
-                                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                                type="button"
-                              >
-                                Publish
-                              </button>
-                            ) : null}
-                            {application && isProfilePublic(profile) ? (
-                              <button
-                                className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                                disabled={applicationActionKey === hideActionKey}
-                                onClick={() => handleProfileWorkflowAction(profile, "hide")}
-                                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                                type="button"
-                              >
-                                Hide
-                              </button>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        <section className="rounded-xl border border-[#222222] bg-[#080808] p-4 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                National Command Center
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold leading-tight text-stone-100 md:text-4xl">
+                USA Missionaries
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-stone-400">
+                Review missionary applications and manage approved public household profiles.
+              </p>
             </div>
-            <div className="grid min-w-0 gap-3 lg:hidden">
-              {filteredProfiles.map((profile) => {
-                const workflowStatus = profileWorkflowStatus(profile);
-                const application = profile.application;
-                const location = getProfileLocationVisibility(profile) === "hidden"
-                  ? "Undisclosed"
-                  : application?.location || getProfilePrimaryState(profile) || "Not set";
-
-                return (
-                  <article className="min-w-0 rounded-xl border border-[#222222] bg-[#0f0f0f] p-4" key={profile.id}>
-                    <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
-                        <p className="mt-1 truncate text-sm text-stone-400">{profileApplicantName(profile)}</p>
-                        <p className="mt-1 truncate text-xs text-stone-500">{profileApplicantContact(profile)}</p>
-                      </div>
-                      <ApplicationStatusBadge status={workflowStatus} />
-                    </div>
-                    <div className="mt-4 grid gap-3 border-t border-[#222222] pt-3 sm:grid-cols-2">
-                      <div>
-                        <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Location
-                        </p>
-                        <p className="mt-1 text-sm text-stone-300">{location}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Applied
-                        </p>
-                        <p className="mt-1 text-sm text-stone-300">{formatProfileUpdatedDate(profileAppliedDate(profile))}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Assigned
-                        </p>
-                        <p className="mt-1 truncate text-sm text-stone-300">{profileAssignedAdmin(profile)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                          Public Profile
-                        </p>
-                        <p className="mt-1 text-sm text-stone-300">{profilePublicStatusLabel(profile)}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex min-w-0 flex-wrap items-center justify-end gap-2 border-t border-[#222222] pt-3">
-                      <button
-                        className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                        onClick={() => handleProfileWorkflowAction(profile, "review")}
-                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                        type="button"
-                      >
-                        {profilePrimaryActionLabel(profile)}
-                      </button>
-                      {application && (workflowStatus === "pending_review" || workflowStatus === "application_submitted") ? (
-                        <>
-                          <button
-                            className="inline-flex min-h-8 items-center justify-center rounded-md border border-green-500/30 bg-green-950/30 px-3 text-[10px] uppercase tracking-[0.14em] text-green-200 transition-colors hover:border-green-400"
-                            disabled={applicationActionKey === `${application.id}:approve`}
-                            onClick={() => handleProfileWorkflowAction(profile, "approve")}
-                            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                            type="button"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            className="inline-flex min-h-8 items-center justify-center rounded-md border border-red-500/30 bg-red-950/30 px-3 text-[10px] uppercase tracking-[0.14em] text-red-200 transition-colors hover:border-red-400"
-                            disabled={applicationActionKey === `${application.id}:reject`}
-                            onClick={() => handleProfileWorkflowAction(profile, "reject")}
-                            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                            type="button"
-                          >
-                            Reject
-                          </button>
-                        </>
-                      ) : null}
-                      {application && workflowStatus === "approved" && !isProfilePublic(profile) ? (
-                        <button
-                          className="inline-flex min-h-8 items-center justify-center rounded-md border border-[#D4A63D]/45 bg-[#D4A63D]/15 px-3 text-[10px] uppercase tracking-[0.14em] text-[#F5B942] transition-colors hover:border-[#F5B942]"
-                          disabled={applicationActionKey === `${application.id}:publish`}
-                          onClick={() => handleProfileWorkflowAction(profile, "publish")}
-                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                          type="button"
-                        >
-                          Publish
-                        </button>
-                      ) : null}
-                      {application && isProfilePublic(profile) ? (
-                        <button
-                          className="inline-flex min-h-8 items-center justify-center rounded-md border border-stone-700 bg-stone-950/70 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
-                          disabled={applicationActionKey === `${application.id}:hide`}
-                          onClick={() => handleProfileWorkflowAction(profile, "hide")}
-                          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                          type="button"
-                        >
-                          Hide
-                        </button>
-                      ) : null}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  const support = selectedProfile.support ?? emptySupport(selectedProfile.id);
-  const supportMode = selectedProfileSupportMode;
-  const calculatedMonthlyGoal = calculateMonthlyGoal(support.annual_goal);
-  const publicProfileLink = getPublicMissionaryProfileUrl(selectedProfile.slug);
-  const publicSupportLink = `${publicProfileLink}#support`;
-  const publicFlyerLink = `${publicProfileLink}/flyer`;
-  const supportMissionStatement = selectedProfile.short_mission || "We are serving with USA Missionaries to reach the lost, make disciples, and multiply across America.";
-  const supportEmailTemplate = `Subject: Would you prayerfully consider partnering with ${selectedProfile.display_name}?\n\nHi {{FirstName}},\n\nWe are serving with USA Missionaries and raising monthly support so we can keep saying yes to the mission God has put in front of us.\n\n${supportMissionStatement}\n\nWould you prayerfully consider becoming a monthly support partner? You can learn more about our mission and give securely here:\n${publicSupportLink}\n\nThank you for praying with us and considering partnership.\n\n${selectedProfile.display_name}`;
-  const profileLinkCopyTitle = profileLinkCopyState === "copied"
-    ? "Copied"
-    : profileLinkCopyState === "failed"
-      ? "Copy failed"
-      : "Copy Public Link";
-  const selectedSupportModeLabel = supportModeOptions.find((option) => option.value === supportMode)?.label ?? supportModeOptions[0].label;
-  const targetHouseholdOptions = targetHouseholdLoadState === "loading"
-    ? [{ label: "Loading households...", value: "" }]
-    : targetHouseholds.length > 0
-      ? [
-        { label: "Select a household", value: "" },
-        ...targetHouseholds.map((household) => ({ label: household.display_name, value: household.id })),
-      ]
-      : [{ label: "No other missionary households available.", value: "" }];
-  const targetHouseholdSelectDisabled = targetHouseholdLoadState !== "success" || targetHouseholds.length === 0;
-  const selectedTargetHousehold = targetHouseholds.find((household) => household.id === selectedProfile.support_target_household_id);
-  const givingRoutingDestination = supportMode === "household"
-    ? selectedProfile.display_name
-    : supportMode === "household_nomination"
-      ? selectedTargetHousehold?.display_name ?? "Selected missionary household"
-      : supportMode === "general_fund"
-        ? "USA Missionaries General Fund"
-        : supportMode === "state_leader"
-          ? "State Leadership Fund"
-          : supportMode === "regional_leader"
-            ? "Regional Leadership Fund"
-            : supportMode === "national_leadership"
-              ? "National Leadership and Expansion"
-              : "No public giving destination while support is hidden";
-  const profileVisibilityEnabled = getFeatureValue(selectedProfile, "show_household");
-  const profileVisibilityStatus = !profileVisibilityEnabled
-    ? {
-      message: "Disabled profiles do not appear in the directory and cannot be viewed publicly.",
-      status: "hidden" as const,
-    }
-    : selectedProfile.public_visible === true
-      ? {
-        message: "This profile can appear in the directory and can be viewed publicly.",
-        status: "showing" as const,
-      }
-      : {
-        message: "Profile visibility is enabled, but the public visibility flag is not synced. Save updates to make it viewable.",
-        status: "hidden" as const,
-      };
-  const mediaStatus = getFeaturePublicStatus({
-    enabled: getFeatureValue(selectedProfile, "show_photos"),
-    hasContent: hasRenderableMedia(selectedProfile),
-    hiddenMessage: "Media is disabled for a more discreet public profile.",
-    missingMessage: "Upload media to show this section.",
-    showingMessage: "Public media is available for this profile.",
-  });
-  const teamStatus = getFeaturePublicStatus({
-    enabled: getFeatureValue(selectedProfile, "show_team"),
-    hasContent: hasRenderableTeam(selectedProfile),
-    hiddenMessage: "The Team section is disabled.",
-    missingMessage: "Add team members to show this section.",
-    showingMessage: "The Team section has active public members.",
-  });
-  const hasStoryVersionColumns = selectedProfile.schemaStatus?.hasStoryVersionColumns !== false;
-  const hasPublishingFeatureColumns = selectedProfile.schemaStatus?.hasPublishingFeatureColumns !== false;
-  const storyPublishingAvailable = hasStoryVersionColumns && hasPublishingFeatureColumns;
-  const hasInternalIntakeStory = hasTextContent(selectedProfile.original_story);
-  const storyStatus = !storyPublishingAvailable
-    ? {
-      label: "Migration Required",
-      message: "Story publishing unavailable until story schema migration is applied.",
-      status: "migration" as const,
-    }
-    : !getFeatureValue(selectedProfile, "show_story")
-      ? {
-        label: "Hidden",
-        message: "The Our Story section is disabled.",
-        status: "hidden" as const,
-      }
-      : hasRenderableStory(selectedProfile)
-        ? {
-          label: "Published",
-          message: "Story is ready for the public profile.",
-          status: "showing" as const,
-        }
-        : hasInternalIntakeStory
-          ? {
-            label: "Publish Version",
-            message: "Your story has been added. Choose which version to publish.",
-            status: "waiting" as const,
-          }
-        : {
-          label: "Missing Content",
-          message: "Add your story, then choose the version to publish.",
-          status: "missing" as const,
-        };
-  const improvedStoryDraft = getImprovedStoryDraft(selectedProfile);
-  const isOriginalStoryPublished = isSameStoryText(selectedProfile.public_story, selectedProfile.original_story);
-  const isImprovedStoryPublished = Boolean(
-    improvedStoryDraft.trim()
-    && isSameStoryText(selectedProfile.public_story, improvedStoryDraft)
-    && !isOriginalStoryPublished,
-  );
-  const canPublishOriginalStory = storyPublishingAvailable
-    && hasTextContent(selectedProfile.original_story)
-    && !isOriginalStoryPublished;
-  const canPublishImprovedStory = storyPublishingAvailable
-    && hasTextContent(improvedStoryDraft)
-    && !isImprovedStoryPublished;
-  const fruitStatus = getFeaturePublicStatus({
-    enabled: getFeatureValue(selectedProfile, "show_fruit"),
-    hasContent: hasRenderableFruit(selectedProfile),
-    hiddenMessage: "The Fruit section is disabled.",
-    missingMessage: "Approve Fruit items to show this section.",
-    showingMessage: "Published public fruit is available for this profile.",
-  });
-  const supportStatus = supportMode === "hidden"
-    ? {
-      message: "Support mode is set to Hide support section.",
-      status: "hidden" as const,
-    }
-    : getFeaturePublicStatus({
-      enabled: getFeatureValue(selectedProfile, "show_support"),
-      hiddenMessage: "The Support section is disabled.",
-      missingMessage: "Configure support settings to show this section.",
-      showingMessage: "The Support section can render publicly.",
-    });
-  const prayerStatus = getFeaturePublicStatus({
-    enabled: getFeatureValue(selectedProfile, "show_prayer"),
-    hasContent: hasRenderablePrayer(selectedProfile),
-    hiddenMessage: "The Prayer section is disabled.",
-    missingMessage: "Add prayer settings to show this section.",
-    showingMessage: "Prayer is available on the public profile.",
-  });
-  const publishingEnabled = publishingEnabledByDefault;
-  const visiblePrimaryNavGroups = primaryNavGroups.filter(
-    (group) =>
-      profilePrimaryNavKeys.has(group.key) &&
-      (publishingEnabled || group.key !== "publishing"),
-  );
-  const activePrimaryGroup = visiblePrimaryNavGroups.find((group) => group.key === activePrimaryNav) ?? visiblePrimaryNavGroups[0] ?? primaryNavGroups[0];
-  return (
-    <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
-      <section className="min-w-0 max-w-full overflow-x-hidden bg-stone-950/35 p-4 pb-24 sm:p-5 md:p-7 md:pb-24">
-        <div className="border-b border-stone-800/80 pb-5 md:pb-7">
-          <div className="mb-4 md:mb-5">
             <button
-              className="inline-flex items-center text-[11px] uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-[#F5B942]"
-              onClick={closeProfile}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              className={darkSecondaryButtonClass}
+              disabled={isRefreshing}
+              onClick={refreshProfiles}
               type="button"
             >
-              ← All USA Missionaries Profiles
+              {isRefreshing ? "Refreshing" : "Refresh"}
             </button>
           </div>
-
-          <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] xl:items-center">
-            <div className="min-w-0">
-              <h2 className="max-w-full break-words text-4xl font-bold uppercase leading-none text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
-                {selectedProfile.display_name}
-              </h2>
-            </div>
-
-            <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3">
-              <Link
-                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
-                href={`/missionaries/${selectedProfile.slug}`}
-                target="_blank"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <ExternalLink className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public Profile</p>
-                  </div>
-                </div>
-              </Link>
-              <button
-                aria-label={profileLinkCopyState === "failed" ? "Copy profile link failed. Try again." : "Copy public profile link"}
-                className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-stone-700 bg-stone-950/70 p-3.5 text-left text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.2)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/55 hover:bg-stone-900/70 hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.08)] sm:min-h-24 sm:p-4"
-                onClick={copySelectedProfileLink}
-                type="button"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <Copy className="h-5 w-5 shrink-0 text-[#D4A63D]" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-[12px] uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>{profileLinkCopyTitle}</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
+        </section>
 
         {status ? (
-          <p className={`mt-5 border p-4 text-sm ${
+          <p className={`rounded-xl border p-4 text-sm ${
             status.tone === "success"
-              ? "border-[#D4A63D]/30 bg-[#D4A63D]/10 text-stone-100"
+              ? "border-[#C2A14E]/30 bg-[#C2A14E]/10 text-stone-100"
               : "border-red-500/30 bg-red-950/20 text-red-200"
           }`}>
             {status.text}
           </p>
         ) : null}
 
-        <ApplicationReviewCard
-          busyKey={applicationActionKey}
-          onAction={handleProfileWorkflowAction}
-          onCreateFromWorkspace={handleCreateUsamProfileFromWorkspace}
-          profile={selectedProfile}
-        />
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <DirectoryStatButton
+            active={activeDirectorySection === "applications" && applicationStatusFilter === "all"}
+            helper="Submitted, reviewed, and completed intake"
+            label="Total Applications"
+            onClick={() => {
+              setActiveDirectorySection("applications");
+              setApplicationStatusFilter("all");
+            }}
+            value={String(applicationProfiles.length)}
+          />
+          <DirectoryStatButton
+            active={activeDirectorySection === "applications" && applicationStatusFilter === "new"}
+            helper="Submitted and awaiting first pass"
+            label="New Applications"
+            onClick={() => {
+              setActiveDirectorySection("applications");
+              setApplicationStatusFilter("new");
+            }}
+            value={String(newApplicationProfiles.length)}
+          />
+          <DirectoryStatButton
+            active={activeDirectorySection === "applications" && applicationStatusFilter === "under_review"}
+            helper="Needs admin review action"
+            label="Under Review"
+            onClick={() => {
+              setActiveDirectorySection("applications");
+              setApplicationStatusFilter("under_review");
+            }}
+            value={String(underReviewProfiles.length)}
+          />
+          <DirectoryStatButton
+            active={activeDirectorySection === "published"}
+            helper="Approved household publishing records"
+            label="Approved Profiles"
+            onClick={() => {
+              setActiveDirectorySection("published");
+              setApplicationStatusFilter("all");
+            }}
+            value={String(publishedProfiles.length)}
+          />
+        </div>
 
-        <div className="mt-6 border-b border-stone-800/80 pb-5 md:mt-8">
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2" role="tablist" aria-label="Profile primary sections">
-            {visiblePrimaryNavGroups.map((group) => {
-              const selected = activePrimaryNav === group.key;
-              const Icon = group.icon;
-
-              return (
-                <button
-                  aria-selected={selected}
-                  className={`h-full min-h-[78px] min-w-0 rounded-xl border px-4 py-3 text-left transition-colors sm:min-h-[88px] ${
-                    selected
-                      ? "border-[#D4A63D] bg-[#D4A63D] text-black"
-                      : "border-stone-800 bg-[#090909] text-stone-300 hover:border-stone-600 hover:bg-stone-900/80 hover:text-stone-100"
-                  }`}
-                  key={group.key}
-                  onClick={() => {
-                    const defaultTab = getDefaultTabForPrimaryNav(group.key);
-
-                    setActivePrimaryNav(group.key);
-                    changeEditorTab(defaultTab.value, group.key, defaultTab.id);
-                  }}
-                  role="tab"
-                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  type="button"
-                >
-                  <span className="flex h-full min-w-0 items-center gap-3">
-                    <Icon className={`h-4.5 w-4.5 shrink-0 md:h-5 md:w-5 ${selected ? "text-black" : "text-[#D4A63D]"}`} aria-hidden="true" />
-                    <span className="min-w-0">
-                      <span className="block text-[15px] uppercase leading-none tracking-[0.105em] md:text-base">
-                        {group.label}
-                      </span>
-                      <span className={`mt-1.5 block text-[12px] normal-case leading-4 tracking-normal md:text-[13px] ${selected ? "text-black/65" : "text-stone-500"}`} style={{ fontFamily: "inherit", fontWeight: 500 }}>
-                        {group.helper}
-                      </span>
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {activePrimaryGroup.tabs.length > 0 ? (
-          <div className="mt-6 max-w-full overflow-hidden border-t border-stone-800/70 pt-4">
-            <div className="flex min-w-0 flex-wrap items-center justify-center gap-2" role="tablist" aria-label={`${activePrimaryGroup.label} submenu`}>
-              {activePrimaryGroup.tabs.map((tab) => {
-                const tabId = tab.id ?? tab.value;
-                const selected = activeTab === tab.value && activeSubnavId === tabId && activePrimaryNav === activePrimaryGroup.key;
+        <section className="rounded-xl border border-[#222222] bg-[#0a0a0a] p-3 sm:p-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="grid min-w-0 gap-2 sm:grid-cols-2" role="tablist" aria-label="USA Missionaries admin sections">
+              {missionaryDirectorySections.map((section) => {
+                const Icon = section.icon;
+                const selected = activeDirectorySection === section.id;
 
                 return (
                   <button
                     aria-selected={selected}
-                    className={`${workspaceTabBaseClass} ${
+                    className={`min-h-14 rounded-xl border px-3 py-3 text-left transition-colors ${
                       selected
-                        ? workspaceDarkTabActiveClass
-                        : workspaceDarkTabInactiveClass
+                        ? "border-[#C2A14E] bg-[#C2A14E] text-black"
+                        : "border-[#242424] bg-[#101010] text-stone-300 hover:border-[#C2A14E]/60 hover:bg-[#141414] hover:text-stone-100"
                     }`}
-                    key={`${activePrimaryGroup.key}-${tabId}`}
-                    onClick={() => changeEditorTab(tab.value, activePrimaryGroup.key, tabId)}
+                    key={section.id}
+                    onClick={() => {
+                      setActiveDirectorySection(section.id);
+                      setApplicationStatusFilter("all");
+                    }}
                     role="tab"
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                     type="button"
                   >
-                    {tab.label}
+                    <span className="flex items-center gap-3">
+                      <Icon className={`h-4 w-4 shrink-0 ${selected ? "text-black" : "text-[#C2A14E]"}`} aria-hidden="true" />
+                      <span className="min-w-0">
+                        <span className="block text-[12px] uppercase tracking-[0.15em]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                          {section.label}
+                        </span>
+                      </span>
+                    </span>
                   </button>
                 );
               })}
             </div>
-          </div>
-          ) : null}
-        </div>
-
-        <div className="mt-10">
-          {activeTab === "overview" ? (
-          <SectionIntro
-            title="Dashboard"
-          >
-            <WorkspaceOverview
-              onOpenPrayerRequests={() => {
-                changeEditorTab("prayer", "publishing", "prayer");
-              }}
-              profile={selectedProfile}
-            />
-          </SectionIntro>
-          ) : null}
-
-          {activeTab === "people" ? (
-          <SectionIntro
-            description="Profile people records"
-            title="People"
-          >
-            <PeopleManager
-              items={selectedProfile.fieldPeople ?? []}
-              onImport={importPeopleCsv}
-              onSave={saveFieldPerson}
-            />
-          </SectionIntro>
-          ) : null}
-
-          {activeTab === "meetings" ? (
-          <SectionIntro
-            description="Meetings & follow-up"
-            title="Meetings"
-            wide
-          >
-            <MeetingsManager
-              connections={selectedProfile.connectionLogs ?? []}
-              encounters={selectedProfile.encounterSubmissions ?? []}
-              fieldPeople={selectedProfile.fieldPeople ?? []}
-              fruitItems={selectedProfile.fruitItems ?? []}
-              onAddConnection={addConnectionLog}
-              onAddEncounter={addEncounterFromTable}
-              onCreateFruit={createFruitSummary}
-              onCreateTable={createMissionaryTable}
-              onUpdateConnection={updateConnectionLog}
-              onUpdateFruit={updateFruitItem}
-              onUpdatePersonProfile={updatePersonFromReview}
-              onUpdateReview={updateTableReview}
-              onUpdateTable={updateMissionaryTable}
-              tableReviews={selectedProfile.tableReviews ?? []}
-              tables={selectedProfile.tables ?? []}
-            />
-          </SectionIntro>
-          ) : null}
-
-          {activeTab === "reviews" ? (
-          <SectionIntro
-            description="Track, review, and act on post-meeting reviews."
-            title="Post-meeting reviews"
-            wide
-          >
-            <ReviewsManager
-              encounters={selectedProfile.encounterSubmissions ?? []}
-              fieldPeople={selectedProfile.fieldPeople ?? []}
-              fruitItems={selectedProfile.fruitItems ?? []}
-              onCreateFruit={createFruitSummary}
-              onUpdateReview={updateTableReview}
-              tableReviews={selectedProfile.tableReviews ?? []}
-              tables={selectedProfile.tables ?? []}
-            />
-          </SectionIntro>
-          ) : null}
-
-          {activeTab === "features" ? (
-          <SectionIntro
-            title="Profile Features"
-          >
-            <FeatureVisibilityTable
-              rows={[
-                {
-                  checked: getFeatureValue(selectedProfile, "show_household"),
-                  label: "Profile Visibility",
-                  onChange: (value) => updateFeatureField("show_household", value),
-                  publicStatus: profileVisibilityStatus.status,
-                  statusMessage: profileVisibilityStatus.message,
-                },
-                {
-                  checked: getFeatureValue(selectedProfile, "show_team"),
-                  label: "Team",
-                  onChange: (value) => updateFeatureField("show_team", value),
-                  publicStatus: teamStatus.status,
-                  statusMessage: teamStatus.message,
-                },
-                {
-                  checked: getFeatureValue(selectedProfile, "show_photos"),
-                  label: "Profile Photos",
-                  onChange: (value) => updateFeatureField("show_photos", value),
-                  publicStatus: mediaStatus.status,
-                  statusMessage: mediaStatus.message,
-                },
-                {
-                  checked: storyPublishingAvailable && getFeatureValue(selectedProfile, "show_story"),
-                  disabled: !storyPublishingAvailable,
-                  label: "Our Story",
-                  onChange: (value) => updateFeatureField("show_story", value),
-                  publicStatus: storyStatus.status,
-                  statusMessage: storyStatus.message,
-                },
-                {
-                  checked: getFeatureValue(selectedProfile, "show_fruit"),
-                  label: "Fruit",
-                  onChange: (value) => updateFeatureField("show_fruit", value),
-                  publicStatus: fruitStatus.status,
-                  statusMessage: fruitStatus.message,
-                },
-                {
-                  checked: getFeatureValue(selectedProfile, "show_support"),
-                  label: "Support",
-                  onChange: (value) => updateSupportMode(value ? "household" : "hidden"),
-                  publicStatus: supportStatus.status,
-                  statusMessage: supportStatus.message,
-                },
-                {
-                  checked: getFeatureValue(selectedProfile, "show_prayer"),
-                  label: "Prayer",
-                  onChange: (value) => updateFeatureField("show_prayer", value),
-                  publicStatus: prayerStatus.status,
-                  statusMessage: prayerStatus.message,
-                },
-              ]}
-            />
-          </SectionIntro>
-          ) : null}
-
-          {activeTab === "profile" ? (
-          <div className="max-w-[900px]">
-            <div className={lightPanelClass}>
-              <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Profile
-              </p>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b746a]">
-                Set up the public hero and the core details visitors see first.
-              </p>
-
-              <div className="mt-6">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Main Profile Fields
-                </p>
-                <div className="mt-3 grid gap-x-4 gap-y-6 md:grid-cols-2">
-                  <ProfileField
-                    helperText="Shown publicly."
-                    label="Display Name"
-                    onChange={(value) => updateHouseholdField("display_name", value)}
-                    value={selectedProfile.display_name}
-                  />
-                  <ProfileField
-                    helperText="Used for public URL."
-                    label="Slug"
-                    onChange={(value) => updateHouseholdField("slug", value)}
-                    value={selectedProfile.slug}
-                  />
-                  <ProfileTextArea
-                    helperText="Shown in hero section."
-                    label="Short Mission"
-                    onChange={(value) => updateHouseholdField("short_mission", value)}
-                    rows={3}
-                    value={selectedProfile.short_mission}
-                  />
-                  <ProfileSelectField
-                    helperText="Shown publicly when location visibility allows it."
-                    label="Primary State"
-                    onChange={updatePrimaryState}
-                    options={stateOptions}
-                    value={getProfilePrimaryState(selectedProfile)}
-                  />
-                  <ProfileSelectField
-                    helperText="Controls public serving line."
-                    label="Serving Scope"
-                    onChange={updateServingScope}
-                    options={servingScopeOptions}
-                    value={getProfileServingScope(selectedProfile)}
-                  />
-                  <div className="rounded-xl border border-[#e2ded5] bg-white p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Public Serving Line Preview
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-[#111111]">
-                      {getServingLabelPreview(selectedProfile)}
-                    </p>
-                    <p className={lightHelperClass}>
-                      Controls public serving line.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <details className="mt-6 rounded-xl border border-[#e2ded5] bg-white p-4">
-                <summary className="cursor-pointer text-[11px] uppercase tracking-[0.2em] text-[#111111]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Advanced Profile Settings
-                </summary>
-                <div className="mt-5 grid gap-x-4 gap-y-6 md:grid-cols-2">
-                  <ProfileSelectField
-                    helperText="Internal/admin classification unless used for regional serving views."
-                    label="Region"
-                    onChange={updateRegion}
-                    options={regionOptions}
-                    value={getProfileRegion(selectedProfile)}
-                  />
-                  <ProfileSelectField
-                    helperText="Used for leadership/profile categorization."
-                    label="Role Type"
-                    onChange={updateRoleType}
-                    options={roleTypeOptions}
-                    value={getProfileRoleType(selectedProfile)}
-                  />
-                  <ProfileSelectField
-                    helperText="Controls whether actual location is shown publicly."
-                    label="Location Visibility"
-                    onChange={updateLocationVisibility}
-                    options={locationVisibilityOptions}
-                    value={getProfileLocationVisibility(selectedProfile)}
-                  />
-                  <ProfileField
-                    helperText="Optional override for the public serving line."
-                    label="Custom Serving Label"
-                    onChange={(value) => updateHouseholdField("custom_serving_label", value)}
-                    value={selectedProfile.custom_serving_label}
-                  />
-                </div>
-              </details>
-            </div>
-          </div>
-          ) : null}
-
-          {activeTab === "media" ? (
-          <SectionIntro
-            description="Profile images"
-            title="Profile Photos"
-          >
-            <div className="space-y-3">
-              <section className="rounded-2xl border border-[#e2ded5] bg-white p-3 md:p-4">
-                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Primary Profile Photo
-                    </p>
-                    <p className="mt-1 text-sm leading-5 text-[#4b443b]">
-                      Original uploaded photo
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${
-                      selectedGeneratedHeroImageUrl
-                        ? "border-[#d7d2c8] bg-[#f8f6f1] text-[#6f6658]"
-                        : "border-[#b7ebc6] bg-[#ecfff2] text-[#147a35]"
-                    }`}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                  >
-                    {selectedGeneratedHeroImageUrl ? "Original" : "Live"}
-                  </span>
-                </div>
-                <ImageUploadField
-                  label="Uploaded Photo"
-                  onChange={(value) => updateHouseholdField("profile_image_url", value)}
-                  onUpload={uploadImage}
-                  showManualUrlFallback={false}
-                  slot="directory"
-                  uploadState={uploadStates.directory}
-                  value={selectedProfile.profile_image_url}
+            <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_180px] xl:w-[520px]">
+              <label className="block">
+                <span className="sr-only">Search USA Missionaries</span>
+                <input
+                  className={darkInputClass}
+                  onChange={(event) => setProfileQuery(event.target.value)}
+                  placeholder={`Search ${currentSectionLabel}`}
+                  value={profileQuery}
                 />
-              </section>
-
-              <section className="rounded-2xl border border-[#e2ded5] bg-white p-3.5 md:p-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Generated Hero Image
-                    </p>
-                    <p className="mt-1 text-sm leading-5 text-[#4b443b]">
-                      Styled public hero image
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${
-                      selectedGeneratedHeroImageUrl
-                        ? "border-[#b7ebc6] bg-[#ecfff2] text-[#147a35]"
-                        : "border-[#e2ded5] bg-[#f8f6f1] text-[#7b746a]"
-                    }`}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              </label>
+              {activeDirectorySection === "applications" ? (
+                <label className="block">
+                  <span className="sr-only">Filter applications</span>
+                  <select
+                    className={darkInputClass}
+                    onChange={(event) => setApplicationStatusFilter(event.target.value as ApplicationStatusFilter)}
+                    value={applicationStatusFilter}
                   >
-                    {selectedGeneratedHeroImageUrl ? "Live" : "Not generated"}
-                  </span>
-                </div>
-
-                <div className="mt-3.5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
-                  <div className="overflow-hidden rounded-2xl border border-[#e2ded5] bg-[#f8f6f1]">
-                    {selectedGeneratedHeroImageUrl ? (
-                      <div className="flex min-h-[210px] items-center justify-center p-3 md:min-h-[260px]">
-                        <img
-                          alt="Generated hero image preview"
-                          className="max-h-full w-full object-contain"
-                          src={selectedGeneratedHeroImageUrl}
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex min-h-[210px] flex-col items-center justify-center px-5 text-center md:min-h-[260px]">
-                        <div className="mb-3 h-10 w-10 rounded-full border border-[#d7d2c8] bg-white shadow-sm">
-                          <div className="mx-auto mt-3.5 h-3 w-3 rotate-45 bg-[#D4A63D]" />
-                        </div>
-                        <p className="text-base font-semibold text-[#111111]">
-                          No generated hero image
-                        </p>
-                        <p className="mt-1.5 max-w-sm text-xs leading-5 text-[#7b746a]">
-                          Using original photo
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <button
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-[#c8952d] bg-[#D4A63D] px-4 py-2.5 text-center text-[11px] uppercase tracking-[0.18em] text-[#111111] shadow-[0_12px_26px_rgba(212,166,61,0.14)] transition-colors hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:border-[#d7d2c8] disabled:bg-[#e2ded5] disabled:text-[#9a9488]"
-                        disabled={!selectedProfile.profile_image_url?.trim()}
-                        onClick={openCutoutModal}
-                        style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                        type="button"
-                      >
-                        Generate New Hero Image
-                      </button>
-                    </div>
-
-                    <div className="rounded-2xl border border-[#e2ded5] bg-[#f8f6f1] p-3">
-                      <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Public Image
-                      </p>
-                      <div className="mt-2.5 space-y-2">
-                        <label className={`flex items-center justify-between gap-3 rounded-xl border p-2.5 text-sm leading-5 ${
-                          selectedGeneratedHeroImageUrl
-                            ? "border-[#e2ded5] bg-white text-[#4b443b]"
-                            : "border-[#c8952d] bg-white text-[#111111]"
-                        }`}>
-                          <span className="flex items-center gap-3">
-                            <input
-                              checked={!selectedGeneratedHeroImageUrl}
-                              className="h-4 w-4 accent-[#D4A63D]"
-                              name="profile_public_image_source"
-                              onChange={() => updateHouseholdField("hero_image_url", "")}
-                              type="radio"
-                            />
-                            <span className="font-semibold text-[#111111]">Use Original Photo</span>
-                          </span>
-                          {!selectedGeneratedHeroImageUrl ? (
-                            <span className="rounded-full border border-[#b7ebc6] bg-[#ecfff2] px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] text-[#147a35]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                              Live
-                            </span>
-                          ) : null}
-                        </label>
-                        <label className={`flex items-center justify-between gap-3 rounded-xl border p-2.5 text-sm leading-5 ${
-                          selectedGeneratedHeroImageUrl
-                            ? "border-[#c8952d] bg-white text-[#111111]"
-                            : "border-[#e2ded5] bg-white text-[#9a9488]"
-                        }`}>
-                          <span className="flex items-center gap-3">
-                          <input
-                            checked={Boolean(selectedGeneratedHeroImageUrl)}
-                            className="h-4 w-4 accent-[#D4A63D]"
-                            disabled={!selectedGeneratedHeroImageUrl}
-                            name="profile_public_image_source"
-                            onChange={() => undefined}
-                            type="radio"
-                          />
-                            <span className={`font-semibold ${selectedGeneratedHeroImageUrl ? "text-[#111111]" : "text-[#7b746a]"}`}>
-                              Use Generated Hero
-                            </span>
-                          </span>
-                          <span className={`rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] ${
-                            selectedGeneratedHeroImageUrl
-                              ? "border-[#b7ebc6] bg-[#ecfff2] text-[#147a35]"
-                              : "border-[#e2ded5] bg-[#f8f6f1] text-[#9a9488]"
-                          }`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                            {selectedGeneratedHeroImageUrl ? "Live" : "Unavailable"}
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <details className="rounded-2xl border border-[#e2ded5] bg-white">
-                <summary className="cursor-pointer px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Advanced Options
-                </summary>
-                <div className="border-t border-[#e2ded5] p-3.5 md:p-4">
-                  <div className="grid gap-3.5 lg:grid-cols-2">
-                    <Field
-                      helperText=""
-                      label="Primary Photo URL"
-                      onChange={(value) => updateHouseholdField("profile_image_url", value)}
-                      value={selectedProfile.profile_image_url}
-                    />
-                    <Field
-                      helperText=""
-                      label="Hero Image URL"
-                      onChange={(value) => updateHouseholdField("hero_image_url", value)}
-                      value={selectedProfile.hero_image_url}
-                    />
-                  </div>
-                  <div className="mt-3.5">
-                    <ImageUploadField
-                      helperText="Upload a prepared hero image."
-                      label="Manual Hero Upload"
-                      onChange={(value) => updateHouseholdField("hero_image_url", value)}
-                      onUpload={uploadImage}
-                      showManualUrlFallback={false}
-                      slot="hero"
-                      uploadState={uploadStates.hero}
-                      value={selectedProfile.hero_image_url}
-                    />
-                  </div>
-                </div>
-              </details>
+                    <option value="all">All Applications</option>
+                    <option value="new">New Applications</option>
+                    <option value="under_review">Under Review</option>
+                    <option value="needs_info">Needs Info</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </label>
+              ) : null}
             </div>
-            {isCutoutModalOpen && selectedProfile.profile_image_url?.trim() ? (
-              <MissionaryCutoutGenerationModal
-                generationState={cutoutGenerationState}
-                householdName={selectedProfile.display_name}
-                onClose={() => setIsCutoutModalOpen(false)}
-                onPublishPreview={(url) => updateHouseholdField("hero_image_url", url)}
-                onRequest={requestMissionaryHeroImage}
-                onSourcePhotoUpload={(file) => uploadImage("directory", file)}
-                onSettingsChange={setCutoutSettings}
-                publishedHeroImageUrl={selectedGeneratedHeroImageUrl}
-                settings={cutoutSettings}
-                sourceImageUrl={selectedProfile.profile_image_url}
-              />
-            ) : null}
-          </SectionIntro>
-          ) : null}
+          </div>
+        </section>
 
-          {activeTab === "team" ? (
-          <SectionIntro
-            description="Household team and partners"
-            title="Team"
-          >
-            <TeamMemberManager
-              allItems={profiles.flatMap((profile) => profile.teamMembers ?? [])}
-              items={selectedProfile.teamMembers ?? []}
-              locationLabel={getProfilePrimaryState(selectedProfile) || selectedProfile.location || ""}
-              onAdd={addTeamMember}
-              onArchive={archiveTeamMember}
-              onRemove={removeTeamMember}
-              onUpdate={updateTeamMember}
-              prayerPartners={selectedProfile.prayerPartners ?? []}
-            />
-          </SectionIntro>
-          ) : null}
+        {activeDirectorySection === "applications" ? (
+          <section className="space-y-3">
+            {applicationProfiles.length === 0 ? (
+              <DirectoryEmptyState title="No applications yet">
+                Submitted missionary applications will appear here for intake review.
+              </DirectoryEmptyState>
+            ) : filteredApplicationProfiles.length === 0 ? (
+              <DirectoryEmptyState title="No matching applications">
+                Adjust the search or status filter to see submitted applications.
+              </DirectoryEmptyState>
+            ) : (
+              <div className="space-y-3">
+                <div className="hidden rounded-xl border border-[#222222] bg-[#0f0f0f] px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-stone-500 lg:grid lg:grid-cols-[minmax(0,1.25fr)_minmax(110px,0.5fr)_minmax(120px,0.55fr)_minmax(110px,0.5fr)_minmax(120px,0.55fr)_minmax(260px,0.95fr)] lg:items-center lg:gap-3" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  <span>Applicant / Household</span>
+                  <span>Location</span>
+                  <span>Submitted</span>
+                  <span>Status</span>
+                  <span>Assigned Admin</span>
+                  <span className="text-right">Actions</span>
+                </div>
+                {filteredApplicationProfiles.map((profile) => {
+                  const application = profile.application;
+                  const displayStatus = applicationDisplayStatus(profile);
 
-          {activeTab === "story" ? (
-          <SectionIntro
-            description="Profile story"
-            title="Story"
-          >
-            {storyRefinementState.message ? (
-              <p className={`rounded-xl border px-4 py-3 text-sm leading-6 ${
-                storyRefinementState.status === "error"
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-[#e2ded5] bg-white text-[#6f6658]"
-              }`}>
-                {storyRefinementState.message}
-              </p>
-            ) : null}
-            <div className="mt-3 grid gap-3.5 lg:grid-cols-2">
-              <div className={`rounded-2xl border bg-white p-4 md:p-5 ${
-                isOriginalStoryPublished ? "border-[#c8952d] shadow-[0_14px_34px_rgba(200,149,45,0.12)]" : "border-[#e2ded5]"
-              }`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Original
-                    </p>
-                    <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                      Your Story
-                    </h3>
-                  </div>
-                  {isOriginalStoryPublished ? (
-                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#b7ebc6] bg-[#ecfff2] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#147a35]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      <Check className="h-3 w-3" />
-                      Currently Published
-                    </span>
-                  ) : null}
-                </div>
-                <div className="mt-3">
-                  <TextArea
-                    hideLabel
-                    label="Your Story"
-                    onChange={(value) => updateHouseholdField("original_story", value)}
-                    rows={12}
-                    value={selectedProfile.original_story}
-                  />
-                </div>
-                <div className="mt-3 flex justify-end border-t border-[#e2ded5] pt-3">
-                  <button
-                    className={lightPrimaryButtonClass}
-                    disabled={!canPublishOriginalStory}
-                    onClick={publishOriginalStory}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    type="button"
-                  >
-                    Publish This Story
-                  </button>
-                </div>
-              </div>
-
-              <div className={`rounded-2xl border bg-white p-4 md:p-5 ${
-                isImprovedStoryPublished ? "border-[#c8952d] shadow-[0_14px_34px_rgba(200,149,45,0.12)]" : "border-[#e2ded5]"
-              }`}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className={lightLabelClass} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Polished Version
-                    </p>
-                    <h3 className="text-2xl font-bold uppercase leading-tight text-[#111111]" style={{ fontFamily: font.oswald }}>
-                      Improved Story Draft
-                    </h3>
-                    <p className="mt-1 text-sm leading-5 text-[#7b746a]">
-                      Improved spelling, grammar, and story flow.
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                    {isImprovedStoryPublished ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#b7ebc6] bg-[#ecfff2] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#147a35]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        <Check className="h-3 w-3" />
-                        Currently Published
-                      </span>
-                    ) : null}
-                    <button
-                      className={lightSecondaryButtonClass}
-                      disabled={storyRefinementState.status === "refining" || !hasTextContent(selectedProfile.original_story)}
-                      onClick={refineStoryWithAI}
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                      type="button"
+                  return (
+                    <article
+                      className="rounded-xl border border-[#222222] bg-[#0f0f0f] p-4 transition-colors hover:border-[#C2A14E]/35"
+                      key={profile.id}
                     >
-                      {storyRefinementState.status === "refining" ? "Improving" : "Improve Story"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-3">
-                  <TextArea
-                    hideLabel
-                    label="Improved Story Draft"
-                    onChange={updateImprovedStoryDraft}
-                    rows={12}
-                    value={improvedStoryDraft}
-                  />
-                </div>
-                <div className="mt-3 flex justify-end border-t border-[#e2ded5] pt-3">
-                  <button
-                    className={lightPrimaryButtonClass}
-                    disabled={!canPublishImprovedStory}
-                    onClick={publishImprovedStory}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    type="button"
-                  >
-                    Publish Improved Story
-                  </button>
-                </div>
-              </div>
-            </div>
-          </SectionIntro>
-          ) : null}
-
-          {activeTab === "fruit" ? (
-          <SectionIntro
-            description="Review, approve, and manage ministry outcomes."
-            title="Fruit from ministry"
-            wide
-          >
-            <FruitManager
-              encounters={selectedProfile.encounterSubmissions ?? []}
-              fieldPeople={selectedProfile.fieldPeople ?? []}
-              fruitItems={selectedProfile.fruitItems ?? []}
-              moderatingFruitId={moderatingFruitId}
-              onCreateFruit={createFruitSummary}
-              onModerateReview={moderateFruitReview}
-              onUpdateFruit={updateFruitItem}
-              tables={selectedProfile.tables ?? []}
-            />
-          </SectionIntro>
-          ) : null}
-
-          {activeTab === "library" ? (
-          <SectionIntro
-            description="Internal resources, notes, and ministry materials connected to this missionary household."
-            title="Library"
-          >
-            <LibraryManager
-              items={selectedProfile.libraryItems ?? []}
-              onAdd={addLibraryItem}
-              onUpdate={updateLibraryItem}
-            />
-          </SectionIntro>
-          ) : null}
-
-          {activeTab === "in-season" ? (
-          <SectionIntro
-            description="Timely focus, follow-up priorities, and current ministry activity for this missionary household."
-            title="In Season"
-          >
-            <InSeasonManager
-              focus={selectedProfile.inSeasonFocus ?? emptyInSeasonFocus(selectedProfile.id)}
-              onUpdate={updateInSeasonFocus}
-            />
-          </SectionIntro>
-          ) : null}
-
-          {activeTab === "support" ? (
-          <SectionIntro
-            title="Support"
-          >
-            <div className="space-y-4">
-              <div className="flex flex-wrap justify-center gap-2 border-b border-[#e2ded5] pb-3">
-                {supportSubsectionOptions.map((option) => (
-                  <button
-                    aria-pressed={supportSubsection === option.value}
-                    className={`${workspaceTabBaseClass} ${
-                      supportSubsection === option.value
-                        ? workspaceLightTabActiveClass
-                        : workspaceLightTabInactiveClass
-                    }`}
-                    key={option.value}
-                    onClick={() => setSupportSubsection(option.value)}
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    type="button"
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-
-              {supportSubsection === "overview" ? (
-                <SupportOverview
-                  flyerLink={publicFlyerLink}
-                  givingPageStatus={getFeatureStatusLabel(supportStatus.status)}
-                  monthlyGoal={calculatedMonthlyGoal}
-                  onAnnualGoalChange={updateAnnualGoal}
-                  onCopy={copyTextToClipboard}
-                  supportLink={publicSupportLink}
-                  support={support}
-                />
-              ) : null}
-
-              {supportSubsection === "giving-page" ? (
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Support Experience
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-                    <div className="space-y-4">
-                      <TextArea
-                        label="Support Description"
-                        onChange={(value) => updateHouseholdField("support_explanation", value)}
-                        rows={3}
-                        value={selectedProfile.support_explanation}
-                      />
-
-                      <div className="space-y-3">
-                        <SupportFlowSetting
-                          ctaLabel="Support Monthly"
-                          description={support.monthly_support_description}
-                          enabled={support.enable_monthly_partnership !== false}
-                          label="Enable Monthly Partnership"
-                          onDescriptionChange={(value) => updateSupportField("monthly_support_description", value)}
-                          onEnabledChange={(value) => updateSupportField("enable_monthly_partnership", value)}
-                          placeholder="Partner monthly to sustain this mission."
-                        />
-                        <SupportFlowSetting
-                          ctaLabel="Give One Time"
-                          description={support.one_time_support_description}
-                          enabled={support.enable_one_time_gift !== false}
-                          label="Enable One-Time Gift"
-                          onDescriptionChange={(value) => updateSupportField("one_time_support_description", value)}
-                          onEnabledChange={(value) => updateSupportField("enable_one_time_gift", value)}
-                          placeholder="Give once toward this missionary household."
-                        />
-                        <SupportFlowSetting
-                          ctaLabel="Contact About Major Gift"
-                          description={support.major_gift_public_description}
-                          enabled={support.enable_major_gift_inquiry !== false}
-                          label="Enable Major Gift Conversation"
-                          onDescriptionChange={(value) => updateSupportField("major_gift_public_description", value)}
-                          onEnabledChange={(value) => updateSupportField("enable_major_gift_inquiry", value)}
-                          placeholder="Connect regarding strategic or larger support opportunities."
-                        />
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-[#201b13] bg-[#080807] p-4 text-stone-100 shadow-[0_24px_70px_rgba(0,0,0,0.22)]">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Live Public Preview
-                      </p>
-                      <h3 className="mt-2 text-2xl font-bold uppercase leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
-                        Support This Mission
-                      </h3>
-                      <p className="mt-3 text-sm leading-6 text-stone-400">
-                        {selectedProfile.support_explanation || "Stand with this missionary household as they reach, disciple, and serve across the mission field."}
-                      </p>
-                      <div className="mt-4 space-y-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3">
-                        {support.enable_monthly_partnership !== false ? (
-                          <div>
-                            <p className="text-[9px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                              Monthly Partnership
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-stone-400">
-                              {support.monthly_support_description || "Partner monthly to sustain this mission."}
-                            </p>
-                          </div>
-                        ) : null}
-                        {support.enable_one_time_gift !== false ? (
-                          <div className="border-t border-white/[0.07] pt-2">
-                            <p className="text-[9px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                              One-Time Gift
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-stone-400">
-                              {support.one_time_support_description || "Give once toward this missionary household."}
-                            </p>
-                          </div>
-                        ) : null}
-                        {support.enable_major_gift_inquiry !== false ? (
-                          <div className="border-t border-white/[0.07] pt-2">
-                            <p className="text-[9px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                              Major Gift Conversation
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-stone-400">
-                              {support.major_gift_public_description || "Connect regarding strategic or larger support opportunities."}
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="mt-4">
-                        <ProfileSupportSectionActions
-                          enableMajorGiftInquiry={support.enable_major_gift_inquiry !== false}
-                          enableMonthlyPartnership={support.enable_monthly_partnership !== false}
-                          enableOneTimeGift={support.enable_one_time_gift !== false}
-                          majorGiftButtonLabel="Contact About Major Gift"
-                          majorGiftPublicDescription={support.major_gift_public_description}
-                          missionaryId={selectedProfile.id}
-                          missionaryName={selectedProfile.display_name}
-                          missionarySlug={selectedProfile.slug}
-                          monthlyButtonLabel="Support Monthly"
-                          monthlyGivingUrl={support.monthly_giving_url}
-                          oneTimeButtonLabel="Give One Time"
-                          oneTimeGivingUrl={support.one_time_giving_url}
-                          showSupport={support.show_support !== false && selectedProfile.show_support !== false}
-                          supportButtonLabel="Support Monthly"
-                          supportExplanation={selectedProfile.support_explanation ?? undefined}
-                          supportMode={supportMode}
-                          supportPublicLabel={selectedProfile.support_public_label || givingRoutingDestination}
-                          supportTargetFund={selectedProfile.support_target_fund}
-                          supportTargetHouseholdName={selectedTargetHousehold?.display_name ?? null}
-                          layout="compact"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {supportSubsection === "share-tools" ? (
-                <SupportShareTools
-                  annualGoal={toNumber(support.annual_goal)}
-                  flyerLink={publicFlyerLink}
-                  missionStatement={supportMissionStatement}
-                  missionaryName={selectedProfile.display_name}
-                  onCopy={copyTextToClipboard}
-                  profileLink={publicProfileLink}
-                  support={support}
-                  supportLink={publicSupportLink}
-                />
-              ) : null}
-
-              {supportSubsection === "flyer-builder" ? (
-                <SupportFlyerBuilder
-                  annualGoal={toNumber(support.annual_goal)}
-                  emailTemplate={supportEmailTemplate}
-                  flyerLink={publicFlyerLink}
-                  missionStatement={supportMissionStatement}
-                  onCopy={copyTextToClipboard}
-                  onSupportFieldChange={updateSupportField}
-                  previewImageUrl={selectedProfile.hero_image_url || selectedProfile.profile_image_url}
-                  support={support}
-                  supportLink={publicSupportLink}
-                />
-              ) : null}
-
-              {supportSubsection === "commitments" ? (
-                <SupportCommitmentsManager
-                  commitments={selectedProfile.supportCommitments ?? []}
-                  majorGiftInquiries={selectedProfile.majorGiftInquiries ?? []}
-                />
-              ) : null}
-
-              {supportSubsection === "settings" ? (
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Giving Routing
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <StatusPill>Giving System: Active</StatusPill>
-                        <StatusPill>Destination: {givingRoutingDestination}</StatusPill>
-                        <StatusPill>Mode: {selectedSupportModeLabel}</StatusPill>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Major Gift Notifications
-                    </p>
-                    <div className="mt-3">
-                      <Field
-                        label="Notify Email"
-                        onChange={(value) => updateSupportField("major_gift_notify_email", value)}
-                        value={support.major_gift_notify_email ?? "ryan@usamissionaries.org"}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Advanced Settings
-                    </p>
-                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                      <SelectField
-                        label="Support Mode"
-                        onChange={(value) => updateSupportMode(value as AdminSupportMode)}
-                        options={supportModeOptions.map((option) => ({ label: option.label, value: option.value }))}
-                        value={supportMode}
-                      />
-
-                      {supportMode === "household_nomination" ? (
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(110px,0.5fr)_minmax(120px,0.55fr)_minmax(110px,0.5fr)_minmax(120px,0.55fr)_minmax(260px,0.95fr)] lg:items-center">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-stone-100">{profileApplicantName(profile)}</p>
+                          <p className="mt-1 truncate text-xs text-stone-500">{profile.display_name}</p>
+                          <p className="mt-1 truncate text-xs text-stone-500">{profileApplicantContact(profile)}</p>
+                        </div>
+                        <DarkDetailText label="Location" value={profileDirectoryLocation(profile)} />
+                        <DarkDetailText label="Submitted" value={formatProfileUpdatedDate(profileAppliedDate(profile))} />
                         <div>
-                          <SelectField
-                            disabled={targetHouseholdSelectDisabled}
-                            label="Target Household"
-                            onChange={(value) => updateHouseholdField("support_target_household_id", value || null)}
-                            options={targetHouseholdOptions}
-                            value={targetHouseholdSelectDisabled ? "" : selectedProfile.support_target_household_id}
-                          />
-                          {targetHouseholdError ? (
-                            <p className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
-                              {targetHouseholdError}
-                            </p>
+                          <ApplicationStatusBadge status={displayStatus} />
+                        </div>
+                        <p className="truncate text-sm text-stone-300">{profileAssignedAdmin(profile)}</p>
+                        <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                          <button
+                            className={darkSecondaryButtonClass}
+                            onClick={() => openProfile(profile.id)}
+                            type="button"
+                          >
+                            Review
+                          </button>
+                          <button
+                            className={darkPrimaryButtonClass}
+                            disabled={!application || applicationActionKey === `${application.id}:approve`}
+                            onClick={() => application ? handleProfileWorkflowAction(profile, "approve") : undefined}
+                            type="button"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className={darkDangerButtonClass}
+                            disabled={!application || applicationActionKey === `${application.id}:reject`}
+                            onClick={() => application ? handleProfileWorkflowAction(profile, "reject") : undefined}
+                            type="button"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {activeDirectorySection === "published" ? (
+          <section className="space-y-3">
+            {publishedProfiles.length === 0 ? (
+              <DirectoryEmptyState title="No approved profiles yet">
+                Approved household or unit profiles will live here.
+              </DirectoryEmptyState>
+            ) : filteredPublishedProfiles.length === 0 ? (
+              <DirectoryEmptyState title="No matching approved profiles">
+                Adjust the search to see approved public profile records.
+              </DirectoryEmptyState>
+            ) : (
+              <div className="space-y-3">
+                <div className="hidden rounded-xl border border-[#222222] bg-[#0f0f0f] px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-stone-500 lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(130px,0.7fr)_minmax(120px,0.65fr)_minmax(100px,0.5fr)_minmax(120px,0.55fr)_minmax(340px,1.1fr)] lg:items-center lg:gap-3" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  <span>Public Name</span>
+                  <span>Slug</span>
+                  <span>Location</span>
+                  <span>Visibility</span>
+                  <span>Last Updated</span>
+                  <span className="text-right">Actions</span>
+                </div>
+                {filteredPublishedProfiles.map((profile) => {
+                  const publicProfileUrl = getPublicMissionaryProfileUrl(profile.slug);
+                  const application = profile.application;
+                  const publishAction = isProfilePublic(profile) ? "hide" : "publish";
+
+                  return (
+                    <article
+                      className="rounded-xl border border-[#222222] bg-[#0f0f0f] p-4 transition-colors hover:border-[#C2A14E]/35"
+                      key={profile.id}
+                    >
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(130px,0.7fr)_minmax(120px,0.65fr)_minmax(100px,0.5fr)_minmax(120px,0.55fr)_minmax(340px,1.1fr)] lg:items-center">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
+                          <p className="mt-1 truncate text-xs text-stone-500">{profileApplicantName(profile)}</p>
+                        </div>
+                        <p className="truncate text-sm text-stone-300">{profile.slug}</p>
+                        <p className="truncate text-sm text-stone-300">{profileDirectoryLocation(profile)}</p>
+                        <div>
+                          <ProfileVisibilityBadge profile={profile} />
+                          <p className="mt-1 text-[11px] text-stone-500">{profileVisibilityStateLabel(profile)}</p>
+                        </div>
+                        <p className="text-sm text-stone-300">{formatProfileUpdatedDate(profile.updated_at)}</p>
+                        <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                          <button className={darkSecondaryButtonClass} onClick={() => openPublishedProfile(profile)} type="button">
+                            Edit Publishing
+                          </button>
+                          <Link className={darkSecondaryButtonClass} href={`/missionaries/${profile.slug}`} target="_blank">
+                            View Public Profile
+                          </Link>
+                          <button className={darkSecondaryButtonClass} onClick={() => copyTextToClipboard(publicProfileUrl, "Public profile link")} type="button">
+                            Copy Link
+                          </button>
+                          {application ? (
+                            <button
+                              className={isProfilePublic(profile) ? darkSecondaryButtonClass : darkPrimaryButtonClass}
+                              disabled={applicationActionKey === `${application.id}:${publishAction}`}
+                              onClick={() => handleProfileWorkflowAction(profile, publishAction)}
+                              type="button"
+                            >
+                              {isProfilePublic(profile) ? "Hide" : "Publish"}
+                            </button>
                           ) : null}
                         </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </SectionIntro>
-          ) : null}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        ) : null}
+      </div>
+    );
+  }
 
-          {activeTab === "prayer" ? (
-          <SectionIntro
-            description="Manage prayer partners, requests, and public prayer visibility."
-            title="Prayer operations"
-            wide
-          >
-            <PrayerPublishingWorkspace
-              onCreatePrayerRequest={savePrayerRequest}
-              onUpdateHouseholdField={updateHouseholdField}
-              onUpdatePrayerPartnerStatus={updatePrayerPartnerStatus}
-              onUpdatePrayerRequest={updatePrayerRequest}
-              profile={selectedProfile}
-              publicProfileLink={publicProfileLink}
-            />
-          </SectionIntro>
-          ) : null}
-        </div>
-      </section>
-      {hasUnsavedChanges ? (
-        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-[720px] flex-col gap-3 rounded-2xl border border-[#D4A63D]/40 bg-[#0f0f0f]/95 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.38)] backdrop-blur md:flex-row md:items-center md:justify-between">
-          <p className="text-sm leading-5 text-stone-200">
-            You have unsaved changes.
+  if (selectedProfileMode === "application-review") {
+    return (
+      <div className="min-w-0 max-w-full space-y-5 overflow-x-hidden">
+        {status ? (
+          <p className={`rounded-xl border p-4 text-sm ${
+            status.tone === "success"
+              ? "border-[#C2A14E]/30 bg-[#C2A14E]/10 text-stone-100"
+              : "border-red-500/30 bg-red-950/20 text-red-200"
+          }`}>
+            {status.text}
           </p>
-          <div className="flex gap-2">
-            <button
-              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md border border-stone-700 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942] md:flex-none"
-              onClick={() => {
-                if (selectedLastSavedProfile) {
-                  updateSelected(selectedLastSavedProfile);
-                }
-              }}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-              type="button"
-            >
-              Discard
-            </button>
-            <button
-              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md bg-[#D4A63D] px-5 py-2 text-[10px] uppercase tracking-[0.2em] text-black transition-all hover:bg-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
-              disabled={saving}
-              onClick={saveSelectedProfile}
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-              type="button"
-            >
-              {saving ? "Saving" : "Save Changes"}
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
+        ) : null}
+        <ApplicationReviewDetail
+          busyKey={applicationActionKey}
+          onAction={handleProfileWorkflowAction}
+          onBack={() => {
+            setSelectedId("");
+            setActiveDirectorySection("applications");
+            resetTransientEditorState();
+          }}
+          profile={selectedProfile}
+        />
+      </div>
+    );
+  }
+
+  if (selectedProfileMode === "publishing") {
+    return (
+      <div className="min-w-0 max-w-full space-y-5 overflow-x-hidden">
+        {status ? (
+          <p className={`rounded-xl border p-4 text-sm ${
+            status.tone === "success"
+              ? "border-[#C2A14E]/30 bg-[#C2A14E]/10 text-stone-100"
+              : "border-red-500/30 bg-red-950/20 text-red-200"
+          }`}>
+            {status.text}
+          </p>
+        ) : null}
+        <PublishingEditor
+          busyKey={applicationActionKey}
+          copyLink={copySelectedProfileLink}
+          hasUnsavedChanges={hasUnsavedChanges}
+          onAction={handleProfileWorkflowAction}
+          onBack={() => {
+            setSelectedId("");
+            setActiveDirectorySection("published");
+            resetTransientEditorState();
+          }}
+          onSave={saveSelectedProfile}
+          onUpdateFeature={updateFeatureField}
+          onUpdateHouseholdField={updateHouseholdField}
+          onUpdatePrimaryState={updatePrimaryState}
+          onUpdateSupportField={updateSupportField}
+          profile={selectedProfile}
+          saving={saving}
+        />
+      </div>
+    );
+  }
+
+
+  return null;
 }

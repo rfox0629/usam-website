@@ -49,7 +49,7 @@ const modalCopy = {
 } as const;
 
 function fieldClassName() {
-  return "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+  return "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
 }
 
 export function AccessCodeModal({
@@ -202,7 +202,7 @@ export function AccessCodeModal({
             <PublicFormShell size="compact" className="max-w-[520px]">
               <button
                 aria-label={`Close ${copy.title}`}
-                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#C2A14E] hover:text-stone-950"
                 onClick={() => setIsOpen(false)}
                 type="button"
               >
@@ -266,7 +266,7 @@ export function AccessCodeModal({
                       <button
                         aria-label={isAccessCodeVisible ? "Hide access code" : "Show access code"}
                         aria-pressed={isAccessCodeVisible}
-                        className="absolute right-2 top-1/2 flex h-9 -translate-y-1/2 items-center justify-center rounded-lg border border-[#D4A63D]/45 bg-[#FFF7DD] px-3 text-[10px] uppercase tracking-[0.14em] text-[#8A6200] transition-colors hover:border-[#D4A63D] hover:bg-[#FFE8A3] hover:text-stone-950 focus:outline-none focus:ring-4 focus:ring-[#D4A63D]/15"
+                        className="absolute right-2 top-1/2 flex h-9 -translate-y-1/2 items-center justify-center rounded-lg border border-[#C2A14E]/45 bg-usam-white px-3 text-[10px] uppercase tracking-[0.14em] text-[#0D0D0D] transition-colors hover:border-[#C2A14E] hover:bg-usam-gold/10 hover:text-stone-950 focus:outline-none focus:ring-4 focus:ring-[#C2A14E]/15"
                         onClick={() => setIsAccessCodeVisible((current) => !current)}
                         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                         type="button"
@@ -291,7 +291,7 @@ export function AccessCodeModal({
               </form>
 
               <button
-                className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-5 text-center text-xs uppercase tracking-[0.18em] text-stone-700 transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-5 text-center text-xs uppercase tracking-[0.18em] text-stone-700 transition-colors hover:border-[#C2A14E] hover:text-stone-950"
                 onClick={handleSecondaryClick}
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 type="button"

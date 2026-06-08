@@ -40,13 +40,13 @@ const publicPages: PublicPageRow[] = [
     url: "/",
   },
   {
-    id: "mission",
+    id: "briefing",
     lastUpdated: "Static",
     manageHref: "/admin/public-experience?tab=forms",
     owner: "Public Site",
-    pageName: "Mission",
+    pageName: "Briefing",
     status: "Live",
-    url: "/mission",
+    url: "/briefing",
   },
   {
     id: "missionaries",
@@ -149,15 +149,6 @@ const publicFormsBase = [
     routesTo: "Support Team",
     status: "Live",
     submissionsHref: "/admin/support-team?type=financial_freedom",
-  },
-  {
-    appearsOn: "/mission",
-    formName: "Field Reports Access",
-    formType: "field_report_access",
-    previewHref: "/mission?previewForm=field_report_access",
-    routesTo: "Support Team",
-    status: "Live",
-    submissionsHref: "/admin/support-team?type=field_report_access",
   },
   {
     appearsOn: "/system",

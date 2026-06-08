@@ -59,10 +59,10 @@ const flowSteps = ["Encounter", "Discipleship", "Growth", "Multiplication"] as c
 function Eyebrow({ children }: { children: ReactNode }) {
   return (
     <p
-      className="inline-flex items-center gap-3 text-[11px] uppercase tracking-[0.3em] text-amber-400/85"
+      className="inline-flex items-center gap-3 text-[11px] uppercase tracking-[0.3em] text-usam-gold/85"
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_18px_rgba(245,185,66,0.45)]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-usam-gold shadow-[0_0_18px_rgba(194,161,78,0.45)]" />
       {children}
     </p>
   );
@@ -101,7 +101,7 @@ function PhoneFrame({
   return (
     <div className="mx-auto flex justify-center [perspective:1400px]">
       <div
-        className={`relative h-[610px] w-[300px] rounded-[2.7rem] bg-[#191919] p-2 shadow-[0_40px_90px_rgba(0,0,0,0.7),0_0_90px_rgba(217,122,26,0.1)] ring-1 ring-white/10 sm:h-[675px] sm:w-[332px] ${
+        className={`relative h-[610px] w-[300px] rounded-[2.7rem] bg-[#191919] p-2 shadow-[0_40px_90px_rgba(0,0,0,0.7),0_0_90px_rgba(194,161,78,0.1)] ring-1 ring-white/10 sm:h-[675px] sm:w-[332px] ${
           tilt === "left" ? "-rotate-2 lg:[transform:rotateY(-8deg)_rotateX(4deg)_rotateZ(-2deg)]" : "rotate-2 lg:[transform:rotateY(8deg)_rotateX(3deg)_rotateZ(2deg)]"
         }`}
       >
@@ -191,7 +191,7 @@ function HomePhoneScreen() {
             <span>2 tables ready to schedule</span>
             <span className="text-stone-400">Go</span>
           </div>
-          <div className="flex items-center justify-between rounded-xl bg-amber-100 px-3 py-2 text-xs font-bold text-amber-900">
+          <div className="flex items-center justify-between rounded-xl bg-usam-gold/20 px-3 py-2 text-xs font-bold text-usam-black">
             <span>3 tables need follow-up</span>
             <span>Now</span>
           </div>
@@ -244,12 +244,12 @@ function PeoplePhoneScreen() {
               <p className="truncate text-[10px] text-stone-500">{step}</p>
             </div>
             <span
-              className={`rounded-md px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${
+              className={`rounded-md border px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${
                 status === "Active"
-                  ? "bg-amber-100 text-amber-900"
+                  ? "border-[rgba(15,157,118,0.24)] bg-[rgba(15,157,118,0.16)] text-usam-success"
                   : status === "New"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-green-100 text-green-800"
+                    ? "border-[rgba(194,161,78,0.24)] bg-[rgba(194,161,78,0.16)] text-usam-gold"
+                    : "border-[rgba(15,157,118,0.24)] bg-[rgba(15,157,118,0.16)] text-usam-success"
               }`}
             >
               {status}
@@ -294,21 +294,28 @@ export default async function SystemPreviewPage({
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#050505] text-stone-100">
+    <main className="min-h-screen overflow-hidden bg-[#0D0D0D] text-stone-100">
       <PrimaryNav active="dos" />
 
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:70px_70px]" />
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(245,158,11,0.08),transparent_24%),radial-gradient(circle_at_84%_22%,rgba(217,122,26,0.05),transparent_22%),linear-gradient(180deg,rgba(5,5,5,0),#050505_90%)]" />
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[length:70px_70px]" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(194,161,78,0.1),transparent_24%),radial-gradient(circle_at_84%_22%,rgba(194,161,78,0.06),transparent_22%),linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,0.72)_90%)]" />
 
       <section className="relative px-4 pb-20 pt-24 sm:px-6 md:pb-24 md:pt-32">
         <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div className="max-w-3xl">
+          <div className="min-w-0 max-w-[720px]">
             <Eyebrow>Disciple Operating System</Eyebrow>
             <h1
-              className="mt-7 text-[clamp(3.3rem,12vw,7.2rem)] font-bold uppercase leading-[0.88] tracking-tight text-stone-100"
+              className="mt-7 max-w-[720px] break-words text-[clamp(2.15rem,10vw,2.55rem)] font-bold uppercase leading-[0.94] tracking-tight text-stone-100 sm:text-[clamp(2.75rem,7vw,5rem)] sm:leading-[0.92]"
               style={{ fontFamily: font.oswald }}
             >
-              The Mission Field Is Where You Already Are
+              <span className="sm:hidden">
+                The Mission Field
+                <br />
+                Is Where You
+                <br />
+                Already Are
+              </span>
+              <span className="hidden sm:inline">The Mission Field Is Where You Already Are</span>
             </h1>
             <p className="mt-7 max-w-2xl text-lg leading-8 text-stone-300 md:text-xl">
               DOS helps missionaries, leaders, and disciple makers track people, tables, follow up, prayer, and multiplication so no one reached is left without someone walking with them.
@@ -341,15 +348,15 @@ export default async function SystemPreviewPage({
 
           <div className="mt-10 grid gap-3 md:grid-cols-4">
             {flowSteps.map((step, index) => (
-              <div className="relative border border-stone-800/75 bg-stone-950/60 p-5" key={step}>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-amber-400/75" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <div className="relative border border-stone-800/75 bg-black/55 p-5 shadow-[0_18px_44px_rgba(0,0,0,0.34)]" key={step}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-usam-gold/75" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   0{index + 1}
                 </p>
                 <h3 className="mt-5 text-2xl uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
                   {step}
                 </h3>
                 <div className="mt-5 h-px bg-stone-800">
-                  <div className="h-px w-12 bg-amber-400" />
+                  <div className="h-px w-12 bg-usam-gold" />
                 </div>
               </div>
             ))}
@@ -360,16 +367,16 @@ export default async function SystemPreviewPage({
       <section className="relative border-t border-stone-900/80 px-4 py-16 sm:px-6 md:py-24">
         <div className="mx-auto max-w-7xl">
           <SectionHeading eyebrow="Field Records" title="What DOS Helps You Track" />
-          <div className="mt-10 grid gap-px border border-stone-800/80 bg-stone-800/60 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-px border border-stone-800/80 bg-black/60 md:grid-cols-2 lg:grid-cols-4">
             {trackingCards.map((card, index) => (
-              <article className="bg-[#060606] p-6 transition-colors hover:bg-stone-950/80" key={card.title}>
+              <article className="bg-black/70 p-6 transition-colors hover:bg-black/85" key={card.title}>
                 <p className="text-[10px] uppercase tracking-[0.22em] text-stone-600" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   / 0{index + 1}
                 </p>
                 <h3 className="mt-12 text-3xl uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
                   {card.title}
                 </h3>
-                <p className="mt-4 text-sm leading-7 text-stone-400">{card.body}</p>
+                <p className="mt-4 text-sm leading-7 text-stone-300">{card.body}</p>
               </article>
             ))}
           </div>
@@ -392,7 +399,7 @@ export default async function SystemPreviewPage({
             <div className="mt-8 divide-y divide-stone-900 border-y border-stone-900">
               {fieldRows.map((row, index) => (
                 <div className="flex items-center gap-4 py-4" key={row}>
-                  <span className="text-[11px] uppercase tracking-[0.2em] text-amber-400/80" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-usam-gold/80" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   <p className="text-lg uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
@@ -413,9 +420,9 @@ export default async function SystemPreviewPage({
             </p>
           </SectionHeading>
 
-          <div className="mt-10 grid gap-px border border-stone-800/75 bg-stone-800/60 md:grid-cols-3">
+          <div className="mt-10 grid gap-px border border-stone-800/75 bg-black/60 md:grid-cols-3">
             {leaderStats.map((stat) => (
-              <div className="bg-[#070707] p-6" key={stat.label}>
+              <div className="bg-black/70 p-6" key={stat.label}>
                 <p className="text-5xl font-black leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
                   {stat.value}
                 </p>
@@ -430,14 +437,14 @@ export default async function SystemPreviewPage({
 
       <section className="relative border-t border-stone-900/80 px-4 py-20 text-center sm:px-6 md:py-28">
         <div className="mx-auto max-w-5xl">
-          <div className="mx-auto mb-9 h-16 w-px bg-gradient-to-b from-transparent to-amber-400" />
+          <div className="mx-auto mb-9 h-16 w-px bg-gradient-to-b from-transparent to-usam-gold" />
           <h2
             className="text-[clamp(2.7rem,9vw,6.6rem)] font-bold uppercase leading-[0.9] tracking-tight text-stone-100"
             style={{ fontFamily: font.oswald }}
           >
             This Is Not A Program.
             <br />
-            <span className="text-amber-400">This Is A Movement.</span>
+            <span className="text-usam-gold">This Is A Movement.</span>
           </h2>
           <p className="mx-auto mt-7 max-w-2xl text-lg leading-8 text-stone-300">
             DOS is not replacing ministry. It is helping ministry endure. What you start, we help carry forward.

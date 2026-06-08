@@ -103,7 +103,7 @@ export function TestimonyForm({ link }: { link: ReadyLink }) {
             <input className={fieldClass()} name="next_step" placeholder="Optional" />
           </label>
           <label className="flex items-start gap-3 rounded-[20px] border border-[#E2DED6] bg-white p-3">
-            <input checked={permissionToShare} className="mt-1 h-4 w-4 accent-[#D4A63D]" onChange={(event) => setPermissionToShare(event.target.checked)} type="checkbox" />
+            <input checked={permissionToShare} className="mt-1 h-4 w-4 accent-[#C2A14E]" onChange={(event) => setPermissionToShare(event.target.checked)} type="checkbox" />
             <span>
               <span className="block text-sm font-semibold text-[#1E1D1A]">May we share this story publicly?</span>
               <span className="mt-1 block text-xs leading-5 text-[#77716A]">Your story will not be shared publicly unless you give permission and our team approves it.</span>

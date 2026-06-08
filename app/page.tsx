@@ -30,8 +30,8 @@ function CTAButton({
   onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   const cls = variant === "primary"
-    ? "bg-stone-100 text-stone-950 hover:bg-amber-200"
-    : "border border-stone-600 text-stone-400 hover:border-stone-400 hover:text-stone-200";
+    ? "border border-usam-gold bg-usam-gold text-usam-black hover:bg-usam-gold/90"
+    : "border border-usam-gold/65 bg-transparent text-usam-white hover:border-usam-gold hover:bg-usam-gold/12";
   const className = `inline-block px-7 py-3 text-sm tracking-[0.2em] uppercase transition-all duration-300 cursor-pointer ${cls}`;
   const style = { fontFamily: font.rajdhani, fontWeight: 600 } as const;
 
@@ -93,30 +93,30 @@ function WorldMap() {
     <svg viewBox="0 0 1200 600" className="w-full h-full" style={{ opacity: 0.12 }}>
       <defs>
         <radialGradient id="ug" cx="28%" cy="42%" r="25%">
-          <stop offset="0%" stopColor="#d4a054" stopOpacity={0.6} />
-          <stop offset="100%" stopColor="#d4a054" stopOpacity={0} />
+          <stop offset="0%" stopColor="#C2A14E" stopOpacity={0.6} />
+          <stop offset="100%" stopColor="#C2A14E" stopOpacity={0} />
         </radialGradient>
       </defs>
-      <path d="M160,120 Q200,90 280,95 Q340,100 370,140 Q380,170 360,200 Q340,230 310,250 Q290,260 270,280 Q250,290 220,285 Q200,290 180,310 Q160,290 140,260 Q130,230 135,200 Q140,170 155,140Z" fill="none" stroke="#3a3a3a" strokeWidth="0.8"/>
-      <path d="M270,320 Q300,310 320,340 Q330,370 325,400 Q320,430 310,460 Q295,490 280,510 Q265,490 260,460 Q250,430 252,400 Q255,370 260,340Z" fill="none" stroke="#3a3a3a" strokeWidth="0.8"/>
-      <path d="M520,110 Q560,95 600,100 Q630,110 640,130 Q635,150 620,160 Q600,170 580,165 Q560,170 540,160 Q520,145 518,125Z" fill="none" stroke="#3a3a3a" strokeWidth="0.8"/>
-      <path d="M560,200 Q590,190 620,200 Q640,220 650,260 Q655,310 645,360 Q630,400 610,420 Q590,430 570,420 Q550,400 540,360 Q535,310 538,260 Q542,230 550,210Z" fill="none" stroke="#3a3a3a" strokeWidth="0.8"/>
-      <path d="M660,100 Q720,80 800,85 Q880,90 940,110 Q980,130 1000,160 Q1010,190 990,210 Q960,230 920,240 Q880,245 840,235 Q800,225 760,210 Q720,195 690,170 Q665,150 658,125Z" fill="none" stroke="#3a3a3a" strokeWidth="0.8"/>
-      <path d="M900,380 Q940,370 970,385 Q990,400 985,425 Q975,445 950,450 Q925,448 910,435 Q895,415 898,395Z" fill="none" stroke="#3a3a3a" strokeWidth="0.8"/>
+      <path d="M160,120 Q200,90 280,95 Q340,100 370,140 Q380,170 360,200 Q340,230 310,250 Q290,260 270,280 Q250,290 220,285 Q200,290 180,310 Q160,290 140,260 Q130,230 135,200 Q140,170 155,140Z" fill="none" stroke="#C2A14E" strokeOpacity={0.22} strokeWidth="0.8"/>
+      <path d="M270,320 Q300,310 320,340 Q330,370 325,400 Q320,430 310,460 Q295,490 280,510 Q265,490 260,460 Q250,430 252,400 Q255,370 260,340Z" fill="none" stroke="#C2A14E" strokeOpacity={0.22} strokeWidth="0.8"/>
+      <path d="M520,110 Q560,95 600,100 Q630,110 640,130 Q635,150 620,160 Q600,170 580,165 Q560,170 540,160 Q520,145 518,125Z" fill="none" stroke="#C2A14E" strokeOpacity={0.22} strokeWidth="0.8"/>
+      <path d="M560,200 Q590,190 620,200 Q640,220 650,260 Q655,310 645,360 Q630,400 610,420 Q590,430 570,420 Q550,400 540,360 Q535,310 538,260 Q542,230 550,210Z" fill="none" stroke="#C2A14E" strokeOpacity={0.22} strokeWidth="0.8"/>
+      <path d="M660,100 Q720,80 800,85 Q880,90 940,110 Q980,130 1000,160 Q1010,190 990,210 Q960,230 920,240 Q880,245 840,235 Q800,225 760,210 Q720,195 690,170 Q665,150 658,125Z" fill="none" stroke="#C2A14E" strokeOpacity={0.22} strokeWidth="0.8"/>
+      <path d="M900,380 Q940,370 970,385 Q990,400 985,425 Q975,445 950,450 Q925,448 910,435 Q895,415 898,395Z" fill="none" stroke="#C2A14E" strokeOpacity={0.22} strokeWidth="0.8"/>
       <circle cx={280} cy={190} r={160} fill="url(#ug)"/>
       {nodes.map(([x, y], i) => (
         <g key={i}>
-          <circle cx={x} cy={y} r={2.5} fill="#d4a054" opacity={0.7}>
+          <circle cx={x} cy={y} r={2.5} fill="#C2A14E" opacity={0.7}>
             <animate attributeName="opacity" values="0.4;0.9;0.4" dur={`${2.5+i*0.3}s`} repeatCount="indefinite"/>
           </circle>
-          <circle cx={x} cy={y} r={8} fill="none" stroke="#d4a054" strokeWidth={0.4} opacity={0.3}>
+          <circle cx={x} cy={y} r={8} fill="none" stroke="#C2A14E" strokeWidth={0.4} opacity={0.3}>
             <animate attributeName="r" values="6;16;6" dur={`${3+i*0.4}s`} repeatCount="indefinite"/>
             <animate attributeName="opacity" values="0.3;0;0.3" dur={`${3+i*0.4}s`} repeatCount="indefinite"/>
           </circle>
         </g>
       ))}
       {routes.map(([x1,y1,x2,y2], i) => (
-        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#d4a054" strokeWidth={0.4} opacity={0.15} strokeDasharray="4,6">
+        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C2A14E" strokeWidth={0.4} opacity={0.15} strokeDasharray="4,6">
           <animate attributeName="strokeDashoffset" from="0" to="-20" dur="3s" repeatCount="indefinite"/>
         </line>
       ))}
@@ -125,7 +125,7 @@ function WorldMap() {
 }
 
 function ExpansionMap() {
-  const gold = "#C9A24A";
+  const gold = "#C2A14E";
   const tableCenter = { x: 480, y: 246 };
   const seats = Array.from({ length: 8 }).map((_, i) => {
     const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
@@ -197,7 +197,7 @@ function ExpansionMap() {
           </ellipse>
         ))}
 
-        <rect x={360} y={134} width={240} height={220} rx={14} fill="#050505" stroke={gold} strokeOpacity={0.28} strokeWidth={1.05} filter="url(#cardGlow)" />
+        <rect x={360} y={134} width={240} height={220} rx={14} fill="#0D0D0D" stroke={gold} strokeOpacity={0.28} strokeWidth={1.05} filter="url(#cardGlow)" />
         <rect x={370} y={144} width={220} height={200} rx={10} fill="none" stroke={gold} strokeWidth={0.55} strokeOpacity={0.14} />
 
         <line x1={430} y1={100} x2={530} y2={100} stroke="#f5f5f4" strokeOpacity={0.95} strokeWidth={10} strokeLinecap="round" />
@@ -307,14 +307,14 @@ function GlobalUrgencySection() {
   function IntelligenceIcon({ icon }: { icon: IntelligenceIcon }) {
     const common = {
       fill: "none",
-      stroke: "#C9A24A",
+      stroke: "#C2A14E",
       strokeLinecap: "round" as const,
       strokeLinejoin: "round" as const,
       strokeWidth: 1.7,
     };
 
     return (
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#C9A24A]/35 bg-[#C9A24A]/5 shadow-[0_0_20px_rgba(201,162,74,0.08)]">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#C2A14E]/35 bg-[#C2A14E]/5 shadow-[0_0_20px_rgba(194,161,78,0.08)]">
         <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
           {icon === "cross" ? (
             <>
@@ -408,7 +408,7 @@ function GlobalUrgencySection() {
           </div>
         </div>
         {source ? (
-          <p className="mt-4 text-[10px] font-semibold uppercase leading-tight tracking-[0.18em] text-[#C9A24A]" style={{ fontFamily: font.rajdhani }}>
+          <p className="mt-4 text-[10px] font-semibold uppercase leading-tight tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
             {source}
           </p>
         ) : null}
@@ -428,7 +428,7 @@ function GlobalUrgencySection() {
     return (
       <div className="mx-auto max-w-3xl text-center">
         {eyebrow ? (
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C9A24A]" style={{ fontFamily: font.rajdhani }}>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
             {eyebrow}
           </p>
         ) : null}
@@ -468,8 +468,8 @@ function GlobalUrgencySection() {
   }
 
   return (
-    <section className="relative overflow-hidden border-y border-stone-900 bg-[#030303] px-5 py-9 md:px-6 md:py-12">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),transparent_18%,transparent_82%,rgba(255,255,255,0.025)),radial-gradient(circle_at_50%_0%,rgba(201,162,74,0.055),transparent_26%),linear-gradient(135deg,#050505,#0d0d0d_48%,#040404)]" />
+    <section className="relative overflow-hidden border-y border-stone-900 bg-[#0D0D0D] px-5 py-9 md:px-6 md:py-12">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),transparent_18%,transparent_82%,rgba(255,255,255,0.025)),radial-gradient(circle_at_50%_0%,rgba(194,161,78,0.055),transparent_26%),linear-gradient(135deg,#0D0D0D,#0d0d0d_48%,#0D0D0D)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-stone-700/35" />
       <div className="relative mx-auto max-w-6xl">
         <IntelligenceBlock
@@ -547,11 +547,11 @@ function DOSPanel() {
     { op: "OPR-0089", city: "Nashville, TN", status: "Active", tables: 4 },
   ];
   return (
-    <div className="relative border border-stone-800/60 rounded-sm overflow-hidden" style={{background:"rgba(5,5,5,0.8)"}}>
+    <div className="relative border border-stone-800/60 rounded-sm overflow-hidden" style={{background:"rgba(13,13,13,0.8)"}}>
       <div className="absolute inset-0 pointer-events-none" style={{background:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.01) 2px,rgba(255,255,255,0.01) 4px)"}}/>
       <div className="border-b border-stone-800/60 px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500/70 animate-pulse"/>
+          <div className="h-2 w-2 animate-pulse rounded-full bg-usam-success shadow-[0_0_14px_rgba(15,157,118,0.38)]"/>
           <span className="tactical-label" style={{fontFamily:font.rajdhani}}>SYSTEM // OPERATOR DASHBOARD</span>
         </div>
         <span className="text-xs text-stone-600" style={{fontFamily:font.rajdhani}}>v0.1.0-alpha</span>
@@ -571,7 +571,16 @@ function DOSPanel() {
                 <td className="px-5 py-3 text-stone-300 font-mono text-xs">{r.op}</td>
                 <td className="px-5 py-3 text-stone-400 text-xs">{r.city}</td>
                 <td className="px-5 py-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-sm ${r.status==="Active"?"bg-green-900/30 text-green-400/80":"bg-amber-900/30 text-amber-400/80"}`} style={{fontFamily:font.rajdhani}}>{r.status}</span>
+                  <span
+                    className={`inline-flex rounded-sm border px-2 py-1 text-xs ${
+                      r.status === "Active"
+                        ? "border-[rgba(15,157,118,0.24)] bg-[rgba(15,157,118,0.16)] text-usam-success"
+                        : "border-[rgba(194,161,78,0.24)] bg-[rgba(194,161,78,0.16)] text-usam-gold"
+                    }`}
+                    style={{fontFamily:font.rajdhani}}
+                  >
+                    {r.status}
+                  </span>
                 </td>
                 <td className="px-5 py-3 text-stone-400 font-mono text-xs">{r.tables}</td>
               </tr>
@@ -628,13 +637,13 @@ export default function Home() {
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0" style={{transform:`translateY(${scrollY*0.15}px)`}}><WorldMap/></div>
         <div className="absolute inset-0 pointer-events-none" style={{backgroundImage:"linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px)",backgroundSize:"80px 80px"}}/>
-        <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at 35% 45%,rgba(212,160,84,0.04) 0%,transparent 60%)"}}/>
-        <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center,transparent 40%,#050505 100%)"}}/>
-        <div className="absolute inset-0 pointer-events-none" style={{background:"radial-gradient(ellipse at center,rgba(5,5,5,0.66) 0%,rgba(5,5,5,0.48) 24%,rgba(5,5,5,0.14) 52%,transparent 72%)"}}/>
+        <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at 35% 45%,rgba(194,161,78,0.04) 0%,transparent 60%)"}}/>
+        <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center,transparent 40%,#0D0D0D 100%)"}}/>
+        <div className="absolute inset-0 pointer-events-none" style={{background:"radial-gradient(ellipse at center,rgba(13,13,13,0.66) 0%,rgba(13,13,13,0.48) 24%,rgba(13,13,13,0.14) 52%,transparent 72%)"}}/>
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
           <Reveal>
             <div className="flex items-center justify-center gap-3 mb-9">
-              <div className="w-9 h-[1.5px] bg-amber-500/45"/><span className="tactical-label uppercase" style={{fontFamily:font.rajdhani}}>ACTIVE DEPLOYMENT</span><div className="w-9 h-[1.5px] bg-amber-500/45"/>
+              <div className="w-9 h-[1.5px] bg-usam-gold/45"/><span className="tactical-label uppercase" style={{fontFamily:font.rajdhani}}>ACTIVE DEPLOYMENT</span><div className="w-9 h-[1.5px] bg-usam-gold/45"/>
             </div>
           </Reveal>
           <Reveal delay={150}>
@@ -661,7 +670,7 @@ export default function Home() {
             </div>
           </Reveal>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 h-32" style={{background:"linear-gradient(transparent,#050505)"}}/>
+        <div className="absolute bottom-0 left-0 right-0 h-32" style={{background:"linear-gradient(transparent,#0D0D0D)"}}/>
       </section>
 
       <GlobalUrgencySection />
@@ -684,13 +693,13 @@ export default function Home() {
       </section>
 
       {/* EXPANSION MAP */}
-      <section className="py-20 md:py-32 px-6" style={{background:"#080808"}}>
+      <section className="py-20 md:py-32 px-6" style={{background:"#0D0D0D"}}>
         <div className="max-w-6xl mx-auto">
           <Reveal><SectionHeading overline="STRATEGIC EXPANSION" headline="FROM HERE TO THE NATIONS"><p>It starts here.<br/>But it does not end here.</p></SectionHeading></Reveal>
           <Reveal delay={150}>
             <div className="mt-7 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <span className="animate-pulse text-[11px] text-[#C9A24A] shadow-[0_0_10px_rgba(201,162,74,0.55)]" aria-hidden="true">
+                <span className="animate-pulse text-[11px] text-[#C2A14E] shadow-[0_0_10px_rgba(194,161,78,0.55)]" aria-hidden="true">
                   ●
                 </span>
                 <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
@@ -701,7 +710,7 @@ export default function Home() {
                 <span className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
                   STATUS:
                 </span>
-                <span className="rounded-sm bg-green-900/30 px-2 py-0.5 text-[11px] text-green-400/80" style={{ fontFamily: font.rajdhani, fontWeight: 500 }}>
+                <span className="inline-flex rounded-sm border border-[rgba(15,157,118,0.24)] bg-[rgba(15,157,118,0.16)] px-2 py-1 text-[11px] text-usam-success" style={{ fontFamily: font.rajdhani, fontWeight: 500 }}>
                   ACTIVE
                 </span>
               </div>
@@ -728,8 +737,8 @@ export default function Home() {
           <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-px bg-stone-800/30">
             {[{n:"01",t:"MEET",d:"Enter the space. Identify the person of peace. Begin where they are."},{n:"02",t:"MINISTER",d:"Share the gospel with clarity. Serve with presence. Speak truth."},{n:"03",t:"MULTIPLY",d:"Train others to do the same. Launch tables. Repeat the cycle."}].map((c,i)=>(
               <Reveal key={i} delay={i*150}>
-                <div className="p-8 md:p-10 h-full" style={{background:"#0a0a0a"}}>
-                  <span className="tactical-amber-label text-xs tracking-[0.26em] block mb-4" style={{fontFamily:font.rajdhani}}>{c.n}</span>
+                <div className="p-8 md:p-10 h-full" style={{background:"#0D0D0D"}}>
+                  <span className="tactical-gold-label text-xs tracking-[0.26em] block mb-4" style={{fontFamily:font.rajdhani}}>{c.n}</span>
                   <h3 className="text-2xl font-bold text-stone-100 mb-4 tracking-wide" style={{fontFamily:font.oswald}}>{c.t}</h3>
                   <p className="text-stone-500 text-sm leading-relaxed">{c.d}</p>
                 </div>
@@ -741,7 +750,7 @@ export default function Home() {
       </section>
 
       {/* DOS */}
-      <section className="py-28 md:py-40 px-6" style={{background:"#080808"}}>
+      <section className="py-28 md:py-40 px-6" style={{background:"#0D0D0D"}}>
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
@@ -755,7 +764,7 @@ export default function Home() {
 
       {/* FINAL CTA */}
       <section className="py-32 md:py-48 px-6 relative">
-        <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center top,rgba(212,160,84,0.03) 0%,transparent 50%)"}}/>
+        <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center top,rgba(194,161,78,0.03) 0%,transparent 50%)"}}/>
         <div className="relative z-10 max-w-3xl mx-auto text-center">
           <Reveal><div className="w-12 h-px bg-stone-700 mx-auto"/></Reveal>
           <Reveal delay={100}><h2 className="mt-12 text-5xl md:text-7xl font-bold text-stone-100 tracking-tight" style={{fontFamily:font.oswald}}>YOU WERE SENT</h2></Reveal>

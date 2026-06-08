@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from "react";
 import {
@@ -62,6 +62,48 @@ const mobileTabs: ReadonlyArray<{ icon: IconName; label: string; value: ActiveTa
   { icon: "apps", label: "Apps", value: "more" },
 ];
 
+const usamWalkthroughDismissedStorageKey = "dos-usam-first-launch-walkthrough-dismissed";
+const usamFirstLaunchWalkthroughSteps: ReadonlyArray<{
+  body: string;
+  icon: IconName;
+  title: string;
+}> = [
+  {
+    body: "DOS keeps your next faithful relationship step close at hand.",
+    icon: "home",
+    title: "Welcome to DOS",
+  },
+  {
+    body: "Your field is the people God has trusted you to know, pray for, and disciple.",
+    icon: "people",
+    title: "This is your field",
+  },
+  {
+    body: "Start with one name. Add the people you are already walking with.",
+    icon: "add",
+    title: "Add your first person",
+  },
+  {
+    body: "Begin with your first three focus relationships, then build from there.",
+    icon: "people",
+    title: "Add 3 people",
+  },
+  {
+    body: "Use the circle target to see your My 3, My 12, My 70, and broader field.",
+    icon: "apps",
+    title: "View your circle",
+  },
+  {
+    body: "Schedule the next table conversation before momentum gets lost.",
+    icon: "calendar",
+    title: "Schedule your first table meeting",
+  },
+  {
+    body: "After a conversation, log what happened and choose the next follow up.",
+    icon: "log",
+    title: "Log your first interaction",
+  },
+];
 
 type DesktopNavItem =
   | { icon: IconName; label: string; type: "moreApp"; value: MoreAppView }
@@ -7244,7 +7286,7 @@ function MeetingPeopleSelector({
         <input
           className="min-h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F1F5F9] pl-9 pr-4 text-sm text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search people in your field"
+          placeholder="Search your field"
           type="search"
           value={query}
         />
@@ -10661,7 +10703,7 @@ function CirclesDetailOverlay({
         <p className="text-sm font-bold text-[#0F172A]">
           Your Circles
         </p>
-        <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white" onClick={onSearch} type="button" aria-label="Search people">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white" onClick={onSearch} type="button" aria-label="Search field">
           <Search className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
         </button>
       </header>
@@ -11983,6 +12025,7 @@ function MeetingDetailOverlay({
 
 export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const appScrollRef = useRef<HTMLDivElement | null>(null);
   const isPreview = data.workspace.isPreview === true;
@@ -12009,6 +12052,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [prayerResourceFallbackUrl, setPrayerResourceFallbackUrl] = useState("");
   const [, setSavedPrayerResourceKeys] = useState<string[]>([]);
   const [answeredPrayerByReminderId, setAnsweredPrayerByReminderId] = useState<Record<string, string>>({});
+  const [isFirstLaunchWalkthroughOpen, setIsFirstLaunchWalkthroughOpen] = useState(false);
+  const [firstLaunchWalkthroughStep, setFirstLaunchWalkthroughStep] = useState(0);
   const [circleSheetView, setCircleSheetView] = useState<CircleFocusView | null>(null);
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -12456,10 +12501,39 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (searchParams.get("walkthrough") !== "usam") {
+      return;
+    }
+
+    if (window.localStorage.getItem(usamWalkthroughDismissedStorageKey) === "true") {
+      return;
+    }
+
+    setFirstLaunchWalkthroughStep(0);
+    setIsFirstLaunchWalkthroughOpen(true);
+  }, [searchParams]);
 
   useEffect(() => {
     setIsMobileActionSheetOpen(false);
-  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
+  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
+
+  function closeFirstLaunchWalkthrough() {
+    window.localStorage.setItem(usamWalkthroughDismissedStorageKey, "true");
+    setIsFirstLaunchWalkthroughOpen(false);
+    setFirstLaunchWalkthroughStep(0);
+  }
+
+  function advanceFirstLaunchWalkthrough() {
+    const isLastStep = firstLaunchWalkthroughStep >= usamFirstLaunchWalkthroughSteps.length - 1;
+
+    if (isLastStep) {
+      closeFirstLaunchWalkthrough();
+      return;
+    }
+
+    setFirstLaunchWalkthroughStep((current) => Math.min(current + 1, usamFirstLaunchWalkthroughSteps.length - 1));
+  }
 
   function resetMeetingDraft(personIds: string[] = []) {
     setConversationResponses({});
@@ -13990,6 +14064,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
+    && !isFirstLaunchWalkthroughOpen
     && !isPeopleImportOpen
     && !isPrayerResourceLibraryOpen
     && !isResourcePickerOpen
@@ -14004,6 +14079,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedPrayerResourceSlug
     && !selectedReminderId
     && !selectedScripture;
+  const activeWalkthroughStep = usamFirstLaunchWalkthroughSteps[firstLaunchWalkthroughStep] ?? usamFirstLaunchWalkthroughSteps[0];
+  const isLastWalkthroughStep = firstLaunchWalkthroughStep >= usamFirstLaunchWalkthroughSteps.length - 1;
 
   return (
     <div className={dosRootShellClassName}>
@@ -15011,6 +15088,49 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
       </div>
+
+      {isFirstLaunchWalkthroughOpen ? (
+        <Sheet onClose={closeFirstLaunchWalkthrough} showEyebrow={false} title={activeWalkthroughStep.title}>
+          <div className="space-y-5">
+            <div className="rounded-[26px] border border-[#EAF2FF] bg-[#F8FBFF] p-5">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
+                <Icon name={activeWalkthroughStep.icon} size={22} />
+              </span>
+              <p className="mt-5 text-base leading-7 text-[#475569]">{activeWalkthroughStep.body}</p>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex gap-1.5" aria-label={`Step ${firstLaunchWalkthroughStep + 1} of ${usamFirstLaunchWalkthroughSteps.length}`}>
+                {usamFirstLaunchWalkthroughSteps.map((step, index) => (
+                  <span
+                    aria-hidden="true"
+                    className={`h-2 rounded-full transition-all ${index === firstLaunchWalkthroughStep ? "w-6 bg-[#2563EB]" : "w-2 bg-[#DCEBFF]"}`}
+                    key={step.title}
+                  />
+                ))}
+              </div>
+              <span className="text-xs font-semibold text-[#64748B]">
+                {firstLaunchWalkthroughStep + 1}/{usamFirstLaunchWalkthroughSteps.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-[0.75fr_1fr] gap-2">
+              <button
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A]"
+                onClick={closeFirstLaunchWalkthrough}
+                type="button"
+              >
+                Skip
+              </button>
+              <button
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_14px_28px_rgba(37,99,235,0.22)]"
+                onClick={advanceFirstLaunchWalkthrough}
+                type="button"
+              >
+                {isLastWalkthroughStep ? "Begin" : "Next"}
+              </button>
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
 
       {isUpcomingSheetOpen ? (
         <Sheet onClose={() => setIsUpcomingSheetOpen(false)} showEyebrow={false} title="Upcoming">

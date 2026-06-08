@@ -39,7 +39,7 @@ const cards = [
 
 function BriefingLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] uppercase tracking-[0.32em] text-amber-500/80" style={{ fontFamily: font.rajdhani }}>
+    <p className="text-[11px] uppercase tracking-[0.32em] text-usam-gold/80" style={{ fontFamily: font.rajdhani }}>
       {children}
     </p>
   );
@@ -49,21 +49,21 @@ function DashboardPanel() {
   return (
     <div
       id="system-preview"
-      className="relative max-w-full overflow-hidden border border-stone-800/80 bg-[#060606]/95 shadow-[0_0_36px_rgba(0,0,0,0.45)]"
+      className="relative max-w-full overflow-hidden border border-stone-800/80 bg-black/80 shadow-[0_24px_70px_rgba(0,0,0,0.58)]"
     >
-      <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.018),rgba(255,255,255,0.018)_1px,transparent_1px,transparent_5px)]" />
+      <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.012),rgba(255,255,255,0.012)_1px,transparent_1px,transparent_5px)]" />
       <div className="relative border-b border-stone-800/70 px-4 py-4 md:px-5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_14px_rgba(34,197,94,0.35)]" />
+            <span className="h-2 w-2 rounded-full bg-usam-success shadow-[0_0_14px_rgba(15,157,118,0.35)]" />
             <span
-              className="truncate text-[10px] uppercase tracking-[0.26em] text-stone-400"
+              className="truncate text-[10px] uppercase tracking-[0.26em] text-stone-300"
               style={{ fontFamily: font.rajdhani }}
             >
               System // Operator Dashboard
             </span>
           </div>
-          <span className="hidden text-[10px] text-stone-700 sm:inline">v0.1.0-alpha</span>
+          <span className="hidden text-[10px] text-stone-500 sm:inline">v0.1.0-alpha</span>
         </div>
       </div>
 
@@ -74,7 +74,7 @@ function DashboardPanel() {
               {["Command Post", "City", "Status", "Tables"].map((heading) => (
                 <th
                   key={heading}
-                  className="px-4 py-4 text-[10px] font-normal uppercase tracking-[0.28em] text-stone-700 md:px-5"
+                  className="px-4 py-4 text-[10px] font-normal uppercase tracking-[0.28em] text-stone-500 md:px-5"
                   style={{ fontFamily: font.rajdhani }}
                 >
                   {heading}
@@ -88,20 +88,20 @@ function DashboardPanel() {
                 <td className="px-4 py-4 text-xs text-stone-300 md:px-5" style={{ fontFamily: font.rajdhani }}>
                   {row.post}
                 </td>
-                <td className="px-4 py-4 text-sm text-stone-400 md:px-5">{row.city}</td>
+                <td className="px-4 py-4 text-sm text-stone-300 md:px-5">{row.city}</td>
                 <td className="px-4 py-4 md:px-5">
                   <span
-                    className={`inline-flex px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${
+                    className={`inline-flex rounded-sm border px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${
                       row.status === "Active"
-                        ? "bg-emerald-950/70 text-emerald-500"
-                        : "bg-amber-950/60 text-amber-500"
+                        ? "border-[rgba(15,157,118,0.24)] bg-[rgba(15,157,118,0.16)] text-usam-success"
+                        : "border-[rgba(194,161,78,0.24)] bg-[rgba(194,161,78,0.16)] text-usam-gold"
                     }`}
                     style={{ fontFamily: font.rajdhani }}
                   >
                     {row.status}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-sm text-stone-300 md:px-5">{row.tables}</td>
+                <td className="px-4 py-4 text-sm text-stone-100 md:px-5">{row.tables}</td>
               </tr>
             ))}
           </tbody>
@@ -128,12 +128,12 @@ export default async function SystemPage({
   const shouldOpenWaitlist = params.waitlist === "1" || params.previewForm === "system_waitlist";
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#050505] text-stone-100">
+    <main className="min-h-screen overflow-x-hidden bg-[#0D0D0D] text-stone-100">
       <PrimaryNav active="dos" />
 
       <section className="relative overflow-hidden border-b border-stone-900/80 px-4 pb-16 pt-28 sm:px-6 md:pb-20 md:pt-36">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:64px_64px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(245,158,11,0.06),transparent_24%),linear-gradient(180deg,rgba(5,5,5,0.15),#050505_88%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[length:64px_64px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(194,161,78,0.09),transparent_24%),linear-gradient(180deg,rgba(0,0,0,0.28),rgba(0,0,0,0.78)_88%)]" />
 
         <div className="relative mx-auto grid max-w-6xl min-w-0 items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="min-w-0 max-w-2xl">
@@ -155,7 +155,7 @@ export default async function SystemPage({
                 Is Being Built
               </span>
             </h1>
-            <p className="mt-7 max-w-xl break-words text-lg leading-8 text-stone-400 md:text-xl">
+            <p className="mt-7 max-w-xl break-words text-lg leading-8 text-stone-300 md:text-xl">
               A discipleship platform designed to connect leaders, track movement, and support multiplication at scale.
             </p>
 
@@ -187,7 +187,7 @@ export default async function SystemPage({
               <br />
               Discipleship carries it forward.
             </h2>
-            <div className="mt-7 space-y-5 text-base leading-8 text-stone-400 md:text-lg">
+            <div className="mt-7 space-y-5 text-base leading-8 text-stone-300 md:text-lg">
               <p>
                 People are being reached. But without a system for follow up, accountability, and training, momentum gets lost.
               </p>
@@ -197,16 +197,16 @@ export default async function SystemPage({
             </div>
           </div>
 
-          <div className="mt-10 grid gap-px bg-stone-800/30 md:grid-cols-3">
+          <div className="mt-10 grid gap-px bg-black/60 md:grid-cols-3">
             {cards.map((card) => (
-              <div key={card.title} className="border border-stone-800/60 bg-stone-950/60 p-6 text-left">
-                <div className="text-[10px] uppercase tracking-[0.28em] text-amber-500/80" style={{ fontFamily: font.rajdhani }}>
+              <div key={card.title} className="border border-stone-800/70 bg-black/55 p-6 text-left">
+                <div className="text-[10px] uppercase tracking-[0.28em] text-usam-gold/80" style={{ fontFamily: font.rajdhani }}>
                   {card.number}
                 </div>
                 <h3 className="mt-4 text-2xl uppercase text-stone-100" style={{ fontFamily: font.oswald }}>
                   {card.title}
                 </h3>
-                <p className="mt-3 text-sm leading-6 text-stone-400">{card.body}</p>
+                <p className="mt-3 text-sm leading-6 text-stone-300">{card.body}</p>
               </div>
             ))}
           </div>
@@ -225,7 +225,7 @@ export default async function SystemPage({
               <br />
               Teams, And Cities.
             </h2>
-            <p className="mt-7 whitespace-pre-line text-base leading-8 text-stone-400 md:text-lg">
+            <p className="mt-7 whitespace-pre-line text-base leading-8 text-stone-300 md:text-lg">
               {`From one table to many.
 From one leader to a trained network.
 From scattered effort to accountable multiplication.`}

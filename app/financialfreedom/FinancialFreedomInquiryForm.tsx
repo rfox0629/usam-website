@@ -30,11 +30,11 @@ const snapshotFields = [
 ] as const;
 
 function fieldClassName() {
-  return "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+  return "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
 }
 
 function textAreaClassName() {
-  return "mt-2 min-h-[145px] w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-8 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm md:leading-7";
+  return "mt-2 min-h-[145px] w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-8 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm md:leading-7";
 }
 
 function FieldLabel({
@@ -53,7 +53,7 @@ function FieldLabel({
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}
-      {required ? <span className="ml-1 text-[#F5B942]">*</span> : null}
+      {required ? <span className="ml-1 text-[#C2A14E]">*</span> : null}
     </label>
   );
 }
@@ -147,12 +147,12 @@ function ConsentCheckbox({
   name: string;
 }) {
   return (
-    <label className="flex gap-3 rounded-xl border border-stone-200 bg-white p-4 text-sm leading-7 text-stone-700 transition-colors hover:border-[#D4A63D]/70">
+    <label className="flex gap-3 rounded-xl border border-stone-200 bg-white p-4 text-sm leading-7 text-stone-700 transition-colors hover:border-[#C2A14E]/70">
       <input
         type="checkbox"
         name={name}
         required
-        className="mt-1 h-4 w-4 shrink-0 accent-[#D4A63D]"
+        className="mt-1 h-4 w-4 shrink-0 accent-[#C2A14E]"
       />
       <span>{children}</span>
     </label>
@@ -181,7 +181,7 @@ export function FinancialFreedomInquiryForm({
           Thank you. Your inquiry has been received. We will review it carefully and follow up with next steps.
         </p>
         {uploadPartial ? (
-          <p className="mt-5 max-w-3xl rounded-xl border border-amber-500/25 bg-amber-950/20 p-4 text-sm leading-7 text-amber-100">
+          <p className="mt-5 max-w-3xl rounded-xl border border-usam-gold/35 bg-usam-gold/10 p-4 text-sm leading-7 text-emerald-950">
             Your inquiry was saved, but one or more files may not have uploaded. We can still follow up from the information you submitted.
           </p>
         ) : null}
@@ -190,7 +190,7 @@ export function FinancialFreedomInquiryForm({
   }
 
   return (
-    <form action={submitFinancialFreedomInquiry} className="rounded-[28px] border border-stone-200 bg-[#fbfaf7] p-4 shadow-[0_28px_90px_rgba(12,10,9,0.18)] md:p-6">
+    <form action={submitFinancialFreedomInquiry} className="rounded-[28px] border border-stone-200 bg-usam-white p-4 shadow-[0_28px_90px_rgba(12,10,9,0.18)] md:p-6">
       {error ? (
         <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm leading-7 text-red-800">
           {errorMessages[error] ?? errorMessages.submit}
@@ -202,7 +202,7 @@ export function FinancialFreedomInquiryForm({
         title="Start Here"
         description="This guided intake helps us understand where support may be useful. Keep answers approximate and only share what you are comfortable sharing."
       >
-        <div className="rounded-2xl border border-[#e2b84e]/45 bg-[#fff3cf] p-5 text-sm leading-7 text-stone-800 md:p-6">
+        <div className="rounded-2xl border border-[#C2A14E]/45 bg-usam-gold/10 p-5 text-sm leading-7 text-stone-800 md:p-6">
           <p className="text-base font-semibold text-stone-950">
             Before you share
           </p>
@@ -223,11 +223,11 @@ export function FinancialFreedomInquiryForm({
       <SectionCard title="What Would You Like Help With?" description="Choose the areas where clarity would be most helpful right now.">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {helpAreas.map((area) => (
-            <label key={area.name} className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-[#D4A63D]/70">
+            <label key={area.name} className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-[#C2A14E]/70">
               <input
                 type="checkbox"
                 name={area.name}
-                className="h-4 w-4 accent-[#D4A63D]"
+                className="h-4 w-4 accent-[#C2A14E]"
               />
               <span>{area.label}</span>
             </label>
@@ -300,7 +300,7 @@ export function FinancialFreedomInquiryForm({
         </p>
         <button
           type="submit"
-          className="inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_14px_34px_rgba(212,166,61,0.22)] sm:w-auto"
+          className="inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#C2A14E] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#C2A14E] hover:shadow-[0_14px_34px_rgba(194,161,78,0.22)] sm:w-auto"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
           Submit Inquiry

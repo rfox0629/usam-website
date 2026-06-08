@@ -105,7 +105,7 @@ export function WaitingListCTA({
           onClick={() => {
             openWaitlistModal();
           }}
-          className="inline-flex min-h-12 w-full items-center justify-center border border-amber-400 bg-amber-400 px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-stone-950 transition-all duration-300 hover:border-amber-300 hover:bg-amber-300 sm:w-[230px] lg:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center border border-usam-gold bg-usam-gold px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-stone-950 transition-all duration-300 hover:border-usam-gold hover:bg-usam-gold/90 sm:w-[230px] lg:w-auto"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
           Join The Waiting List
@@ -144,7 +144,7 @@ export function WaitingListCTA({
               <button
                 type="button"
                 onClick={() => setIsWaitlistOpen(false)}
-                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#C2A14E] hover:text-stone-950"
                 aria-label="Close waiting list modal"
               >
                 &times;

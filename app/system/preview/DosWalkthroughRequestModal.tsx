@@ -129,7 +129,7 @@ export function DosWalkthroughRequestModal({
           <PublicFormShell size="standard">
             <button
               aria-label="Close walkthrough request form"
-              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#C2A14E] hover:text-stone-950"
               onClick={() => setIsOpen(false)}
               type="button"
             >
@@ -198,7 +198,7 @@ export function DosWalkthroughRequestModal({
   return (
     <>
       <button
-        className="inline-flex min-h-12 items-center justify-center border border-amber-400 bg-amber-400 px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-950 transition-colors hover:border-amber-300 hover:bg-amber-300"
+        className="inline-flex min-h-12 items-center justify-center border border-usam-gold bg-usam-gold px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-950 transition-colors hover:border-usam-gold hover:bg-usam-gold/90"
         onClick={openModal}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         type="button"

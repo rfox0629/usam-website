@@ -33,7 +33,7 @@ export function AccessLogoutButton({
 
   return (
     <button
-      className={className ?? "inline-flex min-h-10 items-center justify-center border border-stone-700 bg-transparent px-4 text-[11px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942] disabled:cursor-not-allowed disabled:opacity-60"}
+      className={className ?? "inline-flex min-h-10 items-center justify-center border border-stone-700 bg-transparent px-4 text-[11px] uppercase tracking-[0.18em] text-stone-300 transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E] disabled:cursor-not-allowed disabled:opacity-60"}
       disabled={isLoggingOut}
       onClick={logOut}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}

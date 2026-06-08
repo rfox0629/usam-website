@@ -40,7 +40,7 @@ import { getAdminAuthorization } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "USA Missionaries Profiles | National Command Center",
+  title: "USA Missionaries | National Command Center",
   robots: {
     follow: false,
     index: false,
@@ -1549,8 +1549,8 @@ export default async function MissionaryProfilesAdminPage() {
   return (
     <AdminShell
       active="missionary-profiles"
-      title="USA Missionaries Profiles"
-      description="Application, publishing, public profile, prayer, and support management for USA Missionaries."
+      title="USA Missionaries"
+      description="Applications and approved public profile publishing for USA Missionaries."
     >
       {loadError ? (
         <p className="mb-6 border border-red-500/30 bg-red-950/20 p-4 text-sm text-red-200">

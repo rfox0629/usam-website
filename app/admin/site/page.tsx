@@ -11,18 +11,18 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 const routes = [
   { label: "Home", route: "/" },
-  { label: "Briefing", route: "/mission" },
+  { label: "Briefing", route: "/briefing" },
   { label: "DOS", route: "/system" },
   { label: "Prayer", route: "/prayer" },
   { label: "Support", route: "/support" },
 ] as const;
 
 const ctas = [
-  { label: "Enter the Mission", route: "/mission" },
-  { label: "Access Briefing", route: "/mission" },
+  { label: "Enter the Mission", route: "/briefing" },
+  { label: "Access Briefing", route: "/briefing" },
   { label: "Join Prayer Team", route: "/prayer" },
   { label: "View System", route: "/system" },
-  { label: "Join the Mission", route: "/mission" },
+  { label: "Join the Mission", route: "/briefing" },
   { label: "Give Now", route: "/support" },
 ] as const;
 

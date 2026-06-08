@@ -46,7 +46,7 @@ export function StoryReadMoreButton({
     <>
       <button
         type="button"
-        className="inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#D4A63D] hover:bg-white/[0.04] sm:w-auto"
+        className="inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#C2A14E] hover:bg-white/[0.04] sm:w-auto"
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         onClick={() => setIsOpen(true)}
       >
@@ -67,7 +67,7 @@ export function StoryReadMoreButton({
             <button
               type="button"
               aria-label="Close story"
-              className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-950 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950 md:right-5 md:top-5"
+              className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-950 shadow-sm transition-colors hover:border-[#C2A14E] hover:text-stone-950 md:right-5 md:top-5"
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               onClick={() => setIsOpen(false)}
             >

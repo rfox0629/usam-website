@@ -74,8 +74,8 @@ function ActionLink({
   variant?: "primary" | "secondary";
 }) {
   const className = variant === "primary"
-    ? "border border-transparent bg-[#D4A63D] text-black hover:bg-[#F5B942] hover:shadow-[0_0_22px_rgba(212,166,61,0.24)]"
-    : "border border-white/[0.3] bg-transparent text-white hover:border-[#D4A63D] hover:bg-white/[0.04]";
+    ? "border border-transparent bg-[#C2A14E] text-black hover:bg-[#C2A14E] hover:shadow-[0_0_22px_rgba(194,161,78,0.24)]"
+    : "border border-white/[0.3] bg-transparent text-white hover:border-[#C2A14E] hover:bg-white/[0.04]";
 
   return (
     <Link
@@ -103,12 +103,12 @@ export default async function MissionariesPage() {
     : "Connected to Supabase, but no missionary records found.";
 
   return (
-    <main className="min-h-screen bg-[#050505] text-stone-100">
+    <main className="min-h-screen bg-[#0D0D0D] text-stone-100">
       <PrimaryNav active="support" />
 
       <section className="relative overflow-hidden px-6 pb-24 pt-24 md:pb-32 md:pt-32">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[length:72px_72px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(212,166,61,0.1),transparent_26%),radial-gradient(ellipse_at_center,transparent_30%,#050505_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(194,161,78,0.1),transparent_26%),radial-gradient(ellipse_at_center,transparent_30%,#0D0D0D_100%)]" />
         <div className="relative mx-auto max-w-6xl">
           <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
             The Team
@@ -121,7 +121,7 @@ export default async function MissionariesPage() {
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <ActionLink href="/support">Support The Mission</ActionLink>
-            <ActionLink href="/mission" variant="secondary">Become A Missionary</ActionLink>
+            <ActionLink href="/briefing" variant="secondary">Become A Missionary</ActionLink>
             <AccessLogoutButton redirectTo="/support?team=1">Exit Team View</AccessLogoutButton>
           </div>
         </div>

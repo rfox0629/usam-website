@@ -1,35 +1,24 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Activity, Building2, Globe, Heart, LayoutGrid, MessageSquare, Network, Settings, ShieldCheck, Upload, Users, type LucideIcon } from "lucide-react";
+import { Activity, Building2, Globe, LayoutGrid, Settings, type LucideIcon } from "lucide-react";
 import { adminFont } from "./AdminUI";
 import { RolePreviewSelect } from "./RolePreviewSelect";
 
 const adminNavGroups = [
   {
     items: [
-      { activeKey: "dashboard", href: "/admin", icon: Activity, label: "Command Center" },
+      { activeKey: "dashboard", href: "/admin", icon: Activity, label: "Dashboard" },
       { activeKey: "organizations", href: "/admin/organizations", icon: Building2, label: "Organizations" },
-      { activeKey: "workspaces", href: "/admin/workspaces", icon: LayoutGrid, label: "Workspaces" },
-      { activeKey: "missionary-profiles", href: "/admin/missionary-profiles", icon: Users, label: "USA Missionaries Profiles" },
-      { activeKey: "circle-engine", href: "/admin/circle-engine", icon: Network, label: "Circle Engine" },
+      { activeKey: "workspaces", href: "/admin/workspaces", icon: LayoutGrid, label: "Platform" },
       { activeKey: "public-experience", href: "/admin/public-experience", icon: Globe, label: "Public Experience" },
-      { activeKey: "prayer", href: "/admin/prayer-team", icon: Heart, label: "Prayer Team" },
-      { activeKey: "support-team", href: "/admin/support-team", icon: ShieldCheck, label: "Support Team" },
-      { activeKey: "product-feedback", href: "/admin/product-feedback", icon: MessageSquare, label: "Product Feedback" },
-    ],
-    title: "Main",
-  },
-  {
-    items: [
-      { activeKey: "uploads", href: "/admin/uploads", icon: Upload, label: "Uploads" },
       { activeKey: "settings", href: "/admin/settings", icon: Settings, label: "Settings" },
     ],
-    title: "System",
+    title: "DOS Platform",
   },
 ] as const;
 
 type VisibleAdminNavKey = (typeof adminNavGroups)[number]["items"][number]["activeKey"];
-type HiddenAdminNavKey = "financial-freedom" | "forms-pages" | "inquiries" | "pages" | "relationship-intelligence" | "stewardship" | "support";
+type HiddenAdminNavKey = "circle-engine" | "financial-freedom" | "forms-pages" | "inquiries" | "missionary-profiles" | "pages" | "prayer" | "product-feedback" | "relationship-intelligence" | "stewardship" | "support" | "support-team" | "uploads";
 
 export type AdminNavKey = VisibleAdminNavKey | HiddenAdminNavKey;
 

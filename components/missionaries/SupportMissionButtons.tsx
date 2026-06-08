@@ -36,23 +36,23 @@ type SharedSupportProps = {
 };
 
 function primaryButtonClassName() {
-  return "inline-flex min-h-12 w-full items-center justify-center border border-transparent bg-[#D4A63D] px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-black transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_0_22px_rgba(212,166,61,0.24)] sm:w-auto sm:min-w-[220px]";
+  return "inline-flex min-h-12 w-full items-center justify-center border border-transparent bg-[#C2A14E] px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-black transition-all duration-300 hover:bg-[#C2A14E] hover:shadow-[0_0_22px_rgba(194,161,78,0.24)] sm:w-auto sm:min-w-[220px]";
 }
 
 function secondaryButtonClassName() {
-  return "inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#D4A63D] hover:bg-white/[0.04] sm:w-auto sm:min-w-[208px]";
+  return "inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#C2A14E] hover:bg-white/[0.04] sm:w-auto sm:min-w-[208px]";
 }
 
 function compactPrimaryButtonClassName() {
-  return "inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-transparent bg-[#D4A63D] px-3 py-2.5 text-center text-[10px] uppercase leading-5 tracking-[0.18em] text-black transition-all duration-300 hover:bg-[#F5B942]";
+  return "inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-transparent bg-[#C2A14E] px-3 py-2.5 text-center text-[10px] uppercase leading-5 tracking-[0.18em] text-black transition-all duration-300 hover:bg-[#C2A14E]";
 }
 
 function compactSecondaryButtonClassName() {
-  return "inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#D4A63D]/35 bg-black/25 px-3 py-2.5 text-center text-[10px] uppercase leading-5 tracking-[0.18em] text-[#F5B942] transition-all duration-300 hover:border-[#D4A63D] hover:bg-[#D4A63D]/10";
+  return "inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#C2A14E]/35 bg-black/25 px-3 py-2.5 text-center text-[10px] uppercase leading-5 tracking-[0.18em] text-[#C2A14E] transition-all duration-300 hover:border-[#C2A14E] hover:bg-[#C2A14E]/10";
 }
 
 function compactTertiaryButtonClassName() {
-  return "inline-flex min-h-9 w-full items-center justify-center rounded-lg border border-white/[0.14] bg-white/[0.03] px-3 py-2 text-center text-[9px] uppercase leading-5 tracking-[0.17em] text-stone-300 transition-all duration-300 hover:border-[#D4A63D]/50 hover:text-[#F5B942]";
+  return "inline-flex min-h-9 w-full items-center justify-center rounded-lg border border-white/[0.14] bg-white/[0.03] px-3 py-2 text-center text-[9px] uppercase leading-5 tracking-[0.17em] text-stone-300 transition-all duration-300 hover:border-[#C2A14E]/50 hover:text-[#C2A14E]";
 }
 
 function useSupportModal() {
