@@ -543,7 +543,7 @@ export async function POST(request: Request) {
         .from("usam_missionary_applications")
         .select("id, status")
         .ilike("applicant_email", email)
-        .not("status", "in", "(rejected,archived)")
+        .not("status", "in", "(rejected,declined,archived)")
         .limit(1),
     ]);
 

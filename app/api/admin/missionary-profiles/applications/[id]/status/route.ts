@@ -2,6 +2,11 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
 import { updateUsamApplicationWorkflow, type UsamApplicationAdminAction } from "@/src/lib/dos/usam-application";
+import {
+  sendApplicationApprovedEmail,
+  sendApplicationDeclinedEmail,
+  sendApplicationMoreInformationRequestedEmail,
+} from "@/src/lib/email/resend";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type StatusPayload = {
@@ -10,7 +15,7 @@ type StatusPayload = {
   assignedAdminEmail?: unknown;
 };
 
-const workflowActions = ["approve", "archive", "hide", "publish", "reject", "review"] as const satisfies readonly UsamApplicationAdminAction[];
+const workflowActions = ["approve", "archive", "decline", "hide", "publish", "reject", "request_more_info", "review"] as const satisfies readonly UsamApplicationAdminAction[];
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -85,11 +90,34 @@ export async function PATCH(
       assignedAdminEmail: asString(payload.assignedAdminEmail),
       supabase,
     });
+    const emailInput = result.applicantEmail
+      ? {
+        adminNote: asString(payload.adminNotes),
+        applicantEmail: result.applicantEmail,
+        applicantName: result.applicantName ?? "Applicant",
+        applicationId: result.applicationId,
+        location: result.location ?? undefined,
+        status: result.status,
+        submittedAt: result.submittedAt ?? new Date().toISOString(),
+      }
+      : null;
+    const emailResult = action === "approve" && emailInput
+      ? await sendApplicationApprovedEmail(emailInput)
+      : action === "request_more_info" && emailInput
+        ? await sendApplicationMoreInformationRequestedEmail(emailInput)
+        : (action === "decline" || action === "reject") && emailInput
+          ? await sendApplicationDeclinedEmail(emailInput)
+          : null;
 
     revalidatePath("/admin/missionary-profiles");
+    revalidatePath("/admin/organizations");
+    revalidatePath("/admin/organizations/usam");
+    revalidatePath("/admin/organizations/usa-missionaries");
 
     return NextResponse.json({
       applicationId: result.applicationId,
+      emailSent: emailResult?.sent ?? false,
+      emailStatus: emailResult,
       ok: true,
       status: result.status,
     });

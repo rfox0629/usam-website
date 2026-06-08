@@ -2890,8 +2890,12 @@ function usamStatusLabel(status: DosAppData["usamApplication"]["status"]) {
       return "Approved";
     case "archived":
       return "Archived";
+    case "declined":
+      return "Declined";
     case "independent":
       return "Independent";
+    case "more_info_requested":
+      return "More Info Needed";
     case "pending_review":
       return "Pending Review";
     case "rejected":
@@ -2963,8 +2967,9 @@ function OrganizationStatusCard({
   publicProfileHref: string;
 }) {
   const isPending = application.status === "application_submitted" || application.status === "pending_review";
+  const needsMoreInfo = application.status === "more_info_requested";
   const isActive = application.status === "active" || application.status === "approved";
-  const canApply = !isPending && application.status !== "rejected" && application.status !== "archived";
+  const canApply = !isPending && !needsMoreInfo && application.status !== "declined" && application.status !== "rejected" && application.status !== "archived";
   const applyButtonLabel = application.status === "active" || application.status === "approved"
     ? "Submit Update"
     : "Apply to USA Missionaries";
@@ -2999,8 +3004,12 @@ function OrganizationStatusCard({
           <p className="mt-1 text-sm leading-5 text-[#64748B]">
             {isActive
               ? `Connected to ${application.organizationName}.`
+              : needsMoreInfo
+                ? "The USA Missionaries team requested more information."
               : isPending
                 ? "Application submitted. Pending review."
+                : application.status === "declined"
+                  ? "Application reviewed. Contact USA Missionaries for next steps."
                 : "You are using DOS independently."}
           </p>
         </div>
@@ -3039,7 +3048,7 @@ function OrganizationStatusCard({
             {applyButtonLabel}
           </button>
         ) : null}
-        {isPending ? (
+        {isPending || needsMoreInfo ? (
           <button
             className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#475569] transition-colors hover:border-[#BFDBFE]"
             onClick={onViewStatus}
@@ -3070,17 +3079,41 @@ function OrganizationStatusCard({
   );
 }
 
-function UsamPendingHomeCard({ onViewStatus }: { onViewStatus: () => void }) {
+function UsamStatusHomeCard({
+  application,
+  onViewStatus,
+}: {
+  application: DosAppData["usamApplication"];
+  onViewStatus: () => void;
+}) {
+  const isApproved = application.status === "approved" || application.status === "active";
+  const isMoreInfo = application.status === "more_info_requested";
+  const isDeclined = application.status === "declined" || application.status === "rejected";
+  const title = isApproved
+    ? "USA Missionaries application approved"
+    : isMoreInfo
+      ? "USA Missionaries needs more information"
+      : isDeclined
+        ? "USA Missionaries application reviewed"
+        : "USA Missionaries application pending";
+  const description = isApproved
+    ? "Your missionary profile and support setup are being activated."
+    : isMoreInfo
+      ? "Ryan or the USA Missionaries team will follow up with next steps."
+      : isDeclined
+        ? "Contact USA Missionaries if you have questions about next steps."
+        : "You can begin using DOS while your application is being reviewed.";
+
   return (
-    <section className="hidden rounded-[26px] border border-[#E2E8F0] bg-[#F8FAFC] p-4 shadow-[0_12px_32px_rgba(15,23,42,0.04)] md:block">
+    <section className="rounded-[26px] border border-[#E2E8F0] bg-[#F8FAFC] p-4 shadow-[0_12px_32px_rgba(15,23,42,0.04)]">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-white text-[#64748B] ring-1 ring-[#E2E8F0]">
           <Briefcase className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.9} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black leading-tight text-[#0F172A]">USA Missionaries application pending</p>
+          <p className="text-sm font-black leading-tight text-[#0F172A]">{title}</p>
           <p className="mt-1 text-xs leading-5 text-[#64748B]">
-            Your application has been submitted and is waiting for review.
+            {description}
           </p>
         </div>
       </div>
@@ -3847,6 +3880,7 @@ function DesktopHomeDashboard({
   onViewUsamStatus,
   people,
   personTableStatsByPersonId,
+  usamApplication,
   upcomingItems,
   upcomingMeetings,
 }: {
@@ -3865,6 +3899,7 @@ function DesktopHomeDashboard({
   onViewUsamStatus: () => void;
   people: DosAppPerson[];
   personTableStatsByPersonId: Map<string, PersonTableStats>;
+  usamApplication: DosAppData["usamApplication"];
   upcomingItems: UpcomingTimelineItem[];
   upcomingMeetings: DosAppMeeting[];
 }) {
@@ -3986,12 +4021,18 @@ function DesktopHomeDashboard({
     { badge: "Follow Up", icon: "reminder", id: "sample-family-follow-up", label: "Jun 10, 2026 · 7:00 PM", meeting: null, title: "Family follow-up" },
   ];
   const dashboardUpcomingRows = realUpcomingRows.length >= 3 ? realUpcomingRows : dashboardSampleUpcomingRows;
+  const showUsamStatusHomeCard = isUsamApplicationPending
+    || usamApplication.status === "more_info_requested"
+    || usamApplication.status === "approved"
+    || usamApplication.status === "active"
+    || usamApplication.status === "declined"
+    || usamApplication.status === "rejected";
 
   return (
     <div className="hidden md:block">
-      {isUsamApplicationPending ? (
+      {showUsamStatusHomeCard ? (
         <div className="mb-3">
-          <UsamPendingHomeCard onViewStatus={onViewUsamStatus} />
+          <UsamStatusHomeCard application={usamApplication} onViewStatus={onViewUsamStatus} />
         </div>
       ) : null}
 
@@ -12342,6 +12383,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const workspaceSublabel = workspaceIdentitySublabel(data.workspace);
   const selectedPersonDefaults = personFormDefaults(selectedPerson);
   const isUsamApplicationPending = usamApplication.status === "application_submitted" || usamApplication.status === "pending_review";
+  const showUsamStatusHomeCard = isUsamApplicationPending
+    || usamApplication.status === "more_info_requested"
+    || usamApplication.status === "approved"
+    || usamApplication.status === "active"
+    || usamApplication.status === "declined"
+    || usamApplication.status === "rejected";
 
   function scrollAppToTop() {
     requestAnimationFrame(() => {
@@ -14007,7 +14054,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   onSelectCircle={openPeopleCircle}
                 />
 
-                {isUsamApplicationPending ? <UsamPendingHomeCard onViewStatus={viewUsamApplicationStatus} /> : null}
+                {showUsamStatusHomeCard ? <UsamStatusHomeCard application={usamApplication} onViewStatus={viewUsamApplicationStatus} /> : null}
 
                 <NextStepsCard
                   items={upcomingTimelineItems}
@@ -14038,6 +14085,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 onViewUsamStatus={viewUsamApplicationStatus}
                 people={people}
                 personTableStatsByPersonId={personTableStatsByPersonId}
+                usamApplication={usamApplication}
                 upcomingItems={upcomingTimelineItems}
                 upcomingMeetings={upcomingScheduledMeetings}
               />

@@ -12,8 +12,10 @@ export const usamApplicationStatuses = [
   "application_started",
   "application_submitted",
   "pending_review",
+  "more_info_requested",
   "approved",
   "active",
+  "declined",
   "rejected",
   "archived",
 ] as const;
@@ -39,7 +41,9 @@ type UsamApplicationRow = {
   applicant_name: string | null;
   applicant_phone: string | null;
   assigned_admin_email: string | null;
+  contact_payload?: Record<string, unknown> | null;
   id: string;
+  location?: string | null;
   missionary_profile_id: string | null;
   organization_id: string | null;
   profile_id: string | null;
@@ -91,7 +95,7 @@ type WriteUsamApplicationInput = {
   supabase: SupabaseAdminClient;
 };
 
-export type UsamApplicationAdminAction = "approve" | "archive" | "hide" | "publish" | "reject" | "review";
+export type UsamApplicationAdminAction = "approve" | "archive" | "decline" | "hide" | "publish" | "reject" | "request_more_info" | "review";
 
 function cleanText(value: string | null | undefined) {
   const text = value?.trim();
@@ -409,7 +413,7 @@ async function writeUsamApplication({
     .select("id")
     .eq("workspace_id", payload.workspaceId)
     .eq("organization_id", organization.id)
-    .not("status", "in", "(rejected,archived)")
+    .not("status", "in", "(rejected,declined,archived)")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -527,7 +531,7 @@ async function writeUsamApplication({
 async function loadApplicationById(supabase: SupabaseAdminClient, applicationId: string) {
   const { data, error } = await supabase
     .from("usam_missionary_applications")
-    .select("id, workspace_id, organization_id, profile_id, missionary_profile_id, applicant_name, applicant_email, applicant_phone, status, assigned_admin_email, submitted_at, reviewed_at")
+    .select("id, workspace_id, organization_id, profile_id, missionary_profile_id, applicant_name, applicant_email, applicant_phone, location, status, assigned_admin_email, submitted_at, reviewed_at, contact_payload")
     .eq("id", applicationId)
     .single();
 
@@ -555,15 +559,18 @@ export async function updateUsamApplicationWorkflow({
 }) {
   const application = await loadApplicationById(supabase, applicationId);
   const now = new Date().toISOString();
+  const normalizedCurrentStatus = normalizeStatus(application.status);
   const nextApplicationStatus: UsamApplicationStatus = action === "approve"
     ? "approved"
     : action === "publish"
       ? "active"
-      : action === "reject"
-        ? "rejected"
-        : action === "archive"
-          ? "archived"
-          : normalizeStatus(application.status);
+      : action === "request_more_info"
+        ? "more_info_requested"
+        : action === "decline" || action === "reject"
+          ? "declined"
+          : action === "archive"
+            ? "archived"
+            : normalizedCurrentStatus;
   const nextProfileStatus: UsamProfileStatus = action === "approve"
     ? "approved"
     : action === "publish"
@@ -572,11 +579,35 @@ export async function updateUsamApplicationWorkflow({
         ? "hidden"
         : action === "archive"
           ? "archived"
-          : action === "reject"
+          : action === "decline" || action === "reject"
             ? "hidden"
             : "under_review";
+  const reviewAction = action === "request_more_info"
+    ? "more_info_requested"
+    : action === "reject"
+      ? "declined"
+      : action;
+  const existingContactPayload = application.contact_payload && typeof application.contact_payload === "object" && !Array.isArray(application.contact_payload)
+    ? application.contact_payload
+    : {};
+  const workflowPayload = {
+    ...(existingContactPayload.workflow_json && typeof existingContactPayload.workflow_json === "object" && !Array.isArray(existingContactPayload.workflow_json)
+      ? existingContactPayload.workflow_json as Record<string, unknown>
+      : {}),
+    lastAdminAction: reviewAction,
+    lastAdminActionAt: now,
+    lastAdminActionBy: adminEmail,
+    missionaryProfile: action === "approve" || action === "publish" ? "pending_activation" : undefined,
+    prayerSupportProfile: action === "approve" || action === "publish" ? "pending_activation" : undefined,
+    publicProfileDraft: action === "approve" || action === "publish" ? "ready_for_build" : undefined,
+    supportProfile: action === "approve" || action === "publish" ? "pending_activation" : undefined,
+  };
   const applicationUpdate: Record<string, unknown> = {
     assigned_admin_email: cleanText(assignedAdminEmail) ?? application.assigned_admin_email ?? adminEmail,
+    contact_payload: {
+      ...existingContactPayload,
+      workflow_json: Object.fromEntries(Object.entries(workflowPayload).filter(([, value]) => value !== undefined)),
+    },
     reviewed_at: action === "review" ? application.reviewed_at : now,
   };
 
@@ -610,12 +641,12 @@ export async function updateUsamApplicationWorkflow({
 
   const publicVisible = action === "publish"
     ? true
-    : action === "hide" || action === "reject" || action === "archive"
+    : action === "hide" || action === "reject" || action === "decline" || action === "archive"
       ? false
       : undefined;
   const householdUpdate: Record<string, unknown> = {
     usam_application_reviewed_at: action === "review" ? application.reviewed_at : now,
-    usam_application_status: action === "hide" || action === "review" ? normalizeStatus(application.status) : nextApplicationStatus,
+    usam_application_status: action === "hide" || action === "review" ? normalizedCurrentStatus : nextApplicationStatus,
     usam_assigned_admin_email: cleanText(assignedAdminEmail) ?? application.assigned_admin_email ?? adminEmail,
     usam_profile_status: nextProfileStatus,
   };
@@ -643,7 +674,11 @@ export async function updateUsamApplicationWorkflow({
   }
 
   return {
+    applicantEmail: application.applicant_email,
+    applicantName: application.applicant_name,
     applicationId: application.id,
+    location: application.location ?? null,
     status: nextApplicationStatus,
+    submittedAt: application.submitted_at,
   };
 }

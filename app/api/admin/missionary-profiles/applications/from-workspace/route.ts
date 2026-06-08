@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       .select(applicationSelect)
       .eq("workspace_id", workspaceId)
       .eq("organization_id", organization.id)
-      .not("status", "in", "(rejected,archived)")
+      .not("status", "in", "(rejected,declined,archived)")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

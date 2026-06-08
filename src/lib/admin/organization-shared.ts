@@ -1,30 +1,130 @@
 export type AdminOrganizationType = "church" | "ministry" | "partner" | "other";
 
 export type OrganizationSummary = {
+  applicationCount: number;
+  approvedProfileCount: number;
   brandingMode: string;
   createdAt: string;
   id: string;
   lastActivityAt: string | null;
   memberCount: number;
   name: string;
+  pendingApplicationCount: number;
   slug: string;
   status: "active" | "setup";
   type: AdminOrganizationType;
+  updatedAt: string | null;
   workspaceCount: number;
 };
 
+export type OrganizationApplicationSummary = {
+  adminNotes: string | null;
+  applicantEmail: string | null;
+  applicantName: string;
+  applicantPhone: string | null;
+  assignedAdmin: string | null;
+  callingFocus: string | null;
+  householdDetails: OrganizationApplicationDetailItem[];
+  householdMembers: OrganizationApplicationHouseholdMember[];
+  hasPhotos: boolean;
+  id: string;
+  location: string | null;
+  monthlyBudget: number | null;
+  photos: OrganizationApplicationPhotoSummary[];
+  prayerPartners: OrganizationApplicationContactItem[];
+  prayerRequests: string[];
+  prayerNeeds: string | null;
+  references: OrganizationApplicationReferenceItem[];
+  referencesText: string | null;
+  status: string;
+  storyAnswers: OrganizationApplicationDetailItem[];
+  storyTestimony: string | null;
+  supportDetails: OrganizationApplicationDetailItem[];
+  submittedAt: string | null;
+  supportGoal: number | null;
+};
+
+export type OrganizationApplicationDetailItem = {
+  label: string;
+  value: string;
+};
+
+export type OrganizationApplicationContactItem = {
+  email: string | null;
+  name: string;
+  phone: string | null;
+  relationship: string | null;
+};
+
+export type OrganizationApplicationHouseholdMember = {
+  age: string | null;
+  name: string;
+  relationship: string | null;
+  status: string | null;
+};
+
+export type OrganizationApplicationReferenceItem = {
+  description: string | null;
+  email: string | null;
+  name: string;
+  organization: string | null;
+  phone: string | null;
+  relationship: string | null;
+};
+
+export type OrganizationApplicationPhotoSummary = {
+  contentType: string | null;
+  fileName: string;
+  id: string;
+  kind: "Family" | "Profile" | "Submitted";
+  path: string | null;
+  size: number | null;
+  status: "Submitted";
+  thumbnailUrl: string | null;
+  uploadedAt: string | null;
+};
+
+export type OrganizationApprovedProfileSummary = {
+  applicationId: string | null;
+  id: string;
+  lastUpdated: string | null;
+  location: string | null;
+  publicName: string;
+  publicUrl: string;
+  slug: string;
+  supportGoal: number | null;
+  visibility: "Archived" | "Draft" | "Hidden" | "Live";
+};
+
+export type OrganizationMemberSummary = {
+  email: string | null;
+  id: string;
+  lastActiveAt: string | null;
+  name: string;
+  role: string | null;
+  status: string | null;
+  workspaceId: string | null;
+  workspaceName: string | null;
+};
+
 export type OrganizationWorkspaceSummary = {
+  activitySummary: string;
+  householdName: string | null;
   id: string;
   kind: "foundation" | "workspace";
   lastActivityAt: string | null;
   name: string;
-  previewHref: string | null;
+  ownerName: string | null;
   slug: string;
   sourceLabel: string;
   status: "active" | "setup";
+  viewHref: string | null;
 };
 
 export type OrganizationDetail = OrganizationSummary & {
+  approvedProfiles: OrganizationApprovedProfileSummary[];
+  applications: OrganizationApplicationSummary[];
+  members: OrganizationMemberSummary[];
   workspaces: OrganizationWorkspaceSummary[];
 };
 

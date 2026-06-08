@@ -16,6 +16,7 @@ type EmailResult = {
 
 type JoinApplicationEmailInput = {
   adminUrl?: string;
+  adminNote?: string;
   applicantEmail: string;
   applicantName: string;
   applicationId: string;
@@ -201,18 +202,69 @@ export function buildAdminNewApplicationEmail(input: JoinApplicationEmailInput):
 }
 
 export function buildApplicationApprovedEmail(input: JoinApplicationEmailInput): EmailTemplate {
+  const body = emailShell("Application approved", `
+    <p style="margin:0 0 16px;">Hi ${escapeHtml(input.applicantName || "there")},</p>
+    <p style="margin:0 0 16px;">Your USA Missionaries application has been approved.</p>
+    <p style="margin:0;color:#475569;">Your missionary profile, prayer team, and support setup are being activated. Ryan or the USA Missionaries team will follow up with next steps.</p>
+  `);
+
   return {
-    html: emailShell("Application approved", "<p style=\"margin:0;color:#475569;\">Your USA Missionaries application has been approved. The team will follow up with next steps.</p>"),
-    subject: "USA Missionaries application approved",
-    text: `Hi ${input.applicantName || "there"},\n\nYour USA Missionaries application has been approved. The team will follow up with next steps.`,
+    html: body,
+    subject: "Your USA Missionaries application has been approved",
+    text: [
+      `Hi ${input.applicantName || "there"},`,
+      "",
+      "Your USA Missionaries application has been approved.",
+      "Your missionary profile, prayer team, and support setup are being activated. Ryan or the USA Missionaries team will follow up with next steps.",
+    ].join("\n"),
   };
 }
 
 export function buildRequestMoreInformationEmail(input: JoinApplicationEmailInput): EmailTemplate {
+  const note = input.adminNote?.trim();
+  const body = emailShell("Application update", `
+    <p style="margin:0 0 16px;">Hi ${escapeHtml(input.applicantName || "there")},</p>
+    <p style="margin:0 0 16px;">The USA Missionaries team needs a little more information to continue reviewing your application.</p>
+    ${note ? `<div style="margin:18px 0;border:1px solid #dcecff;border-radius:16px;background:#f8fbff;padding:14px;"><p style="margin:0;color:#334155;">${escapeHtml(note)}</p></div>` : ""}
+    <p style="margin:0;color:#475569;">Ryan or the USA Missionaries team will follow up with next steps.</p>
+  `);
+
   return {
-    html: emailShell("More information requested", "<p style=\"margin:0;color:#475569;\">The USA Missionaries team needs a little more information to continue reviewing your application.</p>"),
-    subject: "USA Missionaries application: more information requested",
-    text: `Hi ${input.applicantName || "there"},\n\nThe USA Missionaries team needs a little more information to continue reviewing your application.`,
+    html: body,
+    subject: "USA Missionaries application update",
+    text: [
+      `Hi ${input.applicantName || "there"},`,
+      "",
+      "The USA Missionaries team needs a little more information to continue reviewing your application.",
+      note ? `\n${note}` : "",
+      "",
+      "Ryan or the USA Missionaries team will follow up with next steps.",
+    ].filter(Boolean).join("\n"),
+  };
+}
+
+export function buildApplicationDeclinedEmail(input: JoinApplicationEmailInput): EmailTemplate {
+  const note = input.adminNote?.trim();
+  const body = emailShell("Application update", `
+    <p style="margin:0 0 16px;">Hi ${escapeHtml(input.applicantName || "there")},</p>
+    <p style="margin:0 0 16px;">Thank you for taking time to complete the USA Missionaries application.</p>
+    <p style="margin:0 0 16px;">After review, the team is not moving this application forward right now.</p>
+    ${note ? `<div style="margin:18px 0;border:1px solid #dcecff;border-radius:16px;background:#f8fbff;padding:14px;"><p style="margin:0;color:#334155;">${escapeHtml(note)}</p></div>` : ""}
+    <p style="margin:0;color:#475569;">Ryan or the USA Missionaries team will follow up personally if there are additional next steps.</p>
+  `);
+
+  return {
+    html: body,
+    subject: "USA Missionaries application update",
+    text: [
+      `Hi ${input.applicantName || "there"},`,
+      "",
+      "Thank you for taking time to complete the USA Missionaries application.",
+      "After review, the team is not moving this application forward right now.",
+      note ? `\n${note}` : "",
+      "",
+      "Ryan or the USA Missionaries team will follow up personally if there are additional next steps.",
+    ].filter(Boolean).join("\n"),
   };
 }
 
@@ -222,4 +274,16 @@ export async function sendApplicantApplicationSubmittedEmail(input: JoinApplicat
 
 export async function sendAdminNewApplicationNotificationEmail(input: JoinApplicationEmailInput) {
   return sendResendEmail(adminApplicationEmail(), buildAdminNewApplicationEmail(input));
+}
+
+export async function sendApplicationApprovedEmail(input: JoinApplicationEmailInput) {
+  return sendResendEmail(input.applicantEmail, buildApplicationApprovedEmail(input));
+}
+
+export async function sendApplicationMoreInformationRequestedEmail(input: JoinApplicationEmailInput) {
+  return sendResendEmail(input.applicantEmail, buildRequestMoreInformationEmail(input));
+}
+
+export async function sendApplicationDeclinedEmail(input: JoinApplicationEmailInput) {
+  return sendResendEmail(input.applicantEmail, buildApplicationDeclinedEmail(input));
 }
