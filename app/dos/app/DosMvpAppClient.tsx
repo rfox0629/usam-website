@@ -370,6 +370,16 @@ const quickReviewLifeChangeOutcomeKeys = [
   "still_processing",
   "other",
 ] as const;
+const fruitSnapshotOutcomeKeys = [
+  "started_discipling_others",
+  "discipling",
+  "joined_group",
+  "felt_encouraged",
+  "reconciled_relationship",
+  "baptism_requested",
+  "new_believer",
+  "marriage_restoration",
+] as const;
 const testimonyReviewSharingPermissionOptions = [
   "I give permission for USA Missionaries to share my testimony publicly (written or verbal) in an anonymized form.",
   "I give permission for USA Missionaries to share my testimony publicly with my name included.",
@@ -526,11 +536,11 @@ const quickReviewFormPreview: {
     },
     {
       fieldType: "textarea",
-      label: "What impact did the evening have on you? Any encouragement you want to share with USA Missionaries?",
+      label: "What impact did this meeting have on you? Any encouragement you want to share with USA Missionaries?",
       type: "field",
     },
     {
-      label: "Did anything change in your life because of this gathering?",
+      label: "Did anything change in your life because of this meeting?",
       options: fruitOutcomeFormLabels(quickReviewLifeChangeOutcomeKeys),
       type: "choice",
     },
@@ -588,7 +598,7 @@ const testimonyReviewFormPreview: SendableFormPreview = {
     {
       fieldType: "textarea",
       helper: "This could be obedience, repentance, rest, prayer, reconciliation, or simply deeper trust.",
-      label: "As you reflect on the evening, is there anything you feel the Lord is inviting you to step into or respond to next?",
+      label: "As you reflect on this meeting, is there anything you feel the Lord is inviting you to step into or respond to next?",
       type: "field",
     },
     {
@@ -5564,7 +5574,7 @@ const fruitFormCards: ReadonlyArray<{
   title: string;
 }> = [
   {
-    description: "Send after a meeting so someone can share what happened and how the meeting impacted them.",
+    description: "Send after a meeting so someone can share what happened, how the meeting impacted them, and any next steps.",
     icon: "send",
     key: "quick_review",
     status: "live",
@@ -9225,19 +9235,93 @@ function fieldFruitStories({
 function fruitImpactGroups(stories: FruitDashboardStory[]) {
   return fruitImpactGroupConfig.map((group) => ({
     ...group,
-    outcomes: group.outcomeKeys.map((outcomeKey) => {
-      const outcome = fruitOutcomeByKey.get(outcomeKey);
-      const matchingStories = stories.filter((story) => story.outcomeKeys.includes(outcomeKey));
-      const sources = uniqueFruitTags(matchingStories.map((story) => story.impactSource));
-
-      return {
-        key: outcomeKey,
-        label: outcome?.label ?? outcomeKey,
-        sources,
-        value: matchingStories.length,
-      };
-    }),
+    outcomes: group.outcomeKeys.map((outcomeKey) => fruitImpactOutcomeMetric(stories, outcomeKey)),
   }));
+}
+
+function fruitImpactOutcomeMetric(stories: FruitDashboardStory[], outcomeKey: string) {
+  const outcome = fruitOutcomeByKey.get(outcomeKey);
+  const matchingStories = stories.filter((story) => story.outcomeKeys.includes(outcomeKey));
+  const sources = uniqueFruitTags(matchingStories.map((story) => story.impactSource));
+
+  return {
+    key: outcomeKey,
+    label: outcome ? fruitOutcomeSnapshotLabel(outcome) : outcomeKey,
+    sources,
+    value: matchingStories.length,
+  };
+}
+
+function fruitImpactSnapshotMetrics(stories: FruitDashboardStory[]) {
+  return fruitSnapshotOutcomeKeys.map((outcomeKey) => fruitImpactOutcomeMetric(stories, outcomeKey));
+}
+
+function fruitOutcomeSnapshotLabel(outcome: FruitOutcomeDefinition) {
+  switch (outcome.key) {
+    case "felt_encouraged":
+      return "Felt Encouraged";
+    case "joined_group":
+      return "Joined a Group";
+    case "reconciled_relationship":
+      return "Reconciliation";
+    case "baptism_requested":
+      return "Baptism Requested";
+    case "new_believer":
+      return "New Believers";
+    case "marriage_restoration":
+      return "Marriage Restoration";
+    case "started_discipling_others":
+      return "Started Discipling Others";
+    default:
+      return outcome.label;
+  }
+}
+
+type FruitImpactMetric = ReturnType<typeof fruitImpactOutcomeMetric>;
+
+function FruitSnapshotMetricCard({ metric }: { metric: FruitImpactMetric }) {
+  return (
+    <article className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-white/95 px-3 py-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <Icon name="fruit" size={13} />
+        </span>
+        <span className="text-[24px] font-black leading-none tracking-[-0.03em] text-[#0F172A]">{metric.value}</span>
+      </div>
+      <p className="mt-2 line-clamp-2 text-[11px] font-black uppercase leading-4 tracking-[0.08em] text-[#334155]" style={{ fontFamily: font.rajdhani }}>
+        {metric.label}
+      </p>
+      <p className="mt-1 truncate text-[10px] font-semibold text-[#94A3B8]">
+        {metric.sources.length ? metric.sources.join(" · ") : "No records yet"}
+      </p>
+    </article>
+  );
+}
+
+function FruitBreakdownSection({ groups }: { groups: ReturnType<typeof fruitImpactGroups> }) {
+  const total = groups.reduce((sum, group) => (
+    sum + group.outcomes.reduce((groupSum, outcome) => groupSum + outcome.value, 0)
+  ), 0);
+
+  return (
+    <details className="group rounded-[22px] border border-[#EAF2FF] bg-white/90 p-3 shadow-[0_10px_26px_rgba(37,99,235,0.035)]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-[18px] px-1 py-1">
+        <span>
+          <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Fruit Breakdown</span>
+          <span className="mt-1 block text-xs font-semibold text-[#64748B]">Grouped outcomes from forms and leader reviews</span>
+        </span>
+        <span className="flex items-center gap-2 text-xs font-bold text-[#1D4ED8]">
+          {total} outcomes
+          <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.8} />
+        </span>
+      </summary>
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        {groups.map((group) => (
+          <FruitImpactGroupCard group={group} key={group.key} />
+        ))}
+      </div>
+    </details>
+  );
 }
 
 function FruitImpactGroupCard({
@@ -9248,24 +9332,24 @@ function FruitImpactGroupCard({
   const groupTotal = group.outcomes.reduce((total, outcome) => total + outcome.value, 0);
 
   return (
-    <article className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+    <article className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{group.title}</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{group.sourceHint}</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{group.title}</p>
+          <p className="mt-0.5 text-[11px] font-semibold leading-4 text-[#64748B]">{group.sourceHint}</p>
         </div>
-        <span className="rounded-full bg-[#EBF2FF] px-3 py-1 text-sm font-black text-[#1D4ED8]">{groupTotal}</span>
+        <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-xs font-black text-[#1D4ED8]">{groupTotal}</span>
       </div>
-      <div className="mt-4 divide-y divide-[#EFF6FF]">
+      <div className="mt-2 divide-y divide-[#EAF2FF]">
         {group.outcomes.map((outcome) => (
-          <div className="flex items-center justify-between gap-3 py-2.5" key={outcome.key}>
+          <div className="flex items-center justify-between gap-3 py-1.5" key={outcome.key}>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-[#0F172A]">{outcome.label}</p>
+              <p className="truncate text-xs font-bold text-[#0F172A]">{outcome.label}</p>
               <p className="mt-0.5 truncate text-[11px] font-semibold text-[#94A3B8]">
                 {outcome.sources.length ? outcome.sources.join(" · ") : "No records yet"}
               </p>
             </div>
-            <span className="shrink-0 text-xl font-black leading-none text-[#0F172A]">{outcome.value}</span>
+            <span className="shrink-0 text-base font-black leading-none text-[#0F172A]">{outcome.value}</span>
           </div>
         ))}
       </div>
@@ -9274,35 +9358,41 @@ function FruitImpactGroupCard({
 }
 
 function RecentFruitStoryCard({
+  compact = false,
   onOpen,
   story,
 }: {
+  compact?: boolean;
   onOpen?: () => void;
   story: FruitDashboardStory;
 }) {
   return (
-    <button className="rounded-[22px] border border-[#E2E8F0] bg-white p-4 text-left shadow-[0_8px_22px_rgba(15,23,42,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]" onClick={onOpen} type="button">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
-          <Icon name={fruitActivityIconName(story.source)} size={15} />
+    <button
+      className={`${compact ? "rounded-[20px] p-3" : "rounded-[22px] p-4"} border border-[#E2E8F0] bg-white text-left shadow-[0_8px_22px_rgba(15,23,42,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]`}
+      onClick={onOpen}
+      type="button"
+    >
+      <div className={`flex items-start ${compact ? "gap-2.5" : "gap-3"}`}>
+        <span className={`${compact ? "h-8 w-8" : "h-9 w-9"} mt-0.5 flex shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]`}>
+          <Icon name={fruitActivityIconName(story.source)} size={compact ? 13 : 15} />
         </span>
         <div className="min-w-0 flex-1">
-          <span className={`mb-2 inline-flex w-fit rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] ${fruitActivitySourceClassName(story.source)}`} style={{ fontFamily: font.rajdhani }}>
+          <span className={`${compact ? "mb-1.5 px-2 py-0.5 text-[8.5px]" : "mb-2 px-2.5 py-1 text-[9px]"} inline-flex w-fit rounded-full font-bold uppercase tracking-[0.12em] ${fruitActivitySourceClassName(story.source)}`} style={{ fontFamily: font.rajdhani }}>
             {story.source}
           </span>
-          <p className="text-sm font-bold leading-5 text-[#0F172A]">{story.title}</p>
+          <p className={`${compact ? "text-[13px] leading-5" : "text-sm leading-5"} font-bold text-[#0F172A]`}>{story.title}</p>
           <p className="mt-1 text-xs leading-5 text-[#64748B]">
             {[story.personName, formatDate(story.date)].filter(Boolean).join(" · ")}
           </p>
           {story.text && story.text !== story.title ? (
-            <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#64748B]">{story.text}</p>
+            <p className={`${compact ? "mt-1" : "mt-2"} line-clamp-2 text-xs leading-5 text-[#64748B]`}>{story.text}</p>
           ) : null}
         </div>
       </div>
       {story.tags.length ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className={`${compact ? "mt-2 gap-1.5" : "mt-3 gap-2"} flex flex-wrap`}>
           {story.tags.slice(0, 4).map((tag) => (
-            <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={tag}>
+            <span className={`${compact ? "px-2 py-0.5 text-[9.5px]" : "px-2.5 py-1 text-[10px]"} rounded-full bg-[#F1F5F9] font-semibold text-[#64748B]`} key={tag}>
               {tag}
             </span>
           ))}
@@ -12903,6 +12993,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }), [answeredPrayerByReminderId, data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, data.prayerLogs, data.reminders, people]);
   const visibleFruitStories = useMemo(() => fruitStoryEntries.filter((story) => !isQaFruitStory(story)), [fruitStoryEntries]);
   const fruitImpactOutcomeGroups = useMemo(() => fruitImpactGroups(visibleFruitStories), [visibleFruitStories]);
+  const fruitSnapshotMetrics = useMemo(() => fruitImpactSnapshotMetrics(visibleFruitStories), [visibleFruitStories]);
   const latestMeeting = loggedMeetings[0];
   const latestLoggedTableMeeting = useMemo(() => (
     loggedMeetings.find((meeting) => meeting.source === "table") ?? null
@@ -15448,25 +15539,28 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     ) : null}
 
                     {fruitView === "impact" ? (
-                      <div className="space-y-5">
+                      <div className="space-y-4">
                         <section>
-                          <SectionHeading title="Impact" />
-                          <div className="grid gap-3 md:grid-cols-2">
-                            {fruitImpactOutcomeGroups.map((group) => (
-                              <FruitImpactGroupCard group={group} key={group.key} />
+                          <SectionHeading title="Fruit Snapshot" />
+                          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                            {fruitSnapshotMetrics.map((metric) => (
+                              <FruitSnapshotMetricCard key={metric.key} metric={metric} />
                             ))}
                           </div>
                         </section>
                         {visibleFruitStories.length ? (
                           <section>
                             <SectionHeading title="Recent Fruit" />
-                            <div className="grid gap-3 md:grid-cols-3">
+                            <div className="grid gap-2.5 md:grid-cols-3">
                               {visibleFruitStories.slice(0, 3).map((story) => (
-                                <RecentFruitStoryCard key={story.id} onOpen={() => setSelectedFruitActivity(story)} story={story} />
+                                <RecentFruitStoryCard compact key={story.id} onOpen={() => setSelectedFruitActivity(story)} story={story} />
                               ))}
                             </div>
                           </section>
                         ) : null}
+                        <section>
+                          <FruitBreakdownSection groups={fruitImpactOutcomeGroups} />
+                        </section>
                         <MultiplicationTreeTeaser storyCount={visibleFruitStories.length} />
                       </div>
                     ) : null}
