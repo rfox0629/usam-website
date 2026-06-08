@@ -160,6 +160,12 @@ const conversationUnsureAnswerOptions = [
 
 type FruitOutcomeGroupKey = "discipleship" | "relational" | "spiritual" | "testimony_processing";
 type FruitOutcomeSourceKey = "leader_review" | "quick_review" | "testimony_review";
+const fruitOutcomeSourceLabels = {
+  leader_review: "Leader Review",
+  quick_review: "Quick Review",
+  testimony_review: "Testimony Review",
+} as const satisfies Record<FruitOutcomeSourceKey, string>;
+type FruitActivitySource = (typeof fruitOutcomeSourceLabels)[FruitOutcomeSourceKey];
 type FruitOutcomeDefinition = {
   aliases: readonly string[];
   formLabel?: string;
@@ -351,6 +357,23 @@ const fruitOutcomeConfig = [
   },
 ] as const satisfies ReadonlyArray<FruitOutcomeDefinition>;
 const fruitOutcomeDefinitions: readonly FruitOutcomeDefinition[] = fruitOutcomeConfig;
+const fruitImpactSourceConfigs = [
+  {
+    description: "Observed fruit recorded by the leader after a meeting.",
+    key: "leader_review",
+    title: fruitOutcomeSourceLabels.leader_review,
+  },
+  {
+    description: "Outcomes selected by someone completing the quick review.",
+    key: "quick_review",
+    title: fruitOutcomeSourceLabels.quick_review,
+  },
+  {
+    description: "Outcomes connected to testimony review responses.",
+    key: "testimony_review",
+    title: fruitOutcomeSourceLabels.testimony_review,
+  },
+] as const satisfies ReadonlyArray<{ description: string; key: FruitOutcomeSourceKey; title: FruitActivitySource }>;
 
 const quickReviewExperienceOutcomeKeys = [
   "life_giving",
@@ -369,16 +392,6 @@ const quickReviewLifeChangeOutcomeKeys = [
   "baptism_requested",
   "still_processing",
   "other",
-] as const;
-const fruitSnapshotOutcomeKeys = [
-  "started_discipling_others",
-  "discipling",
-  "joined_group",
-  "felt_encouraged",
-  "reconciled_relationship",
-  "baptism_requested",
-  "new_believer",
-  "marriage_restoration",
 ] as const;
 const testimonyReviewSharingPermissionOptions = [
   "I give permission for USA Missionaries to share my testimony publicly (written or verbal) in an anonymized form.",
@@ -448,7 +461,6 @@ type PeopleCircleView = CircleFocusView;
 type MeetingsView = "availability" | "calendar" | "history" | "upcoming";
 type MobileMeetingsView = Exclude<MeetingsView, "availability">;
 type FruitView = "activity" | "forms" | "impact";
-type FruitActivitySource = "Answered Prayer" | "Prayer" | "Quick Review" | "Story" | "Testimony Review";
 type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
 type FruitFormStatus = "coming_soon" | "live";
 type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
@@ -8611,7 +8623,7 @@ function HomeActivitySheetRow({ item, onClick }: { item: HomeActivityItem; onCli
 type FruitDashboardStory = {
   date: string | null;
   id: string;
-  impactSource: "Leader Review" | "Quick Review" | "Story" | "Testimony Review";
+  impactSource: FruitActivitySource;
   outcomeKeys: string[];
   personId: string | null;
   personName: string | null;
@@ -8715,74 +8727,37 @@ function fruitStoryTitle(value: string | null | undefined) {
   return firstSentence.length > 82 ? `${firstSentence.slice(0, 79).trim()}...` : firstSentence;
 }
 
-function isAnsweredPrayerText(...values: Array<null | string | string[] | undefined>) {
-  const text = fruitSearchText(...values);
-
-  return text.includes("answered prayer")
-    || text.includes("prayer answered")
-    || text.includes("answered prayers")
-    || text.includes("prayer received");
-}
-
 function fruitEventSourceLabel(event: DosAppFruitEvent): FruitActivitySource {
   if (event.sourceType === "participant_review") {
-    return "Quick Review";
+    return fruitOutcomeSourceLabels.quick_review;
   }
 
   if (event.sourceType === "testimony") {
-    return "Testimony Review";
+    return fruitOutcomeSourceLabels.testimony_review;
   }
 
-  const text = fruitSearchText(event.fruitType, event.title, event.description);
-
-  if (isAnsweredPrayerText(event.fruitType, event.title, event.description)) {
-    return "Answered Prayer";
-  }
-
-  if (text.includes("prayer")) {
-    return "Prayer";
-  }
-
-  return "Story";
-}
-
-function leaderReflectionFruitSource(reflection: DosAppLeaderReflection): FruitActivitySource {
-  if (isAnsweredPrayerText(reflection.observedFruit, reflection.whatHappened, reflection.prayerNeeds, reflection.nextStep)) {
-    return "Answered Prayer";
-  }
-
-  if (reflection.prayerNeeds) {
-    return "Prayer";
-  }
-
-  return "Story";
+  return fruitOutcomeSourceLabels.leader_review;
 }
 
 function fruitActivitySourceClassName(source: FruitActivitySource) {
   switch (source) {
-    case "Answered Prayer":
-      return "bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]";
-    case "Prayer":
-      return "bg-[#F8FBFF] text-[#1D4ED8] ring-1 ring-[#DCEBFF]";
     case "Quick Review":
       return "bg-[#EEF6FF] text-[#2563EB]";
     case "Testimony Review":
       return "bg-[#F1F5F9] text-[#0F172A]";
-    case "Story":
+    case "Leader Review":
     default:
-      return "bg-[#F1F5F9] text-[#475569]";
+      return "bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]";
   }
 }
 
 function fruitActivityIconName(source: FruitActivitySource): IconName {
   switch (source) {
-    case "Answered Prayer":
-    case "Prayer":
-      return "prayer";
     case "Quick Review":
       return "send";
     case "Testimony Review":
-    case "Story":
+      return "fruit";
+    case "Leader Review":
     default:
       return "fruit";
   }
@@ -8809,10 +8784,10 @@ function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFrui
         return {
           date: fruit.testimonyDate,
           id: `fruit-${fruit.id}`,
-          impactSource: "Story",
+          impactSource: fruitOutcomeSourceLabels.leader_review,
           personId: fruit.fieldPersonId,
           personName: fruit.fieldPersonId ? personName(people, fruit.fieldPersonId) : fruit.submittedByName,
-          source: "Story",
+          source: fruitOutcomeSourceLabels.leader_review,
           ...outcomeFields,
           text: fruit.summary,
           title: fruitStoryTitle(fruit.summary),
@@ -8828,7 +8803,7 @@ function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFrui
         return {
           date: event.date,
           id: `fruit-event-${event.id}`,
-          impactSource: source === "Quick Review" || source === "Testimony Review" ? source : "Story",
+          impactSource: source,
           personId: event.personId,
           personName: event.personId ? personName(people, event.personId) : null,
           source,
@@ -8853,19 +8828,13 @@ function fieldFruitStories({
   participantReviews,
   participantTestimonies,
   people,
-  prayerLogs,
-  relationshipReminders,
-  answeredPrayerByReminderId,
 }: {
-  answeredPrayerByReminderId: Record<string, string>;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   leaderReflections: DosAppLeaderReflection[];
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
-  prayerLogs: DosAppPrayerLog[];
-  relationshipReminders: DosAppRelationshipReminder[];
 }) {
   const directStories = approvedFruitStories(fruitItems, fruitEvents, people);
   const testimonyStories = participantTestimonies
@@ -8882,10 +8851,10 @@ function fieldFruitStories({
       return {
         date: testimony.submittedAt,
         id: `testimony-story-${testimony.id}`,
-        impactSource: "Testimony Review",
+        impactSource: fruitOutcomeSourceLabels.testimony_review,
         personId: testimony.personId,
         personName: testimony.personId ? personName(people, testimony.personId) : testimony.publicDisplayName,
-        source: "Testimony Review",
+        source: fruitOutcomeSourceLabels.testimony_review,
         ...outcomeFields,
         text: [testimony.story, testimony.whatChanged, testimony.nextStep].filter(Boolean).join(" "),
         title: fruitStoryTitle(testimony.whatChanged ?? testimony.story),
@@ -8907,10 +8876,10 @@ function fieldFruitStories({
       return {
         date: review.submittedAt,
         id: `review-story-${review.id}`,
-        impactSource: "Quick Review",
+        impactSource: fruitOutcomeSourceLabels.quick_review,
         personId: review.personId,
         personName: review.personId ? personName(people, review.personId) : null,
-        source: "Quick Review",
+        source: fruitOutcomeSourceLabels.quick_review,
         ...outcomeFields,
         text: review.comments ?? "Someone shared that the table helped them take a next step.",
         title: review.comments ? fruitStoryTitle(review.comments) : "Review shared",
@@ -8929,54 +8898,18 @@ function fieldFruitStories({
       return {
         date: reflection.createdAt,
         id: `reflection-story-${reflection.id}`,
-        impactSource: "Leader Review",
+        impactSource: fruitOutcomeSourceLabels.leader_review,
         personId: reflection.personId,
         personName: reflection.personId ? personName(people, reflection.personId) : null,
-        source: leaderReflectionFruitSource(reflection),
+        source: fruitOutcomeSourceLabels.leader_review,
         ...outcomeFields,
         text: [reflection.whatHappened, reflection.prayerNeeds, reflection.nextStep].filter(Boolean).join(" "),
         title: outcomeFields.tags[0] ?? reflection.observedFruit[0] ?? fruitStoryTitle(reflection.whatHappened ?? reflection.prayerNeeds),
         type: outcomeFields.tags[0] ?? (reflection.prayerNeeds ? "Prayer" : "Leader Reflection"),
       } satisfies FruitDashboardStory;
     });
-  const prayerLogStories = prayerLogs
-    .filter((log) => Boolean(log.note?.trim() || log.prayedAt))
-    .map((log) => ({
-      date: log.prayedAt ?? log.createdAt,
-      id: `prayer-log-${log.id}`,
-      impactSource: "Story",
-      outcomeKeys: [],
-      personId: log.fieldPersonId,
-      personName: log.fieldPersonId ? personName(people, log.fieldPersonId) : null,
-      source: isAnsweredPrayerText(log.note) ? "Answered Prayer" : "Prayer",
-      tags: [],
-      text: log.note?.trim() || "Prayer was logged for this relationship.",
-      title: isAnsweredPrayerText(log.note) ? "Answered prayer recorded" : "Prayer update recorded",
-      type: isAnsweredPrayerText(log.note) ? "Answered Prayer" : "Prayer Update",
-    } satisfies FruitDashboardStory));
-  const prayerReminderStories = relationshipReminders
-    .filter((reminder) => reminder.reminderType === "prayer")
-    .filter((reminder) => Boolean(reminder.title?.trim() || reminder.notes?.trim() || answeredPrayerByReminderId[reminder.id]))
-    .map((reminder) => {
-      const answeredAt = answeredPrayerByReminderId[reminder.id] ?? null;
-      const title = reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request";
 
-      return {
-        date: answeredAt ?? reminder.updatedAt ?? reminder.reminderDate,
-        id: answeredAt ? `answered-prayer-${reminder.id}` : `prayer-request-${reminder.id}`,
-        impactSource: "Story",
-        outcomeKeys: [],
-        personId: reminder.personId,
-        personName: personName(people, reminder.personId),
-        source: answeredAt ? "Answered Prayer" : "Prayer",
-        tags: [],
-        text: reminder.notes?.trim() || (answeredAt ? "This request was marked answered." : "Prayer request is being tracked."),
-        title: answeredAt ? `Answered: ${title}` : title,
-        type: answeredAt ? "Answered Prayer" : "Prayer Update",
-      } satisfies FruitDashboardStory;
-    });
-
-  return [...directStories, ...testimonyStories, ...reviewStories, ...reflectionStories, ...prayerLogStories, ...prayerReminderStories]
+  return [...directStories, ...testimonyStories, ...reviewStories, ...reflectionStories]
     .sort((first, second) => {
       const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
       const secondTime = parseDisplayDate(second.date)?.getTime() ?? 0;
@@ -8992,9 +8925,13 @@ function fruitImpactGroups(stories: FruitDashboardStory[]) {
   }));
 }
 
-function fruitImpactOutcomeMetric(stories: FruitDashboardStory[], outcomeKey: string) {
+function fruitImpactOutcomeMetric(stories: FruitDashboardStory[], outcomeKey: string, sourceKey?: FruitOutcomeSourceKey) {
   const outcome = fruitOutcomeByKey.get(outcomeKey);
-  const matchingStories = stories.filter((story) => story.outcomeKeys.includes(outcomeKey));
+  const sourceLabel = sourceKey ? fruitOutcomeSourceLabels[sourceKey] : null;
+  const matchingStories = stories.filter((story) => (
+    story.outcomeKeys.includes(outcomeKey)
+    && (!sourceLabel || story.impactSource === sourceLabel)
+  ));
   const sources = uniqueFruitTags(matchingStories.map((story) => story.impactSource));
 
   return {
@@ -9005,8 +8942,13 @@ function fruitImpactOutcomeMetric(stories: FruitDashboardStory[], outcomeKey: st
   };
 }
 
-function fruitImpactSnapshotMetrics(stories: FruitDashboardStory[]) {
-  return fruitSnapshotOutcomeKeys.map((outcomeKey) => fruitImpactOutcomeMetric(stories, outcomeKey));
+function fruitImpactSnapshotGroups(stories: FruitDashboardStory[]) {
+  return fruitImpactSourceConfigs.map((source) => ({
+    ...source,
+    outcomes: fruitOutcomeDefinitions
+      .filter((outcome) => outcome.sources.includes(source.key))
+      .map((outcome) => fruitImpactOutcomeMetric(stories, outcome.key, source.key)),
+  }));
 }
 
 function fruitOutcomeSnapshotLabel(outcome: FruitOutcomeDefinition) {
@@ -9034,20 +8976,40 @@ type FruitImpactMetric = ReturnType<typeof fruitImpactOutcomeMetric>;
 
 function FruitSnapshotMetricCard({ metric }: { metric: FruitImpactMetric }) {
   return (
-    <article className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-white/95 px-3 py-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
+    <article className="min-w-0 rounded-[16px] border border-[#EAF2FF] bg-white/95 px-2.5 py-2 shadow-[0_8px_20px_rgba(37,99,235,0.035)]">
       <div className="flex items-start justify-between gap-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-          <Icon name="fruit" size={13} />
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <Icon name="fruit" size={11} />
         </span>
-        <span className="text-[24px] font-black leading-none tracking-[-0.03em] text-[#0F172A]">{metric.value}</span>
+        <span className="text-[22px] font-black leading-none tracking-[-0.03em] text-[#0F172A]">{metric.value}</span>
       </div>
-      <p className="mt-2 line-clamp-2 text-[11px] font-black uppercase leading-4 tracking-[0.08em] text-[#334155]" style={{ fontFamily: font.rajdhani }}>
+      <p className="mt-1.5 line-clamp-2 text-[10px] font-black uppercase leading-3 tracking-[0.07em] text-[#334155]" style={{ fontFamily: font.rajdhani }}>
         {metric.label}
       </p>
-      <p className="mt-1 truncate text-[10px] font-semibold text-[#94A3B8]">
-        {metric.sources.length ? metric.sources.join(" · ") : "No records yet"}
-      </p>
     </article>
+  );
+}
+
+type FruitImpactSnapshotGroup = ReturnType<typeof fruitImpactSnapshotGroups>[number];
+
+function FruitSnapshotSourceSection({ group }: { group: FruitImpactSnapshotGroup }) {
+  const total = group.outcomes.reduce((sum, outcome) => sum + outcome.value, 0);
+
+  return (
+    <section className="rounded-[22px] border border-[#EAF2FF] bg-white/90 p-3 shadow-[0_10px_26px_rgba(37,99,235,0.035)]">
+      <div className="mb-2.5 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{group.title}</p>
+          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-[#64748B]">{group.description}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2.5 py-1 text-xs font-black text-[#1D4ED8]">{total}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+        {group.outcomes.map((metric) => (
+          <FruitSnapshotMetricCard key={`${group.key}-${metric.key}`} metric={metric} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -9111,7 +9073,7 @@ function FruitImpactGroupCard({
 }
 
 function RecentFruitStoryCard({
-  compact = false,
+  compact = true,
   onOpen,
   story,
 }: {
@@ -9121,31 +9083,30 @@ function RecentFruitStoryCard({
 }) {
   return (
     <button
-      className={`${compact ? "rounded-[20px] p-3" : "rounded-[22px] p-4"} border border-[#E2E8F0] bg-white text-left shadow-[0_8px_22px_rgba(15,23,42,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]`}
+      className={`${compact ? "rounded-[18px] px-3 py-2.5" : "rounded-[20px] p-3"} border border-[#E2E8F0] bg-white text-left shadow-[0_8px_20px_rgba(15,23,42,0.035)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]`}
       onClick={onOpen}
       type="button"
     >
       <div className={`flex items-start ${compact ? "gap-2.5" : "gap-3"}`}>
-        <span className={`${compact ? "h-8 w-8" : "h-9 w-9"} mt-0.5 flex shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]`}>
-          <Icon name={fruitActivityIconName(story.source)} size={compact ? 13 : 15} />
+        <span className={`${compact ? "h-7 w-7" : "h-8 w-8"} mt-0.5 flex shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]`}>
+          <Icon name={fruitActivityIconName(story.source)} size={compact ? 12 : 13} />
         </span>
         <div className="min-w-0 flex-1">
-          <span className={`${compact ? "mb-1.5 px-2 py-0.5 text-[8.5px]" : "mb-2 px-2.5 py-1 text-[9px]"} inline-flex w-fit rounded-full font-bold uppercase tracking-[0.12em] ${fruitActivitySourceClassName(story.source)}`} style={{ fontFamily: font.rajdhani }}>
-            {story.source}
-          </span>
-          <p className={`${compact ? "text-[13px] leading-5" : "text-sm leading-5"} font-bold text-[#0F172A]`}>{story.title}</p>
-          <p className="mt-1 text-xs leading-5 text-[#64748B]">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <p className={`${compact ? "text-[13px] leading-5" : "text-sm leading-5"} min-w-0 flex-1 line-clamp-2 font-bold text-[#0F172A]`}>{story.title}</p>
+            <span className={`${compact ? "px-2 py-0.5 text-[8px]" : "px-2.5 py-1 text-[9px]"} shrink-0 rounded-full font-bold uppercase tracking-[0.11em] ${fruitActivitySourceClassName(story.source)}`} style={{ fontFamily: font.rajdhani }}>
+              {story.source}
+            </span>
+          </div>
+          <p className="mt-0.5 truncate text-[11px] font-semibold leading-4 text-[#64748B]">
             {[story.personName, formatDate(story.date)].filter(Boolean).join(" · ")}
           </p>
-          {story.text && story.text !== story.title ? (
-            <p className={`${compact ? "mt-1" : "mt-2"} line-clamp-2 text-xs leading-5 text-[#64748B]`}>{story.text}</p>
-          ) : null}
         </div>
       </div>
       {story.tags.length ? (
-        <div className={`${compact ? "mt-2 gap-1.5" : "mt-3 gap-2"} flex flex-wrap`}>
-          {story.tags.slice(0, 4).map((tag) => (
-            <span className={`${compact ? "px-2 py-0.5 text-[9.5px]" : "px-2.5 py-1 text-[10px]"} rounded-full bg-[#F1F5F9] font-semibold text-[#64748B]`} key={tag}>
+        <div className={`${compact ? "mt-1.5 gap-1" : "mt-2 gap-1.5"} flex flex-wrap pl-9`}>
+          {story.tags.slice(0, 3).map((tag) => (
+            <span className={`${compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[9.5px]"} rounded-full bg-[#F1F5F9] font-semibold text-[#64748B]`} key={tag}>
               {tag}
             </span>
           ))}
@@ -9165,13 +9126,13 @@ function DesktopFruitStoriesTable({
   return (
     <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
       <div className="overflow-x-auto">
-        <div className="min-w-[960px]">
-          <div className="grid grid-cols-[118px_170px_136px_minmax(320px,1fr)_250px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="min-w-[820px]">
+          <div className="grid grid-cols-[110px_150px_132px_minmax(240px,1fr)_210px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             <span>Date</span>
             <span>Person</span>
             <span>Source</span>
-            <span>Story</span>
-            <span>Fruit</span>
+            <span>Title</span>
+            <span>Outcomes</span>
           </div>
           <div className="divide-y divide-[#EFF6FF]">
             {stories.map((story) => {
@@ -9180,7 +9141,7 @@ function DesktopFruitStoriesTable({
               return (
                 <button
                   aria-label={storyActionLabel}
-                  className="grid w-full grid-cols-[118px_170px_136px_minmax(320px,1fr)_250px] items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-[#F8FBFF]"
+                  className="grid w-full grid-cols-[110px_150px_132px_minmax(240px,1fr)_210px] items-center gap-3 px-4 py-2.5 text-left text-xs transition-colors hover:bg-[#F8FBFF]"
                   key={story.id}
                   onClick={() => onOpenActivity(story)}
                   type="button"
@@ -9192,9 +9153,6 @@ function DesktopFruitStoriesTable({
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[#0F172A]">{story.title || "Fruit recorded"}</span>
-                    {story.text && story.text !== story.title ? (
-                      <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">{story.text}</span>
-                    ) : null}
                   </span>
                   <span className="flex min-w-0 flex-wrap gap-1.5">
                     {story.tags.length ? story.tags.slice(0, 3).map((tag) => (
@@ -9223,7 +9181,7 @@ function FruitActivityDetailSheet({
   story: FruitDashboardStory;
 }) {
   return (
-    <Sheet description="Fruit-generating activity from reviews, testimonies, prayer updates, and stories." onClose={onClose} showEyebrow={false} title={story.title || "Fruit activity"}>
+    <Sheet description="Fruit-generating activity from leader reviews, quick reviews, and testimony reviews." onClose={onClose} showEyebrow={false} title={story.title || "Fruit activity"}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${fruitActivitySourceClassName(story.source)}`} style={{ fontFamily: font.rajdhani }}>
@@ -9491,7 +9449,7 @@ function MultiplicationTreeTeaser({ storyCount }: { storyCount: number }) {
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Multiplication Tree</p>
           <h3 className="mt-1 text-lg font-black leading-tight tracking-[-0.01em] text-[#0F172A]">Coming Soon</h3>
           <p className="mt-2 text-sm leading-6 text-[#64748B]">
-            As reviews, testimonies, and prayer updates are recorded, this will grow into a visual multiplication tree.
+            As leader reviews, quick reviews, and testimony reviews are recorded, this will grow into a visual multiplication tree.
           </p>
           <p className="mt-3 text-xs font-bold text-[#1D4ED8]">{storyCount} {storyCount === 1 ? "activity record" : "activity records"} ready</p>
         </div>
@@ -12734,19 +12692,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ];
   }, [data.people, quickAddedPeople]);
   const fruitStoryEntries = useMemo(() => fieldFruitStories({
-    answeredPrayerByReminderId,
     fruitEvents: data.fruitEvents,
     fruitItems: data.fruit,
     leaderReflections: data.leaderReflections,
     participantReviews: data.participantReviews,
     participantTestimonies: data.participantTestimonies,
     people,
-    prayerLogs: data.prayerLogs,
-    relationshipReminders: data.reminders,
-  }), [answeredPrayerByReminderId, data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, data.prayerLogs, data.reminders, people]);
+  }), [data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, people]);
   const visibleFruitStories = useMemo(() => fruitStoryEntries.filter((story) => !isQaFruitStory(story)), [fruitStoryEntries]);
   const fruitImpactOutcomeGroups = useMemo(() => fruitImpactGroups(visibleFruitStories), [visibleFruitStories]);
-  const fruitSnapshotMetrics = useMemo(() => fruitImpactSnapshotMetrics(visibleFruitStories), [visibleFruitStories]);
+  const fruitSnapshotGroups = useMemo(() => fruitImpactSnapshotGroups(visibleFruitStories), [visibleFruitStories]);
   const latestMeeting = loggedMeetings[0];
   const latestLoggedTableMeeting = useMemo(() => (
     loggedMeetings.find((meeting) => meeting.source === "table") ?? null
@@ -15273,7 +15228,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         {visibleFruitStories.length ? (
                           <>
                             <DesktopFruitStoriesTable onOpenActivity={setSelectedFruitActivity} stories={visibleFruitStories} />
-                            <div className="grid gap-3 md:hidden">
+                            <div className="grid gap-2 md:hidden">
                               {visibleFruitStories.slice(0, 9).map((story) => (
                                 <RecentFruitStoryCard key={story.id} onOpen={() => setSelectedFruitActivity(story)} story={story} />
                               ))}
@@ -15295,22 +15250,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <div className="space-y-4">
                         <section>
                           <SectionHeading title="Fruit Snapshot" />
-                          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                            {fruitSnapshotMetrics.map((metric) => (
-                              <FruitSnapshotMetricCard key={metric.key} metric={metric} />
+                          <div className="grid gap-3">
+                            {fruitSnapshotGroups.map((group) => (
+                              <FruitSnapshotSourceSection group={group} key={group.key} />
                             ))}
                           </div>
                         </section>
-                        {visibleFruitStories.length ? (
-                          <section>
-                            <SectionHeading title="Recent Fruit" />
-                            <div className="grid gap-2.5 md:grid-cols-3">
-                              {visibleFruitStories.slice(0, 3).map((story) => (
-                                <RecentFruitStoryCard compact key={story.id} onOpen={() => setSelectedFruitActivity(story)} story={story} />
-                              ))}
-                            </div>
-                          </section>
-                        ) : null}
                         <section>
                           <FruitBreakdownSection groups={fruitImpactOutcomeGroups} />
                         </section>
