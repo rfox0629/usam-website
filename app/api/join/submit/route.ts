@@ -168,6 +168,27 @@ function normalizePhone(value: string) {
   return digits.length >= 7 ? digits : "";
 }
 
+function normalizeHouseholdRelationship(value: unknown, dependentStatus: unknown) {
+  const relationship = asString(value).toLowerCase();
+  const dependency = asString(dependentStatus).toLowerCase();
+
+  if (
+    dependency === "dependent"
+    || relationship === "child"
+    || relationship === "son"
+    || relationship === "daughter"
+    || relationship === "dependent"
+  ) {
+    return "child";
+  }
+
+  if (dependency === "independent" || relationship === "adult child" || relationship === "household member") {
+    return "household_member";
+  }
+
+  return "other";
+}
+
 function locationText(city: string, state: string) {
   return [city, state].filter(Boolean).join(", ");
 }
@@ -723,7 +744,7 @@ export async function POST(request: Request) {
         dos_user_id: null,
         household_id: fallbackHouseholdResult.data.id,
         is_public: false,
-        relationship_to_workspace: asString(familyMember.relationship) || "child",
+        relationship_to_workspace: normalizeHouseholdRelationship(familyMember.relationship, familyMember.dependentStatus),
         role_title: asString(familyMember.dependentStatus) === "independent" ? "Household Member" : "Dependent",
         source: "dos",
         status: "pending",
