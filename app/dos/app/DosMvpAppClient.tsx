@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Droplet, ExternalLink, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, RefreshCw, Search, Send, Settings, Shield, Sparkles, StickyNote, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ComponentProps, FormEvent, MouseEvent, ReactNode } from "react";
@@ -456,7 +456,6 @@ type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "meeting_covering" | "my_requests" | "partners" | "praying_for";
 type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
-type MeetingCaptureType = "photo" | "screenshot" | "voice";
 type MeetingReviewFollowUp = "none" | "quick_review" | "testimony_request";
 type MeetingCalendarItemKind = "anniversary" | "birthday" | "follow_up" | "google" | "meeting" | "prayer";
 type MeetingCalendarItem = {
@@ -628,14 +627,6 @@ type ScriptureQuickViewState = {
   scripture: ScriptureReference;
   top: number;
 };
-type MeetingCaptureDraft = {
-  file: Blob;
-  fileName: string;
-  id: string;
-  previewUrl?: string;
-  type: MeetingCaptureType;
-};
-
 const scriptureReferences = {
   hebrews1025: {
     reference: "Hebrews 10:25",
@@ -1045,32 +1036,6 @@ function formatWeekRangeCompact(start: Date, end: Date) {
   });
 
   return `${formatter.format(start)} · ${formatter.format(end)}`;
-}
-
-function formatFileSize(size: number) {
-  if (size < 1024) {
-    return `${size} B`;
-  }
-
-  if (size < 1024 * 1024) {
-    return `${Math.round(size / 1024)} KB`;
-  }
-
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function captureTypeLabel(type: MeetingCaptureType) {
-  return {
-    photo: "Photo",
-    screenshot: "Screenshot",
-    voice: "Voice Note",
-  }[type];
-}
-
-function captureFileName(type: MeetingCaptureType, extension: string) {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-
-  return `${type}-${timestamp}.${extension}`;
 }
 
 function todayDateValue() {
@@ -7648,195 +7613,19 @@ function MeetingCaptureNotes({
 }: {
   defaultValue?: string | null;
 }) {
-  const [captures, setCaptures] = useState<MeetingCaptureDraft[]>([]);
-  const [captureMessage, setCaptureMessage] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
-  const screenshotInputRef = useRef<HTMLInputElement | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const voiceChunksRef = useRef<Blob[]>([]);
-  const objectUrlsRef = useRef<string[]>([]);
-
-  useEffect(() => () => {
-    mediaRecorderRef.current?.state === "recording" && mediaRecorderRef.current.stop();
-    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-  }, []);
-
-  function addCapture(capture: Omit<MeetingCaptureDraft, "id">) {
-    setCaptures((currentCaptures) => [
-      ...currentCaptures,
-      {
-        ...capture,
-        id: `${capture.type}-${Date.now()}-${currentCaptures.length}`,
-      },
-    ]);
-    setCaptureMessage("");
-  }
-
-  function addFiles(type: Exclude<MeetingCaptureType, "voice">, files: FileList | null) {
-    const selectedFiles = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
-
-    if (!selectedFiles.length) {
-      return;
-    }
-
-    selectedFiles.forEach((file) => {
-      const previewUrl = URL.createObjectURL(file);
-      objectUrlsRef.current.push(previewUrl);
-      addCapture({
-        file,
-        fileName: file.name,
-        previewUrl,
-        type,
-      });
-    });
-  }
-
-  function handleFileSelection(type: Exclude<MeetingCaptureType, "voice">, event: ChangeEvent<HTMLInputElement>) {
-    addFiles(type, event.currentTarget.files);
-    event.currentTarget.value = "";
-  }
-
-  function removeCapture(captureId: string) {
-    setCaptures((currentCaptures) => {
-      const capture = currentCaptures.find((currentCapture) => currentCapture.id === captureId);
-
-      if (capture?.previewUrl) {
-        URL.revokeObjectURL(capture.previewUrl);
-        objectUrlsRef.current = objectUrlsRef.current.filter((url) => url !== capture.previewUrl);
-      }
-
-      return currentCaptures.filter((currentCapture) => currentCapture.id !== captureId);
-    });
-  }
-
-  async function startVoiceNote() {
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setCaptureMessage("Voice recording is not available here.");
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      mediaStreamRef.current = stream;
-      mediaRecorderRef.current = recorder;
-      voiceChunksRef.current = [];
-
-      recorder.addEventListener("dataavailable", (event) => {
-        if (event.data.size > 0) {
-          voiceChunksRef.current.push(event.data);
-        }
-      });
-
-      recorder.addEventListener("stop", () => {
-        const blob = new Blob(voiceChunksRef.current, { type: recorder.mimeType || "audio/webm" });
-        const previewUrl = URL.createObjectURL(blob);
-        objectUrlsRef.current.push(previewUrl);
-        addCapture({
-          file: blob,
-          fileName: captureFileName("voice", "webm"),
-          previewUrl,
-          type: "voice",
-        });
-        stream.getTracks().forEach((track) => track.stop());
-        mediaStreamRef.current = null;
-        mediaRecorderRef.current = null;
-        setIsRecording(false);
-      });
-
-      recorder.start();
-      setIsRecording(true);
-      setCaptureMessage("");
-    } catch {
-      setCaptureMessage("Microphone unavailable.");
-      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-      mediaRecorderRef.current = null;
-      setIsRecording(false);
-    }
-  }
-
-  function stopVoiceNote() {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-  }
-
   return (
     <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
       <div className="flex items-center justify-between gap-3">
         <FieldLabel>Table Notes</FieldLabel>
-        {captures.length ? (
-          <span className="rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-            Draft
-          </span>
-        ) : null}
+        <span className="rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+          Notes
+        </span>
       </div>
-
-      <div className="mt-2 grid grid-cols-3 gap-1.5">
-        <CaptureActionButton active={isRecording} icon={isRecording ? <Square className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} /> : <Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={isRecording ? stopVoiceNote : startVoiceNote}>
-          {isRecording ? "Stop" : "Voice"}
-        </CaptureActionButton>
-        <CaptureActionButton icon={<Camera className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={() => photoInputRef.current?.click()}>
-          Photo
-        </CaptureActionButton>
-        <CaptureActionButton icon={<FileImage className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={() => screenshotInputRef.current?.click()}>
-          Screenshot
-        </CaptureActionButton>
-      </div>
-
-      <input
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(event) => handleFileSelection("photo", event)}
-        ref={photoInputRef}
-        type="file"
-      />
-      <input
-        accept="image/*"
-        className="hidden"
-        multiple
-        onChange={(event) => handleFileSelection("screenshot", event)}
-        ref={screenshotInputRef}
-        type="file"
-      />
-
-      {captureMessage ? <p className="mt-2 text-xs text-[#1D4ED8]">{captureMessage}</p> : null}
-      {captures.length ? (
-        <div className="mt-2 grid gap-1.5">
-          {/* TODO: Persist captures to a workspace-scoped meeting_attachments table with meeting_id, workspace_id, type, file_name, storage_path/file_url, and created_at once a DOS attachments bucket exists. */}
-          {/* TODO: Send voice notes through AI transcription and summary before attaching them to meeting insights. */}
-          {captures.map((capture) => (
-            <div className="flex min-h-11 items-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F1F5F9] p-1.5 pr-2" key={capture.id}>
-              {capture.type === "voice" ? (
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#EBF2FF] text-[#1D4ED8]">
-                  <Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-                </span>
-              ) : (
-                <img alt="" className="h-8 w-8 shrink-0 rounded-xl object-cover" src={capture.previewUrl} />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-[#0F172A]">{capture.fileName}</p>
-                <p className="text-[11px] text-[#64748B]">{captureTypeLabel(capture.type)} · {formatFileSize(capture.file.size)}</p>
-              </div>
-              <button
-                aria-label={`Remove ${captureTypeLabel(capture.type)}`}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-white hover:text-[#0F172A]"
-                onClick={() => removeCapture(capture.id)}
-                type="button"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      <textarea className={`${FieldInputClass()} min-h-24 py-3`} defaultValue={defaultValue ?? ""} name="notes" placeholder="What happened at the table?" />
+      <p className="mt-1 text-xs leading-5 text-[#64748B]">Capture what happened, key moments, and anything to remember.</p>
+      <textarea className={`${FieldTextareaClass()} mt-2 min-h-24`} defaultValue={defaultValue ?? ""} name="notes" placeholder="What happened at the table?" />
+      <p className="mt-2 rounded-2xl bg-[#F8FAFC] px-3 py-2 text-[11px] font-semibold leading-4 text-[#64748B]">
+        Voice, photo, and screenshot attachments are coming later. Notes are saved with this table for now.
+      </p>
     </section>
   );
 }
@@ -7856,17 +7645,18 @@ function MeetingLeaderReflectionSection({
         <p className={meetingFormGroupTitleClassName}>Leader Reflection</p>
 
         <div className="mt-3 grid gap-3">
-          <MeetingCaptureNotes defaultValue={notesDefault} />
-
-          <label className="block">
-            <FieldLabel>Prayer Needs</FieldLabel>
-            <textarea className={`${FieldTextareaClass()} min-h-20`} name="prayer_needs" placeholder="What should we pray for?" />
-          </label>
-
           <ObservedFruitMultiSelect
             onToggle={onToggleOutcomeTag}
             selectedOutcomeTags={selectedOutcomeTags}
           />
+
+          <MeetingCaptureNotes defaultValue={notesDefault} />
+
+          <label className="block rounded-[22px] border border-[#E2E8F0] bg-white p-3">
+            <FieldLabel>Prayer Needs</FieldLabel>
+            <p className="mt-1 text-xs leading-5 text-[#64748B]">Capture prayer requests or covering needed after this meeting.</p>
+            <textarea className={`${FieldTextareaClass()} mt-2 min-h-20`} name="prayer_needs" placeholder="What should we pray for?" />
+          </label>
 
           <div className="grid gap-2 rounded-2xl bg-[#F8FAFC] p-3">
             <label className="flex min-h-10 items-center justify-between gap-3">
@@ -7922,75 +7712,26 @@ function ObservedFruitMultiSelect({
   selectedOutcomeTags: string[];
 }) {
   const selectedOptions = meetingObservedFruitOptions.filter((option) => selectedOutcomeTags.includes(option.value));
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      const dropdown = dropdownRef.current;
-
-      if (!dropdown || !(event.target instanceof Node) || dropdown.contains(event.target)) {
-        return;
-      }
-
-      setIsOpen(false);
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [isOpen]);
+  const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <div className="grid gap-2">
-      <FieldLabel>Observed Fruit</FieldLabel>
-      <div className="relative" ref={dropdownRef}>
-        <button
-          aria-expanded={isOpen}
-          className="flex min-h-12 w-full cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
-          onClick={() => setIsOpen((current) => !current)}
-          type="button"
-        >
-          <span className="min-w-0 truncate">
-            {selectedOptions.length ? `${selectedOptions.length} selected` : "Select outcomes"}
-          </span>
-          <ChevronRight className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.9} />
-        </button>
-        {isOpen ? (
-          <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 grid max-h-64 gap-1.5 overflow-y-auto rounded-[18px] border border-[#DCEBFF] bg-[#F8FAFC] p-2 shadow-[0_18px_42px_rgba(15,23,42,0.12)]">
-            {meetingObservedFruitOptions.map((option) => {
-              const selected = selectedOutcomeTags.includes(option.value);
-
-              return (
-                <button
-                  aria-pressed={selected}
-                  className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition-colors ${
-                    selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-transparent bg-white text-[#475569] hover:border-[#BFDBFE]"
-                  }`}
-                  key={option.value}
-                  onClick={() => onToggle(option.value)}
-                  type="button"
-                >
-                  <span>{option.label}</span>
-                  {selected ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" strokeWidth={2} /> : null}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
+    <section className="grid gap-3 rounded-[22px] border border-[#BFDBFE] bg-[#F8FBFF] p-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <FieldLabel>Observed Fruit</FieldLabel>
+          <p className="mt-1 text-xs leading-5 text-[#64748B]">Select any visible fruit from this meeting.</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+          {selectedOptions.length ? `${selectedOptions.length} selected` : "Optional"}
+        </span>
       </div>
+
       {selectedOptions.length ? (
         <div className="flex flex-wrap gap-1.5">
           {selectedOptions.map((option) => (
             <button
               aria-label={`Remove ${option.label}`}
-              className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 text-xs font-bold text-[#1D4ED8]"
+              className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-bold text-[#1D4ED8]"
               key={option.value}
               onClick={() => onToggle(option.value)}
               type="button"
@@ -8001,33 +7742,45 @@ function ObservedFruitMultiSelect({
           ))}
         </div>
       ) : null}
-    </div>
-  );
-}
 
-function CaptureActionButton({
-  active = false,
-  children,
-  icon,
-  onClick,
-}: {
-  active?: boolean;
-  children: ReactNode;
-  icon: ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      aria-pressed={active}
-      className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border px-2 text-[11px] font-bold transition-colors ${
-        active ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-[#F1F5F9] text-[#0F172A] hover:border-[#BFDBFE]"
-      }`}
-      onClick={onClick}
-      type="button"
-    >
-      {icon}
-      <span className="truncate">{children}</span>
-    </button>
+      <div className="rounded-[18px] border border-[#DCEBFF] bg-white p-2">
+        <button
+          aria-expanded={isOpen}
+          className="flex min-h-10 w-full items-center justify-between gap-3 rounded-2xl px-2.5 text-sm font-bold text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
+          onClick={() => setIsOpen((current) => !current)}
+          type="button"
+        >
+          <span>{isOpen ? "Hide outcomes" : "Show outcomes"}</span>
+          <ChevronRight className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.9} />
+        </button>
+        {isOpen ? (
+          <div className="mt-2 grid max-h-[42dvh] gap-1.5 overflow-y-auto pr-1">
+            {meetingObservedFruitOptions.map((option) => {
+              const selected = selectedOutcomeTags.includes(option.value);
+
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={`flex min-h-10 w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition-colors ${
+                    selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#EAF2FF] bg-[#F8FAFC] text-[#475569] hover:border-[#BFDBFE] hover:bg-white"
+                  }`}
+                  key={option.value}
+                  onClick={() => onToggle(option.value)}
+                  type="button"
+                >
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                    selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#CBD5E1] bg-white text-transparent"
+                  }`}>
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.2} />
+                  </span>
+                  <span className="min-w-0 flex-1">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
