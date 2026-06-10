@@ -15,6 +15,7 @@ type SupportMissionModalProps = {
   monthlyGivingUrl?: string | null;
   oneTimeGivingUrl?: string | null;
   profileSlug?: string | null;
+  showInactiveSupportNotice?: boolean;
   source?: SupportCommitmentSource;
   supportButtonLabel?: string;
   supportExplanation?: string;
@@ -36,6 +37,7 @@ export function SupportMissionModal({
   monthlyGivingUrl,
   oneTimeGivingUrl,
   profileSlug,
+  showInactiveSupportNotice,
   source = "missionary_profile",
   supportExplanation,
   supportMode,
@@ -101,6 +103,7 @@ export function SupportMissionModal({
           profileSlug={profileSlug}
           resolvedMonthlyGivingUrl={monthlyGivingUrl}
           resolvedOneTimeGivingUrl={oneTimeGivingUrl}
+          showInactiveSupportNotice={showInactiveSupportNotice}
           source={source}
           supportExplanation={supportExplanation}
           supportMode={supportMode}

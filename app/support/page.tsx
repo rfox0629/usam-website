@@ -227,14 +227,6 @@ export default async function SupportPage({
           </div>
         </div>
       </section>
-
-      <section className="px-6 py-28 md:py-36">
-        <div className="mx-auto max-w-4xl text-center">
-          <p className="text-4xl md:text-6xl font-bold tracking-tight leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
-            This mission moves through people. Thank you for standing with it.
-          </p>
-        </div>
-      </section>
     </main>
   );
 }

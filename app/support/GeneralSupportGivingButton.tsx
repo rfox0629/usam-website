@@ -39,6 +39,7 @@ export function GeneralSupportGivingButton({
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         profileSlug={null}
+        showInactiveSupportNotice={false}
         source="general_support_page"
         supportMode="general_fund"
       />

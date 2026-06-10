@@ -21,6 +21,7 @@ export type GivingCommitmentFormProps = {
   resolvedMonthlyGivingUrl?: string | null;
   resolvedOneTimeGivingUrl?: string | null;
   source?: SupportCommitmentSource;
+  showInactiveSupportNotice?: boolean;
   supportExplanation?: string;
   supportMode?: string;
   supportTargetFund?: string | null;
@@ -155,6 +156,7 @@ export function GivingCommitmentForm({
   resolvedMonthlyGivingUrl,
   resolvedOneTimeGivingUrl,
   source = "missionary_profile",
+  showInactiveSupportNotice = true,
   supportExplanation,
   supportMode = "household",
   supportTargetFund,
@@ -297,7 +299,7 @@ export function GivingCommitmentForm({
           <p className="mt-2 max-w-[680px] text-sm leading-6 text-stone-500">
             Your support helps sustain both this missionary household and the broader USA Missionaries mission.
           </p>
-          {!isHouseholdSupport ? (
+          {showInactiveSupportNotice && !isHouseholdSupport ? (
             <p className="mt-3 rounded-2xl border border-[#C2A14E]/40 bg-usam-gold/10 px-4 py-3 text-sm leading-6 text-stone-800">
               {supportExplanation || "This missionary household is not currently raising personal support. You can still give toward the broader mission through the selected fund."}
             </p>
