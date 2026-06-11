@@ -23,7 +23,6 @@ export default async function OrganizationsPage() {
   return (
     <AdminShell
       active="organizations"
-      description="Manage organizations and preview the workspace layer before the full Command Center rebuild."
       title="Organizations"
     >
       {data.error ? (

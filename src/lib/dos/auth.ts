@@ -18,6 +18,7 @@ export type DosAuthorizedUser =
       access: "member";
       email: string;
       isActive: true;
+      phone?: string | null;
       prayerPermissions: [];
       role: "member";
       status: "authorized";
@@ -108,6 +109,7 @@ export async function getDosAuthorization(): Promise<DosAuthorization> {
     access: "member",
     email: user.email.trim().toLowerCase(),
     isActive: true,
+    phone: user.phone ?? null,
     prayerPermissions: [],
     role: "member",
     status: "authorized",
@@ -145,6 +147,12 @@ function workspaceSlug(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
+}
+
+function normalizedPhone(value: string | null | undefined) {
+  const digits = value?.replace(/\D/g, "") ?? "";
+
+  return digits.length >= 7 ? digits : null;
 }
 
 function personalSlugCandidates(
@@ -208,24 +216,69 @@ async function loadMemberProfileIds(authorization: Extract<DosAuthorization, { a
 
 async function loadMemberWorkspaceIdsFromTeam(authorization: Extract<DosAuthorization, { access: "member"; status: "authorized" }>) {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  const workspaceRows: TeamMemberWorkspaceRow[] = [];
+  const appendRows = (rows: TeamMemberWorkspaceRow[] | null | undefined) => {
+    workspaceRows.push(...(rows ?? []));
+  };
+  const isMissingInviteColumn = (message: string) => (
+    message.includes("invite_email")
+    || message.includes("invite_phone")
+    || message.includes("invite_phone_normalized")
+    || message.includes("schema cache")
+    || message.includes("could not find")
+  );
+  const directResult = await supabase
     .from("missionary_team_members")
     .select("household_id, status")
     .in("dos_user_id", [authorization.userId, authorization.email]);
 
-  if (error) {
-    const message = error.message.toLowerCase();
+  if (directResult.error) {
+    const message = directResult.error.message.toLowerCase();
 
-    if (message.includes("dos_user_id") || message.includes("schema cache") || message.includes("could not find")) {
-      return [];
+    if (!message.includes("dos_user_id") && !message.includes("schema cache") && !message.includes("could not find")) {
+      throw new Error(directResult.error.message);
     }
-
-    throw new Error(error.message);
+  } else {
+    appendRows(directResult.data as TeamMemberWorkspaceRow[]);
   }
 
-  return ((data ?? []) as TeamMemberWorkspaceRow[])
+  const inviteEmailResult = await supabase
+    .from("missionary_team_members")
+    .select("household_id, status")
+    .ilike("invite_email", authorization.email);
+
+  if (inviteEmailResult.error) {
+    const message = inviteEmailResult.error.message.toLowerCase();
+
+    if (!isMissingInviteColumn(message)) {
+      throw new Error(inviteEmailResult.error.message);
+    }
+  } else {
+    appendRows(inviteEmailResult.data as TeamMemberWorkspaceRow[]);
+  }
+
+  const phone = normalizedPhone(authorization.phone);
+
+  if (phone) {
+    const invitePhoneResult = await supabase
+      .from("missionary_team_members")
+      .select("household_id, status")
+      .eq("invite_phone_normalized", phone);
+
+    if (invitePhoneResult.error) {
+      const message = invitePhoneResult.error.message.toLowerCase();
+
+      if (!isMissingInviteColumn(message)) {
+        throw new Error(invitePhoneResult.error.message);
+      }
+    } else {
+      appendRows(invitePhoneResult.data as TeamMemberWorkspaceRow[]);
+    }
+  }
+
+  return Array.from(new Set(workspaceRows
     .filter((member) => member.household_id && member.status !== "inactive" && member.status !== "archived")
-    .map((member) => member.household_id as string);
+    .map((member) => member.household_id as string)));
 }
 
 async function loadMemberWorkspaceScope(authorization: Extract<DosAuthorization, { access: "member"; status: "authorized" }>) {

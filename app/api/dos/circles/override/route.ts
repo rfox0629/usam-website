@@ -4,7 +4,7 @@ import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { updateCircleOverride } from "@/src/lib/dos/circle-scoring";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 
-const circles = ["three", "twelve", "seventy", "field"] as const;
+const circles = ["three", "twelve", "seventy", "my_120", "field"] as const;
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";

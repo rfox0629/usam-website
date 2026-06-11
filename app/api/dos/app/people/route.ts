@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { inferFruitEventsFromEngagement } from "@/src/lib/dos/fruit-intelligence";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { joinPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -9,12 +10,16 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 
 type PersonPayload = {
   birthday?: unknown;
+  childrenNames?: unknown;
+  children_names?: unknown;
   church?: unknown;
   city?: unknown;
   email?: unknown;
   engagementScore?: unknown;
   homeAddress?: unknown;
   home_address?: unknown;
+  householdNotes?: unknown;
+  household_notes?: unknown;
   id?: unknown;
   name?: unknown;
   notes?: unknown;
@@ -24,10 +29,14 @@ type PersonPayload = {
   relationshipContext?: unknown;
   relationshipType?: unknown;
   roleInMyLife?: unknown;
+  spouseName?: unknown;
+  spouse_name?: unknown;
   state?: unknown;
   workspaceId?: unknown;
   zip?: unknown;
 };
+
+const householdMvpKeys = ["spouse_name", "children_names", "household_notes"];
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -49,8 +58,14 @@ function isMissingRelationshipModelColumn(error: { message?: string } | null | u
   return ["relationship_context", "role_in_my_life", "discipleship_stage"].some((column) => message.includes(column));
 }
 
+function isMissingHouseholdMvpColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return householdMvpKeys.some((column) => message.includes(column));
+}
+
 function isRecoverablePersonSchemaError(error: { message?: string } | null | undefined) {
-  return isMissingWorkspaceScopeColumn(error) || isMissingRelationshipModelColumn(error);
+  return isMissingWorkspaceScopeColumn(error) || isMissingRelationshipModelColumn(error) || isMissingHouseholdMvpColumn(error);
 }
 
 function omitKeys(record: Record<string, unknown>, keys: string[]) {
@@ -60,13 +75,18 @@ function omitKeys(record: Record<string, unknown>, keys: string[]) {
 function personRecordCandidates(record: Record<string, unknown>) {
   const relationshipKeys = ["relationship_context", "role_in_my_life", "discipleship_stage"];
   const noRelationshipModel = omitKeys(record, relationshipKeys);
+  const noHouseholdMvp = omitKeys(record, householdMvpKeys);
   const noWorkspaceScope = omitKeys(record, ["workspace_id"]);
 
   return [
     record,
+    noHouseholdMvp,
     noRelationshipModel,
+    omitKeys(noRelationshipModel, householdMvpKeys),
     noWorkspaceScope,
+    omitKeys(noWorkspaceScope, householdMvpKeys),
     omitKeys(noWorkspaceScope, relationshipKeys),
+    omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), householdMvpKeys),
   ];
 }
 
@@ -159,8 +179,8 @@ export async function POST(request: Request) {
   const name = asString(payload.name);
   const phone = asString(payload.phone);
 
-  if (!workspaceId || !name || !phone) {
-    return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
+  if (!workspaceId || !name) {
+    return NextResponse.json({ error: "Name is required." }, { status: 400 });
   }
 
   const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
@@ -171,15 +191,18 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdminClient();
   const personInsert: Record<string, unknown> = {
+    children_names: asNullableString(payload.childrenNames) || asNullableString(payload.children_names),
     church: asNullableString(payload.church),
     created_by: authResult.authorization.userId,
     email: asNullableString(payload.email),
     household_id: workspaceId,
+    household_notes: asNullableString(payload.householdNotes) || asNullableString(payload.household_notes),
     name,
     notes: buildPersonNotes(payload),
     phone,
     ...relationshipFieldsFromPayload(payload, true),
     source: "field",
+    spouse_name: asNullableString(payload.spouseName) || asNullableString(payload.spouse_name),
     status: "new",
     workspace_id: workspaceId,
   };
@@ -213,6 +236,10 @@ export async function POST(request: Request) {
     workspaceId,
   }, supabase).catch((fruitError) => {
     console.warn("[Fruit Intelligence] Unable to infer engagement fruit after person create", fruitError);
+  });
+
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after person create", scoreError);
   });
 
   return NextResponse.json({ id: data.id, ok: true });
@@ -249,12 +276,15 @@ export async function PATCH(request: Request) {
 
   const supabase = createSupabaseAdminClient();
   const personUpdate: Record<string, unknown> = {
+    children_names: asNullableString(payload.childrenNames) || asNullableString(payload.children_names),
     church: asNullableString(payload.church),
     email: asNullableString(payload.email),
+    household_notes: asNullableString(payload.householdNotes) || asNullableString(payload.household_notes),
     name,
     notes: buildPersonNotes(payload),
     phone,
     ...relationshipFieldsFromPayload(payload),
+    spouse_name: asNullableString(payload.spouseName) || asNullableString(payload.spouse_name),
   };
   let updateResult: { data: { id: unknown } | null; error: { message: string } | null } | null = null;
 
@@ -306,5 +336,72 @@ export async function PATCH(request: Request) {
     console.warn("[Fruit Intelligence] Unable to infer engagement fruit after person update", fruitError);
   });
 
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after person update", scoreError);
+  });
+
   return NextResponse.json({ id: data.id, ok: true });
+}
+
+export async function DELETE(request: Request) {
+  const authResult = await authorizeWrite();
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  const payload = await readPayload(request);
+
+  if (!payload) {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId));
+  const id = asString(payload.id);
+
+  if (!workspaceId || !isUuid(id)) {
+    return NextResponse.json({ error: "Person not found." }, { status: 404 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const archiveUpdate = {
+    status: "archived",
+    updated_at: new Date().toISOString(),
+  };
+  const scopedResult = await supabase
+    .from("missionary_field_people")
+    .update(archiveUpdate)
+    .eq("id", id)
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+    .select("id")
+    .single();
+  const { data, error } = scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
+    ? await supabase
+      .from("missionary_field_people")
+      .update(archiveUpdate)
+      .eq("id", id)
+      .eq("household_id", workspaceId)
+      .select("id")
+      .single()
+    : scopedResult;
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Unable to delete person." }, { status: 500 });
+  }
+
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after person archive", scoreError);
+  });
+
+  return NextResponse.json({ id: data.id, archived: true, ok: true });
 }

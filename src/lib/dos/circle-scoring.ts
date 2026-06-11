@@ -4,7 +4,7 @@ import { relationshipScoreFromEngagementLevel, relationshipScoreLabel } from "@/
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
-type CircleAssignment = "field" | "seventy" | "three" | "twelve";
+type CircleAssignment = "field" | "my_120" | "seventy" | "three" | "twelve";
 type AssignmentSource = "automatic" | "manual";
 
 export type DosCircleConfig = {
@@ -66,6 +66,7 @@ export type DosCircleData = {
     peopleScored: number;
   };
   my12: DosRelationshipScore[];
+  my120: DosRelationshipScore[];
   my3: DosRelationshipScore[];
   my70: DosRelationshipScore[];
 };
@@ -158,6 +159,15 @@ const defaultConfig = {
   timeInvestedWeight: 15,
 };
 
+const automaticCircleCapacities: Record<Exclude<CircleAssignment, "field">, number> = {
+  my_120: 50,
+  seventy: 58,
+  three: 3,
+  twelve: 9,
+};
+
+const inactivePersonStatuses = new Set(["archived", "deleted", "inactive", "paused"]);
+
 function tableMissing(error: { message?: string } | null | undefined, tableName: string) {
   const message = error?.message?.toLowerCase() ?? "";
 
@@ -201,6 +211,7 @@ function engagementComponentScore(value: number) {
 function circleLabel(circle: CircleAssignment) {
   return {
     field: "Field",
+    my_120: "My 120",
     seventy: "My 70",
     three: "My 3",
     twelve: "My 12",
@@ -242,7 +253,55 @@ function automaticCircle(index: number): CircleAssignment {
     return "seventy";
   }
 
+  if (index < 120) {
+    return "my_120";
+  }
+
   return "field";
+}
+
+function isCircleAssignment(value: unknown): value is CircleAssignment {
+  return value === "field" || value === "my_120" || value === "seventy" || value === "three" || value === "twelve";
+}
+
+function normalizedCircle(value: unknown): CircleAssignment {
+  return isCircleAssignment(value) ? value : "field";
+}
+
+function isInactivePerson(person: { status?: string | null }) {
+  const status = person.status?.trim().toLowerCase();
+
+  return status ? inactivePersonStatuses.has(status) : false;
+}
+
+function hasMeaningfulPositiveScore(breakdown?: DosRelationshipScore["breakdown"]) {
+  if (!breakdown) {
+    return true;
+  }
+
+  return breakdown.meetingFrequency > 0
+    || breakdown.timeInvested > 0
+    || breakdown.discipleshipProgress > 0
+    || breakdown.fruit > 0
+    || breakdown.multiplication > 0;
+}
+
+function isAutomaticCircleEligible(
+  person: { status?: string | null },
+  totalScore: number,
+  breakdown?: DosRelationshipScore["breakdown"],
+) {
+  return totalScore > 0 && hasMeaningfulPositiveScore(breakdown) && !isInactivePerson(person);
+}
+
+function sortCircleScores(first: DosRelationshipScore, second: DosRelationshipScore) {
+  const sourceDifference = Number(second.assignmentSource === "manual") - Number(first.assignmentSource === "manual");
+
+  if (sourceDifference !== 0) {
+    return sourceDifference;
+  }
+
+  return second.totalScore - first.totalScore || first.person.name.localeCompare(second.person.name);
 }
 
 function emptyCircleConfig(workspaceId: string): DosCircleConfig {
@@ -300,14 +359,22 @@ export function buildFallbackCircleDataFromActivity({
     })
     .sort((first, second) => second.totalScore - first.totalScore);
 
-  scores.forEach((score, index) => {
-    score.circle = score.totalScore > 0 ? automaticCircle(index) : "field";
-    score.explanation.summary = score.totalScore > 0
+  let eligibleIndex = 0;
+
+  scores.forEach((score) => {
+    if (!isAutomaticCircleEligible(score.person, score.totalScore, score.breakdown)) {
+      score.circle = "field";
+      return;
+    }
+
+    score.circle = automaticCircle(eligibleIndex);
+    eligibleIndex += 1;
+    score.explanation.summary = score.circle !== "field"
       ? `Assigned to ${circleLabel(score.circle)} because of logged meeting activity.`
       : score.explanation.summary;
   });
 
-  const activeScores = scores.filter((score) => score.totalScore > 0);
+  const activeScores = scores.filter((score) => isAutomaticCircleEligible(score.person, score.totalScore, score.breakdown));
   const field = scores.filter((score) => score.circle === "field");
 
   return {
@@ -325,9 +392,10 @@ export function buildFallbackCircleDataFromActivity({
       lockedCount: 0,
       peopleScored: activeScores.length,
     },
-    my12: scores.filter((score) => score.circle === "twelve").slice(0, 9),
-    my3: scores.filter((score) => score.circle === "three").slice(0, 3),
-    my70: scores.filter((score) => score.circle === "seventy").slice(0, 58),
+    my12: scores.filter((score) => score.circle === "twelve"),
+    my120: scores.filter((score) => score.circle === "my_120"),
+    my3: scores.filter((score) => score.circle === "three"),
+    my70: scores.filter((score) => score.circle === "seventy"),
   };
 }
 
@@ -407,6 +475,7 @@ export async function loadCircleData(workspaceId: string): Promise<DosCircleData
   ]);
 
   const peopleById = new Map(people.map((person) => [person.id, person]));
+  const lockedOverrideByPersonId = new Map(overrides.filter((override) => override.locked).map((override) => [override.person_id, override]));
   const mappedScores = scores
     .map((score) => {
       const person = peopleById.get(String(score.person_id));
@@ -416,23 +485,37 @@ export async function loadCircleData(workspaceId: string): Promise<DosCircleData
       }
 
       const explanation = score.score_explanation as Partial<DosScoreExplanation> | null;
+      const lockedOverride = lockedOverrideByPersonId.get(person.id);
+      const totalScore = Number(score.total_score ?? 0);
+      const breakdown = {
+        discipleshipProgress: Number(score.discipleship_progress_score ?? 0),
+        fruit: Number(score.fruit_score ?? 0),
+        meetingFrequency: Number(score.meeting_frequency_score ?? 0),
+        momentum: Number(score.momentum_score ?? 0),
+        multiplication: Number(score.multiplication_score ?? 0),
+        timeInvested: Number(score.time_invested_score ?? 0),
+      };
+      const circle = lockedOverride
+        ? normalizedCircle(lockedOverride.manual_circle)
+        : isAutomaticCircleEligible(person, totalScore, breakdown)
+          ? normalizedCircle(score.circle_assignment)
+          : "field";
 
       return {
-        assignmentSource: score.assignment_source === "manual" ? "manual" as const : "automatic" as const,
-        breakdown: {
-          discipleshipProgress: Number(score.discipleship_progress_score ?? 0),
-          fruit: Number(score.fruit_score ?? 0),
-          meetingFrequency: Number(score.meeting_frequency_score ?? 0),
-          momentum: Number(score.momentum_score ?? 0),
-          multiplication: Number(score.multiplication_score ?? 0),
-          timeInvested: Number(score.time_invested_score ?? 0),
-        },
-        circle: score.circle_assignment as CircleAssignment,
+        assignmentSource: lockedOverride ? "manual" as const : "automatic" as const,
+        breakdown,
+        circle,
         confidenceScore: Number(score.confidence_score ?? 0),
         explanation: {
           negative_factors: Array.isArray(explanation?.negative_factors) ? explanation.negative_factors : [],
           positive_factors: Array.isArray(explanation?.positive_factors) ? explanation.positive_factors : [],
-          summary: typeof explanation?.summary === "string" ? explanation.summary : "Relationship score is ready.",
+          summary: lockedOverride
+            ? `Pinned to ${circleLabel(circle)} for workspace stewardship.${lockedOverride.reason ? ` ${lockedOverride.reason}` : ""}`
+            : isAutomaticCircleEligible(person, totalScore, breakdown)
+              ? typeof explanation?.summary === "string" ? explanation.summary : "Relationship score is ready."
+              : isInactivePerson(person)
+                ? "In Field because this person is inactive."
+                : "In Field until discipleship activity is logged.",
         },
         lastCalculatedAt: typeof score.last_calculated_at === "string" ? score.last_calculated_at : null,
         person: {
@@ -443,47 +526,55 @@ export async function loadCircleData(workspaceId: string): Promise<DosCircleData
           relationshipType: person.relationship_type,
           status: person.status,
         },
-        totalScore: Number(score.total_score ?? 0),
+        totalScore,
       } satisfies DosRelationshipScore;
     })
     .filter((score): score is DosRelationshipScore => Boolean(score));
 
   const missingScores = people
     .filter((person) => !mappedScores.some((score) => score.person.id === person.id))
-    .map((person) => ({
-      assignmentSource: "automatic" as const,
-      breakdown: {
-        discipleshipProgress: 0,
-        fruit: 0,
-        meetingFrequency: 0,
-        momentum: 0,
-        multiplication: 0,
-        timeInvested: 0,
-      },
-      circle: "field" as const,
-      confidenceScore: 0,
-      explanation: {
-        negative_factors: ["No discipleship activity has been scored yet"],
-        positive_factors: [],
-        summary: "In Field until more activity is logged.",
-      },
-      lastCalculatedAt: null,
-      person: {
-        engagementLevel: person.engagement_level,
-        id: person.id,
-        lastActivityAt: person.last_activity_at ?? person.updated_at,
-        name: person.name,
-        relationshipType: person.relationship_type,
-        status: person.status,
-      },
-      totalScore: 0,
-    }));
+    .map((person) => {
+      const lockedOverride = lockedOverrideByPersonId.get(person.id);
+      const circle = lockedOverride ? normalizedCircle(lockedOverride.manual_circle) : "field";
 
-  const allScores = [...mappedScores, ...missingScores].sort((first, second) => second.totalScore - first.totalScore);
-  const my3 = allScores.filter((score) => score.circle === "three").slice(0, 3);
-  const my12 = allScores.filter((score) => score.circle === "twelve").slice(0, 9);
-  const my70 = allScores.filter((score) => score.circle === "seventy").slice(0, 58);
-  const field = allScores.filter((score) => score.circle === "field");
+      return {
+        assignmentSource: lockedOverride ? "manual" as const : "automatic" as const,
+        breakdown: {
+          discipleshipProgress: 0,
+          fruit: 0,
+          meetingFrequency: 0,
+          momentum: 0,
+          multiplication: 0,
+          timeInvested: 0,
+        },
+        circle,
+        confidenceScore: 0,
+        explanation: {
+          negative_factors: lockedOverride ? [] : ["No discipleship activity has been scored yet"],
+          positive_factors: [],
+          summary: lockedOverride
+            ? `Pinned to ${circleLabel(circle)} for workspace stewardship.${lockedOverride.reason ? ` ${lockedOverride.reason}` : ""}`
+            : "In Field until more activity is logged.",
+        },
+        lastCalculatedAt: null,
+        person: {
+          engagementLevel: person.engagement_level,
+          id: person.id,
+          lastActivityAt: person.last_activity_at ?? person.updated_at,
+          name: person.name,
+          relationshipType: person.relationship_type,
+          status: person.status,
+        },
+        totalScore: 0,
+      } satisfies DosRelationshipScore;
+    });
+
+  const allScores = [...mappedScores, ...missingScores].sort(sortCircleScores);
+  const my3 = allScores.filter((score) => score.circle === "three").sort(sortCircleScores);
+  const my12 = allScores.filter((score) => score.circle === "twelve").sort(sortCircleScores);
+  const my70 = allScores.filter((score) => score.circle === "seventy").sort(sortCircleScores);
+  const my120 = allScores.filter((score) => score.circle === "my_120").sort(sortCircleScores);
+  const field = allScores.filter((score) => score.circle === "field").sort(sortCircleScores);
 
   return {
     config,
@@ -501,6 +592,7 @@ export async function loadCircleData(workspaceId: string): Promise<DosCircleData
       peopleScored: mappedScores.length,
     },
     my12,
+    my120,
     my3,
     my70,
   };
@@ -665,23 +757,87 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     };
   }).sort((first, second) => second.record.total_score - first.record.total_score);
 
-  computed.forEach((item, index) => {
+  const manualCircleCounts: Record<Exclude<CircleAssignment, "field">, number> = {
+    my_120: 0,
+    seventy: 0,
+    three: 0,
+    twelve: 0,
+  };
+
+  overrideByPersonId.forEach((override) => {
+    const circle = normalizedCircle(override.manual_circle);
+
+    if (circle !== "field") {
+      manualCircleCounts[circle] += 1;
+    }
+  });
+
+  const automaticSlotsRemaining: Record<Exclude<CircleAssignment, "field">, number> = {
+    my_120: Math.max(0, automaticCircleCapacities.my_120 - manualCircleCounts.my_120),
+    seventy: Math.max(0, automaticCircleCapacities.seventy - manualCircleCounts.seventy),
+    three: Math.max(0, automaticCircleCapacities.three - manualCircleCounts.three),
+    twelve: Math.max(0, automaticCircleCapacities.twelve - manualCircleCounts.twelve),
+  };
+
+  function nextAutomaticCircle(): CircleAssignment {
+    if (automaticSlotsRemaining.three > 0) {
+      automaticSlotsRemaining.three -= 1;
+      return "three";
+    }
+
+    if (automaticSlotsRemaining.twelve > 0) {
+      automaticSlotsRemaining.twelve -= 1;
+      return "twelve";
+    }
+
+    if (automaticSlotsRemaining.seventy > 0) {
+      automaticSlotsRemaining.seventy -= 1;
+      return "seventy";
+    }
+
+    if (automaticSlotsRemaining.my_120 > 0) {
+      automaticSlotsRemaining.my_120 -= 1;
+      return "my_120";
+    }
+
+    return "field";
+  }
+
+  computed.forEach((item) => {
     const manualOverride = overrideByPersonId.get(item.person.id);
-    const circle = manualOverride?.manual_circle ?? automaticCircle(index);
+    const breakdown = {
+      discipleshipProgress: item.record.discipleship_progress_score,
+      fruit: item.record.fruit_score,
+      meetingFrequency: item.record.meeting_frequency_score,
+      momentum: item.record.momentum_score,
+      multiplication: item.record.multiplication_score,
+      timeInvested: item.record.time_invested_score,
+    };
+    const circle = manualOverride
+      ? normalizedCircle(manualOverride.manual_circle)
+      : isAutomaticCircleEligible(item.person, item.record.total_score, breakdown)
+        ? nextAutomaticCircle()
+        : "field";
 
     item.record.circle_assignment = circle;
     item.record.assignment_source = manualOverride ? "manual" : "automatic";
     item.record.score_explanation.summary = manualOverride
       ? `Pinned to ${circleLabel(circle)} for workspace stewardship.${manualOverride.reason ? ` ${manualOverride.reason}` : ""}`
-      : item.record.total_score > 0
+      : circle !== "field"
         ? `Assigned to ${circleLabel(circle)} because of current discipleship activity, investment, fruit, and momentum.`
-        : "In Field until discipleship activity is logged.";
+        : isInactivePerson(item.person)
+          ? "In Field because this person is inactive."
+          : isAutomaticCircleEligible(item.person, item.record.total_score, breakdown)
+            ? "In Field because My 3, My 12, My 70, and My 120 are already full."
+            : "In Field until discipleship activity is logged.";
   });
 
   const scoreRows = computed.map((item) => item.record);
-  const { error: upsertError } = await supabase
-    .from("dos_relationship_scores")
-    .upsert(scoreRows, { onConflict: "workspace_id,person_id" });
+  const { error: upsertError } = scoreRows.length
+    ? await supabase
+      .from("dos_relationship_scores")
+      .upsert(scoreRows, { onConflict: "workspace_id,person_id" })
+    : { error: null };
 
   if (upsertError) {
     throw new Error(upsertError.message);
@@ -737,12 +893,12 @@ export async function loadPersonRelationshipIntelligence(workspaceId: string, pe
       "dos_relationship_score_history",
     ),
   ]);
-  let allScores = [...circleData.my3, ...circleData.my12, ...circleData.my70, ...circleData.field];
+  let allScores = [...circleData.my3, ...circleData.my12, ...circleData.my70, ...circleData.my120, ...circleData.field];
   let score = allScores.find((item) => item.person.id === personId);
 
   if (!score || score.totalScore === 0) {
     circleData = await recalculateCircleScores(workspaceId).catch(() => circleData);
-    allScores = [...circleData.my3, ...circleData.my12, ...circleData.my70, ...circleData.field];
+    allScores = [...circleData.my3, ...circleData.my12, ...circleData.my70, ...circleData.my120, ...circleData.field];
     score = allScores.find((item) => item.person.id === personId);
   }
 

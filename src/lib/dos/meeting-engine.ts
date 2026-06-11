@@ -487,7 +487,7 @@ export function buildMeetingRecommendations(flowKey: DosConversationFlowKey, res
 }
 
 export function isUsamKitchenTableGospelWorkspace(workspace: { publicProfileHref?: string | null; slug?: string | null }) {
-  // TODO: Replace this Missionary Workspace route heuristic with an explicit
+  // TODO: Replace this public-profile route heuristic with an explicit
   // organization/workspace feature flag when DOS supports non-USAM tenants.
   return Boolean(workspace.publicProfileHref?.startsWith("/missionaries/"));
 }

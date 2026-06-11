@@ -3,11 +3,22 @@ import "server-only";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import {
   normalizeOrganizationType,
+  type OrganizationApplicationContactItem,
+  type OrganizationApplicationDetailItem,
+  type OrganizationApplicationHouseholdMember,
+  type OrganizationApprovedProfileSummary,
+  type OrganizationApplicationPhotoSummary,
+  type OrganizationApplicationReferenceItem,
+  type OrganizationApplicationSummary,
   type OrganizationDetail,
+  type OrganizationMemberSummary,
   type OrganizationSummary,
   type OrganizationWorkspaceSummary,
   type WorkspacePreviewData,
 } from "@/src/lib/admin/organization-shared";
+import { loadAdminWorkspaceIndex, type AdminWorkspaceIndexItem } from "@/src/lib/admin/workspace-index";
+
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
 type OrganizationRow = {
   branding_mode: string | null;
@@ -34,6 +45,7 @@ type HouseholdRow = {
   display_name: string;
   enable_prayer_team?: boolean | null;
   id: string;
+  location?: string | null;
   public_visible?: boolean | null;
   show_fruit?: boolean | null;
   show_household?: boolean | null;
@@ -41,12 +53,83 @@ type HouseholdRow = {
   show_story?: boolean | null;
   show_support?: boolean | null;
   slug: string;
+  usam_profile_status?: string | null;
   updated_at: string | null;
 };
 
+type OrganizationApprovedProfileRow = {
+  created_at: string | null;
+  display_name: string;
+  id: string;
+  location?: string | null;
+  public_visible?: boolean | null;
+  show_household?: boolean | null;
+  slug: string;
+  usam_profile_status?: string | null;
+  updated_at: string | null;
+};
+
+type OrganizationSupportSettingsRow = {
+  annual_goal: number | null;
+  household_id: string;
+  monthly_goal: number | null;
+};
+
 type OrganizationMembershipRow = {
+  created_at?: string | null;
   organization_id: string;
+  profile_id?: string | null;
+  role?: string | null;
   status: string | null;
+  updated_at?: string | null;
+};
+
+type OrganizationProfileRow = {
+  created_at?: string | null;
+  email: string | null;
+  first_name: string | null;
+  id: string;
+  last_name: string | null;
+  updated_at?: string | null;
+};
+
+type OrganizationApplicationRow = {
+  admin_notes: string | null;
+  applicant_email: string | null;
+  applicant_name: string;
+  applicant_phone: string | null;
+  assigned_admin_email: string | null;
+  calling_focus: string | null;
+  contact_payload?: Record<string, unknown> | null;
+  created_at: string | null;
+  id: string;
+  location: string | null;
+  missionary_profile_id: string | null;
+  monthly_budget: number | null;
+  organization_id: string | null;
+  prayer_needs: string | null;
+  profile_photo_url: string | null;
+  references_text: string | null;
+  status: string;
+  story_testimony: string | null;
+  submitted_at: string | null;
+  support_goal: number | null;
+  updated_at: string | null;
+  workspace_id: string | null;
+};
+
+type OrganizationTeamMemberRow = {
+  created_at: string | null;
+  display_name: string;
+  dos_user_id?: string | null;
+  household_id: string;
+  id: string;
+  invite_email?: string | null;
+  relationship_to_workspace?: string | null;
+  role_title: string | null;
+  source: string | null;
+  status: string | null;
+  updated_at: string | null;
 };
 
 type WorkspaceScopedRow = {
@@ -124,10 +207,92 @@ function isUsamOrganization(organization: Pick<OrganizationRow, "branding_mode" 
   return organization.branding_mode === "usam" || organization.slug === "usa-missionaries";
 }
 
+function isParentOrganization(organization: OrganizationRow) {
+  return isUsamOrganization(organization);
+}
+
 function isMissingColumnError(error: { message?: string } | null | undefined) {
   const message = error?.message?.toLowerCase() ?? "";
 
   return message.includes("could not find") || message.includes("schema cache");
+}
+
+function isMissingTableError(error: { message?: string } | null | undefined, tableName: string) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return message.includes(tableName.toLowerCase())
+    && (message.includes("does not exist") || message.includes("could not find") || message.includes("schema cache"));
+}
+
+function isPendingApplication(status: string | null | undefined) {
+  return status === "application_submitted" || status === "pending_review";
+}
+
+function isApprovedApplication(status: string | null | undefined) {
+  return status === "approved" || status === "active";
+}
+
+function cleanStatus(value: string | null | undefined) {
+  return value?.trim() || "Unknown";
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function asString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function asNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function asArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+    : [];
+}
+
+function compactDetail(label: string, value: unknown): OrganizationApplicationDetailItem | null {
+  const cleanValue = typeof value === "number" && Number.isFinite(value)
+    ? String(value)
+    : asString(value);
+
+  return cleanValue ? { label, value: cleanValue } : null;
+}
+
+function fullNameFromRecord(record: Record<string, unknown>, fallback = "") {
+  return [
+    asString(record.firstName),
+    asString(record.lastName),
+  ].filter(Boolean).join(" ").trim()
+    || asString(record.name)
+    || asString(record.displayName)
+    || fallback;
+}
+
+function moneyDetail(label: string, value: unknown) {
+  const amount = typeof value === "number" && Number.isFinite(value)
+    ? value
+    : Number(asString(value).replace(/[$,]/g, ""));
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  return {
+    label,
+    value: new Intl.NumberFormat("en-US", {
+      currency: "USD",
+      maximumFractionDigits: 0,
+      style: "currency",
+    }).format(amount),
+  };
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function latestDate(values: Array<string | null | undefined>) {
@@ -243,26 +408,32 @@ function getOrganizationWorkspaces(
   ));
   const activeHouseholdSlugs = new Set(activeHouseholds.map((household) => household.slug));
   const activeWorkspaces = activeHouseholds.map((household) => ({
+    activitySummary: "Activity available in workspace intelligence",
+    householdName: household.display_name,
     id: household.id,
     kind: "workspace" as const,
     lastActivityAt: latestDate([activityByWorkspaceId.get(household.id), household.updated_at, household.created_at]),
     name: household.display_name,
-    previewHref: `/admin/workspaces/${household.id}/preview?viewAs=workspace_user`,
+    ownerName: firstNameFromWorkspace(household.display_name),
     slug: household.slug,
-    sourceLabel: "Missionary Workspace",
+    sourceLabel: "DOS Workspace",
     status: "active" as const,
+    viewHref: `/admin/workspaces/${household.id}`,
   }));
   const foundationWorkspaces = orgCollectives
     .filter((collective) => !activeHouseholdSlugs.has(collective.slug))
     .map((collective) => ({
+      activitySummary: "Foundation workspace setup",
+      householdName: null,
       id: collective.id,
       kind: "foundation" as const,
       lastActivityAt: latestDate([collective.updated_at, collective.created_at]),
       name: collective.name,
-      previewHref: null,
+      ownerName: null,
       slug: collective.slug,
       sourceLabel: "Foundation workspace",
       status: "setup" as const,
+      viewHref: null,
     }));
 
   return [...activeWorkspaces, ...foundationWorkspaces].sort((a, b) => {
@@ -330,6 +501,708 @@ async function loadWorkspaceActivity(householdIds: string[]) {
   return activityByWorkspaceId;
 }
 
+async function loadOrganizationApplications(organizationIds: string[]) {
+  if (organizationIds.length === 0) {
+    return [] as OrganizationApplicationRow[];
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const result = await supabase
+    .from("usam_missionary_applications")
+    .select("id, organization_id, workspace_id, missionary_profile_id, applicant_name, applicant_email, applicant_phone, location, calling_focus, story_testimony, monthly_budget, support_goal, prayer_needs, references_text, status, assigned_admin_email, admin_notes, profile_photo_url, contact_payload, submitted_at, created_at, updated_at")
+    .in("organization_id", organizationIds)
+    .order("submitted_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (result.error) {
+    if (isMissingTableError(result.error, "usam_missionary_applications") || isMissingColumnError(result.error)) {
+      return [];
+    }
+
+    throw new Error(result.error.message);
+  }
+
+  return (result.data ?? []) as OrganizationApplicationRow[];
+}
+
+async function loadOrganizationMembershipRows(organizationIds: string[]) {
+  if (organizationIds.length === 0) {
+    return [] as OrganizationMembershipRow[];
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const result = await supabase
+    .from("organization_memberships")
+    .select("organization_id, profile_id, role, status, created_at, updated_at")
+    .in("organization_id", organizationIds);
+
+  if (result.error) {
+    if (isMissingTableError(result.error, "organization_memberships") || isMissingColumnError(result.error)) {
+      return [];
+    }
+
+    throw new Error(result.error.message);
+  }
+
+  return (result.data ?? []) as OrganizationMembershipRow[];
+}
+
+async function loadOrganizationProfiles(profileIds: string[]) {
+  const uniqueProfileIds = Array.from(new Set(profileIds.filter(Boolean)));
+
+  if (uniqueProfileIds.length === 0) {
+    return [] as OrganizationProfileRow[];
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const result = await supabase
+    .from("profiles")
+    .select("id, first_name, last_name, email, created_at, updated_at")
+    .in("id", uniqueProfileIds);
+
+  if (result.error) {
+    if (isMissingTableError(result.error, "profiles") || isMissingColumnError(result.error)) {
+      return [];
+    }
+
+    throw new Error(result.error.message);
+  }
+
+  return (result.data ?? []) as OrganizationProfileRow[];
+}
+
+async function loadOrganizationTeamMembers(workspaceIds: string[]) {
+  const uniqueWorkspaceIds = Array.from(new Set(workspaceIds.filter(Boolean)));
+
+  if (uniqueWorkspaceIds.length === 0) {
+    return [] as OrganizationTeamMemberRow[];
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const result = await supabase
+    .from("missionary_team_members")
+    .select("id, household_id, display_name, role_title, dos_user_id, source, status, updated_at, created_at, invite_email, relationship_to_workspace")
+    .in("household_id", uniqueWorkspaceIds)
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("display_name", { ascending: true });
+  const fallbackResult = result.error && isMissingColumnError(result.error)
+    ? await supabase
+      .from("missionary_team_members")
+      .select("id, household_id, display_name, role_title, dos_user_id, source, status, updated_at, created_at")
+      .in("household_id", uniqueWorkspaceIds)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("display_name", { ascending: true })
+    : result;
+
+  if (fallbackResult.error) {
+    if (isMissingTableError(fallbackResult.error, "missionary_team_members") || isMissingColumnError(fallbackResult.error)) {
+      return [];
+    }
+
+    throw new Error(fallbackResult.error.message);
+  }
+
+  return (fallbackResult.data ?? []) as OrganizationTeamMemberRow[];
+}
+
+async function loadOrganizationSupportSettings(workspaceIds: string[]) {
+  const uniqueWorkspaceIds = Array.from(new Set(workspaceIds.filter(Boolean)));
+
+  if (uniqueWorkspaceIds.length === 0) {
+    return [] as OrganizationSupportSettingsRow[];
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const result = await supabase
+    .from("missionary_support_settings")
+    .select("household_id, annual_goal, monthly_goal")
+    .in("household_id", uniqueWorkspaceIds);
+
+  if (result.error) {
+    if (isMissingTableError(result.error, "missionary_support_settings") || isMissingColumnError(result.error)) {
+      return [];
+    }
+
+    throw new Error(result.error.message);
+  }
+
+  return (result.data ?? []) as OrganizationSupportSettingsRow[];
+}
+
+async function loadApprovedProfileRows(workspaceIds: string[]) {
+  const uniqueWorkspaceIds = Array.from(new Set(workspaceIds.filter(Boolean)));
+
+  if (uniqueWorkspaceIds.length === 0) {
+    return [] as OrganizationApprovedProfileRow[];
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const result = await supabase
+    .from("missionary_households")
+    .select("id, slug, display_name, location, public_visible, show_household, usam_profile_status, updated_at, created_at")
+    .in("id", uniqueWorkspaceIds)
+    .order("updated_at", { ascending: false, nullsFirst: false });
+  const fallbackResult = result.error && isMissingColumnError(result.error)
+    ? await supabase
+      .from("missionary_households")
+      .select("id, slug, display_name, public_visible, updated_at, created_at")
+      .in("id", uniqueWorkspaceIds)
+      .order("updated_at", { ascending: false, nullsFirst: false })
+    : result;
+
+  if (fallbackResult.error) {
+    if (isMissingTableError(fallbackResult.error, "missionary_households") || isMissingColumnError(fallbackResult.error)) {
+      return [];
+    }
+
+    throw new Error(fallbackResult.error.message);
+  }
+
+  return (fallbackResult.data ?? []) as OrganizationApprovedProfileRow[];
+}
+
+function organizationWorkspacesFromIndex(
+  organization: OrganizationRow,
+  workspaces: AdminWorkspaceIndexItem[],
+) {
+  return workspaces.filter((workspace) => (
+    isUsamOrganization(organization)
+      ? workspace.workspaceType === "USA Missionaries"
+        || workspace.organizationId === organization.id
+        || workspace.organizationName === organization.name
+      : workspace.organizationId === organization.id
+  ));
+}
+
+function workspaceSummaryFromIndex(workspace: AdminWorkspaceIndexItem): OrganizationWorkspaceSummary {
+  return {
+    activitySummary: workspace.activitySummary,
+    householdName: workspace.householdName,
+    id: workspace.id,
+    kind: "workspace",
+    lastActivityAt: workspace.lastActiveAt,
+    name: workspace.workspaceName,
+    ownerName: workspace.userName,
+    slug: workspace.slug ?? workspace.id,
+    sourceLabel: workspace.workspaceType,
+    status: workspace.status,
+    viewHref: `/admin/workspaces/${workspace.id}`,
+  };
+}
+
+function applicationHasPhotos(application: OrganizationApplicationRow) {
+  if (application.profile_photo_url?.trim()) {
+    return true;
+  }
+
+  const photos = asRecord(asRecord(application.contact_payload).photos_json);
+  const profileUpload = asRecord(photos.profilePhotoUpload);
+  const familyUpload = asRecord(photos.familyPhotoUpload);
+
+  return Boolean(
+    asString(photos.profilePhotoName)
+    || asString(photos.familyPhotoName)
+    || asString(profileUpload.path)
+    || asString(familyUpload.path),
+  );
+}
+
+function fileNameFromUrl(value: string) {
+  try {
+    const pathname = new URL(value).pathname;
+    const fileName = pathname.split("/").filter(Boolean).pop();
+
+    return fileName ? decodeURIComponent(fileName) : "Submitted photo";
+  } catch {
+    const fileName = value.split("/").filter(Boolean).pop();
+
+    return fileName || "Submitted photo";
+  }
+}
+
+function photoFromUploadMetadata(
+  value: unknown,
+  expectedKind: "family" | "profile",
+  fallbackName: string,
+): OrganizationApplicationPhotoSummary | null {
+  const record = asRecord(value);
+  const bucket = asString(record.bucket);
+  const contentType = asString(record.contentType);
+  const fileName = asString(record.fileName) || fallbackName;
+  const kind = asString(record.kind);
+  const path = asString(record.path);
+  const size = asNumber(record.size);
+  const uploadedAt = asString(record.uploadedAt);
+
+  if (!bucket || kind !== expectedKind || !path) {
+    return null;
+  }
+
+  return {
+    contentType: contentType || null,
+    fileName,
+    id: `${expectedKind}:${path}`,
+    kind: expectedKind === "family" ? "Family" : "Profile",
+    path,
+    size,
+    status: "Submitted",
+    thumbnailUrl: null,
+    uploadedAt: uploadedAt || null,
+  };
+}
+
+function namedPhotoPlaceholder(
+  kind: "family" | "profile",
+  fileName: string,
+): OrganizationApplicationPhotoSummary | null {
+  const cleanFileName = fileName.trim();
+
+  if (!cleanFileName) {
+    return null;
+  }
+
+  return {
+    contentType: null,
+    fileName: cleanFileName,
+    id: `${kind}:named:${cleanFileName}`,
+    kind: kind === "family" ? "Family" : "Profile",
+    path: null,
+    size: null,
+    status: "Submitted",
+    thumbnailUrl: null,
+    uploadedAt: null,
+  };
+}
+
+async function signedPhotoUrl(
+  supabase: SupabaseAdminClient,
+  bucket: string,
+  path: string,
+) {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+
+  if (error) {
+    return null;
+  }
+
+  return data?.signedUrl ?? null;
+}
+
+async function applicationPhotoSummaries(
+  supabase: SupabaseAdminClient,
+  application: OrganizationApplicationRow,
+): Promise<OrganizationApplicationPhotoSummary[]> {
+  const contactPayload = asRecord(application.contact_payload);
+  const photosJson = asRecord(contactPayload.photos_json);
+  const photos: OrganizationApplicationPhotoSummary[] = [];
+  const profileUpload = photoFromUploadMetadata(
+    photosJson.profilePhotoUpload,
+    "profile",
+    asString(photosJson.profilePhotoName) || "Profile photo",
+  ) ?? namedPhotoPlaceholder("profile", asString(photosJson.profilePhotoName));
+  const familyUpload = photoFromUploadMetadata(
+    photosJson.familyPhotoUpload,
+    "family",
+    asString(photosJson.familyPhotoName) || "Family photo",
+  ) ?? namedPhotoPlaceholder("family", asString(photosJson.familyPhotoName));
+
+  if (profileUpload) {
+    photos.push(profileUpload);
+  }
+
+  if (familyUpload) {
+    photos.push(familyUpload);
+  }
+
+  if (application.profile_photo_url?.trim()) {
+    photos.unshift({
+      contentType: null,
+      fileName: fileNameFromUrl(application.profile_photo_url),
+      id: "profile-photo-url",
+      kind: "Profile",
+      path: null,
+      size: null,
+      status: "Submitted",
+      thumbnailUrl: application.profile_photo_url,
+      uploadedAt: null,
+    });
+  }
+
+  const signedPhotos = await Promise.all(photos.map(async (photo) => {
+    const uploadKind = photo.id.split(":")[0];
+    const uploadRecord = uploadKind === "profile"
+      ? asRecord(photosJson.profilePhotoUpload)
+      : uploadKind === "family"
+        ? asRecord(photosJson.familyPhotoUpload)
+        : {};
+    const bucket = asString(uploadRecord.bucket);
+
+    if (!bucket || !photo.path || photo.thumbnailUrl) {
+      return photo;
+    }
+
+    return {
+      ...photo,
+      thumbnailUrl: await signedPhotoUrl(supabase, bucket, photo.path),
+    };
+  }));
+  const seen = new Set<string>();
+
+  return signedPhotos.filter((photo) => {
+    const key = photo.path ?? photo.thumbnailUrl ?? photo.id;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+
+    return true;
+  });
+}
+
+function applicationHouseholdDetails(application: OrganizationApplicationRow): OrganizationApplicationDetailItem[] {
+  const household = asRecord(asRecord(application.contact_payload).household_json);
+
+  return [
+    compactDetail("Street", household.addressLine1),
+    compactDetail("Address 2", household.addressLine2),
+    compactDetail("City", household.city),
+    compactDetail("State", household.state),
+    compactDetail("Zip", household.zip),
+    compactDetail("Country", household.country),
+    compactDetail("Spouse", [asString(household.spouseFirstName), asString(household.spouseLastName)].filter(Boolean).join(" ") || household.spouseName),
+    compactDetail("Spouse Email", household.spouseEmail),
+    compactDetail("Spouse Phone", household.spousePhone),
+  ].filter((item): item is OrganizationApplicationDetailItem => Boolean(item));
+}
+
+function applicationHouseholdMembers(application: OrganizationApplicationRow): OrganizationApplicationHouseholdMember[] {
+  const household = asRecord(asRecord(application.contact_payload).household_json);
+
+  return asArray(household.familyMembers)
+    .map((member) => ({
+      age: asString(member.age) || null,
+      name: fullNameFromRecord(member, "Household member"),
+      relationship: asString(member.relationship) || null,
+      status: asString(member.dependentStatus) || null,
+    }))
+    .filter((member) => member.name !== "Household member" || member.relationship || member.age || member.status);
+}
+
+function applicationStoryAnswers(application: OrganizationApplicationRow): OrganizationApplicationDetailItem[] {
+  const story = asRecord(asRecord(application.contact_payload).story_json);
+  const answers = asRecord(story.answers);
+
+  return [
+    compactDetail("How they came to know Jesus", answers.jesus),
+    compactDetail("What God has been teaching them", answers.recentTeaching),
+    compactDetail("Why USA Missionaries", answers.whyUsam),
+    compactDetail("Who they hope to impact", answers.impact),
+    compactDetail("What God is calling them toward", answers.callingToward),
+    compactDetail("Accepted draft", story.acceptedDraft),
+  ].filter((item): item is OrganizationApplicationDetailItem => Boolean(item));
+}
+
+function applicationPrayerPartners(application: OrganizationApplicationRow): OrganizationApplicationContactItem[] {
+  const prayer = asRecord(asRecord(application.contact_payload).prayer_json);
+
+  return asArray(prayer.partners)
+    .map((partner) => ({
+      email: asString(partner.email) || null,
+      name: fullNameFromRecord(partner, "Prayer partner"),
+      phone: asString(partner.phone) || null,
+      relationship: asString(partner.relationship) || null,
+    }))
+    .filter((partner) => partner.name !== "Prayer partner" || partner.email || partner.phone || partner.relationship);
+}
+
+function applicationPrayerRequests(application: OrganizationApplicationRow) {
+  const prayer = asRecord(asRecord(application.contact_payload).prayer_json);
+  const structuredRequests = asArray(prayer.requests).map((request) => asString(request.text)).filter(Boolean);
+  const legacyRequests = asString(application.prayer_needs)
+    .split(/\n+/)
+    .map((request) => request.trim())
+    .filter(Boolean);
+
+  return structuredRequests.length ? structuredRequests : legacyRequests;
+}
+
+function applicationReferences(application: OrganizationApplicationRow): OrganizationApplicationReferenceItem[] {
+  const references = asArray(asRecord(application.contact_payload).references_json);
+
+  if (references.length === 0 && application.references_text?.trim()) {
+    return application.references_text
+      .split(/\n+/)
+      .map((line) => ({
+        description: line.trim(),
+        email: null,
+        name: "Reference",
+        organization: null,
+        phone: null,
+        relationship: null,
+      }))
+      .filter((reference) => reference.description);
+  }
+
+  return references
+    .map((reference) => ({
+      description: asString(reference.description) || null,
+      email: asString(reference.email) || null,
+      name: fullNameFromRecord(reference, "Reference"),
+      organization: asString(reference.churchOrganization) || asString(reference.organization) || null,
+      phone: asString(reference.phone) || null,
+      relationship: asString(reference.relationship) || null,
+    }))
+    .filter((reference) => reference.name !== "Reference" || reference.email || reference.phone || reference.relationship || reference.description);
+}
+
+function applicationSupportDetails(application: OrganizationApplicationRow): OrganizationApplicationDetailItem[] {
+  const support = asRecord(asRecord(application.contact_payload).support_json);
+  const budget = asRecord(support.budget);
+  const budgetDetails = Object.entries(budget)
+    .map(([key, value]) => moneyDetail(key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()), value))
+    .filter((item): item is OrganizationApplicationDetailItem => Boolean(item));
+
+  return [
+    compactDetail("Support Needed", support.supportNeed),
+    compactDetail("Giving Preference", support.donationLinkPreference),
+    moneyDetail("Monthly Budget", application.monthly_budget),
+    moneyDetail("Support Goal", application.support_goal),
+    moneyDetail("Committed Support", support.committedSupport),
+    moneyDetail("Other Monthly Income", support.otherMonthlyIncome),
+    ...budgetDetails,
+  ].filter((item): item is OrganizationApplicationDetailItem => Boolean(item));
+}
+
+async function applicationSummary(supabase: SupabaseAdminClient, application: OrganizationApplicationRow): Promise<OrganizationApplicationSummary> {
+  const photos = await applicationPhotoSummaries(supabase, application);
+
+  return {
+    adminNotes: application.admin_notes,
+    applicantEmail: application.applicant_email,
+    applicantName: application.applicant_name || "Unnamed applicant",
+    applicantPhone: application.applicant_phone,
+    assignedAdmin: application.assigned_admin_email,
+    callingFocus: application.calling_focus,
+    householdDetails: applicationHouseholdDetails(application),
+    householdMembers: applicationHouseholdMembers(application),
+    hasPhotos: photos.length > 0 || applicationHasPhotos(application),
+    id: application.id,
+    location: application.location,
+    monthlyBudget: application.monthly_budget,
+    photos,
+    prayerPartners: applicationPrayerPartners(application),
+    prayerRequests: applicationPrayerRequests(application),
+    prayerNeeds: application.prayer_needs,
+    references: applicationReferences(application),
+    referencesText: application.references_text,
+    status: application.status,
+    storyAnswers: applicationStoryAnswers(application),
+    storyTestimony: application.story_testimony,
+    supportDetails: applicationSupportDetails(application),
+    submittedAt: application.submitted_at ?? application.created_at,
+    supportGoal: application.support_goal,
+  };
+}
+
+function profileVisibility(profile: OrganizationApprovedProfileRow): OrganizationApprovedProfileSummary["visibility"] {
+  if (profile.usam_profile_status === "archived") {
+    return "Archived";
+  }
+
+  if (profile.public_visible === false || profile.show_household === false || profile.usam_profile_status === "hidden") {
+    return "Hidden";
+  }
+
+  if (profile.public_visible === true || profile.usam_profile_status === "published" || profile.usam_profile_status === "approved") {
+    return "Live";
+  }
+
+  return "Draft";
+}
+
+function approvedProfileSummaries({
+  applications,
+  profiles,
+  supportSettings,
+}: {
+  applications: OrganizationApplicationRow[];
+  profiles: OrganizationApprovedProfileRow[];
+  supportSettings: OrganizationSupportSettingsRow[];
+}): OrganizationApprovedProfileSummary[] {
+  const approvedWorkspaceIds = new Set(
+    applications
+      .filter((application) => isApprovedApplication(application.status))
+      .flatMap((application) => [application.workspace_id, application.missionary_profile_id])
+      .filter((id): id is string => Boolean(id)),
+  );
+  const applicationByWorkspaceId = new Map(
+    applications
+      .filter((application) => application.workspace_id)
+      .map((application) => [application.workspace_id as string, application]),
+  );
+  const supportByHouseholdId = new Map(supportSettings.map((support) => [support.household_id, support]));
+
+  return profiles
+    .filter((profile) => approvedWorkspaceIds.has(profile.id) || profile.public_visible === true || profile.usam_profile_status === "approved" || profile.usam_profile_status === "published")
+    .map((profile) => {
+      const support = supportByHouseholdId.get(profile.id);
+      const application = applicationByWorkspaceId.get(profile.id);
+
+      return {
+        applicationId: application?.id ?? null,
+        id: profile.id,
+        lastUpdated: profile.updated_at ?? profile.created_at,
+        location: profile.location ?? null,
+        publicName: profile.display_name,
+        publicUrl: `/missionaries/${profile.slug}`,
+        slug: profile.slug,
+        supportGoal: support?.monthly_goal ?? support?.annual_goal ?? application?.support_goal ?? null,
+        visibility: profileVisibility(profile),
+      };
+    })
+    .sort((first, second) => {
+      const firstTime = first.lastUpdated ? new Date(first.lastUpdated).getTime() : 0;
+      const secondTime = second.lastUpdated ? new Date(second.lastUpdated).getTime() : 0;
+
+      return secondTime - firstTime || first.publicName.localeCompare(second.publicName);
+    });
+}
+
+function profileDisplayName(profile: OrganizationProfileRow) {
+  return [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim()
+    || profile.email
+    || "Organization member";
+}
+
+function isOrganizationTeamMember(member: OrganizationTeamMemberRow) {
+  const role = member.role_title?.toLowerCase() ?? "";
+
+  return member.source !== "public_form" && !role.includes("prayer partner");
+}
+
+function memberSummaries({
+  applications,
+  membershipRows,
+  profiles,
+  teamMembers,
+  workspaces,
+}: {
+  applications: OrganizationApplicationRow[];
+  membershipRows: OrganizationMembershipRow[];
+  profiles: OrganizationProfileRow[];
+  teamMembers: OrganizationTeamMemberRow[];
+  workspaces: OrganizationWorkspaceSummary[];
+}): OrganizationMemberSummary[] {
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+  const workspaceById = new Map(workspaces.map((workspace) => [workspace.id, workspace]));
+  const applicationByWorkspaceId = new Map(
+    applications
+      .filter((application) => application.workspace_id)
+      .map((application) => [application.workspace_id as string, application]),
+  );
+  const members = new Map<string, OrganizationMemberSummary>();
+
+  membershipRows.forEach((membership) => {
+    if (!membership.profile_id || membership.status === "inactive") {
+      return;
+    }
+
+    const profile = profileById.get(membership.profile_id);
+    const key = `profile:${membership.profile_id}`;
+
+    members.set(key, {
+      email: profile?.email ?? null,
+      id: key,
+      lastActiveAt: latestDate([membership.updated_at, profile?.updated_at, membership.created_at, profile?.created_at]),
+      name: profile ? profileDisplayName(profile) : "Organization member",
+      role: membership.role ?? "member",
+      status: membership.status,
+      workspaceId: null,
+      workspaceName: null,
+    });
+  });
+
+  teamMembers.filter(isOrganizationTeamMember).forEach((member) => {
+    const workspace = workspaceById.get(member.household_id);
+    const application = applicationByWorkspaceId.get(member.household_id);
+    const email = member.invite_email?.trim() || (member.dos_user_id?.includes("@") ? member.dos_user_id : null) || application?.applicant_email || null;
+    const key = email ? `email:${email.toLowerCase()}` : `member:${member.id}`;
+
+    if (members.has(key)) {
+      return;
+    }
+
+    members.set(key, {
+      email,
+      id: key,
+      lastActiveAt: latestDate([member.updated_at, member.created_at, application?.updated_at, application?.submitted_at]),
+      name: member.display_name,
+      role: member.role_title || member.relationship_to_workspace || "Member",
+      status: member.status,
+      workspaceId: member.household_id,
+      workspaceName: workspace?.name ?? null,
+    });
+  });
+
+  return Array.from(members.values()).sort((first, second) => {
+    const firstTime = first.lastActiveAt ? new Date(first.lastActiveAt).getTime() : 0;
+    const secondTime = second.lastActiveAt ? new Date(second.lastActiveAt).getTime() : 0;
+
+    return secondTime - firstTime || first.name.localeCompare(second.name);
+  });
+}
+
+function applicationsForOrganization(
+  organization: OrganizationRow,
+  applications: OrganizationApplicationRow[],
+  workspaces: OrganizationWorkspaceSummary[],
+) {
+  const workspaceIds = new Set(workspaces.map((workspace) => workspace.id));
+
+  return applications.filter((application) => (
+    application.organization_id === organization.id
+    || Boolean(application.workspace_id && workspaceIds.has(application.workspace_id))
+    || Boolean(application.missionary_profile_id && workspaceIds.has(application.missionary_profile_id))
+  ));
+}
+
+function summaryForOrganization({
+  applications,
+  approvedProfileCount,
+  memberCount,
+  organization,
+  workspaces,
+}: {
+  applications: OrganizationApplicationRow[];
+  approvedProfileCount: number;
+  memberCount: number;
+  organization: OrganizationRow;
+  workspaces: OrganizationWorkspaceSummary[];
+}): OrganizationSummary {
+  return {
+    applicationCount: applications.length,
+    approvedProfileCount,
+    brandingMode: organization.branding_mode ?? "default",
+    createdAt: organization.created_at,
+    id: organization.id,
+    lastActivityAt: latestDate([
+      organization.updated_at,
+      ...workspaces.map((workspace) => workspace.lastActivityAt),
+      ...applications.map((application) => latestDate([application.updated_at, application.submitted_at, application.created_at])),
+    ]),
+    memberCount,
+    name: organization.name,
+    pendingApplicationCount: applications.filter((application) => isPendingApplication(application.status)).length,
+    slug: organization.slug,
+    status: workspaces.length > 0 || memberCount > 0 || applications.length > 0 || approvedProfileCount > 0 ? "active" : "setup",
+    type: normalizeOrganizationType(organization.type),
+    updatedAt: organization.updated_at,
+    workspaceCount: workspaces.length,
+  };
+}
+
 export async function loadOrganizationsOverview(): Promise<{ error?: string; organizations: OrganizationSummary[] }> {
   if (!isSupabaseAdminConfigured()) {
     return {
@@ -340,40 +1213,70 @@ export async function loadOrganizationsOverview(): Promise<{ error?: string; org
 
   try {
     const supabase = createSupabaseAdminClient();
-    const [organizationsResult, collectivesResult, membershipsResult] = await Promise.all([
-      supabase.from("organizations").select("id, name, slug, type, branding_mode, created_at, updated_at").order("name", { ascending: true }),
-      supabase.from("collectives").select("id, owner_organization_id, name, slug, type, created_at, updated_at").order("name", { ascending: true }),
-      supabase.from("organization_memberships").select("organization_id, status"),
-    ]);
+    const organizationsResult = await supabase
+      .from("organizations")
+      .select("id, name, slug, type, branding_mode, created_at, updated_at")
+      .order("name", { ascending: true });
 
     if (organizationsResult.error) {
       return { error: organizationsResult.error.message, organizations: [] };
     }
 
-    const households = await loadHouseholds();
-    const activityByWorkspaceId = await loadWorkspaceActivity(households.map((household) => household.id));
-    const collectives = (collectivesResult.error ? [] : collectivesResult.data ?? []) as CollectiveRow[];
-    const memberships = (membershipsResult.error ? [] : membershipsResult.data ?? []) as OrganizationMembershipRow[];
+    const organizations = ((organizationsResult.data ?? []) as OrganizationRow[]).filter(isParentOrganization);
+    const organizationIds = organizations.map((organization) => organization.id);
+    const [workspaceIndex, applications, membershipRows] = await Promise.all([
+      loadAdminWorkspaceIndex(),
+      loadOrganizationApplications(organizationIds),
+      loadOrganizationMembershipRows(organizationIds),
+    ]);
+    const workspacesByOrganizationId = new Map<string, OrganizationWorkspaceSummary[]>();
+
+    organizations.forEach((organization) => {
+      workspacesByOrganizationId.set(
+        organization.id,
+        organizationWorkspacesFromIndex(organization, workspaceIndex.workspaces).map(workspaceSummaryFromIndex),
+      );
+    });
+
+    const workspaceIds = Array.from(new Set(
+      Array.from(workspacesByOrganizationId.values())
+        .flat()
+        .map((workspace) => workspace.id),
+    ));
+    const profileIds = membershipRows
+      .map((membership) => membership.profile_id)
+      .filter((profileId): profileId is string => Boolean(profileId));
+    const [teamMembers, profiles, approvedProfileRows, supportSettings] = await Promise.all([
+      loadOrganizationTeamMembers(workspaceIds),
+      loadOrganizationProfiles(profileIds),
+      loadApprovedProfileRows(workspaceIds),
+      loadOrganizationSupportSettings(workspaceIds),
+    ]);
 
     return {
-      organizations: ((organizationsResult.data ?? []) as OrganizationRow[]).map((organization) => {
-        const workspaces = getOrganizationWorkspaces(organization, collectives, households, activityByWorkspaceId);
-        const memberCount = memberships.filter((membership) => (
-          membership.organization_id === organization.id && membership.status !== "inactive"
-        )).length;
+      organizations: organizations.map((organization) => {
+        const workspaces = workspacesByOrganizationId.get(organization.id) ?? [];
+        const organizationApplications = applicationsForOrganization(organization, applications, workspaces);
+        const approvedProfiles = approvedProfileSummaries({
+          applications: organizationApplications,
+          profiles: approvedProfileRows.filter((profile) => workspaces.some((workspace) => workspace.id === profile.id)),
+          supportSettings,
+        });
+        const organizationMembers = memberSummaries({
+          applications: organizationApplications,
+          membershipRows: membershipRows.filter((membership) => membership.organization_id === organization.id),
+          profiles,
+          teamMembers: teamMembers.filter((member) => workspaces.some((workspace) => workspace.id === member.household_id)),
+          workspaces,
+        });
 
-        return {
-          brandingMode: organization.branding_mode ?? "default",
-          createdAt: organization.created_at,
-          id: organization.id,
-          lastActivityAt: latestDate([organization.updated_at, ...workspaces.map((workspace) => workspace.lastActivityAt)]),
-          memberCount,
-          name: organization.name,
-          slug: organization.slug,
-          status: workspaces.length > 0 || memberCount > 0 ? "active" : "setup",
-          type: normalizeOrganizationType(organization.type),
-          workspaceCount: workspaces.length,
-        };
+        return summaryForOrganization({
+          applications: organizationApplications,
+          approvedProfileCount: approvedProfiles.length,
+          memberCount: organizationMembers.length,
+          organization,
+          workspaces,
+        });
       }),
     };
   } catch (error) {
@@ -394,11 +1297,12 @@ export async function loadOrganizationDetail(organizationId: string): Promise<{ 
 
   try {
     const supabase = createSupabaseAdminClient();
-    const [organizationResult, collectivesResult, membershipsResult] = await Promise.all([
-      supabase.from("organizations").select("id, name, slug, type, branding_mode, created_at, updated_at").eq("id", organizationId).maybeSingle(),
-      supabase.from("collectives").select("id, owner_organization_id, name, slug, type, created_at, updated_at").eq("owner_organization_id", organizationId),
-      supabase.from("organization_memberships").select("organization_id, status").eq("organization_id", organizationId),
-    ]);
+    const organizationQuery = supabase
+      .from("organizations")
+      .select("id, name, slug, type, branding_mode, created_at, updated_at");
+    const organizationResult = isUuid(organizationId)
+      ? await organizationQuery.eq("id", organizationId).maybeSingle()
+      : await organizationQuery.eq("slug", organizationId).maybeSingle();
 
     if (organizationResult.error) {
       return { error: organizationResult.error.message, organization: null };
@@ -408,37 +1312,90 @@ export async function loadOrganizationDetail(organizationId: string): Promise<{ 
       return { organization: null };
     }
 
-    const households = await loadHouseholds();
-    const activityByWorkspaceId = await loadWorkspaceActivity(households.map((household) => household.id));
     const organization = organizationResult.data as OrganizationRow;
-    const workspaces = getOrganizationWorkspaces(
+    const [workspaceIndex, applications, membershipRows] = await Promise.all([
+      loadAdminWorkspaceIndex(),
+      loadOrganizationApplications([organization.id]),
+      loadOrganizationMembershipRows([organization.id]),
+    ]);
+    const workspaces = organizationWorkspacesFromIndex(organization, workspaceIndex.workspaces).map(workspaceSummaryFromIndex);
+    const organizationApplications = applicationsForOrganization(organization, applications, workspaces);
+    const profileIds = membershipRows
+      .map((membership) => membership.profile_id)
+      .filter((profileId): profileId is string => Boolean(profileId));
+    const [teamMembers, profiles, approvedProfileRows, supportSettings] = await Promise.all([
+      loadOrganizationTeamMembers(workspaces.map((workspace) => workspace.id)),
+      loadOrganizationProfiles(profileIds),
+      loadApprovedProfileRows(workspaces.map((workspace) => workspace.id)),
+      loadOrganizationSupportSettings(workspaces.map((workspace) => workspace.id)),
+    ]);
+    const approvedProfiles = approvedProfileSummaries({
+      applications: organizationApplications,
+      profiles: approvedProfileRows,
+      supportSettings,
+    });
+    const applicationSummaries = await Promise.all(organizationApplications.map((application) => applicationSummary(supabase, application)));
+    const members = memberSummaries({
+      applications: organizationApplications,
+      membershipRows: membershipRows.filter((membership) => membership.organization_id === organization.id),
+      profiles,
+      teamMembers,
+      workspaces,
+    });
+    const summary = summaryForOrganization({
+      applications: organizationApplications,
+      approvedProfileCount: approvedProfiles.length,
+      memberCount: members.length,
       organization,
-      (collectivesResult.error ? [] : collectivesResult.data ?? []) as CollectiveRow[],
-      households,
-      activityByWorkspaceId,
-    );
-    const memberCount = ((membershipsResult.error ? [] : membershipsResult.data ?? []) as OrganizationMembershipRow[])
-      .filter((membership) => membership.status !== "inactive")
-      .length;
+      workspaces,
+    });
 
     return {
       organization: {
-        brandingMode: organization.branding_mode ?? "default",
-        createdAt: organization.created_at,
-        id: organization.id,
-        lastActivityAt: latestDate([organization.updated_at, ...workspaces.map((workspace) => workspace.lastActivityAt)]),
-        memberCount,
-        name: organization.name,
-        slug: organization.slug,
-        status: workspaces.length > 0 || memberCount > 0 ? "active" : "setup",
-        type: normalizeOrganizationType(organization.type),
-        workspaceCount: workspaces.length,
+        ...summary,
+        approvedProfiles,
+        applications: applicationSummaries,
+        members,
         workspaces,
       },
     };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Unable to load organization.",
+      organization: null,
+    };
+  }
+}
+
+export async function loadPrimaryUsamOrganizationDetail(): Promise<{ error?: string; organization: OrganizationDetail | null }> {
+  if (!isSupabaseAdminConfigured()) {
+    return {
+      error: "Supabase admin environment variables are not configured.",
+      organization: null,
+    };
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const result = await supabase
+      .from("organizations")
+      .select("id")
+      .or("slug.eq.usa-missionaries,branding_mode.eq.usam")
+      .limit(1)
+      .maybeSingle();
+
+    if (result.error) {
+      return { error: result.error.message, organization: null };
+    }
+
+    if (!result.data?.id) {
+      return { organization: null };
+    }
+
+    return loadOrganizationDetail(String(result.data.id));
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Unable to load USA Missionaries.",
       organization: null,
     };
   }

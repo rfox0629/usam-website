@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -10,17 +11,22 @@ type PeopleImportPayload = {
 };
 
 type PeopleImportRow = {
+  childrenNames?: unknown;
   church?: unknown;
   city?: unknown;
   email?: unknown;
   firstName?: unknown;
+  householdNotes?: unknown;
   lastName?: unknown;
   name?: unknown;
   notes?: unknown;
   phone?: unknown;
   sourceRowNumber?: unknown;
+  spouseName?: unknown;
   state?: unknown;
 };
+
+const householdMvpKeys = ["spouse_name", "children_names", "household_notes"];
 
 type ExistingPersonRow = {
   email: string | null;
@@ -57,6 +63,12 @@ function duplicateKeys(person: Pick<ExistingPersonRow, "email" | "name" | "phone
     normalizedEmail(person.email) ? `email:${normalizedEmail(person.email)}` : "",
     normalizedName(person.name) ? `name:${normalizedName(person.name)}` : "",
   ].filter(Boolean);
+}
+
+function isMissingHouseholdMvpColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return householdMvpKeys.some((column) => message.includes(column));
 }
 
 function parseImportRows(rows: unknown): PeopleImportRow[] {
@@ -139,10 +151,12 @@ async function loadExistingPeople(workspaceId: string) {
 
 function personRecordCandidates(record: Record<string, unknown>) {
   const { workspace_id: _workspaceId, ...legacyRecord } = record;
+  const householdCompatibleRecord = Object.fromEntries(Object.entries(record).filter(([key]) => !householdMvpKeys.includes(key)));
+  const legacyHouseholdCompatibleRecord = Object.fromEntries(Object.entries(legacyRecord).filter(([key]) => !householdMvpKeys.includes(key)));
 
   // TODO: Remove the household_id-compatible candidate after all local and
   // remote environments are migrated to missionary_field_people.workspace_id.
-  return [record, legacyRecord];
+  return [record, householdCompatibleRecord, legacyRecord, legacyHouseholdCompatibleRecord];
 }
 
 export async function POST(request: Request) {
@@ -211,14 +225,17 @@ export async function POST(request: Request) {
 
     keys.forEach((key) => duplicateKeySet.add(key));
     records.push({
+      children_names: asNullableString(row.childrenNames),
       church: asNullableString(row.church),
       created_by: authResult.authorization.userId,
       email,
       household_id: workspaceId,
+      household_notes: asNullableString(row.householdNotes),
       name,
       notes: rowNotes(row),
       phone,
       source: "field",
+      spouse_name: asNullableString(row.spouseName),
       status: "new",
       workspace_id: workspaceId,
     });
@@ -244,7 +261,7 @@ export async function POST(request: Request) {
       .insert(candidateRecords)
       .select("id");
 
-    if (!importResult.error || !isMissingWorkspaceScopeColumn(importResult.error)) {
+    if (!importResult.error || (!isMissingWorkspaceScopeColumn(importResult.error) && !isMissingHouseholdMvpColumn(importResult.error))) {
       break;
     }
   }
@@ -256,6 +273,12 @@ export async function POST(request: Request) {
   }
 
   const importedCount = data?.length ?? 0;
+
+  if (importedCount > 0) {
+    await recalculateCircleScores(workspaceId).catch((scoreError) => {
+      console.warn("[DOS circles] Unable to recalculate after person import", scoreError);
+    });
+  }
 
   return NextResponse.json({
     duplicateCount,

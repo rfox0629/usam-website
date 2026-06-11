@@ -1,0 +1,117 @@
+export const usamSeedApplication = {
+  account: {
+    confirmPassword: "test123",
+    email: "brian@gmail.com",
+    password: "test123",
+  },
+  adminNotes: "Seed/test applicant for the DOS Platform organization workflow. Future applicants should attach to a DOS workspace, then the optional USA Missionaries layer can be reviewed and approved by Command Center.",
+  applicantEmail: "brian@gmail.com",
+  applicantName: "Brian Morgan",
+  applicantPhone: "(555) 014-2026",
+  appliedAt: "2026-06-03T14:00:00.000Z",
+  callingFocus: "I feel called to help families open their homes for Kitchen Table discipleship and train everyday believers to make disciples.",
+  contact: {
+    cellPhone: "(555) 014-2026",
+    city: "Minneapolis",
+    email: "brian@gmail.com",
+    firstName: "Brian",
+    fullAddress: "2146 Lyndale Ave S, Minneapolis, MN 55405",
+    lastName: "Morgan",
+    state: "MN",
+    zip: "55405",
+  },
+  familyInfo: "Married to Erica with two children. Erica will create her own individual profile, and the household can be linked later.",
+  household: {
+    children: [
+      {
+        age: "12",
+        dependentStatus: "dependent",
+        firstName: "Caleb",
+        lastName: "Morgan",
+        relationship: "Son",
+      },
+      {
+        age: "9",
+        dependentStatus: "dependent",
+        firstName: "Ava",
+        lastName: "Morgan",
+        relationship: "Daughter",
+      },
+    ],
+    spouseEmail: "erica.morgan@example.com",
+    spouseFirstName: "Erica",
+    spouseLastName: "Morgan",
+    spousePhone: "(555) 014-2027",
+  },
+  householdName: "Brian and Erica Morgan",
+  id: "seed-brian-erica-morgan",
+  location: "Minneapolis, MN",
+  ministryFocus: "Families, neighbors, and local church households practicing simple discipleship around the table.",
+  monthlyBudget: 6200,
+  my3: {
+    name: "Jason Waage",
+    relationshipContext: "friend",
+    roleInMyLife: "walking_with_them",
+  },
+  photos: {
+    familyPhotoName: "morgan-family-photo.jpg",
+    familyPhotoId: "family_public_photo",
+    profilePhotoName: "brian-profile-photo.jpg",
+    profilePhotoId: "profile_photo",
+    selectedPublicPhotoId: "family_public_photo",
+  },
+  prayerNeeds: "Pray for local church partnerships, monthly support, and wisdom as we build a repeatable table rhythm.",
+  prayerRequests: [
+    {
+      category: "Ministry",
+      text: "Pray for open doors with local church leaders and households.",
+      visibility: "Prayer team only",
+    },
+    {
+      category: "Financial",
+      text: "Pray for monthly support partners to come alongside the work.",
+      visibility: "Public profile if approved",
+    },
+  ],
+  profilePhotoUrl: "",
+  references: [
+    {
+      churchOrganization: "River Valley Church",
+      description: "Pastor Daniel has known Brian and Erica for seven years and can speak to their character, discipleship rhythms, and local church involvement.",
+      email: "daniel.reyes@example.com",
+      firstName: "Daniel",
+      lastName: "Reyes",
+      phone: "(555) 019-1111",
+      relationship: "Pastor",
+    },
+    {
+      churchOrganization: "Neighborhood Table Network",
+      description: "Melissa has served alongside Brian in local hospitality and discipleship gatherings.",
+      email: "melissa.hart@example.com",
+      firstName: "Melissa",
+      lastName: "Hart",
+      phone: "(555) 019-2222",
+      relationship: "Ministry collaborator",
+    },
+  ],
+  referencesText: "Pastor Daniel Reyes, River Valley Church. Ministry reference available on request.",
+  status: "pending_review",
+  storyTestimony: "I met Jesus through a small group that felt more like family than a program. Erica began discipling younger women in our church and we saw how quickly one faithful relationship can multiply. We want to serve as USA Missionaries who help households practice simple obedience, prayer, and table fellowship.",
+  support: {
+    coverage: "Part-time ministry hours, hospitality, local travel, discipleship resources, and training gatherings.",
+    currentlyRaising: "yes",
+    donationLinkPreference: "missionary_support",
+    monthlyGoal: "6200",
+    supportGoalOption: "custom",
+    willRaiseSupport: "yes",
+  },
+  supportGoal: 6200,
+} as const;
+
+export type UsamSeedApplicationStatus = "approved" | "declined" | "more_info" | "pending_review";
+
+export const usamSeedProfileDraft = {
+  publicLink: "/missionaries/brian-morgan",
+  status: "Draft",
+  title: "Brian Morgan",
+} as const;
