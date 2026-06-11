@@ -1,0 +1,682 @@
+import { dosPrayerResources } from "@/src/lib/dos/prayer-resources";
+
+export type DosResourceCategory =
+  | "Table Teachings"
+  | "Commands of Jesus"
+  | "Relationships"
+  | "Prayer"
+  | "Discipleship";
+
+export type DosResourceType = "assessment" | "challenge" | "guide" | "prayer" | "teaching";
+
+export type DosResourceIcon =
+  | "baptism"
+  | "bible"
+  | "book"
+  | "church"
+  | "discipleship"
+  | "fasting"
+  | "giving"
+  | "heart"
+  | "hospitality"
+  | "prayer"
+  | "relationship"
+  | "sabbath"
+  | "send"
+  | "sparkles";
+
+export type DosResource = {
+  category: DosResourceCategory;
+  content?: {
+    assessment?: {
+      maxScore: number;
+      participants: readonly string[];
+      questions: readonly DosAssessmentQuestion[];
+    };
+    assessmentScale?: string;
+    attribution?: string;
+    body?: string;
+    credits?: string;
+    followUpSuggestions?: readonly string[];
+    keyScriptures?: readonly string[];
+    prayerCategory?: string;
+    prayerText?: string;
+    reflectionQuestions?: readonly string[];
+    scripture?: string;
+    scriptureReferences?: readonly string[];
+    sections?: readonly DosResourceSection[];
+  };
+  description: string;
+  icon: DosResourceIcon;
+  id: string;
+  path: string;
+  sendable: boolean;
+  slug: string;
+  title: string;
+  type: DosResourceType;
+};
+
+export type DosAssessmentQuestion = {
+  id: string;
+  note?: string;
+  participantPrompts?: Record<string, string>;
+  prompt: string;
+};
+
+export type DosResourceSection = {
+  body?: string;
+  items?: readonly DosResourceSectionItem[];
+  scriptureReferences?: readonly string[];
+  title: string;
+};
+
+export type DosResourceSectionItem = {
+  body?: string;
+  scriptureReferences?: readonly string[];
+  title: string;
+};
+
+const tableTeachingResources = [
+  {
+    category: "Table Teachings",
+    description: "A guided Gospel conversation for live ministry moments.",
+    icon: "book",
+    id: "table-teaching-kitchen-table-gospel",
+    path: "/guides/kitchen-table-gospel.pdf",
+    sendable: false,
+    slug: "kitchen-table-gospel",
+    title: "Kitchen Table Gospel",
+    type: "teaching",
+  },
+  {
+    category: "Table Teachings",
+    description: "A guided honesty, help, surrender, and obedience conversation.",
+    icon: "send",
+    id: "table-teaching-four-questions",
+    path: "/guides/four-questions.pdf",
+    sendable: false,
+    slug: "four-questions",
+    title: "Four Questions",
+    type: "teaching",
+  },
+] as const satisfies readonly DosResource[];
+
+const commandResources = [
+  {
+    category: "Commands of Jesus",
+    description: "Gather, worship, and be formed in the body of Christ.",
+    icon: "church",
+    id: "command-attending-church",
+    path: "/guides/commands-of-jesus/usam_attending_church_guide.pdf",
+    sendable: true,
+    slug: "attending-church",
+    title: "Attending Church",
+    type: "guide",
+  },
+  {
+    category: "Commands of Jesus",
+    description: "Build a steady rhythm of Scripture, obedience, and fruit.",
+    icon: "bible",
+    id: "command-daily-bible-reading",
+    path: "/guides/commands-of-jesus/usam_daily_bible_reading_guide.pdf",
+    sendable: true,
+    slug: "daily-bible-reading",
+    title: "Daily Bible Reading",
+    type: "guide",
+  },
+  {
+    category: "Commands of Jesus",
+    description: "Take the public step of repentance, obedience, and new life.",
+    icon: "baptism",
+    id: "command-baptism",
+    path: "/guides/commands-of-jesus/usam_baptism_guide.pdf",
+    sendable: true,
+    slug: "baptism",
+    title: "Baptism",
+    type: "guide",
+  },
+  {
+    category: "Commands of Jesus",
+    description: "Practice stewardship, generosity, and kingdom support.",
+    icon: "giving",
+    id: "command-biblical-giving",
+    path: "/guides/commands-of-jesus/usam_biblical_giving_guide.pdf",
+    sendable: true,
+    slug: "biblical-giving",
+    title: "Biblical Giving",
+    type: "guide",
+  },
+  {
+    category: "Commands of Jesus",
+    description: "Follow Jesus and multiply obedient disciples.",
+    icon: "discipleship",
+    id: "command-discipleship",
+    path: "/guides/commands-of-jesus/usam_discipleship_guide.pdf",
+    sendable: true,
+    slug: "discipleship",
+    title: "Discipleship",
+    type: "guide",
+  },
+  {
+    category: "Commands of Jesus",
+    description: "Share the Gospel with clarity, boldness, and love.",
+    icon: "send",
+    id: "command-evangelism",
+    path: "/guides/commands-of-jesus/usam_evangelism_guide.pdf",
+    sendable: true,
+    slug: "evangelism",
+    title: "Evangelism",
+    type: "guide",
+  },
+  {
+    category: "Commands of Jesus",
+    description: "Grow in dependence, spiritual hunger, and breakthrough.",
+    icon: "fasting",
+    id: "command-prayer-and-fasting",
+    path: "/guides/commands-of-jesus/usam_prayer_and_fasting_guide.pdf",
+    sendable: true,
+    slug: "prayer-and-fasting",
+    title: "Prayer and Fasting",
+    type: "guide",
+  },
+  {
+    category: "Commands of Jesus",
+    description: "Practice holy rest, worship, and trust in God.",
+    icon: "sabbath",
+    id: "command-sabbath",
+    path: "/guides/commands-of-jesus/usam_sabbath_guide.pdf",
+    sendable: true,
+    slug: "sabbath",
+    title: "Sabbath",
+    type: "guide",
+  },
+  {
+    category: "Commands of Jesus",
+    description: "Serve the body through the power of the Holy Spirit.",
+    icon: "sparkles",
+    id: "command-spiritual-gifts",
+    path: "/guides/commands-of-jesus/usam_spiritual_gifts_guide.pdf",
+    sendable: true,
+    slug: "spiritual-gifts",
+    title: "Spiritual Gifts",
+    type: "guide",
+  },
+] as const satisfies readonly DosResource[];
+
+const marriageAssessmentQuestions = [
+  {
+    id: "respect-love",
+    participantPrompts: {
+      Husband: "How respected do you feel in the relationship?",
+      Wife: "How loved do you feel in the relationship?",
+    },
+    prompt: "How respected or loved do you feel in the relationship?",
+  },
+  {
+    id: "connect-with-god",
+    prompt: "How well do I help you connect with God?",
+  },
+  {
+    id: "time-together",
+    prompt: "How well do we spend our time together?",
+  },
+  {
+    id: "trust",
+    prompt: "How much do you trust me?",
+  },
+  {
+    id: "understood",
+    prompt: "How well do you feel understood?",
+  },
+  {
+    id: "role",
+    prompt: "How happy are you with your role?",
+  },
+  {
+    id: "domestic-support",
+    prompt: "How good am I at domestic support?",
+  },
+  {
+    id: "conflict",
+    prompt: "How well do we handle conflicts?",
+  },
+  {
+    id: "crisis-support",
+    prompt: "How supported do you feel in a crisis?",
+  },
+  {
+    id: "money",
+    prompt: "How well do we manage money?",
+  },
+  {
+    id: "parenting",
+    prompt: "How well do we agree on parenting / grandparenting?",
+  },
+  {
+    id: "family-in-laws",
+    prompt: "How well do I treat your family / in-laws?",
+  },
+  {
+    id: "friends",
+    prompt: "How well do I value our friends?",
+  },
+  {
+    id: "affection",
+    prompt: "How do you feel about our affectionate romantic interaction?",
+  },
+  {
+    id: "sex-life",
+    note: "This question is appropriate only within covenant marriage.",
+    prompt: "How happy are you with our sex life?",
+  },
+] as const satisfies readonly DosAssessmentQuestion[];
+
+const friendshipAssessmentQuestions = [
+  {
+    id: "valued",
+    prompt: "How valued I feel in the relationship.",
+  },
+  {
+    id: "time-together",
+    prompt: "The quality of our time together.",
+  },
+  {
+    id: "trust",
+    prompt: "Our trust level.",
+  },
+  {
+    id: "communication",
+    prompt: "Our communication.",
+  },
+  {
+    id: "interest",
+    prompt: "Our interest in each other.",
+  },
+  {
+    id: "doing-things",
+    prompt: "How we do things together.",
+  },
+  {
+    id: "conflicts",
+    prompt: "How we handle our conflicts.",
+  },
+  {
+    id: "agreement",
+    prompt: "How we agree on issues.",
+  },
+  {
+    id: "schedules",
+    prompt: "How we manage schedules.",
+  },
+  {
+    id: "other-friends",
+    prompt: "The relationship with other friends.",
+  },
+  {
+    id: "spiritual-interaction",
+    prompt: "Our spiritual interaction.",
+  },
+  {
+    id: "depth",
+    prompt: "The depth of our friendship.",
+  },
+  {
+    id: "crisis-support",
+    prompt: "How supported I feel in a crisis.",
+  },
+  {
+    id: "important-people",
+    prompt: "How we relate regarding the other's important people: spouse, kids, friends.",
+  },
+  {
+    id: "non-church-time",
+    prompt: "Our non-church time interaction.",
+  },
+] as const satisfies readonly DosAssessmentQuestion[];
+
+const relationshipResources = [
+  {
+    category: "Relationships",
+    content: {
+      assessment: {
+        maxScore: 150,
+        participants: ["Husband", "Wife"],
+        questions: marriageAssessmentQuestions,
+      },
+      assessmentScale: "Uses a simple 0-10 scale to help surface strengths, strain, and next faithful steps.",
+      body: "A frontend-only assessment for a husband and wife to name strengths, pressure points, and growth areas.",
+    },
+    description: "A simple start screen for a 0-10 marriage health assessment.",
+    icon: "heart",
+    id: "relationship-marriage-assessment",
+    path: "/guide/marriage-assessment",
+    sendable: true,
+    slug: "marriage-assessment",
+    title: "Marriage Assessment",
+    type: "assessment",
+  },
+  {
+    category: "Relationships",
+    content: {
+      assessment: {
+        maxScore: 150,
+        participants: ["Friend 1", "Friend 2"],
+        questions: friendshipAssessmentQuestions,
+      },
+      assessmentScale: "Uses a simple 0-10 scale to help name trust, consistency, honesty, and care.",
+      body: "A frontend-only assessment for two friends to name strengths, trust, communication, and growth areas.",
+    },
+    description: "A simple start screen for a 0-10 friendship health assessment.",
+    icon: "relationship",
+    id: "relationship-friendship-assessment",
+    path: "/guide/friendship-assessment",
+    sendable: true,
+    slug: "friendship-assessment",
+    title: "Friendship Assessment",
+    type: "assessment",
+  },
+  {
+    category: "Relationships",
+    content: {
+      attribution: "Used with permission from Ministry of Reconciliation and Andy Leenstra.",
+      body: "Love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength.",
+      credits: "Credits: John and Paula Sandford where applicable.",
+      scripture: "Mark 12:30",
+      sections: [
+        {
+          body: "Love is doing God's will for yourself and others.",
+          scriptureReferences: ["Mark 12:30-31"],
+          title: "The Law of Love",
+        },
+        {
+          body: "Honoring is expressing value in relationship for God, parents, spouse, children, and others.",
+          items: [
+            {
+              body: "Exodus 20:1-4",
+              title: "God",
+            },
+            {
+              body: "Deuteronomy 5:16",
+              title: "Parents",
+            },
+            {
+              body: "Ephesians 5:33",
+              title: "Spouse",
+            },
+            {
+              body: "Proverbs 22:6",
+              title: "Children",
+            },
+            {
+              body: "John 13:34",
+              title: "Others",
+            },
+          ],
+          title: "The Law of Honor or Respect",
+        },
+        {
+          body: "Truth is the revelation of God's perspective in a situation.",
+          scriptureReferences: ["John 8:32", "John 14:6"],
+          title: "Law of Truth",
+        },
+        {
+          body: "This law forms the basis of conflict resolution.",
+          scriptureReferences: ["Matthew 18:19", "John 5:19-20"],
+          title: "Law of Agreement or Synergy",
+        },
+        {
+          body: "Responsibility is a measure of maturity in Christ.",
+          scriptureReferences: ["Genesis 1:28", "Ephesians 1:1-14", "Romans 8:1-14"],
+          title: "The Law of Responsibility and Stewardship",
+        },
+        {
+          body: "Our actions have consequences.",
+          scriptureReferences: ["Galatians 6:7-8"],
+          title: "Law of Sowing and Reaping",
+        },
+        {
+          body: "Forgiveness is resolving relational deficits by applying the payment of Christ on the cross through an act of the will as God does. Repentance is a change of heart belief. Restitution is making amends.",
+          scriptureReferences: ["John 19:30", "Luke 6:37", "Matthew 3:8", "Exodus 22:1"],
+          title: "Law of Forgiveness, Repentance and Restitution",
+        },
+        {
+          body: "To judge means to consider yourself more righteous than the other. Judgment, when coupled with unforgiveness, is one of the primary roots of relational breakdown.",
+          scriptureReferences: ["Matthew 7:1-2", "Hebrews 12:15", "Romans 3:2"],
+          title: "Law of Judgment",
+        },
+      ],
+    },
+    description: "Eight simple laws for practicing love, honor, truth, responsibility, forgiveness, and wise judgment.",
+    icon: "relationship",
+    id: "relationship-laws-of-relationship",
+    path: "/guide/laws-of-relationship",
+    sendable: true,
+    slug: "laws-of-relationship",
+    title: "Laws of Relationship",
+    type: "guide",
+  },
+  {
+    category: "Relationships",
+    content: {
+      attribution: "Used with permission from Ministry of Reconciliation and Andy Leenstra.",
+      body: "A relational covenant is an agreement I make with God that governs how I do life with others.",
+      credits: "Credits: John and Paula Sandford, Transforming the Inner Man where applicable.",
+      sections: [
+        {
+          body: "I will love you, build you up and accept you in whatever form you come.",
+          scriptureReferences: ["1 Corinthians 13", "1 John 4:11-12"],
+          title: "The Covenant of Grace",
+        },
+        {
+          body: "I will speak truth in love to deal directly and truthfully, making a common commitment to discover God's perspective on our issues.",
+          scriptureReferences: ["John 1:14", "John 8:32", "Ephesians 4:15-16"],
+          title: "The Covenant of Truth",
+        },
+        {
+          body: "I will open myself to you inwardly: my hurts, joys, loves, hate, hopes, disappointments and needs. I will affirm you by needing you and inviting you to be part of my inner life.",
+          scriptureReferences: ["John 17:23", "James 5:16"],
+          title: "The Covenant of Openness",
+        },
+        {
+          body: "In our gathering and throughout the week, I want to make your needs as important as my own as we talk, worship, pray and fellowship together. I will pray for you and be sensitive to the Holy Spirit concerning you.",
+          scriptureReferences: ["Matthew 22:22", "Matthew 26:40", "Philippians 2:1-4"],
+          title: "The Covenant of Sacrifice and Prayer",
+        },
+        {
+          body: "I will serve God in our friendship with my time, energy, wisdom, finances and material goods as if we were ministering to Christ himself.",
+          scriptureReferences: ["Matthew 25:34-40", "Acts 2:44-47"],
+          title: "The Covenant of Availability",
+        },
+        {
+          body: "I will regard the time that we spend together weekly as time spent with Jesus in our midst. I will not grieve the Holy Spirit or hinder his work in your life by my absence, except in emergency.",
+          scriptureReferences: ["Matthew 18:20", "Hebrews 10:23-25"],
+          title: "Covenant of Faithfulness",
+        },
+        {
+          body: "I give you the right to question, confront and challenge me in love when I seem to be failing in any aspect of my life under God, such as family, devotions and general spiritual growth. I trust you to be in the Spirit and led of Him when you do so. I need love and correction to sharpen my life and keep me from becoming defensive.",
+          scriptureReferences: ["Acts 15:4-20", "Galatians 2:1-2", "Galatians 2:14", "Proverbs 12:1"],
+          title: "The Covenant of Accountability",
+        },
+        {
+          body: "What we share between us is a trust. Sharing with others without permission would be harmful to the relationship God is building. I understand that confidentiality does not extend to threats of harm to self or others.",
+          scriptureReferences: ["2 Corinthians 12:20-21"],
+          title: "The Covenant of Confidentiality",
+        },
+        {
+          body: "With personal integrity, I will find ways, under the direction of the Spirit, to demonstrate to others my God connected life. I realize that if inconsistency in my Christian walk could be a stumbling block to others God has assigned for me to reach.",
+          scriptureReferences: ["1 Corinthians 1:9-13", "1 Corinthians 4:15", "1 Corinthians 5:4-20", "1 Corinthians 5:11", "1 Corinthians 6:12", "1 Corinthians 6:18-19", "1 Corinthians 7:35", "1 Corinthians 11:1", "1 Corinthians 11:17-33", "1 Corinthians 12:1", "1 Corinthians 13", "Mark 12:30-31"],
+          title: "The Covenant of Integrity",
+        },
+        {
+          body: "If God calls me elsewhere, I will not leave without your release to properly bring closure to our relationship. I will feel free to reconnect at any time. \"They put their hands on them and sent them away.\"",
+          scriptureReferences: ["Acts 13:2-3"],
+          title: "The Covenant of Release",
+        },
+      ],
+    },
+    description: "Ten covenants for building grace-filled, truthful, accountable, and trustworthy relationships.",
+    icon: "heart",
+    id: "relationship-covenants-of-relationship",
+    path: "/guide/covenants-of-relationship",
+    sendable: true,
+    slug: "covenants-of-relationship",
+    title: "Covenants of Relationship",
+    type: "guide",
+  },
+  {
+    category: "Relationships",
+    content: {
+      attribution: "Used with permission from Ministry of Reconciliation and Andy Leenstra.",
+      sections: [
+        {
+          items: [
+            {
+              title: "Sins",
+            },
+            {
+              title: "Hurts",
+            },
+            {
+              title: "Ungodly Beliefs",
+            },
+            {
+              title: "Generational Sins",
+            },
+            {
+              title: "Demonic Influence",
+            },
+          ],
+          title: "Heart Issues",
+        },
+        {
+          items: [
+            {
+              body: "God says I have a problem.",
+              scriptureReferences: ["John 16:7-9"],
+              title: "1. Conviction.",
+            },
+            {
+              body: "I own my part of the problem as sin against God.",
+              scriptureReferences: ["2 Samuel 12:13", "Psalm 38:18"],
+              title: "2. Confession",
+            },
+            {
+              body: "I recognize the damage I have caused, the lies, and my ungodly responses. I am willing to change my ungodly beliefs, replace them with God's truth and make amends.",
+              scriptureReferences: ["2 Corinthians 7:9-10", "Luke 19:8", "John 8:31"],
+              title: "3. Repentance/restitution.",
+            },
+            {
+              body: "I choose to receive and apply Christ's payment for my sin.",
+              scriptureReferences: ["Psalm 103:3", "1 John 1:9", "Luke 6:37"],
+              title: "4. Forgiveness.",
+            },
+            {
+              body: "I renounce all ungodly behavior, lies and hurts that allow demonic influence. I embrace God's truth.",
+              scriptureReferences: ["Acts 10:38", "John 8:44"],
+              title: "5. Deliverance.",
+            },
+            {
+              body: "I want to be mentored into a loving, obedient relationship with Jesus Christ.",
+              scriptureReferences: ["Matthew 28:19-20", "John 15:15"],
+              title: "6. Discipleship.",
+            },
+            {
+              body: "Others experience my real change as I live out my relationship with God and others.",
+              scriptureReferences: ["John 17:21-23", "Mark 12:30"],
+              title: "7. Real Relationship",
+            },
+          ],
+          title: "The Power of Real and Permanent Change",
+        },
+      ],
+    },
+    description: "A simple framework for naming heart issues and walking toward real, lasting change with Jesus.",
+    icon: "sparkles",
+    id: "relationship-heart-freedom",
+    path: "/guide/heart-freedom",
+    sendable: true,
+    slug: "heart-freedom",
+    title: "Heart Freedom",
+    type: "guide",
+  },
+] as const satisfies readonly DosResource[];
+
+const discipleshipResources = [
+  {
+    category: "Discipleship",
+    content: {
+      body: "A future sendable guide for helping someone choose their next faithful step after a table conversation.",
+    },
+    description: "A lightweight next-step challenge for following Jesus after a conversation.",
+    icon: "discipleship",
+    id: "discipleship-following-jesus-next-steps",
+    path: "/guide/following-jesus-next-steps",
+    sendable: true,
+    slug: "following-jesus-next-steps",
+    title: "Following Jesus Next Steps",
+    type: "challenge",
+  },
+] as const satisfies readonly DosResource[];
+
+const prayerCatalogResources = dosPrayerResources.map((resource) => ({
+  category: "Prayer" as const,
+  content: {
+    followUpSuggestions: resource.followUpSuggestions,
+    keyScriptures: resource.keyScriptures,
+    prayerCategory: resource.category,
+    prayerText: resource.prayerText,
+    reflectionQuestions: resource.reflectionQuestions,
+  },
+  description: resource.description,
+  icon: "prayer" as const,
+  id: `prayer-${resource.slug}`,
+  path: `/prayer/${resource.slug}`,
+  sendable: true,
+  slug: resource.slug,
+  title: resource.title,
+  type: "prayer" as const,
+})) satisfies readonly DosResource[];
+
+export const dosResourceCatalog: readonly DosResource[] = [
+  ...tableTeachingResources,
+  ...commandResources,
+  ...relationshipResources,
+  ...prayerCatalogResources,
+  ...discipleshipResources,
+] as const;
+
+export const dosResourceLibraryCategories = [
+  "Table Teachings",
+  "Commands of Jesus",
+  "Relationships",
+  "Prayer",
+] as const satisfies readonly DosResourceCategory[];
+
+export const dosSendableResourceCategories = [
+  "Commands of Jesus",
+  "Relationships",
+  "Prayer",
+  "Discipleship",
+] as const satisfies readonly DosResourceCategory[];
+
+export function getDosResourceBySlug(slug: string | null | undefined): DosResource | null {
+  return dosResourceCatalog.find((resource) => resource.slug === slug) ?? null;
+}
+
+export function getDosResourceByTitle(title: string | null | undefined): DosResource | null {
+  const normalizedTitle = normalizeResourceTitle(title ?? "");
+
+  return dosResourceCatalog.find((resource) => normalizeResourceTitle(resource.title) === normalizedTitle) ?? null;
+}
+
+export function getDosResourcesByCategory(category: DosResourceCategory): DosResource[] {
+  return dosResourceCatalog.filter((resource) => resource.category === category);
+}
+
+export function getSendableDosResources(): DosResource[] {
+  return dosResourceCatalog.filter((resource) => resource.sendable);
+}
+
+function normalizeResourceTitle(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}

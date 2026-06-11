@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { inferFruitEventsFromReflection } from "@/src/lib/dos/fruit-intelligence";
 import { dosAppFruitTypeOptions, isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -142,6 +143,10 @@ export async function POST(request: Request) {
     spiritualOpenness: reflectionInsert.spiritual_openness,
     whatHappened: reflectionInsert.what_happened,
   }, supabase);
+
+  await recalculateCircleScores(workspaceId).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after reflection save", scoreError);
+  });
 
   return NextResponse.json({ id: reflection.id, ok: true });
 }

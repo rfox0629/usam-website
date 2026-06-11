@@ -69,22 +69,35 @@ DOS Reviews are external fruit verification from the person ministered to.
 - Public sharing permission is captured, but reviews and Fruit stay private until a future publishing workflow explicitly publishes them.
 - Future work: publishing approvals, testimony pages, Quick Check-In variants, Ministry Experience, Full Testimony / Fruit Story, SMS/email/WhatsApp sending, and public testimony publishing.
 
+## Google Calendar Setup
+
+DOS Calendar sync is server-owned. OAuth tokens must stay out of client components and are stored through the DOS calendar connection tables.
+
+Required environment variables:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+- `GOOGLE_CALENDAR_SCOPES`
+
+Use `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.calendarlist.readonly` for the Calendar read/import scope set. `GOOGLE_REDIRECT_URI` should point to `/api/dos/app/calendar/google/callback` on the active local, preview, or production origin being tested.
+
 ## Active Route Boundary
 
 - Canonical DOS entry route: `/dos`.
-- Canonical personal DOS app route: `/dos/<personal-workspace-slug>`, for example `/dos/ryan-fox`.
-- `/dos/app?workspace=<slug>` remains only as a compatibility redirect to `/dos/<slug>`.
-- `/dos/workspaces/[slug]` remains only as a compatibility redirect to `/dos/[slug]`; do not promote the Workspace v2 portal for launch.
-- Primary live test/demo route: `https://new.usamissionaries.org/dos/ryan-fox` once the personal workspace exists. `/dos/ryan-brooke-fox` is a household/team rollup, not Ryan's personal default.
+- Canonical public/user-facing DOS entry route: `/dos`.
+- `/dos/app?workspace=<slug>` remains only as a protected compatibility app route; do not promote it as an entry point.
+- `/dos/[slug]` and `/dos/workspaces/[slug]` remain protected compatibility routes; do not promote slug URLs as public entry points.
+- Primary live entry route: `https://new.usamissionaries.org/dos`.
 - Canonical Missionary Workspace route: `/admin/missionary-profiles`.
 - Canonical admin Command Center route: `/admin`; `/admin/dashboard` may remain as a compatibility alias.
 - Canonical DOS data helper: `src/lib/dos/missionary-app.ts`.
 - Canonical workspace identity: `missionary_households.id`, resolved from the workspace slug.
 - Canonical activity tables: `missionary_field_people`, `missionary_tables`, `missionary_connection_logs`, `missionary_fruit_items`, and shared workspace tables used by Missionary Workspace.
 - Keep DOS-specific UI under `app/dos/app`.
-- Shared production UI in `app/dos/app/DosMvpAppClient.tsx` powers both `/dos/[slug]` and `/dos/app/preview`; make new UI fixes there first.
-- `/dos/app/preview?demo=dos2026` can remain as an optional gated smoke-test route, but do not add demo-only UI unless the live app cannot be used for a specific test.
-- Preview data must stay synthetic and isolated. The live Ryan & Brooke workspace is the source of truth for product testing and deployment checks.
+- Shared production UI lives in `app/dos/app/DosMvpAppClient.tsx`; make DOS app UI fixes there first.
+- `/dos/app/preview` is deprecated and redirects to `/dos`; do not promote or link the old preview URL.
+- The live DOS workspace flow is the source of truth for product testing and deployment checks.
 - Do not import Command Center shells, admin navigation, profile management tools, or analytics panels into the mobile DOS route.
 - Shared backend/data helpers are allowed when they remain UI-neutral.
 

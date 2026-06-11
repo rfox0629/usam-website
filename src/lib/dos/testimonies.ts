@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { isValidReviewToken } from "@/src/lib/dos/reviews";
 import { inferFruitEventsFromTestimony } from "@/src/lib/dos/fruit-intelligence";
 import type { DosReviewLinkState } from "@/src/lib/dos/review-types";
@@ -188,6 +189,10 @@ export async function submitDosTestimony(token: string, submission: TestimonySub
     .from("dos_review_links")
     .update({ used_at: new Date().toISOString() })
     .eq("id", typedLink.id);
+
+  await recalculateCircleScores(typedLink.workspace_id).catch((scoreError) => {
+    console.warn("[DOS circles] Unable to recalculate after testimony submit", scoreError);
+  });
 
   return { id: String(testimony.id), ok: true as const };
 }

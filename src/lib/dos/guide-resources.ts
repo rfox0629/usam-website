@@ -1,99 +1,49 @@
+import { getDosResourceByTitle, getDosResourcesByCategory } from "@/src/lib/dos/resource-catalog";
+
 export type DosGuideResource = {
   description: string;
   href: string;
   title: string;
 };
 
-export type DosConversationFlowResource = {
-  description: string;
-  href: string;
+export type DosConversationFlowResource = DosGuideResource & {
   pdfLabel: string;
-  title: string;
 };
 
-export const dosTableTeachingResources = [
-  {
-    description: "A guided Gospel conversation for live ministry moments.",
-    href: "/guides/kitchen-table-gospel.pdf",
-    pdfLabel: "Open PDF",
-    title: "Kitchen Table Gospel",
-  },
-  {
-    description: "A guided honesty, help, surrender, and obedience conversation.",
-    href: "/guides/four-questions.pdf",
-    pdfLabel: "Open PDF",
-    title: "Four Questions",
-  },
-] as const satisfies readonly DosConversationFlowResource[];
+export const dosTableTeachingResources = getDosResourcesByCategory("Table Teachings").map((resource) => ({
+  description: resource.description,
+  href: resource.path,
+  pdfLabel: "Open PDF",
+  title: resource.title,
+})) satisfies readonly DosConversationFlowResource[];
 
-export const dosFollowUpGuideResources = [
-  {
-    description: "Gather, worship, and be formed in the body of Christ.",
-    href: "/guides/commands-of-jesus/usam_attending_church_guide.pdf",
-    title: "Attending Church",
-  },
-  {
-    description: "Build a steady rhythm of Scripture, obedience, and fruit.",
-    href: "/guides/commands-of-jesus/usam_daily_bible_reading_guide.pdf",
-    title: "Daily Bible Reading",
-  },
-  {
-    description: "Take the public step of repentance, obedience, and new life.",
-    href: "/guides/commands-of-jesus/usam_baptism_guide.pdf",
-    title: "Baptism",
-  },
-  {
-    description: "Practice stewardship, generosity, and kingdom support.",
-    href: "/guides/commands-of-jesus/usam_biblical_giving_guide.pdf",
-    title: "Biblical Giving",
-  },
-  {
-    description: "Follow Jesus and multiply obedient disciples.",
-    href: "/guides/commands-of-jesus/usam_discipleship_guide.pdf",
-    title: "Discipleship",
-  },
-  {
-    description: "Share the Gospel with clarity, boldness, and love.",
-    href: "/guides/commands-of-jesus/usam_evangelism_guide.pdf",
-    title: "Evangelism",
-  },
-  {
-    description: "Grow in dependence, spiritual hunger, and breakthrough.",
-    href: "/guides/commands-of-jesus/usam_prayer_and_fasting_guide.pdf",
-    title: "Prayer and Fasting",
-  },
-  {
-    description: "Practice holy rest, worship, and trust in God.",
-    href: "/guides/commands-of-jesus/usam_sabbath_guide.pdf",
-    title: "Sabbath",
-  },
-  {
-    description: "Serve the body through the power of the Holy Spirit.",
-    href: "/guides/commands-of-jesus/usam_spiritual_gifts_guide.pdf",
-    title: "Spiritual Gifts",
-  },
-] as const satisfies readonly DosGuideResource[];
+export const dosFollowUpGuideResources = getDosResourcesByCategory("Commands of Jesus").map((resource) => ({
+  description: resource.description,
+  href: resource.path,
+  title: resource.title,
+})) satisfies readonly DosGuideResource[];
 
 export const dosGuideResources = [
-  {
-    description: "A simple guide for presenting the Gospel around the table.",
-    href: "/guides/kitchen-table-gospel.pdf",
-    title: "Kitchen Table Gospel",
-  },
-  {
-    description: "A short coffee-table conversation teaching for honesty, help, surrender, and obedience.",
-    href: "/guides/four-questions.pdf",
-    title: "Four Questions",
-  },
+  ...dosTableTeachingResources.map((resource) => ({
+    description: resource.title === "Kitchen Table Gospel"
+      ? "A simple guide for presenting the Gospel around the table."
+      : resource.description,
+    href: resource.href,
+    title: resource.title,
+  })),
   ...dosFollowUpGuideResources,
-] as const satisfies readonly DosGuideResource[];
-
-function normalizeGuideTitle(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
+] satisfies readonly DosGuideResource[];
 
 export function getDosGuideResourceByTitle(title: string | null | undefined) {
-  const normalizedTitle = normalizeGuideTitle(title ?? "");
+  const resource = getDosResourceByTitle(title);
 
-  return dosGuideResources.find((resource) => normalizeGuideTitle(resource.title) === normalizedTitle) ?? null;
+  if (!resource) {
+    return null;
+  }
+
+  return {
+    description: resource.description,
+    href: resource.path,
+    title: resource.title,
+  } satisfies DosGuideResource;
 }

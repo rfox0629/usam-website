@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type FruitEventPayload = {
@@ -164,6 +165,12 @@ export async function PATCH(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(update, "status")) {
+    await recalculateCircleScores(workspaceId).catch((scoreError) => {
+      console.warn("[DOS circles] Unable to recalculate after Fruit status change", scoreError);
+    });
   }
 
   return NextResponse.json({ id: data.id, ok: true });
