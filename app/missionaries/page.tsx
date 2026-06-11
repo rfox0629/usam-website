@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AccessLogoutButton } from "../../components/forms/AccessLogoutButton";
+import { JoinMissionInterestModal } from "../../components/forms/JoinMissionInterestModal";
 import { PrimaryNav } from "../../components/PrimaryNav";
 import { MissionaryDirectory, type MissionaryDirectoryProfile } from "./MissionaryDirectory";
 import { getMissionaryHouseholdsResult, type MissionaryHouseholdDirectoryRow } from "@/src/lib/missionaries/queries";
@@ -18,6 +19,14 @@ export const revalidate = 60;
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 const directoryImageFallback = "/fox-family.png";
+
+function actionClassName(variant: "primary" | "secondary" = "primary") {
+  const className = variant === "primary"
+    ? "border border-transparent bg-[#C2A14E] text-black hover:bg-[#C2A14E] hover:shadow-[0_0_22px_rgba(194,161,78,0.24)]"
+    : "border border-white/[0.3] bg-transparent text-white hover:border-[#C2A14E] hover:bg-white/[0.04]";
+
+  return `inline-flex min-h-12 w-full items-center justify-center px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] transition-all duration-300 sm:w-auto ${className}`;
+}
 
 function getDisplayNumber(people: MissionaryHouseholdDirectoryRow["missionary_people"]) {
   const sortedNumbers = (people ?? [])
@@ -73,14 +82,10 @@ function ActionLink({
   children: React.ReactNode;
   variant?: "primary" | "secondary";
 }) {
-  const className = variant === "primary"
-    ? "border border-transparent bg-[#C2A14E] text-black hover:bg-[#C2A14E] hover:shadow-[0_0_22px_rgba(194,161,78,0.24)]"
-    : "border border-white/[0.3] bg-transparent text-white hover:border-[#C2A14E] hover:bg-white/[0.04]";
-
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-12 w-full items-center justify-center px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] transition-all duration-300 sm:w-auto ${className}`}
+      className={actionClassName(variant)}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
     >
       {children}
@@ -121,7 +126,13 @@ export default async function MissionariesPage() {
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <ActionLink href="/support">Support The Mission</ActionLink>
-            <ActionLink href="/briefing" variant="secondary">Become A Missionary</ActionLink>
+            <JoinMissionInterestModal
+              defaultInterest="Become a missionary"
+              triggerClassName={actionClassName("secondary")}
+              triggerFontWeight={700}
+            >
+              Become A Missionary
+            </JoinMissionInterestModal>
             <AccessLogoutButton redirectTo="/support?team=1">Exit Team View</AccessLogoutButton>
           </div>
         </div>

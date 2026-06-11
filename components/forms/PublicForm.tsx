@@ -197,11 +197,13 @@ export function SelectChevron() {
 
 export function PublicSelect({
   children,
+  defaultValue,
   label,
   name,
   required = false,
 }: {
   children: ReactNode;
+  defaultValue?: string;
   label: string;
   name: string;
   required?: boolean;
@@ -210,7 +212,7 @@ export function PublicSelect({
     <div>
       <PublicFieldLabel htmlFor={name} required={required}>{label}</PublicFieldLabel>
       <div className="relative mt-2">
-        <select className={publicSelectClassName} id={name} name={name} required={required}>
+        <select className={publicSelectClassName} defaultValue={defaultValue} id={name} name={name} required={required}>
           {children}
         </select>
         <SelectChevron />

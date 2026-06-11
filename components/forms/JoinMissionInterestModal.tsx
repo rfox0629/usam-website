@@ -28,12 +28,20 @@ const interestOptions = [
   "Not sure yet",
 ] as const;
 
+type InterestOption = typeof interestOptions[number];
+
 export function JoinMissionInterestModal({
   children = "Join the Mission",
+  defaultInterest,
   initialOpen = false,
+  triggerClassName,
+  triggerFontWeight = 600,
 }: {
   children?: ReactNode;
+  defaultInterest?: InterestOption;
   initialOpen?: boolean;
+  triggerClassName?: string;
+  triggerFontWeight?: number;
 }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -132,6 +140,9 @@ export function JoinMissionInterestModal({
     }
   }
 
+  const triggerButtonClassName = triggerClassName
+    ?? "inline-block cursor-pointer border border-usam-gold bg-usam-gold px-7 py-3 text-sm uppercase tracking-[0.2em] text-usam-black transition-all duration-300 hover:bg-usam-gold/90";
+
   const modal = isOpen && isMounted ? createPortal(
     <div
       className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 px-4 py-6 backdrop-blur-sm sm:px-5 md:py-10"
@@ -190,7 +201,7 @@ export function JoinMissionInterestModal({
                   </PublicFormSection>
 
                   <PublicFormSection title="Interest">
-                    <PublicSelect label="How are you interested in joining?" name="interest" required>
+                    <PublicSelect defaultValue={defaultInterest ?? ""} label="How are you interested in joining?" name="interest" required>
                       <option value="">Select one</option>
                       {interestOptions.map((option) => (
                         <option key={option} value={option}>
@@ -232,9 +243,9 @@ export function JoinMissionInterestModal({
   return (
     <>
       <button
-        className="inline-block cursor-pointer border border-usam-gold bg-usam-gold px-7 py-3 text-sm uppercase tracking-[0.2em] text-usam-black transition-all duration-300 hover:bg-usam-gold/90"
+        className={triggerButtonClassName}
         onClick={openModal}
-        style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
+        style={{ fontFamily: font.rajdhani, fontWeight: triggerFontWeight }}
         type="button"
       >
         {children}
