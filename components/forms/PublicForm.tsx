@@ -3,13 +3,13 @@ import type { ReactNode } from "react";
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 export const publicInputClassName =
-  "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+  "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
 
 export const publicSelectClassName =
-  "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+  "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
 
 export const publicTextareaClassName =
-  "mt-2 min-h-28 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+  "mt-2 min-h-28 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
 
 export function PublicFormShell({
   children,
@@ -23,7 +23,7 @@ export function PublicFormShell({
   const maxWidth = size === "compact" ? "max-w-[640px]" : size === "wide" ? "max-w-[840px]" : "max-w-[760px]";
 
   return (
-    <div className={`mx-auto w-full ${maxWidth} rounded-[28px] border border-stone-200 bg-[#fbfaf7] p-4 shadow-[0_28px_90px_rgba(12,10,9,0.28)] md:p-6 ${className}`}>
+    <div className={`mx-auto w-full ${maxWidth} rounded-[28px] border border-stone-200 bg-usam-white p-4 shadow-[0_28px_90px_rgba(12,10,9,0.28)] md:p-6 ${className}`}>
       {children}
     </div>
   );
@@ -43,7 +43,7 @@ export function PublicFormHeader({
   return (
     <div className="max-w-[820px] px-1 pb-1 pr-12 pt-0 md:px-2 md:pr-14">
       {eyebrow ? (
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[#0D0D0D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {eyebrow}
         </p>
       ) : null}
@@ -56,7 +56,7 @@ export function PublicFormHeader({
         </p>
       ) : null}
       {note ? (
-        <p className="mt-4 inline-block max-w-[820px] rounded-2xl border border-[#e2b84e]/45 bg-[#fff3cf] px-4 py-3 text-[14px] leading-[1.62] text-stone-800 md:px-[18px] md:py-[14px] md:text-[15px] md:leading-[1.58]">
+        <p className="mt-4 inline-block max-w-[820px] rounded-2xl border border-[#C2A14E]/45 bg-usam-gold/10 px-4 py-3 text-[14px] leading-[1.62] text-stone-800 md:px-[18px] md:py-[14px] md:text-[15px] md:leading-[1.58]">
           {note}
         </p>
       ) : null}
@@ -104,7 +104,7 @@ export function PublicFieldLabel({
   const content = (
     <>
       {children}
-      {required ? <span className="ml-1 text-[#9a6b12]">*</span> : null}
+      {required ? <span className="ml-1 text-[#0D0D0D]">*</span> : null}
     </>
   );
 
@@ -231,8 +231,8 @@ export function PublicCheckbox({
   value?: string;
 }) {
   return (
-    <label className="flex min-h-12 items-start gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-[#D4A63D]/55">
-      <input className="mt-1 h-4 w-4 shrink-0 accent-[#D4A63D]" name={name} required={required} type="checkbox" value={value} />
+    <label className="flex min-h-12 items-start gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-stone-700 transition-colors hover:border-[#C2A14E]/55">
+      <input className="mt-1 h-4 w-4 shrink-0 accent-[#C2A14E]" name={name} required={required} type="checkbox" value={value} />
       <span>{children}</span>
     </label>
   );
@@ -247,7 +247,7 @@ export function PublicSubmitButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_14px_34px_rgba(212,166,61,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-usam-black bg-usam-black px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-usam-white shadow-sm transition-all duration-300 hover:bg-usam-black/90 hover:shadow-[0_14px_34px_rgba(13,13,13,0.2)] disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
       type="submit"
@@ -266,7 +266,7 @@ export function PublicFormMessage({
 }) {
   const toneClassName = tone === "error"
     ? "border-red-200 bg-red-50 text-red-800"
-    : "border-emerald-200 bg-emerald-50 text-emerald-950";
+    : "border-usam-success/25 bg-usam-success/10 text-usam-success";
 
   return (
     <div className={`rounded-2xl border p-5 text-sm leading-7 shadow-sm ${toneClassName}`}>

@@ -149,7 +149,7 @@ export function JoinMissionInterestModal({
           <PublicFormShell size="standard">
             <button
               aria-label="Close join the mission interest form"
-              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#C2A14E] hover:text-stone-950"
               onClick={() => setIsOpen(false)}
               type="button"
             >
@@ -232,7 +232,7 @@ export function JoinMissionInterestModal({
   return (
     <>
       <button
-        className="inline-block cursor-pointer bg-stone-100 px-7 py-3 text-sm uppercase tracking-[0.2em] text-stone-950 transition-all duration-300 hover:bg-amber-200"
+        className="inline-block cursor-pointer border border-usam-gold bg-usam-gold px-7 py-3 text-sm uppercase tracking-[0.2em] text-usam-black transition-all duration-300 hover:bg-usam-gold/90"
         onClick={openModal}
         style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
         type="button"

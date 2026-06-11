@@ -27,8 +27,8 @@ const availabilityOptions = [
 
 function triggerClassName(variant: "primary" | "secondary") {
   return variant === "primary"
-    ? "inline-flex min-h-[48px] items-center justify-center bg-stone-100 px-7 py-3.5 text-center text-sm uppercase tracking-[0.2em] text-stone-950 transition-all duration-300 hover:bg-amber-200"
-    : "inline-flex min-h-[48px] items-center justify-center border border-stone-600 px-7 py-3.5 text-center text-sm uppercase tracking-[0.2em] text-stone-300 transition-all duration-300 hover:border-stone-400 hover:text-stone-100";
+    ? "inline-flex min-h-[48px] items-center justify-center border border-usam-gold bg-usam-gold px-7 py-3.5 text-center text-sm uppercase tracking-[0.2em] text-usam-black transition-all duration-300 hover:bg-usam-gold/90"
+    : "inline-flex min-h-[48px] items-center justify-center border border-usam-gold/65 px-7 py-3.5 text-center text-sm uppercase tracking-[0.2em] text-usam-white transition-all duration-300 hover:border-usam-gold hover:bg-usam-gold/12";
 }
 
 export function PrayerTeamApplicationModal({
@@ -145,7 +145,7 @@ export function PrayerTeamApplicationModal({
             <div className="relative w-full max-w-[840px]">
               <button
                 aria-label="Close prayer team application"
-                className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#C2A14E] hover:text-stone-950"
                 onClick={closeModal}
                 type="button"
               >
@@ -166,7 +166,7 @@ export function PrayerTeamApplicationModal({
                       Thank you for applying to join the USA Missionaries Prayer Team. Our team will review your request and follow up with next steps.
                     </PublicFormMessage>
                     <button
-                      className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase tracking-[0.22em] text-stone-950 transition-all duration-300 hover:bg-[#F5B942]"
+                      className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-transparent bg-[#C2A14E] px-7 py-4 text-center text-xs uppercase tracking-[0.22em] text-stone-950 transition-all duration-300 hover:bg-[#C2A14E]"
                       onClick={closeModal}
                       style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                       type="button"

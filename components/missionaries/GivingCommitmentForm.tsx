@@ -21,7 +21,6 @@ export type GivingCommitmentFormProps = {
   resolvedMonthlyGivingUrl?: string | null;
   resolvedOneTimeGivingUrl?: string | null;
   source?: SupportCommitmentSource;
-  supportExplanation?: string;
   supportMode?: string;
   supportTargetFund?: string | null;
   supportTargetHouseholdName?: string | null;
@@ -57,9 +56,9 @@ const baseAllocationPreferences = [
   "Unsure",
 ] as const;
 
-const inputClassName = "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
-const selectClassName = "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
-const textareaClassName = "mt-2 min-h-24 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-6 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#D4A63D] focus:ring-4 focus:ring-[#D4A63D]/15 md:text-sm";
+const inputClassName = "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
+const selectClassName = "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
+const textareaClassName = "mt-2 min-h-24 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-6 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
 
 function parseAmount(value: FormDataEntryValue | null) {
   if (typeof value !== "string") {
@@ -155,7 +154,6 @@ export function GivingCommitmentForm({
   resolvedMonthlyGivingUrl,
   resolvedOneTimeGivingUrl,
   source = "missionary_profile",
-  supportExplanation,
   supportMode = "household",
   supportTargetFund,
   supportTargetHouseholdName,
@@ -278,14 +276,14 @@ export function GivingCommitmentForm({
   }
 
   const outerClassName = displayMode === "modal"
-    ? "rounded-[28px] border border-stone-200 bg-[#fbfaf7] p-4 shadow-[0_28px_90px_rgba(12,10,9,0.28)] md:p-6"
-    : "rounded-[28px] border border-stone-200 bg-[#fbfaf7] p-4 shadow-[0_20px_70px_rgba(28,25,23,0.12)] md:p-6 lg:col-span-3";
+    ? "rounded-[28px] border border-stone-200 bg-usam-white p-4 shadow-[0_28px_90px_rgba(12,10,9,0.28)] md:p-6"
+    : "rounded-[28px] border border-stone-200 bg-usam-white p-4 shadow-[0_20px_70px_rgba(28,25,23,0.12)] md:p-6 lg:col-span-3";
 
   return (
     <section className={outerClassName}>
       <div className="space-y-4">
         <div className="max-w-[820px] px-1 pb-1 pr-12 pt-0 md:px-2 md:pr-14">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6b12]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[#0D0D0D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {contextName}
           </p>
           <h2 className="mt-3 text-3xl font-semibold leading-tight text-stone-950 md:text-4xl">
@@ -297,24 +295,19 @@ export function GivingCommitmentForm({
           <p className="mt-2 max-w-[680px] text-sm leading-6 text-stone-500">
             Your support helps sustain both this missionary household and the broader USA Missionaries mission.
           </p>
-          {!isHouseholdSupport ? (
-            <p className="mt-3 rounded-2xl border border-[#D4A63D]/40 bg-[#fff7df] px-4 py-3 text-sm leading-6 text-stone-800">
-              {supportExplanation || "This missionary household is not currently raising personal support. You can still give toward the broader mission through the selected fund."}
-            </p>
-          ) : null}
         </div>
 
         {status === "success" ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-7 text-emerald-950 shadow-sm">
+          <div className="rounded-2xl border border-usam-success/25 bg-usam-success/10 p-5 text-sm leading-7 text-usam-success shadow-sm">
             <p className="font-semibold">Thank you. Your giving setup intent was received.</p>
-            <p className="mt-1 text-emerald-800">
+            <p className="mt-1 text-usam-success">
               {givingWindowBlocked
                 ? "Your browser blocked the new tab. Use the secure giving link below to complete your gift."
                 : "Opening secure giving in a new tab so you can complete your gift."}
             </p>
             {openedGivingUrl ? (
               <a
-                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg border border-emerald-300 bg-white px-4 text-xs font-bold uppercase tracking-[0.16em] text-emerald-950 transition-colors hover:border-emerald-500"
+                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg border border-usam-success/35 bg-white px-4 text-xs font-bold uppercase tracking-[0.16em] text-usam-success transition-colors hover:border-usam-success"
                 href={openedGivingUrl}
                 rel="noopener noreferrer"
                 style={{ fontFamily: font.rajdhani }}
@@ -432,7 +425,7 @@ export function GivingCommitmentForm({
               <button
                 type="submit"
                 disabled={status === "submitting"}
-                className="mt-4 inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#D4A63D] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#F5B942] hover:shadow-[0_14px_34px_rgba(212,166,61,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 inline-flex min-h-[54px] w-full items-center justify-center rounded-xl border border-transparent bg-[#C2A14E] px-7 py-4 text-center text-xs uppercase leading-5 tracking-[0.22em] text-stone-950 shadow-sm transition-all duration-300 hover:bg-[#C2A14E] hover:shadow-[0_14px_34px_rgba(194,161,78,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
               >
                 {status === "submitting" ? "Submitting..." : "Continue to Secure Giving"}

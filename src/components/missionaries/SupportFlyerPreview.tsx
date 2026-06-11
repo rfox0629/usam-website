@@ -68,7 +68,7 @@ export function SupportFlyerPreview({
   return (
     <div className="overflow-hidden rounded-2xl border border-[#d8c79d] bg-[#fffdf7] text-[#111111] shadow-[0_18px_46px_rgba(17,17,17,0.09)]">
       <div className="flex items-center justify-between border-b border-[#eadfcd] bg-[#111111] px-4 py-3 text-white">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           USA Missionaries
         </p>
         <p className="text-[9px] uppercase tracking-[0.16em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -86,7 +86,7 @@ export function SupportFlyerPreview({
                 src={imageUrl}
               />
             ) : (
-              <div className="flex h-40 items-center justify-center bg-[#efe7d8] text-[#9a6b12]">
+              <div className="flex h-40 items-center justify-center bg-[#efe7d8] text-[#0D0D0D]">
                 <ImageIcon className="h-8 w-8" aria-hidden="true" />
               </div>
             )}

@@ -119,7 +119,7 @@ export function MissionaryProfileReviewModal({
   return (
     <>
       <button
-        className="inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#D4A63D] hover:bg-white/[0.04] sm:w-auto"
+        className="inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#C2A14E] hover:bg-white/[0.04] sm:w-auto"
         onClick={openModal}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         type="button"
@@ -139,7 +139,7 @@ export function MissionaryProfileReviewModal({
             <PublicFormShell size="standard">
               <button
                 aria-label="Close form"
-                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-stone-950"
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#C2A14E] hover:text-stone-950"
                 onClick={closeModal}
                 type="button"
               >

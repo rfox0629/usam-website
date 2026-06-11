@@ -17,7 +17,6 @@ type SupportMissionModalProps = {
   profileSlug?: string | null;
   source?: SupportCommitmentSource;
   supportButtonLabel?: string;
-  supportExplanation?: string;
   supportMode?: string;
   supportPublicLabel?: string;
   supportTargetFund?: string | null;
@@ -37,7 +36,6 @@ export function SupportMissionModal({
   oneTimeGivingUrl,
   profileSlug,
   source = "missionary_profile",
-  supportExplanation,
   supportMode,
   supportPublicLabel,
   supportTargetFund,
@@ -83,7 +81,7 @@ export function SupportMissionModal({
         <button
           type="button"
           aria-label="Close support form"
-          className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-800 shadow-sm transition-colors hover:border-[#D4A63D] hover:text-[#9a6b12] md:right-5 md:top-5"
+          className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-sm uppercase tracking-[0.16em] text-stone-800 shadow-sm transition-colors hover:border-[#C2A14E] hover:text-[#0D0D0D] md:right-5 md:top-5"
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           onClick={onClose}
         >
@@ -102,7 +100,6 @@ export function SupportMissionModal({
           resolvedMonthlyGivingUrl={monthlyGivingUrl}
           resolvedOneTimeGivingUrl={oneTimeGivingUrl}
           source={source}
-          supportExplanation={supportExplanation}
           supportMode={supportMode}
           supportTargetFund={supportTargetFund}
           supportTargetHouseholdName={supportTargetHouseholdName}

@@ -33,11 +33,11 @@ export function HeroProfile({
 
   return (
     <section
-      className="relative overflow-hidden bg-[#050505] bg-cover bg-center bg-no-repeat px-6 pb-8 pt-20 md:pt-24 lg:min-h-[610px] lg:pb-0"
+      className="relative overflow-hidden bg-[#0D0D0D] bg-cover bg-center bg-no-repeat px-6 pb-8 pt-20 md:pt-24 lg:min-h-[610px] lg:pb-0"
       style={{ backgroundImage: `url(${heroBackgroundImage})` }}
     >
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,.68)_0%,rgba(0,0,0,.42)_34%,rgba(0,0,0,.12)_62%,rgba(0,0,0,0)_100%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_48%,rgba(0,0,0,.38)_78%,#050505_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_48%,rgba(0,0,0,.38)_78%,#0D0D0D_100%)]" />
       <div className="absolute inset-0 opacity-15 [background-image:linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] [background-size:104px_104px]" />
 
       <div className="relative z-30 mx-auto grid max-w-6xl gap-6 md:items-center lg:min-h-[535px] lg:grid-cols-[minmax(0,0.96fr)_minmax(300px,360px)] lg:gap-8">
@@ -51,7 +51,7 @@ export function HeroProfile({
           <p className="mt-5 max-w-[34rem] text-base leading-8 text-stone-200 md:text-lg">
             {description}
           </p>
-          <p className="mt-4 text-sm uppercase tracking-[0.16em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <p className="mt-4 text-sm uppercase tracking-[0.16em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             {location}
           </p>
           {actions ? (

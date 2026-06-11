@@ -23,8 +23,8 @@ function ActionLink({
   variant?: "primary" | "secondary";
 }) {
   const className = variant === "primary"
-    ? "border border-transparent bg-[#F5B942] text-black hover:bg-amber-300 hover:shadow-[0_0_22px_rgba(245,185,66,0.24)]"
-    : "border border-white/[0.3] bg-transparent text-white hover:border-amber-400 hover:bg-white/[0.04]";
+    ? "border border-transparent bg-[#C2A14E] text-black hover:bg-usam-gold/90 hover:shadow-[0_0_22px_rgba(194,161,78,0.24)]"
+    : "border border-white/[0.3] bg-transparent text-white hover:border-usam-gold hover:bg-white/[0.04]";
 
   return (
     <Link
@@ -47,8 +47,8 @@ function ExternalActionLink({
   variant?: "primary" | "secondary";
 }) {
   const className = variant === "primary"
-    ? "bg-stone-100 text-stone-950 hover:bg-amber-200"
-    : "border border-stone-600 text-stone-300 hover:border-stone-400 hover:text-stone-100";
+    ? "border border-usam-gold bg-usam-gold text-usam-black hover:bg-usam-gold/90"
+    : "border border-usam-gold/65 bg-transparent text-usam-white hover:border-usam-gold hover:bg-usam-gold/12";
 
   return (
     <a
@@ -113,12 +113,12 @@ export default async function SupportPage({
   ];
 
   return (
-    <main className="min-h-screen bg-[#050505] text-stone-100">
+    <main className="min-h-screen bg-[#0D0D0D] text-stone-100">
       <PrimaryNav active="support" />
 
       <section className="relative overflow-hidden px-6 pb-24 pt-24 md:pb-32 md:pt-32">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[length:72px_72px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(212,160,84,0.1),transparent_26%),radial-gradient(ellipse_at_center,transparent_30%,#050505_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(194,161,78,0.1),transparent_26%),radial-gradient(ellipse_at_center,transparent_30%,#0D0D0D_100%)]" />
         <div className="relative mx-auto max-w-6xl">
           <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
             Support the Mission
@@ -160,7 +160,7 @@ export default async function SupportPage({
         </div>
       </section>
 
-      <section className="bg-[#080808] px-6 py-24 md:py-32">
+      <section className="bg-[#0D0D0D] px-6 py-24 md:py-32">
         <div className="mx-auto max-w-6xl">
           <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
             Where Resources Go
@@ -168,7 +168,7 @@ export default async function SupportPage({
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {resourceAreas.map((item, index) => (
               <div key={item} className="border border-stone-800/60 bg-stone-950/55 p-6 md:p-7">
-                <div className="tactical-amber-label text-xs tracking-[0.28em]" style={{ fontFamily: font.rajdhani }}>
+                <div className="tactical-gold-label text-xs tracking-[0.28em]" style={{ fontFamily: font.rajdhani }}>
                   0{index + 1}
                 </div>
                 <p className="mt-4 text-base leading-7 text-stone-300">{item}</p>
@@ -178,7 +178,7 @@ export default async function SupportPage({
         </div>
       </section>
 
-      <section id="giving" className="bg-[#080808] px-6 py-24 md:py-32">
+      <section id="giving" className="bg-[#0D0D0D] px-6 py-24 md:py-32">
         <div className="mx-auto max-w-6xl">
           <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
             Give to the Mission
@@ -201,7 +201,7 @@ export default async function SupportPage({
                 key={option.title}
                 className={`border p-7 md:p-8 ${
                   option.featured
-                    ? "border-amber-500/20 bg-[radial-gradient(circle_at_20%_18%,rgba(212,160,84,0.08),transparent_30%),rgba(10,10,10,0.96)] shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
+                    ? "border-usam-gold/20 bg-[radial-gradient(circle_at_20%_18%,rgba(194,161,78,0.08),transparent_30%),rgba(13,13,13,0.96)] shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
                     : "border-stone-800/60 bg-stone-950/55"
                 }`}
               >
@@ -225,14 +225,6 @@ export default async function SupportPage({
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      <section className="px-6 py-28 md:py-36">
-        <div className="mx-auto max-w-4xl text-center">
-          <p className="text-4xl md:text-6xl font-bold tracking-tight leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
-            This mission moves through people. Thank you for standing with it.
-          </p>
         </div>
       </section>
     </main>

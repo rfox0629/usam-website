@@ -43,9 +43,9 @@ function fruitDateValue(item: MissionaryFruitItem) {
 
 function FruitCard({ item }: { item: MissionaryFruitItem }) {
   return (
-    <article className="border border-stone-800/80 bg-[#080808] p-5">
+    <article className="border border-stone-800/80 bg-[#0D0D0D] p-5">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           {formatDate(item.testimonyDate ?? item.createdAt)}
         </p>
         {item.category ? (
@@ -54,7 +54,7 @@ function FruitCard({ item }: { item: MissionaryFruitItem }) {
           </span>
         ) : null}
         {item.isFeatured ? (
-          <span className="border border-[#D4A63D]/40 bg-[#D4A63D]/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-[#F5B942]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <span className="border border-[#C2A14E]/40 bg-[#C2A14E]/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Featured
           </span>
         ) : null}
@@ -105,7 +105,7 @@ export function FruitFromTheFieldModal({
   return (
     <>
       <button
-        className="inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#D4A63D] hover:bg-white/[0.04] sm:w-auto"
+        className="inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-[#C2A14E] hover:bg-white/[0.04] sm:w-auto"
         onClick={() => setIsOpen(true)}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         type="button"
@@ -115,10 +115,10 @@ export function FruitFromTheFieldModal({
 
       {isOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-8">
-          <div className="max-h-[88vh] w-full max-w-4xl overflow-y-auto border border-stone-700 bg-[#090909] p-5 shadow-2xl md:p-7">
+          <div className="max-h-[88vh] w-full max-w-4xl overflow-y-auto border border-stone-700 bg-[#0D0D0D] p-5 shadow-2xl md:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.24em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Fruit From The Field
                 </p>
                 <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100 md:text-4xl" style={{ fontFamily: font.oswald }}>
@@ -127,7 +127,7 @@ export function FruitFromTheFieldModal({
               </div>
               <button
                 aria-label="Close testimonies"
-                className="border border-stone-700 px-3 py-2 text-xs uppercase tracking-[0.18em] text-stone-300 hover:border-[#D4A63D] hover:text-[#F5B942]"
+                className="border border-stone-700 px-3 py-2 text-xs uppercase tracking-[0.18em] text-stone-300 hover:border-[#C2A14E] hover:text-[#C2A14E]"
                 onClick={() => setIsOpen(false)}
                 style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                 type="button"
@@ -142,7 +142,7 @@ export function FruitFromTheFieldModal({
                   Category
                 </span>
                 <select
-                  className="mt-2 min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]"
+                  className="mt-2 min-h-10 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none focus:border-[#C2A14E]"
                   onChange={(event) => setCategory(event.target.value)}
                   value={category}
                 >
@@ -157,7 +157,7 @@ export function FruitFromTheFieldModal({
                   Sort
                 </span>
                 <select
-                  className="mt-2 min-h-10 w-full border border-stone-800 bg-[#050505] px-3 text-sm text-stone-100 outline-none focus:border-[#D4A63D]"
+                  className="mt-2 min-h-10 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none focus:border-[#C2A14E]"
                   onChange={(event) => setSortMode(event.target.value as "featured" | "impactful" | "newest")}
                   value={sortMode}
                 >
