@@ -22,6 +22,21 @@ type PortalForm = {
   teamStatus: TeamStatus;
 };
 
+type LaunchWorkspace = {
+  displayName: string;
+  href: string;
+  id: string;
+  isConfirmedDefault: boolean;
+  isLikelyTest: boolean;
+  slug: string;
+  statusLabel: string;
+};
+
+type DosPortalClientProps = {
+  isAuthenticated?: boolean;
+  launchWorkspaces?: LaunchWorkspace[];
+};
+
 const setupOptions: Array<{ description: string; label: string; value: SetupType }> = [
   { description: "Joining the national missionary network.", label: "Joining USA Missionaries", value: "usa_missionaries" },
   { description: "Using DOS through a church or local ministry.", label: "Joining through church", value: "church" },
@@ -51,7 +66,10 @@ const initialForm: PortalForm = {
   teamStatus: "individual",
 };
 
-export function DosPortalClient() {
+export function DosPortalClient({
+  isAuthenticated = false,
+  launchWorkspaces = [],
+}: DosPortalClientProps) {
   const [form, setForm] = useState<PortalForm>(initialForm);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -89,28 +107,74 @@ export function DosPortalClient() {
     }
   }
 
+  if (isAuthenticated) {
+    return (
+      <div className="dos-portal-route min-h-screen bg-[#FAFBFD] text-[#0F172A]">
+        <PortalRouteStyles />
+        <main className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center gap-6 px-4 py-8 sm:px-6">
+          <section className="max-w-2xl">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#2563EB]">DOS</p>
+            <h1 className="mt-4 text-4xl font-bold leading-[0.95] tracking-[-0.045em] text-[#0F172A] sm:text-5xl">
+              Choose your workspace
+            </h1>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-[#64748B]">
+              Select the DOS workspace you want to open. Setup and test workspaces stay available here, but they are not promoted as your default workspace.
+            </p>
+          </section>
+
+          {launchWorkspaces.length ? (
+            <section className="grid gap-3">
+              {launchWorkspaces.map((workspace) => (
+                <article
+                  className="flex flex-col gap-4 rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] sm:flex-row sm:items-center sm:justify-between"
+                  key={workspace.id}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate text-lg font-bold tracking-[-0.02em] text-[#0F172A]">{workspace.displayName}</h2>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${
+                        workspace.isConfirmedDefault
+                          ? "bg-[#DCFCE7] text-[#166534]"
+                          : workspace.isLikelyTest
+                            ? "bg-[#FEF3C7] text-[#92400E]"
+                            : "bg-[#E2E8F0] text-[#475569]"
+                      }`}>
+                        {workspace.statusLabel}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs font-medium text-[#64748B]">{workspace.slug}</p>
+                  </div>
+                  <Link
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-semibold text-white transition hover:bg-[#1D4ED8]"
+                    href={workspace.href}
+                  >
+                    Open DOS
+                  </Link>
+                </article>
+              ))}
+            </section>
+          ) : (
+            <section className="rounded-[24px] border border-[#E2E8F0] bg-white p-5 shadow-[0_16px_42px_rgba(15,23,42,0.06)]">
+              <h2 className="text-lg font-bold tracking-[-0.02em] text-[#0F172A]">No workspace found</h2>
+              <p className="mt-2 text-sm leading-6 text-[#64748B]">
+                Create a workspace or ask an admin to connect your account to the right DOS workspace.
+              </p>
+              <Link
+                className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-semibold text-white transition hover:bg-[#1D4ED8]"
+                href="/join"
+              >
+                Start Setup
+              </Link>
+            </section>
+          )}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="dos-portal-route min-h-screen bg-[#FAFBFD] text-[#0F172A]">
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            body:has(.dos-portal-route) {
-              background: #FAFBFD !important;
-              color: #0F172A;
-              font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            }
-
-            .dos-portal-route,
-            .dos-portal-route * {
-              font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-            }
-
-            body:has(.dos-portal-route) > footer {
-              display: none !important;
-            }
-          `,
-        }}
-      />
+      <PortalRouteStyles />
       <main className="mx-auto grid min-h-screen max-w-6xl gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.75fr)] lg:items-center lg:py-12">
         <section>
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#2563EB]">DOS</p>
@@ -254,6 +318,31 @@ export function DosPortalClient() {
         </section>
       </main>
     </div>
+  );
+}
+
+function PortalRouteStyles() {
+  return (
+    <style
+      dangerouslySetInnerHTML={{
+        __html: `
+          body:has(.dos-portal-route) {
+            background: #FAFBFD !important;
+            color: #0F172A;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          }
+
+          .dos-portal-route,
+          .dos-portal-route * {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+          }
+
+          body:has(.dos-portal-route) > footer {
+            display: none !important;
+          }
+        `,
+      }}
+    />
   );
 }
 

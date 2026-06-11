@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getDefaultDosWorkspaceAccess, getDosAuthorization } from "@/src/lib/dos/auth";
+import { getConfirmedDosLaunchDefault, getDosAuthorization, getDosLaunchWorkspaces } from "@/src/lib/dos/auth";
 import { DosPortalClient } from "./DosPortalClient";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +14,16 @@ export default async function DosPortalPage() {
   const authorization = await getDosAuthorization();
 
   if (authorization.status === "authorized") {
-    const workspaceAccess = await getDefaultDosWorkspaceAccess(authorization);
+    const launchWorkspaces = await getDosLaunchWorkspaces(authorization);
+    const defaultWorkspace = authorization.access === "member"
+      ? getConfirmedDosLaunchDefault(launchWorkspaces)
+      : null;
 
-    if (workspaceAccess.status === "allowed") {
-      redirect(`/dos/app?workspace=${encodeURIComponent(workspaceAccess.workspace.slug)}`);
+    if (defaultWorkspace) {
+      redirect(defaultWorkspace.href);
     }
+
+    return <DosPortalClient isAuthenticated launchWorkspaces={launchWorkspaces} />;
   }
 
   return <DosPortalClient />;

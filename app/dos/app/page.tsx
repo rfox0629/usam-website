@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getDefaultDosWorkspaceAccess, getDosAuthorization, getDosWorkspaceAccess } from "@/src/lib/dos/auth";
+import { getDosAuthorization, getDosWorkspaceAccess } from "@/src/lib/dos/auth";
 import { loadDosAppData } from "@/src/lib/dos/missionary-app";
 import { DosMobileMessageScreen } from "./DosMobileMessageScreen";
 import { DosMvpAppClient } from "./DosMvpAppClient";
@@ -39,7 +39,9 @@ export default async function DosAppCompatibilityRedirect({
   searchParams: Promise<{ workspace?: string }>;
 }) {
   const params = await searchParams;
-  const nextPath = `/dos/app${params.workspace ? `?workspace=${encodeURIComponent(params.workspace)}` : ""}`;
+  const nextPath = params.workspace
+    ? `/dos/app?workspace=${encodeURIComponent(params.workspace)}`
+    : "/dos";
   const authorization = await getDosAuthorization();
 
   if (authorization.status === "unauthenticated") {
@@ -54,9 +56,11 @@ export default async function DosAppCompatibilityRedirect({
     return <BlockedState detail="This account is not approved for DOS access yet." title="Access pending" />;
   }
 
-  const workspaceAccess = params.workspace
-    ? await getDosWorkspaceAccess(authorization, params.workspace)
-    : await getDefaultDosWorkspaceAccess(authorization);
+  if (!params.workspace) {
+    redirect("/dos");
+  }
+
+  const workspaceAccess = await getDosWorkspaceAccess(authorization, params.workspace);
 
   if (workspaceAccess.status === "configuration_error") {
     return <BlockedState detail={workspaceAccess.message} title="DOS unavailable" />;

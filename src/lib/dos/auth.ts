@@ -75,6 +75,27 @@ type WorkspaceRow = {
   slug: string;
 };
 
+type LaunchWorkspaceRow = WorkspaceRow & {
+  public_visible: boolean | null;
+  short_mission: string | null;
+  show_household: boolean | null;
+  sort_order: number | null;
+  updated_at: string | null;
+  usam_application_status: string | null;
+  usam_profile_status: string | null;
+};
+
+export type DosLaunchWorkspace = {
+  displayName: string;
+  href: string;
+  id: string;
+  isConfirmedDefault: boolean;
+  isLikelyTest: boolean;
+  lastUpdatedAt: string | null;
+  slug: string;
+  statusLabel: string;
+};
+
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -183,6 +204,114 @@ async function loadWorkspaceByRef(workspaceRef: string | null | undefined) {
   }
 
   return data as WorkspaceRow | null;
+}
+
+function isLikelyTestWorkspace(workspace: Pick<LaunchWorkspaceRow, "display_name" | "short_mission" | "slug">) {
+  const text = [workspace.display_name, workspace.short_mission, workspace.slug]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return /\b(demo|sample|seed|smoke|test)\b/.test(text) || text.includes("jointest") || text.includes("prodsmoke");
+}
+
+function isConfirmedWorkspace(workspace: LaunchWorkspaceRow) {
+  if (isLikelyTestWorkspace(workspace)) {
+    return false;
+  }
+
+  const applicationStatus = workspace.usam_application_status;
+  const profileStatus = workspace.usam_profile_status;
+  const publicProfileLive = workspace.public_visible === true && workspace.show_household !== false;
+
+  return publicProfileLive
+    || applicationStatus === "approved"
+    || applicationStatus === "active"
+    || profileStatus === "approved"
+    || profileStatus === "published";
+}
+
+function launchWorkspaceStatus(workspace: LaunchWorkspaceRow) {
+  if (isLikelyTestWorkspace(workspace)) {
+    return "Setup/Test";
+  }
+
+  if (isConfirmedWorkspace(workspace)) {
+    return "Confirmed";
+  }
+
+  if (workspace.usam_application_status === "application_submitted" || workspace.usam_application_status === "pending_review") {
+    return "Pending Review";
+  }
+
+  if (workspace.usam_application_status === "more_info_requested") {
+    return "Needs Info";
+  }
+
+  return "Available";
+}
+
+function launchWorkspaceFromRow(workspace: LaunchWorkspaceRow): DosLaunchWorkspace {
+  return {
+    displayName: workspace.display_name,
+    href: `/dos/app?workspace=${encodeURIComponent(workspace.slug)}`,
+    id: workspace.id,
+    isConfirmedDefault: isConfirmedWorkspace(workspace),
+    isLikelyTest: isLikelyTestWorkspace(workspace),
+    lastUpdatedAt: workspace.updated_at,
+    slug: workspace.slug,
+    statusLabel: launchWorkspaceStatus(workspace),
+  };
+}
+
+function sortLaunchWorkspaces(workspaces: DosLaunchWorkspace[]) {
+  return [...workspaces].sort((a, b) => {
+    if (a.isConfirmedDefault !== b.isConfirmedDefault) {
+      return a.isConfirmedDefault ? -1 : 1;
+    }
+
+    if (a.isLikelyTest !== b.isLikelyTest) {
+      return a.isLikelyTest ? 1 : -1;
+    }
+
+    return (b.lastUpdatedAt ?? "").localeCompare(a.lastUpdatedAt ?? "") || a.displayName.localeCompare(b.displayName);
+  });
+}
+
+async function loadLaunchWorkspaceRowsByIds(workspaceIds: string[]) {
+  if (!workspaceIds.length) {
+    return [];
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("missionary_households")
+    .select("id, slug, display_name, public_visible, show_household, short_mission, sort_order, updated_at, usam_application_status, usam_profile_status")
+    .in("id", workspaceIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as LaunchWorkspaceRow[];
+}
+
+async function loadLaunchWorkspaceRowsBySlugs(slugs: string[]) {
+  if (!slugs.length) {
+    return [];
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("missionary_households")
+    .select("id, slug, display_name, public_visible, show_household, short_mission, sort_order, updated_at, usam_application_status, usam_profile_status")
+    .in("slug", slugs);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as LaunchWorkspaceRow[];
 }
 
 async function loadMemberProfileIds(authorization: Extract<DosAuthorization, { access: "member"; status: "authorized" }>) {
@@ -503,4 +632,55 @@ export async function getDefaultDosWorkspaceAccess(
       status: "configuration_error",
     };
   }
+}
+
+export async function getDosLaunchWorkspaces(
+  authorization: DosAuthorization,
+): Promise<DosLaunchWorkspace[]> {
+  if (authorization.status !== "authorized" || !isSupabaseAdminConfigured()) {
+    return [];
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    let workspaceRows: LaunchWorkspaceRow[] = [];
+
+    if (isAdminDosAuthorization(authorization)) {
+      const { data, error } = await supabase
+        .from("missionary_households")
+        .select("id, slug, display_name, public_visible, show_household, short_mission, sort_order, updated_at, usam_application_status, usam_profile_status")
+        .order("sort_order", { ascending: true })
+        .order("updated_at", { ascending: false })
+        .limit(40);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      workspaceRows = (data ?? []) as LaunchWorkspaceRow[];
+
+      if (!workspaceRows.some((workspace) => workspace.slug === "ryan-brooke-fox")) {
+        const ryanBrookeRows = await loadLaunchWorkspaceRowsBySlugs(["ryan-brooke-fox"]);
+        workspaceRows = [...workspaceRows, ...ryanBrookeRows];
+      }
+    } else {
+      const memberScope = await loadMemberWorkspaceScope(authorization);
+      workspaceRows = [
+        ...await loadLaunchWorkspaceRowsBySlugs(Array.from(memberScope.collectiveSlugs)),
+        ...await loadLaunchWorkspaceRowsByIds(Array.from(memberScope.workspaceIds)),
+      ];
+    }
+
+    const uniqueWorkspaces = Array.from(
+      new Map(workspaceRows.map((workspace) => [workspace.id, workspace])).values(),
+    ).map(launchWorkspaceFromRow);
+
+    return sortLaunchWorkspaces(uniqueWorkspaces);
+  } catch {
+    return [];
+  }
+}
+
+export function getConfirmedDosLaunchDefault(workspaces: DosLaunchWorkspace[]) {
+  return workspaces.length === 1 && workspaces[0]?.isConfirmedDefault ? workspaces[0] : null;
 }
