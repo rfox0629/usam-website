@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 import { PrimaryNav } from "../../components/PrimaryNav";
 import { MissionReviewCTA } from "./MissionReviewCTA";
+import { assignmentArticle } from "./assignments/assignments";
 
 export const metadata: Metadata = {
   title: "Briefing | USA Missionaries",
@@ -211,6 +214,72 @@ function FieldReportCard({
   );
 }
 
+function AssignmentsCompletedSection() {
+  return (
+    <section id="assignments-completed" className="relative scroll-mt-24 overflow-hidden border-t border-white/[0.08] bg-[#0D0D0D] px-6 py-20 md:py-24">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(194,161,78,0.11),transparent_24%),radial-gradient(circle_at_86%_52%,rgba(255,255,255,0.035),transparent_28%),linear-gradient(180deg,rgba(13,13,13,0.95),#0D0D0D_42%,#0D0D0D)]" />
+      <div className="absolute inset-x-0 top-0 h-px bg-usam-gold/35" />
+
+      <div className="relative mx-auto max-w-6xl">
+        <div className="max-w-3xl">
+          <p className="tactical-gold-label uppercase" style={{ fontFamily: font.rajdhani }}>
+            Assignments Completed
+          </p>
+          <h2 className="mt-5 text-4xl font-bold leading-tight tracking-tight text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
+            STORIES FROM THE FIELD
+          </h2>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-500 md:text-base">
+            Documented assignments, answered prayers, and the cost of obedience in real time.
+          </p>
+        </div>
+
+        <article className="mt-12 grid overflow-hidden border border-white/[0.1] bg-white/[0.018] shadow-[0_24px_80px_rgba(0,0,0,0.44)] lg:grid-cols-[0.92fr_1.08fr]">
+          <div className="relative min-h-[340px] border-b border-white/[0.08] bg-black lg:border-b-0 lg:border-r">
+            <Image
+              alt={assignmentArticle.image.alt}
+              className="h-full w-full object-cover opacity-90 saturate-[0.9]"
+              fill
+              priority={false}
+              sizes="(min-width: 1024px) 520px, 100vw"
+              src={assignmentArticle.image.src}
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_48%,rgba(13,13,13,0.88)),linear-gradient(90deg,rgba(194,161,78,0.2),transparent_34%)]" />
+            <div className="absolute left-0 top-0 h-full w-1 bg-usam-gold" />
+            <div className="absolute bottom-5 left-5 right-5">
+              <p className="inline-flex border border-usam-gold/45 bg-black/55 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-usam-gold backdrop-blur-sm" style={{ fontFamily: font.rajdhani }}>
+                {assignmentArticle.sourceLabel}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col justify-center p-6 md:p-10">
+            <div className="flex flex-wrap gap-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42" style={{ fontFamily: font.rajdhani }}>
+              <span>{assignmentArticle.date}</span>
+              <span className="text-usam-gold">//</span>
+              <span>{assignmentArticle.author}</span>
+            </div>
+            <h3 className="mt-5 max-w-2xl text-3xl font-bold leading-tight text-white md:text-5xl" style={{ fontFamily: font.oswald }}>
+              {assignmentArticle.title}
+            </h3>
+            <p className="mt-5 max-w-xl text-base leading-8 text-stone-400">
+              {assignmentArticle.excerpt}
+            </p>
+            <div className="mt-8">
+              <Link
+                className="inline-flex items-center justify-center border border-usam-gold bg-usam-gold px-6 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[#0D0D0D] transition-colors hover:bg-white hover:text-[#0D0D0D]"
+                href={assignmentArticle.url}
+                style={{ fontFamily: font.rajdhani }}
+              >
+                Read Assignment
+              </Link>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 export default function BriefingPage() {
   return (
     <main className="min-h-screen bg-[#0D0D0D] text-stone-100">
@@ -228,7 +297,7 @@ export default function BriefingPage() {
               BRIEFING
             </h1>
             <p className="mt-8 max-w-3xl text-base md:text-lg leading-8 text-stone-400">
-              Active field reports, movement metrics, and operational visibility.
+              Active field reports and assignments.
             </p>
             <MissionReviewCTA />
           </div>
@@ -261,6 +330,8 @@ export default function BriefingPage() {
           </div>
         </div>
       </section>
+
+      <AssignmentsCompletedSection />
     </main>
   );
 }
