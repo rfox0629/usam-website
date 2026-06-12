@@ -284,7 +284,6 @@ function FieldBeat({
 function FieldMathCard({
   emphasized = false,
   label,
-  last = false,
   value,
 }: {
   emphasized?: boolean;
@@ -293,13 +292,13 @@ function FieldMathCard({
   value: string;
 }) {
   return (
-    <div className={`min-w-0 p-5 sm:p-6 ${last ? "" : "border-b border-[rgba(245,242,234,0.14)] md:border-b-0"}`}>
-      <p className={`text-[10px] font-semibold uppercase leading-snug tracking-[0.18em] ${emphasized ? "text-[#C2A14E]" : "text-stone-500"}`} style={{ fontFamily: font.rajdhani }}>
+    <div className="relative flex min-h-[104px] min-w-0 items-center justify-center p-2.5 text-center sm:min-h-[112px] sm:p-4 md:min-h-[118px] md:justify-start md:p-6 md:text-left">
+      <p className={`absolute left-2 right-2 top-3 text-[7px] font-semibold uppercase leading-[1.25] tracking-[0.08em] sm:left-4 sm:right-4 sm:text-[9px] sm:tracking-[0.14em] md:left-6 md:right-6 md:top-6 md:text-[10px] md:tracking-[0.18em] ${emphasized ? "text-[#C2A14E]" : "text-stone-500"}`} style={{ fontFamily: font.rajdhani }}>
         {label}
       </p>
       <p
-        className={`mt-3 whitespace-nowrap font-bold leading-none tracking-normal ${
-          emphasized ? "text-[clamp(22px,2.8vw,36px)] text-[#C2A14E]" : "text-[clamp(20px,2.4vw,32px)] text-stone-100"
+        className={`whitespace-nowrap font-bold leading-none tracking-normal ${
+          emphasized ? "text-[clamp(14px,4vw,36px)] text-[#C2A14E]" : "text-[clamp(13px,3.6vw,32px)] text-stone-100"
         }`}
         style={{ fontFamily: font.oswald }}
       >
@@ -311,7 +310,7 @@ function FieldMathCard({
 
 function FieldMathOperator({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-center border-b border-[rgba(245,242,234,0.14)] px-0 py-2 md:border-x md:border-b-0 md:px-3 md:py-0">
+    <div className="flex min-w-0 items-center justify-center border-x border-[rgba(245,242,234,0.14)] px-1 py-0 md:px-3">
       <span className="text-[clamp(18px,2vw,26px)] font-bold leading-none text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
         {children}
       </span>
@@ -417,62 +416,62 @@ function GlobalUrgencySection() {
           <Reveal delay={240}>
             <div ref={populationBarRef} className="mt-8 md:mt-10">
               <div
-                className="flex h-[52px] overflow-hidden border border-[rgba(245,242,234,0.14)]"
+                className="grid h-[52px] grid-cols-[64fr_7fr_29fr] overflow-hidden border border-[rgba(245,242,234,0.14)] bg-[#2A2A2E]"
                 role="img"
                 aria-label="U.S. population by religious identity: 64 percent Christian, 7 percent other religions, 29 percent unaffiliated"
               >
                 <div
-                  className="h-full bg-[#C2A14E] transition-[width] duration-[1400ms] ease-out motion-reduce:transition-none"
-                  style={{ width: isPopulationBarArmed ? "64%" : "0%" }}
+                  className="h-full origin-left bg-[#C2A14E] transition-transform duration-[1400ms] ease-out motion-reduce:transition-none"
+                  style={{ transform: isPopulationBarArmed ? "scaleX(1)" : "scaleX(0)" }}
                 />
                 <div
-                  className="h-full bg-[#3D3A33] transition-[width] duration-[1400ms] ease-out motion-reduce:transition-none"
-                  style={{ width: isPopulationBarArmed ? "7%" : "0%" }}
+                  className="h-full origin-left bg-[#3D3A33] transition-transform duration-[1400ms] ease-out motion-reduce:transition-none"
+                  style={{ transform: isPopulationBarArmed ? "scaleX(1)" : "scaleX(0)" }}
                 />
                 <div
-                  className="h-full bg-[#2A2A2E] transition-[width] duration-[1400ms] ease-out motion-reduce:transition-none"
-                  style={{ width: isPopulationBarArmed ? "29%" : "0%" }}
+                  className="h-full origin-left bg-[#2A2A2E] transition-transform duration-[1400ms] ease-out motion-reduce:transition-none"
+                  style={{ transform: isPopulationBarArmed ? "scaleX(1)" : "scaleX(0)" }}
                 />
               </div>
 
-              <div className="grid border-x border-b border-[rgba(245,242,234,0.14)] md:grid-cols-[1.7fr_1fr_1fr]">
-                <div className="grid min-h-[116px] grid-rows-[auto_1fr_auto] gap-1 border-b border-[rgba(245,242,234,0.14)] p-5 shadow-[inset_2px_0_0_#C2A14E] md:border-b-0 md:shadow-[inset_0_2px_0_#C2A14E]">
-                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
+              <div className="grid grid-cols-[1.35fr_0.9fr_1fr] border-x border-b border-[rgba(245,242,234,0.14)] md:grid-cols-[1.7fr_1fr_1fr]">
+                <div className="grid min-h-[116px] min-w-0 grid-rows-[36px_1fr_28px] gap-1 border-r border-[rgba(245,242,234,0.14)] p-2.5 shadow-[inset_2px_0_0_#C2A14E] sm:min-h-[124px] sm:p-4 md:p-5">
+                  <div className="flex min-w-0 flex-col items-center justify-start gap-1 md:flex-row md:flex-wrap md:justify-between md:gap-2">
+                    <span className="text-[8px] font-semibold uppercase leading-tight tracking-[0.08em] text-[#C2A14E] sm:text-[9px] sm:tracking-[0.12em] md:text-[10px] md:leading-relaxed md:tracking-[0.16em]" style={{ fontFamily: font.rajdhani }}>
                       Christians
                     </span>
-                    <span className="inline-flex h-[18px] items-center border border-[rgba(194,161,78,0.45)] px-2 text-[9px] font-semibold uppercase leading-none tracking-[0.2em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
+                    <span className="inline-flex h-[15px] items-center border border-[rgba(194,161,78,0.45)] px-1 text-[6px] font-semibold uppercase leading-none tracking-[0.08em] text-[#C2A14E] sm:h-[16px] sm:text-[7px] sm:tracking-[0.12em] md:h-[18px] md:px-2 md:text-[9px] md:tracking-[0.2em]" style={{ fontFamily: font.rajdhani }}>
                       The Opportunity
                     </span>
                   </div>
-                  <div className="self-end text-[clamp(22px,2.4vw,28px)] font-bold leading-none text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
+                  <div className="self-center text-center text-[clamp(18px,5vw,28px)] font-bold leading-none text-[#C2A14E] md:text-left" style={{ fontFamily: font.oswald }}>
                     214M
                   </div>
-                  <p className="truncate text-sm leading-relaxed text-stone-500">
+                  <p className="text-center text-[8px] leading-snug text-stone-500 sm:text-[10px] md:text-left md:text-sm md:leading-relaxed">
                     64% of U.S. population
                   </p>
                 </div>
 
-                <div className="grid min-h-[116px] grid-rows-[auto_1fr_auto] gap-1 border-b border-[rgba(245,242,234,0.14)] p-5 md:border-b-0 md:border-l">
-                  <span className="truncate text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                <div className="grid min-h-[116px] min-w-0 grid-rows-[36px_1fr_28px] gap-1 border-r border-[rgba(245,242,234,0.14)] p-2.5 sm:min-h-[124px] sm:p-4 md:p-5">
+                  <span className="self-start text-center text-[8px] font-semibold uppercase leading-tight tracking-[0.08em] text-stone-500 sm:text-[9px] sm:tracking-[0.12em] md:text-left md:text-[10px] md:leading-relaxed md:tracking-[0.16em]" style={{ fontFamily: font.rajdhani }}>
                     Other Religions
                   </span>
-                  <div className="self-end text-[clamp(18px,1.9vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                  <div className="self-center text-center text-[clamp(18px,5vw,28px)] font-bold leading-none text-stone-100 md:text-left" style={{ fontFamily: font.oswald }}>
                     23M
                   </div>
-                  <p className="truncate text-sm leading-relaxed text-stone-500">
+                  <p className="text-center text-[8px] leading-snug text-stone-500 sm:text-[10px] md:text-left md:text-sm md:leading-relaxed">
                     7% of U.S. population
                   </p>
                 </div>
 
-                <div className="grid min-h-[116px] grid-rows-[auto_1fr_auto] gap-1 p-5 md:border-l">
-                  <span className="truncate text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                <div className="grid min-h-[116px] min-w-0 grid-rows-[36px_1fr_28px] gap-1 p-2.5 sm:min-h-[124px] sm:p-4 md:p-5">
+                  <span className="self-start text-center text-[8px] font-semibold uppercase leading-tight tracking-[0.08em] text-stone-500 sm:text-[9px] sm:tracking-[0.12em] md:text-left md:text-[10px] md:leading-relaxed md:tracking-[0.16em]" style={{ fontFamily: font.rajdhani }}>
                     Unaffiliated
                   </span>
-                  <div className="self-end text-[clamp(18px,1.9vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                  <div className="self-center text-center text-[clamp(18px,5vw,28px)] font-bold leading-none text-stone-100 md:text-left" style={{ fontFamily: font.oswald }}>
                     98M
                   </div>
-                  <p className="truncate text-sm leading-relaxed text-stone-500">
+                  <p className="text-center text-[8px] leading-snug text-stone-500 sm:text-[10px] md:text-left md:text-sm md:leading-relaxed">
                     29% and growing
                   </p>
                 </div>
@@ -492,7 +491,7 @@ function GlobalUrgencySection() {
           </Reveal>
 
           <Reveal delay={240}>
-            <div className="mt-8 grid border border-[rgba(245,242,234,0.14)] md:mt-11 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1.15fr)]">
+            <div className="mt-8 grid grid-cols-[minmax(0,1fr)_14px_minmax(0,1fr)_14px_minmax(0,1.08fr)] border border-[rgba(245,242,234,0.14)] md:mt-11 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1.15fr)]">
               <FieldMathCard label="Christians Today" value="214,000,000" />
               <FieldMathOperator>+</FieldMathOperator>
               <FieldMathCard label="If Each Discipled One" value="214,000,000" />
