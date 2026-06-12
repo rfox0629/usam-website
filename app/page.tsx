@@ -288,13 +288,17 @@ function GlobalUrgencySection() {
     return (
       <div className="border-b border-[rgba(245,242,234,0.14)] py-11 sm:py-14 md:py-16 lg:py-[72px]">
         <div className="mx-auto max-w-[1060px] px-5 sm:px-6">
-          <p className="mb-4 text-[11px] font-medium uppercase leading-none tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-            <span className="text-[#C2A14E]">{number}</span> / {label}
-          </p>
-          <h2 className="max-w-3xl text-[clamp(2rem,5vw,3.75rem)] font-bold uppercase leading-[1.02] tracking-normal text-stone-100" style={{ fontFamily: font.oswald }}>
-            {title}
-          </h2>
-          {children}
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="mb-4 text-[11px] font-medium uppercase leading-none tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+              <span className="text-[#C2A14E]">{number}</span> / {label}
+            </p>
+            <h2 className="text-[clamp(30px,4.2vw,52px)] font-bold uppercase leading-[1.02] tracking-normal text-stone-100" style={{ fontFamily: font.oswald }}>
+              {title}
+            </h2>
+          </div>
+          <div className="mt-8 md:mt-10">
+            {children}
+          </div>
         </div>
       </div>
     );
@@ -317,8 +321,8 @@ function GlobalUrgencySection() {
           {label}
         </p>
         <p
-          className={`mt-3 whitespace-nowrap text-[clamp(2rem,9vw,2.75rem)] font-bold leading-none tracking-normal md:text-[clamp(1.5rem,2.6vw,2.625rem)] ${
-            emphasized ? "text-[#C2A14E]" : "text-stone-100"
+          className={`mt-3 whitespace-nowrap font-bold leading-none tracking-normal ${
+            emphasized ? "text-[clamp(22px,2.8vw,36px)] text-[#C2A14E]" : "text-[clamp(20px,2.4vw,32px)] text-stone-100"
           }`}
           style={{ fontFamily: font.oswald }}
         >
@@ -331,7 +335,7 @@ function GlobalUrgencySection() {
   function MathOperator({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex items-center justify-center border-b border-[rgba(245,242,234,0.14)] px-0 py-2 md:border-x md:border-b-0 md:px-3 md:py-0">
-        <span className="text-[clamp(1.5rem,5vw,2rem)] font-bold leading-none text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
+        <span className="text-[clamp(18px,2vw,26px)] font-bold leading-none text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
           {children}
         </span>
       </div>
@@ -343,7 +347,7 @@ function GlobalUrgencySection() {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.026),transparent_18%,transparent_82%,rgba(255,255,255,0.02)),radial-gradient(circle_at_50%_0%,rgba(194,161,78,0.052),transparent_28%),linear-gradient(135deg,#0D0D0D,#0a0a0b_48%,#0D0D0D)]" />
       <div className="relative">
         <div className="mx-auto max-w-[1060px] px-5 pt-14 sm:px-6 md:pt-[72px]">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-[rgba(194,161,78,0.45)] pt-4">
+          <div className="flex flex-wrap items-baseline justify-center gap-x-6 gap-y-2 border-t border-[rgba(194,161,78,0.45)] pt-4 text-center">
             <p id="field-intelligence-title" className="text-[11px] font-medium uppercase leading-relaxed tracking-[0.22em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
               Field Intelligence <span className="text-stone-500">// Est. 07.04.1776</span>
             </p>
@@ -354,28 +358,28 @@ function GlobalUrgencySection() {
         </div>
 
         <Beat number="01" label="Situation" title="THE DECLINE IS REAL.">
-          <p className="mt-3 max-w-2xl text-[clamp(1rem,1.8vw,1.2rem)] font-semibold leading-relaxed text-stone-200">
+          <p className="mx-auto max-w-[620px] text-center text-[clamp(1rem,1.8vw,1.2rem)] font-semibold leading-relaxed text-stone-200">
             In one generation, America became a mission field.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-end gap-x-[clamp(0.875rem,3vw,1.75rem)] gap-y-3 md:mt-9">
-            <span className="relative inline-block text-[clamp(3rem,7vw,5.5rem)] font-bold leading-[0.9] text-stone-500 after:absolute after:left-0 after:right-0 after:top-[52%] after:h-1 after:rotate-[-7deg] after:bg-[#C2A14E]" style={{ fontFamily: font.oswald }}>
+          <div className="mt-8 flex flex-wrap items-end justify-center gap-x-[clamp(0.875rem,3vw,1.75rem)] gap-y-3 md:mt-9">
+            <span className="relative inline-block text-[clamp(26px,2.9vw,36px)] font-bold leading-[0.9] text-stone-500 after:absolute after:left-0 after:right-0 after:top-[52%] after:h-[3px] after:rotate-[-7deg] after:bg-[#C2A14E]" style={{ fontFamily: font.oswald }}>
               76%
             </span>
-            <span className="pb-2 text-[clamp(1.25rem,2.4vw,1.625rem)] font-semibold leading-none text-[#C2A14E]" style={{ fontFamily: font.rajdhani }} aria-hidden="true">
+            <span className="pb-2 text-[clamp(14px,1.8vw,20px)] font-semibold leading-none text-[#C2A14E]" style={{ fontFamily: font.rajdhani }} aria-hidden="true">
               &rarr;
             </span>
-            <span className="text-[clamp(3.625rem,8.5vw,6.5rem)] font-bold leading-[0.9] text-stone-100" style={{ fontFamily: font.oswald }}>
+            <span className="text-[clamp(34px,3.8vw,46px)] font-bold leading-[0.9] text-stone-100" style={{ fontFamily: font.oswald }}>
               64%
             </span>
-            <span className="max-w-[13rem] pb-2 text-[11px] font-semibold uppercase leading-relaxed tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+            <span className="max-w-[13rem] pb-2 text-left text-[11px] font-semibold uppercase leading-relaxed tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
               Americans identifying as Christian
             </span>
           </div>
 
           <div className="mt-7 grid border-y border-[rgba(245,242,234,0.14)] sm:grid-cols-2">
             <div className="flex min-h-[88px] items-center gap-4 border-b border-[rgba(245,242,234,0.14)] py-4 pr-0 sm:border-b-0 sm:border-r sm:pr-6">
-              <span className="text-[clamp(1.75rem,4vw,2.35rem)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+              <span className="text-[clamp(18px,1.8vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
                 30%
               </span>
               <span className="text-[10px] font-semibold uppercase leading-relaxed tracking-[0.14em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
@@ -383,7 +387,7 @@ function GlobalUrgencySection() {
               </span>
             </div>
             <div className="flex min-h-[88px] items-center gap-4 py-4 sm:pl-6">
-              <span className="text-[clamp(1.75rem,4vw,2.35rem)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+              <span className="text-[clamp(18px,1.8vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
                 52%
               </span>
               <span className="text-[10px] font-semibold uppercase leading-relaxed tracking-[0.14em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
@@ -394,10 +398,10 @@ function GlobalUrgencySection() {
         </Beat>
 
         <Beat number="02" label="Terrain" title="THE MISSION FIELD IS HERE.">
-          <div className="mt-8 text-[clamp(2.75rem,13vw,6rem)] font-bold leading-[0.95] tracking-normal text-stone-100 md:mt-9" style={{ fontFamily: font.oswald }}>
+          <div className="text-center text-[clamp(34px,3.8vw,46px)] font-bold leading-[0.95] tracking-normal text-stone-100" style={{ fontFamily: font.oswald }}>
             335,000,000
           </div>
-          <p className="mt-2 text-[12px] font-semibold uppercase leading-relaxed tracking-[0.2em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
+          <p className="mt-2 text-center text-[12px] font-semibold uppercase leading-relaxed tracking-[0.2em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
             The mission field: <span className="text-stone-500">every person in America</span>
           </p>
 
@@ -431,7 +435,7 @@ function GlobalUrgencySection() {
                     The Opportunity
                   </span>
                 </div>
-                <div className="self-end text-[clamp(2rem,8vw,2.55rem)] font-bold leading-none text-[#C2A14E] md:text-[clamp(1.625rem,3vw,2.125rem)]" style={{ fontFamily: font.oswald }}>
+                <div className="self-end text-[clamp(22px,2.4vw,28px)] font-bold leading-none text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
                   214M
                 </div>
                 <p className="truncate text-sm leading-relaxed text-stone-500">
@@ -443,7 +447,7 @@ function GlobalUrgencySection() {
                 <span className="truncate text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
                   Other Religions
                 </span>
-                <div className="self-end text-[clamp(1.75rem,7vw,2.25rem)] font-bold leading-none text-stone-100 md:text-[clamp(1.375rem,2.4vw,1.75rem)]" style={{ fontFamily: font.oswald }}>
+                <div className="self-end text-[clamp(18px,1.9vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
                   23M
                 </div>
                 <p className="truncate text-sm leading-relaxed text-stone-500">
@@ -455,7 +459,7 @@ function GlobalUrgencySection() {
                 <span className="truncate text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
                   Unaffiliated
                 </span>
-                <div className="self-end text-[clamp(1.75rem,7vw,2.25rem)] font-bold leading-none text-stone-100 md:text-[clamp(1.375rem,2.4vw,1.75rem)]" style={{ fontFamily: font.oswald }}>
+                <div className="self-end text-[clamp(18px,1.9vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
                   98M
                 </div>
                 <p className="truncate text-sm leading-relaxed text-stone-500">
@@ -467,10 +471,10 @@ function GlobalUrgencySection() {
         </Beat>
 
         <Beat number="03" label="Opportunity" title="THE OPPORTUNITY IS MASSIVE.">
-          <p className="mt-3 max-w-2xl text-[clamp(1rem,1.8vw,1.2rem)] font-semibold leading-relaxed text-stone-200">
+          <p className="mx-auto max-w-[620px] text-center text-[clamp(1rem,1.8vw,1.2rem)] font-semibold leading-relaxed text-stone-200">
             We don&apos;t need every Christian to become a pastor. We need every Christian to become a disciple-maker.
           </p>
-          <p className="mt-2 max-w-2xl text-[clamp(0.95rem,1.6vw,1.0625rem)] leading-relaxed text-stone-500">
+          <p className="mx-auto mt-2 max-w-[620px] text-center text-[clamp(0.95rem,1.6vw,1.0625rem)] leading-relaxed text-stone-500">
             There are approximately 214 million Christians in America today. If every Christian intentionally discipled one person, the impact would exceed the population of the United States.
           </p>
 
@@ -484,7 +488,7 @@ function GlobalUrgencySection() {
         </Beat>
 
         <div className="mx-auto max-w-[1060px] px-5 py-5 pb-16 sm:px-6 md:pb-20">
-          <p className="break-words text-[10px] font-medium uppercase leading-relaxed tracking-[0.16em] text-stone-500 md:tracking-[0.2em]" style={{ fontFamily: font.rajdhani }}>
+          <p className="break-words text-center text-[10px] font-medium uppercase leading-relaxed tracking-[0.16em] text-stone-500 md:tracking-[0.2em]" style={{ fontFamily: font.rajdhani }}>
             Sources <span className="text-[#C2A14E]">//</span> Pew Research Center &middot; Gallup &middot; Barna Group &middot; U.S. Census Bureau
           </p>
         </div>
