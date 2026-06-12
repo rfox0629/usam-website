@@ -153,7 +153,7 @@ export type Missionary = {
 export const missionaries: readonly Missionary[] = [
   {
     id: "001",
-    missionaryNumber: "001",
+    missionaryNumber: "002",
     slug: "ryan-brooke-fox",
     name: "Ryan & Brooke Fox",
     role: "Minnesota Missionaries",
