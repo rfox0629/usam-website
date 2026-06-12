@@ -35,11 +35,10 @@ import {
 } from "./MissionaryProfilesAdminDashboard";
 import { AdminShell } from "../_components/AdminShell";
 import { getAdminAuthorization } from "@/src/lib/admin-auth";
-import { isWorkspaceShellV2Enabled } from "@/src/lib/admin/workspace-feature-flags";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Missionary Workspace | USA Missionaries",
+  title: "Legacy Missionary Workspace | USA Missionaries",
   robots: {
     follow: false,
     index: false,
@@ -1447,12 +1446,12 @@ export default async function MissionaryProfilesAdminPage() {
   }
 
   const { error: loadError, profiles } = await getAdminProfiles();
-  const workspaceShellV2Enabled = isWorkspaceShellV2Enabled();
 
   return (
     <AdminShell
       active="missionary-profiles"
-      title="Missionary Workspace"
+      description="Internal workspace tools that have not yet moved into the Organizations hub."
+      title="Legacy Missionary Workspace"
     >
       {loadError ? (
         <p className="mb-6 border border-red-500/30 bg-red-950/20 p-4 text-sm text-red-200">
@@ -1461,7 +1460,6 @@ export default async function MissionaryProfilesAdminPage() {
       ) : null}
       <MissionaryProfilesAdminDashboard
         initialProfiles={profiles}
-        workspaceShellV2Enabled={workspaceShellV2Enabled}
       />
     </AdminShell>
   );

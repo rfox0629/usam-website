@@ -259,7 +259,7 @@ export function UploadsControl({ rows }: { rows: readonly AdminResourceControlRo
           </details>
           <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
             <Link className={primaryActionClassName} href="/admin/missionary-profiles" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
-              Upload Media
+              Legacy Media Tools
             </Link>
             {(query || statusFilter || ownerFilter) ? (
               <button

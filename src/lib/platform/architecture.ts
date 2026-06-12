@@ -27,7 +27,7 @@ export const platformLayers = [
     key: "missionary_workspace",
     label: "Missionary Workspace",
     primaryAudience: "Workspace Leader",
-    routeScope: "/admin/missionary-profiles",
+    routeScope: "/admin/organizations/usa-missionaries",
     summary:
       "Private workspace for an individual, household, or missionary team covering People, Meetings, Fruit, Prayer, Library, In Season, and DOS activity.",
   },

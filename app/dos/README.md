@@ -21,7 +21,7 @@ DOS mobile app is The Field:
 Desktop dashboard and Command Center are The Hub:
 
 - Richer admin, analytics, CSV import, workspace management, reporting, and organization visibility.
-- Missionary Workspace lives at `/admin/missionary-profiles` for the USAM implementation.
+- USA Missionaries organization workflows live at `/admin/organizations/usa-missionaries`.
 - Desktop can support more detail, but should still stay clean, restrained, and operational.
 
 ## Canonical People Model
@@ -89,7 +89,7 @@ Use `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/
 - `/dos/app?workspace=<slug>` remains only as a protected compatibility app route; do not promote it as an entry point.
 - `/dos/[slug]` and `/dos/workspaces/[slug]` remain protected compatibility routes; do not promote slug URLs as public entry points.
 - Primary live entry route: `https://new.usamissionaries.org/dos`.
-- Canonical Missionary Workspace route: `/admin/missionary-profiles`.
+- Canonical USA Missionaries organization hub route: `/admin/organizations/usa-missionaries`.
 - Canonical admin Command Center route: `/admin`; `/admin/dashboard` may remain as a compatibility alias.
 - Canonical DOS data helper: `src/lib/dos/missionary-app.ts`.
 - Canonical workspace identity: `missionary_households.id`, resolved from the workspace slug.

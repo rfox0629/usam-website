@@ -61,6 +61,7 @@ const needsInfoSectionOptions: Array<{ id: ReviewSectionId; title: string }> = [
   { id: "photo-builder", title: "Photo Builder" },
   ...applicationSections,
 ];
+const usamOrganizationWorkspacesHref = "/admin/organizations/usa-missionaries?tab=workspaces";
 
 // TODO: Add these visibility preference questions to the USA Missionaries onboarding/application flow.
 const usamPhotoPromptConcept = "Create a USA Missionaries public profile photo using the submitted person/family photo. Add coordinated USA Missionaries military-style ministry attire and hat. Keep faces natural and recognizable.";
@@ -265,7 +266,7 @@ function InlineButton({
 }
 
 function workspaceActionHref(workspace: OrganizationWorkspaceSummary) {
-  return workspace.viewHref ?? `/admin/workspaces/${workspace.id}`;
+  return workspace.viewHref ?? usamOrganizationWorkspacesHref;
 }
 
 function SectionShell({ children, title }: { children: ReactNode; title: string }) {
@@ -1455,7 +1456,7 @@ export function UsamOrganizationHubClient({
                     <p className="truncate text-sm text-stone-300">{member.workspaceName || "Organization"}</p>
                     <p className="text-sm text-stone-400">{formatDate(member.lastActiveAt)}</p>
                     <div className="flex justify-start xl:justify-end">
-                      {member.workspaceId ? <TextAction href={`/admin/workspaces/${member.workspaceId}`} label="View" /> : <span className="text-xs text-stone-600">None</span>}
+                      {member.workspaceId ? <TextAction href={usamOrganizationWorkspacesHref} label="View" /> : <span className="text-xs text-stone-600">None</span>}
                     </div>
                   </div>
                 </article>

@@ -9,11 +9,9 @@
 - DOS Core is platform data. USAM-specific profile, fundraising, prayer team, support team, and public publishing features are network-level unlocks, not assumptions every DOS user receives.
 - Activity must not roll up to an organization/church dashboard unless the user or workspace has opted into sharing.
 
-## Workspace Shell v2 Flag
+## Workspace Preview Boundary
 
-`workspace_shell_v2` is currently controlled by the server environment variable `WORKSPACE_SHELL_V2_ENABLED`.
+The old Workspace V2 admin preview is no longer a promoted Command Center path.
 
-- Default: off.
-- Enabled values: `1`, `true`, `yes`, or `on`.
-- When enabled, Missionary Workspace admins see the `Workspace shell: Classic / V2 Preview` control and an `Open Workspace v2` action.
-- The classic Missionary Workspace remains available and remains the default until v2 is intentionally promoted.
+- `/admin/workspaces/[id]/preview` is a compatibility route and redirects back to the USA Missionaries organization Workspaces tab.
+- Workspace intelligence should live under the Organizations layer unless a dedicated dark admin workspace route is intentionally rebuilt.

@@ -14,14 +14,14 @@ export const metadata: Metadata = {
 const uploadRows: AdminResourceControlRow[] = [
   {
     actionHref: "/admin/missionary-profiles",
-    actionLabel: "Manage Media",
+    actionLabel: "Open Legacy Media Tools",
     detail: "Supabase Storage bucket for missionary household directory and hero family images.",
     id: "missionary-images",
     metadata: [
       { label: "Storage Bucket", value: "missionary-images" },
       { label: "Public Use", value: "Missionary directory and public profiles" },
     ],
-    owner: "Missionary Workspaces",
+    owner: "Legacy Missionary Workspace",
     secondaryHref: "/missionaries",
     secondaryLabel: "View Directory",
     status: "Active",

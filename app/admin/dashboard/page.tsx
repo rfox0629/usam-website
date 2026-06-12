@@ -143,6 +143,9 @@ const emptyDashboardData: DashboardData = {
   visiblePrayerProfiles: 0,
   visibleSupportProfiles: 0,
 };
+const usamOrganizationHubHref = "/admin/organizations/usa-missionaries";
+const usamApprovedProfilesHref = `${usamOrganizationHubHref}?tab=approved-profiles`;
+const usamWorkspacesHref = `${usamOrganizationHubHref}?tab=workspaces`;
 
 function isMissing(value: string | null) {
   return !value || value.trim().length === 0;
@@ -405,7 +408,7 @@ async function getDashboardData(): Promise<DashboardData> {
     })),
     ...recentProfiles.map((profile) => ({
       detail: "Profile updated",
-      href: "/admin/missionary-profiles",
+      href: usamApprovedProfilesHref,
       label: "Profile",
       timestamp: profile.updated_at ?? "",
       title: profile.display_name,
@@ -529,7 +532,7 @@ function ActionButton({
 function QuickActionsBar() {
   const actions = [
     { href: "/admin/organizations", label: "Organizations" },
-    { href: "/admin/missionary-profiles", label: "Open Workspaces" },
+    { href: usamOrganizationHubHref, label: "USA Missionaries" },
     { href: "/admin/missionary-profiles?tab=fruit", label: "Review Fruit" },
     { href: "/admin/prayer-team", label: "Prayer Requests" },
     { href: "/admin/support-team", label: "Support" },
@@ -739,7 +742,7 @@ function IncompleteProfileAlerts({ profiles }: { profiles: DashboardProfile[] })
   return (
     <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
       <SectionHeader
-        action={<ActionButton href="/admin/missionary-profiles">Fix Profiles</ActionButton>}
+        action={<ActionButton href={usamApprovedProfilesHref}>Fix Profiles</ActionButton>}
         eyebrow="Alerts"
         title="Incomplete Profiles"
       />
@@ -749,7 +752,7 @@ function IncompleteProfileAlerts({ profiles }: { profiles: DashboardProfile[] })
             <Link
               key={profile.id}
               className="grid gap-2 p-3 transition-colors hover:bg-stone-950/80 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
-              href="/admin/missionary-profiles"
+              href={usamApprovedProfilesHref}
             >
               <span>
                 <span className="block text-sm font-semibold text-stone-50">{profile.display_name}</span>
@@ -780,7 +783,7 @@ export default async function AdminDashboardPage() {
   const data = await getDashboardData();
   const hasDataError = Boolean(data.error);
   const metrics = [
-    { detail: `${hasDataError ? "-" : formatMetric(data.publishedProfiles)} published`, href: "/admin/missionary-profiles", label: "Workspaces", value: hasDataError ? "-" : formatMetric(data.activeMissionaries) },
+    { detail: `${hasDataError ? "-" : formatMetric(data.publishedProfiles)} published`, href: usamWorkspacesHref, label: "Workspaces", value: hasDataError ? "-" : formatMetric(data.activeMissionaries) },
     { detail: "Field contacts", href: "/admin/missionary-profiles?tab=people", label: "People", value: hasDataError ? "-" : formatMetric(data.people) },
     { detail: "This month", href: "/admin/support-team", label: "Support", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
     { detail: `${hasDataError ? "-" : formatMetric(data.prayerPartners)} partners`, href: "/admin/prayer-team", label: "Prayer", value: hasDataError ? "-" : formatMetric(data.activePrayerRequests) },
@@ -844,8 +847,8 @@ export default async function AdminDashboardPage() {
               title="Support Overview"
             />
             <OperationalModule
-              actionHref="/admin/missionary-profiles?tab=features"
-              actionLabel="Open Publishing"
+              actionHref={usamApprovedProfilesHref}
+              actionLabel="Open Profiles"
               details={[
                 { label: "Fruit Inbox", value: hasDataError ? "-" : formatMetric(data.pendingFruitReviews) },
                 { label: "Profile Alerts", value: hasDataError ? "-" : formatMetric(data.incompleteProfiles.length) },
@@ -885,7 +888,7 @@ export default async function AdminDashboardPage() {
               action="Fix Publishing"
               count={data.incompleteProfiles.length}
               description="Missing profile essentials."
-              href="/admin/missionary-profiles?tab=features"
+              href={usamApprovedProfilesHref}
               title="Profile Alerts"
             />
           </div>

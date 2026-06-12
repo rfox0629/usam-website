@@ -202,6 +202,7 @@ type WorkspacePreviewPrayerPartnerRow = {
 
 const householdBaseSelect = "id, slug, display_name, public_visible, updated_at, created_at";
 const householdFeatureSelect = `${householdBaseSelect}, show_household, show_prayer, show_support, show_fruit, show_story, enable_prayer_team`;
+const usamOrganizationWorkspacesHref = "/admin/organizations/usa-missionaries?tab=workspaces";
 
 function isUsamOrganization(organization: Pick<OrganizationRow, "branding_mode" | "slug">) {
   return organization.branding_mode === "usam" || organization.slug === "usa-missionaries";
@@ -416,10 +417,10 @@ function getOrganizationWorkspaces(
     name: household.display_name,
     ownerName: firstNameFromWorkspace(household.display_name),
     slug: household.slug,
-    sourceLabel: "DOS Workspace",
-    status: "active" as const,
-    viewHref: `/admin/workspaces/${household.id}`,
-  }));
+	    sourceLabel: "DOS Workspace",
+	    status: "active" as const,
+	    viewHref: usamOrganizationWorkspacesHref,
+	  }));
   const foundationWorkspaces = orgCollectives
     .filter((collective) => !activeHouseholdSlugs.has(collective.slug))
     .map((collective) => ({
@@ -684,11 +685,11 @@ function workspaceSummaryFromIndex(workspace: AdminWorkspaceIndexItem): Organiza
     name: workspace.workspaceName,
     ownerName: workspace.userName,
     slug: workspace.slug ?? workspace.id,
-    sourceLabel: workspace.workspaceType,
-    status: workspace.status,
-    viewHref: `/admin/workspaces/${workspace.id}`,
-  };
-}
+	    sourceLabel: workspace.workspaceType,
+	    status: workspace.status,
+	    viewHref: usamOrganizationWorkspacesHref,
+	  };
+	}
 
 function applicationHasPhotos(application: OrganizationApplicationRow) {
   if (application.profile_photo_url?.trim()) {
