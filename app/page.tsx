@@ -249,6 +249,76 @@ function ExpansionMap() {
   );
 }
 
+function FieldBeat({
+  children,
+  label,
+  number,
+  title,
+}: {
+  children: React.ReactNode;
+  label: string;
+  number: string;
+  title: string;
+}) {
+  return (
+    <div className="border-b border-[rgba(245,242,234,0.14)] py-11 sm:py-14 md:py-16 lg:py-[72px]">
+      <div className="mx-auto max-w-[1060px] px-5 sm:px-6">
+        <Reveal>
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="mb-4 text-[11px] font-medium uppercase leading-none tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+              <span className="text-[#C2A14E]">{number}</span> / {label}
+            </p>
+            <h2 className="text-[clamp(30px,4.2vw,52px)] font-bold uppercase leading-[1.02] tracking-normal text-stone-100" style={{ fontFamily: font.oswald }}>
+              {title}
+            </h2>
+          </div>
+        </Reveal>
+        <div className="mt-8 md:mt-10">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FieldMathCard({
+  emphasized = false,
+  label,
+  last = false,
+  value,
+}: {
+  emphasized?: boolean;
+  label: string;
+  last?: boolean;
+  value: string;
+}) {
+  return (
+    <div className={`min-w-0 p-5 sm:p-6 ${last ? "" : "border-b border-[rgba(245,242,234,0.14)] md:border-b-0"}`}>
+      <p className={`text-[10px] font-semibold uppercase leading-snug tracking-[0.18em] ${emphasized ? "text-[#C2A14E]" : "text-stone-500"}`} style={{ fontFamily: font.rajdhani }}>
+        {label}
+      </p>
+      <p
+        className={`mt-3 whitespace-nowrap font-bold leading-none tracking-normal ${
+          emphasized ? "text-[clamp(22px,2.8vw,36px)] text-[#C2A14E]" : "text-[clamp(20px,2.4vw,32px)] text-stone-100"
+        }`}
+        style={{ fontFamily: font.oswald }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function FieldMathOperator({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-center border-b border-[rgba(245,242,234,0.14)] px-0 py-2 md:border-x md:border-b-0 md:px-3 md:py-0">
+      <span className="text-[clamp(18px,2vw,26px)] font-bold leading-none text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
 function GlobalUrgencySection() {
   const populationBarRef = useRef<HTMLDivElement>(null);
   const [isPopulationBarArmed, setIsPopulationBarArmed] = useState(false);
@@ -274,224 +344,171 @@ function GlobalUrgencySection() {
     return () => observer.disconnect();
   }, []);
 
-  function Beat({
-    children,
-    label,
-    number,
-    title,
-  }: {
-    children: React.ReactNode;
-    label: string;
-    number: string;
-    title: string;
-  }) {
-    return (
-      <div className="border-b border-[rgba(245,242,234,0.14)] py-11 sm:py-14 md:py-16 lg:py-[72px]">
-        <div className="mx-auto max-w-[1060px] px-5 sm:px-6">
-          <div className="mx-auto max-w-3xl text-center">
-            <p className="mb-4 text-[11px] font-medium uppercase leading-none tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-              <span className="text-[#C2A14E]">{number}</span> / {label}
-            </p>
-            <h2 className="text-[clamp(30px,4.2vw,52px)] font-bold uppercase leading-[1.02] tracking-normal text-stone-100" style={{ fontFamily: font.oswald }}>
-              {title}
-            </h2>
-          </div>
-          <div className="mt-8 md:mt-10">
-            {children}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  function MathCard({
-    emphasized = false,
-    label,
-    last = false,
-    value,
-  }: {
-    emphasized?: boolean;
-    label: string;
-    last?: boolean;
-    value: string;
-  }) {
-    return (
-      <div className={`min-w-0 p-5 sm:p-6 ${last ? "" : "border-b border-[rgba(245,242,234,0.14)] md:border-b-0"}`}>
-        <p className={`text-[10px] font-semibold uppercase leading-snug tracking-[0.18em] ${emphasized ? "text-[#C2A14E]" : "text-stone-500"}`} style={{ fontFamily: font.rajdhani }}>
-          {label}
-        </p>
-        <p
-          className={`mt-3 whitespace-nowrap font-bold leading-none tracking-normal ${
-            emphasized ? "text-[clamp(22px,2.8vw,36px)] text-[#C2A14E]" : "text-[clamp(20px,2.4vw,32px)] text-stone-100"
-          }`}
-          style={{ fontFamily: font.oswald }}
-        >
-          {value}
-        </p>
-      </div>
-    );
-  }
-
-  function MathOperator({ children }: { children: React.ReactNode }) {
-    return (
-      <div className="flex items-center justify-center border-b border-[rgba(245,242,234,0.14)] px-0 py-2 md:border-x md:border-b-0 md:px-3 md:py-0">
-        <span className="text-[clamp(18px,2vw,26px)] font-bold leading-none text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
-          {children}
-        </span>
-      </div>
-    );
-  }
-
   return (
     <section aria-labelledby="field-intelligence-title" className="relative overflow-hidden border-y border-stone-900 bg-[#0D0D0D] text-stone-100">
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.026),transparent_18%,transparent_82%,rgba(255,255,255,0.02)),radial-gradient(circle_at_50%_0%,rgba(194,161,78,0.052),transparent_28%),linear-gradient(135deg,#0D0D0D,#0a0a0b_48%,#0D0D0D)]" />
       <div className="relative">
-        <div className="mx-auto max-w-[1060px] px-5 pt-14 sm:px-6 md:pt-[72px]">
-          <div className="flex flex-wrap items-baseline justify-center gap-x-6 gap-y-2 border-t border-[rgba(194,161,78,0.45)] pt-4 text-center">
-            <p id="field-intelligence-title" className="text-[11px] font-medium uppercase leading-relaxed tracking-[0.22em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
-              Field Intelligence <span className="text-stone-500">// Est. 07.04.1776</span>
+        <Reveal>
+          <div className="mx-auto max-w-[1060px] px-5 pt-14 sm:px-6 md:pt-[72px]">
+            <div className="text-center">
+              <div className="mx-auto mb-6 h-px w-9 bg-[#C2A14E]" />
+              <p id="field-intelligence-title" className="text-[11px] font-medium uppercase leading-relaxed tracking-[0.22em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
+                Field Intelligence <span className="text-stone-500">// Est. 07.04.1776 · Continental United States</span>
+              </p>
+            </div>
+          </div>
+        </Reveal>
+
+        <FieldBeat number="01" label="Situation" title="THE DECLINE IS REAL.">
+          <Reveal delay={120}>
+            <p className="mx-auto max-w-[620px] text-center text-[clamp(1rem,1.8vw,1.2rem)] font-semibold leading-relaxed text-stone-200">
+              In one generation, America became a mission field.
             </p>
-            <p className="text-[11px] font-medium uppercase leading-relaxed tracking-[0.22em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-              Continental United States
-            </p>
-          </div>
-        </div>
+          </Reveal>
 
-        <Beat number="01" label="Situation" title="THE DECLINE IS REAL.">
-          <p className="mx-auto max-w-[620px] text-center text-[clamp(1rem,1.8vw,1.2rem)] font-semibold leading-relaxed text-stone-200">
-            In one generation, America became a mission field.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-end justify-center gap-x-[clamp(0.875rem,3vw,1.75rem)] gap-y-3 md:mt-9">
-            <span className="relative inline-block text-[clamp(26px,2.9vw,36px)] font-bold leading-[0.9] text-stone-500 after:absolute after:left-0 after:right-0 after:top-[52%] after:h-[3px] after:rotate-[-7deg] after:bg-[#C2A14E]" style={{ fontFamily: font.oswald }}>
-              76%
-            </span>
-            <span className="pb-2 text-[clamp(14px,1.8vw,20px)] font-semibold leading-none text-[#C2A14E]" style={{ fontFamily: font.rajdhani }} aria-hidden="true">
-              &rarr;
-            </span>
-            <span className="text-[clamp(34px,3.8vw,46px)] font-bold leading-[0.9] text-stone-100" style={{ fontFamily: font.oswald }}>
-              64%
-            </span>
-            <span className="max-w-[13rem] pb-2 text-left text-[11px] font-semibold uppercase leading-relaxed tracking-[0.18em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-              Americans identifying as Christian
-            </span>
-          </div>
-
-          <div className="mt-7 grid border-y border-[rgba(245,242,234,0.14)] sm:grid-cols-2">
-            <div className="flex min-h-[88px] items-center gap-4 border-b border-[rgba(245,242,234,0.14)] py-4 pr-0 sm:border-b-0 sm:border-r sm:pr-6">
-              <span className="text-[clamp(18px,1.8vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-                30%
-              </span>
-              <span className="text-[10px] font-semibold uppercase leading-relaxed tracking-[0.14em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-                Adults attending church weekly
-              </span>
-            </div>
-            <div className="flex min-h-[88px] items-center gap-4 py-4 sm:pl-6">
-              <span className="text-[clamp(18px,1.8vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-                52%
-              </span>
-              <span className="text-[10px] font-semibold uppercase leading-relaxed tracking-[0.14em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-                Gen Z identifying as Christian. Lowest measured.
-              </span>
-            </div>
-          </div>
-        </Beat>
-
-        <Beat number="02" label="Terrain" title="THE MISSION FIELD IS HERE.">
-          <div className="text-center text-[clamp(34px,3.8vw,46px)] font-bold leading-[0.95] tracking-normal text-stone-100" style={{ fontFamily: font.oswald }}>
-            335,000,000
-          </div>
-          <p className="mt-2 text-center text-[12px] font-semibold uppercase leading-relaxed tracking-[0.2em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
-            The mission field: <span className="text-stone-500">every person in America</span>
-          </p>
-
-          <div ref={populationBarRef} className="mt-8 md:mt-10">
-            <div
-              className="flex h-[52px] overflow-hidden border border-[rgba(245,242,234,0.14)]"
-              role="img"
-              aria-label="U.S. population by religious identity: 64 percent Christian, 7 percent other religions, 29 percent unaffiliated"
-            >
-              <div
-                className="h-full bg-[#C2A14E] transition-[width] duration-[1400ms] ease-out motion-reduce:transition-none"
-                style={{ width: isPopulationBarArmed ? "64%" : "0%" }}
-              />
-              <div
-                className="h-full bg-[#3D3A33] transition-[width] duration-[1400ms] ease-out motion-reduce:transition-none"
-                style={{ width: isPopulationBarArmed ? "7%" : "0%" }}
-              />
-              <div
-                className="h-full bg-[#2A2A2E] transition-[width] duration-[1400ms] ease-out motion-reduce:transition-none"
-                style={{ width: isPopulationBarArmed ? "29%" : "0%" }}
-              />
-            </div>
-
-            <div className="grid border-x border-b border-[rgba(245,242,234,0.14)] md:grid-cols-[1.7fr_1fr_1fr]">
-              <div className="grid min-h-[116px] grid-rows-[auto_1fr_auto] gap-1 border-b border-[rgba(245,242,234,0.14)] p-5 shadow-[inset_2px_0_0_#C2A14E] md:border-b-0 md:shadow-[inset_0_2px_0_#C2A14E]">
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <span className="text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
-                    Christians
+          <Reveal delay={240}>
+            <div className="mt-12 grid grid-cols-[1.5fr_1fr_1fr] border border-[rgba(245,242,234,0.14)]">
+              <div className="relative grid min-h-[136px] grid-rows-[1fr_auto_46px_1fr] border-r border-[rgba(245,242,234,0.14)] px-2 py-5 text-center before:absolute before:left-0 before:right-0 before:top-0 before:h-px before:bg-[#C2A14E] sm:min-h-[150px] sm:grid-rows-[1fr_auto_50px_1fr] sm:px-5 sm:py-7">
+                <div className="row-start-2 flex translate-y-[1.5px] flex-nowrap items-baseline justify-center gap-x-1 sm:gap-x-4">
+                  <span className="relative inline-block text-[clamp(18px,5.8vw,36px)] font-bold leading-[0.9] text-stone-500 after:absolute after:left-0 after:right-0 after:top-[52%] after:h-[3px] after:rotate-[-7deg] after:bg-[#C2A14E]" style={{ fontFamily: font.oswald }}>
+                    76%
                   </span>
-                  <span className="inline-flex h-[18px] items-center border border-[rgba(194,161,78,0.45)] px-2 text-[9px] font-semibold uppercase leading-none tracking-[0.2em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
-                    The Opportunity
+                  <span className="text-[clamp(9px,3vw,20px)] font-semibold leading-none text-[#C2A14E]" style={{ fontFamily: font.rajdhani }} aria-hidden="true">
+                    &rarr;
+                  </span>
+                  <span className="text-[clamp(24px,6.4vw,46px)] font-bold leading-[0.9] text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
+                    64%
                   </span>
                 </div>
-                <div className="self-end text-[clamp(22px,2.4vw,28px)] font-bold leading-none text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
-                  214M
-                </div>
-                <p className="truncate text-sm leading-relaxed text-stone-500">
-                  64% of U.S. population
+                <p className="row-start-3 mx-auto mt-3 flex max-w-[7rem] items-start justify-center text-[8px] font-semibold uppercase leading-[1.55] tracking-[0.12em] text-stone-500 sm:max-w-[14rem] sm:text-[10px] sm:tracking-[0.22em]" style={{ fontFamily: font.rajdhani }}>
+                  Americans identifying as Christian
                 </p>
               </div>
-
-              <div className="grid min-h-[116px] grid-rows-[auto_1fr_auto] gap-1 border-b border-[rgba(245,242,234,0.14)] p-5 md:border-b-0 md:border-l">
-                <span className="truncate text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-                  Other Religions
+              <div className="grid min-h-[136px] grid-rows-[1fr_auto_46px_1fr] border-r border-[rgba(245,242,234,0.14)] px-1 py-5 text-center sm:min-h-[150px] sm:grid-rows-[1fr_auto_50px_1fr] sm:px-5 sm:py-7">
+                <span className="row-start-2 justify-self-center text-[clamp(24px,6.4vw,46px)] font-bold leading-[0.9] text-stone-100" style={{ fontFamily: font.oswald }}>
+                  30%
                 </span>
-                <div className="self-end text-[clamp(18px,1.9vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-                  23M
-                </div>
-                <p className="truncate text-sm leading-relaxed text-stone-500">
-                  7% of U.S. population
-                </p>
+                <span className="row-start-3 mx-auto mt-3 flex max-w-[7rem] items-start justify-center text-[8px] font-semibold uppercase leading-[1.55] tracking-[0.12em] text-stone-500 sm:max-w-[14rem] sm:text-[10px] sm:tracking-[0.22em]" style={{ fontFamily: font.rajdhani }}>
+                  Adults attending church weekly
+                </span>
               </div>
-
-              <div className="grid min-h-[116px] grid-rows-[auto_1fr_auto] gap-1 p-5 md:border-l">
-                <span className="truncate text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-                  Unaffiliated
+              <div className="grid min-h-[136px] grid-rows-[1fr_auto_46px_1fr] px-1 py-5 text-center sm:min-h-[150px] sm:grid-rows-[1fr_auto_50px_1fr] sm:px-5 sm:py-7">
+                <span className="row-start-2 justify-self-center text-[clamp(24px,6.4vw,46px)] font-bold leading-[0.9] text-stone-100" style={{ fontFamily: font.oswald }}>
+                  52%
                 </span>
-                <div className="self-end text-[clamp(18px,1.9vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-                  98M
-                </div>
-                <p className="truncate text-sm leading-relaxed text-stone-500">
-                  29% and growing
-                </p>
+                <span className="row-start-3 mx-auto mt-3 flex max-w-[7rem] items-start justify-center text-[8px] font-semibold uppercase leading-[1.55] tracking-[0.12em] text-stone-500 sm:max-w-[14rem] sm:text-[10px] sm:tracking-[0.22em]" style={{ fontFamily: font.rajdhani }}>
+                  Gen Z identifying as Christian. Lowest measured.
+                </span>
               </div>
             </div>
+          </Reveal>
+        </FieldBeat>
+
+        <FieldBeat number="02" label="Terrain" title="THE MISSION FIELD IS HERE.">
+          <Reveal delay={120}>
+            <div className="text-center text-[clamp(28px,3.8vw,46px)] font-bold leading-[0.95] tracking-normal text-stone-100" style={{ fontFamily: font.oswald }}>
+              335,000,000
+            </div>
+            <p className="mt-2 text-center text-[12px] font-semibold uppercase leading-relaxed tracking-[0.2em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
+              The mission field: <span className="text-stone-500">every person in America</span>
+            </p>
+          </Reveal>
+
+          <Reveal delay={240}>
+            <div ref={populationBarRef} className="mt-8 md:mt-10">
+              <div
+                className="flex h-[52px] overflow-hidden border border-[rgba(245,242,234,0.14)]"
+                role="img"
+                aria-label="U.S. population by religious identity: 64 percent Christian, 7 percent other religions, 29 percent unaffiliated"
+              >
+                <div
+                  className="h-full bg-[#C2A14E] transition-[width] duration-[1400ms] ease-out motion-reduce:transition-none"
+                  style={{ width: isPopulationBarArmed ? "64%" : "0%" }}
+                />
+                <div
+                  className="h-full bg-[#3D3A33] transition-[width] duration-[1400ms] ease-out motion-reduce:transition-none"
+                  style={{ width: isPopulationBarArmed ? "7%" : "0%" }}
+                />
+                <div
+                  className="h-full bg-[#2A2A2E] transition-[width] duration-[1400ms] ease-out motion-reduce:transition-none"
+                  style={{ width: isPopulationBarArmed ? "29%" : "0%" }}
+                />
+              </div>
+
+              <div className="grid border-x border-b border-[rgba(245,242,234,0.14)] md:grid-cols-[1.7fr_1fr_1fr]">
+                <div className="grid min-h-[116px] grid-rows-[auto_1fr_auto] gap-1 border-b border-[rgba(245,242,234,0.14)] p-5 shadow-[inset_2px_0_0_#C2A14E] md:border-b-0 md:shadow-[inset_0_2px_0_#C2A14E]">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
+                      Christians
+                    </span>
+                    <span className="inline-flex h-[18px] items-center border border-[rgba(194,161,78,0.45)] px-2 text-[9px] font-semibold uppercase leading-none tracking-[0.2em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani }}>
+                      The Opportunity
+                    </span>
+                  </div>
+                  <div className="self-end text-[clamp(22px,2.4vw,28px)] font-bold leading-none text-[#C2A14E]" style={{ fontFamily: font.oswald }}>
+                    214M
+                  </div>
+                  <p className="truncate text-sm leading-relaxed text-stone-500">
+                    64% of U.S. population
+                  </p>
+                </div>
+
+                <div className="grid min-h-[116px] grid-rows-[auto_1fr_auto] gap-1 border-b border-[rgba(245,242,234,0.14)] p-5 md:border-b-0 md:border-l">
+                  <span className="truncate text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                    Other Religions
+                  </span>
+                  <div className="self-end text-[clamp(18px,1.9vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                    23M
+                  </div>
+                  <p className="truncate text-sm leading-relaxed text-stone-500">
+                    7% of U.S. population
+                  </p>
+                </div>
+
+                <div className="grid min-h-[116px] grid-rows-[auto_1fr_auto] gap-1 p-5 md:border-l">
+                  <span className="truncate text-[10px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                    Unaffiliated
+                  </span>
+                  <div className="self-end text-[clamp(18px,1.9vw,22px)] font-bold leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
+                    98M
+                  </div>
+                  <p className="truncate text-sm leading-relaxed text-stone-500">
+                    29% and growing
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </FieldBeat>
+
+        <FieldBeat number="03" label="Opportunity" title="THE OPPORTUNITY IS MASSIVE.">
+          <Reveal delay={120}>
+            <p className="mx-auto max-w-[620px] text-center text-[clamp(1rem,1.8vw,1.2rem)] font-semibold leading-relaxed text-stone-200">
+              We don&apos;t need every Christian to become a pastor. We need every Christian to become a disciple-maker.
+            </p>
+            <p className="mx-auto mt-2 max-w-[620px] text-center text-[clamp(0.95rem,1.6vw,1.0625rem)] leading-relaxed text-stone-500">
+              There are approximately 214 million Christians in America today. If every Christian intentionally discipled one person, the impact would exceed the population of the United States.
+            </p>
+          </Reveal>
+
+          <Reveal delay={240}>
+            <div className="mt-8 grid border border-[rgba(245,242,234,0.14)] md:mt-11 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1.15fr)]">
+              <FieldMathCard label="Christians Today" value="214,000,000" />
+              <FieldMathOperator>+</FieldMathOperator>
+              <FieldMathCard label="If Each Discipled One" value="214,000,000" />
+              <FieldMathOperator>=</FieldMathOperator>
+              <FieldMathCard emphasized label="Total Impact" value="428,000,000" last />
+            </div>
+          </Reveal>
+        </FieldBeat>
+
+        <Reveal>
+          <div className="mx-auto max-w-[1060px] px-5 py-5 pb-16 sm:px-6 md:pb-20">
+            <p className="break-words text-center text-[10px] font-medium uppercase leading-relaxed tracking-[0.16em] text-stone-500 md:tracking-[0.2em]" style={{ fontFamily: font.rajdhani }}>
+              Sources <span className="text-[#C2A14E]">//</span> Pew Research Center &middot; Gallup &middot; Barna Group &middot; U.S. Census Bureau
+            </p>
           </div>
-        </Beat>
-
-        <Beat number="03" label="Opportunity" title="THE OPPORTUNITY IS MASSIVE.">
-          <p className="mx-auto max-w-[620px] text-center text-[clamp(1rem,1.8vw,1.2rem)] font-semibold leading-relaxed text-stone-200">
-            We don&apos;t need every Christian to become a pastor. We need every Christian to become a disciple-maker.
-          </p>
-          <p className="mx-auto mt-2 max-w-[620px] text-center text-[clamp(0.95rem,1.6vw,1.0625rem)] leading-relaxed text-stone-500">
-            There are approximately 214 million Christians in America today. If every Christian intentionally discipled one person, the impact would exceed the population of the United States.
-          </p>
-
-          <div className="mt-8 grid border border-[rgba(245,242,234,0.14)] md:mt-11 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1.15fr)]">
-            <MathCard label="Christians Today" value="214,000,000" />
-            <MathOperator>+</MathOperator>
-            <MathCard label="If Each Discipled One" value="214,000,000" />
-            <MathOperator>=</MathOperator>
-            <MathCard emphasized label="Total Impact" value="428,000,000" last />
-          </div>
-        </Beat>
-
-        <div className="mx-auto max-w-[1060px] px-5 py-5 pb-16 sm:px-6 md:pb-20">
-          <p className="break-words text-center text-[10px] font-medium uppercase leading-relaxed tracking-[0.16em] text-stone-500 md:tracking-[0.2em]" style={{ fontFamily: font.rajdhani }}>
-            Sources <span className="text-[#C2A14E]">//</span> Pew Research Center &middot; Gallup &middot; Barna Group &middot; U.S. Census Bureau
-          </p>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
