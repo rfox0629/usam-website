@@ -107,6 +107,7 @@ type ApplicationDraft = {
   donationLinkPreference: DonationLinkChoice;
   familyMembers: FamilyMemberDraft[];
   familyPhotoName: string;
+  familyPhotoPreviewUrl: string;
   familyPhotoUpload: UploadedJoinPhoto | null;
   firstName: string;
   fullAddress: string;
@@ -121,6 +122,7 @@ type ApplicationDraft = {
   prayerPartners: PrayerPartnerDraft[];
   prayerRequests: PrayerRequestDraft[];
   profilePhotoName: string;
+  profilePhotoPreviewUrl: string;
   profilePhotoUpload: UploadedJoinPhoto | null;
   polishedStoryDraft: string;
   references: ReferenceDraft[];
@@ -152,6 +154,7 @@ type ApplicationDraft = {
 };
 
 type PersistedApplicationDraft = Omit<ApplicationDraft, "confirmPassword" | "password">;
+type ApplicationSubmitDraft = Omit<ApplicationDraft, "familyPhotoPreviewUrl" | "profilePhotoPreviewUrl">;
 
 type JoinSubmitResponse = {
   applicationId?: string;
@@ -285,6 +288,7 @@ const initialDraft: ApplicationDraft = {
     },
   ],
   familyPhotoName: "",
+  familyPhotoPreviewUrl: "",
   familyPhotoUpload: null,
   firstName: "",
   fullAddress: "",
@@ -315,6 +319,7 @@ const initialDraft: ApplicationDraft = {
     },
   ],
   profilePhotoName: "",
+  profilePhotoPreviewUrl: "",
   profilePhotoUpload: null,
   references: [
     {
@@ -378,6 +383,48 @@ function draftForPersistence(draft: ApplicationDraft): PersistedApplicationDraft
 
   // Regression guard: account passwords are intentionally excluded from every localStorage draft/submission payload.
   return persistedDraft;
+}
+
+function draftForSubmit(draft: ApplicationDraft): ApplicationSubmitDraft {
+  const { familyPhotoPreviewUrl: _familyPhotoPreviewUrl, profilePhotoPreviewUrl: _profilePhotoPreviewUrl, ...submitDraft } = draft;
+
+  return submitDraft;
+}
+
+async function createJoinPhotoPreview(file: File) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return "";
+  }
+
+  const objectUrl = window.URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const previewImage = new window.Image();
+      previewImage.onload = () => resolve(previewImage);
+      previewImage.onerror = reject;
+      previewImage.src = objectUrl;
+    });
+    const maxPreviewSize = 520;
+    const scale = Math.min(1, maxPreviewSize / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return "";
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", 0.78);
+  } catch {
+    return "";
+  } finally {
+    window.URL.revokeObjectURL(objectUrl);
+  }
 }
 
 function createId(prefix: string) {
@@ -470,11 +517,13 @@ function mergeDraft(value: Partial<ApplicationDraft> | null): ApplicationDraft {
     confirmPassword: "",
     donationLinkPreference: donationLinkForSupportNeed(supportNeed, value.donationLinkPreference),
     familyMembers: Array.isArray(value.familyMembers) ? value.familyMembers : initialDraft.familyMembers,
+    familyPhotoPreviewUrl: typeof value.familyPhotoPreviewUrl === "string" ? value.familyPhotoPreviewUrl : "",
     familyPhotoUpload: normalizeUploadedPhoto(value.familyPhotoUpload, "family"),
     my3People: Array.isArray(value.my3People) ? value.my3People : initialDraft.my3People,
     password: "",
     prayerPartners: Array.isArray(value.prayerPartners) && value.prayerPartners.length ? value.prayerPartners : initialDraft.prayerPartners,
     prayerRequests: normalizePrayerRequests(value.prayerRequests),
+    profilePhotoPreviewUrl: typeof value.profilePhotoPreviewUrl === "string" ? value.profilePhotoPreviewUrl : "",
     profilePhotoUpload: normalizeUploadedPhoto(value.profilePhotoUpload, "profile"),
     references: Array.isArray(value.references) && value.references.length ? value.references : initialDraft.references,
     setupPath: normalizeSetupPath(value.setupPath),
@@ -1160,6 +1209,7 @@ function UploadPlaceholder({
   label,
   name,
   onChange,
+  previewUrl,
   upload,
 }: {
   error?: string;
@@ -1168,6 +1218,7 @@ function UploadPlaceholder({
   label: string;
   name: string;
   onChange: (file: File | null) => void;
+  previewUrl?: string;
   upload?: UploadedJoinPhoto | null;
 }) {
   const displayName = upload?.fileName || name;
@@ -1196,9 +1247,18 @@ function UploadPlaceholder({
           {isUploading ? (
             <span className="font-black text-[#2563EB]">Uploading...</span>
           ) : displayName ? (
-            <span className="min-w-0">
-              <span className="block font-black text-[#0F172A]">{upload?.path ? "Uploaded privately" : "Selected"}</span>
-              <span className="mt-1 block break-all text-xs leading-5">{displayName}</span>
+            <span className="flex w-full min-w-0 items-center gap-3 text-left">
+              {previewUrl ? (
+                <span
+                  aria-hidden="true"
+                  className="block h-20 w-20 shrink-0 rounded-2xl border border-[#DCEBFF] bg-cover bg-center bg-no-repeat"
+                  style={{ backgroundImage: `url("${previewUrl}")` }}
+                />
+              ) : null}
+              <span className="min-w-0">
+                <span className="block font-black text-[#0F172A]">{upload?.path ? "Uploaded privately" : "Selected"}</span>
+                <span className="mt-1 block break-all text-xs leading-5">{displayName}</span>
+              </span>
             </span>
           ) : (
             <span>Choose JPG, PNG, or WebP</span>
@@ -1401,6 +1461,7 @@ export function UsamJoinClient() {
       [kind]: { error: "", isUploading: true },
     }));
 
+    const previewUrl = await createJoinPhotoPreview(file);
     const formData = new FormData();
     formData.append("kind", kind);
     formData.append("file", file);
@@ -1423,10 +1484,12 @@ export function UsamJoinClient() {
       updateDraft(kind === "profile"
         ? {
           profilePhotoName: result.photo.fileName,
+          profilePhotoPreviewUrl: previewUrl,
           profilePhotoUpload: result.photo,
         }
         : {
           familyPhotoName: result.photo.fileName,
+          familyPhotoPreviewUrl: previewUrl,
           familyPhotoUpload: result.photo,
         });
       setPhotoUploadState((current) => ({
@@ -1670,6 +1733,7 @@ export function UsamJoinClient() {
       workspaceName: generatedWorkspaceName(draft),
     };
     const persistedApplicationDraft = draftForPersistence(applicationDraft);
+    const applicationSubmitDraft = draftForSubmit(applicationDraft);
 
     if (applicationDraft.setupPath === "usam") {
       setIsSubmitting(true);
@@ -1678,7 +1742,7 @@ export function UsamJoinClient() {
       try {
         const response = await fetch("/api/join/submit", {
           body: JSON.stringify({
-            ...applicationDraft,
+            ...applicationSubmitDraft,
             selectedPath: "usam",
           }),
           headers: { "Content-Type": "application/json" },
@@ -2355,6 +2419,7 @@ export function UsamJoinClient() {
               label="Profile Photo"
               name={draft.profilePhotoName}
               onChange={(file) => uploadJoinPhoto("profile", file)}
+              previewUrl={draft.profilePhotoPreviewUrl}
               upload={draft.profilePhotoUpload}
             />
             <UploadPlaceholder
@@ -2364,11 +2429,12 @@ export function UsamJoinClient() {
               label="Family / Public Profile Photo"
               name={draft.familyPhotoName}
               onChange={(file) => uploadJoinPhoto("family", file)}
+              previewUrl={draft.familyPhotoPreviewUrl}
               upload={draft.familyPhotoUpload}
             />
           </div>
           <p className="mt-3.5 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-            Photos upload privately for application review. Nothing is published unless USA Missionaries approves and prepares your public profile.
+            Photos upload privately for application review. USA Missionaries will prepare the final public profile photo if your application is approved.
           </p>
         </SectionCard>
       );
