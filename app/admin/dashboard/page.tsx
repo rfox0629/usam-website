@@ -374,7 +374,7 @@ async function getDashboardData(): Promise<DashboardData> {
       created_at: inquiry.created_at,
       detail: inquiry.main_financial_burden || "Financial Freedom request",
       email: inquiry.email,
-      href: `/admin/support-team?type=financial_freedom`,
+      href: `/admin/support?type=financial_freedom`,
       id: inquiry.id,
       isNew: inquiry.status === "new",
       name: inquiry.full_name,
@@ -385,7 +385,7 @@ async function getDashboardData(): Promise<DashboardData> {
       created_at: inquiry.created_at,
       detail: getMajorGiftDetail(inquiry),
       email: inquiry.email,
-      href: `/admin/support-team?type=major_gift`,
+      href: `/admin/support?type=major_gift`,
       id: inquiry.id,
       isNew: inquiry.status === "new",
       name: getMajorGiftName(inquiry),
@@ -534,8 +534,8 @@ function QuickActionsBar() {
     { href: "/admin/organizations", label: "Organizations" },
     { href: usamOrganizationHubHref, label: "USA Missionaries" },
     { href: "/admin/missionary-profiles?tab=fruit", label: "Review Fruit" },
-    { href: "/admin/prayer-team", label: "Prayer Requests" },
-    { href: "/admin/support-team", label: "Support" },
+    { href: "/admin/prayer", label: "Prayer Requests" },
+    { href: "/admin/support", label: "Support" },
   ] as const;
 
   return (
@@ -702,7 +702,7 @@ function LatestInquiries({ inquiries }: { inquiries: DashboardInquiryItem[] }) {
   return (
     <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
       <SectionHeader
-        action={<ActionButton href="/admin/support-team">Open Queue</ActionButton>}
+        action={<ActionButton href="/admin/support">Open Queue</ActionButton>}
         eyebrow="Pending"
         title="Inquiries"
       />
@@ -785,8 +785,8 @@ export default async function AdminDashboardPage() {
   const metrics = [
     { detail: `${hasDataError ? "-" : formatMetric(data.publishedProfiles)} published`, href: usamWorkspacesHref, label: "Workspaces", value: hasDataError ? "-" : formatMetric(data.activeMissionaries) },
     { detail: "Field contacts", href: "/admin/missionary-profiles?tab=people", label: "People", value: hasDataError ? "-" : formatMetric(data.people) },
-    { detail: "This month", href: "/admin/support-team", label: "Support", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
-    { detail: `${hasDataError ? "-" : formatMetric(data.prayerPartners)} partners`, href: "/admin/prayer-team", label: "Prayer", value: hasDataError ? "-" : formatMetric(data.activePrayerRequests) },
+    { detail: "This month", href: "/admin/support", label: "Support", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
+    { detail: `${hasDataError ? "-" : formatMetric(data.prayerPartners)} partners`, href: "/admin/prayer", label: "Prayer", value: hasDataError ? "-" : formatMetric(data.activePrayerRequests) },
     { detail: "Quick Reviews", href: "/admin/missionary-profiles?tab=fruit", label: "Fruit Inbox", value: hasDataError ? "-" : formatMetric(data.pendingFruitReviews) },
   ] as const;
 
@@ -825,7 +825,7 @@ export default async function AdminDashboardPage() {
               title="Organization Layer"
             />
             <OperationalModule
-              actionHref="/admin/prayer-team"
+              actionHref="/admin/prayer"
               actionLabel="Open Prayer"
               details={[
                 { label: "Requests", value: hasDataError ? "-" : formatMetric(data.activePrayerRequests) },
@@ -836,7 +836,7 @@ export default async function AdminDashboardPage() {
               title="Prayer Coverage"
             />
             <OperationalModule
-              actionHref="/admin/support-team"
+              actionHref="/admin/support"
               actionLabel="Open Support"
               details={[
                 { label: "This Month", value: hasDataError ? "-" : formatMoney(data.supportThisMonth) },
@@ -881,7 +881,7 @@ export default async function AdminDashboardPage() {
               action="Open Support"
               count={data.newInquiries + data.newMajorGiftInquiries}
               description="Support follow-up."
-              href="/admin/support-team"
+              href="/admin/support"
               title="Inquiries"
             />
             <TaskModule

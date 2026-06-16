@@ -30,7 +30,7 @@ const uploadRows: AdminResourceControlRow[] = [
     url: "missionary-images",
   },
   {
-    actionHref: "/admin/support-team?type=financial_freedom",
+    actionHref: "/admin/support?type=financial_freedom",
     actionLabel: "View Requests",
     detail: "Financial Freedom inquiry attachments and supporting documents for admin review.",
     id: "financial-freedom-uploads",
@@ -60,7 +60,7 @@ const uploadRows: AdminResourceControlRow[] = [
     url: "form-documents",
   },
   {
-    actionHref: "/admin/public-experience?tab=pages",
+    actionHref: "/admin/public-experience?tab=website",
     actionLabel: "View Public Experience",
     detail: "Public site media and future content assets for page-level management.",
     id: "site-media",

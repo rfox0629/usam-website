@@ -57,14 +57,14 @@ async function getAdminClient() {
 }
 
 function redirectToSubmission(submissionId: string, suffix = "saved=1") {
-  redirect(`/admin/support-team?submission=${submissionId}&${suffix}`);
+  redirect(`/admin/support?submission=${submissionId}&${suffix}`);
 }
 
 export async function updateSupportSubmission(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/support-team?error=missing");
+    redirect("/admin/support?error=missing");
   }
 
   const supabase = await getAdminClient();
@@ -82,7 +82,7 @@ export async function updateSupportSubmission(formData: FormData) {
     redirectToSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/support-team");
+  revalidatePath("/admin/support");
   redirectToSubmission(submissionId);
 }
 
@@ -90,7 +90,7 @@ export async function markSupportSubmissionReviewed(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/support-team?error=missing");
+    redirect("/admin/support?error=missing");
   }
 
   const supabase = await getAdminClient();
@@ -103,7 +103,7 @@ export async function markSupportSubmissionReviewed(formData: FormData) {
     redirectToSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/support-team");
+  revalidatePath("/admin/support");
   redirectToSubmission(submissionId, "saved=reviewed");
 }
 
@@ -111,7 +111,7 @@ export async function markSupportSubmissionFollowUp(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/support-team?error=missing");
+    redirect("/admin/support?error=missing");
   }
 
   const supabase = await getAdminClient();
@@ -124,7 +124,7 @@ export async function markSupportSubmissionFollowUp(formData: FormData) {
     redirectToSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/support-team");
+  revalidatePath("/admin/support");
   redirectToSubmission(submissionId, "saved=follow-up");
 }
 
@@ -132,7 +132,7 @@ export async function archiveSupportSubmission(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/support-team?error=missing");
+    redirect("/admin/support?error=missing");
   }
 
   const supabase = await getAdminClient();
@@ -145,7 +145,7 @@ export async function archiveSupportSubmission(formData: FormData) {
     redirectToSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/support-team");
+  revalidatePath("/admin/support");
   redirectToSubmission(submissionId, "saved=archived");
 }
 
@@ -153,7 +153,7 @@ export async function markSupportSubmissionPersonalFollowUp(formData: FormData) 
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/support-team?error=missing");
+    redirect("/admin/support?error=missing");
   }
 
   const supabase = await getAdminClient();
@@ -167,7 +167,7 @@ export async function markSupportSubmissionPersonalFollowUp(formData: FormData) 
     redirectToSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/support-team");
+  revalidatePath("/admin/support");
   redirectToSubmission(submissionId, "saved=personal-follow-up");
 }
 
@@ -175,7 +175,7 @@ export async function createGivingFollowUp(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/support-team?error=missing");
+    redirect("/admin/support?error=missing");
   }
 
   const supabase = await getAdminClient();
@@ -189,7 +189,7 @@ export async function createGivingFollowUp(formData: FormData) {
     redirectToSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/support-team");
+  revalidatePath("/admin/support");
   redirectToSubmission(submissionId, "saved=giving-follow-up");
 }
 
@@ -197,7 +197,7 @@ export async function approveFieldReportAccessRequest(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/support-team?error=missing");
+    redirect("/admin/support?error=missing");
   }
 
   const supabase = await getAdminClient();
@@ -211,7 +211,7 @@ export async function approveFieldReportAccessRequest(formData: FormData) {
     redirectToSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/support-team");
+  revalidatePath("/admin/support");
   redirectToSubmission(submissionId, "saved=access-approved");
 }
 
@@ -219,7 +219,7 @@ export async function markSystemWaitlistContacted(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/support-team?error=missing");
+    redirect("/admin/support?error=missing");
   }
 
   const supabase = await getAdminClient();
@@ -233,6 +233,6 @@ export async function markSystemWaitlistContacted(formData: FormData) {
     redirectToSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/support-team");
+  revalidatePath("/admin/support");
   redirectToSubmission(submissionId, "saved=waitlist-contacted");
 }

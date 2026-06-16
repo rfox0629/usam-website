@@ -156,19 +156,19 @@ async function getPrayerAdminContext() {
 }
 
 function redirectToPrayerSubmission(submissionId: string, suffix = "saved=1") {
-  redirect(`/admin/prayer-team?tab=applications&submission=${submissionId}&${suffix}`);
+  redirect(`/admin/prayer?tab=applications&submission=${submissionId}&${suffix}`);
 }
 
 function redirectToPrayerRequest(requestId: string, suffix = "saved=1") {
-  redirect(`/admin/prayer-team?tab=requests&request=${requestId}&${suffix}`);
+  redirect(`/admin/prayer?tab=requests&request=${requestId}&${suffix}`);
 }
 
 function redirectToPrayerPartner(partnerId: string, suffix = "saved=1") {
-  redirect(`/admin/prayer-team?tab=partners&partner=${partnerId}&${suffix}`);
+  redirect(`/admin/prayer?tab=partners&partner=${partnerId}&${suffix}`);
 }
 
 function redirectToPrayerApplication(partnerId: string, suffix = "saved=1") {
-  redirect(`/admin/prayer-team?tab=applications&partner=${partnerId}&${suffix}`);
+  redirect(`/admin/prayer?tab=applications&partner=${partnerId}&${suffix}`);
 }
 
 function prayerPartnerDisplayName(partner: {
@@ -190,7 +190,7 @@ export async function createPrayerRequest(formData: FormData) {
   const request = getString(formData, "request") || getString(formData, "description");
 
   if (!title || !request) {
-    redirect("/admin/prayer-team?tab=requests&error=missing");
+    redirect("/admin/prayer?tab=requests&error=missing");
   }
 
   const normalizedHouseholdId = asNullableString(householdId);
@@ -218,11 +218,11 @@ export async function createPrayerRequest(formData: FormData) {
   // TODO: Future email/SMS/DOS integration can fan out approved prayer alerts
   // when kitchen table meetings are scheduled or missionary couples submit needs.
   if (error) {
-    redirect(`/admin/prayer-team?tab=requests&error=${encodeURIComponent(error.message)}`);
+    redirect(`/admin/prayer?tab=requests&error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
-  redirect("/admin/prayer-team?tab=requests&saved=created");
+  revalidatePath("/admin/prayer");
+  redirect("/admin/prayer?tab=requests&saved=created");
 }
 
 export async function updatePrayerRequest(formData: FormData) {
@@ -232,7 +232,7 @@ export async function updatePrayerRequest(formData: FormData) {
   const request = getString(formData, "request") || getString(formData, "description");
 
   if (!requestId || !title || !request) {
-    redirect("/admin/prayer-team?tab=requests&error=missing");
+    redirect("/admin/prayer?tab=requests&error=missing");
   }
 
   const normalizedHouseholdId = asNullableString(getString(formData, "related_household_id") || getString(formData, "household_id"));
@@ -257,11 +257,11 @@ export async function updatePrayerRequest(formData: FormData) {
     .eq("id", requestId);
 
   if (error) {
-    redirect(`/admin/prayer-team?tab=requests&request=${requestId}&error=${encodeURIComponent(error.message)}`);
+    redirect(`/admin/prayer?tab=requests&request=${requestId}&error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
-  redirect(`/admin/prayer-team?tab=requests&request=${requestId}&saved=updated`);
+  revalidatePath("/admin/prayer");
+  redirect(`/admin/prayer?tab=requests&request=${requestId}&saved=updated`);
 }
 
 export async function assignPrayerRequestPartners(formData: FormData) {
@@ -269,7 +269,7 @@ export async function assignPrayerRequestPartners(formData: FormData) {
   const requestId = getString(formData, "request_id");
 
   if (!requestId) {
-    redirect("/admin/prayer-team?tab=requests&error=missing");
+    redirect("/admin/prayer?tab=requests&error=missing");
   }
 
   const { error } = await supabase
@@ -284,7 +284,7 @@ export async function assignPrayerRequestPartners(formData: FormData) {
     redirectToPrayerRequest(requestId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerRequest(requestId, "saved=assigned");
 }
 
@@ -293,7 +293,7 @@ export async function markPrayerRequestPrayed(formData: FormData) {
   const requestId = getString(formData, "request_id");
 
   if (!requestId) {
-    redirect("/admin/prayer-team?tab=requests&error=missing");
+    redirect("/admin/prayer?tab=requests&error=missing");
   }
 
   const { data, error: readError } = await supabase
@@ -322,7 +322,7 @@ export async function markPrayerRequestPrayed(formData: FormData) {
     redirectToPrayerRequest(requestId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerRequest(requestId, "saved=prayed");
 }
 
@@ -331,7 +331,7 @@ export async function markPrayerRequestCovered(formData: FormData) {
   const requestId = getString(formData, "request_id");
 
   if (!requestId) {
-    redirect("/admin/prayer-team?tab=requests&error=missing");
+    redirect("/admin/prayer?tab=requests&error=missing");
   }
 
   const { error } = await supabase
@@ -346,7 +346,7 @@ export async function markPrayerRequestCovered(formData: FormData) {
     redirectToPrayerRequest(requestId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerRequest(requestId, "saved=covered");
 }
 
@@ -355,7 +355,7 @@ export async function markPrayerRequestAnswered(formData: FormData) {
   const requestId = getString(formData, "request_id");
 
   if (!requestId) {
-    redirect("/admin/prayer-team?tab=requests&error=missing");
+    redirect("/admin/prayer?tab=requests&error=missing");
   }
 
   const { error } = await supabase
@@ -370,7 +370,7 @@ export async function markPrayerRequestAnswered(formData: FormData) {
     redirectToPrayerRequest(requestId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerRequest(requestId, "saved=answered");
 }
 
@@ -379,7 +379,7 @@ export async function archivePrayerRequest(formData: FormData) {
   const requestId = getString(formData, "request_id");
 
   if (!requestId) {
-    redirect("/admin/prayer-team?tab=requests&error=missing");
+    redirect("/admin/prayer?tab=requests&error=missing");
   }
 
   const { error } = await supabase
@@ -388,10 +388,10 @@ export async function archivePrayerRequest(formData: FormData) {
     .eq("id", requestId);
 
   if (error) {
-    redirect(`/admin/prayer-team?tab=requests&request=${requestId}&error=${encodeURIComponent(error.message)}`);
+    redirect(`/admin/prayer?tab=requests&request=${requestId}&error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerRequest(requestId, "saved=archived");
 }
 
@@ -400,7 +400,7 @@ export async function updatePrayerSubmission(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/prayer-team?tab=applications&error=missing");
+    redirect("/admin/prayer?tab=applications&error=missing");
   }
 
   const { error } = await supabase
@@ -416,7 +416,7 @@ export async function updatePrayerSubmission(formData: FormData) {
     redirectToPrayerSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerSubmission(submissionId);
 }
 
@@ -425,7 +425,7 @@ export async function markPrayerSubmissionReviewed(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/prayer-team?tab=applications&error=missing");
+    redirect("/admin/prayer?tab=applications&error=missing");
   }
 
   const { error } = await supabase
@@ -437,7 +437,7 @@ export async function markPrayerSubmissionReviewed(formData: FormData) {
     redirectToPrayerSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerSubmission(submissionId, "saved=reviewed");
 }
 
@@ -446,7 +446,7 @@ export async function markPrayerSubmissionNeedsFollowUp(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/prayer-team?tab=applications&error=missing");
+    redirect("/admin/prayer?tab=applications&error=missing");
   }
 
   const { error } = await supabase
@@ -458,7 +458,7 @@ export async function markPrayerSubmissionNeedsFollowUp(formData: FormData) {
     redirectToPrayerSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerSubmission(submissionId, "saved=needs-follow-up");
 }
 
@@ -467,7 +467,7 @@ export async function declinePrayerTeamApplication(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/prayer-team?tab=applications&error=missing");
+    redirect("/admin/prayer?tab=applications&error=missing");
   }
 
   const { error } = await supabase
@@ -479,7 +479,7 @@ export async function declinePrayerTeamApplication(formData: FormData) {
     redirectToPrayerSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerSubmission(submissionId, "saved=declined");
 }
 
@@ -488,7 +488,7 @@ export async function archivePrayerSubmission(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/prayer-team?tab=applications&error=missing");
+    redirect("/admin/prayer?tab=applications&error=missing");
   }
 
   const { error } = await supabase
@@ -500,7 +500,7 @@ export async function archivePrayerSubmission(formData: FormData) {
     redirectToPrayerSubmission(submissionId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerSubmission(submissionId, "saved=archived");
 }
 
@@ -509,7 +509,7 @@ export async function approvePrayerTeamApplication(formData: FormData) {
   const submissionId = getString(formData, "submission_id");
 
   if (!submissionId) {
-    redirect("/admin/prayer-team?tab=applications&error=missing");
+    redirect("/admin/prayer?tab=applications&error=missing");
   }
 
   const { data, error } = await supabase
@@ -598,7 +598,7 @@ export async function approvePrayerTeamApplication(formData: FormData) {
     redirectToPrayerSubmission(submissionId, `error=${encodeURIComponent(updateResult.error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerSubmission(submissionId, "saved=converted");
 }
 
@@ -607,7 +607,7 @@ export async function approvePrayerPartnerApplication(formData: FormData) {
   const partnerId = getString(formData, "partner_id");
 
   if (!partnerId) {
-    redirect("/admin/prayer-team?tab=applications&error=missing");
+    redirect("/admin/prayer?tab=applications&error=missing");
   }
 
   const { data, error } = await supabase
@@ -683,9 +683,9 @@ export async function approvePrayerPartnerApplication(formData: FormData) {
     }
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   revalidatePath("/admin/missionary-profiles");
-  redirect(`/admin/prayer-team?tab=partners&partner=${partnerId}&saved=approved`);
+  redirect(`/admin/prayer?tab=partners&partner=${partnerId}&saved=approved`);
 }
 
 export async function declinePrayerPartnerApplication(formData: FormData) {
@@ -693,7 +693,7 @@ export async function declinePrayerPartnerApplication(formData: FormData) {
   const partnerId = getString(formData, "partner_id");
 
   if (!partnerId) {
-    redirect("/admin/prayer-team?tab=applications&error=missing");
+    redirect("/admin/prayer?tab=applications&error=missing");
   }
 
   const { data, error: readError } = await supabase
@@ -742,7 +742,7 @@ export async function declinePrayerPartnerApplication(formData: FormData) {
     }
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   revalidatePath("/admin/missionary-profiles");
   redirectToPrayerApplication(partnerId, "saved=declined");
 }
@@ -752,7 +752,7 @@ export async function updatePrayerPartner(formData: FormData) {
   const partnerId = getString(formData, "partner_id");
 
   if (!partnerId) {
-    redirect("/admin/prayer-team?tab=partners&error=missing");
+    redirect("/admin/prayer?tab=partners&error=missing");
   }
 
   let assignedCoverage: Record<string, unknown> = {};
@@ -779,7 +779,7 @@ export async function updatePrayerPartner(formData: FormData) {
     redirectToPrayerPartner(partnerId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerPartner(partnerId);
 }
 
@@ -788,7 +788,7 @@ export async function deactivatePrayerPartner(formData: FormData) {
   const partnerId = getString(formData, "partner_id");
 
   if (!partnerId) {
-    redirect("/admin/prayer-team?tab=partners&error=missing");
+    redirect("/admin/prayer?tab=partners&error=missing");
   }
 
   const { error } = await supabase
@@ -800,6 +800,6 @@ export async function deactivatePrayerPartner(formData: FormData) {
     redirectToPrayerPartner(partnerId, `error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/prayer-team");
+  revalidatePath("/admin/prayer");
   redirectToPrayerPartner(partnerId, "saved=deactivated");
 }

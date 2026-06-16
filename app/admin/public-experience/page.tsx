@@ -6,7 +6,6 @@ import {
   type PublicExperienceTab,
   type PublicFormRow,
   type PublicPageRow,
-  type RoutingRuleRow,
 } from "./PublicExperienceControl";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -27,242 +26,162 @@ type SearchParams = {
 type SubmissionSummary = {
   created_at: string;
   form_type: string;
+  status: string | null;
 };
 
 const publicPages: PublicPageRow[] = [
   {
     id: "home",
-    lastUpdated: "Static",
-    manageHref: "/admin/public-experience?tab=pages",
     owner: "Public Site",
     pageName: "Home",
+    route: "/",
     status: "Live",
-    url: "/",
   },
   {
     id: "mission",
-    lastUpdated: "Static",
-    manageHref: "/admin/public-experience?tab=forms",
     owner: "Public Site",
     pageName: "Mission",
+    route: "/mission",
     status: "Live",
-    url: "/mission",
   },
   {
     id: "missionaries",
-    lastUpdated: "Live Data",
-    manageHref: "/admin/organizations/usa-missionaries?tab=approved-profiles",
     owner: "USA Missionaries",
     pageName: "Missionaries",
+    route: "/missionaries",
     status: "Live",
-    url: "/missionaries",
   },
   {
     id: "prayer",
-    lastUpdated: "Static",
-    manageHref: "/admin/prayer-team",
     owner: "Prayer Team",
     pageName: "Prayer",
+    route: "/prayer",
     status: "Live",
-    url: "/prayer",
   },
   {
     id: "support",
-    lastUpdated: "Static",
-    manageHref: "/admin/support-team",
     owner: "Support Team",
     pageName: "Support",
+    route: "/support",
     status: "Live",
-    url: "/support",
   },
   {
     id: "system",
-    lastUpdated: "Static",
-    manageHref: "/admin/settings",
     owner: "System/Auth",
     pageName: "System",
-    status: "Live",
-    url: "/system",
+    route: "/system",
+    status: "Protected",
   },
   {
     id: "financial-freedom",
-    lastUpdated: "Live Data",
-    manageHref: "/admin/support-team?type=financial_freedom",
     owner: "Support Team",
     pageName: "Financial Freedom",
+    route: "/financialfreedom",
     status: "Live",
-    url: "/financialfreedom",
   },
 ];
 
 const publicFormsBase = [
   {
-    appearsOn: "/prayer",
     formName: "Prayer Team Application",
     formType: "prayer_team_application",
-    previewHref: "/prayer?previewForm=prayer_team_application",
-    routesTo: "Prayer Team",
-    status: "Live",
-    submissionsHref: "/admin/prayer-team?tab=applications",
+    inboxHref: "/admin/prayer?tab=applications",
+    ownerInbox: "Prayer",
+    publicRoute: "/prayer/join",
   },
   {
-    appearsOn: "/support",
+    formName: "Prayer Request",
+    formType: "prayer_request",
+    inboxHref: "/admin/prayer?tab=requests",
+    ownerInbox: "Prayer",
+    publicRoute: "/prayer",
+  },
+  {
     formName: "Support / Giving Commitment",
     formType: "support_giving",
-    previewHref: "/support?previewForm=support_giving",
-    routesTo: "Support Team",
-    status: "Live",
-    submissionsHref: "/admin/support-team?type=support_giving",
+    inboxHref: "/admin/support?type=support_giving",
+    ownerInbox: "Support",
+    publicRoute: "/support",
   },
   {
-    appearsOn: "/",
     formName: "Join the Mission Interest",
     formType: "join_mission_interest",
-    previewHref: "/?previewForm=join_mission_interest",
-    routesTo: "Support Team",
-    status: "Live",
-    submissionsHref: "/admin/support-team?type=join_mission_interest",
+    inboxHref: "/admin/applications",
+    ownerInbox: "Applications",
+    publicRoute: "/join",
   },
   {
-    appearsOn: "/missionaries/[slug]",
     formName: "Major Gift Inquiry",
     formType: "major_gift",
-    previewHref: "/missionaries/ryan-brooke-fox?previewForm=major_gift",
-    routesTo: "Support Team",
-    status: "Live",
-    submissionsHref: "/admin/support-team?type=major_gift",
+    inboxHref: "/admin/support?type=major_gift",
+    ownerInbox: "Support",
+    publicRoute: "/missionaries/[slug]",
   },
   {
-    appearsOn: "/missionaries/[slug]",
     formName: "Missionary Profile Review",
     formType: "missionary_profile_review",
-    previewHref: "/missionaries/ryan-brooke-fox?previewForm=missionary_profile_review",
-    routesTo: "Profile Admin / Support Team",
-    status: "Live",
-    submissionsHref: "/admin/support-team?type=missionary_profile_review",
+    inboxHref: "/admin/profiles",
+    ownerInbox: "Profiles",
+    publicRoute: "/missionaries/[slug]",
   },
   {
-    appearsOn: "/financialfreedom",
     formName: "Financial Freedom Request",
     formType: "financial_freedom",
-    previewHref: "/financialfreedom",
-    routesTo: "Support Team",
-    status: "Live",
-    submissionsHref: "/admin/support-team?type=financial_freedom",
+    inboxHref: "/admin/finance",
+    ownerInbox: "Finance",
+    publicRoute: "/financialfreedom",
   },
   {
-    appearsOn: "/mission",
     formName: "Field Reports Access",
     formType: "field_report_access",
-    previewHref: "/mission?previewForm=field_report_access",
-    routesTo: "Support Team",
-    status: "Live",
-    submissionsHref: "/admin/support-team?type=field_report_access",
+    inboxHref: "/admin/support?type=field_report_access",
+    ownerInbox: "Support",
+    publicRoute: "/mission",
   },
   {
-    appearsOn: "/system",
     formName: "System Waitlist",
     formType: "system_waitlist",
-    previewHref: "/system?previewForm=system_waitlist",
-    routesTo: "Support Team",
-    status: "Live",
-    submissionsHref: "/admin/support-team?type=system_waitlist",
+    inboxHref: "/admin/support?type=system_waitlist",
+    ownerInbox: "Support",
+    publicRoute: "/system",
   },
   {
-    appearsOn: "/system/preview",
     formName: "DOS Walkthrough Request",
     formType: "dos_walkthrough_request",
-    previewHref: "/system/preview?previewForm=dos_walkthrough_request",
-    routesTo: "Support Team",
-    status: "Live",
-    submissionsHref: "/admin/support-team?type=dos_walkthrough_request",
+    inboxHref: "/admin/support?type=dos_walkthrough_request",
+    ownerInbox: "Support",
+    publicRoute: "/system/preview",
   },
-] satisfies Array<Omit<PublicFormRow, "lastSubmission" | "submissions">>;
+  {
+    formName: "USA Missionary Application",
+    formType: "missionary_application",
+    inboxHref: "/admin/applications",
+    ownerInbox: "Applications",
+    publicRoute: "/join/usam",
+  },
+] satisfies Array<Omit<PublicFormRow, "lastSubmission" | "newPending" | "submissions">>;
 
 const accessGates: AccessGateRow[] = [
   {
-    accessType: "System/Auth",
-    editHref: "/admin/settings",
+    actionHref: "/admin/settings",
+    actionLabel: "Manage",
     gateName: "System Access Code",
-    managedIn: "Admin Settings",
-    status: "Live",
-    url: "/system",
-    viewHref: "/system?previewForm=system_access_code",
+    route: "/system",
+    status: "Protected",
   },
   {
-    accessType: "System/Auth",
-    editHref: "/admin/settings",
+    actionHref: "/admin/settings",
+    actionLabel: "Manage",
     gateName: "Team Access Code",
-    managedIn: "Admin Settings",
-    status: "Live",
-    url: "/support",
-    viewHref: "/support?previewForm=team_access_code",
+    route: "/support → /missionaries",
+    status: "Protected",
   },
   {
-    accessType: "Protected Page",
-    editHref: "/admin/settings",
-    gateName: "DOS Preview",
-    managedIn: "Admin Settings",
-    status: "Live",
-    url: "/system/preview",
-    viewHref: "/system/preview",
-  },
-];
-
-const routingRules: RoutingRuleRow[] = [
-  {
-    description: "Prayer team applications are reviewed inside the Prayer Team operations hub before becoming prayer partners.",
-    destination: "Prayer Team",
-    id: "prayer_team_application",
-    source: "prayer_team_application",
-  },
-  {
-    description: "Prayer request intake belongs to Prayer Team coverage and future alert workflows.",
-    destination: "Prayer Team",
-    id: "prayer_request",
-    source: "prayer_request",
-  },
-  {
-    description: "Giving interest and donor intent submissions are reviewed by Support Team.",
-    destination: "Support Team",
-    id: "support_giving",
-    source: "support_giving",
-  },
-  {
-    description: "Major gift conversations are personal support-team follow-up items.",
-    destination: "Support Team",
-    id: "major_gift",
-    source: "major_gift",
-  },
-  {
-    description: "Join the Mission interest forms route to Support Team for first follow-up and next steps.",
-    destination: "Support Team",
-    id: "join_mission_interest",
-    source: "join_mission_interest",
-  },
-  {
-    description: "Missionary profile reviews appear in the support inbox now and can later feed profile admin encounter workflows.",
-    destination: "Profile Admin / Support Team",
-    id: "missionary_profile_review",
-    source: "missionary_profile_review",
-  },
-  {
-    description: "System waitlist requests are non-prayer public form submissions handled by Support Team.",
-    destination: "Support Team",
-    id: "system_waitlist",
-    source: "system_waitlist",
-  },
-  {
-    description: "DOS walkthrough requests from the protected preview page route to Support Team for scheduling follow-up.",
-    destination: "Support Team",
-    id: "dos_walkthrough_request",
-    source: "dos_walkthrough_request",
-  },
-  {
-    description: "Access-code attempts validate against the centralized System Access Codes table and are not routed to team inboxes.",
-    destination: "System/Auth",
-    id: "access_codes",
-    source: "access codes",
+    actionHref: "/admin/settings",
+    actionLabel: "Manage",
+    gateName: "DOS Access",
+    route: "/system/preview",
+    status: "Protected",
   },
 ];
 
@@ -285,7 +204,30 @@ function formatDate(value?: string) {
 }
 
 function normalizeTab(value?: string): PublicExperienceTab {
-  return value === "forms" || value === "access" || value === "routing" ? value : "pages";
+  if (value === "forms" || value === "access") {
+    return value;
+  }
+
+  return "website";
+}
+
+function activeNavKey(tab: PublicExperienceTab) {
+  if (tab === "forms") {
+    return "forms-pages";
+  }
+
+  if (tab === "access") {
+    return "access";
+  }
+
+  return "public-experience";
+}
+
+function isNewOrPending(status: string | null) {
+  return status === "new"
+    || status === "needs_follow_up"
+    || status === "follow_up"
+    || status === "pending_review";
 }
 
 async function loadSubmissionSummaries() {
@@ -299,7 +241,7 @@ async function loadSubmissionSummaries() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("form_submissions")
-    .select("form_type, created_at")
+    .select("form_type, status, created_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -321,13 +263,15 @@ export default async function PublicExperiencePage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
+  const activeTab = normalizeTab(params.tab);
   const { error, summaries } = await loadSubmissionSummaries();
-  const statsByType = new Map<string, { lastSubmission?: string; total: number }>();
+  const statsByType = new Map<string, { lastSubmission?: string; newPending: number; total: number }>();
 
   for (const summary of summaries) {
-    const current = statsByType.get(summary.form_type) ?? { total: 0 };
+    const current = statsByType.get(summary.form_type) ?? { newPending: 0, total: 0 };
     statsByType.set(summary.form_type, {
       lastSubmission: current.lastSubmission ?? summary.created_at,
+      newPending: current.newPending + (isNewOrPending(summary.status) ? 1 : 0),
       total: current.total + 1,
     });
   }
@@ -338,13 +282,15 @@ export default async function PublicExperiencePage({
     return {
       ...form,
       lastSubmission: formatDate(stats?.lastSubmission),
+      newPending: stats?.newPending ?? 0,
       submissions: stats?.total ?? 0,
     };
   });
 
   return (
     <AdminShell
-      active="public-experience"
+      active={activeNavKey(activeTab)}
+      description="Track public routes, intake forms, and protected access points. Operations follow-up lives in the inboxes."
       title="Public Experience"
     >
       <div className="space-y-4">
@@ -357,9 +303,8 @@ export default async function PublicExperiencePage({
         <PublicExperienceControl
           accessGates={accessGates}
           forms={formRows}
-          initialTab={normalizeTab(params.tab)}
+          initialTab={activeTab}
           pages={publicPages}
-          routingRules={routingRules}
         />
       </div>
     </AdminShell>

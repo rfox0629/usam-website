@@ -477,7 +477,7 @@ function TabNav({ activeTab }: { activeTab: PrayerAdminTab }) {
               ? "border-[#D4A63D] bg-[#D4A63D] text-black"
               : "border-stone-800 bg-[#090909] text-stone-300 hover:border-stone-600 hover:bg-stone-900/80 hover:text-stone-100"
           }`}
-          href={`/admin/prayer-team?tab=${tab.key}`}
+          href={`/admin/prayer?tab=${tab.key}`}
           key={tab.key}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         >
@@ -739,19 +739,45 @@ function SummaryCards({
   partners: readonly PrayerPartnerRow[];
   requests: readonly PrayerRequestRow[];
 }) {
-  const pendingApplications = partners.filter((partner) => partner.status === "pending").length;
-  const activePartners = partners.filter((partner) => partner.status === "active").length;
-  const openRequests = requests.filter(isOpenRequest).length;
+  const newItems = partners.filter((partner) => partner.status === "pending").length;
+  const pendingItems = requests.filter(isOpenRequest).length;
   const coverageGaps = requests.filter(isNeedsCoverage).length;
+  const completedItems = requests.filter((request) => request.status === "covered" || request.status === "answered").length;
   void households;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <MetricCard label="Pending Applications" tone={pendingApplications > 0 ? "amber" : "green"} value={pendingApplications} />
-      <MetricCard label="Active Partners" tone="green" value={activePartners} />
-      <MetricCard label="Open Requests" value={openRequests} />
-      <MetricCard label="Coverage Gaps" tone={coverageGaps > 0 ? "amber" : "green"} value={coverageGaps} />
+      <MetricCard label="New" tone={newItems > 0 ? "amber" : "green"} value={newItems} />
+      <MetricCard label="Pending" value={pendingItems} />
+      <MetricCard label="Follow Up" tone={coverageGaps > 0 ? "amber" : "green"} value={coverageGaps} />
+      <MetricCard label="Completed" tone="green" value={completedItems} />
     </div>
+  );
+}
+
+function SourceForms() {
+  const sources = [
+    { href: "/prayer", label: "Prayer Request" },
+    { href: "/prayer/join", label: "Prayer Team Application" },
+  ];
+
+  return (
+    <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        Source Forms
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {sources.map((source) => (
+          <Link
+            className="inline-flex min-h-8 items-center rounded-full border border-stone-700 px-3 text-xs text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            href={source.href}
+            key={source.label}
+          >
+            {source.label}
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -782,13 +808,13 @@ function OverviewTab({
             </p>
             <h2 className="mt-1 text-xl font-semibold text-stone-100">Pending review</h2>
           </div>
-          <Link className={secondaryButtonClassName} href="/admin/prayer-team?tab=applications" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <Link className={secondaryButtonClassName} href="/admin/prayer?tab=applications" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Review All
           </Link>
         </div>
         <div className="mt-4 grid gap-2">
           {pendingApplications.length > 0 ? pendingApplications.map((partner) => (
-            <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-[#D4A63D]/55" href={`/admin/prayer-team?tab=applications&partner=${partner.id}`} key={partner.id}>
+            <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-[#D4A63D]/55" href={`/admin/prayer?tab=applications&partner=${partner.id}`} key={partner.id}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-stone-100">{partnerName(partner)}</p>
@@ -814,13 +840,13 @@ function OverviewTab({
                 {requests.filter(isOpenRequest).length}
               </p>
             </div>
-            <Link className={secondaryButtonClassName} href="/admin/prayer-team?tab=requests" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <Link className={secondaryButtonClassName} href="/admin/prayer?tab=requests" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Open
             </Link>
           </div>
           <div className="mt-4 grid gap-2">
             {openRequests.length > 0 ? openRequests.map((request) => (
-              <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-[#D4A63D]/55" href={`/admin/prayer-team?tab=requests&request=${request.id}`} key={request.id}>
+              <Link className="rounded-lg border border-stone-800 bg-black/30 p-3 transition-colors hover:border-[#D4A63D]/55" href={`/admin/prayer?tab=requests&request=${request.id}`} key={request.id}>
                 <p className="truncate text-sm font-semibold text-stone-100">{request.title}</p>
                 <p className="mt-0.5 line-clamp-1 text-xs text-stone-500">{requestText(request)}</p>
               </Link>
@@ -838,7 +864,7 @@ function OverviewTab({
               </p>
               <p className="mt-1 text-sm text-stone-400">{regionsActive} active region{regionsActive === 1 ? "" : "s"}</p>
             </div>
-            <Link className={secondaryButtonClassName} href="/admin/prayer-team?tab=partners" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            <Link className={secondaryButtonClassName} href="/admin/prayer?tab=partners" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               Partners
             </Link>
           </div>
@@ -957,7 +983,7 @@ function RequestsTab({
 
   return (
     <div className="space-y-5">
-      <form className="grid min-w-0 gap-3 rounded-xl border border-stone-800/75 bg-[#080808]/90 p-3 lg:grid-cols-[minmax(260px,1fr)_auto_auto] lg:items-start" action="/admin/prayer-team" method="get">
+      <form className="grid min-w-0 gap-3 rounded-xl border border-stone-800/75 bg-[#080808]/90 p-3 lg:grid-cols-[minmax(260px,1fr)_auto_auto] lg:items-start" action="/admin/prayer" method="get">
         <input name="tab" type="hidden" value="requests" />
         <input className={toolbarInputClassName} defaultValue={params.q ?? ""} name="q" placeholder="Search requests" />
         <details className="rounded-lg border border-stone-800 bg-[#050505] px-3 py-2">
@@ -1005,7 +1031,7 @@ function RequestsTab({
                   ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
                   : "border-stone-800/75 bg-[#080808]/90"
               }`}
-              href={`/admin/prayer-team?tab=requests&request=${request.id}`}
+              href={`/admin/prayer?tab=requests&request=${request.id}`}
               key={request.id}
             >
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.1fr)_minmax(0,1fr)_auto] lg:items-center">
@@ -1070,7 +1096,7 @@ function RequestDetailDrawer({
           <Badge tone="amber">{request.category || "General"}</Badge>
         </>
       )}
-      closeHref="/admin/prayer-team?tab=requests"
+      closeHref="/admin/prayer?tab=requests"
       eyebrow="Prayer Request"
       title={request.title}
     >
@@ -1194,7 +1220,7 @@ function PartnersTab({
 
   return (
     <div className="space-y-5">
-      <form className="grid min-w-0 gap-3 rounded-xl border border-stone-800/75 bg-[#080808]/90 p-3 lg:grid-cols-[minmax(260px,1fr)_auto_auto] lg:items-start" action="/admin/prayer-team" method="get">
+      <form className="grid min-w-0 gap-3 rounded-xl border border-stone-800/75 bg-[#080808]/90 p-3 lg:grid-cols-[minmax(260px,1fr)_auto_auto] lg:items-start" action="/admin/prayer" method="get">
         <input name="tab" type="hidden" value="partners" />
         <input className={toolbarInputClassName} defaultValue={params.q ?? ""} name="q" placeholder="Search partners" />
         <details className="rounded-lg border border-stone-800 bg-[#050505] px-3 py-2">
@@ -1231,7 +1257,7 @@ function PartnersTab({
                 ? "border-[#D4A63D]/55 bg-[#C9A24A]/[0.07]"
                 : "border-stone-800/75 bg-[#080808]/90"
             }`}
-            href={`/admin/prayer-team?tab=partners&partner=${partner.id}`}
+            href={`/admin/prayer?tab=partners&partner=${partner.id}`}
             key={partner.id}
           >
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.35fr)_minmax(0,1fr)_auto] lg:items-center">
@@ -1290,7 +1316,7 @@ function PartnerDetailDrawer({
           {partner.sms_alerts ? <Badge tone="green">SMS Alerts</Badge> : null}
         </>
       )}
-      closeHref="/admin/prayer-team?tab=partners"
+      closeHref="/admin/prayer?tab=partners"
       eyebrow="Prayer Partner"
       title={partnerName(partner)}
     >
@@ -1341,7 +1367,7 @@ function PartnerDetailDrawer({
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <ActionForm action={deactivatePrayerPartner} fieldName="partner_id" id={partner.id} tone="red">Deactivate</ActionForm>
-        <Link className={secondaryButtonClassName} href={`/admin/prayer-team?tab=requests&partner=${partner.id}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        <Link className={secondaryButtonClassName} href={`/admin/prayer?tab=requests&partner=${partner.id}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
           View Assigned Requests
         </Link>
       </div>
@@ -1364,7 +1390,7 @@ function ApplicationsTab({
 
   return (
     <div className="space-y-5">
-      <form className="grid min-w-0 gap-3 rounded-xl border border-stone-800/75 bg-[#080808]/90 p-3 lg:grid-cols-[minmax(260px,1fr)_auto]" action="/admin/prayer-team" method="get">
+      <form className="grid min-w-0 gap-3 rounded-xl border border-stone-800/75 bg-[#080808]/90 p-3 lg:grid-cols-[minmax(260px,1fr)_auto]" action="/admin/prayer" method="get">
         <input name="tab" type="hidden" value="applications" />
         <input className={toolbarInputClassName} defaultValue={params.q ?? ""} name="q" placeholder="Search applications" />
         <button className={primaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
@@ -1399,7 +1425,7 @@ function ApplicationsTab({
                 <MetaItem label="Submitted" value={formatDate(application.created_at)} />
               </div>
               <div className="flex flex-wrap gap-2 lg:justify-end">
-                <Link className={secondaryButtonClassName} href={`/admin/prayer-team?tab=applications&partner=${application.id}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                <Link className={secondaryButtonClassName} href={`/admin/prayer?tab=applications&partner=${application.id}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                   Manage
                 </Link>
                 <ActionForm action={approvePrayerPartnerApplication} fieldName="partner_id" id={application.id} tone="green">Approve</ActionForm>
@@ -1432,7 +1458,7 @@ function ApplicationDetailDrawer({ application }: { application: PrayerPartnerRo
           <Badge tone="amber">Application</Badge>
         </>
       )}
-      closeHref="/admin/prayer-team?tab=applications"
+      closeHref="/admin/prayer?tab=applications"
       eyebrow="Prayer Application"
       title={partnerName(application)}
     >
@@ -1562,7 +1588,7 @@ function CoverageBoardTab({
                 <MetaItem label="Last Prayed" value={formatDate(lastPrayed)} />
               </div>
               <MetaItem label="Assigned Partners" value={assignedPartners.length > 0 ? assignedPartners.map(partnerName).join(", ") : "Unassigned"} />
-              <Link className={secondaryButtonClassName} href={`/admin/prayer-team?tab=requests&q=${encodeURIComponent(row)}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              <Link className={secondaryButtonClassName} href={`/admin/prayer?tab=requests&q=${encodeURIComponent(row)}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                 View Requests
               </Link>
             </div>
@@ -1628,8 +1654,8 @@ function RegionsTab({
               </div>
               <MetaItem label="Last Prayed" value={formatDate(lastPrayed)} />
               <div className="flex flex-wrap gap-2 lg:justify-end">
-                <Link className={secondaryButtonClassName} href="/admin/prayer-team?tab=partners" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Partners</Link>
-                <Link className={secondaryButtonClassName} href={`/admin/prayer-team?tab=requests&q=${encodeURIComponent(label)}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Requests</Link>
+                <Link className={secondaryButtonClassName} href="/admin/prayer?tab=partners" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Partners</Link>
+                <Link className={secondaryButtonClassName} href={`/admin/prayer?tab=requests&q=${encodeURIComponent(label)}`} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Requests</Link>
               </div>
             </div>
           </div>
@@ -1710,7 +1736,8 @@ export default async function PrayerTeamAdminPage({
   return (
     <AdminShell
       active="prayer"
-      title="Prayer Team"
+      description="Review prayer requests and prayer team applications before coverage and follow-up."
+      title="Prayer"
     >
       <div className="space-y-5">
         {!canManagePrayer ? (
@@ -1725,6 +1752,7 @@ export default async function PrayerTeamAdminPage({
             {params.saved ? <SystemNotice title="Prayer Team changes saved." tone="success" /> : null}
             {params.error ? <SystemNotice detail={params.error} title="Prayer Team action could not be completed." /> : null}
 
+            <SourceForms />
             <SummaryCards households={data.households} partners={data.partners} requests={data.requests} />
             <TabNav activeTab={activeTab} />
 

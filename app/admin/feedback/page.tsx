@@ -3,11 +3,11 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Support Inbox | USA Missionaries",
+  title: "Feedback Inbox | Command Center",
   robots: {
     follow: false,
     index: false,
   },
 };
 
-export { default } from "../support-team/page";
+export { default } from "../product-feedback/page";

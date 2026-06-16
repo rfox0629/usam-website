@@ -8716,7 +8716,7 @@ function TeamMemberManager({
                 </div>
                 <a
                   className={`${lightSecondaryButtonClass} min-h-8`}
-                  href={`/admin/prayer-team?tab=applications&partner=${partner.id}`}
+                  href={`/admin/prayer?tab=applications&partner=${partner.id}`}
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   target="_blank"
                   rel="noopener noreferrer"

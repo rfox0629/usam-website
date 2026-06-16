@@ -1,6 +1,23 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Activity, Building2, Globe, Heart, MessageSquare, Network, Settings, ShieldCheck, Upload, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  Building2,
+  ClipboardList,
+  FileText,
+  Globe,
+  HandHeart,
+  Heart,
+  IdCard,
+  KeyRound,
+  Landmark,
+  MessageSquare,
+  Network,
+  Settings,
+  Upload,
+  UsersRound,
+  type LucideIcon,
+} from "lucide-react";
 import { adminFont } from "./AdminUI";
 import { RolePreviewSelect } from "./RolePreviewSelect";
 
@@ -10,12 +27,28 @@ const adminNavGroups = [
       { activeKey: "dashboard", href: "/admin", icon: Activity, label: "Command Center" },
       { activeKey: "organizations", href: "/admin/organizations", icon: Building2, label: "Organizations" },
       { activeKey: "relationship-intelligence", href: "/admin/relationship-intelligence", icon: Network, label: "Circle Engine" },
-      { activeKey: "public-experience", href: "/admin/public-experience", icon: Globe, label: "Public Experience" },
-      { activeKey: "prayer", href: "/admin/prayer-team", icon: Heart, label: "Prayer Team" },
-      { activeKey: "support-team", href: "/admin/support-team", icon: ShieldCheck, label: "Support Team" },
-      { activeKey: "product-feedback", href: "/admin/product-feedback", icon: MessageSquare, label: "Product Feedback" },
     ],
     title: "Main",
+  },
+  {
+    items: [
+      { activeKey: "public-experience", href: "/admin/public-experience?tab=website", icon: Globe, label: "Website" },
+      { activeKey: "forms-pages", href: "/admin/forms", icon: FileText, label: "Forms" },
+      { activeKey: "access", href: "/admin/public-experience?tab=access", icon: KeyRound, label: "Access" },
+    ],
+    title: "Public Experience",
+  },
+  {
+    items: [
+      { activeKey: "prayer", href: "/admin/prayer", icon: Heart, label: "Prayer" },
+      { activeKey: "support", href: "/admin/support", icon: HandHeart, label: "Support" },
+      { activeKey: "applications", href: "/admin/applications", icon: ClipboardList, label: "Applications" },
+      { activeKey: "missionary-profiles", href: "/admin/profiles", icon: IdCard, label: "Profiles" },
+      { activeKey: "finance", href: "/admin/finance", icon: Landmark, label: "Finance" },
+      { activeKey: "partners", href: "/admin/partners", icon: UsersRound, label: "Partners" },
+      { activeKey: "feedback", href: "/admin/feedback", icon: MessageSquare, label: "Feedback" },
+    ],
+    title: "Operations",
   },
   {
     items: [
@@ -27,7 +60,7 @@ const adminNavGroups = [
 ] as const;
 
 type VisibleAdminNavKey = (typeof adminNavGroups)[number]["items"][number]["activeKey"];
-type HiddenAdminNavKey = "financial-freedom" | "forms-pages" | "inquiries" | "missionary-profiles" | "pages" | "stewardship" | "support";
+type HiddenAdminNavKey = "financial-freedom" | "inquiries" | "pages" | "product-feedback" | "stewardship" | "support-team";
 
 export type AdminNavKey = VisibleAdminNavKey | HiddenAdminNavKey;
 

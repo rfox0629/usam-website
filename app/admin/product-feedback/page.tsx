@@ -140,6 +140,33 @@ function MetricCard({
   );
 }
 
+function SourceForms() {
+  const sources = [
+    { href: "/dos/app", label: "Product Feedback" },
+    { href: "/dos/app", label: "Bugs" },
+    { href: "/dos/app", label: "Feature Requests" },
+  ];
+
+  return (
+    <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
+        Source Forms
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {sources.map((source) => (
+          <Link
+            className="inline-flex min-h-8 items-center rounded-full border border-stone-700 px-3 text-xs text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            href={source.href}
+            key={source.label}
+          >
+            {source.label}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function EmptyState({
   description,
   title,
@@ -279,16 +306,25 @@ function FeedbackItem({
 export default async function ProductFeedbackAdminPage() {
   const data = await loadProductFeedback();
   const newFeedback = data.feedback.filter((row) => row.status === "new");
+  const pendingFeedback = data.feedback.filter((row) => row.status === "reviewed").length;
+  const followUpFeedback = data.feedback.filter((row) => row.status === "planned" || row.status === "in_progress").length;
+  const completedFeedback = data.feedback.filter((row) => row.status === "completed" || row.status === "archived").length;
 
   return (
     <AdminShell
-      active="product-feedback"
-      title="Product Feedback"
+      active="feedback"
+      description="Review product feedback, bugs, and feature requests from field users."
+      title="Feedback"
     >
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="mb-5">
+        <SourceForms />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="New" value={data.error ? "-" : newFeedback.length} />
-        <MetricCard label="Total" value={data.error ? "-" : data.feedback.length} />
-        <MetricCard label="Voice Notes" value={data.error ? "-" : data.feedback.filter((row) => row.voice_file_url).length} />
+        <MetricCard label="Pending" value={data.error ? "-" : pendingFeedback} />
+        <MetricCard label="Follow Up" value={data.error ? "-" : followUpFeedback} />
+        <MetricCard label="Completed" value={data.error ? "-" : completedFeedback} />
       </div>
 
       {data.error ? (

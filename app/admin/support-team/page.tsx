@@ -416,7 +416,7 @@ function buildHref(params: SearchParams, overrides: Record<string, string | unde
 
   const query = nextParams.toString();
 
-  return query ? `/admin/support-team?${query}` : "/admin/support-team";
+  return query ? `/admin/support?${query}` : "/admin/support";
 }
 
 function normalize(value?: string | null) {
@@ -605,7 +605,7 @@ function FilterBar({
   params: SearchParams;
 }) {
   return (
-    <form className="rounded-xl border border-stone-800/75 bg-[#080808]/85 p-3" action="/admin/support-team" method="get">
+    <form className="rounded-xl border border-stone-800/75 bg-[#080808]/85 p-3" action="/admin/support" method="get">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
         <label className="min-w-0 flex-1">
           <span className="sr-only">Search submissions</span>
@@ -656,7 +656,7 @@ function FilterBar({
           <button className={primaryButtonClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="submit">
             Apply
           </button>
-          <Link className={secondaryButtonClassName} href="/admin/support-team" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          <Link className={secondaryButtonClassName} href="/admin/support" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
             Reset
           </Link>
           <Link className={secondaryButtonClassName} href="/admin/public-experience?tab=forms" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -1064,18 +1064,44 @@ function PrimarySupportTeamNav({
       <OperationalModule
         action="Open Inbox"
         active={view === "inbox"}
-        href="/admin/support-team"
+        href="/admin/support"
         label="Submissions"
         value={`${newCount} New`}
       />
       <OperationalModule
         action="Reconcile"
         active={view === "reconciliation"}
-        href="/admin/support-team?view=reconciliation"
+        href="/admin/support?view=reconciliation"
         label="Giving"
         value={`${givingNeedsReviewCount} Needs Review`}
       />
     </div>
+  );
+}
+
+function SourceForms() {
+  const sources = [
+    { href: "/support", label: "Support / Giving" },
+    { href: "/missionaries/ryan-brooke-fox?previewForm=major_gift", label: "Major Gift Inquiry" },
+  ];
+
+  return (
+    <section className="rounded-xl border border-stone-800/75 bg-[#080808]/90 p-4">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        Source Forms
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {sources.map((source) => (
+          <Link
+            className="inline-flex min-h-8 items-center rounded-full border border-stone-700 px-3 text-xs text-stone-300 transition-colors hover:border-[#D4A63D] hover:text-[#F5B942]"
+            href={source.href}
+            key={source.label}
+          >
+            {source.label}
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1300,16 +1326,20 @@ export default async function SupportTeamAdminPage({
     : null;
   const assignedToOptions = Array.from(new Set(submissions.map((submission) => submission.assigned_to).filter((value): value is string => Boolean(value)))).sort((first, second) => first.localeCompare(second));
   const newCount = submissions.filter((submission) => submission.status === "new").length;
+  const pendingCount = submissions.filter((submission) => submission.status === "reviewed" || submission.status === "contacted").length;
   const followUpCount = submissions.filter((submission) => submission.status === "needs_follow_up").length
     + supportCommitmentFollowUpCount
     + majorGiftFollowUpCount;
-  const majorGiftCount = submissions.filter((submission) => submission.form_type === "major_gift" && submission.status !== "archived").length;
-  const highPriorityCount = submissions.filter((submission) => submission.priority === "high").length;
+  const completedCount = submissions.filter((submission) => (
+    submission.status === "converted"
+    || submission.status === "archived"
+  )).length;
 
   return (
     <AdminShell
-      active="support-team"
-      title="Support Team"
+      active="support"
+      description="Review support, giving, and major gift intake before team follow-up."
+      title="Support"
     >
       <div className="space-y-5">
         <PrimarySupportTeamNav
@@ -1330,6 +1360,8 @@ export default async function SupportTeamAdminPage({
           <SystemNotice detail={params.error} title="Unable to update submission." />
         ) : null}
 
+        <SourceForms />
+
         {activeView === "reconciliation" ? (
           <GivingReconciliationView
             commitments={reconciliationData.commitments}
@@ -1341,9 +1373,9 @@ export default async function SupportTeamAdminPage({
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <MetricCard label="New" value={newCount} />
+              <MetricCard label="Pending" value={pendingCount} />
               <MetricCard label="Follow Up" tone="amber" value={followUpCount} />
-              <MetricCard label="Major Gifts" value={majorGiftCount} />
-              <MetricCard label="High Priority" tone="red" value={highPriorityCount} />
+              <MetricCard label="Completed" tone="green" value={completedCount} />
             </div>
 
             <FilterBar assignedToOptions={assignedToOptions} params={params} />
