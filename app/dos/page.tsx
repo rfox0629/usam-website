@@ -15,9 +15,7 @@ export default async function DosPortalPage() {
 
   if (authorization.status === "authorized") {
     const launchWorkspaces = await getDosLaunchWorkspaces(authorization);
-    const defaultWorkspace = authorization.access === "member"
-      ? getConfirmedDosLaunchDefault(launchWorkspaces)
-      : null;
+    const defaultWorkspace = getConfirmedDosLaunchDefault(launchWorkspaces);
 
     if (defaultWorkspace) {
       redirect(defaultWorkspace.href);

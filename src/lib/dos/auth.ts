@@ -96,6 +96,10 @@ export type DosLaunchWorkspace = {
   statusLabel: string;
 };
 
+type DosScopeAuthorization = Pick<DosAuthorizedUser, "email" | "userId"> & {
+  phone?: string | null;
+};
+
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -177,7 +181,7 @@ function normalizedPhone(value: string | null | undefined) {
 }
 
 function personalSlugCandidates(
-  authorization: Extract<DosAuthorization, { access: "member"; status: "authorized" }>,
+  authorization: DosScopeAuthorization,
   profiles: ProfileRow[],
 ) {
   const profileSlugs = profiles.map((profile) => workspaceSlug([profile.first_name, profile.last_name].filter(Boolean).join(" ")));
@@ -278,6 +282,12 @@ function sortLaunchWorkspaces(workspaces: DosLaunchWorkspace[]) {
   });
 }
 
+function shouldShowInDosLauncher(workspace: LaunchWorkspaceRow) {
+  return !isLikelyTestWorkspace(workspace)
+    && workspace.usam_application_status !== "archived"
+    && workspace.usam_profile_status !== "archived";
+}
+
 async function loadLaunchWorkspaceRowsByIds(workspaceIds: string[]) {
   if (!workspaceIds.length) {
     return [];
@@ -314,7 +324,16 @@ async function loadLaunchWorkspaceRowsBySlugs(slugs: string[]) {
   return (data ?? []) as LaunchWorkspaceRow[];
 }
 
-async function loadMemberProfileIds(authorization: Extract<DosAuthorization, { access: "member"; status: "authorized" }>) {
+async function loadLaunchWorkspaceRowsForUser(authorization: DosScopeAuthorization) {
+  const memberScope = await loadMemberWorkspaceScope(authorization);
+
+  return [
+    ...await loadLaunchWorkspaceRowsBySlugs(Array.from(memberScope.collectiveSlugs)),
+    ...await loadLaunchWorkspaceRowsByIds(Array.from(memberScope.workspaceIds)),
+  ];
+}
+
+async function loadMemberProfileIds(authorization: DosScopeAuthorization) {
   const supabase = createSupabaseAdminClient();
   const [userProfilesResult, emailProfilesResult] = await Promise.all([
     supabase
@@ -343,7 +362,7 @@ async function loadMemberProfileIds(authorization: Extract<DosAuthorization, { a
   );
 }
 
-async function loadMemberWorkspaceIdsFromTeam(authorization: Extract<DosAuthorization, { access: "member"; status: "authorized" }>) {
+async function loadMemberWorkspaceIdsFromTeam(authorization: DosScopeAuthorization) {
   const supabase = createSupabaseAdminClient();
   const workspaceRows: TeamMemberWorkspaceRow[] = [];
   const appendRows = (rows: TeamMemberWorkspaceRow[] | null | undefined) => {
@@ -410,7 +429,7 @@ async function loadMemberWorkspaceIdsFromTeam(authorization: Extract<DosAuthoriz
     .map((member) => member.household_id as string)));
 }
 
-async function loadMemberWorkspaceScope(authorization: Extract<DosAuthorization, { access: "member"; status: "authorized" }>) {
+async function loadMemberWorkspaceScope(authorization: DosScopeAuthorization) {
   const supabase = createSupabaseAdminClient();
   const profiles = await loadMemberProfileIds(authorization);
   const profileIds = profiles.map((profile) => profile.id);
@@ -481,6 +500,23 @@ export async function getDosWorkspaceAccess(
       return { status: "not_found" };
     }
 
+    const scopedWorkspaceRows = (await loadLaunchWorkspaceRowsForUser(authorization)).filter(shouldShowInDosLauncher);
+
+    if (scopedWorkspaceRows.length) {
+      const isAllowed = scopedWorkspaceRows.some((scopedWorkspace) => scopedWorkspace.id === workspace.id);
+
+      return isAllowed
+        ? {
+          status: "allowed",
+          workspace: {
+            displayName: workspace.display_name,
+            id: workspace.id,
+            slug: workspace.slug,
+          },
+        }
+        : { status: "forbidden" };
+    }
+
     if (isAdminDosAuthorization(authorization)) {
       return {
         status: "allowed",
@@ -492,21 +528,7 @@ export async function getDosWorkspaceAccess(
       };
     }
 
-    const memberScope = await loadMemberWorkspaceScope(authorization);
-    const isAllowed = memberScope.collectiveSlugs.has(workspace.slug) || memberScope.workspaceIds.has(workspace.id);
-
-    if (!isAllowed) {
-      return { status: "forbidden" };
-    }
-
-    return {
-      status: "allowed",
-      workspace: {
-        displayName: workspace.display_name,
-        id: workspace.id,
-        slug: workspace.slug,
-      },
-    };
+    return { status: "forbidden" };
   } catch (error) {
     return {
       message: error instanceof Error ? error.message : "Unable to verify DOS workspace access.",
@@ -531,27 +553,49 @@ export async function getDefaultDosWorkspaceAccess(
 
   try {
     const supabase = createSupabaseAdminClient();
+    const scopedWorkspaceRows = (await loadLaunchWorkspaceRowsForUser(authorization)).filter(shouldShowInDosLauncher);
+
+    if (scopedWorkspaceRows.length) {
+      const defaultWorkspace = sortLaunchWorkspaces(
+        Array.from(new Map(scopedWorkspaceRows.map((workspace) => [workspace.id, workspace])).values())
+          .map(launchWorkspaceFromRow),
+      )[0];
+
+      return defaultWorkspace
+        ? {
+          status: "allowed",
+          workspace: {
+            displayName: defaultWorkspace.displayName,
+            id: defaultWorkspace.id,
+            slug: defaultWorkspace.slug,
+          },
+        }
+        : { status: "not_found" };
+    }
 
     if (isAdminDosAuthorization(authorization)) {
       const { data, error } = await supabase
         .from("missionary_households")
-        .select("id, slug, display_name")
+        .select("id, slug, display_name, public_visible, show_household, short_mission, sort_order, updated_at, usam_application_status, usam_profile_status")
         .order("sort_order", { ascending: true })
         .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(40);
 
       if (error) {
         throw new Error(error.message);
       }
 
-      return data
+      const defaultWorkspace = sortLaunchWorkspaces(((data ?? []) as LaunchWorkspaceRow[])
+        .filter(shouldShowInDosLauncher)
+        .map(launchWorkspaceFromRow))[0];
+
+      return defaultWorkspace
         ? {
           status: "allowed",
           workspace: {
-            displayName: data.display_name,
-            id: data.id,
-            slug: data.slug,
+            displayName: defaultWorkspace.displayName,
+            id: defaultWorkspace.id,
+            slug: defaultWorkspace.slug,
           },
         }
         : { status: "not_found" };
@@ -644,8 +688,11 @@ export async function getDosLaunchWorkspaces(
   try {
     const supabase = createSupabaseAdminClient();
     let workspaceRows: LaunchWorkspaceRow[] = [];
+    const scopedWorkspaceRows = await loadLaunchWorkspaceRowsForUser(authorization);
 
-    if (isAdminDosAuthorization(authorization)) {
+    if (scopedWorkspaceRows.length) {
+      workspaceRows = scopedWorkspaceRows;
+    } else if (isAdminDosAuthorization(authorization)) {
       const { data, error } = await supabase
         .from("missionary_households")
         .select("id, slug, display_name, public_visible, show_household, short_mission, sort_order, updated_at, usam_application_status, usam_profile_status")
@@ -658,21 +705,12 @@ export async function getDosLaunchWorkspaces(
       }
 
       workspaceRows = (data ?? []) as LaunchWorkspaceRow[];
-
-      if (!workspaceRows.some((workspace) => workspace.slug === "ryan-brooke-fox")) {
-        const ryanBrookeRows = await loadLaunchWorkspaceRowsBySlugs(["ryan-brooke-fox"]);
-        workspaceRows = [...workspaceRows, ...ryanBrookeRows];
-      }
     } else {
-      const memberScope = await loadMemberWorkspaceScope(authorization);
-      workspaceRows = [
-        ...await loadLaunchWorkspaceRowsBySlugs(Array.from(memberScope.collectiveSlugs)),
-        ...await loadLaunchWorkspaceRowsByIds(Array.from(memberScope.workspaceIds)),
-      ];
+      workspaceRows = [];
     }
 
     const uniqueWorkspaces = Array.from(
-      new Map(workspaceRows.map((workspace) => [workspace.id, workspace])).values(),
+      new Map(workspaceRows.filter(shouldShowInDosLauncher).map((workspace) => [workspace.id, workspace])).values(),
     ).map(launchWorkspaceFromRow);
 
     return sortLaunchWorkspaces(uniqueWorkspaces);
