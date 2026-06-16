@@ -4179,12 +4179,6 @@ type DashboardFruitItem = {
   title: string;
 };
 
-type DashboardPersonRow = {
-  id: string | null;
-  meta: string;
-  name: string;
-};
-
 type DashboardUpcomingRow = {
   badge: string;
   icon: UpcomingTimelineIcon;
@@ -4193,55 +4187,6 @@ type DashboardUpcomingRow = {
   meeting: DosAppMeeting | null;
   title: string;
 };
-
-function dashboardPersonRows(people: DosAppPerson[], fallbackNames: string[], metaFallback: string) {
-  const realRows = people.slice(0, 3).map((person) => ({
-    id: person.id,
-    meta: person.relationshipType || metaFallback,
-    name: person.name,
-  }));
-
-  if (realRows.length) {
-    return realRows;
-  }
-
-  // UI-only fallback for visual review when the workspace has no rows for this dashboard slice.
-  return fallbackNames.slice(0, 3).map((name) => ({
-    id: null,
-    meta: metaFallback,
-    name,
-  }));
-}
-
-function DashboardPersonMiniRow({ onOpenPerson, row }: { onOpenPerson: (personId: string) => void; row: DashboardPersonRow }) {
-  const content = (
-    <>
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[11px] font-black text-[#2563EB] ring-1 ring-[#DCEBFF]">
-        {initials(row.name)}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black leading-tight text-[#0F172A]">{row.name}</span>
-        <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#64748B]">{row.meta}</span>
-      </span>
-    </>
-  );
-
-  if (!row.id) {
-    return <div className="flex min-w-0 items-center gap-2 rounded-[16px] bg-[#F8FBFF] px-2.5 py-2">{content}</div>;
-  }
-
-  const personId = row.id;
-
-  return (
-    <button
-      className="flex min-w-0 items-center gap-2 rounded-[16px] bg-[#F8FBFF] px-2.5 py-2 text-left transition-colors hover:bg-[#EBF2FF]"
-      onClick={() => onOpenPerson(personId)}
-      type="button"
-    >
-      {content}
-    </button>
-  );
-}
 
 function DesktopHomeDashboard({
   circleGroups,
@@ -4280,31 +4225,12 @@ function DesktopHomeDashboard({
   const loggedThisMonth = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, monthStart, monthEnd));
   const scheduledUpcomingCount = upcomingMeetings.length;
   const monthDurationMinutes = loggedThisMonth.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
-  const totalDurationMinutes = loggedMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
-  const loggedWithDuration = loggedMeetings.filter((meeting) => tableDurationMinutes(meeting) > 0);
-  const activePersonIds = new Set<string>();
-
-  loggedThisMonth.forEach((meeting) => {
-    meeting.fieldPersonIds.forEach((personId) => activePersonIds.add(personId));
-  });
-
-  people.forEach((person) => {
-    if (isWithinLastDays(person.lastActivityAt, 30)) {
-      activePersonIds.add(person.id);
-    }
-  });
-
-  const newestPeople = people
-    .slice()
-    .sort((first, second) => dateSortValue(second.createdAt ?? second.lastActivityAt) - dateSortValue(first.createdAt ?? first.lastActivityAt));
   const circleCounts = {
     my3: circleGroups.three.length,
     my12: circleGroups.three.length + circleGroups.twelve.length,
     my70: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length,
     my120: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length + circleGroups.my120.length,
   };
-  const activePeople = activePersonIds.size;
-  const newThisMonth = people.filter((person) => isDateWithinRange(person.createdAt, monthStart, monthEnd)).length;
   const recentFruitItems: DashboardFruitItem[] = [
     ...fruitItems.map((fruit) => ({
       date: fruit.testimonyDate,
@@ -4352,12 +4278,9 @@ function DesktopHomeDashboard({
   const trendY = (value: number) => trendHeight - 20 - (value / trendMax) * 72;
   const trendX = (index: number) => 40 + index * ((trendWidth - 72) / Math.max(1, trendData.length - 1));
   const trendPoints = (key: "fruit" | "hours" | "tables") => trendData.map((item, index) => `${trendX(index)},${trendY(item[key])}`).join(" ");
-  const averageDuration = loggedWithDuration.length ? Math.round(totalDurationMinutes / loggedWithDuration.length) : 0;
   const totalAttendance = loggedThisMonth.reduce((sum, meeting) => sum + meeting.fieldPersonIds.length, 0);
   const averageAttendance = loggedThisMonth.length ? totalAttendance / loggedThisMonth.length : 0;
   const averageAttendanceLabel = averageAttendance ? `${averageAttendance.toFixed(averageAttendance >= 10 ? 0 : 1)} people` : "—";
-  const recentPeopleRows = dashboardPersonRows(newestPeople, ["Naomi Lee", "George Jenko", "Jason Waage"], "Recently added");
-  const focusPeopleRows = dashboardPersonRows(circleGroups.three.map((item) => item.person), ["Dirk Bond", "Brooke Fox", "Jason Waage"], "Focus relationship");
   const circleMetrics = [
     {
       detail: "Closest focus",
@@ -4422,100 +4345,57 @@ function DesktopHomeDashboard({
       <div className="grid w-full gap-3">
       <div className="grid gap-3 min-[1200px]:grid-cols-[minmax(560px,1.18fr)_minmax(332px,0.82fr)] min-[1360px]:grid-cols-[minmax(620px,1.15fr)_minmax(420px,0.85fr)]">
         <DesktopPanel action={<DashboardHeaderAction onClick={onViewField}>View Field</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Field Health">
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
-              {circleMetrics.map((metric) => {
-                const progress = Math.min(metric.value / metric.target, 1) * 100;
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+            {circleMetrics.map((metric) => {
+              const progress = Math.min(metric.value / metric.target, 1) * 100;
 
-                return (
-                  <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={metric.label}>
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="min-w-0">
-                        <span className="block text-[10px] font-black uppercase tracking-[0.13em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
-                        <span className="mt-1 block truncate text-[11px] font-semibold text-[#64748B]">{metric.detail}</span>
-                      </span>
-                      <span className="shrink-0 text-xl font-black leading-none tracking-[-0.03em] text-[#0F172A]">{metric.value}/{metric.target}</span>
-                    </div>
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#DCEBFF]">
-                      <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${progress}%` }} />
-                    </div>
+              return (
+                <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={metric.label}>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0">
+                      <span className="block text-[10px] font-black uppercase tracking-[0.13em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
+                      <span className="mt-1 block truncate text-[11px] font-semibold text-[#64748B]">{metric.detail}</span>
+                    </span>
+                    <span className="shrink-0 text-xl font-black leading-none tracking-[-0.03em] text-[#0F172A]">{metric.value}/{metric.target}</span>
                   </div>
-                );
-              })}
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)]">
-              <section className="min-w-0 rounded-[20px] border border-[#EAF2FF] bg-white/80 p-3">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Recent People</h3>
-                  <span className="shrink-0 text-[11px] font-bold text-[#64748B]">{newThisMonth} new</span>
-                </div>
-                <div className="grid gap-2">
-                  {recentPeopleRows.map((row) => <DashboardPersonMiniRow key={`recent-${row.name}`} onOpenPerson={onOpenPerson} row={row} />)}
-                </div>
-              </section>
-
-              <section className="grid min-w-0 gap-2 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
-                <div className="flex items-center justify-between gap-3 rounded-[16px] bg-white px-3 py-2 ring-1 ring-[#EAF2FF]">
-                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Active people</span>
-                  <span className="text-sm font-black text-[#0F172A]">{activePeople}</span>
-                </div>
-                <div>
-                  <h3 className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>My 3 Focus</h3>
-                  <div className="grid gap-2">
-                    {focusPeopleRows.slice(0, 2).map((row) => <DashboardPersonMiniRow key={`focus-${row.name}`} onOpenPerson={onOpenPerson} row={row} />)}
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#DCEBFF]">
+                    <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${progress}%` }} />
                   </div>
                 </div>
-              </section>
-            </div>
+              );
+            })}
           </div>
         </DesktopPanel>
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReports}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments" title="Who am I investing in?">
-          <div className="grid gap-3">
-            <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
-              <div className="hidden grid-cols-[40px_minmax(130px,1fr)_80px_112px] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B] sm:grid" style={{ fontFamily: font.rajdhani }}>
-                <span>Rank</span>
-                <span>Person</span>
-                <span>Circle</span>
-                <span>Time</span>
-              </div>
-              {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
-                <button
-                  className="grid w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[40px_minmax(130px,1fr)_80px_112px] sm:gap-3 sm:px-3.5"
-                  key={item.person.id}
-                  onClick={() => onOpenPerson(item.person.id)}
-                  type="button"
-                >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#2563EB] text-[11px] font-black text-white">{index + 1}</span>
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <span className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold sm:flex ${avatarTone(index)}`}>{initials(item.person.name)}</span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-bold text-[#0F172A]">{item.person.name}</span>
-                      <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#64748B] sm:hidden">{circleLayerLabelForPerson(item.person.id, circleGroups)}</span>
-                    </span>
+          <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
+            <div className="hidden grid-cols-[40px_minmax(130px,1fr)_80px_112px] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B] sm:grid" style={{ fontFamily: font.rajdhani }}>
+              <span>Rank</span>
+              <span>Person</span>
+              <span>Circle</span>
+              <span>Time</span>
+            </div>
+            {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
+              <button
+                className="grid w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[40px_minmax(130px,1fr)_80px_112px] sm:gap-3 sm:px-3.5"
+                key={item.person.id}
+                onClick={() => onOpenPerson(item.person.id)}
+                type="button"
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#2563EB] text-[11px] font-black text-white">{index + 1}</span>
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold sm:flex ${avatarTone(index)}`}>{initials(item.person.name)}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold text-[#0F172A]">{item.person.name}</span>
+                    <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#64748B] sm:hidden">{circleLayerLabelForPerson(item.person.id, circleGroups)}</span>
                   </span>
-                  <span className="hidden text-sm font-semibold text-[#0F172A] sm:block">{circleLayerLabelForPerson(item.person.id, circleGroups)}</span>
-                  <span className="shrink-0 text-sm font-black text-[#0F172A]">{item.stats.timeMinutes ? formatLoggedTime(item.stats.timeMinutes) : `${item.stats.meetings} tables`}</span>
-                </button>
-              )) : (
-                <p className="px-4 py-5 text-sm text-[#64748B]">No persisted table duration yet.</p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 divide-x divide-[#EAF2FF] overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF]">
-              {[
-                { icon: <Icon name="meetings" size={18} />, label: "Tables", value: loggedMeetings.length },
-                { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total Time", value: formatDashboardDuration(totalDurationMinutes) },
-                { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Avg. Time", value: averageDuration ? formatLoggedTime(averageDuration) : "—" },
-              ].map((metric) => (
-                <div className="flex min-h-[92px] min-w-0 flex-col items-center justify-center px-2.5 py-3 text-center" key={metric.label}>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">{metric.icon}</span>
-                  <span className="mt-2 block max-w-full truncate text-lg font-black leading-none text-[#0F172A]">{metric.value}</span>
-                  <span className="mt-1 block text-[9px] font-bold uppercase leading-tight tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
-                </div>
-              ))}
-            </div>
+                </span>
+                <span className="hidden text-sm font-semibold text-[#0F172A] sm:block">{circleLayerLabelForPerson(item.person.id, circleGroups)}</span>
+                <span className="shrink-0 text-sm font-black text-[#0F172A]">{item.stats.timeMinutes ? formatLoggedTime(item.stats.timeMinutes) : `${item.stats.meetings} tables`}</span>
+              </button>
+            )) : (
+              <p className="px-4 py-5 text-sm text-[#64748B]">No persisted table duration yet.</p>
+            )}
           </div>
         </DesktopPanel>
       </div>
