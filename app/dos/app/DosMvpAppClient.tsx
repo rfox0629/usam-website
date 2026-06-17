@@ -12723,6 +12723,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const appScrollRef = useRef<HTMLDivElement | null>(null);
   const isPreview = data.workspace.isPreview === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
+  const [isTabSettling, setIsTabSettling] = useState(false);
+  const tabTransitionTimeoutRef = useRef<number | null>(null);
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("upcoming");
   const [meetingCalendarFilter, setMeetingCalendarFilter] = useState<MeetingCalendarFilter>("all");
@@ -13275,7 +13277,31 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setConversationResponses({});
   }
 
+  useEffect(() => {
+    return () => {
+      if (tabTransitionTimeoutRef.current !== null) {
+        window.clearTimeout(tabTransitionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function pulseTabTransition() {
+    if (tabTransitionTimeoutRef.current !== null) {
+      window.clearTimeout(tabTransitionTimeoutRef.current);
+    }
+
+    setIsTabSettling(true);
+    tabTransitionTimeoutRef.current = window.setTimeout(() => {
+      setIsTabSettling(false);
+      tabTransitionTimeoutRef.current = null;
+    }, 150);
+  }
+
   function selectTab(tab: ActiveTab) {
+    if (tab !== activeTab || moreAppView !== null) {
+      pulseTabTransition();
+    }
+
     setActiveTab(tab);
     setMoreAppView(null);
     setIsAppsSearchOpen(false);
@@ -13301,6 +13327,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function openMoreApp(view: MoreAppView) {
+    if (activeTab !== "more" || moreAppView !== view) {
+      pulseTabTransition();
+    }
+
     setActiveTab("more");
     setMoreAppView(view);
     setIsAppsSearchOpen(false);
@@ -14912,7 +14942,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             </header>
           ) : null}
 
-          <main className={`min-w-0 max-w-full ${activeTab === "home" ? "mt-10 md:mt-0" : ""}`}>
+          <main className={`min-w-0 max-w-full transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none ${isTabSettling ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"} ${activeTab === "home" ? "mt-10 md:mt-0" : ""}`}>
             {activeTab === "home" ? (
               <>
               <div className="space-y-5 md:hidden">
