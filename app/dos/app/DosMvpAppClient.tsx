@@ -116,9 +116,9 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
   {
     label: "Core",
     items: [
-      { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
-      { icon: "people", label: "Field", type: "tab", value: "people" },
       { icon: "meetings", label: "Table", type: "tab", value: "meetings" },
+      { icon: "people", label: "Field", type: "tab", value: "people" },
+      { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
     ],
   },
   {
@@ -2034,23 +2034,14 @@ function workspaceProfilePhone(workspace: DosAppWorkspace) {
   return cleanIdentitySegment(workspace.userPhone) ?? "";
 }
 
-const currentRhythmDay = 14;
-
-function getDayOfYear(date = new Date()) {
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = date.getTime() - start.getTime();
-
-  return Math.floor(diff / 86400000);
-}
-
-function homeDateSubtitle(date = new Date(), rhythmDay = currentRhythmDay) {
+function homeDateSubtitle(date = new Date()) {
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "long",
     weekday: "long",
   }).format(date);
 
-  return `${formattedDate} · Day ${rhythmDay}`;
+  return formattedDate;
 }
 
 function avatarTone(index: number) {
@@ -2136,11 +2127,63 @@ function upcomingTimelineGroup(value: string | null | undefined): UpcomingTimeli
     return "Tomorrow";
   }
 
-  if (offset !== null && offset >= 2 && offset <= 6) {
+  if (offset !== null && offset >= 2 && offset <= 7) {
     return "This Week";
   }
 
   return "Later";
+}
+
+function isCurrentDateTime(value: string | null | undefined) {
+  const date = parseDisplayDate(value ?? null);
+
+  if (!date) {
+    return false;
+  }
+
+  const diff = date.getTime() - Date.now();
+
+  return diff >= -60 * 60 * 1000 && diff <= 30 * 60 * 1000;
+}
+
+function upcomingTimingLabel(value: string | null | undefined, allowNow = false) {
+  const offset = dayOffsetFromToday(value);
+
+  if (allowNow && offset === 0 && isCurrentDateTime(value)) {
+    return "Now";
+  }
+
+  if (offset === 0) {
+    return "Today";
+  }
+
+  if (offset === 1) {
+    return "Tomorrow";
+  }
+
+  if (offset !== null && offset >= 2 && offset <= 7) {
+    return `In ${offset} days`;
+  }
+
+  if (offset !== null && (offset > 7 || offset < 0)) {
+    return formatDate(value ?? null);
+  }
+
+  return "Upcoming";
+}
+
+function upcomingTimelineLabel({
+  allowNow = false,
+  date,
+  detail,
+  time,
+}: {
+  allowNow?: boolean;
+  date: string | null | undefined;
+  detail: string;
+  time?: string;
+}) {
+  return [upcomingTimingLabel(date, allowNow), detail, time].filter(Boolean).join(" · ");
 }
 
 function timelineIconForReminder(reminder: DosAppRelationshipReminder): UpcomingTimelineIcon {
@@ -2157,6 +2200,24 @@ function timelineIconForReminder(reminder: DosAppRelationshipReminder): Upcoming
   }
 
   return "reminder";
+}
+
+function nextAnnualDate(value: string | null | undefined) {
+  const date = parseDisplayDate(value ?? null);
+
+  if (!date) {
+    return null;
+  }
+
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const nextDate = new Date(today.getFullYear(), date.getMonth(), date.getDate(), 12);
+
+  if (nextDate.getTime() < todayStart) {
+    nextDate.setFullYear(today.getFullYear() + 1);
+  }
+
+  return nextDate.toISOString();
 }
 
 function primaryMeetingPerson(meeting: DosAppMeeting, people: DosAppPerson[]) {
@@ -2184,13 +2245,19 @@ function buildUpcomingTimelineItems({
     .map((meeting) => {
       const linkedPerson = person ?? primaryMeetingPerson(meeting, people);
       const date = meeting.scheduledStartAt ?? meeting.date;
+      const startTime = meeting.scheduledStartAt ? formatTime(meeting.scheduledStartAt) : "";
 
       return {
         date,
         group: upcomingTimelineGroup(date),
         icon: "meeting" as const,
         id: `meeting-${meeting.id}`,
-        label: `Scheduled · ${formatMeetingTimeRange(meeting)}`,
+        label: upcomingTimelineLabel({
+          allowNow: Boolean(meeting.scheduledStartAt),
+          date,
+          detail: meetingActivityTitle(meeting),
+          time: startTime,
+        }),
         meeting,
         notes: meeting.notes,
         personId: linkedPerson?.id ?? meeting.fieldPersonIds[0] ?? null,
@@ -2214,7 +2281,10 @@ function buildUpcomingTimelineItems({
         group: upcomingTimelineGroup(reminderDate),
         icon: timelineIconForReminder(reminder),
         id: `reminder-${reminder.id}`,
-        label: `${reminderTypeLabel(reminder.reminderType)} · ${formatDate(reminderDate)}`,
+        label: upcomingTimelineLabel({
+          date: reminderDate,
+          detail: reminderTypeLabel(reminder.reminderType),
+        }),
         notes: reminder.notes,
         personId: reminder.personId,
         personName: linkedPerson?.name ?? null,
@@ -2223,8 +2293,33 @@ function buildUpcomingTimelineItems({
         title: reminderDisplayTitle(reminder, linkedPerson),
       };
     });
+  const birthdayReminderPersonIds = new Set(reminders
+    .filter((reminder) => reminder.reminderType === "birthday")
+    .map((reminder) => reminder.personId));
+  const profileBirthdayItems: UpcomingTimelineItem[] = (person ? [person] : people)
+    .filter((item) => !birthdayReminderPersonIds.has(item.id))
+    .map((item) => ({
+      birthday: nextAnnualDate(personFormDefaults(item).birthday),
+      person: item,
+    }))
+    .filter((item): item is { birthday: string; person: DosAppPerson } => Boolean(item.birthday && isUpcomingDate(item.birthday)))
+    .map(({ birthday, person: item }) => ({
+      date: birthday,
+      group: upcomingTimelineGroup(birthday),
+      icon: "birthday" as const,
+      id: `profile-birthday-${item.id}`,
+      label: upcomingTimelineLabel({
+        date: birthday,
+        detail: "Birthday",
+      }),
+      notes: null,
+      personId: item.id,
+      personName: item.name,
+      syncLabel: "Profile",
+      title: `${item.name} birthday`,
+    }));
 
-  return [...meetingItems, ...reminderItems].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
+  return [...meetingItems, ...reminderItems, ...profileBirthdayItems].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
 }
 
 function groupedUpcomingTimelineItems(items: UpcomingTimelineItem[]) {
@@ -2241,7 +2336,69 @@ function nextStepTitle(item: UpcomingTimelineItem) {
     return item.personName ? `Meet with ${item.personName}` : item.title;
   }
 
-  return item.personName ? `${item.title} · ${item.personName}` : item.title;
+  if (!item.personName) {
+    return item.title;
+  }
+
+  return item.title.toLowerCase().includes(item.personName.toLowerCase())
+    ? item.title
+    : `${item.title} · ${item.personName}`;
+}
+
+function upcomingDashboardBadge(item: UpcomingTimelineItem) {
+  if (item.meeting) {
+    return meetingActivityTitle(item.meeting);
+  }
+
+  if (item.reminder) {
+    return reminderTypeLabel(item.reminder.reminderType);
+  }
+
+  if (item.icon === "birthday") {
+    return "Birthday";
+  }
+
+  if (item.icon === "anniversary") {
+    return "Anniversary";
+  }
+
+  if (item.icon === "prayer") {
+    return "Prayer";
+  }
+
+  return "Reminder";
+}
+
+function upcomingDashboardTitle(item: UpcomingTimelineItem) {
+  if (!item.meeting && (item.icon === "birthday" || item.icon === "anniversary") && item.personName) {
+    return item.personName;
+  }
+
+  return nextStepTitle(item);
+}
+
+function upcomingDashboardPreviewDate(index: number) {
+  if (process.env.NODE_ENV !== "development") {
+    return null;
+  }
+
+  const offset = [0, 1, 7][index];
+
+  if (offset === undefined) {
+    return null;
+  }
+
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  date.setHours(12, 0, 0, 0);
+
+  return date.toISOString();
+}
+
+function upcomingDashboardLabel(item: UpcomingTimelineItem, displayDate = item.date) {
+  const time = item.meeting?.scheduledStartAt ? formatTime(item.meeting.scheduledStartAt) : "";
+
+  return [upcomingTimingLabel(displayDate, Boolean(item.meeting?.scheduledStartAt)), time].filter(Boolean).join(" · ");
 }
 
 function meetingTestimonyRecipientTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
@@ -4185,6 +4342,7 @@ type DashboardUpcomingRow = {
   id: string;
   label: string;
   meeting: DosAppMeeting | null;
+  personId: string | null;
   title: string;
 };
 
@@ -4200,10 +4358,10 @@ function DesktopHomeDashboard({
   onOpenTable,
   onOpenTableCalendar,
   onViewField,
+  participantReviews = [],
   people,
   personTableStatsByPersonId,
   upcomingItems,
-  upcomingMeetings,
 }: {
   circleGroups: CircleLayerGroups;
   fruitEvents: DosAppFruitEvent[];
@@ -4216,15 +4374,14 @@ function DesktopHomeDashboard({
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
   onViewField: () => void;
+  participantReviews?: DosAppParticipantReview[];
   people: DosAppPerson[];
   personTableStatsByPersonId: Map<string, PersonTableStats>;
   upcomingItems: UpcomingTimelineItem[];
-  upcomingMeetings: DosAppMeeting[];
 }) {
-  const { end: monthEnd, start: monthStart } = currentMonthRange();
-  const loggedThisMonth = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, monthStart, monthEnd));
-  const scheduledUpcomingCount = upcomingMeetings.length;
-  const monthDurationMinutes = loggedThisMonth.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
+  const totalDurationMinutes = loggedMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
+  const totalPeopleMet = new Set(loggedMeetings.flatMap((meeting) => meeting.fieldPersonIds)).size;
+  const totalReviews = participantReviews.filter((review) => isSubmittedStatus(review.status)).length;
   const circleCounts = {
     my3: circleGroups.three.length,
     my12: circleGroups.three.length + circleGroups.twelve.length,
@@ -4278,9 +4435,6 @@ function DesktopHomeDashboard({
   const trendY = (value: number) => trendHeight - 20 - (value / trendMax) * 72;
   const trendX = (index: number) => 40 + index * ((trendWidth - 72) / Math.max(1, trendData.length - 1));
   const trendPoints = (key: "fruit" | "hours" | "tables") => trendData.map((item, index) => `${trendX(index)},${trendY(item[key])}`).join(" ");
-  const totalAttendance = loggedThisMonth.reduce((sum, meeting) => sum + meeting.fieldPersonIds.length, 0);
-  const averageAttendance = loggedThisMonth.length ? totalAttendance / loggedThisMonth.length : 0;
-  const averageAttendanceLabel = averageAttendance ? `${averageAttendance.toFixed(averageAttendance >= 10 ? 0 : 1)} people` : "—";
   const circleMetrics = [
     {
       detail: "Closest focus",
@@ -4308,76 +4462,112 @@ function DesktopHomeDashboard({
     },
   ];
   const tableActivityMetrics = [
-    { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Tables this month", value: loggedThisMonth.length },
-    { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Upcoming", value: scheduledUpcomingCount },
-    { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Hours logged", value: formatDashboardDuration(monthDurationMinutes) },
-    { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Average attendance", value: averageAttendanceLabel },
+    { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total tables", value: loggedMeetings.length },
+    { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total hours logged", value: formatDashboardDuration(totalDurationMinutes) },
+    { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "People met with", value: totalPeopleMet },
+    { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total reviews", value: totalReviews },
   ];
-  const realUpcomingRows: DashboardUpcomingRow[] = upcomingItems.slice(0, 3).map((item) => ({
-    badge: item.meeting ? "Scheduled" : item.icon === "birthday" ? "Birthday" : "Reminder",
-    icon: item.icon,
-    id: item.id,
-    label: item.label,
-    meeting: item.meeting ?? null,
-    title: nextStepTitle(item),
-  }));
-  // UI-only fallback rows for visual QA; these are never written to Supabase.
-  const dashboardSampleUpcomingRows: DashboardUpcomingRow[] = [
-    { badge: "Scheduled", icon: "meeting", id: "sample-naomi-table", label: "Jun 6, 2026 · 6:00 PM", meeting: null, title: "Meet with Naomi Lee" },
-    { badge: "Coffee", icon: "meeting", id: "sample-jason-coffee", label: "Jun 8, 2026 · 9:00 AM", meeting: null, title: "Coffee with Jason Waage" },
-    { badge: "Follow Up", icon: "reminder", id: "sample-family-follow-up", label: "Jun 10, 2026 · 7:00 PM", meeting: null, title: "Family follow-up" },
-  ];
-  const dashboardUpcomingRows = realUpcomingRows.length >= 3 ? realUpcomingRows : dashboardSampleUpcomingRows;
+  const realUpcomingRows: DashboardUpcomingRow[] = upcomingItems.slice(0, 6).map((item, index) => {
+    const previewDate = !item.meeting && item.icon === "birthday" ? upcomingDashboardPreviewDate(index) : null;
+
+    return {
+      badge: upcomingDashboardBadge(item),
+      icon: item.icon,
+      id: item.id,
+      label: upcomingDashboardLabel(item, previewDate ?? item.date),
+      meeting: item.meeting ?? null,
+      personId: item.personId,
+      title: upcomingDashboardTitle(item),
+    };
+  });
+  const dashboardUpcomingRows = realUpcomingRows;
+  const todayDashboardRows = dashboardUpcomingRows
+    .filter((item) => item.label === "Now" || item.label.startsWith("Now ·") || item.label === "Today" || item.label.startsWith("Today ·"))
+    .slice(0, 3);
+
+  function openDashboardUpcomingRow(item: DashboardUpcomingRow) {
+    if (item.meeting) {
+      onOpenMeeting(item.meeting.id);
+    } else if (item.personId) {
+      onOpenPerson(item.personId);
+    } else {
+      onOpenTableCalendar();
+    }
+  }
+
   return (
     <div className="mt-5 block md:mt-0">
-      <header className="mb-3 flex items-start justify-between gap-4">
+      <header className="mb-3 hidden items-start justify-between gap-4 md:flex">
         <div>
           <h1 className="text-[32px] font-black leading-none tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
             Dashboard
           </h1>
         </div>
-        <span className="inline-flex min-h-10 items-center gap-2 rounded-[15px] border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
-          <CalendarDays className="h-4 w-4 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-          This Month
-        </span>
       </header>
+
+      <section className="mb-3 rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_16px_38px_rgba(37,99,235,0.06)] md:hidden">
+        <div className="grid">
+          {todayDashboardRows.length ? todayDashboardRows.map((item) => (
+            <button
+              className="flex min-w-0 items-center gap-2 border-t border-[#EAF2FF] py-2 text-left first:border-t-0 first:pt-0 last:pb-0"
+              key={`mobile-${item.id}`}
+              onClick={() => openDashboardUpcomingRow(item)}
+              type="button"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[11px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                <TimelineIcon icon={item.icon} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-black text-[#0F172A]">{item.title}</span>
+              </span>
+              <span className="max-w-[152px] shrink-0 truncate rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1.5 text-right text-[10px] font-black uppercase leading-none tracking-[0.1em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                {item.label} · {item.badge}
+              </span>
+            </button>
+          )) : (
+            <p className="rounded-[18px] bg-[#F8FAFC] px-3 py-2.5 text-sm font-semibold text-[#64748B]">No notifications today.</p>
+          )}
+        </div>
+      </section>
 
       <div className="grid w-full gap-3">
       <div className="grid gap-3 min-[1200px]:grid-cols-[minmax(560px,1.18fr)_minmax(332px,0.82fr)] min-[1360px]:grid-cols-[minmax(620px,1.15fr)_minmax(420px,0.85fr)]">
-        <DesktopPanel action={<DashboardHeaderAction onClick={onViewField}>View Field</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Field Health">
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <DesktopPanel action={<DashboardHeaderAction onClick={onViewField}>View Field</DashboardHeaderAction>} className="min-w-0 self-start" compact eyebrow="Field Health">
+          <div className="grid grid-cols-2 gap-2">
             {circleMetrics.map((metric) => {
-              const progress = Math.min(metric.value / metric.target, 1) * 100;
+              const progress = metric.target ? Math.min(metric.value / metric.target, 1) * 100 : null;
 
               return (
-                <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={metric.label}>
+                <div className="flex min-h-[82px] min-w-0 flex-col justify-between rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={metric.label}>
                   <div className="flex items-start justify-between gap-2">
                     <span className="min-w-0">
                       <span className="block text-[10px] font-black uppercase tracking-[0.13em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
                       <span className="mt-1 block truncate text-[11px] font-semibold text-[#64748B]">{metric.detail}</span>
                     </span>
-                    <span className="shrink-0 text-xl font-black leading-none tracking-[-0.03em] text-[#0F172A]">{metric.value}/{metric.target}</span>
+                    <span className="shrink-0 text-xl font-black leading-none tracking-[-0.03em] text-[#0F172A]">{metric.target ? `${metric.value}/${metric.target}` : metric.value}</span>
                   </div>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#DCEBFF]">
-                    <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${progress}%` }} />
-                  </div>
+                  {progress !== null ? (
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#DCEBFF]">
+                      <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${progress}%` }} />
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
           </div>
         </DesktopPanel>
 
-        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReports}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments" title="Who am I investing in?">
+        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReports}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
           <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
-            <div className="hidden grid-cols-[40px_minmax(130px,1fr)_80px_112px] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B] sm:grid" style={{ fontFamily: font.rajdhani }}>
+            <div className="hidden grid-cols-[34px_minmax(0,1fr)_96px_44px] gap-2.5 border-b border-[#EAF2FF] bg-[#F8FBFF] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B] sm:grid" style={{ fontFamily: font.rajdhani }}>
               <span>Rank</span>
               <span>Person</span>
-              <span>Circle</span>
-              <span>Time</span>
+              <span>Relationship</span>
+              <span className="text-right">Time</span>
             </div>
             {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
               <button
-                className="grid w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[40px_minmax(130px,1fr)_80px_112px] sm:gap-3 sm:px-3.5"
+                className="grid w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_minmax(0,1fr)_96px_44px] sm:gap-2.5"
                 key={item.person.id}
                 onClick={() => onOpenPerson(item.person.id)}
                 type="button"
@@ -4387,11 +4577,11 @@ function DesktopHomeDashboard({
                   <span className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold sm:flex ${avatarTone(index)}`}>{initials(item.person.name)}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-bold text-[#0F172A]">{item.person.name}</span>
-                    <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#64748B] sm:hidden">{circleLayerLabelForPerson(item.person.id, circleGroups)}</span>
+                    <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#64748B] sm:hidden">{relationshipTypePillLabel(item.person)}</span>
                   </span>
                 </span>
-                <span className="hidden text-sm font-semibold text-[#0F172A] sm:block">{circleLayerLabelForPerson(item.person.id, circleGroups)}</span>
-                <span className="shrink-0 text-sm font-black text-[#0F172A]">{item.stats.timeMinutes ? formatLoggedTime(item.stats.timeMinutes) : `${item.stats.meetings} tables`}</span>
+                <span className="hidden truncate text-sm font-semibold text-[#0F172A] sm:block">{relationshipTypePillLabel(item.person)}</span>
+                <span className="shrink-0 text-right text-sm font-black text-[#0F172A]">{formatDashboardDuration(item.stats.timeMinutes)}</span>
               </button>
             )) : (
               <p className="px-4 py-5 text-sm text-[#64748B]">No persisted table duration yet.</p>
@@ -4402,32 +4592,27 @@ function DesktopHomeDashboard({
 
       <div className="grid gap-3 min-[1180px]:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Upcoming">
-          <div className="grid gap-1">
-            {dashboardUpcomingRows.map((item) => (
+          <div className="grid">
+            {dashboardUpcomingRows.length ? dashboardUpcomingRows.map((item) => (
               <button
-                className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2.5 text-left last:border-b-0"
+                className="flex min-w-0 items-center gap-2 border-b border-[#EAF2FF] px-1 py-2 text-left last:border-b-0"
                 key={item.id}
-                onClick={() => {
-                  if (item.meeting) {
-                    onOpenMeeting(item.meeting.id);
-                  } else {
-                    onOpenTableCalendar();
-                  }
-                }}
+                onClick={() => openDashboardUpcomingRow(item)}
                 type="button"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[11px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
                   <TimelineIcon icon={item.icon} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold text-[#0F172A]">{item.title}</span>
-                  <span className="mt-1 block truncate text-xs text-[#64748B]">{item.label}</span>
                 </span>
-                <span className="max-w-[92px] shrink-0 truncate rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                  {item.badge}
+                <span className="max-w-[164px] shrink-0 truncate rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1.5 text-right text-[10px] font-black uppercase leading-none tracking-[0.1em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                  {item.label} · {item.badge}
                 </span>
               </button>
-            ))}
+            )) : (
+              <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">No upcoming notifications.</p>
+            )}
           </div>
         </DesktopPanel>
 
@@ -5277,21 +5462,6 @@ function ProfileRow({
   );
 }
 
-function RhythmBars() {
-  return (
-    <div className="flex items-end gap-1.5" aria-label="Seven day rhythm preview">
-      {[0, 1, 2, 3, 4, 5, 6].map((bar) => (
-        <span
-          aria-hidden="true"
-          className="w-1.5 rounded-full bg-[#2563EB]"
-          key={bar}
-          style={{ height: `${14 + (bar % 3) * 3}px` }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function ProfileSheet({
   email,
   name,
@@ -5332,16 +5502,6 @@ function ProfileSheet({
       </div>
 
       <div className="mt-5 grid gap-4">
-        <section className="rounded-[18px] bg-white px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]">Current Rhythm</p>
-              <p className="mt-1 text-base font-bold leading-none text-[#0F172A]">Day {currentRhythmDay}</p>
-            </div>
-            <RhythmBars />
-          </div>
-        </section>
-
         <ProfileGroup title="Your DOS Workspace">
           <ProfileRow icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} meta={<span className="text-[#2563EB]">Switch</span>} sublabel={workspaceSublabel}>
             {workspaceName}
@@ -12783,7 +12943,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         stats.set(personId, {
           meetings: current.meetings + (meeting.meetingStatus === "logged" ? 1 : 0),
-          timeMinutes: current.timeMinutes + tableDurationMinutes(meeting),
+          timeMinutes: current.timeMinutes + (meeting.meetingStatus === "logged" ? tableDurationMinutes(meeting) : 0),
         });
       });
     });
@@ -12927,10 +13087,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       .filter((meeting) => meeting.meetingStatus !== "scheduled" || !isUpcomingDate(meeting.scheduledStartAt ?? meeting.date))
       .sort((first, second) => dateSortValue(second.scheduledStartAt ?? second.date) - dateSortValue(first.scheduledStartAt ?? first.date))
   ), [data.meetings]);
-  const upcomingScheduledMeetings = useMemo(() => (
-    upcomingTableMeetings
-      .slice(0, 4)
-  ), [upcomingTableMeetings]);
   const meetingCalendarItems = useMemo(() => (
     buildMeetingCalendarItems({
       externalCalendarEvents: data.externalCalendarEvents,
@@ -14780,10 +14936,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   setMeetingsView("calendar");
                 }}
                 onViewField={() => setActiveTab("people")}
+                participantReviews={data.participantReviews}
                 people={people}
                 personTableStatsByPersonId={personTableStatsByPersonId}
                 upcomingItems={upcomingTimelineItems}
-                upcomingMeetings={upcomingScheduledMeetings}
               />
               </>
             ) : null}
