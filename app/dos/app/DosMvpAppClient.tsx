@@ -5804,44 +5804,22 @@ function TableSearchBar({
 
 function DesktopTableToolbar({
   meetingsView,
-  onLogMeeting,
   onMeetingsViewChange,
-  onScheduleMeeting,
   onSearchChange,
   query,
   resultCount,
 }: {
   meetingsView: MeetingsView;
-  onLogMeeting: () => void;
   onMeetingsViewChange: (value: MeetingsView) => void;
-  onScheduleMeeting: () => void;
   onSearchChange: (value: string) => void;
   query: string;
   resultCount: number;
 }) {
   return (
-    <div className="hidden rounded-[26px] border border-[#EAF2FF] bg-white/92 p-3 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:grid md:grid-cols-1 md:items-center md:gap-3 xl:grid-cols-[minmax(220px,300px)_minmax(390px,1fr)_auto]">
+    <div className="hidden rounded-[26px] border border-[#EAF2FF] bg-white/92 p-3 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:grid md:grid-cols-1 md:items-center md:gap-3 xl:grid-cols-[minmax(260px,360px)_minmax(390px,1fr)]">
       <TableSearchBar onChange={onSearchChange} query={query} resultCount={resultCount} showCount={false} />
       <div className="min-w-0">
         <SegmentedTabs onChange={onMeetingsViewChange} options={desktopMeetingsViewTabs} value={meetingsView} />
-      </div>
-      <div className="grid grid-cols-2 gap-2 xl:min-w-[294px] xl:justify-self-end">
-        <button
-          className="inline-flex min-h-11 min-w-[124px] items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.20)] transition-transform active:scale-[0.99]"
-          onClick={onLogMeeting}
-          type="button"
-        >
-          <Icon name="log" size={14} />
-          <span>Log Table</span>
-        </button>
-        <button
-          className="inline-flex min-h-11 min-w-[150px] items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] shadow-[0_8px_20px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] active:scale-[0.99]"
-          onClick={onScheduleMeeting}
-          type="button"
-        >
-          <CalendarDays className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-          <span>Schedule Table</span>
-        </button>
       </div>
     </div>
   );
@@ -11028,27 +11006,39 @@ function MobileFloatingActions({
   items,
   onClose,
   onToggle,
+  variant = "mobile",
 }: {
   isOpen: boolean;
   items: MobileFloatingActionItem[];
   onClose: () => void;
   onToggle: () => void;
+  variant?: "desktop" | "mobile";
 }) {
   if (!items.length) {
     return null;
   }
 
+  const rootClassName = variant === "desktop"
+    ? "fixed inset-0 z-[70] hidden pointer-events-none md:block"
+    : "absolute inset-0 z-[70] pointer-events-none md:hidden";
+  const closeClassName = variant === "desktop"
+    ? "fixed inset-0 pointer-events-auto bg-transparent"
+    : "absolute inset-0 pointer-events-auto bg-transparent";
+  const stackClassName = variant === "desktop"
+    ? "fixed bottom-7 right-7 flex w-[230px] flex-col items-end gap-2 pointer-events-auto xl:right-9"
+    : "absolute bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-5 flex w-[216px] flex-col items-end gap-2 pointer-events-auto";
+
   return (
-    <div className="absolute inset-0 z-[70] pointer-events-none md:hidden">
+    <div className={rootClassName}>
       {isOpen ? (
         <button
           aria-label="Close quick actions"
-          className="absolute inset-0 pointer-events-auto bg-transparent"
+          className={closeClassName}
           onClick={onClose}
           type="button"
         />
       ) : null}
-      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-5 flex w-[216px] flex-col items-end gap-2 pointer-events-auto">
+      <div className={stackClassName}>
         {isOpen ? (
           <div className="w-full rounded-[26px] border border-white/80 bg-white/95 p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl">
             {items.map((item) => (
@@ -12734,6 +12724,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
+  const [isDesktopActionMenuOpen, setIsDesktopActionMenuOpen] = useState(false);
   const [isMobileActionSheetOpen, setIsMobileActionSheetOpen] = useState(false);
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
   const [isUpcomingSheetOpen, setIsUpcomingSheetOpen] = useState(false);
@@ -13210,6 +13201,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [searchParams]);
 
   useEffect(() => {
+    setIsDesktopActionMenuOpen(false);
     setIsMobileActionSheetOpen(false);
   }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
 
@@ -14841,6 +14833,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsMobileActionSheetOpen(false);
     action();
   };
+  const runDesktopAction = (action: () => void) => () => {
+    setIsDesktopActionMenuOpen(false);
+    action();
+  };
   const quickReviewFruitFormAction = {
     isBusy: latestLoggedTableMeeting ? reviewLinkMeetingId === latestLoggedTableMeeting.id : false,
     onCopy: () => void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "copy"),
@@ -14860,6 +14856,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         { icon: "search", label: "Search Tables", onClick: runMobileAction(openTableSearch) },
         { icon: "send", label: "Send Resource", onClick: runMobileAction(openResourcePicker) },
       ]
+    : activeTab === "people"
+      ? [
+          { icon: "people", label: "Add Person", onClick: runMobileAction(() => openForm("person")) },
+          { icon: "upload", label: "Import", onClick: runMobileAction(() => setIsPeopleImportOpen(true)) },
+        ]
     : activeTab === "more" && moreAppView === "fruit"
       ? fruitFormCards.map((form) => ({
           icon: form.icon,
@@ -14878,7 +14879,41 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     : activeTab === "home"
       ? []
       : [];
+  const desktopFloatingActionItems: MobileFloatingActionItem[] = activeTab === "meetings"
+    ? [
+        { icon: "log", label: "Log Table", onClick: runDesktopAction(() => openForm("meeting")) },
+        { icon: "calendar", label: "Schedule Table", onClick: runDesktopAction(() => openScheduleMeeting()) },
+        { icon: "search", label: "Search Tables", onClick: runDesktopAction(openTableSearch) },
+        { icon: "send", label: "Send Resource", onClick: runDesktopAction(openResourcePicker) },
+      ]
+    : activeTab === "people"
+      ? [
+          { icon: "people", label: "Add Person", onClick: runDesktopAction(() => openForm("person")) },
+          { icon: "upload", label: "Import", onClick: runDesktopAction(() => setIsPeopleImportOpen(true)) },
+        ]
+      : [];
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
+    && !formMode
+    && !isCirclesOpen
+    && !isEditProfileOpen
+    && !isFirstLaunchWalkthroughOpen
+    && !isPeopleImportOpen
+    && !isPrayerResourceLibraryOpen
+    && !isResourcePickerOpen
+    && !isProfileOpen
+    && !isActivitySheetOpen
+    && !isTableSearchOpen
+    && !isUpcomingSheetOpen
+    && !isUsamApplicationOpen
+    && !selectedExternalCalendarEventId
+    && !selectedFruitActivity
+    && !selectedFruitFormPreviewKey
+    && !selectedMeetingId
+    && !selectedPersonId
+    && !selectedPrayerResourceSlug
+    && !selectedReminderId
+    && !selectedScripture;
+  const showDesktopFloatingActions = desktopFloatingActionItems.length > 0
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -14984,15 +15019,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   title="Faithful with a few."
                 />
                 <div className="hidden items-center gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:flex">
-                  <button
-                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.22)] transition-colors hover:brightness-[0.98]"
-                    onClick={() => openForm("person")}
-                    type="button"
-                  >
-                    <Icon name="add" size={15} />
-                    Add Person
-                  </button>
-                  <label className="relative min-w-[260px] flex-1">
+                  <label className="relative min-w-0 flex-1">
                     <span className="sr-only">Search field</span>
                     <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
                       <Icon name="search" size={15} />
@@ -15005,29 +15032,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       value={peopleQuery}
                     />
                   </label>
-                  <button
-                    aria-label="Import CSV"
-                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[#D7E3F8] bg-white px-4 text-sm font-bold text-[#2563EB] shadow-[0_6px_14px_rgba(15,23,42,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
-                    onClick={() => setIsPeopleImportOpen(true)}
-                    title="Import CSV"
-                    type="button"
-                  >
-                    <Icon name="add" size={14} />
-                    Import
-                  </button>
                 </div>
-                <div className="flex items-center gap-2 md:hidden">
-                  <button
-                    className="inline-flex h-12 min-w-0 flex-[1.35] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.24)] transition-colors hover:brightness-[0.98] max-[350px]:flex-[1.2] max-[350px]:px-3 max-[350px]:text-[12px]"
-                    onClick={() => openForm("person")}
-                    type="button"
-                  >
-                    + Add Person
-                  </button>
+                <div className="flex items-center md:hidden">
                   <button
                     aria-expanded={isPeopleSearchOpen}
                     aria-label="Search field"
-                    className={`inline-flex h-12 min-w-0 flex-[0.9] items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.08)] transition-colors max-[350px]:flex-[0.88] max-[350px]:gap-1 max-[350px]:px-2 max-[350px]:text-[12px] ${
+                    className={`inline-flex h-12 w-full min-w-0 items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.08)] transition-colors max-[350px]:gap-1 max-[350px]:px-2 max-[350px]:text-[12px] ${
                       isPeopleSearchOpen
                         ? "border-[#2563EB] bg-[#EBF2FF]"
                         : "border-[#D7E3F8] bg-white hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
@@ -15046,15 +15056,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   >
                     <Icon name="search" size={18} />
                     <span>Search</span>
-                  </button>
-                  <button
-                    aria-label="Import CSV"
-                    className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#D7E3F8] bg-white text-[#2563EB] shadow-[0_6px_14px_rgba(15,23,42,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF] max-[350px]:w-10"
-                    onClick={() => setIsPeopleImportOpen(true)}
-                    title="Import CSV"
-                    type="button"
-                  >
-                    <Icon name="add" size={14} />
                   </button>
                 </div>
                 {isPeopleSearchOpen ? (
@@ -15129,9 +15130,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 />
                 <DesktopTableToolbar
                   meetingsView={meetingsView}
-                  onLogMeeting={() => openForm("meeting")}
                   onMeetingsViewChange={setMeetingsView}
-                  onScheduleMeeting={() => openScheduleMeeting()}
                   onSearchChange={setTableQuery}
                   query={tableQuery}
                   resultCount={tableResultCount}
@@ -15916,6 +15915,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         ) : null}
 
         <BottomNavigation activeTab={activeTab} onSelect={selectTab} />
+        {showDesktopFloatingActions ? (
+          <MobileFloatingActions
+            isOpen={isDesktopActionMenuOpen}
+            items={desktopFloatingActionItems}
+            onClose={() => setIsDesktopActionMenuOpen(false)}
+            onToggle={() => setIsDesktopActionMenuOpen((current) => !current)}
+            variant="desktop"
+          />
+        ) : null}
         {showMobileFloatingActions ? (
           <MobileFloatingActions
             isOpen={isMobileActionSheetOpen}
