@@ -100,6 +100,15 @@ type DosScopeAuthorization = Pick<DosAuthorizedUser, "email" | "userId"> & {
   phone?: string | null;
 };
 
+const launchWorkspaceDisplayNames: Record<string, string> = {
+  "ryan-brooke-fox": "Ryan Fox",
+};
+
+const hiddenLaunchWorkspaceSlugs = new Set([
+  "fox-family",
+  "ryan-fox",
+]);
+
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -210,13 +219,28 @@ async function loadWorkspaceByRef(workspaceRef: string | null | undefined) {
   return data as WorkspaceRow | null;
 }
 
-function isLikelyTestWorkspace(workspace: Pick<LaunchWorkspaceRow, "display_name" | "short_mission" | "slug">) {
-  const text = [workspace.display_name, workspace.short_mission, workspace.slug]
+function launchWorkspaceSearchText(workspace: Pick<LaunchWorkspaceRow, "display_name" | "short_mission" | "slug">) {
+  return [workspace.display_name, workspace.short_mission, workspace.slug]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
 
+function isLikelyTestWorkspace(workspace: Pick<LaunchWorkspaceRow, "display_name" | "short_mission" | "slug">) {
+  const text = launchWorkspaceSearchText(workspace);
   return /\b(demo|sample|seed|smoke|test)\b/.test(text) || text.includes("jointest") || text.includes("prodsmoke");
+}
+
+function isHiddenLaunchWorkspace(workspace: LaunchWorkspaceRow) {
+  const slug = workspace.slug.toLowerCase();
+  const text = launchWorkspaceSearchText(workspace);
+
+  return hiddenLaunchWorkspaceSlugs.has(slug)
+    || text.includes("codex joinaudit")
+    || text.includes("join audit")
+    || text.includes("brian jointest")
+    || text.includes("join test")
+    || /\bsetup\b/.test(text);
 }
 
 function isConfirmedWorkspace(workspace: LaunchWorkspaceRow) {
@@ -257,7 +281,7 @@ function launchWorkspaceStatus(workspace: LaunchWorkspaceRow) {
 
 function launchWorkspaceFromRow(workspace: LaunchWorkspaceRow): DosLaunchWorkspace {
   return {
-    displayName: workspace.display_name,
+    displayName: launchWorkspaceDisplayNames[workspace.slug] ?? workspace.display_name,
     href: `/dos/app?workspace=${encodeURIComponent(workspace.slug)}`,
     id: workspace.id,
     isConfirmedDefault: isConfirmedWorkspace(workspace),
@@ -284,8 +308,16 @@ function sortLaunchWorkspaces(workspaces: DosLaunchWorkspace[]) {
 
 function shouldShowInDosLauncher(workspace: LaunchWorkspaceRow) {
   return !isLikelyTestWorkspace(workspace)
+    && !isHiddenLaunchWorkspace(workspace)
     && workspace.usam_application_status !== "archived"
     && workspace.usam_profile_status !== "archived";
+}
+
+function visibleLaunchWorkspaceRows(workspaces: LaunchWorkspaceRow[]) {
+  const visibleWorkspaces = workspaces.filter(shouldShowInDosLauncher);
+  const preferredWorkspace = visibleWorkspaces.find((workspace) => workspace.slug === "ryan-brooke-fox");
+
+  return preferredWorkspace ? [preferredWorkspace] : visibleWorkspaces;
 }
 
 async function loadLaunchWorkspaceRowsByIds(workspaceIds: string[]) {
@@ -500,7 +532,7 @@ export async function getDosWorkspaceAccess(
       return { status: "not_found" };
     }
 
-    const scopedWorkspaceRows = (await loadLaunchWorkspaceRowsForUser(authorization)).filter(shouldShowInDosLauncher);
+    const scopedWorkspaceRows = visibleLaunchWorkspaceRows(await loadLaunchWorkspaceRowsForUser(authorization));
 
     if (scopedWorkspaceRows.length) {
       const isAllowed = scopedWorkspaceRows.some((scopedWorkspace) => scopedWorkspace.id === workspace.id);
@@ -553,7 +585,7 @@ export async function getDefaultDosWorkspaceAccess(
 
   try {
     const supabase = createSupabaseAdminClient();
-    const scopedWorkspaceRows = (await loadLaunchWorkspaceRowsForUser(authorization)).filter(shouldShowInDosLauncher);
+    const scopedWorkspaceRows = visibleLaunchWorkspaceRows(await loadLaunchWorkspaceRowsForUser(authorization));
 
     if (scopedWorkspaceRows.length) {
       const defaultWorkspace = sortLaunchWorkspaces(
@@ -585,8 +617,7 @@ export async function getDefaultDosWorkspaceAccess(
         throw new Error(error.message);
       }
 
-      const defaultWorkspace = sortLaunchWorkspaces(((data ?? []) as LaunchWorkspaceRow[])
-        .filter(shouldShowInDosLauncher)
+      const defaultWorkspace = sortLaunchWorkspaces(visibleLaunchWorkspaceRows((data ?? []) as LaunchWorkspaceRow[])
         .map(launchWorkspaceFromRow))[0];
 
       return defaultWorkspace
@@ -710,7 +741,7 @@ export async function getDosLaunchWorkspaces(
     }
 
     const uniqueWorkspaces = Array.from(
-      new Map(workspaceRows.filter(shouldShowInDosLauncher).map((workspace) => [workspace.id, workspace])).values(),
+      new Map(visibleLaunchWorkspaceRows(workspaceRows).map((workspace) => [workspace.id, workspace])).values(),
     ).map(launchWorkspaceFromRow);
 
     return sortLaunchWorkspaces(uniqueWorkspaces);
