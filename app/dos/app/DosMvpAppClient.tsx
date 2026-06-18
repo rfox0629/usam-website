@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ChangeEvent, ComponentProps, FormEvent, MouseEvent, ReactNode } from "react";
 import {
   buildMeetingRecommendations,
@@ -8299,6 +8300,7 @@ function ReminderFormContent({
 }) {
   const fallbackPersonId = defaultPersonId ?? people[0]?.id ?? "";
   const resolvedReminderType = reminder?.reminderType ?? defaultReminderType ?? "follow_up";
+  const isPrayerReminder = resolvedReminderType === "prayer";
   const defaultRecurrence = reminder?.recurrence ?? (["birthday", "anniversary", "baptism", "salvation"].includes(resolvedReminderType) ? "yearly" : "none");
   const shortcutPerson = householdPerson ?? people.find((person) => person.id === (reminder?.personId ?? fallbackPersonId)) ?? null;
   const householdReminderTitles = Array.from(new Set([
@@ -8381,8 +8383,8 @@ function ReminderFormContent({
           </div>
         </div>
         <label className="block">
-          <FieldLabel>Title</FieldLabel>
-          <input className={FieldInputClass()} defaultValue={reminder?.title ?? ""} name="title" placeholder="Optional reminder title" type="text" />
+          <FieldLabel>{isPrayerReminder ? "Prayer Request" : "Title"}</FieldLabel>
+          <input className={FieldInputClass()} defaultValue={reminder?.title ?? ""} name="title" placeholder={isPrayerReminder ? "What should you pray for?" : "Optional reminder title"} type="text" />
         </label>
         {householdReminderTitles.length ? (
           <div>
@@ -8454,7 +8456,9 @@ function ReminderFormContent({
         </label>
       </section>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting || !people.length} tone="black" type="submit">{isSubmitting ? "Saving..." : reminder ? "Save Reminder" : "Add Reminder"}</AppButton>
+      <AppButton disabled={isSubmitting || !people.length} tone="black" type="submit">
+        {isSubmitting ? "Saving..." : reminder ? (isPrayerReminder ? "Save Prayer Request" : "Save Reminder") : (isPrayerReminder ? "Add Prayer Request" : "Add Reminder")}
+      </AppButton>
       {reminder && onDelete ? (
         <button
           className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -9754,6 +9758,7 @@ function DesktopPrayerPlaceholderSheet({
 }
 
 function DesktopPrayerWorkspace({
+  actionsHidden = false,
   onAddPrayerReminder,
   onOpenMeeting,
   onOpenReminder,
@@ -9765,6 +9770,7 @@ function DesktopPrayerWorkspace({
   upcomingMeetings,
   onTabChange,
 }: {
+  actionsHidden?: boolean;
   onAddPrayerReminder: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenReminder: (reminderId: string) => void;
@@ -9782,9 +9788,41 @@ function DesktopPrayerWorkspace({
   const personById = new Map(people.map((person) => [person.id, person]));
   const [prayerRequestView, setPrayerRequestView] = useState<PrayerRequestView>("praying");
   const [isAddPrayerRequestOpen, setIsAddPrayerRequestOpen] = useState(false);
+  const [isPrayerActionMenuOpen, setIsPrayerActionMenuOpen] = useState(false);
   const [prayerPlaceholder, setPrayerPlaceholder] = useState<{ description: string; title: string } | null>(null);
   const visiblePrayerRequests = desktopPrayerRequestSamples.filter((request) => request.view === prayerRequestView);
   const openPrayerPlaceholder = (title: string, description: string) => setPrayerPlaceholder({ description, title });
+  const runPrayerAction = (action: () => void) => () => {
+    setIsPrayerActionMenuOpen(false);
+    action();
+  };
+  const prayerFloatingActionItems: MobileFloatingActionItem[] = [
+    {
+      icon: "people",
+      label: "Add Prayer Partner",
+      onClick: runPrayerAction(() => openPrayerPlaceholder("Add Prayer Partner", "Prayer partner creation will connect to the partner directory in a later pass.")),
+    },
+    {
+      icon: "prayer",
+      label: "Add Prayer Request",
+      onClick: runPrayerAction(() => setIsAddPrayerRequestOpen(true)),
+    },
+    {
+      icon: "log",
+      label: "Log Prayer Request",
+      onClick: runPrayerAction(onAddPrayerReminder),
+    },
+    {
+      icon: "calendar",
+      label: "Schedule Table",
+      onClick: runPrayerAction(onScheduleMeeting),
+    },
+  ];
+  const showPrayerFloatingActions = !actionsHidden && !isAddPrayerRequestOpen && !prayerPlaceholder;
+
+  useEffect(() => {
+    setIsPrayerActionMenuOpen(false);
+  }, [actionsHidden, isAddPrayerRequestOpen, prayerPlaceholder, tab]);
 
   return (
     <div className="hidden space-y-4 md:block">
@@ -9792,7 +9830,6 @@ function DesktopPrayerWorkspace({
 
       {tab === "partners" ? (
         <DesktopPanel
-          action={<DesktopPrayerActionButton onClick={() => openPrayerPlaceholder("Add Prayer Partner", "Prayer partner creation will connect to the partner directory in a later pass.")}>Add Prayer Partner</DesktopPrayerActionButton>}
           compact
           eyebrow="Prayer Partners"
         >
@@ -9820,7 +9857,6 @@ function DesktopPrayerWorkspace({
 
       {tab === "my_requests" ? (
         <DesktopPanel
-          action={<DesktopPrayerActionButton onClick={() => setIsAddPrayerRequestOpen(true)}>Add Prayer Request</DesktopPrayerActionButton>}
           compact
           eyebrow="My Requests"
         >
@@ -9852,7 +9888,6 @@ function DesktopPrayerWorkspace({
 
       {tab === "praying_for" ? (
         <DesktopPanel
-          action={<DesktopPrayerActionButton onClick={onAddPrayerReminder}>Log Prayer Request</DesktopPrayerActionButton>}
           compact
           eyebrow="Praying For"
         >
@@ -9908,7 +9943,6 @@ function DesktopPrayerWorkspace({
 
       {tab === "meeting_covering" ? (
         <DesktopPanel
-          action={<DesktopPrayerActionButton onClick={onScheduleMeeting}>Schedule Table</DesktopPrayerActionButton>}
           compact
           eyebrow="Meeting Covering"
         >
@@ -9952,6 +9986,16 @@ function DesktopPrayerWorkspace({
         </DesktopPanel>
       ) : null}
 
+      {showPrayerFloatingActions ? (
+        <MobileFloatingActions
+          isOpen={isPrayerActionMenuOpen}
+          items={prayerFloatingActionItems}
+          onClose={() => setIsPrayerActionMenuOpen(false)}
+          onToggle={() => setIsPrayerActionMenuOpen((current) => !current)}
+          portalToBody
+          variant="desktop"
+        />
+      ) : null}
       {isAddPrayerRequestOpen ? <AddPrayerRequestPlaceholderSheet onClose={() => setIsAddPrayerRequestOpen(false)} /> : null}
       {prayerPlaceholder ? (
         <DesktopPrayerPlaceholderSheet
@@ -11006,14 +11050,22 @@ function MobileFloatingActions({
   items,
   onClose,
   onToggle,
+  portalToBody = false,
   variant = "mobile",
 }: {
   isOpen: boolean;
   items: MobileFloatingActionItem[];
   onClose: () => void;
   onToggle: () => void;
+  portalToBody?: boolean;
   variant?: "desktop" | "mobile";
 }) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   if (!items.length) {
     return null;
   }
@@ -11028,7 +11080,7 @@ function MobileFloatingActions({
     ? "fixed bottom-7 right-7 flex w-[230px] flex-col items-end gap-2 pointer-events-auto xl:right-9"
     : "absolute bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-5 flex w-[216px] flex-col items-end gap-2 pointer-events-auto";
 
-  return (
+  const content = (
     <div className={rootClassName}>
       {isOpen ? (
         <button
@@ -11068,6 +11120,12 @@ function MobileFloatingActions({
       </div>
     </div>
   );
+
+  if (portalToBody && variant === "desktop") {
+    return isMounted ? createPortal(content, document.body) : null;
+  }
+
+  return content;
 }
 
 function DesktopNavigation({
@@ -15349,6 +15407,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       </LibrarySection>
                     </div>
                     <DesktopPrayerWorkspace
+                      actionsHidden={Boolean(formMode) || Boolean(selectedMeetingId) || Boolean(selectedReminderId) || isPrayerResourceLibraryOpen || Boolean(selectedPrayerResourceSlug)}
                       onAddPrayerReminder={() => openReminderForm(undefined, "prayer")}
                       onOpenMeeting={openMeetingDetail}
                       onOpenReminder={openReminderEdit}
@@ -16126,7 +16185,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "reminder" ? (
-        <Sheet onClose={closeForm} showEyebrow={false} title={selectedReminder ? "Edit Reminder" : "Add Reminder"}>
+        <Sheet onClose={closeForm} showEyebrow={false} title={selectedReminder ? (selectedReminder.reminderType === "prayer" ? "Edit Prayer Request" : "Edit Reminder") : (newReminderType === "prayer" ? "Add Prayer Request" : "Add Reminder")}>
           <ReminderFormContent
             calendarConnection={data.calendarConnection}
             defaultPersonId={selectedMeetingPersonIds[0] ?? selectedPerson?.id ?? null}
