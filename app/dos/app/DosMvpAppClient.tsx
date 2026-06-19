@@ -541,6 +541,41 @@ const reminderRecurrenceOptions = [
   { label: "Monthly", value: "monthly" },
   { label: "Weekly", value: "weekly" },
 ] as const;
+const importantReminderTagOptions = [
+  { label: "Prayer", value: "prayer" },
+  { label: "Medical", value: "medical" },
+  { label: "Family", value: "family" },
+  { label: "Work", value: "work" },
+  { label: "Ministry", value: "ministry" },
+  { label: "Anniversary", value: "anniversary" },
+  { label: "Memorial", value: "memorial" },
+  { label: "Other", value: "other" },
+] as const;
+const importantReminderRepeatOptions = [
+  { label: "Never", value: "none" },
+  { label: "Yearly", value: "yearly" },
+] as const;
+const importantReminderTimingOptions = [
+  { label: "Day of", value: "day_of" },
+  { label: "1 day before", value: "one_day_before" },
+  { label: "1 week before", value: "one_week_before" },
+] as const;
+const importantReminderDestinationOptions = [
+  { label: "Person Timeline only", value: "person_timeline" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Calendar", value: "calendar" },
+] as const;
+
+type ImportantReminderTag = typeof importantReminderTagOptions[number]["value"];
+type ImportantReminderRepeat = typeof importantReminderRepeatOptions[number]["value"];
+type ImportantReminderTiming = typeof importantReminderTimingOptions[number]["value"];
+type ImportantReminderDestination = typeof importantReminderDestinationOptions[number]["value"];
+type ImportantReminderMeta = {
+  destination: ImportantReminderDestination;
+  showOnDashboard: boolean;
+  tag: ImportantReminderTag;
+  timing: ImportantReminderTiming;
+};
 
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
@@ -753,6 +788,7 @@ type SegmentedTabOption<T extends string> = {
   value: T;
 };
 type PersonFormDefaults = {
+  anniversaryDate?: string;
   birthday?: string;
   childrenNames?: string;
   church?: string;
@@ -1230,6 +1266,92 @@ function reminderTypeLabel(value: DosAppRelationshipReminder["reminderType"]) {
   return reminderTypeOptions.find((option) => option.value === value)?.label ?? "Reminder";
 }
 
+function importantReminderTagLabel(value: ImportantReminderTag) {
+  return importantReminderTagOptions.find((option) => option.value === value)?.label ?? "Other";
+}
+
+function importantReminderRepeatForTag(value: ImportantReminderTag): ImportantReminderRepeat {
+  return value === "anniversary" || value === "memorial" ? "yearly" : "none";
+}
+
+function importantReminderDestinationForTag(value: ImportantReminderTag): ImportantReminderDestination {
+  return value === "prayer" ? "prayer" : "person_timeline";
+}
+
+function normalizeImportantReminderTag(value: FormDataEntryValue | string | null | undefined): ImportantReminderTag {
+  const nextValue = String(value ?? "");
+
+  return importantReminderTagOptions.some((option) => option.value === nextValue) ? nextValue as ImportantReminderTag : "other";
+}
+
+function normalizeImportantReminderTiming(value: FormDataEntryValue | string | null | undefined): ImportantReminderTiming {
+  const nextValue = String(value ?? "");
+
+  return importantReminderTimingOptions.some((option) => option.value === nextValue) ? nextValue as ImportantReminderTiming : "day_of";
+}
+
+function normalizeImportantReminderDestination(value: FormDataEntryValue | string | null | undefined): ImportantReminderDestination {
+  const nextValue = String(value ?? "");
+
+  return importantReminderDestinationOptions.some((option) => option.value === nextValue) ? nextValue as ImportantReminderDestination : "person_timeline";
+}
+
+function reminderTypeForImportantTag(value: ImportantReminderTag): DosAppRelationshipReminder["reminderType"] {
+  if (value === "anniversary") {
+    return "anniversary";
+  }
+
+  if (value === "prayer") {
+    return "prayer";
+  }
+
+  return "custom";
+}
+
+const reminderMetaPattern = /^<!-- DOS_REMINDER_META ([\s\S]*?) -->\n?/;
+
+function splitReminderNotesMetadata(value: string | null | undefined): { meta: ImportantReminderMeta | null; notes: string } {
+  const rawValue = value?.trim() ?? "";
+  const match = rawValue.match(reminderMetaPattern);
+
+  if (!match) {
+    return { meta: null, notes: rawValue };
+  }
+
+  const notes = rawValue.replace(reminderMetaPattern, "").trim();
+
+  try {
+    const parsed = JSON.parse(match[1] ?? "{}") as Partial<ImportantReminderMeta>;
+    const tag = normalizeImportantReminderTag(parsed.tag);
+    const timing = normalizeImportantReminderTiming(parsed.timing);
+    const destination = normalizeImportantReminderDestination(parsed.destination);
+
+    return {
+      meta: {
+        destination,
+        showOnDashboard: parsed.showOnDashboard !== false,
+        tag,
+        timing,
+      },
+      notes,
+    };
+  } catch {
+    return { meta: null, notes };
+  }
+}
+
+function joinReminderNotesMetadata(notes: string, meta: ImportantReminderMeta) {
+  return [`<!-- DOS_REMINDER_META ${JSON.stringify(meta)} -->`, notes.trim()].filter(Boolean).join("\n").trim();
+}
+
+function reminderVisibleNotes(value: string | null | undefined) {
+  return splitReminderNotesMetadata(value).notes;
+}
+
+function reminderShowsOnDashboard(reminder: DosAppRelationshipReminder) {
+  return splitReminderNotesMetadata(reminder.notes).meta?.showOnDashboard !== false;
+}
+
 function reminderDisplayTitle(reminder: DosAppRelationshipReminder, person?: DosAppPerson | null) {
   if (reminder.title?.trim()) {
     return reminder.title.trim();
@@ -1699,6 +1821,17 @@ function personFormDefaults(person?: DosAppPerson | null): PersonFormDefaults {
       defaults.birthday = value;
     }
   });
+
+  return defaults;
+}
+
+function personFormDefaultsWithReminders(person: DosAppPerson | null | undefined, reminders: DosAppRelationshipReminder[]): PersonFormDefaults {
+  const defaults = personFormDefaults(person);
+  const anniversaryReminder = reminders.find((reminder) => reminder.reminderType === "anniversary");
+
+  if (anniversaryReminder?.reminderDate) {
+    defaults.anniversaryDate = anniversaryReminder.reminderDate.slice(0, 10);
+  }
 
   return defaults;
 }
@@ -2276,11 +2409,13 @@ function primaryMeetingPerson(meeting: DosAppMeeting, people: DosAppPerson[]) {
 }
 
 function buildUpcomingTimelineItems({
+  includeDashboardHiddenReminders = false,
   meetings,
   people,
   person,
   reminders,
 }: {
+  includeDashboardHiddenReminders?: boolean;
   meetings: DosAppMeeting[];
   people: DosAppPerson[];
   person?: DosAppPerson | null;
@@ -2317,6 +2452,7 @@ function buildUpcomingTimelineItems({
     });
   const reminderItems: UpcomingTimelineItem[] = reminders
     .filter((reminder) => !personFilterId || reminder.personId === personFilterId)
+    .filter((reminder) => includeDashboardHiddenReminders || reminderShowsOnDashboard(reminder))
     .map((reminder) => ({
       reminder,
       reminderDate: nextReminderDate(reminder),
@@ -2334,7 +2470,7 @@ function buildUpcomingTimelineItems({
           date: reminderDate,
           detail: reminderTypeLabel(reminder.reminderType),
         }),
-        notes: reminder.notes,
+        notes: reminderVisibleNotes(reminder.notes),
         personId: reminder.personId,
         personName: linkedPerson?.name ?? null,
         reminder,
@@ -6230,7 +6366,6 @@ function DesktopPeopleIndex({
   empty,
   items,
   latestMeetingDateByPersonId,
-  onLogMeeting,
   onOpenPerson,
   personTableStatsByPersonId,
   startIndex = 0,
@@ -6239,7 +6374,6 @@ function DesktopPeopleIndex({
   empty: string;
   items: CircleListItem[];
   latestMeetingDateByPersonId: Map<string, string | null>;
-  onLogMeeting: (personId: string) => void;
   onOpenPerson: (personId: string) => void;
   personTableStatsByPersonId: Map<string, PersonTableStats>;
   startIndex?: number;
@@ -6256,8 +6390,8 @@ function DesktopPeopleIndex({
   return (
     <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] md:block">
       <div className="overflow-x-auto">
-        <div className="min-w-[1106px]">
-          <div className="grid grid-cols-[minmax(264px,1.6fr)_142px_122px_60px_100px_84px_104px_114px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="min-w-[980px]">
+          <div className="grid grid-cols-[minmax(264px,1.7fr)_142px_122px_70px_112px_96px_116px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             <span>Person</span>
             <span className="leading-[0.82rem]">
               <span className="block">Relationship</span>
@@ -6268,7 +6402,7 @@ function DesktopPeopleIndex({
               <span className="block">Level</span>
             </span>
             <span>Meetings</span>
-            <span className="leading-[0.82rem]">
+            <span className="justify-self-center text-center leading-[0.82rem]">
               <span className="block">Time</span>
               <span className="block">Logged</span>
             </span>
@@ -6277,7 +6411,6 @@ function DesktopPeopleIndex({
               <span className="block">Last</span>
               <span className="block">Table</span>
             </span>
-            <span className="text-right">Next</span>
           </div>
           <div className="divide-y divide-[#EFF6FF]">
             {items.map((item, index) => {
@@ -6290,7 +6423,7 @@ function DesktopPeopleIndex({
 
               return (
                 <div
-                  className="grid grid-cols-[minmax(264px,1.6fr)_142px_122px_60px_100px_84px_104px_114px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
+                  className="grid grid-cols-[minmax(264px,1.7fr)_142px_122px_70px_112px_96px_116px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
                   key={person.id}
                 >
                   <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => onOpenPerson(person.id)} type="button">
@@ -6303,18 +6436,11 @@ function DesktopPeopleIndex({
                   <span className="truncate text-[#475569]">{relationshipContextLabel(relationshipModel.relationshipContext) || "—"}</span>
                   <span className="truncate font-semibold text-[#334155]">{engagementLevelTableLabel(person)}</span>
                   <span className="font-black text-[#0F172A]">{tableStats.meetings}</span>
-                  <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableStats.timeMinutes)}</span>
+                  <span className="justify-self-center truncate text-center font-semibold text-[#475569]">{formatLoggedTime(tableStats.timeMinutes)}</span>
                   <span className="truncate font-black text-[#0F172A]">{storyCount} {storyCount === 1 ? "Story" : "Stories"}</span>
                   <span className="truncate font-semibold text-[#475569]">
                     {lastTable ? formatRelativeDate(lastTable) : "—"}
                   </span>
-                  <button
-                    className="justify-self-end whitespace-nowrap rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-                    onClick={() => onLogMeeting(person.id)}
-                    type="button"
-                  >
-                    Log Table
-                  </button>
                 </div>
               );
             })}
@@ -8583,7 +8709,7 @@ function ReminderFormContent({
         </div>
         <label className="block">
           <FieldLabel>Notes</FieldLabel>
-          <textarea className={`${FieldTextareaClass()} min-h-20`} defaultValue={reminder?.notes ?? ""} name="notes" placeholder="Prayer notes, follow-up context, or details." />
+          <textarea className={`${FieldTextareaClass()} min-h-20`} defaultValue={reminderVisibleNotes(reminder?.notes)} name="notes" placeholder="Prayer notes, follow-up context, or details." />
         </label>
         <label className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-3">
           <span className="min-w-0">
@@ -8642,7 +8768,7 @@ function ReminderRow({
           {reminderTypeLabel(reminder.reminderType)} · {formatDate(nextReminderDate(reminder))}
           {reminder.recurrence !== "none" ? ` · ${reminder.recurrence}` : ""}
         </span>
-        {reminder.notes ? <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{reminder.notes}</span> : null}
+        {reminderVisibleNotes(reminder.notes) ? <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{reminderVisibleNotes(reminder.notes)}</span> : null}
         {syncLabel ? <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[10px] font-bold text-[#1D4ED8]">{syncLabel}</span> : null}
       </span>
       {onClick ? <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
@@ -10564,7 +10690,7 @@ function DesktopPrayerWorkspace({
         kind: "reminder" as const,
         lastPrayedAt: latestPrayerLog?.prayedAt ?? null,
         meetingId: null,
-        notes: latestPrayerLog?.notes || reminder.notes,
+        notes: latestPrayerLog?.notes || reminderVisibleNotes(reminder.notes),
         personId: reminder.personId,
         personName: person?.name ?? "Unlinked person",
         request: reminderDisplayTitle(reminder, person),
@@ -11198,6 +11324,10 @@ function AdditionalPersonInformation({
               <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} placeholder="Last name" value={householdDraft.spouseLastName} />
             </label>
           </div>
+          <label className="block">
+            <FieldLabel>Anniversary Date</FieldLabel>
+            <input className={FieldInputClass()} defaultValue={defaults.anniversaryDate} name="anniversary_date" type="date" />
+          </label>
           <div className="grid gap-2">
             <div className="flex items-center justify-between gap-3">
               <FieldLabel>Children</FieldLabel>
@@ -11236,6 +11366,7 @@ function AdditionalPersonInformation({
           </div>
         </div>
       </details>
+      <ImportantDatesReminderSection />
     </div>
   );
 
@@ -11268,33 +11399,90 @@ function AdditionalPersonInformation({
   );
 }
 
+function ImportantDatesReminderSection() {
+  const [tag, setTag] = useState<ImportantReminderTag>("prayer");
+  const [repeat, setRepeat] = useState<ImportantReminderRepeat>(importantReminderRepeatForTag("prayer"));
+  const [timing, setTiming] = useState<ImportantReminderTiming>("day_of");
+  const [destination, setDestination] = useState<ImportantReminderDestination>(importantReminderDestinationForTag("prayer"));
+  const [showOnDashboard, setShowOnDashboard] = useState(true);
+
+  function handleTagChange(nextValue: string) {
+    const nextTag = normalizeImportantReminderTag(nextValue);
+
+    setTag(nextTag);
+    setRepeat(importantReminderRepeatForTag(nextTag));
+    setDestination(importantReminderDestinationForTag(nextTag));
+  }
+
+  return (
+    <details className="group rounded-[18px] border border-[#E2E8F0] bg-white">
+      <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] [&::-webkit-details-marker]:hidden">
+        <span>
+          <FieldLabel>Important Dates & Reminders</FieldLabel>
+          <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">Add one dated reminder to this person.</span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
+      </summary>
+      <div className="grid gap-3 border-t border-[#E2E8F0] bg-[#F8FAFC] p-3">
+        <input name="important_reminder_tag" type="hidden" value={tag} />
+        <input name="important_reminder_repeats" type="hidden" value={repeat} />
+        <input name="important_reminder_timing" type="hidden" value={timing} />
+        <input name="important_reminder_destination" type="hidden" value={destination} />
+        <label className="block">
+          <FieldLabel>Title</FieldLabel>
+          <input className={FieldInputClass()} name="important_reminder_title" placeholder="Surgery, birthday text, memorial date..." />
+        </label>
+        <div className="grid gap-3 min-[380px]:grid-cols-2">
+          <CompactOptionSelect label="Tag" onChange={handleTagChange} options={importantReminderTagOptions} value={tag} />
+          <label className="block min-w-0">
+            <FieldLabel>Date</FieldLabel>
+            <input className={FieldInputClass()} name="important_reminder_date" type="date" />
+          </label>
+        </div>
+        <div className="grid gap-3 min-[380px]:grid-cols-2">
+          <CompactOptionSelect label="Repeats" onChange={(value) => setRepeat(value as ImportantReminderRepeat)} options={importantReminderRepeatOptions} value={repeat} />
+          <CompactOptionSelect label="Reminder timing" onChange={(value) => setTiming(normalizeImportantReminderTiming(value))} options={importantReminderTimingOptions} value={timing} />
+        </div>
+        <label className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-3">
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-[#0F172A]">Show on Dashboard</span>
+            <span className="mt-0.5 block text-xs text-[#64748B]">Eligible for Upcoming and notifications.</span>
+          </span>
+          <input
+            checked={showOnDashboard}
+            className="h-5 w-5 shrink-0 accent-[#2563EB]"
+            name="important_reminder_show_dashboard"
+            onChange={(event) => setShowOnDashboard(event.target.checked)}
+            type="checkbox"
+          />
+        </label>
+        <CompactOptionSelect label="Send to app" onChange={(value) => setDestination(normalizeImportantReminderDestination(value))} options={importantReminderDestinationOptions} value={destination} />
+        <label className="block">
+          <FieldLabel>Notes</FieldLabel>
+          <textarea className={`${FieldTextareaClass()} min-h-20`} name="important_reminder_notes" placeholder="Context for the reminder." />
+        </label>
+      </div>
+    </details>
+  );
+}
+
 function PersonExtraDetails({
   additionalDefaults,
   detailsOpen,
   householdDraft,
-  onChange,
   onHouseholdDraftChange,
-  onScoreChange,
   onToggleDetails,
-  scoreValue,
   showToggle = true,
-  value,
 }: {
   additionalDefaults?: PersonFormDefaults;
   detailsOpen: boolean;
   householdDraft: PersonHouseholdDraft;
-  onChange: (value: DosRelationshipModel) => void;
   onHouseholdDraftChange: (value: PersonHouseholdDraft) => void;
-  onScoreChange: (value: RelationshipScoreValue) => void;
   onToggleDetails: () => void;
-  scoreValue: RelationshipScoreValue;
   showToggle?: boolean;
-  value: DosRelationshipModel;
 }) {
   const fields = (
-    <div className="space-y-4 rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-      <RelationshipContextPicker onChange={onChange} value={value} />
-      <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
+    <div className="rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
       <AdditionalPersonInformation
         defaults={additionalDefaults}
         householdDraft={householdDraft}
@@ -11413,17 +11601,15 @@ function PersonFormContent({
         </label>
       </div>
       <RelationshipTypePicker onChange={onRelationshipChange} value={relationshipModel} />
+      <RelationshipContextPicker onChange={onRelationshipChange} value={relationshipModel} />
+      <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
       <PersonExtraDetails
         additionalDefaults={additionalDefaults}
         detailsOpen={effectiveDetailsOpen}
         householdDraft={householdDraft}
-        onChange={onRelationshipChange}
         onHouseholdDraftChange={setHouseholdDraft}
-        onScoreChange={onScoreChange}
         onToggleDetails={onToggleDetails}
-        scoreValue={scoreValue}
         showToggle={showDetailsToggle}
-        value={relationshipModel}
       />
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
@@ -12249,7 +12435,7 @@ function PrayerRequestCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-black leading-5 text-[#0F172A]">{requestTitle}</p>
-          {reminder.notes ? <p className="mt-1 whitespace-pre-line text-xs leading-5 text-[#475569]">{reminder.notes}</p> : <p className="mt-1 text-xs leading-5 text-[#64748B]">No prayer details added yet.</p>}
+          {reminderVisibleNotes(reminder.notes) ? <p className="mt-1 whitespace-pre-line text-xs leading-5 text-[#475569]">{reminderVisibleNotes(reminder.notes)}</p> : <p className="mt-1 text-xs leading-5 text-[#64748B]">No prayer details added yet.</p>}
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] ring-1 ring-[#DCEBFF]" style={{ fontFamily: font.rajdhani }}>
               {prayerFrequencyLabel(reminder.recurrence)}
@@ -12591,7 +12777,6 @@ function PersonDetailOverlay({
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
   const mapHref = address ? mapsHrefForAddress(address) : "";
-  const hasHouseholdContext = hasHouseholdDetails(person);
   const relationshipScore = relationshipScoreFromEngagementLevel(person.engagementLevel);
   const engagementOverviewScore = relationshipScoreLabel(relationshipScore);
   const engagementOverviewLabel = overviewEngagementLabel(relationshipScore);
@@ -12603,6 +12788,8 @@ function PersonDetailOverlay({
   const personReminders = reminders
     .filter((reminder) => reminder.personId === person.id)
     .sort((first, second) => dateSortValue(nextReminderDate(first)) - dateSortValue(nextReminderDate(second)));
+  const anniversaryReminder = personReminders.find((reminder) => reminder.reminderType === "anniversary");
+  const hasHouseholdContext = hasHouseholdDetails(person) || Boolean(anniversaryReminder);
   const personPrayerReminders = personReminders.filter((reminder) => reminder.reminderType === "prayer");
   const activePrayerReminders = personPrayerReminders.filter((reminder) => !answeredPrayerByReminderId[reminder.id]);
   const answeredPrayerReminders = personPrayerReminders
@@ -12610,6 +12797,7 @@ function PersonDetailOverlay({
     .sort((first, second) => dateSortValue(answeredPrayerByReminderId[second.id]) - dateSortValue(answeredPrayerByReminderId[first.id]));
   const upcomingReminders = personReminders.filter((reminder) => isUpcomingDate(nextReminderDate(reminder)));
   const upcomingTimelineItems = buildUpcomingTimelineItems({
+    includeDashboardHiddenReminders: true,
     meetings,
     people: [person],
     person,
@@ -12847,6 +13035,7 @@ function PersonDetailOverlay({
             {hasHouseholdContext ? (
               <DetailCard icon={<Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Household">
                 {person.spouseName ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Spouse" value={person.spouseName} /> : null}
+                {anniversaryReminder ? <DetailRow icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Anniversary" value={formatDate(nextReminderDate(anniversaryReminder))} /> : null}
                 {person.childrenNames ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Children" value={person.childrenNames} /> : null}
                 {person.householdNotes ? <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Household Notes" value={person.householdNotes} /> : null}
                 <div>
@@ -13947,7 +14136,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const profilePhone = workspaceProfilePhone(data.workspace);
   const workspaceName = workspaceIdentityName(data.workspace);
   const workspaceSublabel = workspaceIdentitySublabel(data.workspace);
-  const selectedPersonDefaults = personFormDefaults(selectedPerson);
+  const selectedPersonReminders = selectedPerson ? data.reminders.filter((reminder) => reminder.personId === selectedPerson.id) : [];
+  const selectedPersonDefaults = personFormDefaultsWithReminders(selectedPerson, selectedPersonReminders);
   const isUsamApplicationPending = usamApplication.status === "application_submitted" || usamApplication.status === "pending_review";
 
   function scrollAppToTop() {
@@ -14547,6 +14737,102 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  function personAnniversaryReminderRequest(formData: FormData, personId: string) {
+    const anniversaryDate = String(formData.get("anniversary_date") ?? "").trim();
+
+    if (!anniversaryDate) {
+      return null;
+    }
+
+    const existingAnniversary = data.reminders.find((reminder) => reminder.personId === personId && reminder.reminderType === "anniversary");
+
+    return {
+      method: existingAnniversary ? "PATCH" as const : "POST" as const,
+      payload: {
+        googleSyncEnabled: false,
+        google_sync_enabled: false,
+        id: existingAnniversary?.id,
+        notes: "Household anniversary",
+        personId,
+        person_id: personId,
+        recurrence: "yearly",
+        reminderDate: anniversaryDate,
+        reminder_date: anniversaryDate,
+        reminderType: "anniversary",
+        reminder_type: "anniversary",
+        title: "Anniversary",
+      },
+    };
+  }
+
+  function importantDateReminderRequest(formData: FormData, personId: string) {
+    const reminderDate = String(formData.get("important_reminder_date") ?? "").trim();
+
+    if (!reminderDate) {
+      return null;
+    }
+
+    const tag = normalizeImportantReminderTag(formData.get("important_reminder_tag"));
+    const timing = normalizeImportantReminderTiming(formData.get("important_reminder_timing"));
+    const destination = normalizeImportantReminderDestination(formData.get("important_reminder_destination"));
+    const repeatValue = String(formData.get("important_reminder_repeats") ?? importantReminderRepeatForTag(tag));
+    const recurrence: ImportantReminderRepeat = repeatValue === "yearly" || importantReminderRepeatForTag(tag) === "yearly" ? "yearly" : "none";
+    const showOnDashboard = formData.get("important_reminder_show_dashboard") === "on";
+    const title = String(formData.get("important_reminder_title") ?? "").trim();
+    const tagLabel = importantReminderTagLabel(tag);
+    const reminderType = destination === "prayer" || tag === "prayer" ? "prayer" : reminderTypeForImportantTag(tag);
+    const defaultTitle = tag === "prayer" ? "Prayer" : tag === "anniversary" ? "Anniversary" : tagLabel;
+    const visibleTitle = title || defaultTitle;
+    const notes = String(formData.get("important_reminder_notes") ?? "");
+    const meta: ImportantReminderMeta = {
+      destination,
+      showOnDashboard,
+      tag,
+      timing,
+    };
+
+    return {
+      method: "POST" as const,
+      payload: {
+        googleSyncEnabled: destination === "calendar" && data.calendarConnection.connected,
+        google_sync_enabled: destination === "calendar" && data.calendarConnection.connected,
+        notes: joinReminderNotesMetadata(notes, meta),
+        personId,
+        person_id: personId,
+        recurrence,
+        reminderDate,
+        reminder_date: reminderDate,
+        reminderType,
+        reminder_type: reminderType,
+        title: reminderType === "custom" ? `${tagLabel}: ${visibleTitle}` : visibleTitle,
+      },
+    };
+  }
+
+  async function savePersonReminderRecords(formData: FormData, personId: string) {
+    const requests: Array<{ method: "PATCH" | "POST"; payload: Record<string, unknown> }> = [];
+    const anniversaryRequest = personAnniversaryReminderRequest(formData, personId);
+    const importantDateRequest = importantDateReminderRequest(formData, personId);
+
+    if (anniversaryRequest) {
+      requests.push(anniversaryRequest);
+    }
+
+    if (importantDateRequest) {
+      requests.push(importantDateRequest);
+    }
+
+    for (const request of requests) {
+      const result = await submitJson("/api/dos/app/reminders", request.payload, request.method, false);
+
+      if (!result) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   function handleUsamApplicationSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
@@ -14898,9 +15184,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
-    void submitJson("/api/dos/app/people", {
-      ...personPayloadFromForm(formData, selectedRelationshipModel, selectedRelationshipScore),
-    });
+    void (async () => {
+      const result = await submitJson("/api/dos/app/people", {
+        ...personPayloadFromForm(formData, selectedRelationshipModel, selectedRelationshipScore),
+      }, "POST", false);
+
+      if (!result?.id) {
+        return;
+      }
+
+      const remindersSaved = await savePersonReminderRecords(formData, String(result.id));
+
+      if (remindersSaved) {
+        closeForm();
+        router.refresh();
+      }
+    })();
   }
 
   function handleEditPersonSubmit(event: FormEvent<HTMLFormElement>) {
@@ -14911,9 +15210,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return;
     }
 
-    void submitJson("/api/dos/app/people", {
-      ...personPayloadFromForm(formData, selectedRelationshipModel, selectedRelationshipScore, selectedPerson.id, selectedPersonDefaults),
-    }, "PATCH");
+    void (async () => {
+      const result = await submitJson("/api/dos/app/people", {
+        ...personPayloadFromForm(formData, selectedRelationshipModel, selectedRelationshipScore, selectedPerson.id, selectedPersonDefaults),
+      }, "PATCH", false);
+
+      if (!result) {
+        return;
+      }
+
+      const remindersSaved = await savePersonReminderRecords(formData, selectedPerson.id);
+
+      if (remindersSaved) {
+        closeForm();
+        router.refresh();
+      }
+    })();
   }
 
   function handleDeletePerson() {
@@ -15117,11 +15429,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       : rawRecurrence;
     const googleSyncEnabled = formData.get("google_sync_enabled") === "on";
     const reminderDate = String(formData.get("reminder_date") ?? todayDateValue());
+    const notes = String(formData.get("notes") ?? "");
+    const existingMeta = selectedReminder ? splitReminderNotesMetadata(selectedReminder.notes).meta : null;
     const payload = {
       googleSyncEnabled,
       google_sync_enabled: googleSyncEnabled,
       id: selectedReminder?.id,
-      notes: String(formData.get("notes") ?? ""),
+      notes: existingMeta ? joinReminderNotesMetadata(notes, existingMeta) : notes,
       personId,
       person_id: personId,
       recurrence,
@@ -15619,7 +15933,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           kind: "reminder" as const,
           lastPrayedAt: latestPrayerLog?.prayedAt ?? null,
           meetingId: null,
-          notes: latestPrayerLog?.notes || reminder.notes,
+          notes: latestPrayerLog?.notes || reminderVisibleNotes(reminder.notes),
           personId: reminder.personId,
           personName: person?.name ?? "Unlinked person",
           request: reminderDisplayTitle(reminder, person),
@@ -16008,7 +16322,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         empty={peopleCircleContent.empty}
                         items={visibleCirclePeople}
                         latestMeetingDateByPersonId={latestMeetingDateByPersonId}
-                        onLogMeeting={openMeetingForPerson}
                         onOpenPerson={openPersonDetail}
                         personTableStatsByPersonId={personTableStatsByPersonId}
                         startIndex={peopleCircleContent.startIndex}
