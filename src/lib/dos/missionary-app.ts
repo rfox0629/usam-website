@@ -230,6 +230,22 @@ export type DosAppPrayerLog = {
   workspaceId: string;
 };
 
+export type DosAppPrayerPartner = {
+  city: string | null;
+  email: string | null;
+  howHeard: string | null;
+  id: string;
+  joinedAt: string | null;
+  name: string;
+  notes: string | null;
+  phone: string | null;
+  region: string | null;
+  source: string;
+  state: string | null;
+  status: string;
+  updatedAt: string | null;
+};
+
 export type DosAppCalendarConnection = {
   calendarId: string | null;
   connected: boolean;
@@ -294,6 +310,7 @@ export type DosAppData = {
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
   prayerLogs: DosAppPrayerLog[];
+  prayerPartners: DosAppPrayerPartner[];
   reminders: DosAppRelationshipReminder[];
   usamApplication: DosUsamOrganizationApplication;
   stats: {
@@ -458,6 +475,26 @@ type PrayerLogRow = {
   prayed_by_user_id: string | null;
   prayer_request_id: string | null;
   workspace_id: string;
+};
+
+type PrayerPartnerRow = {
+  approved_at?: string | null;
+  city: string | null;
+  created_at: string | null;
+  date_joined: string | null;
+  email: string | null;
+  first_name: string | null;
+  how_heard: string | null;
+  id: string;
+  internal_notes: string | null;
+  last_name: string | null;
+  name: string | null;
+  phone: string | null;
+  region: string | null;
+  source: string | null;
+  state: string | null;
+  status: string | null;
+  updated_at: string | null;
 };
 
 type CalendarConnectionRow = {
@@ -707,6 +744,16 @@ function workspaceScopeFilter(workspaceId: string) {
   return `workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`;
 }
 
+function prayerPartnerScopeFilter(workspaceId: string, workspaceSlug: string) {
+  return [
+    `workspace_id.eq.${workspaceId}`,
+    `recruited_by_household_id.eq.${workspaceId}`,
+    `missionary_profile_id.eq.${workspaceId}`,
+    `missionary_profile_slug.eq.${workspaceSlug}`,
+    `recruited_by_profile_slug.eq.${workspaceSlug}`,
+  ].join(",");
+}
+
 export function isMissingWorkspaceScopeColumn(error: SupabaseQueryError) {
   return Boolean(error?.message?.includes("workspace_id"));
 }
@@ -931,6 +978,19 @@ async function loadPrayerLogsForWorkspace(supabase: SupabaseAdminClient, workspa
     .order("prayed_at", { ascending: false });
 
   return result.error && isMissingWorkflowTable(result.error, "prayer_logs")
+    ? { data: [], error: null }
+    : result;
+}
+
+async function loadPrayerPartnersForWorkspace(supabase: SupabaseAdminClient, workspace: Pick<HouseholdRow, "id" | "slug">) {
+  const result = await supabase
+    .from("prayer_partners")
+    .select("id, name, first_name, last_name, email, phone, city, state, region, how_heard, source, status, internal_notes, date_joined, approved_at, created_at, updated_at")
+    .or(prayerPartnerScopeFilter(workspace.id, workspace.slug))
+    .order("created_at", { ascending: false })
+    .limit(80);
+
+  return result.error && isMissingWorkflowTable(result.error, "prayer_partners")
     ? { data: [], error: null }
     : result;
 }
@@ -1260,7 +1320,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, calendarConnectionResult, calendarEventLinksResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, calendarConnectionResult, calendarEventLinksResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -1268,6 +1328,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadReviewLinksForWorkspace(supabase, workspace.id),
     loadMeetingReviewsForWorkspace(supabase, workspace.id),
     loadPrayerLogsForWorkspace(supabase, workspace.id),
+    loadPrayerPartnersForWorkspace(supabase, workspace),
     loadCalendarConnectionForWorkspace(supabase, workspace.id),
     loadCalendarEventLinksForWorkspace(supabase, workspace.id),
     loadRelationshipRemindersForWorkspace(supabase, workspace.id),
@@ -1277,7 +1338,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -1286,6 +1347,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         ?? reviewLinksResult.error?.message
         ?? meetingReviewsResult.error?.message
         ?? prayerLogsResult.error?.message
+        ?? prayerPartnersResult.error?.message
         ?? calendarConnectionResult.error?.message
         ?? calendarEventLinksResult.error?.message
         ?? remindersResult.error?.message
@@ -1301,6 +1363,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const reviewLinkRows = (reviewLinksResult.data ?? []) as ReviewLinkRow[];
   const meetingReviewRows = (meetingReviewsResult.data ?? []) as MeetingReviewRow[];
   const prayerLogRows = (prayerLogsResult.data ?? []) as PrayerLogRow[];
+  const prayerPartnerRows = (prayerPartnersResult.data ?? []) as PrayerPartnerRow[];
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
   const reminderRows = (remindersResult.data ?? []) as RelationshipReminderRow[];
@@ -1522,6 +1585,28 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     prayerRequestId: log.prayer_request_id,
     workspaceId: log.workspace_id,
   }));
+  const prayerPartners = prayerPartnerRows.map((partner) => {
+    const composedName = cleanOptionalText(partner.name)
+      ?? cleanOptionalText([partner.first_name, partner.last_name].filter(Boolean).join(" "))
+      ?? partner.email
+      ?? "Prayer Partner";
+
+    return {
+      city: partner.city,
+      email: partner.email,
+      howHeard: partner.how_heard,
+      id: partner.id,
+      joinedAt: partner.date_joined ?? partner.created_at,
+      name: composedName,
+      notes: partner.internal_notes,
+      phone: partner.phone,
+      region: partner.region,
+      source: partner.source ?? "public_profile",
+      state: partner.state,
+      status: partner.status ?? "pending",
+      updatedAt: partner.updated_at,
+    };
+  });
   const reminders = reminderRows.map((reminder) => ({
     googleSyncEnabled: reminder.google_sync_enabled === true,
     googleSyncStatus: calendarSyncStatusBySource.get(`reminder:${reminder.id}`)
@@ -1585,6 +1670,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       participantTestimonies,
       people,
       prayerLogs,
+      prayerPartners,
       reminders,
       usamApplication,
       stats: {

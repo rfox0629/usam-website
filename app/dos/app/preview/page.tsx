@@ -514,6 +514,23 @@ function buildDosPreviewDemoData(): DosAppData {
     participantTestimonies: [],
     people,
     prayerLogs: [],
+    prayerPartners: [
+      {
+        city: "Tulsa",
+        email: "brooke.fox@example.com",
+        howHeard: "invited_by_household",
+        id: "demo-prayer-partner-brooke",
+        joinedAt: demoTimestamp,
+        name: "Brooke Fox",
+        notes: "Prays over family and field rhythm.",
+        phone: "918-555-0182",
+        region: null,
+        source: "dos",
+        state: "OK",
+        status: "active",
+        updatedAt: demoTimestamp,
+      },
+    ],
     reminders,
     usamApplication: {
       applicationId: "demo-usam-application",
