@@ -8933,8 +8933,7 @@ function ScheduleMeetingForm({
       </DosFormSection>
       <DosFormSection icon="calendar" title="Timing">
         <div>
-          <FieldLabel>Timing</FieldLabel>
-          <div className="mt-1.5 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {[
               { label: "Tomorrow", offset: 1 },
               { label: "This Week", offset: 2 },
@@ -11506,8 +11505,8 @@ function RelationshipTypePicker({
 
   return (
     <fieldset>
-      <FieldLabel>Relationship Type</FieldLabel>
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      <legend className="sr-only">Relationship Type</legend>
+      <div className="grid grid-cols-2 gap-2">
         {relationshipTypeOptions.map((option) => {
           const selected = selectedValue === option.value;
 
@@ -11558,6 +11557,7 @@ function RelationshipContextPicker({
 
   return (
     <fieldset className="overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white">
+      <legend className="sr-only">Relationship Context</legend>
       <button
         aria-expanded={isOpen}
         className="flex min-h-[56px] w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25"
@@ -11565,8 +11565,7 @@ function RelationshipContextPicker({
         type="button"
       >
         <span className="min-w-0">
-          <FieldLabel>Relationship Context</FieldLabel>
-          <span className="mt-1 block truncate text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
+          <span className="block truncate text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
         </span>
         <ChevronRight
           className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`}
@@ -11623,6 +11622,7 @@ function RelationshipScorePicker({
 
   return (
     <fieldset>
+      <legend className="sr-only">Engagement Level</legend>
       <input name="engagement_score" type="hidden" value={relationshipScoreLabel(value)} />
       <div className="relative">
         <button
@@ -11632,8 +11632,7 @@ function RelationshipScorePicker({
           type="button"
         >
           <span className="min-w-0">
-            <FieldLabel>Engagement Level</FieldLabel>
-            <span className="mt-1 block truncate text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
+            <span className="block truncate text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
           </span>
           <ChevronRight
             className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`}
