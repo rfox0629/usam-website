@@ -2951,12 +2951,12 @@ function FieldLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function FieldInputClass() {
-  return "mt-2 min-h-12 w-full rounded-[18px] border border-[#D6E4F7] bg-white px-4 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10";
+function FieldInputClass(spaced = true) {
+  return `${spaced ? "mt-2 " : ""}min-h-12 w-full rounded-[18px] border border-[#D6E4F7] bg-white px-4 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
 }
 
-function FieldTextareaClass() {
-  return "mt-2 min-h-24 w-full resize-none rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10";
+function FieldTextareaClass(spaced = true) {
+  return `${spaced ? "mt-2 " : ""}min-h-24 w-full resize-none rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
 }
 
 function DosFormSection({
@@ -2972,14 +2972,14 @@ function DosFormSection({
 }) {
   return (
     <section className="grid gap-3 border-t border-[#EAF2FF] pt-5 first:border-t-0 first:pt-0">
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-          <Icon name={icon} size={16} />
+      <div className="grid gap-2">
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+            <Icon name={icon} size={15} />
+          </span>
+          <span className="block min-w-0 text-sm font-black leading-5 text-[#0F172A]">{title}</span>
         </span>
-        <span className="min-w-0">
-          <span className="block text-sm font-black leading-5 text-[#0F172A]">{title}</span>
-          {description ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{description}</span> : null}
-        </span>
+        {description ? <p className="text-xs leading-5 text-[#64748B]">{description}</p> : null}
       </div>
       <div className="grid gap-3">
         {children}
@@ -2997,11 +2997,11 @@ function DosFormField({
   children: ReactNode;
   className?: string;
   helper?: string;
-  label: ReactNode;
+  label?: ReactNode;
 }) {
   return (
     <label className={`block min-w-0 ${className}`}>
-      <FieldLabel>{label}</FieldLabel>
+      {label ? <FieldLabel>{label}</FieldLabel> : null}
       {helper ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span> : null}
       {children}
     </label>
@@ -8417,9 +8417,8 @@ function MeetingPeopleSelector({
 
   return (
     <div className="grid gap-2">
-      <FieldLabel>People Involved</FieldLabel>
       {selectedPeople.length ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {selectedPeople.map((person, index) => (
             <button
               aria-label={`Remove ${person.name} from table`}
@@ -8440,11 +8439,12 @@ function MeetingPeopleSelector({
         </div>
       ) : null}
 
-      <div className="relative mt-2.5">
+      <div className="relative">
         <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
           <Icon name="search" size={14} />
         </span>
         <input
+          aria-label="Search people"
           className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white pl-9 pr-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search your field"
@@ -8494,13 +8494,15 @@ function MeetingPeopleSelector({
 function MeetingCaptureNotes({
   defaultValue,
   label = "Notes",
+  showLabel = true,
 }: {
   defaultValue?: string | null;
   label?: string;
+  showLabel?: boolean;
 }) {
   return (
-    <DosFormField helper="Capture what happened, key moments, and anything to remember." label={label}>
-      <textarea className={`${FieldTextareaClass()} mt-2 min-h-24`} defaultValue={defaultValue ?? ""} name="notes" placeholder="What happened at the table?" />
+    <DosFormField label={showLabel ? label : undefined}>
+      <textarea aria-label={label} className={`${FieldTextareaClass(showLabel)} min-h-24`} defaultValue={defaultValue ?? ""} name="notes" />
     </DosFormField>
   );
 }
@@ -8522,9 +8524,9 @@ function MeetingLeaderReflectionSection({
           selectedOutcomeTags={selectedOutcomeTags}
         />
       </DosFormSection>
-      <DosFormSection icon="prayer" title="What should we pray for?">
-        <DosFormField helper="Capture prayer requests or covering needed after this meeting." label="Prayer Needs">
-          <textarea className={`${FieldTextareaClass()} mt-2 min-h-20`} name="prayer_needs" placeholder="What should we pray for?" />
+      <DosFormSection icon="prayer" title="Prayer Needs">
+        <DosFormField>
+          <textarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} name="prayer_needs" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="arrow" title="What needs follow up?">
@@ -8534,8 +8536,8 @@ function MeetingLeaderReflectionSection({
           title="Follow Up Needed"
         />
       </DosFormSection>
-      <DosFormSection icon="log" title="Additional Notes">
-        <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" />
+      <DosFormSection icon="log" title="Notes">
+        <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
       </DosFormSection>
     </>
   );
@@ -8562,7 +8564,7 @@ function MeetingDurationSelector() {
 
   return (
     <fieldset className="grid gap-2">
-      <FieldLabel>Table Duration</FieldLabel>
+      <legend className="sr-only">Duration</legend>
       <input name="meeting_duration_minutes" type="hidden" value={durationMinutes} />
       <div className="flex flex-wrap gap-2">
         {meetingDurationOptions.map((option) => (
@@ -8613,11 +8615,7 @@ function ObservedFruitMultiSelect({
 
   return (
     <section className="grid gap-3 rounded-[20px] border border-[#D6E4F7] bg-white p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <FieldLabel>Observed Fruit</FieldLabel>
-          <p className="mt-1 text-xs leading-5 text-[#64748B]">Select any visible fruit from this meeting.</p>
-        </div>
+      <div className="flex items-center justify-end gap-3">
         <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
           {selectedOptions.length ? `${selectedOptions.length} selected` : "Optional"}
         </span>
@@ -8793,8 +8791,8 @@ function MeetingFormContent({
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
       <DosFormSection icon="calendar" title="Date">
-        <DosFormField label="Table Date">
-          <input className={FieldInputClass()} defaultValue={dateDefault} name="table_date" type="date" />
+        <DosFormField>
+          <input aria-label="Date" className={FieldInputClass(false)} defaultValue={dateDefault} name="table_date" type="date" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="people" title="People">
@@ -8825,8 +8823,8 @@ function MeetingFormContent({
           selectedOutcomeTags={selectedOutcomeTags ?? []}
         />
       ) : (
-        <DosFormSection icon="log" title="Additional Notes">
-          <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" />
+        <DosFormSection icon="log" title="Notes">
+          <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
         </DosFormSection>
       )}
       {selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
@@ -9032,9 +9030,9 @@ function ScheduleMeetingForm({
           />
         </DosFormGrid>
       </DosFormSection>
-      <DosFormSection icon="log" title="Additional Notes">
-        <DosFormField label="Notes">
-          <textarea className={`${FieldTextareaClass()} min-h-20`} name="notes" placeholder="What should you remember before this table?" />
+      <DosFormSection icon="log" title="Notes">
+        <DosFormField>
+          <textarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} name="notes" />
         </DosFormField>
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
@@ -9168,8 +9166,8 @@ function ReminderFormContent({
             </div>
           </>
         )}
-        <DosFormField label={isPrayerReminder ? "Prayer Request" : "Title"}>
-          <input className={FieldInputClass()} defaultValue={reminder?.title ?? ""} name="title" placeholder={isPrayerReminder ? "What should you pray for?" : "Optional reminder title"} type="text" />
+        <DosFormField label={isPrayerReminder ? undefined : "Title"}>
+          <input aria-label={isPrayerReminder ? "Prayer Request" : undefined} className={FieldInputClass(!isPrayerReminder)} defaultValue={reminder?.title ?? ""} name="title" placeholder={isPrayerReminder ? undefined : "Optional reminder title"} type="text" />
         </DosFormField>
         {householdReminderTitles.length ? (
           <div>
@@ -9225,8 +9223,8 @@ function ReminderFormContent({
         </div>
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
-        <DosFormField label="Notes">
-          <textarea className={`${FieldTextareaClass()} min-h-20`} defaultValue={reminderVisibleNotes(reminder?.notes)} name="notes" placeholder="Prayer notes, follow-up context, or details." />
+        <DosFormField>
+          <textarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={reminderVisibleNotes(reminder?.notes)} name="notes" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="calendar" title="Sync">
@@ -10609,13 +10607,13 @@ function AddPrayerPartnerSheet({
   return (
     <Sheet onClose={onClose} showEyebrow={false} title="Add Prayer Partner">
       <form className="space-y-5" onSubmit={handleSubmit}>
-        <DosFormSection description="Add someone who helps cover your field in prayer." icon="people" title="Prayer Partner">
+        <DosFormSection icon="people" title="Prayer Partner">
           <DosFormGrid>
             <DosFormField label="First Name">
-              <input className={FieldInputClass()} name="first_name" placeholder="First name" required type="text" />
+              <input className={FieldInputClass()} name="first_name" required type="text" />
             </DosFormField>
             <DosFormField label="Last Name">
-              <input className={FieldInputClass()} name="last_name" placeholder="Last name" type="text" />
+              <input className={FieldInputClass()} name="last_name" type="text" />
             </DosFormField>
           </DosFormGrid>
           <DosFormGrid>
@@ -10643,13 +10641,13 @@ function AddPrayerPartnerSheet({
               </DosFormField>
               <div className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2 max-[380px]:grid-cols-1">
                 <DosFormField label="City">
-                  <input className={FieldInputClass()} name="city" placeholder="City" />
+                  <input className={FieldInputClass()} name="city" />
                 </DosFormField>
                 <DosFormField label="State">
-                  <input className={FieldInputClass()} maxLength={2} name="state" placeholder="ST" />
+                  <input className={FieldInputClass()} maxLength={2} name="state" />
                 </DosFormField>
                 <DosFormField label="ZIP">
-                  <input className={FieldInputClass()} inputMode="numeric" name="zip" placeholder="ZIP" />
+                  <input className={FieldInputClass()} inputMode="numeric" name="zip" />
                 </DosFormField>
               </div>
               <DosFormField label="Church">
@@ -10657,7 +10655,7 @@ function AddPrayerPartnerSheet({
               </DosFormField>
               <PrayerPartnerSelectField label="How They Joined" name="how_heard" options={prayerPartnerHowHeardOptions} />
               <DosFormField label="Notes">
-                <textarea className={`${FieldTextareaClass()} min-h-24`} name="notes" placeholder="What do they help cover?" />
+                <textarea className={`${FieldTextareaClass()} min-h-24`} name="notes" />
               </DosFormField>
             </div>
           </details>
@@ -10718,8 +10716,7 @@ function LogPrayerSheet({
                     </select>
                   </label>
                   <label className="block">
-                    <FieldLabel>Notes</FieldLabel>
-                    <textarea className={`${FieldTextareaClass()} min-h-24`} name="notes" placeholder="What did you pray or hear?" />
+                    <textarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-24`} name="notes" />
                   </label>
                 </div>
               </div>
@@ -11789,13 +11786,13 @@ function AdditionalPersonInformation({
         </DosFormField>
         <div className="grid gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_72px_86px]">
           <DosFormField label="City">
-            <input className={FieldInputClass()} defaultValue={defaults.city} name="city" placeholder="City" />
+            <input className={FieldInputClass()} defaultValue={defaults.city} name="city" />
           </DosFormField>
           <DosFormField label="State">
-            <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" placeholder="ST" />
+            <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" />
           </DosFormField>
           <DosFormField label="ZIP">
-            <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" placeholder="ZIP" />
+            <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" />
           </DosFormField>
         </div>
         <DosFormGrid>
@@ -11819,10 +11816,10 @@ function AdditionalPersonInformation({
           <div className="grid gap-3 border-t border-[#EAF2FF] bg-white p-3">
             <DosFormGrid>
               <DosFormField label="Spouse First Name">
-                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} placeholder="First name" value={householdDraft.spouseFirstName} />
+                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} value={householdDraft.spouseFirstName} />
               </DosFormField>
               <DosFormField label="Spouse Last Name">
-                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} placeholder="Last name" value={householdDraft.spouseLastName} />
+                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} value={householdDraft.spouseLastName} />
               </DosFormField>
             </DosFormGrid>
             <DosFormField label="Anniversary Date">
@@ -11844,10 +11841,10 @@ function AdditionalPersonInformation({
                   <div className="grid gap-2 rounded-[18px] border border-[#D6E4F7] bg-white p-2" key={child.id}>
                     <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
                       <DosFormField label="Child First Name">
-                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} placeholder="First name" value={child.firstName} />
+                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} value={child.firstName} />
                       </DosFormField>
                       <DosFormField label="Child Last Name">
-                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} placeholder="Last name" value={child.lastName} />
+                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} value={child.lastName} />
                       </DosFormField>
                       <button
                         aria-label={`Remove child ${index + 1}`}
@@ -11869,8 +11866,8 @@ function AdditionalPersonInformation({
         <ImportantDatesReminderSection />
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
-        <DosFormField label="Notes">
-          <textarea className={FieldTextareaClass()} defaultValue={defaults.notes} name="notes" placeholder="Private notes..." />
+        <DosFormField>
+          <textarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={defaults.notes} name="notes" />
         </DosFormField>
       </DosFormSection>
     </div>
@@ -12074,10 +12071,10 @@ function PersonFormContent({
       <DosFormSection icon="people" title="Person">
         <DosFormGrid>
           <DosFormField label="First Name">
-            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} placeholder="First name" required value={nameDraft.firstName} />
+            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} required value={nameDraft.firstName} />
           </DosFormField>
           <DosFormField label="Last Name">
-            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} placeholder="Last name" value={nameDraft.lastName} />
+            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} value={nameDraft.lastName} />
           </DosFormField>
         </DosFormGrid>
         <DosFormField label="Phone">
@@ -13875,14 +13872,14 @@ function MeetingNotesEditorSheet({
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={hasNotes ? "Edit Notes" : "Add Notes"}>
       <form className="space-y-5" onSubmit={onSubmit}>
-        <DosFormSection icon="log" title="Table Notes">
-          <DosFormField label="Notes">
+        <DosFormSection icon="log" title="Notes">
+          <DosFormField>
             <textarea
+              aria-label="Notes"
               autoFocus
-              className={`${FieldTextareaClass()} min-h-40`}
+              className={`${FieldTextareaClass(false)} min-h-40`}
               defaultValue={defaultValue ?? ""}
               name="notes"
-              placeholder="What happened at the table?"
             />
           </DosFormField>
         </DosFormSection>
@@ -17943,8 +17940,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         <Sheet description="Record what changed. This starts private for review." onClose={closeForm} title="Record Fruit">
           <form className="space-y-5" onSubmit={handleFruitSubmit}>
             <DosFormSection icon="fruit" title="Fruit Summary">
-              <DosFormField label="Summary">
-                <textarea className={`${FieldTextareaClass()} min-h-24`} name="summary" placeholder="Short private summary of the fruit." required />
+              <DosFormField>
+                <textarea aria-label="Fruit Summary" className={`${FieldTextareaClass(false)} min-h-24`} name="summary" required />
               </DosFormField>
             </DosFormSection>
             <DosFormSection icon="people" title="Details">
@@ -17966,8 +17963,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             </DosFormSection>
             <DosFormSection icon="fruit" title="Outcome Tags">
               <div>
-                <FieldLabel>Outcome Tags</FieldLabel>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {outcomeTagOptions.map((tag) => {
                     const selected = selectedOutcomeTags.includes(tag);
 
