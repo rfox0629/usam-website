@@ -582,7 +582,8 @@ type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView;
 type MeetingsView = "availability" | "calendar" | "history" | "upcoming";
-type MobileMeetingsView = Exclude<MeetingsView, "availability">;
+type MobileMeetingsView = MeetingsView;
+type MeetingCalendarViewMode = "month" | "week";
 type FruitView = "activity" | "forms" | "impact";
 type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
 type FruitFormStatus = "coming_soon" | "live";
@@ -1225,11 +1226,39 @@ function isSameCalendarMonth(first: Date, second: Date) {
   return first.getFullYear() === second.getFullYear() && first.getMonth() === second.getMonth();
 }
 
+function addCalendarDays(date: Date, offset: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(date.getDate() + offset);
+
+  return nextDate;
+}
+
+function startOfCalendarWeek(date: Date) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  start.setDate(start.getDate() - start.getDay());
+  start.setHours(0, 0, 0, 0);
+
+  return start;
+}
+
 function calendarMonthLabel(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "long",
     year: "numeric",
   }).format(date);
+}
+
+function calendarWeekRangeLabel(start: Date) {
+  const end = addCalendarDays(start, 6);
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long" }).format(start);
+  const endMonthLabel = new Intl.DateTimeFormat("en-US", { month: "long" }).format(end);
+
+  if (sameMonth) {
+    return `${monthLabel} ${start.getDate()} - ${end.getDate()}, ${start.getFullYear()}`;
+  }
+
+  return `${monthLabel} ${start.getDate()} - ${endMonthLabel} ${end.getDate()}, ${end.getFullYear()}`;
 }
 
 function calendarSelectedDayLabel(value: string) {
@@ -5928,6 +5957,7 @@ const mobileMeetingsViewTabs: ReadonlyArray<SegmentedTabOption<MobileMeetingsVie
   { label: "Upcoming", value: "upcoming" },
   { label: "Calendar", value: "calendar" },
   { label: "History", value: "history" },
+  { label: "Availability", value: "availability" },
 ];
 
 const meetingCalendarFilterTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarFilter>> = [
@@ -5936,6 +5966,13 @@ const meetingCalendarFilterTabs: ReadonlyArray<SegmentedTabOption<MeetingCalenda
   { label: "Google", value: "google" },
   { label: "Reminders", value: "reminders" },
 ];
+
+const meetingCalendarViewTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarViewMode>> = [
+  { label: "Month", value: "month" },
+  { label: "Week", value: "week" },
+];
+
+const meetingCalendarWeekHours = Array.from({ length: 13 }, (_, index) => index + 8);
 
 const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
   { label: "Activity", value: "activity" },
@@ -6383,11 +6420,26 @@ function DesktopAvailabilityPanel({
   workspaceId: string;
 }) {
   const sourceSummaries = calendarSourceSummaries(externalCalendarEvents);
-  const futureSections = ["Meeting types", "Availability rules", "Booking links", "Team/spouse calendars"];
+  const weeklySchedule = [
+    { day: "Mon", windows: [{ label: "8 AM - 5 PM", status: "Unavailable" }, { label: "6 PM - 9 PM", status: "Available" }] },
+    { day: "Tue", windows: [{ label: "8 AM - 5 PM", status: "Unavailable" }, { label: "6 PM - 9 PM", status: "Available" }] },
+    { day: "Wed", windows: [{ label: "8 AM - 5 PM", status: "Unavailable" }, { label: "6 PM - 9 PM", status: "Available" }] },
+    { day: "Thu", windows: [{ label: "8 AM - 5 PM", status: "Unavailable" }, { label: "6 PM - 9 PM", status: "Available" }] },
+    { day: "Fri", windows: [{ label: "8 AM - 4 PM", status: "Unavailable" }, { label: "5 PM - 8 PM", status: "Available" }] },
+    { day: "Sat", windows: [{ label: "9 AM - 12 PM", status: "Available" }] },
+    { day: "Sun", windows: [{ label: "2 PM - 5 PM", status: "Available" }] },
+  ];
+  const meetingTypes = ["Coffee", "Kitchen Table", "Prayer", "Phone Call", "Custom"];
+  const preferredTimes = ["Weeknights 6-9 PM", "Saturday mornings", "Sunday afternoons"];
+  const bookingSettings = [
+    { label: "Buffer", value: "30 min" },
+    { label: "Max / day", value: "2" },
+    { label: "Max / week", value: "6" },
+  ];
 
   return (
-    <div className="hidden gap-4 md:grid lg:grid-cols-[minmax(0,1fr)_minmax(310px,360px)]">
-      <section className="rounded-[26px] border border-[#EAF2FF] bg-white/92 p-5 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(310px,360px)]">
+      <section className="rounded-[26px] border border-[#EAF2FF] bg-white/92 p-4 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:p-5">
         <div className="flex min-w-0 items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
@@ -6395,15 +6447,15 @@ function DesktopAvailabilityPanel({
             </span>
             <div className="min-w-0">
               <h2 className="text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-                Availability is coming next.
+                Availability
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
-                Connected calendars are already available for calendar sync. Availability rules and booking links are next.
+                Set the rhythm people can book around. Live saving is planned; these defaults shape the DOS booking model.
               </p>
             </div>
           </div>
           <button
-            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]"
+            className="hidden min-h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)] sm:inline-flex"
             onClick={onScheduleMeeting}
             type="button"
           >
@@ -6412,16 +6464,68 @@ function DesktopAvailabilityPanel({
           </button>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {futureSections.map((section) => (
-            <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4" key={section}>
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-              </span>
-              <h3 className="mt-3 text-sm font-black text-[#0F172A]">{section}</h3>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">Planned for the next scheduling phase.</p>
+        <div className="mt-5 grid gap-4">
+          <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-black text-[#0F172A]">Weekly Schedule</h3>
+              <span className="rounded-full border border-[#DCEBFF] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Draft</span>
             </div>
-          ))}
+            <div className="grid gap-2">
+              {weeklySchedule.map((day) => (
+                <div className="grid gap-2 rounded-[18px] border border-[#EAF2FF] bg-white p-2.5 sm:grid-cols-[52px_minmax(0,1fr)] sm:items-center" key={day.day}>
+                  <span className="text-xs font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{day.day}</span>
+                  <span className="flex min-w-0 flex-wrap gap-1.5">
+                    {day.windows.map((window) => (
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+                          window.status === "Available"
+                            ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
+                            : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]"
+                        }`}
+                        key={`${day.day}-${window.label}-${window.status}`}
+                      >
+                        {window.label} {window.status}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
+              <h3 className="text-sm font-black text-[#0F172A]">Preferred Times</h3>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {preferredTimes.map((time) => (
+                  <span className="rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-2.5 py-1 text-[11px] font-bold text-[#1D4ED8]" key={time}>{time}</span>
+                ))}
+              </div>
+            </section>
+            <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
+              <h3 className="text-sm font-black text-[#0F172A]">Meeting Types</h3>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {meetingTypes.map((type) => (
+                  <div className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-xs font-bold text-[#0F172A]" key={type}>{type}</div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-black text-[#0F172A]">Booking Settings</h3>
+              <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Planned</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {bookingSettings.map((setting) => (
+                <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-center" key={setting.label}>
+                  <span className="block text-lg font-black leading-none text-[#0F172A]">{setting.value}</span>
+                  <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{setting.label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       </section>
 
@@ -6434,7 +6538,7 @@ function DesktopAvailabilityPanel({
         />
         <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-black text-[#0F172A]">Calendar Sources</h3>
+            <h3 className="text-sm font-black text-[#0F172A]">Calendar Awareness</h3>
             <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
               {sourceSummaries.length} sources
             </span>
@@ -6447,7 +6551,7 @@ function DesktopAvailabilityPanel({
                   <span className="shrink-0 text-xs font-semibold text-[#64748B]">{source.count} events</span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-[#64748B]">
-                  {source.imported} added to DOS. Availability selection will use calendar source settings in the next phase.
+                  {source.imported} added to DOS. Busy-time awareness is planned for booking checks.
                 </p>
               </div>
             )) : (
@@ -6455,6 +6559,22 @@ function DesktopAvailabilityPanel({
                 No imported Google sources loaded yet.
               </p>
             )}
+          </div>
+        </section>
+        <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-black text-[#0F172A]">Household + Team</h3>
+            <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Coming Soon</span>
+          </div>
+          <div className="mt-3 grid gap-2">
+            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+              <p className="text-sm font-bold text-[#0F172A]">Spouse availability</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">Shared household calendar checks are planned.</p>
+            </div>
+            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+              <p className="text-sm font-bold text-[#0F172A]">Team calendars</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">Leader and team availability hooks are ready for a later scheduling pass.</p>
+            </div>
           </div>
         </section>
       </aside>
@@ -7233,71 +7353,245 @@ function CalendarItemIcon({ kind }: { kind: MeetingCalendarItemKind }) {
   }
 }
 
-function CalendarAgendaItem({
+function calendarItemSourceLabel(item: MeetingCalendarItem) {
+  if (item.kind === "google") {
+    return "Google";
+  }
+
+  if (item.kind === "meeting") {
+    return "DOS";
+  }
+
+  return "Reminder";
+}
+
+function calendarItemTypeLabel(item: MeetingCalendarItem) {
+  if (item.meeting) {
+    return meetingActivityTitle(item.meeting);
+  }
+
+  return calendarItemLabel(item.kind);
+}
+
+function calendarItemPersonLabel(item: MeetingCalendarItem) {
+  if (item.personName) {
+    return item.personName;
+  }
+
+  if (item.externalEvent?.sourceName) {
+    return item.externalEvent.sourceName;
+  }
+
+  return "No person linked";
+}
+
+function calendarItemDateTimeLabel(item: MeetingCalendarItem) {
+  if (item.meeting) {
+    return formatMeetingTimeRange(item.meeting);
+  }
+
+  if (item.externalEvent) {
+    return formatExternalCalendarEventTimeRange(item.externalEvent);
+  }
+
+  return formatDateTime(item.date);
+}
+
+function calendarItemNotes(item: MeetingCalendarItem) {
+  if (item.meeting?.notes?.trim()) {
+    return item.meeting.notes.trim();
+  }
+
+  if (item.reminder?.notes?.trim()) {
+    return reminderVisibleNotes(item.reminder.notes);
+  }
+
+  if (item.externalEvent?.description?.trim()) {
+    return item.externalEvent.description.trim();
+  }
+
+  return "";
+}
+
+function calendarItemSourceTone(item: MeetingCalendarItem) {
+  if (item.kind === "google") {
+    return "border-[#BAE6FD] bg-[#F0F9FF] text-[#0369A1]";
+  }
+
+  if (item.kind === "meeting") {
+    return "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
+  }
+
+  return "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]";
+}
+
+function calendarWeekHourLabel(hour: number) {
+  if (hour === 12) {
+    return "12 PM";
+  }
+
+  return hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+}
+
+function calendarItemMinuteOfDay(item: MeetingCalendarItem) {
+  const date = parseDisplayDate(item.date);
+
+  if (!date || item.externalEvent?.allDay) {
+    return 9 * 60;
+  }
+
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function calendarItemDurationMinutes(item: MeetingCalendarItem) {
+  if (item.meeting) {
+    return Math.max(30, tableDurationMinutes(item.meeting) || 60);
+  }
+
+  if (item.externalEvent?.endAt) {
+    const start = parseDisplayDate(item.externalEvent.startAt);
+    const end = parseDisplayDate(item.externalEvent.endAt);
+
+    if (start && end && end.getTime() > start.getTime()) {
+      return Math.max(30, Math.round((end.getTime() - start.getTime()) / 60000));
+    }
+  }
+
+  return item.kind === "birthday" || item.kind === "anniversary" ? 30 : 60;
+}
+
+function CalendarUpcomingCard({
   item,
-  onOpenExternalEvent,
-  onOpenMeeting,
-  onOpenReminder,
+  onOpen,
+  selected,
 }: {
   item: MeetingCalendarItem;
-  onOpenExternalEvent: (eventId: string) => void;
-  onOpenMeeting: (meetingId: string) => void;
-  onOpenReminder: (reminderId: string) => void;
+  onOpen: () => void;
+  selected: boolean;
 }) {
   const tone = calendarItemTone(item.kind);
-  const content = (
-    <>
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tone.bg} ${tone.text}`}>
-        <CalendarItemIcon kind={item.kind} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold leading-5 text-[#0F172A]">{item.title}</span>
-        <span className="mt-0.5 block truncate text-xs font-medium leading-4 text-[#64748B]">{item.subtitle}</span>
-        <span className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] ${tone.bg} ${tone.text}`} style={{ fontFamily: font.rajdhani }}>
-            {calendarItemLabel(item.kind)}
+
+  return (
+    <button
+      className={`grid min-h-[150px] w-[210px] shrink-0 gap-2 rounded-[22px] border p-3 text-left transition-all sm:w-[230px] ${
+        selected
+          ? "border-[#2563EB] bg-white shadow-[0_16px_34px_rgba(37,99,235,0.16)]"
+          : "border-[#DCEBFF] bg-white shadow-[0_10px_26px_rgba(37,99,235,0.055)] hover:border-[#BFDBFE]"
+      }`}
+      onClick={onOpen}
+      type="button"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] ${tone.bg} ${tone.text}`}>
+          <CalendarItemIcon kind={item.kind} />
+        </span>
+        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] ${calendarItemSourceTone(item)}`} style={{ fontFamily: font.rajdhani }}>
+          {calendarItemSourceLabel(item)}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+          {calendarItemTypeLabel(item)}
+        </div>
+        <h3 className="mt-1 line-clamp-2 text-sm font-black leading-5 text-[#0F172A]">{item.title}</h3>
+      </div>
+      <div className="mt-auto min-w-0 space-y-1">
+        <p className="truncate text-xs font-semibold text-[#64748B]">{calendarItemPersonLabel(item)}</p>
+        <p className="truncate text-xs font-bold text-[#0F172A]">{calendarItemDateTimeLabel(item)}</p>
+      </div>
+    </button>
+  );
+}
+
+function CalendarQuickView({
+  item,
+  isComplete,
+  onClose,
+  onEdit,
+  onMarkComplete,
+}: {
+  item: MeetingCalendarItem;
+  isComplete: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+  onMarkComplete: () => void;
+}) {
+  const tone = calendarItemTone(item.kind);
+  const notes = calendarItemNotes(item);
+  const canMarkComplete = Boolean(item.meeting || item.reminder);
+
+  return (
+    <section className="rounded-[28px] border border-[#DCEBFF] bg-white p-4 shadow-[0_18px_48px_rgba(37,99,235,0.08)]">
+      <div className="flex items-start justify-between gap-3">
+        <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] ${tone.bg} ${tone.text}`}>
+          <CalendarItemIcon kind={item.kind} />
+        </span>
+        <button
+          aria-label="Close event quick view"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+          onClick={onClose}
+          type="button"
+        >
+          <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </button>
+      </div>
+      <div className="mt-4 min-w-0">
+        <h3 className="text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+          {item.title}
+        </h3>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${tone.bg} ${tone.text}`} style={{ fontFamily: font.rajdhani }}>
+            {calendarItemTypeLabel(item)}
           </span>
-          {item.syncLabel ? (
-            <span className="rounded-full border border-[#E2E8F0] bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              {item.syncLabel}
+          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${calendarItemSourceTone(item)}`} style={{ fontFamily: font.rajdhani }}>
+            {calendarItemSourceLabel(item)}
+          </span>
+          {isComplete ? (
+            <span className="rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
+              Complete
             </span>
           ) : null}
-        </span>
-      </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
-    </>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 text-sm">
+        <div className="flex gap-3 text-[#475569]">
+          <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          <span className="font-semibold">{calendarItemDateTimeLabel(item)}</span>
+        </div>
+        <div className="flex gap-3 text-[#475569]">
+          <User className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          <span className="font-semibold">{calendarItemPersonLabel(item)}</span>
+        </div>
+        <div className="flex gap-3 text-[#475569]">
+          <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          <span className="leading-6">{notes || "No notes yet."}</span>
+        </div>
+        <div className="flex gap-3 text-[#475569]">
+          <Settings className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          <span className="font-semibold">{item.syncLabel ?? calendarItemSourceLabel(item)}</span>
+        </div>
+      </div>
+      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+        <button
+          className="min-h-11 rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+          onClick={onEdit}
+          type="button"
+        >
+          {item.externalEvent ? "Open" : "Edit"}
+        </button>
+        {canMarkComplete ? (
+          <button
+            className="min-h-11 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.2)] disabled:opacity-65"
+            disabled={isComplete}
+            onClick={onMarkComplete}
+            type="button"
+          >
+            {isComplete ? "Marked Complete" : "Mark Complete"}
+          </button>
+        ) : null}
+      </div>
+    </section>
   );
-  const className = "flex min-h-[74px] w-full items-center gap-3 rounded-[20px] border border-[#EAF2FF] bg-white px-3.5 py-3 text-left shadow-[0_10px_26px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE]";
-
-  const meeting = item.meeting;
-  const reminder = item.reminder;
-  const externalEvent = item.externalEvent;
-
-  if (meeting) {
-    return (
-      <button className={className} onClick={() => onOpenMeeting(meeting.id)} type="button">
-        {content}
-      </button>
-    );
-  }
-
-  if (reminder) {
-    return (
-      <button className={className} onClick={() => onOpenReminder(reminder.id)} type="button">
-        {content}
-      </button>
-    );
-  }
-
-  if (externalEvent) {
-    return (
-      <button className={className} onClick={() => onOpenExternalEvent(externalEvent.id)} type="button">
-        {content}
-      </button>
-    );
-  }
-
-  return <div className={className}>{content}</div>;
 }
 
 function MeetingCalendarView({
@@ -7309,14 +7603,16 @@ function MeetingCalendarView({
   month,
   onCalendarFilterChange,
   onChangeMonth,
+  onEditMeeting,
   onOpenExternalEvent,
-  onOpenMeeting,
-  onOpenReminder,
+  onEditReminder,
   onScheduleMeeting,
   onSelectDate,
   onSyncGoogleCalendar,
   onToday,
   selectedDateKey,
+  viewMode,
+  onViewModeChange,
 }: {
   calendarFilter: MeetingCalendarFilter;
   calendarSyncMessage: string;
@@ -7326,18 +7622,26 @@ function MeetingCalendarView({
   month: Date;
   onCalendarFilterChange: (filter: MeetingCalendarFilter) => void;
   onChangeMonth: (offset: number) => void;
+  onEditMeeting: (meeting: DosAppMeeting) => void;
   onOpenExternalEvent: (eventId: string) => void;
-  onOpenMeeting: (meetingId: string) => void;
-  onOpenReminder: (reminderId: string) => void;
+  onEditReminder: (reminderId: string) => void;
   onScheduleMeeting: () => void;
   onSelectDate: (date: Date) => void;
   onSyncGoogleCalendar: () => void;
   onToday: () => void;
   selectedDateKey: string;
+  viewMode: MeetingCalendarViewMode;
+  onViewModeChange: (value: MeetingCalendarViewMode) => void;
 }) {
+  const [completedQuickItemIds, setCompletedQuickItemIds] = useState<Set<string>>(() => new Set());
+  const [selectedQuickItemId, setSelectedQuickItemId] = useState<string | null>(null);
   const monthStart = startOfCalendarMonth(month);
   const gridStart = new Date(monthStart);
   gridStart.setDate(monthStart.getDate() - monthStart.getDay());
+  const selectedDate = dateFromCalendarKey(selectedDateKey);
+  const weekStart = startOfCalendarWeek(selectedDate);
+  const weekEnd = addCalendarDays(weekStart, 6);
+  const weekDays = Array.from({ length: 7 }, (_, index) => addCalendarDays(weekStart, index));
 
   const calendarDays = Array.from({ length: 42 }, (_, index) => {
     const date = new Date(gridStart);
@@ -7345,6 +7649,10 @@ function MeetingCalendarView({
     return date;
   });
   const filteredItems = items.filter((item) => calendarItemMatchesFilter(item, calendarFilter));
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const upcomingItems = filteredItems.filter((item) => dateSortValue(item.date) >= todayStart.getTime()).slice(0, 12);
+  const upcomingCardItems = upcomingItems.length ? upcomingItems : filteredItems.slice(0, 12);
   const itemsByDay = filteredItems.reduce((map, item) => {
     const key = calendarDateKeyFromValue(item.date);
 
@@ -7358,94 +7666,136 @@ function MeetingCalendarView({
 
     return map;
   }, new Map<string, MeetingCalendarItem[]>());
-  const selectedItems = itemsByDay.get(selectedDateKey) ?? [];
+  const selectedQuickItem = selectedQuickItemId ? filteredItems.find((item) => item.id === selectedQuickItemId) ?? null : null;
+  const weekItems = filteredItems.filter((item) => {
+    const date = parseDisplayDate(item.date);
+    const weekEndDay = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 23, 59, 59, 999);
+
+    return Boolean(date && date.getTime() >= weekStart.getTime() && date.getTime() <= weekEndDay.getTime());
+  });
+
+  function openQuickItem(item: MeetingCalendarItem) {
+    setSelectedQuickItemId(item.id);
+    const date = parseDisplayDate(item.date);
+
+    if (date) {
+      onSelectDate(date);
+    }
+  }
+
+  function editQuickItem(item: MeetingCalendarItem) {
+    if (item.meeting) {
+      onEditMeeting(item.meeting);
+      return;
+    }
+
+    if (item.reminder) {
+      onEditReminder(item.reminder.id);
+      return;
+    }
+
+    if (item.externalEvent) {
+      onOpenExternalEvent(item.externalEvent.id);
+    }
+  }
+
+  function shiftCalendar(offset: number) {
+    if (viewMode === "week") {
+      onSelectDate(addCalendarDays(selectedDate, offset * 7));
+      return;
+    }
+
+    onChangeMonth(offset);
+  }
+
+  function weekEventStyle(item: MeetingCalendarItem) {
+    const date = parseDisplayDate(item.date) ?? selectedDate;
+    const dayStart = startOfDisplayDay(date.toISOString()) ?? weekStart;
+    const dayIndex = Math.max(0, Math.min(6, Math.round((dayStart.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000))));
+    const minuteOfDay = Math.max(8 * 60, Math.min(20 * 60, calendarItemMinuteOfDay(item)));
+    const rowStart = Math.floor((minuteOfDay - 8 * 60) / 60) + 2;
+    const span = Math.max(1, Math.min(3, Math.ceil(calendarItemDurationMinutes(item) / 60)));
+    const marginTop = Math.round(((minuteOfDay % 60) / 60) * 28);
+
+    return {
+      gridColumn: `${dayIndex + 2}`,
+      gridRow: `${rowStart} / span ${span}`,
+      marginTop: `${marginTop}px`,
+    };
+  }
 
   return (
-    <section className="space-y-3 md:grid md:grid-cols-[minmax(0,1fr)] md:gap-4 md:space-y-0 lg:grid-cols-[minmax(0,1.42fr)_minmax(300px,360px)]">
+    <section className="grid gap-3">
+      <section className="min-w-0">
+        <div className="mb-2 flex items-center justify-between gap-3 px-1">
+          <h2 className="text-sm font-black leading-tight text-[#0F172A]">Upcoming</h2>
+          <button className="text-xs font-bold text-[#2563EB]" onClick={onToday} type="button">View today</button>
+        </div>
+        {upcomingCardItems.length ? (
+          <div className="max-w-full overflow-x-auto pb-1">
+            <div className="flex min-w-0 gap-2.5">
+              {upcomingCardItems.map((item) => (
+                <CalendarUpcomingCard
+                  item={item}
+                  key={item.id}
+                  onOpen={() => openQuickItem(item)}
+                  selected={selectedQuickItemId === item.id}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <SectionEmptyState
+            action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>}
+            text="Scheduled tables, reminders, and connected calendar events will appear here."
+            title="Nothing upcoming."
+          />
+        )}
+      </section>
+
+      {selectedQuickItem ? (
+        <CalendarQuickView
+          isComplete={completedQuickItemIds.has(selectedQuickItem.id)}
+          item={selectedQuickItem}
+          onClose={() => setSelectedQuickItemId(null)}
+          onEdit={() => editQuickItem(selectedQuickItem)}
+          onMarkComplete={() => setCompletedQuickItemIds((current) => new Set(current).add(selectedQuickItem.id))}
+        />
+      ) : null}
+
       <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)] md:rounded-[26px] md:bg-white/92 md:backdrop-blur">
-        <header className="flex items-center justify-between gap-2 border-b border-[#EFF6FF] px-3 py-3">
-          <button
-            aria-label="Previous month"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
-            onClick={() => onChangeMonth(-1)}
-            type="button"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-          </button>
-          <div className="min-w-0 text-center">
-            <h2 className="truncate text-base font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-              {calendarMonthLabel(month)}
-            </h2>
-            <button className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#2563EB]" onClick={onToday} style={{ fontFamily: font.rajdhani }} type="button">
-              Today
+        <header className="grid gap-3 border-b border-[#EFF6FF] px-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <button
+              aria-label={viewMode === "week" ? "Previous week" : "Previous month"}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
+              onClick={() => shiftCalendar(-1)}
+              type="button"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+            </button>
+            <div className="min-w-0 text-center">
+              <h2 className="truncate text-base font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+                {viewMode === "week" ? calendarWeekRangeLabel(weekStart) : calendarMonthLabel(month)}
+              </h2>
+              <button className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#2563EB]" onClick={onToday} style={{ fontFamily: font.rajdhani }} type="button">
+                Today
+              </button>
+            </div>
+            <button
+              aria-label={viewMode === "week" ? "Next week" : "Next month"}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
+              onClick={() => shiftCalendar(1)}
+              type="button"
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
             </button>
           </div>
-          <button
-            aria-label="Next month"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
-            onClick={() => onChangeMonth(1)}
-            type="button"
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-          </button>
-        </header>
-
-        <div className="px-2.5 pb-3 pt-2">
-          <div className="grid grid-cols-7 gap-1 pb-1.5">
-            {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
-              <div className="text-center text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" key={`${day}-${index}`} style={{ fontFamily: font.rajdhani }}>
-                {day}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map((date) => {
-              const key = calendarDateKey(date);
-              const dayItems = itemsByDay.get(key) ?? [];
-              const isSelected = key === selectedDateKey;
-              const isOutsideMonth = !isSameCalendarMonth(date, month);
-              const isToday = key === todayDateValue();
-
-              return (
-                <button
-                  aria-label={new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}
-                  aria-pressed={isSelected}
-                  className={`min-h-[48px] rounded-[16px] px-1.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[44px] max-[350px]:rounded-[14px] md:min-h-[58px] ${
-                    isSelected
-                      ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]"
-                      : isToday
-                        ? "bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]"
-                        : "bg-[#F8FAFC] text-[#0F172A] hover:bg-[#EBF2FF]"
-                  } ${isOutsideMonth && !isSelected ? "opacity-45" : ""}`}
-                  key={key}
-                  onClick={() => onSelectDate(date)}
-                  type="button"
-                >
-                  <span className="block text-center text-xs font-bold leading-none max-[350px]:text-[11px]">{date.getDate()}</span>
-                  {dayItems.length ? (
-                    <span className="mt-2 flex min-h-1.5 items-center justify-center gap-0.5">
-                      {dayItems.slice(0, 3).map((item) => (
-                        <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : calendarItemTone(item.kind).dot}`} key={item.id} />
-                      ))}
-                      {dayItems.length > 3 ? <span className={`text-[8px] font-bold leading-none ${isSelected ? "text-white" : "text-[#64748B]"}`}>+{dayItems.length - 3}</span> : null}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <aside className="min-w-0 space-y-3">
-        <div className="space-y-2 rounded-[24px] border border-[#DCEBFF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.055)] md:bg-white/92 md:backdrop-blur">
-          <div className="flex items-center justify-between gap-3">
-            <div className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-              Sources
-            </div>
+          <div className="grid gap-2 sm:min-w-[270px]">
+            <SegmentedTabs onChange={onViewModeChange} options={meetingCalendarViewTabs} value={viewMode} />
             {googleCalendarConnected ? (
               <button
-                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
+                className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
                 disabled={isSyncingGoogleCalendar}
                 onClick={onSyncGoogleCalendar}
                 style={{ fontFamily: font.rajdhani }}
@@ -7456,40 +7806,132 @@ function MeetingCalendarView({
               </button>
             ) : null}
           </div>
-          <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
-          <p className="px-1 text-xs font-medium leading-5 text-[#64748B]">
-            {calendarSyncMessage || (googleCalendarConnected ? "Google events are read-only." : "Connect Google to read events.")}
-          </p>
-        </div>
+        </header>
 
-        <section className="min-w-0 rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.045)] md:bg-white/92 md:backdrop-blur">
-          <div className="mb-3 px-1">
-            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-              Selected Day Agenda
+        {viewMode === "month" ? (
+          <div className="px-2.5 pb-3 pt-2">
+            <div className="grid grid-cols-7 gap-1 pb-1.5">
+              {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                <div className="text-center text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" key={`${day}-${index}`} style={{ fontFamily: font.rajdhani }}>
+                  {day}
+                </div>
+              ))}
             </div>
-            <h3 className="mt-1 truncate text-base font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-              {calendarSelectedDayLabel(selectedDateKey)}
-            </h3>
+            <div className="grid grid-cols-7 gap-1">
+              {calendarDays.map((date) => {
+                const key = calendarDateKey(date);
+                const dayItems = itemsByDay.get(key) ?? [];
+                const isSelected = key === selectedDateKey;
+                const isOutsideMonth = !isSameCalendarMonth(date, month);
+                const isToday = key === todayDateValue();
+
+                return (
+                  <button
+                    aria-label={new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}
+                    aria-pressed={isSelected}
+                    className={`min-h-[48px] rounded-[16px] px-1.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[44px] max-[350px]:rounded-[14px] md:min-h-[68px] ${
+                      isSelected
+                        ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]"
+                        : isToday
+                          ? "bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]"
+                          : "bg-[#F8FAFC] text-[#0F172A] hover:bg-[#EBF2FF]"
+                    } ${isOutsideMonth && !isSelected ? "opacity-45" : ""}`}
+                    key={key}
+                    onClick={() => {
+                      onSelectDate(date);
+                      if (dayItems[0]) {
+                        openQuickItem(dayItems[0]);
+                      }
+                    }}
+                    type="button"
+                  >
+                    <span className="block text-center text-xs font-bold leading-none max-[350px]:text-[11px]">{date.getDate()}</span>
+                    {dayItems.length ? (
+                      <span className="mt-2 flex min-h-1.5 items-center justify-center gap-0.5">
+                        {dayItems.slice(0, 3).map((item) => (
+                          <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : calendarItemTone(item.kind).dot}`} key={item.id} />
+                        ))}
+                        {dayItems.length > 3 ? <span className={`text-[8px] font-bold leading-none ${isSelected ? "text-white" : "text-[#64748B]"}`}>+{dayItems.length - 3}</span> : null}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="grid gap-2.5">
-            {selectedItems.length ? selectedItems.map((item) => (
-              <CalendarAgendaItem
-                item={item}
-                key={item.id}
-                onOpenExternalEvent={onOpenExternalEvent}
-                onOpenMeeting={onOpenMeeting}
-                onOpenReminder={onOpenReminder}
-              />
-            )) : (
-              <SectionEmptyState
-                action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>}
-                text="Scheduled tables and reminders for the selected day will appear here."
-                title="Nothing on this day."
-              />
-            )}
+        ) : (
+          <div className="p-2.5">
+            <div className="grid overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-white" style={{ gridTemplateColumns: "42px repeat(7, minmax(0, 1fr))" }}>
+              <div className="border-b border-r border-[#EFF6FF] bg-[#F8FBFF]" />
+              {weekDays.map((day) => {
+                const key = calendarDateKey(day);
+                const isToday = key === todayDateValue();
+
+                return (
+                  <button
+                    className={`min-w-0 border-b border-r border-[#EFF6FF] px-1 py-2 text-center last:border-r-0 ${isToday ? "bg-[#EBF2FF]" : "bg-[#F8FBFF]"}`}
+                    key={key}
+                    onClick={() => onSelectDate(day)}
+                    type="button"
+                  >
+                    <span className="block text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                      {new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(day)}
+                    </span>
+                    <span className={`mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${isToday ? "bg-[#2563EB] text-white" : "text-[#0F172A]"}`}>
+                      {day.getDate()}
+                    </span>
+                  </button>
+                );
+              })}
+              {meetingCalendarWeekHours.map((hour, hourIndex) => {
+                const gridRow = String(hourIndex + 2);
+
+                return (
+                  <div className="contents" key={hour}>
+                    <div className="border-r border-t border-[#EFF6FF] bg-white px-1.5 py-2 text-left text-[9px] font-bold text-[#94A3B8]" style={{ fontFamily: font.rajdhani, gridColumn: "1", gridRow }}>
+                      {calendarWeekHourLabel(hour)}
+                    </div>
+                    {weekDays.map((day, dayIndex) => (
+                      <div
+                        className={`min-h-[52px] border-t border-[#EFF6FF] bg-white ${dayIndex === weekDays.length - 1 ? "" : "border-r"}`}
+                        key={`${calendarDateKey(day)}-${hour}`}
+                        style={{ gridColumn: String(dayIndex + 2), gridRow }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
+              {weekItems.map((item) => {
+                const tone = calendarItemTone(item.kind);
+
+                return (
+                  <button
+                    className={`z-10 m-1 min-w-0 rounded-[14px] border px-1.5 py-1 text-left shadow-[0_8px_18px_rgba(37,99,235,0.08)] ${tone.bg} ${tone.text}`}
+                    key={`week-${item.id}`}
+                    onClick={() => openQuickItem(item)}
+                    style={weekEventStyle(item)}
+                    type="button"
+                  >
+                    <span className="block truncate text-[10px] font-black leading-4 sm:text-xs">{item.title}</span>
+                    <span className="block truncate text-[9px] font-bold leading-3 opacity-80 sm:text-[10px]">{formatTime(item.date) || calendarItemSourceLabel(item)}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </section>
-      </aside>
+        )}
+      </div>
+
+      <details className="hidden rounded-[22px] border border-[#DCEBFF] bg-white p-3 shadow-[0_10px_24px_rgba(37,99,235,0.045)] md:block">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#0F172A] [&::-webkit-details-marker]:hidden">
+          <span>Sources</span>
+          <span className="text-xs font-semibold text-[#64748B]">{calendarSyncMessage || (googleCalendarConnected ? "Google read-only events included." : "Connect Google to read events.")}</span>
+        </summary>
+        <div className="mt-3 grid gap-3">
+          <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
+          <p className="text-xs leading-5 text-[#64748B]">Source badges stay visible on each event so the calendar stays focused on what is next.</p>
+        </div>
+      </details>
     </section>
   );
 }
@@ -13792,6 +14234,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("upcoming");
   const [meetingCalendarFilter, setMeetingCalendarFilter] = useState<MeetingCalendarFilter>("all");
+  const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
   const [fruitView, setFruitView] = useState<FruitView>("activity");
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("praying_for");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
@@ -16445,7 +16888,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <SegmentedTabs
                     onChange={(value) => setMeetingsView(value)}
                     options={mobileMeetingsViewTabs}
-                    value={meetingsView === "availability" ? "upcoming" : meetingsView}
+                    value={meetingsView}
                   />
                 </div>
                 <div>
@@ -16473,29 +16916,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       month={meetingsCalendarMonth}
                       onCalendarFilterChange={setMeetingCalendarFilter}
                       onChangeMonth={changeMeetingsCalendarMonth}
+                      onEditMeeting={openMeetingEdit}
+                      onEditReminder={openReminderEdit}
                       onOpenExternalEvent={openExternalCalendarEventDetail}
-                      onOpenMeeting={openMeetingDetail}
-                      onOpenReminder={openReminderEdit}
                       onScheduleMeeting={() => openScheduleMeeting()}
                       onSelectDate={selectMeetingsCalendarDate}
                       onSyncGoogleCalendar={handleSyncGoogleCalendar}
                       onToday={jumpMeetingsCalendarToToday}
                       selectedDateKey={selectedMeetingsCalendarDate}
+                      viewMode={meetingCalendarViewMode}
+                      onViewModeChange={setMeetingCalendarViewMode}
                     />
                   ) : meetingsView === "availability" ? (
-                    <>
-                      <div className="md:hidden">
-                        <EmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text="Availability and booking links are coming next. Connected calendars already sync into Table." title="Availability is coming next." />
-                      </div>
-                      <DesktopAvailabilityPanel
-                        calendarConnection={data.calendarConnection}
-                        externalCalendarEvents={data.externalCalendarEvents}
-                        isDisconnecting={isCalendarDisconnecting}
-                        onDisconnectCalendar={handleDisconnectCalendar}
-                        onScheduleMeeting={() => openScheduleMeeting()}
-                        workspaceId={data.workspace.id}
-                      />
-                    </>
+                    <DesktopAvailabilityPanel
+                      calendarConnection={data.calendarConnection}
+                      externalCalendarEvents={data.externalCalendarEvents}
+                      isDisconnecting={isCalendarDisconnecting}
+                      onDisconnectCalendar={handleDisconnectCalendar}
+                      onScheduleMeeting={() => openScheduleMeeting()}
+                      workspaceId={data.workspace.id}
+                    />
                   ) : (
                     visibleHistoryTableMeetings.length ? (
                       <>
