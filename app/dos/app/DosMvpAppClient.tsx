@@ -2923,11 +2923,110 @@ function FieldLabel({ children }: { children: ReactNode }) {
 }
 
 function FieldInputClass() {
-  return "mt-2 min-h-12 w-full rounded-2xl border border-[#E2E8F0] bg-[#F1F5F9] px-4 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]";
+  return "mt-2 min-h-12 w-full rounded-[18px] border border-[#D6E4F7] bg-white px-4 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10";
 }
 
 function FieldTextareaClass() {
-  return "mt-2 min-h-24 w-full resize-none rounded-2xl border border-[#E2E8F0] bg-[#F1F5F9] px-4 py-3 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]";
+  return "mt-2 min-h-24 w-full resize-none rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10";
+}
+
+function DosFormSection({
+  children,
+  description,
+  icon,
+  title,
+}: {
+  children: ReactNode;
+  description?: string;
+  icon: IconName;
+  title: string;
+}) {
+  return (
+    <section className="grid gap-3 border-t border-[#EAF2FF] pt-5 first:border-t-0 first:pt-0">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          <Icon name={icon} size={16} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-black leading-5 text-[#0F172A]">{title}</span>
+          {description ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{description}</span> : null}
+        </span>
+      </div>
+      <div className="grid gap-3">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function DosFormField({
+  children,
+  className = "",
+  helper,
+  label,
+}: {
+  children: ReactNode;
+  className?: string;
+  helper?: string;
+  label: ReactNode;
+}) {
+  return (
+    <label className={`block min-w-0 ${className}`}>
+      <FieldLabel>{label}</FieldLabel>
+      {helper ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span> : null}
+      {children}
+    </label>
+  );
+}
+
+function DosFormGrid({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`grid gap-3 min-[380px]:grid-cols-2 ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function DosFormToggleRow({
+  checked,
+  defaultChecked,
+  description,
+  disabled,
+  name,
+  onChange,
+  title,
+}: {
+  checked?: boolean;
+  defaultChecked?: boolean;
+  description?: string;
+  disabled?: boolean;
+  name: string;
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+  title: string;
+}) {
+  return (
+    <label className="flex min-h-12 items-center justify-between gap-3 rounded-[18px] border border-[#D6E4F7] bg-white px-3 py-2.5">
+      <span className="min-w-0">
+        <span className="block text-sm font-bold text-[#0F172A]">{title}</span>
+        {description ? <span className="mt-0.5 block text-xs leading-4 text-[#64748B]">{description}</span> : null}
+      </span>
+      <input
+        checked={checked}
+        className="h-5 w-5 shrink-0 accent-[#2563EB]"
+        defaultChecked={defaultChecked}
+        disabled={disabled}
+        name={name}
+        onChange={onChange}
+        type="checkbox"
+      />
+    </label>
+  );
 }
 
 function StatTile({
@@ -7640,8 +7739,8 @@ function ConversationFlowExperience({
   const previewPrompts = conversationFlowPreviewPrompts(flow);
 
   return (
-    <section className="grid gap-2.5 rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-2.5 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
-      <div className="rounded-[20px] border border-[#DCEBFF] bg-white p-3">
+    <section className="grid gap-3 rounded-[20px] border border-[#D6E4F7] bg-white p-3">
+      <div>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
@@ -7660,7 +7759,7 @@ function ConversationFlowExperience({
         {previewPrompts.length ? (
           <div className="mt-3 grid gap-1.5">
             {previewPrompts.map((prompt, index) => (
-              <div className="flex gap-2 rounded-2xl bg-[#F8FAFC] p-2.5 text-xs leading-5 text-[#475569]" key={`${flow.id}-prompt-${index}`}>
+              <div className="flex gap-2 rounded-2xl border border-[#EAF2FF] bg-white p-2.5 text-xs leading-5 text-[#475569]" key={`${flow.id}-prompt-${index}`}>
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[10px] font-black text-[#1D4ED8]">
                   {index + 1}
                 </span>
@@ -7692,7 +7791,7 @@ function ConversationFlowExperience({
         ) : null}
       </div>
 
-      <details className="group rounded-[20px] border border-[#E2E8F0] bg-white p-3">
+      <details className="group rounded-[20px] border border-[#D6E4F7] bg-white p-3">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-[#0F172A] [&::-webkit-details-marker]:hidden">
           <span>Capture guided responses</span>
           <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.9} />
@@ -7728,7 +7827,7 @@ function ConversationFlowExperience({
           ) : null}
 
           {flow.followUpActions?.length ? (
-            <div className="rounded-2xl bg-[#F1F5F9] p-2.5">
+            <div className="rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
               <p className="text-sm font-semibold text-[#0F172A]">Follow-up</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {flow.followUpActions.map((action) => {
@@ -7772,7 +7871,7 @@ function ConversationQuestionCard({
     const scaleMax = question.scale?.max ?? 10;
 
     return (
-      <div className="rounded-2xl bg-[#F1F5F9] p-2.5">
+      <div className="rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
         <p className="text-sm font-semibold text-[#0F172A]">{question.label}</p>
         <div className="mt-2 grid grid-cols-5 gap-1.5">
           {Array.from({ length: scaleMax - scaleMin + 1 }, (_, index) => scaleMin + index).map((rating) => {
@@ -7800,7 +7899,7 @@ function ConversationQuestionCard({
 
   if (question.kind === "text" || question.kind === "notes") {
     return (
-      <label className="block rounded-2xl bg-[#F1F5F9] p-2.5">
+      <label className="block rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
         <span className="text-sm font-semibold text-[#0F172A]">{question.label}</span>
         <textarea
           className={`${FieldInputClass()} mt-2 min-h-20 bg-white py-3`}
@@ -7816,7 +7915,7 @@ function ConversationQuestionCard({
   const options = question.kind === "yes_no_unsure" ? conversationUnsureAnswerOptions : conversationYesNoOptions;
 
   return (
-    <div className="rounded-2xl bg-[#F1F5F9] p-2.5">
+    <div className="rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
       <p className="text-sm font-semibold leading-5 text-[#0F172A]">{question.label}</p>
       {question.scriptureRefs?.length ? (
         <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
@@ -7875,7 +7974,7 @@ function MeetingPeopleSelector({
   const canQuickAdd = Boolean(onCreatePerson && hasSearch && quickAddName && people.length === 0);
 
   return (
-    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
+    <div className="grid gap-2">
       <FieldLabel>People Involved</FieldLabel>
       {selectedPeople.length ? (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -7904,7 +8003,7 @@ function MeetingPeopleSelector({
           <Icon name="search" size={14} />
         </span>
         <input
-          className="min-h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F1F5F9] pl-9 pr-4 text-sm text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+          className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white pl-9 pr-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search your field"
           type="search"
@@ -7946,29 +8045,21 @@ function MeetingPeopleSelector({
           </span>
         </button>
       ) : null}
-    </section>
+    </div>
   );
 }
 
 function MeetingCaptureNotes({
   defaultValue,
+  label = "Notes",
 }: {
   defaultValue?: string | null;
+  label?: string;
 }) {
   return (
-    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-3">
-      <div className="flex items-center justify-between gap-3">
-        <FieldLabel>Table Notes</FieldLabel>
-        <span className="rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-          Notes
-        </span>
-      </div>
-      <p className="mt-1 text-xs leading-5 text-[#64748B]">Capture what happened, key moments, and anything to remember.</p>
+    <DosFormField helper="Capture what happened, key moments, and anything to remember." label={label}>
       <textarea className={`${FieldTextareaClass()} mt-2 min-h-24`} defaultValue={defaultValue ?? ""} name="notes" placeholder="What happened at the table?" />
-      <p className="mt-2 rounded-2xl bg-[#F8FAFC] px-3 py-2 text-[11px] font-semibold leading-4 text-[#64748B]">
-        Voice, photo, and screenshot attachments are coming later. Notes are saved with this table for now.
-      </p>
-    </section>
+    </DosFormField>
   );
 }
 
@@ -7982,41 +8073,34 @@ function MeetingLeaderReflectionSection({
   selectedOutcomeTags: string[];
 }) {
   return (
-    <section className={meetingFormGroupClassName}>
-      <div className={meetingFormGroupCardClassName}>
-        <p className={meetingFormGroupTitleClassName}>Leader Reflection</p>
-
-        <div className="mt-3 grid gap-3">
-          <ObservedFruitMultiSelect
-            onToggle={onToggleOutcomeTag}
-            selectedOutcomeTags={selectedOutcomeTags}
-          />
-
-          <MeetingCaptureNotes defaultValue={notesDefault} />
-
-          <label className="block rounded-[22px] border border-[#E2E8F0] bg-white p-3">
-            <FieldLabel>Prayer Needs</FieldLabel>
-            <p className="mt-1 text-xs leading-5 text-[#64748B]">Capture prayer requests or covering needed after this meeting.</p>
-            <textarea className={`${FieldTextareaClass()} mt-2 min-h-20`} name="prayer_needs" placeholder="What should we pray for?" />
-          </label>
-
-          <div className="grid gap-2 rounded-2xl bg-[#F8FAFC] p-3">
-            <label className="flex min-h-10 items-center justify-between gap-3">
-              <span className="min-w-0">
-                <span className="block text-sm font-bold text-[#0F172A]">Follow Up Needed</span>
-                <span className="mt-0.5 block text-xs text-[#64748B]">Mark if this needs action soon.</span>
-              </span>
-              <input className="h-5 w-5 shrink-0 accent-[#2563EB]" name="follow_up_needed" type="checkbox" />
-            </label>
-          </div>
-        </div>
-      </div>
-    </section>
+    <>
+      <DosFormSection icon="fruit" title="What fruit did you see?">
+        <ObservedFruitMultiSelect
+          onToggle={onToggleOutcomeTag}
+          selectedOutcomeTags={selectedOutcomeTags}
+        />
+      </DosFormSection>
+      <DosFormSection icon="prayer" title="What should we pray for?">
+        <DosFormField helper="Capture prayer requests or covering needed after this meeting." label="Prayer Needs">
+          <textarea className={`${FieldTextareaClass()} mt-2 min-h-20`} name="prayer_needs" placeholder="What should we pray for?" />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="arrow" title="What needs follow up?">
+        <DosFormToggleRow
+          description="Mark if this needs action soon."
+          name="follow_up_needed"
+          title="Follow Up Needed"
+        />
+      </DosFormSection>
+      <DosFormSection icon="log" title="Additional Notes">
+        <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" />
+      </DosFormSection>
+    </>
   );
 }
 
-const meetingFormGroupClassName = "grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-[#F8FAFC] p-2.5 shadow-[0_10px_24px_rgba(37,99,235,0.04)]";
-const meetingFormGroupCardClassName = "rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]";
+const meetingFormGroupClassName = "grid gap-3 border-t border-[#EAF2FF] pt-5 first:border-t-0 first:pt-0";
+const meetingFormGroupCardClassName = "grid gap-3";
 const meetingFormGroupTitleClassName = "text-sm font-bold text-[#0F172A]";
 
 const meetingDurationOptions = [
@@ -8035,7 +8119,7 @@ function MeetingDurationSelector() {
   const durationMinutes = selectedDuration === "custom" ? customMinutes || "60" : selectedDuration;
 
   return (
-    <fieldset className="grid gap-2 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+    <fieldset className="grid gap-2">
       <FieldLabel>Table Duration</FieldLabel>
       <input name="meeting_duration_minutes" type="hidden" value={durationMinutes} />
       <div className="flex flex-wrap gap-2">
@@ -8049,7 +8133,7 @@ function MeetingDurationSelector() {
               type="radio"
               value={option.value}
             />
-            <span className="flex min-h-10 items-center justify-center rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-xs font-bold text-[#475569] transition-colors peer-checked:border-[#2563EB] peer-checked:bg-[#EBF2FF] peer-checked:text-[#1D4ED8] max-[350px]:min-h-9 max-[350px]:px-2.5">
+            <span className="flex min-h-10 items-center justify-center rounded-full border border-[#D6E4F7] bg-white px-3 text-xs font-bold text-[#475569] transition-colors peer-checked:border-[#2563EB] peer-checked:bg-[#EBF2FF] peer-checked:text-[#1D4ED8] max-[350px]:min-h-9 max-[350px]:px-2.5">
               {option.label}
             </span>
           </label>
@@ -8060,7 +8144,7 @@ function MeetingDurationSelector() {
           <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Custom Minutes</span>
           <input
             autoFocus
-            className="min-h-11 rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 text-sm font-bold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white"
+            className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
             inputMode="numeric"
             max="600"
             min="1"
@@ -8086,7 +8170,7 @@ function ObservedFruitMultiSelect({
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <section className="grid gap-3 rounded-[22px] border border-[#BFDBFE] bg-[#F8FBFF] p-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
+    <section className="grid gap-3 rounded-[20px] border border-[#D6E4F7] bg-white p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <FieldLabel>Observed Fruit</FieldLabel>
@@ -8265,47 +8349,33 @@ function MeetingFormContent({
   );
 
   return (
-    <form className="space-y-3" onSubmit={onSubmit}>
-      <label className="block">
-        <FieldLabel>Date</FieldLabel>
-        <input className={FieldInputClass()} defaultValue={dateDefault} name="table_date" type="date" />
-      </label>
-      {showDurationField ? (
-        <section className={meetingFormGroupClassName}>
-          {peopleSelector}
+    <form className="space-y-5" onSubmit={onSubmit}>
+      <DosFormSection icon="calendar" title="Date">
+        <DosFormField label="Table Date">
+          <input className={FieldInputClass()} defaultValue={dateDefault} name="table_date" type="date" />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="people" title="People">
+        {peopleSelector}
+      </DosFormSection>
+      {showDurationField && durationSelector ? (
+        <DosFormSection icon="meetings" title="Duration">
           {durationSelector}
-        </section>
-      ) : (
-        <>
-          {durationSelector}
-          {peopleSelector}
-        </>
-      )}
-      {showDurationField ? (
-        <section className={meetingFormGroupClassName}>
-          <div className={meetingFormGroupCardClassName}>
-            <p className={meetingFormGroupTitleClassName}>Table Details</p>
-            <div className="mt-3 grid gap-3">
-              {meetingContextPicker}
-              {conversationFlowPicker}
-            </div>
-          </div>
-        </section>
-      ) : (
-        <>
-          {meetingContextPicker}
-          {conversationFlowPicker}
-        </>
-      )}
-      {selectedConversationFlow !== "none" ? (
-        <ConversationFlowExperience
-          flowKey={selectedConversationFlow}
-          onResponseChange={onConversationResponse}
-          onToggleFollowUpAction={onToggleFollowUpAction}
-          recommendedResources={recommendedResources}
-          responses={conversationResponses}
-        />
+        </DosFormSection>
       ) : null}
+      <DosFormSection icon="meetings" title="What happened?">
+        {meetingContextPicker}
+        {conversationFlowPicker}
+        {selectedConversationFlow !== "none" ? (
+          <ConversationFlowExperience
+            flowKey={selectedConversationFlow}
+            onResponseChange={onConversationResponse}
+            onToggleFollowUpAction={onToggleFollowUpAction}
+            recommendedResources={recommendedResources}
+            responses={conversationResponses}
+          />
+        ) : null}
+      </DosFormSection>
       {includeReflectionFields ? (
         <MeetingLeaderReflectionSection
           notesDefault={notesDefault}
@@ -8313,7 +8383,9 @@ function MeetingFormContent({
           selectedOutcomeTags={selectedOutcomeTags ?? []}
         />
       ) : (
-        <MeetingCaptureNotes defaultValue={notesDefault} />
+        <DosFormSection icon="log" title="Additional Notes">
+          <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" />
+        </DosFormSection>
       )}
       {selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
@@ -8440,25 +8512,31 @@ function ScheduleMeetingForm({
   }
 
   return (
-    <form className="space-y-3" onSubmit={onSubmit}>
-      <CalendarConnectionCard
-        calendarConnection={calendarConnection}
-        isDisconnecting={isCalendarDisconnecting}
-        onDisconnect={onDisconnectCalendar}
-        workspaceId={workspaceId}
-      />
-      <MeetingPeopleSelector
-        allPeople={allPeople}
-        isCreatingPerson={isCreatingPerson}
-        onCreatePerson={onCreatePerson}
-        onQueryChange={onPeopleQueryChange}
-        onToggle={onTogglePerson}
-        people={meetingPeopleOptions}
-        query={meetingPeopleQuery}
-        selectedPersonIds={selectedPersonIds}
-      />
-      <div className="grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+    <form className="space-y-5" onSubmit={onSubmit}>
+      <DosFormSection icon="calendar" title="Calendar">
+        <CalendarConnectionCard
+          calendarConnection={calendarConnection}
+          isDisconnecting={isCalendarDisconnecting}
+          onDisconnect={onDisconnectCalendar}
+          workspaceId={workspaceId}
+        />
+      </DosFormSection>
+      <DosFormSection icon="people" title="People">
+        <MeetingPeopleSelector
+          allPeople={allPeople}
+          isCreatingPerson={isCreatingPerson}
+          onCreatePerson={onCreatePerson}
+          onQueryChange={onPeopleQueryChange}
+          onToggle={onTogglePerson}
+          people={meetingPeopleOptions}
+          query={meetingPeopleQuery}
+          selectedPersonIds={selectedPersonIds}
+        />
+      </DosFormSection>
+      <DosFormSection icon="meetings" title="What are you scheduling?">
         <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
+      </DosFormSection>
+      <DosFormSection icon="calendar" title="Timing">
         <div>
           <FieldLabel>Timing</FieldLabel>
           <div className="mt-1.5 flex flex-wrap gap-2">
@@ -8485,19 +8563,16 @@ function ScheduleMeetingForm({
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="block min-w-0">
-            <FieldLabel>Date</FieldLabel>
+        <DosFormGrid>
+          <DosFormField label="Date">
             <input className={FieldInputClass()} defaultValue={todayDateValue()} name="scheduled_date" required type="date" />
-          </label>
-          <label className="block min-w-0">
-            <FieldLabel>Start Time</FieldLabel>
+          </DosFormField>
+          <DosFormField label="Start Time">
             <input className={FieldInputClass()} defaultValue="18:00" name="scheduled_time" required type="time" />
-          </label>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="block min-w-0">
-            <FieldLabel>Duration</FieldLabel>
+          </DosFormField>
+        </DosFormGrid>
+        <DosFormGrid>
+          <DosFormField label="Duration">
             <select className={FieldInputClass()} defaultValue="60" name="duration_minutes">
               <option value="30">30 min</option>
               <option value="45">45 min</option>
@@ -8505,28 +8580,21 @@ function ScheduleMeetingForm({
               <option value="90">90 min</option>
               <option value="120">2 hours</option>
             </select>
-          </label>
-          <label className="flex min-h-[72px] min-w-0 items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-3">
-            <input
-              className="h-5 w-5 shrink-0 accent-[#2563EB]"
-              defaultChecked={calendarConnection.connected}
-              disabled={!calendarConnection.connected}
-              name="google_sync_enabled"
-              type="checkbox"
-            />
-            <span className="min-w-0">
-              <span className="block text-xs font-bold leading-4 text-[#0F172A]">Sync to Google</span>
-              <span className="mt-0.5 block text-[10px] leading-4 text-[#64748B]">
-                {calendarConnection.connected ? "Create a calendar event." : "Connect Google Calendar to sync."}
-              </span>
-            </span>
-          </label>
-        </div>
-        <label className="block">
-          <FieldLabel>Notes</FieldLabel>
+          </DosFormField>
+          <DosFormToggleRow
+            defaultChecked={calendarConnection.connected}
+            description={calendarConnection.connected ? "Create a calendar event." : "Connect Google Calendar to sync."}
+            disabled={!calendarConnection.connected}
+            name="google_sync_enabled"
+            title="Sync to Google"
+          />
+        </DosFormGrid>
+      </DosFormSection>
+      <DosFormSection icon="log" title="Additional Notes">
+        <DosFormField label="Notes">
           <textarea className={`${FieldTextareaClass()} min-h-20`} name="notes" placeholder="What should you remember before this table?" />
-        </label>
-      </div>
+        </DosFormField>
+      </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Scheduling..." : "Schedule Table"}</AppButton>
       <AppButton disabled={isSubmitting} icon="log" onClick={onStartLogMeeting} tone="white">Log Table Instead</AppButton>
@@ -8605,22 +8673,27 @@ function ReminderFormContent({
   }
 
   return (
-    <form className="space-y-3" onSubmit={onSubmit}>
-      <CalendarConnectionCard
-        calendarConnection={calendarConnection}
-        isDisconnecting={isCalendarDisconnecting}
-        onDisconnect={onDisconnectCalendar}
-        workspaceId={workspaceId}
-      />
-      <section className="grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
-        <label className="block">
-          <FieldLabel>Person</FieldLabel>
+    <form className="space-y-5" onSubmit={onSubmit}>
+      <DosFormSection icon="calendar" title="Calendar">
+        <CalendarConnectionCard
+          calendarConnection={calendarConnection}
+          isDisconnecting={isCalendarDisconnecting}
+          onDisconnect={onDisconnectCalendar}
+          workspaceId={workspaceId}
+        />
+      </DosFormSection>
+      <DosFormSection
+        description={isPrayerReminder ? "Write this like something you want to remember in prayer." : "Keep the reminder tied to the person it belongs to."}
+        icon={isPrayerReminder ? "prayer" : "bell"}
+        title={isPrayerReminder ? "Prayer Request" : "Reminder"}
+      >
+        <DosFormField label="Person">
           <select className={FieldInputClass()} defaultValue={reminder?.personId ?? fallbackPersonId} name="person_id" required>
             {people.map((person) => (
               <option key={person.id} value={person.id}>{person.name}</option>
             ))}
           </select>
-        </label>
+        </DosFormField>
         {isPrayerReminder ? (
           <input name="reminder_type" type="hidden" value="prayer" />
         ) : (
@@ -8653,10 +8726,9 @@ function ReminderFormContent({
             </div>
           </>
         )}
-        <label className="block">
-          <FieldLabel>{isPrayerReminder ? "Prayer Request" : "Title"}</FieldLabel>
+        <DosFormField label={isPrayerReminder ? "Prayer Request" : "Title"}>
           <input className={FieldInputClass()} defaultValue={reminder?.title ?? ""} name="title" placeholder={isPrayerReminder ? "What should you pray for?" : "Optional reminder title"} type="text" />
-        </label>
+        </DosFormField>
         {householdReminderTitles.length ? (
           <div>
             <FieldLabel>Household</FieldLabel>
@@ -8674,18 +8746,19 @@ function ReminderFormContent({
             </div>
           </div>
         ) : null}
-        <div className="grid grid-cols-2 gap-2">
-          <label className="block min-w-0">
-            <FieldLabel>Date</FieldLabel>
+      </DosFormSection>
+      <DosFormSection icon="calendar" title="Date & Rhythm">
+        <DosFormGrid>
+          <DosFormField label="Date">
             <input className={FieldInputClass()} defaultValue={(reminder?.reminderDate ?? todayDateValue()).slice(0, 10)} name="reminder_date" required type="date" />
-          </label>
+          </DosFormField>
           <FormOptionSelect
             defaultValue={defaultRecurrence}
             label="Repeat"
             name="recurrence"
             options={reminderRecurrenceOptions}
           />
-        </div>
+        </DosFormGrid>
         <div>
           <FieldLabel>Prayer Cadence</FieldLabel>
           <div className="mt-1.5 flex flex-wrap gap-2">
@@ -8708,24 +8781,21 @@ function ReminderFormContent({
             </span>
           </div>
         </div>
-        <label className="block">
-          <FieldLabel>Notes</FieldLabel>
+      </DosFormSection>
+      <DosFormSection icon="log" title="Notes">
+        <DosFormField label="Notes">
           <textarea className={`${FieldTextareaClass()} min-h-20`} defaultValue={reminderVisibleNotes(reminder?.notes)} name="notes" placeholder="Prayer notes, follow-up context, or details." />
-        </label>
-        <label className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-3">
-          <span className="min-w-0">
-            <span className="block text-sm font-bold text-[#0F172A]">Sync to Google</span>
-            <span className="mt-0.5 block text-xs text-[#64748B]">{calendarConnection.connected ? "Create or update a calendar event." : "Connect Google Calendar to sync. Local save still works."}</span>
-          </span>
-          <input
-            className="h-5 w-5 shrink-0 accent-[#2563EB]"
-            defaultChecked={calendarConnection.connected && reminder?.googleSyncEnabled !== false}
-            disabled={!calendarConnection.connected}
-            name="google_sync_enabled"
-            type="checkbox"
-          />
-        </label>
-      </section>
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="calendar" title="Sync">
+        <DosFormToggleRow
+          defaultChecked={calendarConnection.connected && reminder?.googleSyncEnabled !== false}
+          description={calendarConnection.connected ? "Create or update a calendar event." : "Connect Google Calendar to sync. Local save still works."}
+          disabled={!calendarConnection.connected}
+          name="google_sync_enabled"
+          title="Sync to Google"
+        />
+      </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <AppButton disabled={isSubmitting || !people.length} tone="black" type="submit">
         {isSubmitting ? "Saving..." : reminder ? (isPrayerReminder ? "Save Prayer Request" : "Save Reminder") : (isPrayerReminder ? "Add Prayer Request" : "Add Reminder")}
@@ -10096,77 +10166,61 @@ function AddPrayerPartnerSheet({
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title="Add Prayer Partner">
-      <form className="space-y-3" onSubmit={handleSubmit}>
-        <section className={meetingFormGroupClassName}>
-          <div className={meetingFormGroupCardClassName}>
-            <p className={meetingFormGroupTitleClassName}>Prayer Partner</p>
-            <div className="mt-3 grid gap-3">
-              <div className="grid gap-2 min-[360px]:grid-cols-2">
-                <label className="block min-w-0">
-                  <FieldLabel>First Name</FieldLabel>
-                  <input className={FieldInputClass()} name="first_name" placeholder="First name" required type="text" />
-                </label>
-                <label className="block min-w-0">
-                  <FieldLabel>Last Name</FieldLabel>
-                  <input className={FieldInputClass()} name="last_name" placeholder="Last name" type="text" />
-                </label>
+      <form className="space-y-5" onSubmit={handleSubmit}>
+        <DosFormSection description="Add someone who helps cover your field in prayer." icon="people" title="Prayer Partner">
+          <DosFormGrid>
+            <DosFormField label="First Name">
+              <input className={FieldInputClass()} name="first_name" placeholder="First name" required type="text" />
+            </DosFormField>
+            <DosFormField label="Last Name">
+              <input className={FieldInputClass()} name="last_name" placeholder="Last name" type="text" />
+            </DosFormField>
+          </DosFormGrid>
+          <DosFormGrid>
+            <DosFormField label="Phone">
+              <input className={FieldInputClass()} inputMode="tel" name="phone" placeholder="(651) 456-8974" type="tel" />
+            </DosFormField>
+            <DosFormField label="Email">
+              <input className={FieldInputClass()} name="email" placeholder="email@example.com" type="email" />
+            </DosFormField>
+          </DosFormGrid>
+          <DosFormGrid>
+            <PrayerPartnerSelectField label="Relationship" name="relationship" options={prayerPartnerRelationshipOptions} />
+            <PrayerPartnerSelectField label="Status" name="status" options={prayerPartnerStatusOptions} />
+          </DosFormGrid>
+        </DosFormSection>
+        <DosFormSection icon="home" title="Additional Information">
+          <details className="group overflow-hidden rounded-[20px] border border-[#D6E4F7] bg-white">
+            <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF] [&::-webkit-details-marker]:hidden">
+              <span className="text-sm font-bold text-[#0F172A]">Show additional information</span>
+              <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
+            </summary>
+            <div className="grid gap-3 border-t border-[#EAF2FF] bg-white p-3">
+              <DosFormField label="Home Address">
+                <input className={FieldInputClass()} name="home_address" placeholder="Street address" />
+              </DosFormField>
+              <div className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2 max-[380px]:grid-cols-1">
+                <DosFormField label="City">
+                  <input className={FieldInputClass()} name="city" placeholder="City" />
+                </DosFormField>
+                <DosFormField label="State">
+                  <input className={FieldInputClass()} maxLength={2} name="state" placeholder="ST" />
+                </DosFormField>
+                <DosFormField label="ZIP">
+                  <input className={FieldInputClass()} inputMode="numeric" name="zip" placeholder="ZIP" />
+                </DosFormField>
               </div>
-              <div className="grid gap-2 min-[360px]:grid-cols-2">
-                <label className="block min-w-0">
-                  <FieldLabel>Phone</FieldLabel>
-                  <input className={FieldInputClass()} inputMode="tel" name="phone" placeholder="(651) 456-8974" type="tel" />
-                </label>
-                <label className="block min-w-0">
-                  <FieldLabel>Email</FieldLabel>
-                  <input className={FieldInputClass()} name="email" placeholder="email@example.com" type="email" />
-                </label>
-              </div>
-              <div className="grid gap-2 min-[360px]:grid-cols-2">
-                <PrayerPartnerSelectField label="Relationship" name="relationship" options={prayerPartnerRelationshipOptions} />
-                <PrayerPartnerSelectField label="Status" name="status" options={prayerPartnerStatusOptions} />
-              </div>
-              <details className="group overflow-hidden rounded-[22px] border border-[#E2E8F0] bg-white">
-                <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] [&::-webkit-details-marker]:hidden">
-                  <span className="text-sm font-bold text-[#0F172A]">Additional Information</span>
-                  <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
-                </summary>
-                <div className="grid gap-3 border-t border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                  <label className="block">
-                    <FieldLabel>Home Address</FieldLabel>
-                    <input className={FieldInputClass()} name="home_address" placeholder="Street address" />
-                  </label>
-                  <div className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2 max-[380px]:grid-cols-1">
-                    <label className="block min-w-0">
-                      <FieldLabel>City</FieldLabel>
-                      <input className={FieldInputClass()} name="city" placeholder="City" />
-                    </label>
-                    <label className="block min-w-0">
-                      <FieldLabel>State</FieldLabel>
-                      <input className={FieldInputClass()} maxLength={2} name="state" placeholder="ST" />
-                    </label>
-                    <label className="block min-w-0">
-                      <FieldLabel>ZIP</FieldLabel>
-                      <input className={FieldInputClass()} inputMode="numeric" name="zip" placeholder="ZIP" />
-                    </label>
-                  </div>
-                  <label className="block">
-                    <FieldLabel>Church</FieldLabel>
-                    <input className={FieldInputClass()} name="church" placeholder="Church / community" />
-                  </label>
-                  <PrayerPartnerSelectField label="How They Joined" name="how_heard" options={prayerPartnerHowHeardOptions} />
-                  <label className="block">
-                    <FieldLabel>Notes</FieldLabel>
-                    <textarea className={`${FieldTextareaClass()} min-h-24`} name="notes" placeholder="What do they help cover?" />
-                  </label>
-                </div>
-              </details>
-              <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-3">
-                <input className="h-5 w-5 shrink-0 accent-[#2563EB]" defaultChecked name="email_alerts" type="checkbox" />
-                <span className="min-w-0 text-sm font-bold text-[#0F172A]">Email prayer updates</span>
-              </label>
+              <DosFormField label="Church">
+                <input className={FieldInputClass()} name="church" placeholder="Church / community" />
+              </DosFormField>
+              <PrayerPartnerSelectField label="How They Joined" name="how_heard" options={prayerPartnerHowHeardOptions} />
+              <DosFormField label="Notes">
+                <textarea className={`${FieldTextareaClass()} min-h-24`} name="notes" placeholder="What do they help cover?" />
+              </DosFormField>
             </div>
-          </div>
-        </section>
+          </details>
+          <DosFormToggleRow defaultChecked name="email_alerts" title="Email prayer updates" />
+        </DosFormSection>
         <div className="grid gap-2">
           <AppButton tone="black" type="submit">Add Partner</AppButton>
           <AppButton onClick={onClose} tone="white">Close</AppButton>
@@ -11283,104 +11337,100 @@ function AdditionalPersonInformation({
   };
 
   const fields = (
-    <div className={showToggle ? "mt-4 grid gap-3 border-t border-[#E2E8F0] pt-4" : "grid gap-3"}>
-      <label className="block">
-        <FieldLabel>Email</FieldLabel>
-        <input className={FieldInputClass()} defaultValue={defaults.email} name="email" placeholder="email@example.com" type="email" />
-      </label>
-      <label className="block">
-        <FieldLabel>Home Address</FieldLabel>
-        <input className={FieldInputClass()} defaultValue={defaults.homeAddress} name="home_address" placeholder="Street address" />
-      </label>
-      <div className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2">
-        <label className="block min-w-0">
-          <FieldLabel>City</FieldLabel>
-          <input className={FieldInputClass()} defaultValue={defaults.city} name="city" placeholder="City" />
-        </label>
-        <label className="block min-w-0">
-          <FieldLabel>State</FieldLabel>
-          <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" placeholder="ST" />
-        </label>
-        <label className="block min-w-0">
-          <FieldLabel>ZIP</FieldLabel>
-          <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" placeholder="ZIP" />
-        </label>
-      </div>
-      <label className="block">
-        <FieldLabel>Church</FieldLabel>
-        <input className={FieldInputClass()} defaultValue={defaults.church} name="church" placeholder="Church / community" />
-      </label>
-      <label className="block">
-        <FieldLabel>Occupation</FieldLabel>
-        <input className={FieldInputClass()} defaultValue={defaults.occupation} name="occupation" placeholder="What do they do?" />
-      </label>
-      <label className="block">
-        <FieldLabel>Birthday</FieldLabel>
-        <input className={FieldInputClass()} defaultValue={defaults.birthday} name="birthday" type="date" />
-      </label>
-      <label className="block">
-        <FieldLabel>Notes</FieldLabel>
-        <textarea className={FieldTextareaClass()} defaultValue={defaults.notes} name="notes" placeholder="Private notes..." />
-      </label>
-      <details className="group overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white">
-        <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] [&::-webkit-details-marker]:hidden">
-          <FieldLabel>Household Information</FieldLabel>
-          <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
-        </summary>
-        <div className="grid gap-3 border-t border-[#E2E8F0] bg-[#F8FAFC] p-3">
-          <div className="grid gap-2 min-[360px]:grid-cols-2">
-            <label className="block min-w-0">
-              <FieldLabel>Spouse First Name</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} placeholder="First name" value={householdDraft.spouseFirstName} />
-            </label>
-            <label className="block min-w-0">
-              <FieldLabel>Spouse Last Name</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} placeholder="Last name" value={householdDraft.spouseLastName} />
-            </label>
-          </div>
-          <label className="block">
-            <FieldLabel>Anniversary Date</FieldLabel>
-            <input className={FieldInputClass()} defaultValue={defaults.anniversaryDate} name="anniversary_date" type="date" />
-          </label>
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between gap-3">
-              <FieldLabel>Children</FieldLabel>
-              <button
-                className="inline-flex h-8 items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
-                onClick={addChildDraft}
-                type="button"
-              >
-                + Child
-              </button>
-            </div>
-            <div className="grid gap-2">
-              {householdDraft.children.map((child, index) => (
-                <div className="grid gap-2 rounded-2xl border border-[#E2E8F0] bg-white p-2" key={child.id}>
-                  <div className="grid gap-2 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
-                    <label className="block min-w-0">
-                      <FieldLabel>Child First Name</FieldLabel>
-                      <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} placeholder="First name" value={child.firstName} />
-                    </label>
-                    <label className="block min-w-0">
-                      <FieldLabel>Child Last Name</FieldLabel>
-                      <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} placeholder="Last name" value={child.lastName} />
-                    </label>
-                    <button
-                      aria-label={`Remove child ${index + 1}`}
-                      className="mt-0 flex h-9 w-9 items-center justify-center justify-self-end rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 min-[360px]:mt-5"
-                      onClick={() => removeChildDraft(child.id)}
-                      type="button"
-                    >
-                      <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+    <div className={showToggle ? "mt-5 grid gap-5 border-t border-[#EAF2FF] pt-5" : "grid gap-5"}>
+      <DosFormSection icon="people" title="Contact Information">
+        <DosFormField label="Email">
+          <input className={FieldInputClass()} defaultValue={defaults.email} name="email" placeholder="email@example.com" type="email" />
+        </DosFormField>
+        <DosFormField label="Home Address">
+          <input className={FieldInputClass()} defaultValue={defaults.homeAddress} name="home_address" placeholder="Street address" />
+        </DosFormField>
+        <div className="grid gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_72px_86px]">
+          <DosFormField label="City">
+            <input className={FieldInputClass()} defaultValue={defaults.city} name="city" placeholder="City" />
+          </DosFormField>
+          <DosFormField label="State">
+            <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" placeholder="ST" />
+          </DosFormField>
+          <DosFormField label="ZIP">
+            <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" placeholder="ZIP" />
+          </DosFormField>
         </div>
-      </details>
-      <ImportantDatesReminderSection />
+        <DosFormGrid>
+          <DosFormField label="Church">
+            <input className={FieldInputClass()} defaultValue={defaults.church} name="church" placeholder="Church / community" />
+          </DosFormField>
+          <DosFormField label="Occupation">
+            <input className={FieldInputClass()} defaultValue={defaults.occupation} name="occupation" placeholder="What do they do?" />
+          </DosFormField>
+        </DosFormGrid>
+        <DosFormField label="Birthday">
+          <input className={FieldInputClass()} defaultValue={defaults.birthday} name="birthday" type="date" />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="home" title="Household Information">
+        <details className="group overflow-hidden rounded-[20px] border border-[#D6E4F7] bg-white">
+          <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF] [&::-webkit-details-marker]:hidden">
+            <span className="text-sm font-bold text-[#0F172A]">Show household fields</span>
+            <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
+          </summary>
+          <div className="grid gap-3 border-t border-[#EAF2FF] bg-white p-3">
+            <DosFormGrid>
+              <DosFormField label="Spouse First Name">
+                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} placeholder="First name" value={householdDraft.spouseFirstName} />
+              </DosFormField>
+              <DosFormField label="Spouse Last Name">
+                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} placeholder="Last name" value={householdDraft.spouseLastName} />
+              </DosFormField>
+            </DosFormGrid>
+            <DosFormField label="Anniversary Date">
+              <input className={FieldInputClass()} defaultValue={defaults.anniversaryDate} name="anniversary_date" type="date" />
+            </DosFormField>
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <FieldLabel>Children</FieldLabel>
+                <button
+                  className="inline-flex h-8 items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
+                  onClick={addChildDraft}
+                  type="button"
+                >
+                  + Child
+                </button>
+              </div>
+              <div className="grid gap-2">
+                {householdDraft.children.map((child, index) => (
+                  <div className="grid gap-2 rounded-[18px] border border-[#D6E4F7] bg-white p-2" key={child.id}>
+                    <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
+                      <DosFormField label="Child First Name">
+                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} placeholder="First name" value={child.firstName} />
+                      </DosFormField>
+                      <DosFormField label="Child Last Name">
+                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} placeholder="Last name" value={child.lastName} />
+                      </DosFormField>
+                      <button
+                        aria-label={`Remove child ${index + 1}`}
+                        className="mt-0 flex h-9 w-9 items-center justify-center justify-self-end rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 min-[420px]:mt-5"
+                        onClick={() => removeChildDraft(child.id)}
+                        type="button"
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </details>
+      </DosFormSection>
+      <DosFormSection icon="bell" title="Important Dates & Reminders">
+        <ImportantDatesReminderSection />
+      </DosFormSection>
+      <DosFormSection icon="log" title="Notes">
+        <DosFormField label="Notes">
+          <textarea className={FieldTextareaClass()} defaultValue={defaults.notes} name="notes" placeholder="Private notes..." />
+        </DosFormField>
+      </DosFormSection>
     </div>
   );
 
@@ -11393,7 +11443,7 @@ function AdditionalPersonInformation({
   }
 
   return (
-    <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
+    <section className="rounded-[20px] border border-[#D6E4F7] bg-white p-4">
       <button
         aria-expanded={isOpen}
         className="flex w-full items-center justify-between gap-3 text-left"
@@ -11429,52 +11479,43 @@ function ImportantDatesReminderSection() {
   }
 
   return (
-    <details className="group rounded-[18px] border border-[#E2E8F0] bg-white">
-      <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-[20px] border border-[#D6E4F7] bg-white">
+      <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF] [&::-webkit-details-marker]:hidden">
         <span>
-          <FieldLabel>Important Dates & Reminders</FieldLabel>
+          <span className="block text-sm font-bold text-[#0F172A]">Add a reminder</span>
           <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">Add one dated reminder to this person.</span>
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
       </summary>
-      <div className="grid gap-3 border-t border-[#E2E8F0] bg-[#F8FAFC] p-3">
+      <div className="grid gap-3 border-t border-[#EAF2FF] bg-white p-3">
         <input name="important_reminder_tag" type="hidden" value={tag} />
         <input name="important_reminder_repeats" type="hidden" value={repeat} />
         <input name="important_reminder_timing" type="hidden" value={timing} />
         <input name="important_reminder_destination" type="hidden" value={destination} />
-        <label className="block">
-          <FieldLabel>Title</FieldLabel>
+        <DosFormField label="Title">
           <input className={FieldInputClass()} name="important_reminder_title" placeholder="Surgery, birthday text, memorial date..." />
-        </label>
+        </DosFormField>
         <div className="grid gap-3 min-[380px]:grid-cols-2">
           <CompactOptionSelect label="Tag" onChange={handleTagChange} options={importantReminderTagOptions} value={tag} />
-          <label className="block min-w-0">
-            <FieldLabel>Date</FieldLabel>
+          <DosFormField label="Date">
             <input className={FieldInputClass()} name="important_reminder_date" type="date" />
-          </label>
+          </DosFormField>
         </div>
         <div className="grid gap-3 min-[380px]:grid-cols-2">
           <CompactOptionSelect label="Repeats" onChange={(value) => setRepeat(value as ImportantReminderRepeat)} options={importantReminderRepeatOptions} value={repeat} />
           <CompactOptionSelect label="Reminder timing" onChange={(value) => setTiming(normalizeImportantReminderTiming(value))} options={importantReminderTimingOptions} value={timing} />
         </div>
-        <label className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-3">
-          <span className="min-w-0">
-            <span className="block text-sm font-bold text-[#0F172A]">Show on Dashboard</span>
-            <span className="mt-0.5 block text-xs text-[#64748B]">Eligible for Upcoming and notifications.</span>
-          </span>
-          <input
-            checked={showOnDashboard}
-            className="h-5 w-5 shrink-0 accent-[#2563EB]"
-            name="important_reminder_show_dashboard"
-            onChange={(event) => setShowOnDashboard(event.target.checked)}
-            type="checkbox"
-          />
-        </label>
+        <DosFormToggleRow
+          checked={showOnDashboard}
+          description="Eligible for Upcoming and notifications."
+          name="important_reminder_show_dashboard"
+          onChange={(event) => setShowOnDashboard(event.target.checked)}
+          title="Show on Dashboard"
+        />
         <CompactOptionSelect label="Send to app" onChange={(value) => setDestination(normalizeImportantReminderDestination(value))} options={importantReminderDestinationOptions} value={destination} />
-        <label className="block">
-          <FieldLabel>Notes</FieldLabel>
+        <DosFormField label="Notes">
           <textarea className={`${FieldTextareaClass()} min-h-20`} name="important_reminder_notes" placeholder="Context for the reminder." />
-        </label>
+        </DosFormField>
       </div>
     </details>
   );
@@ -11496,16 +11537,14 @@ function PersonExtraDetails({
   showToggle?: boolean;
 }) {
   const fields = (
-    <div className="rounded-[22px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-      <AdditionalPersonInformation
-        defaults={additionalDefaults}
-        householdDraft={householdDraft}
-        isOpen
-        onHouseholdDraftChange={onHouseholdDraftChange}
-        onToggle={onToggleDetails}
-        showToggle={false}
-      />
-    </div>
+    <AdditionalPersonInformation
+      defaults={additionalDefaults}
+      householdDraft={householdDraft}
+      isOpen
+      onHouseholdDraftChange={onHouseholdDraftChange}
+      onToggle={onToggleDetails}
+      showToggle={false}
+    />
   );
 
   if (!showToggle) {
@@ -11516,11 +11555,11 @@ function PersonExtraDetails({
     <section className="space-y-3">
       <button
         aria-expanded={detailsOpen}
-        className="flex w-full items-center justify-between rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left text-sm font-semibold text-[#2563EB] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
+        className="flex w-full items-center justify-between rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-left text-sm font-semibold text-[#2563EB] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
         onClick={onToggleDetails}
         type="button"
       >
-        <span>{detailsOpen ? "Hide extra details" : "Show extra details"}</span>
+        <span>{detailsOpen ? "Hide Extra Details" : "Show Extra Details"}</span>
         <span className={`text-lg leading-none text-[#94A3B8] transition-transform ${detailsOpen ? "rotate-45" : ""}`} aria-hidden="true">
           +
         </span>
@@ -11585,24 +11624,21 @@ function PersonFormContent({
   const effectiveDetailsOpen = showDetailsToggle ? detailsOpen : true;
 
   return (
-    <form className="space-y-4" onSubmit={onSubmit}>
+    <form className="space-y-5" onSubmit={onSubmit}>
       <input name="name" type="hidden" value={composedName} />
       <input name="phone" type="hidden" value={phoneDraft} />
       <input name="spouse_name" type="hidden" value={householdDraftSpouseName(householdDraft)} />
       <input name="children_names" type="hidden" value={householdDraftChildrenNames(householdDraft)} />
-      <div className="grid gap-3">
-        <div className="grid gap-2 min-[360px]:grid-cols-2">
-          <label className="block min-w-0">
-            <FieldLabel>First Name</FieldLabel>
+      <DosFormSection icon="people" title="Person">
+        <DosFormGrid>
+          <DosFormField label="First Name">
             <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} placeholder="First name" required value={nameDraft.firstName} />
-          </label>
-          <label className="block min-w-0">
-            <FieldLabel>Last Name</FieldLabel>
+          </DosFormField>
+          <DosFormField label="Last Name">
             <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} placeholder="Last name" value={nameDraft.lastName} />
-          </label>
-        </div>
-        <label className="block">
-          <FieldLabel>Phone</FieldLabel>
+          </DosFormField>
+        </DosFormGrid>
+        <DosFormField label="Phone">
           <input
             className={FieldInputClass()}
             inputMode="tel"
@@ -11612,11 +11648,17 @@ function PersonFormContent({
             type="tel"
             value={formatPhoneNumber(phoneDraft)}
           />
-        </label>
-      </div>
-      <RelationshipTypePicker onChange={onRelationshipChange} value={relationshipModel} />
-      <RelationshipContextPicker onChange={onRelationshipChange} value={relationshipModel} />
-      <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="people" title="Relationship Type">
+        <RelationshipTypePicker onChange={onRelationshipChange} value={relationshipModel} />
+      </DosFormSection>
+      <DosFormSection icon="people" title="Relationship Context">
+        <RelationshipContextPicker onChange={onRelationshipChange} value={relationshipModel} />
+      </DosFormSection>
+      <DosFormSection icon="fruit" title="Engagement Level">
+        <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
+      </DosFormSection>
       <PersonExtraDetails
         additionalDefaults={additionalDefaults}
         detailsOpen={effectiveDetailsOpen}
@@ -13390,17 +13432,18 @@ function MeetingNotesEditorSheet({
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={hasNotes ? "Edit Notes" : "Add Notes"}>
-      <form className="space-y-4" onSubmit={onSubmit}>
-        <label className="block">
-          <FieldLabel>Table Notes</FieldLabel>
-          <textarea
-            autoFocus
-            className={`${FieldTextareaClass()} min-h-40 bg-white`}
-            defaultValue={defaultValue ?? ""}
-            name="notes"
-            placeholder="What happened at the table?"
-          />
-        </label>
+      <form className="space-y-5" onSubmit={onSubmit}>
+        <DosFormSection icon="log" title="Table Notes">
+          <DosFormField label="Notes">
+            <textarea
+              autoFocus
+              className={`${FieldTextareaClass()} min-h-40`}
+              defaultValue={defaultValue ?? ""}
+              name="notes"
+              placeholder="What happened at the table?"
+            />
+          </DosFormField>
+        </DosFormSection>
         {errorMessage ? (
           <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
         ) : null}
@@ -17458,49 +17501,53 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       {formMode === "fruit" ? (
         <Sheet description="Record what changed. This starts private for review." onClose={closeForm} title="Record Fruit">
-          <form className="space-y-4" onSubmit={handleFruitSubmit}>
-            <label className="block">
-              <FieldLabel>Summary</FieldLabel>
-              <textarea className={`${FieldInputClass()} min-h-24 py-3`} name="summary" placeholder="Short private summary of the fruit." required />
-            </label>
-            <label className="block">
-              <FieldLabel>Date</FieldLabel>
-              <input className={FieldInputClass()} defaultValue={todayDateValue()} name="testimony_date" type="date" />
-            </label>
-            <FormOptionSelect
-              label="Linked Person"
-              name="field_person_id"
-              options={[
-                { label: "Not linked", value: "" },
-                ...people.map((person) => ({
-                  helper: relationshipLine(person),
-                  label: person.name,
-                  value: person.id,
-                })),
-              ]}
-            />
-            <div>
-              <FieldLabel>Outcome Tags</FieldLabel>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {outcomeTagOptions.map((tag) => {
-                  const selected = selectedOutcomeTags.includes(tag);
+          <form className="space-y-5" onSubmit={handleFruitSubmit}>
+            <DosFormSection icon="fruit" title="Fruit Summary">
+              <DosFormField label="Summary">
+                <textarea className={`${FieldTextareaClass()} min-h-24`} name="summary" placeholder="Short private summary of the fruit." required />
+              </DosFormField>
+            </DosFormSection>
+            <DosFormSection icon="people" title="Details">
+              <DosFormField label="Date">
+                <input className={FieldInputClass()} defaultValue={todayDateValue()} name="testimony_date" type="date" />
+              </DosFormField>
+              <FormOptionSelect
+                label="Linked Person"
+                name="field_person_id"
+                options={[
+                  { label: "Not linked", value: "" },
+                  ...people.map((person) => ({
+                    helper: relationshipLine(person),
+                    label: person.name,
+                    value: person.id,
+                  })),
+                ]}
+              />
+            </DosFormSection>
+            <DosFormSection icon="fruit" title="Outcome Tags">
+              <div>
+                <FieldLabel>Outcome Tags</FieldLabel>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {outcomeTagOptions.map((tag) => {
+                    const selected = selectedOutcomeTags.includes(tag);
 
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-11 rounded-2xl border px-3 text-left text-xs font-semibold ${
-                        selected ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white" : "border-[#E2E8F0] bg-white text-[#0F172A]"
-                      }`}
-                      key={tag}
-                      onClick={() => toggleOutcomeTag(tag)}
-                      type="button"
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        aria-pressed={selected}
+                        className={`min-h-11 rounded-2xl border px-3 text-left text-xs font-semibold ${
+                          selected ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white" : "border-[#D6E4F7] bg-white text-[#0F172A]"
+                        }`}
+                        key={tag}
+                        onClick={() => toggleOutcomeTag(tag)}
+                        type="button"
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            </DosFormSection>
             {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
             <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Record Fruit"}</AppButton>
           </form>
