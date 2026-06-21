@@ -1116,7 +1116,7 @@ function WelcomeActionBar({
 }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#DCEBFF] bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 shadow-[0_-18px_42px_rgba(37,99,235,0.08)] backdrop-blur sm:px-6">
-      <div className={`${contentWidthClassName} grid gap-3 ${hasSavedDraft ? "grid-cols-2" : "sm:flex sm:justify-end"}`}>
+      <div className={`${contentWidthClassName} grid gap-3 ${hasSavedDraft ? "grid-cols-2 sm:flex sm:items-center sm:justify-between" : "sm:flex sm:justify-end"}`}>
         {hasSavedDraft ? (
           <button
             className="inline-flex h-12 w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-5 text-sm font-black text-[#2563EB] sm:w-48"
@@ -1213,7 +1213,7 @@ function UploadPlaceholder({
   upload,
 }: {
   error?: string;
-  helper: string;
+  helper?: string;
   isUploading?: boolean;
   label: string;
   name: string;
@@ -1225,13 +1225,13 @@ function UploadPlaceholder({
 
   return (
     <label className="flex h-full min-h-[252px] cursor-pointer flex-col rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5 transition-colors hover:border-[#BFDBFE] hover:bg-white">
-        <span className="grid min-h-[78px] grid-cols-[44px_1fr] items-start gap-3">
+        <span className={`grid grid-cols-[44px_1fr] items-start gap-3 ${helper ? "min-h-[78px]" : ""}`}>
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.08)]">
             <Upload className="h-5 w-5" aria-hidden="true" />
           </span>
           <span className="min-w-0 pt-0.5">
             <span className="block text-sm font-black text-[#0F172A]">{label}</span>
-            <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span>
+            {helper ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span> : null}
           </span>
         </span>
         <input
@@ -1247,19 +1247,15 @@ function UploadPlaceholder({
           {isUploading ? (
             <span className="font-black text-[#2563EB]">Uploading...</span>
           ) : displayName ? (
-            <span className="flex w-full min-w-0 items-center gap-3 text-left">
-              {previewUrl ? (
-                <span
-                  aria-hidden="true"
-                  className="block h-20 w-20 shrink-0 rounded-2xl border border-[#DCEBFF] bg-cover bg-center bg-no-repeat"
-                  style={{ backgroundImage: `url("${previewUrl}")` }}
-                />
-              ) : null}
-              <span className="min-w-0">
-                <span className="block font-black text-[#0F172A]">{upload?.path ? "Uploaded privately" : "Selected"}</span>
-                <span className="mt-1 block break-all text-xs leading-5">{displayName}</span>
-              </span>
-            </span>
+            previewUrl ? (
+              <span
+                aria-hidden="true"
+                className="block h-full w-full rounded-[16px] bg-contain bg-center bg-no-repeat"
+                style={{ backgroundImage: `url("${previewUrl}")` }}
+              />
+            ) : (
+              <span>Photo selected</span>
+            )
           ) : (
             <span>Choose JPG, PNG, or WebP</span>
           )}
@@ -1915,7 +1911,7 @@ export function UsamJoinClient() {
 
     if (currentStep.id === "workspace") {
       return (
-        <SectionCard eyebrow="Workspace" title="Create your DOS workspace">
+        <SectionCard>
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
               <label className="block lg:col-span-3">
@@ -2016,7 +2012,7 @@ export function UsamJoinClient() {
                           {fieldLabel("Relationship")}
                           <input className={inputClassName} onChange={(event) => updateFamilyMember(member.id, { relationship: event.target.value })} value={member.relationship} />
                         </label>
-                        <SelectField label="Dependent / Independent" onChange={(value) => updateFamilyMember(member.id, { dependentStatus: value as DependentStatus })} value={member.dependentStatus}>
+                        <SelectField label="Status" onChange={(value) => updateFamilyMember(member.id, { dependentStatus: value as DependentStatus })} value={member.dependentStatus}>
                           <option value="dependent">Dependent</option>
                           <option value="independent">Independent</option>
                         </SelectField>
@@ -2414,7 +2410,6 @@ export function UsamJoinClient() {
           <div className="grid gap-3 sm:grid-cols-2">
             <UploadPlaceholder
               error={photoUploadState.profile.error}
-              helper="Choose the image you want reviewed for DOS and your application profile."
               isUploading={photoUploadState.profile.isUploading}
               label="Profile Photo"
               name={draft.profilePhotoName}
@@ -2424,7 +2419,7 @@ export function UsamJoinClient() {
             />
             <UploadPlaceholder
               error={photoUploadState.family.error}
-              helper="Choose the public-facing image you want reviewed if your profile is approved."
+              helper="This image will be used on your public page."
               isUploading={photoUploadState.family.isUploading}
               label="Family / Public Profile Photo"
               name={draft.familyPhotoName}
@@ -2434,7 +2429,7 @@ export function UsamJoinClient() {
             />
           </div>
           <p className="mt-3.5 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-            Photos upload privately for application review. USA Missionaries will prepare the final public profile photo if your application is approved.
+            Photos are reviewed with your application before anything appears publicly.
           </p>
         </SectionCard>
       );
@@ -2442,12 +2437,12 @@ export function UsamJoinClient() {
 
     if (currentStep.id === "prayer") {
       return (
-        <SectionCard>
-          <div className="space-y-3.5">
-            <section className="space-y-2.5">
+        <div className="space-y-3">
+          <SectionCard>
+            <section className="space-y-3">
               <div>
-                <h2 className="text-base font-black text-[#0F172A]">Prayer Partners</h2>
-                <p className="mt-1 text-sm leading-6 text-[#475569]">Who should be praying with you as you begin?</p>
+                <h2 className="text-base font-black text-[#0F172A]">Add prayer partners</h2>
+                <p className="mt-1 text-sm leading-6 text-[#475569]">Build the team that will pray with you as you begin.</p>
               </div>
               <div className="space-y-3">
                 {draft.prayerPartners.map((partner, index) => (
@@ -2490,11 +2485,13 @@ export function UsamJoinClient() {
                 Add prayer partner
               </button>
             </section>
+          </SectionCard>
 
-            <section className="space-y-2.5 border-t border-[#DCEBFF] pt-3.5">
+          <SectionCard>
+            <section className="space-y-3">
               <div>
-                <h2 className="text-base font-black text-[#0F172A]">Prayer Requests</h2>
-                <p className="mt-1 text-sm leading-6 text-[#475569]">What would you like people praying for right now?</p>
+                <h2 className="text-base font-black text-[#0F172A]">Add prayer requests</h2>
+                <p className="mt-1 text-sm leading-6 text-[#475569]">Start with the requests you want covered in prayer.</p>
               </div>
               <div className="space-y-3">
                 {draft.prayerRequests.map((request, index) => (
@@ -2521,8 +2518,8 @@ export function UsamJoinClient() {
                 Add prayer request
               </button>
             </section>
-          </div>
-        </SectionCard>
+          </SectionCard>
+        </div>
       );
     }
 
@@ -2799,7 +2796,7 @@ export function UsamJoinClient() {
             Family / Public Profile Photo: {draft.familyPhotoUpload?.fileName || draft.familyPhotoName || "Not uploaded"}
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("prayer")} title="Prayer">
-            <p>
+            <p className="text-[#475569]">
               {reviewPrayerPartners.length
                 ? reviewPrayerPartners.map((partner, index) => {
                   const partnerName = [partner.firstName, partner.lastName].filter(Boolean).join(" ") || "Unnamed partner";
@@ -2807,7 +2804,7 @@ export function UsamJoinClient() {
                 }).join(" / ")
                 : "No prayer partner added"}
             </p>
-            <p className="mt-2">
+            <p className="mt-2 text-[#475569]">
               {reviewPrayerRequests.length
                 ? reviewPrayerRequests.map((request, index) => `Request ${index + 1}: ${request.text}`).join(" / ")
                 : "No prayer request added"}
@@ -2932,16 +2929,6 @@ export function UsamJoinClient() {
                       ) : null}
                     </article>
                   ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[26px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_20px_56px_rgba(37,99,235,0.09)] sm:rounded-[28px] sm:p-4">
-              <div className="flex min-h-36 items-center justify-center rounded-[22px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-4 py-8 text-center sm:min-h-44">
-                <div>
-                  <Video className="mx-auto h-10 w-10 text-[#2563EB]" aria-hidden="true" />
-                  <p className="mt-3 text-lg font-black text-[#0F172A]">Watch the 2-minute welcome</p>
-                  <p className="mt-2 text-sm text-[#64748B]">Ryan / USA Missionaries video placeholder</p>
                 </div>
               </div>
             </div>
