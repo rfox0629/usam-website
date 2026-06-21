@@ -70,6 +70,7 @@ type PrayerDetail = {
   frequency: string;
   id: string;
   kind: "reflection" | "reminder";
+  meetingLabel?: string | null;
   meetingId: string | null;
   notes: string | null;
   personId: string | null;
@@ -10276,22 +10277,31 @@ function PrayerDetailMetaRow({ label, value }: { label: string; value: ReactNode
   );
 }
 
+function prayerDetailSourceLabel(detail: PrayerDetail) {
+  if (detail.kind === "reminder") {
+    return "Manual";
+  }
+
+  return detail.source === "Leader reflection" ? "Leader Reflection" : detail.source;
+}
+
 function PrayerDetailSheet({
   detail,
   onClose,
   onMarkAnswered,
+  onMarkPrayed,
   onOpenMeeting,
   onOpenPerson,
-  onOpenReminder,
 }: {
   detail: PrayerDetail;
   onClose: () => void;
   onMarkAnswered: (reminderId: string) => void;
+  onMarkPrayed: (detail: PrayerDetail) => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
-  onOpenReminder: (reminderId: string) => void;
 }) {
   const statusLabel = detail.status === "answered" ? "Answered" : "Praying";
+  const canMarkAnswered = detail.kind === "reminder" && detail.status === "praying";
   const runAndClose = (action: () => void) => {
     onClose();
     action();
@@ -10299,48 +10309,43 @@ function PrayerDetailSheet({
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={detail.request}>
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <DesktopPrayerStatusPill>{statusLabel}</DesktopPrayerStatusPill>
           <span className="rounded-full border border-[#DCEBFF] bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            {detail.source}
+            {prayerDetailSourceLabel(detail)}
           </span>
         </div>
 
         <section className={meetingFormGroupClassName}>
           <div className={meetingFormGroupCardClassName}>
-            <FieldLabel>Request</FieldLabel>
-            <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-6 text-[#0F172A]">{detail.request}</p>
+            <FieldLabel>Prayer Request</FieldLabel>
+            <p className="mt-3 whitespace-pre-line text-base font-black leading-7 text-[#0F172A]">{detail.request}</p>
             {detail.notes ? <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#475569]">{detail.notes}</p> : null}
-          </div>
-        </section>
-
-        <section className={meetingFormGroupClassName}>
-          <div className={meetingFormGroupCardClassName}>
-            <p className={meetingFormGroupTitleClassName}>Details</p>
             <div className="mt-3 divide-y divide-[#E2E8F0] overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC]">
               <PrayerDetailMetaRow label="Person" value={detail.personName} />
+              {detail.meetingId ? <PrayerDetailMetaRow label="Related Table" value={detail.meetingLabel ?? "Linked table"} /> : null}
               <PrayerDetailMetaRow label="Frequency" value={detail.frequency} />
-              {detail.lastPrayedAt ? <PrayerDetailMetaRow label="Last Prayed" value={formatDate(detail.lastPrayedAt)} /> : null}
+              <PrayerDetailMetaRow label="Last Prayed" value={detail.lastPrayedAt ? formatDate(detail.lastPrayedAt) : "Not yet"} />
               <PrayerDetailMetaRow label={detail.status === "answered" ? "Answered" : "Added"} value={formatDate(detail.answeredAt ?? detail.createdAt)} />
             </div>
           </div>
         </section>
 
         <div className="grid gap-2">
-          {detail.kind === "reminder" && detail.status === "praying" ? (
-            <AppButton icon="prayer" onClick={() => runAndClose(() => onMarkAnswered(detail.sourceId))} tone="black">Mark Answered</AppButton>
+          <AppButton icon="prayer" onClick={() => onMarkPrayed(detail)} tone="black">Prayed Today</AppButton>
+          {canMarkAnswered ? (
+            <AppButton onClick={() => runAndClose(() => onMarkAnswered(detail.sourceId))} tone="white">Mark Answered</AppButton>
           ) : null}
-          {detail.kind === "reminder" ? (
-            <AppButton icon="bell" onClick={() => runAndClose(() => onOpenReminder(detail.sourceId))} tone={detail.status === "praying" ? "white" : "black"}>Open Reminder</AppButton>
-          ) : null}
-          {detail.meetingId ? (
-            <AppButton icon="calendar" onClick={() => runAndClose(() => onOpenMeeting(detail.meetingId!))} tone="white">Open Table</AppButton>
-          ) : null}
-          {detail.personId ? (
-            <AppButton icon="people" onClick={() => runAndClose(() => onOpenPerson(detail.personId!))} tone="white">Open Person</AppButton>
-          ) : null}
-          <AppButton onClick={onClose} tone="white">Done</AppButton>
+          <div className="grid gap-2 min-[420px]:grid-cols-2">
+            {detail.personId ? (
+              <AppButton icon="people" onClick={() => runAndClose(() => onOpenPerson(detail.personId!))} tone="white">Open Person</AppButton>
+            ) : null}
+            {detail.meetingId ? (
+              <AppButton icon="calendar" onClick={() => runAndClose(() => onOpenMeeting(detail.meetingId!))} tone="white">Open Table</AppButton>
+            ) : null}
+          </div>
+          <AppButton onClick={onClose} tone="white">Close</AppButton>
         </div>
       </div>
     </Sheet>
@@ -10552,7 +10557,6 @@ function DesktopPrayerWorkspace({
   onMarkPrayerAnswered,
   onOpenMeeting,
   onOpenPerson,
-  onOpenReminder,
   onScheduleMeeting,
   people,
   prayerPartners,
@@ -10570,7 +10574,6 @@ function DesktopPrayerWorkspace({
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
-  onOpenReminder: (reminderId: string) => void;
   onScheduleMeeting: () => void;
   onSearchChange: (value: string) => void;
   onTabChange: (value: PrayerWorkspaceTab) => void;
@@ -10633,6 +10636,7 @@ function DesktopPrayerWorkspace({
   const prayingForRows: PrayerDetail[] = [
     ...localPrayerNeeds.map((item) => {
       const id = `local-${item.id}`;
+      const meeting = meetingById.get(item.meetingId) ?? null;
       const latestPrayerLog = localPrayerLogs.find((log) => log.prayerId === id);
 
       return {
@@ -10641,6 +10645,7 @@ function DesktopPrayerWorkspace({
         id,
         kind: "reflection" as const,
         lastPrayedAt: latestPrayerLog?.prayedAt ?? null,
+        meetingLabel: meeting ? `${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}` : "Linked table",
         meetingId: item.meetingId,
         notes: latestPrayerLog?.notes || null,
         personId: item.personId,
@@ -10666,6 +10671,7 @@ function DesktopPrayerWorkspace({
           id,
           kind: "reflection" as const,
           lastPrayedAt: latestPrayerLog?.prayedAt ?? null,
+          meetingLabel: meeting ? `${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}` : "Linked table",
           meetingId: reflection.meetingId,
           notes: latestPrayerLog?.notes || (meeting ? `${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}` : null),
           personId: reflection.personId,
@@ -10689,6 +10695,7 @@ function DesktopPrayerWorkspace({
         id,
         kind: "reminder" as const,
         lastPrayedAt: latestPrayerLog?.prayedAt ?? null,
+        meetingLabel: null,
         meetingId: null,
         notes: latestPrayerLog?.notes || reminderVisibleNotes(reminder.notes),
         personId: reminder.personId,
@@ -10714,6 +10721,18 @@ function DesktopPrayerWorkspace({
       row.createdAt ? formatRelativeDate(row.createdAt) : undefined,
     )
   ));
+  const markPrayerDetailPrayed = (detail: PrayerDetail) => {
+    const prayedAt = new Date().toISOString();
+    const entry: LocalPrayerLogEntry = {
+      id: `local-prayer-log-${Date.now()}`,
+      notes: "",
+      prayedAt,
+      prayerId: detail.id,
+    };
+
+    setLocalPrayerLogs((current) => [entry, ...current]);
+    setSelectedPrayerDetail((current) => current?.id === detail.id ? { ...current, lastPrayedAt: prayedAt } : current);
+  };
   const openPrayerPlaceholder = (title: string, description: string) => setPrayerPlaceholder({ description, title });
   const runPrayerAction = (action: () => void) => () => {
     setIsPrayerActionMenuOpen(false);
@@ -10724,11 +10743,6 @@ function DesktopPrayerWorkspace({
       icon: "prayer",
       label: "Add Prayer Request",
       onClick: runPrayerAction(onAddPrayerReminder),
-    },
-    {
-      icon: "log",
-      label: "Log Prayer",
-      onClick: runPrayerAction(() => setIsLogPrayerOpen(true)),
     },
     {
       icon: "people",
@@ -10888,9 +10902,9 @@ function DesktopPrayerWorkspace({
           detail={selectedPrayerDetail}
           onClose={() => setSelectedPrayerDetail(null)}
           onMarkAnswered={onMarkPrayerAnswered}
+          onMarkPrayed={markPrayerDetailPrayed}
           onOpenMeeting={onOpenMeeting}
           onOpenPerson={onOpenPerson}
-          onOpenReminder={onOpenReminder}
         />
       ) : null}
       {prayerPlaceholder ? (
@@ -15876,6 +15890,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return [
       ...localPrayerNeeds.map((item) => {
         const id = `local-${item.id}`;
+        const meeting = meetingById.get(item.meetingId) ?? null;
         const latestPrayerLog = mobilePrayerLogs.find((log) => log.prayerId === id);
 
         return {
@@ -15884,6 +15899,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           id,
           kind: "reflection" as const,
           lastPrayedAt: latestPrayerLog?.prayedAt ?? null,
+          meetingLabel: meeting ? `${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}` : "Linked table",
           meetingId: item.meetingId,
           notes: latestPrayerLog?.notes || null,
           personId: item.personId,
@@ -15909,6 +15925,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             id,
             kind: "reflection" as const,
             lastPrayedAt: latestPrayerLog?.prayedAt ?? null,
+            meetingLabel: meeting ? `${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}` : "Linked table",
             meetingId: reflection.meetingId,
             notes: latestPrayerLog?.notes || (meeting ? `${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}` : null),
             personId: reflection.personId,
@@ -15932,6 +15949,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           id,
           kind: "reminder" as const,
           lastPrayedAt: latestPrayerLog?.prayedAt ?? null,
+          meetingLabel: null,
           meetingId: null,
           notes: latestPrayerLog?.notes || reminderVisibleNotes(reminder.notes),
           personId: reminder.personId,
@@ -15944,6 +15962,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       }),
     ];
   }, [answeredPrayerByReminderId, data.leaderReflections, data.meetings, data.reminders, localPrayerNeeds, mobilePrayerLogs, people]);
+  function markMobilePrayerDetailPrayed(detail: PrayerDetail) {
+    const prayedAt = new Date().toISOString();
+    const entry: LocalPrayerLogEntry = {
+      id: `local-prayer-log-${Date.now()}`,
+      notes: "",
+      prayedAt,
+      prayerId: detail.id,
+    };
+
+    setMobilePrayerLogs((current) => [entry, ...current]);
+    setSelectedMobilePrayerDetail((current) => current?.id === detail.id ? { ...current, lastPrayedAt: prayedAt } : current);
+  }
   const isMissionaryLayerActive = usamApplication.status === "approved"
     || usamApplication.status === "active"
     || usamApplication.publicProfileLive;
@@ -16111,7 +16141,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     : activeTab === "more" && moreAppView === "prayer"
       ? [
           { icon: "prayer", label: "Add Prayer Request", onClick: runMobileAction(() => openReminderForm(undefined, "prayer")) },
-          { icon: "log", label: "Log Prayer", onClick: runMobileAction(() => setIsMobileLogPrayerOpen(true)) },
           { icon: "people", label: "Add Prayer Partner", onClick: runMobileAction(() => setIsMobileAddPrayerPartnerOpen(true)) },
         ]
     : activeTab === "more" && moreAppView === "fruit"
@@ -16559,7 +16588,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onMarkPrayerAnswered={markPrayerReminderAnswered}
                       onOpenMeeting={openMeetingDetail}
                       onOpenPerson={openPersonDetail}
-                      onOpenReminder={openReminderEdit}
                       onScheduleMeeting={() => openScheduleMeeting()}
                       onSearchChange={setPrayerQuery}
                       onTabChange={setPrayerWorkspaceTab}
@@ -17149,9 +17177,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             detail={selectedMobilePrayerDetail}
             onClose={() => setSelectedMobilePrayerDetail(null)}
             onMarkAnswered={markPrayerReminderAnswered}
+            onMarkPrayed={markMobilePrayerDetailPrayed}
             onOpenMeeting={openMeetingDetail}
             onOpenPerson={openPersonDetail}
-            onOpenReminder={openReminderEdit}
           />
         ) : null}
 
