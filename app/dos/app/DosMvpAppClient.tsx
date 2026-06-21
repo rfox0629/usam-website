@@ -581,8 +581,7 @@ type ImportantReminderMeta = {
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = CircleFocusView;
-type MeetingsView = "availability" | "calendar" | "history" | "upcoming";
-type MobileMeetingsView = MeetingsView;
+type MeetingsView = "availability" | "calendar";
 type MeetingCalendarViewMode = "month" | "week";
 type FruitView = "activity" | "forms" | "impact";
 type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
@@ -2951,12 +2950,12 @@ function FieldLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function FieldInputClass() {
-  return "mt-2 min-h-12 w-full rounded-[18px] border border-[#D6E4F7] bg-white px-4 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10";
+function FieldInputClass(spaced = true) {
+  return `${spaced ? "mt-2 " : ""}min-h-12 w-full rounded-[18px] border border-[#D6E4F7] bg-white px-4 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
 }
 
-function FieldTextareaClass() {
-  return "mt-2 min-h-24 w-full resize-none rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10";
+function FieldTextareaClass(spaced = true) {
+  return `${spaced ? "mt-2 " : ""}min-h-24 w-full resize-none rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
 }
 
 function DosFormSection({
@@ -2972,14 +2971,14 @@ function DosFormSection({
 }) {
   return (
     <section className="grid gap-3 border-t border-[#EAF2FF] pt-5 first:border-t-0 first:pt-0">
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-          <Icon name={icon} size={16} />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-sm font-black leading-5 text-[#0F172A]">{title}</span>
-          {description ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{description}</span> : null}
-        </span>
+      <div className="grid gap-2">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+            <Icon name={icon} size={16} />
+          </span>
+          <span className="min-w-0 text-sm font-black leading-5 text-[#0F172A]">{title}</span>
+        </div>
+        {description ? <p className="text-xs leading-5 text-[#64748B]">{description}</p> : null}
       </div>
       <div className="grid gap-3">
         {children}
@@ -2997,11 +2996,11 @@ function DosFormField({
   children: ReactNode;
   className?: string;
   helper?: string;
-  label: ReactNode;
+  label?: ReactNode;
 }) {
   return (
     <label className={`block min-w-0 ${className}`}>
-      <FieldLabel>{label}</FieldLabel>
+      {label ? <FieldLabel>{label}</FieldLabel> : null}
       {helper ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span> : null}
       {children}
     </label>
@@ -5946,17 +5945,8 @@ function SegmentedTabs<T extends string>({
   );
 }
 
-const desktopMeetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
-  { label: "Schedule", value: "upcoming" },
+const meetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
   { label: "Calendar", value: "calendar" },
-  { label: "History", value: "history" },
-  { label: "Availability", value: "availability" },
-];
-
-const mobileMeetingsViewTabs: ReadonlyArray<SegmentedTabOption<MobileMeetingsView>> = [
-  { label: "Upcoming", value: "upcoming" },
-  { label: "Calendar", value: "calendar" },
-  { label: "History", value: "history" },
   { label: "Availability", value: "availability" },
 ];
 
@@ -6203,182 +6193,71 @@ function DesktopTableToolbar({
         placeholder="Search tables"
         query={query}
       />
-      <SegmentedTabs onChange={onMeetingsViewChange} options={desktopMeetingsViewTabs} value={meetingsView} />
+      <SegmentedTabs onChange={onMeetingsViewChange} options={meetingsViewTabs} value={meetingsView} />
     </div>
   );
 }
 
-function DesktopTableEmptyState({
-  action,
-  text,
-  title,
-}: {
-  action: ReactNode;
-  text: string;
-  title: string;
-}) {
-  return (
-    <div className="hidden items-center justify-between gap-4 rounded-[26px] border border-[#EAF2FF] bg-white/92 p-4 text-left shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:flex">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF]">
-          <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
-        </span>
-        <span className="min-w-0">
-          <h2 className="truncate text-lg font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-            {title}
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-[#64748B]">
-            {text}
-          </p>
-        </span>
-      </div>
-      <div className="shrink-0">
-        {action}
-      </div>
-    </div>
-  );
+function recentlyCompletedMeetingNote(meeting: DosAppMeeting, leaderReflections: DosAppLeaderReflection[]) {
+  const reflection = leaderReflections.find((item) => item.meetingId === meeting.id);
+
+  return normalizeText(reflection?.whatHappened)
+    || normalizeText(reflection?.privateNotes)
+    || normalizeText(meeting.notes)
+    || "No reflection yet.";
 }
 
-function tablePersonColumnLabel(meeting: DosAppMeeting, people: DosAppPerson[]) {
-  return meetingParticipantTitle(meeting, people) || "—";
-}
-
-function tableStatusColumnLabel(meeting: DosAppMeeting) {
-  if (meeting.meetingStatus === "scheduled") {
-    return isUpcomingDate(meeting.scheduledStartAt ?? meeting.date) ? "Scheduled" : "Past scheduled";
-  }
-
-  return "Logged";
-}
-
-function tableStoriesLabel(count: number) {
-  return `${count} ${count === 1 ? "Story" : "Stories"}`;
-}
-
-function tableTimeLabel(value: string | null | undefined) {
-  return value?.includes("T") ? formatTime(value) : "";
-}
-
-function DesktopTableActionButton({
-  children,
-  onClick,
-}: {
-  children: ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-      onClick={onClick}
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
-
-function DesktopScheduleTable({
+function RecentlyCompletedTables({
+  leaderReflections,
   meetings,
+  onLogTable,
   onOpenMeeting,
   people,
 }: {
+  leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
+  onLogTable: () => void;
   onOpenMeeting: (meetingId: string) => void;
   people: DosAppPerson[];
 }) {
   return (
-    <div className="hidden overflow-hidden rounded-[26px] border border-[#EAF2FF] bg-white/92 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:block">
-      <div className="overflow-x-auto">
-        <div className="min-w-[760px]">
-          <div className="grid grid-cols-[150px_minmax(190px,1fr)_150px_112px_120px_104px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-            <span>Date</span>
-            <span>Person</span>
-            <span>Type</span>
-            <span>Duration</span>
-            <span>Status</span>
-            <span className="text-right">Action</span>
-          </div>
-          <div className="divide-y divide-[#EFF6FF]">
-            {meetings.map((meeting) => (
-              <div
-                className="grid grid-cols-[150px_minmax(190px,1fr)_150px_112px_120px_104px] items-center gap-3 px-4 py-3 text-xs transition-colors hover:bg-[#F8FBFF]"
-                key={meeting.id}
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-black text-[#0F172A]">{formatDate(meeting.scheduledStartAt ?? meeting.date)}</span>
-                  <span className="mt-0.5 block truncate font-semibold text-[#64748B]">{tableTimeLabel(meeting.scheduledStartAt ?? meeting.date) || "—"}</span>
-                </span>
-                <span className="truncate font-black text-[#0F172A]">{tablePersonColumnLabel(meeting, people)}</span>
-                <span className="truncate font-semibold text-[#475569]">{meetingActivityTitle(meeting)}</span>
-                <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableDurationMinutes(meeting))}</span>
-                <span className="truncate">
-                  <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                    {tableStatusColumnLabel(meeting)}
-                  </span>
-                </span>
-                <span className="justify-self-end">
-                  <DesktopTableActionButton onClick={() => onOpenMeeting(meeting.id)}>Open</DesktopTableActionButton>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+    <section className="rounded-[24px] border border-[#DCEBFF] bg-white p-3 shadow-[0_10px_24px_rgba(37,99,235,0.045)]">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-black leading-tight text-[#0F172A]">Recently Completed</h2>
+        <button
+          className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]"
+          onClick={onLogTable}
+          type="button"
+        >
+          Log Table
+        </button>
       </div>
-    </div>
-  );
-}
-
-function DesktopHistoryTable({
-  meetings,
-  onOpenMeeting,
-  people,
-  storyCountByMeetingId,
-}: {
-  meetings: DosAppMeeting[];
-  onOpenMeeting: (meetingId: string) => void;
-  people: DosAppPerson[];
-  storyCountByMeetingId: Map<string, number>;
-}) {
-  return (
-    <div className="hidden overflow-hidden rounded-[26px] border border-[#EAF2FF] bg-white/92 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:block">
-      <div className="overflow-x-auto">
-        <div className="min-w-[860px]">
-          <div className="grid grid-cols-[142px_minmax(180px,1fr)_132px_104px_minmax(240px,1.35fr)_112px] items-center gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-            <span>Date</span>
-            <span>Person</span>
-            <span>Type</span>
-            <span>Duration</span>
-            <span>Notes / Reflection</span>
-            <span>Stories</span>
-          </div>
-          <div className="divide-y divide-[#EFF6FF]">
-            {meetings.map((meeting) => {
-              const notesPreview = meeting.notes?.trim() || "No reflection yet";
-              const storyCount = storyCountByMeetingId.get(meeting.id) ?? 0;
-
-              return (
-                <button
-                  className="grid w-full grid-cols-[142px_minmax(180px,1fr)_132px_104px_minmax(240px,1.35fr)_112px] items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-[#F8FBFF]"
-                  key={meeting.id}
-                  onClick={() => onOpenMeeting(meeting.id)}
-                  type="button"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate font-black text-[#0F172A]">{formatDate(meeting.date)}</span>
-                    <span className="mt-0.5 block truncate font-semibold text-[#64748B]">{tableTimeLabel(meeting.date) || "—"}</span>
-                  </span>
-                  <span className="truncate font-black text-[#0F172A]">{tablePersonColumnLabel(meeting, people)}</span>
-                  <span className="truncate font-semibold text-[#475569]">{meetingActivityTitle(meeting)}</span>
-                  <span className="truncate font-semibold text-[#475569]">{formatLoggedTime(tableDurationMinutes(meeting))}</span>
-                  <span className="truncate text-[#64748B]">{notesPreview}</span>
-                  <span className="truncate font-bold text-[#0F172A]">{tableStoriesLabel(storyCount)}</span>
-                </button>
-              );
-            })}
-          </div>
+      {meetings.length ? (
+        <div className="mt-3 grid gap-2">
+          {meetings.map((meeting) => (
+            <button
+              className="grid w-full gap-2 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-left transition-colors hover:border-[#BFDBFE] hover:bg-white md:grid-cols-[minmax(0,1.1fr)_128px_minmax(0,1.2fr)] md:items-center"
+              key={meeting.id}
+              onClick={() => onOpenMeeting(meeting.id)}
+              type="button"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-black text-[#0F172A]">{meetingDisplayTitle(meeting, people)}</span>
+                <span className="mt-1 inline-flex rounded-full border border-[#DCEBFF] bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                  {meetingActivityTitle(meeting)}
+                </span>
+              </span>
+              <span className="text-xs font-bold text-[#64748B]">{formatDate(meeting.date)}</span>
+              <span className="line-clamp-2 text-xs leading-5 text-[#475569]">{recentlyCompletedMeetingNote(meeting, leaderReflections)}</span>
+            </button>
+          ))}
         </div>
-      </div>
-    </div>
+      ) : (
+        <p className="mt-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3 text-sm font-semibold text-[#64748B]">
+          Logged tables will appear here after conversations are complete.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -6495,7 +6374,7 @@ function DesktopAvailabilityPanel({
 
           <div className="grid gap-3 md:grid-cols-2">
             <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
-              <h3 className="text-sm font-black text-[#0F172A]">Preferred Times</h3>
+              <h3 className="text-sm font-black text-[#0F172A]">Preferred Meeting Times</h3>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {preferredTimes.map((time) => (
                   <span className="rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-2.5 py-1 text-[11px] font-bold text-[#1D4ED8]" key={time}>{time}</span>
@@ -6563,7 +6442,7 @@ function DesktopAvailabilityPanel({
         </section>
         <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-black text-[#0F172A]">Household + Team</h3>
+            <h3 className="text-sm font-black text-[#0F172A]">Team / Spouse Hooks</h3>
             <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Coming Soon</span>
           </div>
           <div className="mt-3 grid gap-2">
@@ -7397,6 +7276,45 @@ function calendarItemDateTimeLabel(item: MeetingCalendarItem) {
   return formatDateTime(item.date);
 }
 
+function calendarCompactDayLabel(value: string | null) {
+  const date = parseDisplayDate(value);
+
+  if (!date) {
+    return "Soon";
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const eventDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDiff = Math.round((eventDay.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (dayDiff === 0) {
+    return "Today";
+  }
+
+  if (dayDiff === 1) {
+    return "Tomorrow";
+  }
+
+  if (dayDiff > 1 && dayDiff < 7) {
+    return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date);
+  }
+
+  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short" }).format(date);
+}
+
+function calendarUpcomingCardTimeLabel(item: MeetingCalendarItem) {
+  const day = calendarCompactDayLabel(item.date);
+
+  if (item.externalEvent?.allDay) {
+    return day;
+  }
+
+  const time = formatTime(item.date);
+
+  return [day, time].filter(Boolean).join(" · ");
+}
+
 function calendarItemNotes(item: MeetingCalendarItem) {
   if (item.meeting?.notes?.trim()) {
     return item.meeting.notes.trim();
@@ -7473,52 +7391,78 @@ function CalendarUpcomingCard({
 
   return (
     <button
-      className={`grid min-h-[150px] w-[210px] shrink-0 gap-2 rounded-[22px] border p-3 text-left transition-all sm:w-[230px] ${
+      className={`grid min-h-[104px] w-[156px] shrink-0 content-between gap-2 rounded-[18px] border p-3 text-left transition-all sm:w-[174px] ${
         selected
-          ? "border-[#2563EB] bg-white shadow-[0_16px_34px_rgba(37,99,235,0.16)]"
-          : "border-[#DCEBFF] bg-white shadow-[0_10px_26px_rgba(37,99,235,0.055)] hover:border-[#BFDBFE]"
+          ? "border-[#2563EB] bg-white shadow-[0_12px_26px_rgba(37,99,235,0.14)]"
+          : "border-[#DCEBFF] bg-white shadow-[0_8px_20px_rgba(37,99,235,0.045)] hover:border-[#BFDBFE]"
       }`}
       onClick={onOpen}
       type="button"
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] ${tone.bg} ${tone.text}`}>
-          <CalendarItemIcon kind={item.kind} />
-        </span>
-        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] ${calendarItemSourceTone(item)}`} style={{ fontFamily: font.rajdhani }}>
-          {calendarItemSourceLabel(item)}
-        </span>
-      </div>
-      <div className="min-w-0">
-        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          {calendarItemTypeLabel(item)}
+      <div className="min-w-0 space-y-1.5">
+        <div className={`inline-flex max-w-full rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${tone.bg} ${tone.text}`} style={{ fontFamily: font.rajdhani }}>
+          <span className="truncate">
+            {calendarItemTypeLabel(item)}
+          </span>
         </div>
-        <h3 className="mt-1 line-clamp-2 text-sm font-black leading-5 text-[#0F172A]">{item.title}</h3>
+        <h3 className="truncate text-sm font-black leading-5 text-[#0F172A]">{calendarItemPersonLabel(item)}</h3>
       </div>
-      <div className="mt-auto min-w-0 space-y-1">
-        <p className="truncate text-xs font-semibold text-[#64748B]">{calendarItemPersonLabel(item)}</p>
-        <p className="truncate text-xs font-bold text-[#0F172A]">{calendarItemDateTimeLabel(item)}</p>
-      </div>
+      <p className="truncate text-xs font-bold text-[#64748B]">
+        {calendarUpcomingCardTimeLabel(item)}
+      </p>
     </button>
+  );
+}
+
+function CalendarSyncStatus({
+  calendarConnection,
+  isSyncingGoogleCalendar,
+  onSyncGoogleCalendar,
+}: {
+  calendarConnection: DosAppCalendarConnection;
+  isSyncingGoogleCalendar: boolean;
+  onSyncGoogleCalendar: () => void;
+}) {
+  if (!calendarConnection.connected) {
+    return null;
+  }
+
+  const lastSyncedLabel = calendarConnection.lastSyncedAt ? `Last synced ${formatTime(calendarConnection.lastSyncedAt)}` : "Automatic sync is on";
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2">
+      <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold text-[#15803D]">
+        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={1.9} />
+        <span className="truncate">Google Calendar Connected</span>
+      </span>
+      <button
+        className="inline-flex min-h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
+        disabled={isSyncingGoogleCalendar}
+        onClick={onSyncGoogleCalendar}
+        style={{ fontFamily: font.rajdhani }}
+        type="button"
+      >
+        <RefreshCw className={`h-3 w-3 ${isSyncingGoogleCalendar ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={1.9} />
+        Refresh
+      </button>
+      <span className="col-span-2 text-xs font-semibold text-[#64748B]">{lastSyncedLabel}</span>
+    </div>
   );
 }
 
 function CalendarQuickView({
   item,
-  isComplete,
   onClose,
   onEdit,
-  onMarkComplete,
+  onLogTable,
 }: {
   item: MeetingCalendarItem;
-  isComplete: boolean;
   onClose: () => void;
   onEdit: () => void;
-  onMarkComplete: () => void;
+  onLogTable: () => void;
 }) {
   const tone = calendarItemTone(item.kind);
   const notes = calendarItemNotes(item);
-  const canMarkComplete = Boolean(item.meeting || item.reminder);
 
   return (
     <section className="rounded-[28px] border border-[#DCEBFF] bg-white p-4 shadow-[0_18px_48px_rgba(37,99,235,0.08)]">
@@ -7546,11 +7490,6 @@ function CalendarQuickView({
           <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${calendarItemSourceTone(item)}`} style={{ fontFamily: font.rajdhani }}>
             {calendarItemSourceLabel(item)}
           </span>
-          {isComplete ? (
-            <span className="rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
-              Complete
-            </span>
-          ) : null}
         </div>
       </div>
       <div className="mt-4 grid gap-3 text-sm">
@@ -7571,7 +7510,7 @@ function CalendarQuickView({
           <span className="font-semibold">{item.syncLabel ?? calendarItemSourceLabel(item)}</span>
         </div>
       </div>
-      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+      <div className="mt-5 grid grid-cols-2 gap-2 pr-16 sm:pr-0">
         <button
           className="min-h-11 rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
           onClick={onEdit}
@@ -7579,16 +7518,13 @@ function CalendarQuickView({
         >
           {item.externalEvent ? "Open" : "Edit"}
         </button>
-        {canMarkComplete ? (
-          <button
-            className="min-h-11 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.2)] disabled:opacity-65"
-            disabled={isComplete}
-            onClick={onMarkComplete}
-            type="button"
-          >
-            {isComplete ? "Marked Complete" : "Mark Complete"}
-          </button>
-        ) : null}
+        <button
+          className="min-h-11 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.2)]"
+          onClick={onLogTable}
+          type="button"
+        >
+          Log Table
+        </button>
       </div>
     </section>
   );
@@ -7596,44 +7532,53 @@ function CalendarQuickView({
 
 function MeetingCalendarView({
   calendarFilter,
+  calendarConnection,
   calendarSyncMessage,
-  googleCalendarConnected,
   isSyncingGoogleCalendar,
   items,
+  leaderReflections,
   month,
   onCalendarFilterChange,
   onChangeMonth,
   onEditMeeting,
   onOpenExternalEvent,
   onEditReminder,
+  onLogTable,
+  onOpenMeeting,
   onScheduleMeeting,
   onSelectDate,
   onSyncGoogleCalendar,
   onToday,
+  people,
+  recentlyCompletedMeetings,
   selectedDateKey,
   viewMode,
   onViewModeChange,
 }: {
   calendarFilter: MeetingCalendarFilter;
+  calendarConnection: DosAppCalendarConnection;
   calendarSyncMessage: string;
-  googleCalendarConnected: boolean;
   isSyncingGoogleCalendar: boolean;
   items: MeetingCalendarItem[];
+  leaderReflections: DosAppLeaderReflection[];
   month: Date;
   onCalendarFilterChange: (filter: MeetingCalendarFilter) => void;
   onChangeMonth: (offset: number) => void;
   onEditMeeting: (meeting: DosAppMeeting) => void;
   onOpenExternalEvent: (eventId: string) => void;
   onEditReminder: (reminderId: string) => void;
+  onLogTable: (personIds?: string[], meetingType?: DosAppMeetingType) => void;
+  onOpenMeeting: (meetingId: string) => void;
   onScheduleMeeting: () => void;
   onSelectDate: (date: Date) => void;
   onSyncGoogleCalendar: () => void;
   onToday: () => void;
+  people: DosAppPerson[];
+  recentlyCompletedMeetings: DosAppMeeting[];
   selectedDateKey: string;
   viewMode: MeetingCalendarViewMode;
   onViewModeChange: (value: MeetingCalendarViewMode) => void;
 }) {
-  const [completedQuickItemIds, setCompletedQuickItemIds] = useState<Set<string>>(() => new Set());
   const [selectedQuickItemId, setSelectedQuickItemId] = useState<string | null>(null);
   const monthStart = startOfCalendarMonth(month);
   const gridStart = new Date(monthStart);
@@ -7642,6 +7587,7 @@ function MeetingCalendarView({
   const weekStart = startOfCalendarWeek(selectedDate);
   const weekEnd = addCalendarDays(weekStart, 6);
   const weekDays = Array.from({ length: 7 }, (_, index) => addCalendarDays(weekStart, index));
+  const googleCalendarConnected = calendarConnection.connected;
 
   const calendarDays = Array.from({ length: 42 }, (_, index) => {
     const date = new Date(gridStart);
@@ -7699,6 +7645,16 @@ function MeetingCalendarView({
     }
   }
 
+  function logQuickItem(item: MeetingCalendarItem) {
+    const personIds = item.meeting?.fieldPersonIds.length
+      ? item.meeting.fieldPersonIds
+      : item.personId
+        ? [item.personId]
+        : [];
+
+    onLogTable(personIds, item.meeting?.type);
+  }
+
   function shiftCalendar(offset: number) {
     if (viewMode === "week") {
       onSelectDate(addCalendarDays(selectedDate, offset * 7));
@@ -7727,9 +7683,8 @@ function MeetingCalendarView({
   return (
     <section className="grid gap-3">
       <section className="min-w-0">
-        <div className="mb-2 flex items-center justify-between gap-3 px-1">
+        <div className="mb-2 px-1">
           <h2 className="text-sm font-black leading-tight text-[#0F172A]">Upcoming</h2>
-          <button className="text-xs font-bold text-[#2563EB]" onClick={onToday} type="button">View today</button>
         </div>
         {upcomingCardItems.length ? (
           <div className="max-w-full overflow-x-auto pb-1">
@@ -7755,16 +7710,15 @@ function MeetingCalendarView({
 
       {selectedQuickItem ? (
         <CalendarQuickView
-          isComplete={completedQuickItemIds.has(selectedQuickItem.id)}
           item={selectedQuickItem}
           onClose={() => setSelectedQuickItemId(null)}
           onEdit={() => editQuickItem(selectedQuickItem)}
-          onMarkComplete={() => setCompletedQuickItemIds((current) => new Set(current).add(selectedQuickItem.id))}
+          onLogTable={() => logQuickItem(selectedQuickItem)}
         />
       ) : null}
 
       <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)] md:rounded-[26px] md:bg-white/92 md:backdrop-blur">
-        <header className="grid gap-3 border-b border-[#EFF6FF] px-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+        <header className="grid gap-3 border-b border-[#EFF6FF] px-3 py-3">
           <div className="flex min-w-0 items-center justify-between gap-2">
             <button
               aria-label={viewMode === "week" ? "Previous week" : "Previous month"}
@@ -7791,20 +7745,13 @@ function MeetingCalendarView({
               <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
             </button>
           </div>
-          <div className="grid gap-2 sm:min-w-[270px]">
+          <div className="grid gap-2">
             <SegmentedTabs onChange={onViewModeChange} options={meetingCalendarViewTabs} value={viewMode} />
-            {googleCalendarConnected ? (
-              <button
-                className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
-                disabled={isSyncingGoogleCalendar}
-                onClick={onSyncGoogleCalendar}
-                style={{ fontFamily: font.rajdhani }}
-                type="button"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isSyncingGoogleCalendar ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={1.9} />
-                Sync
-              </button>
-            ) : null}
+            <CalendarSyncStatus
+              calendarConnection={calendarConnection}
+              isSyncingGoogleCalendar={isSyncingGoogleCalendar}
+              onSyncGoogleCalendar={onSyncGoogleCalendar}
+            />
           </div>
         </header>
 
@@ -7921,6 +7868,14 @@ function MeetingCalendarView({
           </div>
         )}
       </div>
+
+      <RecentlyCompletedTables
+        leaderReflections={leaderReflections}
+        meetings={recentlyCompletedMeetings}
+        onLogTable={() => onLogTable()}
+        onOpenMeeting={onOpenMeeting}
+        people={people}
+      />
 
       <details className="hidden rounded-[22px] border border-[#DCEBFF] bg-white p-3 shadow-[0_10px_24px_rgba(37,99,235,0.045)] md:block">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#0F172A] [&::-webkit-details-marker]:hidden">
@@ -8417,9 +8372,8 @@ function MeetingPeopleSelector({
 
   return (
     <div className="grid gap-2">
-      <FieldLabel>People Involved</FieldLabel>
       {selectedPeople.length ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {selectedPeople.map((person, index) => (
             <button
               aria-label={`Remove ${person.name} from table`}
@@ -8440,11 +8394,12 @@ function MeetingPeopleSelector({
         </div>
       ) : null}
 
-      <div className="relative mt-2.5">
+      <div className="relative">
         <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
           <Icon name="search" size={14} />
         </span>
         <input
+          aria-label="Search people"
           className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white pl-9 pr-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search your field"
@@ -8494,13 +8449,15 @@ function MeetingPeopleSelector({
 function MeetingCaptureNotes({
   defaultValue,
   label = "Notes",
+  showLabel = true,
 }: {
   defaultValue?: string | null;
   label?: string;
+  showLabel?: boolean;
 }) {
   return (
-    <DosFormField helper="Capture what happened, key moments, and anything to remember." label={label}>
-      <textarea className={`${FieldTextareaClass()} mt-2 min-h-24`} defaultValue={defaultValue ?? ""} name="notes" placeholder="What happened at the table?" />
+    <DosFormField label={showLabel ? label : undefined}>
+      <textarea aria-label={label} className={`${FieldTextareaClass(showLabel)} min-h-24`} defaultValue={defaultValue ?? ""} name="notes" />
     </DosFormField>
   );
 }
@@ -8522,9 +8479,9 @@ function MeetingLeaderReflectionSection({
           selectedOutcomeTags={selectedOutcomeTags}
         />
       </DosFormSection>
-      <DosFormSection icon="prayer" title="What should we pray for?">
-        <DosFormField helper="Capture prayer requests or covering needed after this meeting." label="Prayer Needs">
-          <textarea className={`${FieldTextareaClass()} mt-2 min-h-20`} name="prayer_needs" placeholder="What should we pray for?" />
+      <DosFormSection icon="prayer" title="Prayer Needs">
+        <DosFormField>
+          <textarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} name="prayer_needs" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="arrow" title="What needs follow up?">
@@ -8534,8 +8491,8 @@ function MeetingLeaderReflectionSection({
           title="Follow Up Needed"
         />
       </DosFormSection>
-      <DosFormSection icon="log" title="Additional Notes">
-        <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" />
+      <DosFormSection icon="log" title="Notes">
+        <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
       </DosFormSection>
     </>
   );
@@ -8562,7 +8519,7 @@ function MeetingDurationSelector() {
 
   return (
     <fieldset className="grid gap-2">
-      <FieldLabel>Table Duration</FieldLabel>
+      <legend className="sr-only">Duration</legend>
       <input name="meeting_duration_minutes" type="hidden" value={durationMinutes} />
       <div className="flex flex-wrap gap-2">
         {meetingDurationOptions.map((option) => (
@@ -8613,11 +8570,7 @@ function ObservedFruitMultiSelect({
 
   return (
     <section className="grid gap-3 rounded-[20px] border border-[#D6E4F7] bg-white p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <FieldLabel>Observed Fruit</FieldLabel>
-          <p className="mt-1 text-xs leading-5 text-[#64748B]">Select any visible fruit from this meeting.</p>
-        </div>
+      <div className="flex items-center justify-end">
         <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
           {selectedOptions.length ? `${selectedOptions.length} selected` : "Optional"}
         </span>
@@ -8793,8 +8746,8 @@ function MeetingFormContent({
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
       <DosFormSection icon="calendar" title="Date">
-        <DosFormField label="Table Date">
-          <input className={FieldInputClass()} defaultValue={dateDefault} name="table_date" type="date" />
+        <DosFormField>
+          <input aria-label="Date" className={FieldInputClass(false)} defaultValue={dateDefault} name="table_date" type="date" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="people" title="People">
@@ -8825,8 +8778,8 @@ function MeetingFormContent({
           selectedOutcomeTags={selectedOutcomeTags ?? []}
         />
       ) : (
-        <DosFormSection icon="log" title="Additional Notes">
-          <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" />
+        <DosFormSection icon="log" title="Notes">
+          <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
         </DosFormSection>
       )}
       {selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
@@ -9032,9 +8985,9 @@ function ScheduleMeetingForm({
           />
         </DosFormGrid>
       </DosFormSection>
-      <DosFormSection icon="log" title="Additional Notes">
-        <DosFormField label="Notes">
-          <textarea className={`${FieldTextareaClass()} min-h-20`} name="notes" placeholder="What should you remember before this table?" />
+      <DosFormSection icon="log" title="Notes">
+        <DosFormField>
+          <textarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} name="notes" />
         </DosFormField>
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
@@ -9168,8 +9121,15 @@ function ReminderFormContent({
             </div>
           </>
         )}
-        <DosFormField label={isPrayerReminder ? "Prayer Request" : "Title"}>
-          <input className={FieldInputClass()} defaultValue={reminder?.title ?? ""} name="title" placeholder={isPrayerReminder ? "What should you pray for?" : "Optional reminder title"} type="text" />
+        <DosFormField label={isPrayerReminder ? undefined : "Title"}>
+          <input
+            aria-label={isPrayerReminder ? "Prayer Request" : "Title"}
+            className={FieldInputClass()}
+            defaultValue={reminder?.title ?? ""}
+            name="title"
+            placeholder={isPrayerReminder ? undefined : "Optional reminder title"}
+            type="text"
+          />
         </DosFormField>
         {householdReminderTitles.length ? (
           <div>
@@ -9225,8 +9185,8 @@ function ReminderFormContent({
         </div>
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
-        <DosFormField label="Notes">
-          <textarea className={`${FieldTextareaClass()} min-h-20`} defaultValue={reminderVisibleNotes(reminder?.notes)} name="notes" placeholder="Prayer notes, follow-up context, or details." />
+        <DosFormField>
+          <textarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={reminderVisibleNotes(reminder?.notes)} name="notes" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="calendar" title="Sync">
@@ -10609,13 +10569,13 @@ function AddPrayerPartnerSheet({
   return (
     <Sheet onClose={onClose} showEyebrow={false} title="Add Prayer Partner">
       <form className="space-y-5" onSubmit={handleSubmit}>
-        <DosFormSection description="Add someone who helps cover your field in prayer." icon="people" title="Prayer Partner">
+        <DosFormSection icon="people" title="Prayer Partner">
           <DosFormGrid>
             <DosFormField label="First Name">
-              <input className={FieldInputClass()} name="first_name" placeholder="First name" required type="text" />
+              <input className={FieldInputClass()} name="first_name" required type="text" />
             </DosFormField>
             <DosFormField label="Last Name">
-              <input className={FieldInputClass()} name="last_name" placeholder="Last name" type="text" />
+              <input className={FieldInputClass()} name="last_name" type="text" />
             </DosFormField>
           </DosFormGrid>
           <DosFormGrid>
@@ -10643,13 +10603,13 @@ function AddPrayerPartnerSheet({
               </DosFormField>
               <div className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2 max-[380px]:grid-cols-1">
                 <DosFormField label="City">
-                  <input className={FieldInputClass()} name="city" placeholder="City" />
+                  <input className={FieldInputClass()} name="city" />
                 </DosFormField>
                 <DosFormField label="State">
-                  <input className={FieldInputClass()} maxLength={2} name="state" placeholder="ST" />
+                  <input className={FieldInputClass()} maxLength={2} name="state" />
                 </DosFormField>
                 <DosFormField label="ZIP">
-                  <input className={FieldInputClass()} inputMode="numeric" name="zip" placeholder="ZIP" />
+                  <input className={FieldInputClass()} inputMode="numeric" name="zip" />
                 </DosFormField>
               </div>
               <DosFormField label="Church">
@@ -10718,8 +10678,7 @@ function LogPrayerSheet({
                     </select>
                   </label>
                   <label className="block">
-                    <FieldLabel>Notes</FieldLabel>
-                    <textarea className={`${FieldTextareaClass()} min-h-24`} name="notes" placeholder="What did you pray or hear?" />
+                    <textarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-24`} name="notes" />
                   </label>
                 </div>
               </div>
@@ -11789,13 +11748,13 @@ function AdditionalPersonInformation({
         </DosFormField>
         <div className="grid gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_72px_86px]">
           <DosFormField label="City">
-            <input className={FieldInputClass()} defaultValue={defaults.city} name="city" placeholder="City" />
+            <input className={FieldInputClass()} defaultValue={defaults.city} name="city" />
           </DosFormField>
           <DosFormField label="State">
-            <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" placeholder="ST" />
+            <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" />
           </DosFormField>
           <DosFormField label="ZIP">
-            <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" placeholder="ZIP" />
+            <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" />
           </DosFormField>
         </div>
         <DosFormGrid>
@@ -11819,10 +11778,10 @@ function AdditionalPersonInformation({
           <div className="grid gap-3 border-t border-[#EAF2FF] bg-white p-3">
             <DosFormGrid>
               <DosFormField label="Spouse First Name">
-                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} placeholder="First name" value={householdDraft.spouseFirstName} />
+                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} value={householdDraft.spouseFirstName} />
               </DosFormField>
               <DosFormField label="Spouse Last Name">
-                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} placeholder="Last name" value={householdDraft.spouseLastName} />
+                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} value={householdDraft.spouseLastName} />
               </DosFormField>
             </DosFormGrid>
             <DosFormField label="Anniversary Date">
@@ -11844,10 +11803,10 @@ function AdditionalPersonInformation({
                   <div className="grid gap-2 rounded-[18px] border border-[#D6E4F7] bg-white p-2" key={child.id}>
                     <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
                       <DosFormField label="Child First Name">
-                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} placeholder="First name" value={child.firstName} />
+                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} value={child.firstName} />
                       </DosFormField>
                       <DosFormField label="Child Last Name">
-                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} placeholder="Last name" value={child.lastName} />
+                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} value={child.lastName} />
                       </DosFormField>
                       <button
                         aria-label={`Remove child ${index + 1}`}
@@ -11869,8 +11828,8 @@ function AdditionalPersonInformation({
         <ImportantDatesReminderSection />
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
-        <DosFormField label="Notes">
-          <textarea className={FieldTextareaClass()} defaultValue={defaults.notes} name="notes" placeholder="Private notes..." />
+        <DosFormField>
+          <textarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={defaults.notes} name="notes" />
         </DosFormField>
       </DosFormSection>
     </div>
@@ -12074,10 +12033,10 @@ function PersonFormContent({
       <DosFormSection icon="people" title="Person">
         <DosFormGrid>
           <DosFormField label="First Name">
-            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} placeholder="First name" required value={nameDraft.firstName} />
+            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} required value={nameDraft.firstName} />
           </DosFormField>
           <DosFormField label="Last Name">
-            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} placeholder="Last name" value={nameDraft.lastName} />
+            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} value={nameDraft.lastName} />
           </DosFormField>
         </DosFormGrid>
         <DosFormField label="Phone">
@@ -13215,20 +13174,17 @@ function ResourcePickerSheet({
 }
 
 function PersonDetailOverlay({
-  calendarConnection,
   answeredPrayerByReminderId,
   circleScore,
   fruitEvents,
   fruitItems,
   index,
-  isCalendarDisconnecting,
   leaderReflections,
   meetings,
   reminders,
   onBack,
   onAddReminder,
   onAddPrayerRequest,
-  onDisconnectCalendar,
   onEditReminder,
   onEdit,
   onMarkPrayerAnswered,
@@ -13239,22 +13195,18 @@ function PersonDetailOverlay({
   participantReviews,
   participantTestimonies,
   person,
-  workspaceId,
 }: {
-  calendarConnection: DosAppCalendarConnection;
   answeredPrayerByReminderId: Record<string, string>;
   circleScore?: DosRelationshipScore | null;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   index: number;
-  isCalendarDisconnecting?: boolean;
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
   reminders: DosAppRelationshipReminder[];
   onBack: () => void;
   onAddReminder: () => void;
   onAddPrayerRequest: () => void;
-  onDisconnectCalendar?: () => void;
   onEditReminder: (reminderId: string) => void;
   onEdit: () => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
@@ -13265,7 +13217,6 @@ function PersonDetailOverlay({
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
-  workspaceId: string;
 }) {
   const detailScrollRef = useRef<HTMLDivElement | null>(null);
   const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>("overview");
@@ -13564,18 +13515,10 @@ function PersonDetailOverlay({
                   value={upcomingReminders.length}
                 />
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-3 grid gap-2">
                 <CompactButton icon="bell" onClick={onAddReminder}>Add Reminder</CompactButton>
-                <CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>
               </div>
             </DetailCard>
-
-            <CalendarConnectionCard
-              calendarConnection={calendarConnection}
-              isDisconnecting={isCalendarDisconnecting}
-              onDisconnect={onDisconnectCalendar}
-              workspaceId={workspaceId}
-            />
 
             <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Upcoming">
               {upcomingTimelineGroups.length ? upcomingTimelineGroups.map(({ group, items }) => (
@@ -13875,14 +13818,14 @@ function MeetingNotesEditorSheet({
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={hasNotes ? "Edit Notes" : "Add Notes"}>
       <form className="space-y-5" onSubmit={onSubmit}>
-        <DosFormSection icon="log" title="Table Notes">
-          <DosFormField label="Notes">
+        <DosFormSection icon="log" title="Notes">
+          <DosFormField>
             <textarea
+              aria-label="Notes"
               autoFocus
-              className={`${FieldTextareaClass()} min-h-40`}
+              className={`${FieldTextareaClass(false)} min-h-40`}
               defaultValue={defaultValue ?? ""}
               name="notes"
-              placeholder="What happened at the table?"
             />
           </DosFormField>
         </DosFormSection>
@@ -14232,7 +14175,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
-  const [meetingsView, setMeetingsView] = useState<MeetingsView>("upcoming");
+  const [meetingsView, setMeetingsView] = useState<MeetingsView>("calendar");
   const [meetingCalendarFilter, setMeetingCalendarFilter] = useState<MeetingCalendarFilter>("all");
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
   const [fruitView, setFruitView] = useState<FruitView>("activity");
@@ -14483,29 +14426,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return counts;
   }, [people, visibleFruitStories]);
-  const storyCountByMeetingId = useMemo(() => {
-    const counts = new Map<string, number>();
-    const addStory = (meetingId: string | null | undefined) => {
-      if (!meetingId) {
-        return;
-      }
-
-      counts.set(meetingId, (counts.get(meetingId) ?? 0) + 1);
-    };
-
-    data.leaderReflections
-      .filter((reflection) => Boolean(reflection.observedFruit.length || reflection.whatHappened?.trim() || reflection.prayerNeeds?.trim()))
-      .forEach((reflection) => addStory(reflection.meetingId));
-    data.participantReviews
-      .filter((review) => isSubmittedStatus(review.status))
-      .forEach((review) => addStory(review.meetingId));
-    data.participantTestimonies
-      .filter((testimony) => isSubmittedStatus(testimony.status))
-      .forEach((testimony) => addStory(testimony.meetingId));
-    data.fruitEvents.forEach((event) => addStory(event.meetingId));
-
-    return counts;
-  }, [data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies]);
   const latestPrayerActivity = useMemo(() => {
     const prayerMeetings = loggedMeetings
       .filter(isPrayerMeeting)
@@ -14594,17 +14514,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const nextStepItems = useMemo(() => (
     upcomingTimelineItems.slice(0, 5)
   ), [upcomingTimelineItems]);
-  const upcomingTableMeetings = useMemo(() => (
-    data.meetings
-      .filter((meeting) => meeting.meetingStatus === "scheduled")
-      .filter((meeting) => isUpcomingDate(meeting.scheduledStartAt ?? meeting.date))
-      .sort((first, second) => dateSortValue(first.scheduledStartAt ?? first.date) - dateSortValue(second.scheduledStartAt ?? second.date))
-  ), [data.meetings]);
-  const tableHistoryMeetings = useMemo(() => (
-    data.meetings
-      .filter((meeting) => meeting.meetingStatus !== "scheduled" || !isUpcomingDate(meeting.scheduledStartAt ?? meeting.date))
-      .sort((first, second) => dateSortValue(second.scheduledStartAt ?? second.date) - dateSortValue(first.scheduledStartAt ?? first.date))
-  ), [data.meetings]);
   const meetingCalendarItems = useMemo(() => (
     buildMeetingCalendarItems({
       externalCalendarEvents: data.externalCalendarEvents,
@@ -14614,9 +14523,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       reminders: data.reminders,
     })
   ), [data.externalCalendarEvents, data.meetings, data.reminders, meetingsCalendarMonth, people]);
-  const visibleUpcomingTableMeetings = useMemo(() => filteredTables(upcomingTableMeetings, people, tableQuery), [people, tableQuery, upcomingTableMeetings]);
-  const visibleHistoryTableMeetings = useMemo(() => filteredTables(tableHistoryMeetings, people, tableQuery), [people, tableHistoryMeetings, tableQuery]);
   const visibleMeetingCalendarItems = useMemo(() => filteredCalendarItems(meetingCalendarItems, tableQuery), [meetingCalendarItems, tableQuery]);
+  const upcomingTableCount = useMemo(() => (
+    data.meetings.filter((meeting) => meeting.meetingStatus === "scheduled" && isUpcomingDate(meeting.scheduledStartAt ?? meeting.date)).length
+  ), [data.meetings]);
+  const recentlyCompletedMeetings = useMemo(() => (
+    filteredTables(loggedMeetings, people, tableQuery)
+      .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date))
+      .slice(0, 4)
+  ), [loggedMeetings, people, tableQuery]);
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
     const meetingsThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
@@ -15075,6 +14990,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setFormMode("meeting");
     setIsAdditionalPersonInfoOpen(false);
     resetMeetingDraft([personId]);
+  }
+
+  function openLogTableFromCalendar(personIds: string[] = [], meetingType?: DosAppMeetingType) {
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
+    setSelectedMeetingId(null);
+    setSelectedReminderId(null);
+    setSelectedExternalCalendarEventId(null);
+    setErrorMessage("");
+    setFormMode("meeting");
+    setIsAdditionalPersonInfoOpen(false);
+    resetMeetingDraft(personIds);
+    setSelectedMeetingContext(meetingType ?? "kitchen_table");
   }
 
   function openScheduleMeeting(personId?: string | string[]) {
@@ -16489,7 +16417,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           label: "Table",
           onClick: () => selectTab("meetings"),
           section: "installed",
-          status: `${upcomingTableMeetings.length} upcoming`,
+          status: `${upcomingTableCount} upcoming`,
         },
         {
           description: `${prayerReminderCount} reminders and recent prayer activity.`,
@@ -16887,47 +16815,38 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <div className="md:hidden">
                   <SegmentedTabs
                     onChange={(value) => setMeetingsView(value)}
-                    options={mobileMeetingsViewTabs}
+                    options={meetingsViewTabs}
                     value={meetingsView}
                   />
                 </div>
                 <div>
-                  {meetingsView === "upcoming" ? (
-                    visibleUpcomingTableMeetings.length ? (
-                      <>
-                        <div className="grid gap-3 md:hidden">{visibleUpcomingTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
-                        <DesktopScheduleTable meetings={visibleUpcomingTableMeetings} onOpenMeeting={openMeetingDetail} people={people} />
-                      </>
-                    ) : (
-                      <>
-                        <div className="md:hidden">
-                          <EmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text={tableQuery.trim() ? "Try another person, note, date, or table type." : "Schedule the next conversation or prayer moment."} title={tableQuery.trim() ? "No matching upcoming tables." : "Nothing upcoming."} />
-                        </div>
-                        <DesktopTableEmptyState action={<CompactButton icon="calendar" onClick={() => openScheduleMeeting()}>Schedule Table</CompactButton>} text={tableQuery.trim() ? "Try another person, note, date, or table type." : "Schedule your next table or prayer moment."} title={tableQuery.trim() ? "No matching upcoming tables." : "Nothing scheduled."} />
-                      </>
-                    )
-                  ) : meetingsView === "calendar" ? (
+                  {meetingsView === "calendar" ? (
                     <MeetingCalendarView
                       calendarFilter={meetingCalendarFilter}
+                      calendarConnection={data.calendarConnection}
                       calendarSyncMessage={calendarSyncMessage}
-                      googleCalendarConnected={data.calendarConnection.connected}
                       isSyncingGoogleCalendar={isSyncingGoogleCalendar}
                       items={visibleMeetingCalendarItems}
+                      leaderReflections={data.leaderReflections}
                       month={meetingsCalendarMonth}
                       onCalendarFilterChange={setMeetingCalendarFilter}
                       onChangeMonth={changeMeetingsCalendarMonth}
                       onEditMeeting={openMeetingEdit}
                       onEditReminder={openReminderEdit}
+                      onLogTable={openLogTableFromCalendar}
                       onOpenExternalEvent={openExternalCalendarEventDetail}
+                      onOpenMeeting={openMeetingDetail}
                       onScheduleMeeting={() => openScheduleMeeting()}
                       onSelectDate={selectMeetingsCalendarDate}
                       onSyncGoogleCalendar={handleSyncGoogleCalendar}
                       onToday={jumpMeetingsCalendarToToday}
+                      people={people}
+                      recentlyCompletedMeetings={recentlyCompletedMeetings}
                       selectedDateKey={selectedMeetingsCalendarDate}
                       viewMode={meetingCalendarViewMode}
                       onViewModeChange={setMeetingCalendarViewMode}
                     />
-                  ) : meetingsView === "availability" ? (
+                  ) : (
                     <DesktopAvailabilityPanel
                       calendarConnection={data.calendarConnection}
                       externalCalendarEvents={data.externalCalendarEvents}
@@ -16936,20 +16855,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onScheduleMeeting={() => openScheduleMeeting()}
                       workspaceId={data.workspace.id}
                     />
-                  ) : (
-                    visibleHistoryTableMeetings.length ? (
-                      <>
-                        <div className="grid gap-3 md:hidden">{visibleHistoryTableMeetings.map((meeting) => <MeetingCard key={meeting.id} meeting={meeting} onClick={() => openMeetingDetail(meeting.id)} people={people} />)}</div>
-                        <DesktopHistoryTable meetings={visibleHistoryTableMeetings} onOpenMeeting={openMeetingDetail} people={people} storyCountByMeetingId={storyCountByMeetingId} />
-                      </>
-                    ) : (
-                      <>
-                        <div className="md:hidden">
-                          <EmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Table</CompactButton>} text={tableQuery.trim() ? "Try another table type, note, person, or date." : "Completed tables will land here after you log them."} title={tableQuery.trim() ? "No matching history." : "No table history yet."} />
-                        </div>
-                        <DesktopTableEmptyState action={<CompactButton icon="log" onClick={() => openForm("meeting")}>Log Table</CompactButton>} text={tableQuery.trim() ? "Try another table type, note, person, or date." : "Completed tables will land here after you log them."} title={tableQuery.trim() ? "No matching history." : "No table history yet."} />
-                      </>
-                    )
                   )}
                 </div>
               </div>
@@ -17433,18 +17338,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {selectedPerson ? (
             <PersonDetailOverlay
               answeredPrayerByReminderId={answeredPrayerByReminderId}
-              calendarConnection={data.calendarConnection}
               fruitEvents={data.fruitEvents}
               fruitItems={data.fruit}
               index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
-              isCalendarDisconnecting={isCalendarDisconnecting}
               leaderReflections={data.leaderReflections}
               meetings={data.meetings}
               reminders={data.reminders}
             onBack={() => setSelectedPersonId(null)}
             onAddReminder={() => openReminderForm(selectedPerson.id)}
             onAddPrayerRequest={() => openReminderForm(selectedPerson.id, "prayer")}
-            onDisconnectCalendar={handleDisconnectCalendar}
             onEdit={() => openPersonEdit(selectedPerson)}
             onEditReminder={openReminderEdit}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
@@ -17456,7 +17358,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               participantTestimonies={data.participantTestimonies}
               person={selectedPerson}
               circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
-              workspaceId={data.workspace.id}
             />
         ) : null}
 
@@ -17943,8 +17844,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         <Sheet description="Record what changed. This starts private for review." onClose={closeForm} title="Record Fruit">
           <form className="space-y-5" onSubmit={handleFruitSubmit}>
             <DosFormSection icon="fruit" title="Fruit Summary">
-              <DosFormField label="Summary">
-                <textarea className={`${FieldTextareaClass()} min-h-24`} name="summary" placeholder="Short private summary of the fruit." required />
+              <DosFormField>
+                <textarea aria-label="Fruit Summary" className={`${FieldTextareaClass(false)} min-h-24`} name="summary" placeholder="Short private summary of the fruit." required />
               </DosFormField>
             </DosFormSection>
             <DosFormSection icon="people" title="Details">
@@ -17966,8 +17867,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             </DosFormSection>
             <DosFormSection icon="fruit" title="Outcome Tags">
               <div>
-                <FieldLabel>Outcome Tags</FieldLabel>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {outcomeTagOptions.map((tag) => {
                     const selected = selectedOutcomeTags.includes(tag);
 
