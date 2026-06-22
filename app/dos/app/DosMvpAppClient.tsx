@@ -4812,9 +4812,9 @@ function DesktopCirclePanel({
   onViewCircles: () => void;
 }) {
   const my3Count = circleGroups.three.length;
-  const my12Count = circleGroups.three.length + circleGroups.twelve.length;
-  const my70Count = circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length;
-  const my120Count = my70Count + circleGroups.my120.length;
+  const my12Count = circleGroups.twelve.length;
+  const my70Count = circleGroups.seventy.length;
+  const my120Count = circleGroups.my120.length;
 
   return (
     <DesktopPanel eyebrow="Circle" title="Your Circle">
@@ -5056,9 +5056,9 @@ function DesktopHomeDashboard({
   const totalReviews = participantReviews.filter((review) => isSubmittedStatus(review.status)).length;
   const circleCounts = {
     my3: circleGroups.three.length,
-    my12: circleGroups.three.length + circleGroups.twelve.length,
-    my70: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length,
-    my120: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length + circleGroups.my120.length,
+    my12: circleGroups.twelve.length,
+    my70: circleGroups.seventy.length,
+    my120: circleGroups.my120.length,
   };
   const recentFruitItems: DashboardFruitItem[] = [
     ...fruitItems.map((fruit) => ({
@@ -5117,19 +5117,19 @@ function DesktopHomeDashboard({
     {
       detail: "Active discipleship",
       label: "My 12",
-      target: 12,
+      target: 9,
       value: circleCounts.my12,
     },
     {
       detail: "Relational field",
       label: "My 70",
-      target: 70,
+      target: 58,
       value: circleCounts.my70,
     },
     {
       detail: "Broader reach",
       label: "My 120",
-      target: 120,
+      target: 50,
       value: circleCounts.my120,
     },
   ];
@@ -7692,37 +7692,37 @@ function circleLayerDetails(activeCircle: CircleFocusView, circleGroups: CircleL
       };
     case "twelve":
       return {
-        capacity: 12,
-        cumulativeCount: circleGroups.three.length + circleGroups.twelve.length,
+        capacity: 9,
+        cumulativeCount: circleGroups.twelve.length,
         empty: "No additional people in your 12 yet.",
         items: circleGroups.twelve,
         sectionLabel: "Next 9 People",
         startIndex: 3,
-        subtitle: "These are the next 9 people in your core circle. Together with your 3, this makes 12.",
+        subtitle: "These are the next 9 people in your core circle.",
         title: "My 12",
         value: "12",
       };
     case "seventy":
       return {
-        capacity: 70,
-        cumulativeCount: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length,
+        capacity: 58,
+        cumulativeCount: circleGroups.seventy.length,
         empty: "No additional people in your 70 yet.",
         items: circleGroups.seventy,
         sectionLabel: "Next 58 People",
         startIndex: 12,
-        subtitle: "These are the next 58 people in your broader field. Together with your 12, this makes 70.",
+        subtitle: "These are the next 58 people in your broader field.",
         title: "My 70",
         value: "70",
       };
     case "my_120":
       return {
-        capacity: 120,
-        cumulativeCount: circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length + circleGroups.my120.length,
+        capacity: 50,
+        cumulativeCount: circleGroups.my120.length,
         empty: "No additional people in your 120 yet.",
         items: circleGroups.my120,
         sectionLabel: "Next 50 People",
         startIndex: 70,
-        subtitle: "These are the next 50 people in your extended field. Together with your 70, this makes 120.",
+        subtitle: "These are the next 50 people in your extended field.",
         title: "My 120",
         value: "120",
       };
@@ -7967,9 +7967,9 @@ function CircleFocusHero({
   onSelectCircle: (circle: CircleFocusView) => void;
 }) {
   const my3Count = circleGroups.three.length;
-  const my12Count = circleGroups.three.length + circleGroups.twelve.length;
-  const my70Count = circleGroups.three.length + circleGroups.twelve.length + circleGroups.seventy.length;
-  const my120Count = my70Count + circleGroups.my120.length;
+  const my12Count = circleGroups.twelve.length;
+  const my70Count = circleGroups.seventy.length;
+  const my120Count = circleGroups.my120.length;
 
   return (
     <section className="-mt-1 px-1 pb-1">
