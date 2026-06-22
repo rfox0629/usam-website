@@ -6372,7 +6372,7 @@ function calendarSourceKeyFromEvent(event: DosAppExternalCalendarEvent) {
 }
 
 function isHolidayCalendarName(name: string | null | undefined) {
-  return normalizeText(name).includes("holiday");
+  return normalizeText(name).toLowerCase().includes("holiday");
 }
 
 function shortCalendarSourceLabel(name: string | null | undefined) {
@@ -6401,6 +6401,12 @@ function shortCalendarSourceLabel(name: string | null | undefined) {
   }
 
   return value.split(/\s+/).slice(0, 2).join(" ");
+}
+
+function calendarSourceFilterLabel(name: string | null | undefined) {
+  const shortLabel = shortCalendarSourceLabel(name);
+
+  return shortLabel === "Holidays" ? "Holidays" : `${shortLabel} Calendar`;
 }
 
 function calendarSourceDefaultDisplay(source: { name: string; selectedForDisplay?: boolean | null }) {
@@ -8111,15 +8117,35 @@ function calendarQuickPrimaryActionLabel(item: MeetingCalendarItem) {
     return "Log Table";
   }
 
-  if (item.kind === "follow_up") {
-    return "Complete Follow-Up";
-  }
-
   if (item.kind === "google") {
     return "View Details";
   }
 
   return "Mark Done";
+}
+
+function calendarNeedsReviewPrimaryActionLabel(item: MeetingCalendarItem) {
+  if (item.kind === "meeting") {
+    return "Log Table";
+  }
+
+  if (item.kind === "google") {
+    return "Add to DOS";
+  }
+
+  return "Mark Done";
+}
+
+function calendarNeedsReviewSecondaryActionLabel(item: MeetingCalendarItem) {
+  if (item.kind === "google") {
+    return "Dismiss";
+  }
+
+  if (item.meeting || item.reminder) {
+    return "Reschedule";
+  }
+
+  return "Dismiss";
 }
 
 function calendarQuickSecondaryActionLabel(item: MeetingCalendarItem) {
@@ -8207,6 +8233,98 @@ function CalendarUpcomingCard({
   );
 }
 
+function CalendarNeedsReviewCard({
+  item,
+  onOpen,
+  onPrimaryAction,
+  onSecondaryAction,
+}: {
+  item: MeetingCalendarItem;
+  onOpen: () => void;
+  onPrimaryAction: () => void;
+  onSecondaryAction: () => void;
+}) {
+  const tone = calendarItemTone(item.kind);
+  const isGoogleEvent = item.kind === "google";
+  const primaryActionLabel = calendarNeedsReviewPrimaryActionLabel(item);
+  const secondaryActionLabel = calendarNeedsReviewSecondaryActionLabel(item);
+
+  return (
+    <article className="grid min-h-[118px] w-[200px] shrink-0 content-between gap-2.5 rounded-[18px] border border-[#DCEBFF] bg-white p-3 shadow-[0_8px_20px_rgba(37,99,235,0.045)] sm:w-[224px]">
+      <button className="min-w-0 text-left" onClick={onOpen} type="button">
+        <div className="flex min-w-0 items-start gap-2">
+          <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[14px] ${tone.bg} ${tone.text}`}>
+            <CalendarItemIcon kind={item.kind} />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{calendarUpcomingCardHeadline(item)}</span>
+            <span className="mt-1 block truncate text-xs font-bold text-[#64748B]">{calendarUpcomingCardTimeLabel(item)}</span>
+            {isGoogleEvent && item.externalEvent ? (
+              <span className="mt-1 block truncate text-[10px] font-bold text-[#1D4ED8]">{googleCalendarSourceMetadata(item.externalEvent)}</span>
+            ) : null}
+          </span>
+        </div>
+      </button>
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          className="min-h-8 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-2.5 text-[11px] font-bold leading-tight text-white shadow-[0_8px_16px_rgba(37,99,235,0.14)]"
+          onClick={onPrimaryAction}
+          type="button"
+        >
+          {primaryActionLabel}
+        </button>
+        <button
+          className="min-h-8 rounded-full border border-[#BFDBFE] bg-[#F8FBFF] px-2.5 text-[11px] font-bold leading-tight text-[#1D4ED8]"
+          onClick={onSecondaryAction}
+          type="button"
+        >
+          {secondaryActionLabel}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function CalendarNeedsReviewSection({
+  items,
+  onOpen,
+  onPrimaryAction,
+  onSecondaryAction,
+}: {
+  items: MeetingCalendarItem[];
+  onOpen: (item: MeetingCalendarItem) => void;
+  onPrimaryAction: (item: MeetingCalendarItem) => void;
+  onSecondaryAction: (item: MeetingCalendarItem) => void;
+}) {
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <section className="w-full max-w-full overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 shadow-[0_10px_24px_rgba(37,99,235,0.045)]">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-black leading-tight text-[#0F172A]">Needs Review</h2>
+        <span className="rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+          {items.length}
+        </span>
+      </div>
+      <div className="mt-3 w-full max-w-full overflow-x-auto pb-1">
+        <div className="flex w-max max-w-none gap-2.5">
+          {items.map((item) => (
+            <CalendarNeedsReviewCard
+              item={item}
+              key={item.id}
+              onOpen={() => onOpen(item)}
+              onPrimaryAction={() => onPrimaryAction(item)}
+              onSecondaryAction={() => onSecondaryAction(item)}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function CalendarSyncStatus({
   calendarConnection,
   googleEventCount,
@@ -8262,33 +8380,41 @@ function CalendarSyncStatus({
 }
 
 function CalendarSourceChip({
-  count,
   disabled = false,
   label,
   onClick,
   selected,
   tone = "blue",
+  variant = "primary",
 }: {
-  count?: number;
   disabled?: boolean;
   label: string;
   onClick: () => void;
   selected: boolean;
   tone?: "blue" | "green" | "muted";
+  variant?: "primary" | "secondary";
 }) {
-  const selectedClasses = tone === "green"
-    ? "border-[#86EFAC] bg-[#DCFCE7] text-[#15803D]"
-    : tone === "muted"
-      ? "border-[#BAE6FD] bg-[#F0F9FF] text-[#0369A1]"
-      : "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
+  const selectedClasses = variant === "secondary"
+    ? "border-[#BFDBFE] bg-[#F8FBFF] text-[#1D4ED8]"
+    : tone === "green"
+      ? "border-[#86EFAC] bg-[#DCFCE7] text-[#15803D]"
+      : tone === "muted"
+        ? "border-[#BAE6FD] bg-[#F0F9FF] text-[#0369A1]"
+        : "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
+  const idleClasses = variant === "secondary"
+    ? "border-[#EAF2FF] bg-white/72 text-[#64748B] hover:border-[#BFDBFE] hover:bg-[#F8FBFF] hover:text-[#1D4ED8]"
+    : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:bg-[#F8FBFF] hover:text-[#1D4ED8]";
+  const sizeClasses = variant === "secondary"
+    ? "min-h-7 max-w-[150px] gap-1 rounded-full px-2.5 text-[9px] tracking-[0.1em]"
+    : "min-h-8 max-w-[156px] gap-1.5 rounded-full px-3 text-[10px] tracking-[0.12em]";
 
   return (
     <button
       aria-pressed={selected}
-      className={`inline-flex min-h-8 max-w-[156px] shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-[10px] font-black uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`inline-flex shrink-0 items-center justify-center border font-black uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${sizeClasses} ${
         selected
           ? selectedClasses
-          : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:bg-[#F8FBFF] hover:text-[#1D4ED8]"
+          : idleClasses
       }`}
       disabled={disabled}
       onClick={onClick}
@@ -8296,7 +8422,6 @@ function CalendarSourceChip({
       type="button"
     >
       <span className="truncate">{label}</span>
-      {typeof count === "number" ? <span className="shrink-0 opacity-70">{count}</span> : null}
     </button>
   );
 }
@@ -8324,7 +8449,7 @@ function CalendarSourceControls({
 
   return (
     <div className="min-w-0">
-      <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1">
+      <div className="flex w-full max-w-full flex-wrap justify-center gap-x-2 gap-y-1.5">
         <CalendarSourceChip
           label="Meetings"
           onClick={() => onToggleCoreSource("meetings")}
@@ -8345,19 +8470,19 @@ function CalendarSourceControls({
         />
       </div>
       {displaySettings.calendars ? (
-        <div className="mt-1 flex w-full max-w-full gap-2 overflow-x-auto pb-1">
+        <div className="mt-1.5 flex w-full max-w-full flex-wrap justify-center gap-x-1.5 gap-y-1.5">
           {sourcePreferences.length ? sourcePreferences.map((source) => {
             const sourceEnabled = calendarSourceIsSelected(displaySettings, source);
 
             return (
               <CalendarSourceChip
-                count={source.eventCount || undefined}
                 disabled={googleDisabled || savingSourceId === source.id}
                 key={source.id}
-                label={shortCalendarSourceLabel(source.name)}
+                label={calendarSourceFilterLabel(source.name)}
                 onClick={() => onToggleGoogleSource(source.id)}
                 selected={sourceEnabled}
                 tone="muted"
+                variant="secondary"
               />
             );
           }) : (
@@ -8550,10 +8675,14 @@ function MeetingCalendarView({
   const filteredItems = items
     .filter((item) => calendarItemMatchesDisplaySettings(item, calendarDisplaySettings, calendarSourcePreferences))
     .filter((item) => !locallyCompletedItemIds.includes(item.id));
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const upcomingItems = filteredItems.filter((item) => dateSortValue(item.date) >= todayStart.getTime()).slice(0, 12);
-  const upcomingCardItems = upcomingItems.length ? upcomingItems : filteredItems.slice(0, 12);
+  const nowTime = Date.now();
+  const upcomingCardItems = filteredItems
+    .filter((item) => dateSortValue(item.date) >= nowTime)
+    .slice(0, 12);
+  const needsReviewItems = filteredItems
+    .filter((item) => dateSortValue(item.date) < nowTime)
+    .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date))
+    .slice(0, 8);
   const itemsByDay = filteredItems.reduce((map, item) => {
     const key = calendarDateKeyFromValue(item.date);
 
@@ -8629,6 +8758,37 @@ function MeetingCalendarView({
     setSelectedQuickItemId(null);
   }
 
+  function handleNeedsReviewPrimaryAction(item: MeetingCalendarItem) {
+    if (item.kind === "meeting") {
+      logQuickItem(item);
+      return;
+    }
+
+    if (item.kind === "google") {
+      editQuickItem(item);
+      return;
+    }
+
+    setLocallyCompletedItemIds((current) => current.includes(item.id) ? current : [...current, item.id]);
+    setSelectedQuickItemId(null);
+  }
+
+  function handleNeedsReviewSecondaryAction(item: MeetingCalendarItem) {
+    if (item.kind === "google") {
+      setLocallyCompletedItemIds((current) => current.includes(item.id) ? current : [...current, item.id]);
+      setSelectedQuickItemId(null);
+      return;
+    }
+
+    if (item.meeting || item.reminder) {
+      editQuickItem(item);
+      return;
+    }
+
+    setLocallyCompletedItemIds((current) => current.includes(item.id) ? current : [...current, item.id]);
+    setSelectedQuickItemId(null);
+  }
+
   function shiftCalendar(offset: number) {
     if (viewMode === "week") {
       onSelectDate(addCalendarDays(selectedDate, offset * 7));
@@ -8676,7 +8836,7 @@ function MeetingCalendarView({
         ) : (
           <SectionEmptyState
             action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>}
-            text="Scheduled tables and reminders appear here. Turn on Google overlays when needed."
+            text="Scheduled tables and reminders will appear here. Turn on calendar overlays when needed."
             title="Nothing upcoming."
           />
         )}
@@ -8690,6 +8850,13 @@ function MeetingCalendarView({
           onPrimaryAction={() => handleQuickPrimaryAction(selectedQuickItem)}
         />
       ) : null}
+
+      <CalendarNeedsReviewSection
+        items={needsReviewItems}
+        onOpen={openQuickItem}
+        onPrimaryAction={handleNeedsReviewPrimaryAction}
+        onSecondaryAction={handleNeedsReviewSecondaryAction}
+      />
 
       <div className="w-full max-w-full overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)] md:rounded-[26px] md:bg-white/92 md:backdrop-blur">
         <header className="grid gap-3 border-b border-[#EFF6FF] px-3 py-3">
