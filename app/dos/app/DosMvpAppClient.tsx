@@ -607,10 +607,11 @@ type MeetingCalendarItem = {
   syncLabel?: string;
   title: string;
 };
-type CalendarCoreSource = "dos" | "reminders";
+type CalendarCoreSource = "calendars" | "meetings" | "reminders";
 type CalendarDisplaySettings = {
-  dos: boolean;
+  calendars: boolean;
   googleSources: Record<string, boolean>;
+  meetings: boolean;
   reminders: boolean;
 };
 type CalendarSourcePreference = {
@@ -6359,8 +6360,9 @@ function RecentlyCompletedTables({
 
 function createDefaultCalendarDisplaySettings(): CalendarDisplaySettings {
   return {
-    dos: true,
+    calendars: false,
     googleSources: {},
+    meetings: true,
     reminders: true,
   };
 }
@@ -6551,7 +6553,7 @@ function calendarPreferenceForEvent(event: DosAppExternalCalendarEvent, sources:
 
 function calendarItemMatchesDisplaySettings(item: MeetingCalendarItem, settings: CalendarDisplaySettings, sources: CalendarSourcePreference[]) {
   if (item.kind === "meeting") {
-    return settings.dos;
+    return settings.meetings;
   }
 
   if (item.kind !== "google") {
@@ -6559,6 +6561,10 @@ function calendarItemMatchesDisplaySettings(item: MeetingCalendarItem, settings:
   }
 
   if (!item.externalEvent) {
+    return false;
+  }
+
+  if (!settings.calendars) {
     return false;
   }
 
@@ -8006,7 +8012,7 @@ function calendarUpcomingCardHeadline(item: MeetingCalendarItem) {
     return item.title || googleCalendarUntitledEventLabel;
   }
 
-  return calendarItemPersonLabel(item);
+  return item.title || calendarItemPersonLabel(item);
 }
 
 function calendarItemPersonLabel(item: MeetingCalendarItem) {
@@ -8320,9 +8326,9 @@ function CalendarSourceControls({
     <div className="min-w-0">
       <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1">
         <CalendarSourceChip
-          label="DOS"
-          onClick={() => onToggleCoreSource("dos")}
-          selected={displaySettings.dos}
+          label="Meetings"
+          onClick={() => onToggleCoreSource("meetings")}
+          selected={displaySettings.meetings}
         />
         <CalendarSourceChip
           label="Reminders"
@@ -8330,22 +8336,37 @@ function CalendarSourceControls({
           selected={displaySettings.reminders}
           tone="green"
         />
-        {sourcePreferences.map((source) => {
-          const sourceEnabled = calendarSourceIsSelected(displaySettings, source);
-
-          return (
-            <CalendarSourceChip
-              count={source.eventCount || undefined}
-              disabled={googleDisabled || savingSourceId === source.id}
-              key={source.id}
-              label={shortCalendarSourceLabel(source.name)}
-              onClick={() => onToggleGoogleSource(source.id)}
-              selected={sourceEnabled}
-              tone="muted"
-            />
-          );
-        })}
+        <CalendarSourceChip
+          disabled={googleDisabled}
+          label="Calendars"
+          onClick={() => onToggleCoreSource("calendars")}
+          selected={displaySettings.calendars}
+          tone="muted"
+        />
       </div>
+      {displaySettings.calendars ? (
+        <div className="mt-1 flex w-full max-w-full gap-2 overflow-x-auto pb-1">
+          {sourcePreferences.length ? sourcePreferences.map((source) => {
+            const sourceEnabled = calendarSourceIsSelected(displaySettings, source);
+
+            return (
+              <CalendarSourceChip
+                count={source.eventCount || undefined}
+                disabled={googleDisabled || savingSourceId === source.id}
+                key={source.id}
+                label={shortCalendarSourceLabel(source.name)}
+                onClick={() => onToggleGoogleSource(source.id)}
+                selected={sourceEnabled}
+                tone="muted"
+              />
+            );
+          }) : (
+            <span className="rounded-full border border-[#E2E8F0] bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+              No calendars
+            </span>
+          )}
+        </div>
+      ) : null}
       {showMessage && message ? (
         <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{message}</p>
       ) : null}
