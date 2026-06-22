@@ -628,6 +628,8 @@ type CalendarSourcePreference = {
   selectedForImport: boolean | null;
   timeZone: string | null;
 };
+
+const googleCalendarUntitledEventLabel = "Untitled Event";
 type CalendarSourceApiSource = {
   accessRole?: string | null;
   externalCalendarId?: string | null;
@@ -1662,9 +1664,9 @@ function buildMeetingCalendarItems({
       externalEvent: event,
       id: `google-${event.id}`,
       kind: "google" as const,
-      subtitle: [formatExternalCalendarEventTimeRange(event), event.sourceName].filter(Boolean).join(" · "),
+      subtitle: [formatExternalCalendarEventTimeRange(event), googleCalendarSourceMetadata(event)].filter(Boolean).join(" · "),
       syncLabel: "Read only",
-      title: event.title,
+      title: googleCalendarEventTitle(event),
     }));
 
   return [...meetingItems, ...reminderItems, ...googleItems].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
@@ -6406,7 +6408,31 @@ function calendarSourceDefaultDisplay(source: { name: string; selectedForDisplay
     return source.selectedForDisplay;
   }
 
-  return !isHolidayCalendarName(source.name);
+  return false;
+}
+
+function googleCalendarEventTitle(event: DosAppExternalCalendarEvent) {
+  const title = event.title?.trim();
+  const sourceName = event.sourceName?.trim();
+  const externalCalendarId = event.externalCalendarId?.trim();
+
+  if (!title || title === sourceName || title === externalCalendarId || title.toLowerCase() === "google calendar event") {
+    return googleCalendarUntitledEventLabel;
+  }
+
+  return title;
+}
+
+function googleCalendarSourceMetadata(event: DosAppExternalCalendarEvent) {
+  const sourceName = event.sourceName?.trim();
+
+  if (!sourceName) {
+    return "Google Calendar";
+  }
+
+  const shortLabel = shortCalendarSourceLabel(sourceName);
+
+  return shortLabel === "Holidays" ? "Holidays" : `${shortLabel} Calendar`;
 }
 
 function calendarSourceSummaries(events: DosAppExternalCalendarEvent[]) {
@@ -6512,7 +6538,20 @@ function syncCalendarDisplaySettingsWithSources(settings: CalendarDisplaySetting
   };
 }
 
-function calendarItemMatchesDisplaySettings(item: MeetingCalendarItem, settings: CalendarDisplaySettings) {
+function calendarSourceIsSelected(settings: CalendarDisplaySettings, source: CalendarSourcePreference) {
+  return settings.googleSources[source.id] ?? source.selectedForDisplay;
+}
+
+function calendarPreferenceForEvent(event: DosAppExternalCalendarEvent, sources: CalendarSourcePreference[]) {
+  const calendarSourceId = event.calendarSourceId?.trim();
+  const externalCalendarId = event.externalCalendarId?.trim();
+
+  return sources.find((source) => source.id === calendarSourceId)
+    ?? sources.find((source) => source.externalCalendarId === externalCalendarId)
+    ?? null;
+}
+
+function calendarItemMatchesDisplaySettings(item: MeetingCalendarItem, settings: CalendarDisplaySettings, sources: CalendarSourcePreference[]) {
   if (item.kind === "meeting") {
     return settings.dos;
   }
@@ -6525,11 +6564,23 @@ function calendarItemMatchesDisplaySettings(item: MeetingCalendarItem, settings:
     return false;
   }
 
+  const selectedSourceIds = new Set(sources
+    .filter((source) => calendarSourceIsSelected(settings, source))
+    .map((source) => source.id));
+
+  if (selectedSourceIds.size === 0) {
+    return true;
+  }
+
+  const source = calendarPreferenceForEvent(item.externalEvent, sources);
+
+  if (source) {
+    return selectedSourceIds.has(source.id);
+  }
+
   const sourceKey = calendarSourceKeyFromEvent(item.externalEvent);
 
-  return settings.googleSources[sourceKey] ?? calendarSourceDefaultDisplay({
-    name: item.externalEvent.sourceName ?? item.externalEvent.externalCalendarId,
-  });
+  return selectedSourceIds.has(sourceKey);
 }
 
 function calendarConnectionStatus(connection: DosAppCalendarConnection) {
@@ -7934,7 +7985,7 @@ function CalendarItemIcon({ kind }: { kind: MeetingCalendarItemKind }) {
 
 function calendarItemSourceLabel(item: MeetingCalendarItem) {
   if (item.kind === "google") {
-    return item.externalEvent?.sourceName ? `Google · ${shortCalendarSourceLabel(item.externalEvent.sourceName)}` : "Google";
+    return "Google";
   }
 
   if (item.kind === "meeting") {
@@ -7952,13 +8003,21 @@ function calendarItemTypeLabel(item: MeetingCalendarItem) {
   return calendarItemLabel(item.kind);
 }
 
+function calendarUpcomingCardHeadline(item: MeetingCalendarItem) {
+  if (item.kind === "google") {
+    return item.title || googleCalendarUntitledEventLabel;
+  }
+
+  return calendarItemPersonLabel(item);
+}
+
 function calendarItemPersonLabel(item: MeetingCalendarItem) {
   if (item.personName) {
     return item.personName;
   }
 
-  if (item.externalEvent?.sourceName) {
-    return item.externalEvent.sourceName;
+  if (item.externalEvent) {
+    return googleCalendarSourceMetadata(item.externalEvent);
   }
 
   return "No person linked";
@@ -8125,7 +8184,7 @@ function CalendarUpcomingCard({
             {calendarItemTypeLabel(item)}
           </span>
         </div>
-        <h3 className="truncate text-sm font-black leading-5 text-[#0F172A]">{calendarItemPersonLabel(item)}</h3>
+        <h3 className="truncate text-sm font-black leading-5 text-[#0F172A]">{calendarUpcomingCardHeadline(item)}</h3>
       </div>
       <p className="truncate text-xs font-bold text-[#64748B]">
         {calendarUpcomingCardTimeLabel(item)}
@@ -8267,13 +8326,13 @@ function CalendarSourceControls({
         <CalendarSourceChip
           count={googleEventCount || undefined}
           disabled={googleDisabled}
-          label="Google"
+          label="All Google"
           onClick={() => onToggleCoreSource("google")}
           selected={displaySettings.google}
           tone="muted"
         />
         {sourcePreferences.map((source) => {
-          const sourceEnabled = displaySettings.googleSources[source.id] ?? source.selectedForDisplay;
+          const sourceEnabled = calendarSourceIsSelected(displaySettings, source);
 
           return (
             <CalendarSourceChip
@@ -8310,6 +8369,10 @@ function CalendarQuickView({
   const notes = calendarItemNotes(item);
   const primaryActionLabel = calendarQuickPrimaryActionLabel(item);
   const secondaryActionLabel = calendarQuickSecondaryActionLabel(item);
+  const sourceLabel = calendarItemSourceLabel(item);
+  const typeLabel = calendarItemTypeLabel(item);
+  const showSourceBadge = sourceLabel !== typeLabel;
+  const showSyncRow = item.kind !== "google";
 
   return (
     <section className="rounded-[28px] border border-[#DCEBFF] bg-white p-4 shadow-[0_18px_48px_rgba(37,99,235,0.08)]">
@@ -8332,11 +8395,13 @@ function CalendarQuickView({
         </h3>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${tone.bg} ${tone.text}`} style={{ fontFamily: font.rajdhani }}>
-            {calendarItemTypeLabel(item)}
+            {typeLabel}
           </span>
-          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${calendarItemSourceTone(item)}`} style={{ fontFamily: font.rajdhani }}>
-            {calendarItemSourceLabel(item)}
-          </span>
+          {showSourceBadge ? (
+            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${calendarItemSourceTone(item)}`} style={{ fontFamily: font.rajdhani }}>
+              {sourceLabel}
+            </span>
+          ) : null}
         </div>
       </div>
       <div className="mt-4 grid gap-3 text-sm">
@@ -8345,17 +8410,23 @@ function CalendarQuickView({
           <span className="font-semibold">{calendarItemDateTimeLabel(item)}</span>
         </div>
         <div className="flex gap-3 text-[#475569]">
-          <User className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          {item.kind === "google" ? (
+            <Settings className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          ) : (
+            <User className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          )}
           <span className="font-semibold">{calendarItemPersonLabel(item)}</span>
         </div>
         <div className="flex gap-3 text-[#475569]">
           <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
           <span className="leading-6">{notes || "No notes yet."}</span>
         </div>
-        <div className="flex gap-3 text-[#475569]">
-          <Settings className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-          <span className="font-semibold">{item.syncLabel ?? calendarItemSourceLabel(item)}</span>
-        </div>
+        {showSyncRow ? (
+          <div className="flex gap-3 text-[#475569]">
+            <Settings className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+            <span className="font-semibold">{item.syncLabel ?? sourceLabel}</span>
+          </div>
+        ) : null}
       </div>
       <div className={`mt-5 grid gap-2 pr-16 sm:pr-0 ${secondaryActionLabel ? "grid-cols-2" : "grid-cols-1"}`}>
         {secondaryActionLabel ? (
@@ -8457,7 +8528,7 @@ function MeetingCalendarView({
     return date;
   });
   const filteredItems = items
-    .filter((item) => calendarItemMatchesDisplaySettings(item, calendarDisplaySettings))
+    .filter((item) => calendarItemMatchesDisplaySettings(item, calendarDisplaySettings, calendarSourcePreferences))
     .filter((item) => !locallyCompletedItemIds.includes(item.id));
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -8841,12 +8912,12 @@ function GoogleCalendarEventDetailSheet({
       )}
       onClose={onClose}
       subtitle={formatExternalCalendarEventTimeRange(event)}
-      title={event.title}
+      title={googleCalendarEventTitle(event)}
     >
       <div className="grid gap-3">
         <div className="rounded-[22px] border border-[#EAF2FF] bg-[#F8FAFC] p-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Source</p>
-          <p className="mt-1 text-sm font-semibold text-[#0F172A]">{event.sourceName ?? "Google Calendar"}</p>
+          <p className="mt-1 text-sm font-semibold text-[#0F172A]">{googleCalendarSourceMetadata(event)}</p>
         </div>
         {event.location ? (
           <div className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
@@ -16470,25 +16541,62 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return;
     }
 
-    const currentSelected = calendarDisplaySettings.googleSources[sourceId] ?? source.selectedForDisplay;
+    const currentSelected = calendarSourceIsSelected(calendarDisplaySettings, source);
 
-    if (!calendarDisplaySettings.google && currentSelected) {
+    if (!calendarDisplaySettings.google) {
+      setCalendarSourceMessage("");
       setCalendarDisplaySettings((current) => ({
         ...current,
         google: true,
-        googleSources: {
-          ...current.googleSources,
-          [sourceId]: true,
-        },
+        googleSources: Object.fromEntries(calendarSourcePreferences.map((item) => [item.id, item.id === sourceId])),
       }));
+      setCalendarSourcePreferences((current) => current.map((item) => (
+        item.id === sourceId ? { ...item, selectedForDisplay: true } : item
+      )));
+
+      if (!source.canPersist || isPreview) {
+        setCalendarSourceMessage("Source display is local for now.");
+        return;
+      }
+
+      setSavingCalendarSourceId(sourceId);
+
+      void (async () => {
+        try {
+          const response = await fetch("/api/dos/app/calendar/sources", {
+            body: JSON.stringify({
+              selectedForDisplay: true,
+              sourceId,
+              workspaceId: data.workspace.id,
+            }),
+            headers: {
+              "Content-Type": "application/json",
+            },
+            method: "PATCH",
+          });
+          const result = await response.json().catch(() => ({})) as { error?: string };
+
+          if (!response.ok) {
+            throw new Error(result.error ?? "Unable to save calendar source display.");
+          }
+        } catch {
+          setCalendarSourceMessage("Unable to save source display. This view was updated locally.");
+        } finally {
+          setSavingCalendarSourceId((current) => current === sourceId ? null : current);
+        }
+      })();
       return;
     }
 
     const nextSelected = !currentSelected;
+    const hasOtherSelectedSource = calendarSourcePreferences.some((item) => (
+      item.id !== sourceId && calendarSourceIsSelected(calendarDisplaySettings, item)
+    ));
+
     setCalendarSourceMessage("");
     setCalendarDisplaySettings((current) => ({
       ...current,
-      google: nextSelected ? true : current.google,
+      google: nextSelected ? true : hasOtherSelectedSource && current.google,
       googleSources: {
         ...current.googleSources,
         [sourceId]: nextSelected,
