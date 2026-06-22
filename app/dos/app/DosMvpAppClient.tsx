@@ -107,7 +107,7 @@ type LocalPrayerLogEntry = {
 const mobileTabs: ReadonlyArray<{ icon: IconName; label: string; value: ActiveTab }> = [
   { icon: "home", label: "Home", value: "home" },
   { icon: "meetings", label: "Table", value: "meetings" },
-  { icon: "apps", label: "Apps", value: "more" },
+  { icon: "apps", label: "More", value: "more" },
 ];
 
 const usamWalkthroughDismissedStorageKey = "dos-usam-first-launch-walkthrough-dismissed";
@@ -164,16 +164,19 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
   {
     label: "Core",
     items: [
-      { icon: "meetings", label: "Table", type: "tab", value: "meetings" },
       { icon: "people", label: "Field", type: "tab", value: "people" },
+      { icon: "meetings", label: "Table", type: "tab", value: "meetings" },
       { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
     ],
   },
   {
-    label: "Apps",
+    label: "More",
     items: [
-      { icon: "apps", label: "Apps", type: "moreApp", value: "apps" },
-      { icon: "settings", label: "Settings", type: "settings" },
+      { icon: "fruit", label: "Fruit", type: "moreApp", value: "fruit" },
+      { icon: "library", label: "Library", type: "moreApp", value: "library" },
+      { icon: "log", label: "Reports", type: "moreApp", value: "reports" },
+      { icon: "upload", label: "Stewardship", type: "moreApp", value: "stewardship" },
+      { icon: "prayer", label: "Testimony Practice", type: "moreApp", value: "in_season" },
     ],
   },
 ];
@@ -4601,7 +4604,7 @@ function DesktopMoreAppCard({ item }: { item: DesktopMoreAppItem }) {
 
 function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
   return (
-    <DesktopPanel eyebrow="Apps" title="Installed Apps">
+    <DesktopPanel eyebrow="More" title="Available Tools">
       <div className="grid gap-3 sm:grid-cols-2">
         {apps.map((item) => (
           <DesktopMoreAppCard item={item} key={item.label} />
@@ -5073,20 +5076,12 @@ function DesktopHomeDashboard({
 
 function DesktopMoreLauncher({
   apps,
-  onScriptureClick,
 }: {
   apps: DesktopMoreAppItem[];
-  onScriptureClick: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <div className="hidden md:block">
-      <TabHero
-        icon={<Icon name="apps" size={20} />}
-        onScriptureClick={onScriptureClick}
-        subtitle="DOS core stays simple. Installable layers extend the workspace when needed."
-        title="Apps for the work."
-      />
-      <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         {apps.map((item) => (
           <DesktopMoreAppCard item={item} key={item.label} />
         ))}
@@ -5289,7 +5284,7 @@ function MoreBackButton({ onClick }: { onClick: () => void }) {
       type="button"
     >
       <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-      Apps
+      More
     </button>
   );
 }
@@ -17822,7 +17817,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ],
     },
     {
-      description: "Future optional apps that can be installed without changing the DOS core.",
+      description: "Future optional tools that can be installed without changing the DOS core.",
       label: "Coming Soon",
       items: [
         {
@@ -17916,7 +17911,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "prayer", label: "Prayer Team", onClick: runMobileAction(() => openMoreApp("prayer_team")) },
           { icon: "people", label: "Support Team", onClick: runMobileAction(() => openMoreApp("support_team")) },
           { icon: "log", label: "Reports", onClick: runMobileAction(() => openMoreApp("reports")) },
-          { icon: "search", label: "Search Apps", onClick: runMobileAction(openAppsSearch) },
+          { icon: "search", label: "Search More", onClick: runMobileAction(openAppsSearch) },
         ]
     : activeTab === "home"
       ? []
@@ -18220,12 +18215,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {moreAppView === null || moreAppView === "apps" ? (
                   <>
                     <div className="space-y-4 md:hidden">
-                      <TabHero
-                        icon={<Icon name="apps" size={20} />}
-                        onScriptureClick={openScriptureQuickView}
-                        subtitle="DOS core stays simple. Installable layers extend the workspace when needed."
-                        title="Apps for the work."
-                      />
                       {isAppsSearchOpen ? (
                         <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-2 shadow-[0_12px_30px_rgba(37,99,235,0.055)]">
                           <div className="relative">
@@ -18234,7 +18223,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                               autoFocus
                               className="h-11 w-full rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] pl-9 pr-10 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#BFDBFE] focus:bg-white"
                               onChange={(event) => setAppSearchQuery(event.target.value)}
-                              placeholder="Search apps"
+                              placeholder="Search more"
                               value={appSearchQuery}
                             />
                             {appSearchQuery.trim() ? (
@@ -18256,10 +18245,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         ))}
                       </div>
                       {visibleMobileAppCatalogItems.length ? null : (
-                        <EmptyState text="Try a different app name." title="No apps found." />
+                        <EmptyState text="Try a different name." title="No items found." />
                       )}
                     </div>
-                    <DesktopMoreLauncher apps={desktopAppCatalogItems} onScriptureClick={openScriptureQuickView} />
+                    <DesktopMoreLauncher apps={desktopAppCatalogItems} />
                   </>
                 ) : null}
 
