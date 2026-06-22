@@ -8233,6 +8233,40 @@ function CalendarUpcomingCard({
   );
 }
 
+function CalendarUpcomingSection({
+  items,
+  onOpen,
+  selectedItemId,
+}: {
+  items: MeetingCalendarItem[];
+  onOpen: (item: MeetingCalendarItem) => void;
+  selectedItemId: string | null;
+}) {
+  return (
+    <section className="min-w-0 w-full max-w-full overflow-hidden">
+      <div className="mb-2 px-1">
+        <h2 className="text-sm font-black leading-tight text-[#0F172A]">
+          {items.length ? "Upcoming" : "Upcoming (0)"}
+        </h2>
+      </div>
+      {items.length ? (
+        <div className="w-full max-w-full overflow-x-auto pb-1">
+          <div className="flex w-max max-w-none gap-2.5">
+            {items.map((item) => (
+              <CalendarUpcomingCard
+                item={item}
+                key={item.id}
+                onOpen={() => onOpen(item)}
+                selected={selectedItemId === item.id}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function CalendarNeedsReviewCard({
   item,
   onOpen,
@@ -8301,14 +8335,14 @@ function CalendarNeedsReviewSection({
   }
 
   return (
-    <section className="w-full max-w-full overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 shadow-[0_10px_24px_rgba(37,99,235,0.045)]">
-      <div className="flex items-center justify-between gap-3">
+    <section className="min-w-0 w-full max-w-full overflow-hidden">
+      <div className="mb-2 flex items-center justify-between gap-3 px-1">
         <h2 className="text-sm font-black leading-tight text-[#0F172A]">Needs Review</h2>
         <span className="rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
           {items.length}
         </span>
       </div>
-      <div className="mt-3 w-full max-w-full overflow-x-auto pb-1">
+      <div className="w-full max-w-full overflow-x-auto pb-1">
         <div className="flex w-max max-w-none gap-2.5">
           {items.map((item) => (
             <CalendarNeedsReviewCard
@@ -8614,7 +8648,6 @@ function MeetingCalendarView({
   onToggleGoogleCalendarSource,
   onLogTable,
   onOpenMeeting,
-  onScheduleMeeting,
   onSelectDate,
   onSyncGoogleCalendar,
   onToday,
@@ -8644,7 +8677,6 @@ function MeetingCalendarView({
   onToggleGoogleCalendarSource: (sourceId: string) => void;
   onLogTable: (personIds?: string[], meetingType?: DosAppMeetingType) => void;
   onOpenMeeting: (meetingId: string) => void;
-  onScheduleMeeting: () => void;
   onSelectDate: (date: Date) => void;
   onSyncGoogleCalendar: () => void;
   onToday: () => void;
@@ -8816,31 +8848,12 @@ function MeetingCalendarView({
 
   return (
     <section className="grid min-w-0 max-w-full gap-3">
-      <section className="min-w-0 w-full max-w-full overflow-hidden">
-        <div className="mb-2 px-1">
-          <h2 className="text-sm font-black leading-tight text-[#0F172A]">Upcoming</h2>
-        </div>
-        {upcomingCardItems.length ? (
-          <div className="w-full max-w-full overflow-x-auto pb-1">
-            <div className="flex w-max max-w-none gap-2.5">
-              {upcomingCardItems.map((item) => (
-                <CalendarUpcomingCard
-                  item={item}
-                  key={item.id}
-                  onOpen={() => openQuickItem(item)}
-                  selected={selectedQuickItemId === item.id}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <SectionEmptyState
-            action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>}
-            text="Scheduled tables and reminders will appear here. Turn on calendar overlays when needed."
-            title="Nothing upcoming."
-          />
-        )}
-      </section>
+      <CalendarNeedsReviewSection
+        items={needsReviewItems}
+        onOpen={openQuickItem}
+        onPrimaryAction={handleNeedsReviewPrimaryAction}
+        onSecondaryAction={handleNeedsReviewSecondaryAction}
+      />
 
       {selectedQuickItem ? (
         <CalendarQuickView
@@ -8850,13 +8863,6 @@ function MeetingCalendarView({
           onPrimaryAction={() => handleQuickPrimaryAction(selectedQuickItem)}
         />
       ) : null}
-
-      <CalendarNeedsReviewSection
-        items={needsReviewItems}
-        onOpen={openQuickItem}
-        onPrimaryAction={handleNeedsReviewPrimaryAction}
-        onSecondaryAction={handleNeedsReviewSecondaryAction}
-      />
 
       <div className="w-full max-w-full overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)] md:rounded-[26px] md:bg-white/92 md:backdrop-blur">
         <header className="grid gap-3 border-b border-[#EFF6FF] px-3 py-3">
@@ -9024,6 +9030,12 @@ function MeetingCalendarView({
           </div>
         )}
       </div>
+
+      <CalendarUpcomingSection
+        items={upcomingCardItems}
+        onOpen={openQuickItem}
+        selectedItemId={selectedQuickItemId}
+      />
 
       <RecentlyCompletedTables
         leaderReflections={leaderReflections}
@@ -18194,7 +18206,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onLogTable={openLogTableFromCalendar}
                       onOpenExternalEvent={openExternalCalendarEventDetail}
                       onOpenMeeting={openMeetingDetail}
-                      onScheduleMeeting={() => openScheduleMeeting()}
                       onSelectDate={selectMeetingsCalendarDate}
                       onSyncGoogleCalendar={handleSyncGoogleCalendar}
                       onToggleCalendarCoreSource={handleToggleCalendarCoreSource}
