@@ -607,10 +607,9 @@ type MeetingCalendarItem = {
   syncLabel?: string;
   title: string;
 };
-type CalendarCoreSource = "dos" | "google" | "reminders";
+type CalendarCoreSource = "dos" | "reminders";
 type CalendarDisplaySettings = {
   dos: boolean;
-  google: boolean;
   googleSources: Record<string, boolean>;
   reminders: boolean;
 };
@@ -6361,7 +6360,6 @@ function RecentlyCompletedTables({
 function createDefaultCalendarDisplaySettings(): CalendarDisplaySettings {
   return {
     dos: true,
-    google: false,
     googleSources: {},
     reminders: true,
   };
@@ -6528,7 +6526,7 @@ function syncCalendarDisplaySettingsWithSources(settings: CalendarDisplaySetting
 
   sources.forEach((source) => {
     if (typeof googleSources[source.id] !== "boolean") {
-      googleSources[source.id] = source.selectedForDisplay;
+      googleSources[source.id] = false;
     }
   });
 
@@ -6539,7 +6537,7 @@ function syncCalendarDisplaySettingsWithSources(settings: CalendarDisplaySetting
 }
 
 function calendarSourceIsSelected(settings: CalendarDisplaySettings, source: CalendarSourcePreference) {
-  return settings.googleSources[source.id] ?? source.selectedForDisplay;
+  return settings.googleSources[source.id] ?? false;
 }
 
 function calendarPreferenceForEvent(event: DosAppExternalCalendarEvent, sources: CalendarSourcePreference[]) {
@@ -6560,7 +6558,7 @@ function calendarItemMatchesDisplaySettings(item: MeetingCalendarItem, settings:
     return settings.reminders;
   }
 
-  if (!settings.google || !item.externalEvent) {
+  if (!item.externalEvent) {
     return false;
   }
 
@@ -6569,7 +6567,7 @@ function calendarItemMatchesDisplaySettings(item: MeetingCalendarItem, settings:
     .map((source) => source.id));
 
   if (selectedSourceIds.size === 0) {
-    return true;
+    return false;
   }
 
   const source = calendarPreferenceForEvent(item.externalEvent, sources);
@@ -8167,6 +8165,7 @@ function CalendarUpcomingCard({
   selected: boolean;
 }) {
   const tone = calendarItemTone(item.kind);
+  const isGoogleEvent = item.kind === "google";
 
   return (
     <button
@@ -8179,16 +8178,25 @@ function CalendarUpcomingCard({
       type="button"
     >
       <div className="min-w-0 space-y-1.5">
-        <div className={`inline-flex max-w-full rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${tone.bg} ${tone.text}`} style={{ fontFamily: font.rajdhani }}>
-          <span className="truncate">
-            {calendarItemTypeLabel(item)}
-          </span>
-        </div>
+        {!isGoogleEvent ? (
+          <div className={`inline-flex max-w-full rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${tone.bg} ${tone.text}`} style={{ fontFamily: font.rajdhani }}>
+            <span className="truncate">
+              {calendarItemTypeLabel(item)}
+            </span>
+          </div>
+        ) : null}
         <h3 className="truncate text-sm font-black leading-5 text-[#0F172A]">{calendarUpcomingCardHeadline(item)}</h3>
       </div>
-      <p className="truncate text-xs font-bold text-[#64748B]">
-        {calendarUpcomingCardTimeLabel(item)}
-      </p>
+      <div className="min-w-0">
+        <p className="truncate text-xs font-bold text-[#64748B]">
+          {calendarUpcomingCardTimeLabel(item)}
+        </p>
+        {isGoogleEvent && item.externalEvent ? (
+          <p className="mt-1 truncate text-[10px] font-bold text-[#1D4ED8]">
+            {googleCalendarSourceMetadata(item.externalEvent)}
+          </p>
+        ) : null}
+      </div>
     </button>
   );
 }
@@ -8307,7 +8315,6 @@ function CalendarSourceControls({
   sourcePreferences: CalendarSourcePreference[];
 }) {
   const googleDisabled = !calendarConnection.connected || calendarConnectionNeedsReconnect(calendarConnection);
-  const googleEventCount = sourcePreferences.reduce((total, source) => total + source.eventCount, 0);
 
   return (
     <div className="min-w-0">
@@ -8323,14 +8330,6 @@ function CalendarSourceControls({
           selected={displaySettings.reminders}
           tone="green"
         />
-        <CalendarSourceChip
-          count={googleEventCount || undefined}
-          disabled={googleDisabled}
-          label="All Google"
-          onClick={() => onToggleCoreSource("google")}
-          selected={displaySettings.google}
-          tone="muted"
-        />
         {sourcePreferences.map((source) => {
           const sourceEnabled = calendarSourceIsSelected(displaySettings, source);
 
@@ -8341,7 +8340,7 @@ function CalendarSourceControls({
               key={source.id}
               label={shortCalendarSourceLabel(source.name)}
               onClick={() => onToggleGoogleSource(source.id)}
-              selected={displaySettings.google && sourceEnabled}
+              selected={sourceEnabled}
               tone="muted"
             />
           );
@@ -16542,61 +16541,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     const currentSelected = calendarSourceIsSelected(calendarDisplaySettings, source);
-
-    if (!calendarDisplaySettings.google) {
-      setCalendarSourceMessage("");
-      setCalendarDisplaySettings((current) => ({
-        ...current,
-        google: true,
-        googleSources: Object.fromEntries(calendarSourcePreferences.map((item) => [item.id, item.id === sourceId])),
-      }));
-      setCalendarSourcePreferences((current) => current.map((item) => (
-        item.id === sourceId ? { ...item, selectedForDisplay: true } : item
-      )));
-
-      if (!source.canPersist || isPreview) {
-        setCalendarSourceMessage("Source display is local for now.");
-        return;
-      }
-
-      setSavingCalendarSourceId(sourceId);
-
-      void (async () => {
-        try {
-          const response = await fetch("/api/dos/app/calendar/sources", {
-            body: JSON.stringify({
-              selectedForDisplay: true,
-              sourceId,
-              workspaceId: data.workspace.id,
-            }),
-            headers: {
-              "Content-Type": "application/json",
-            },
-            method: "PATCH",
-          });
-          const result = await response.json().catch(() => ({})) as { error?: string };
-
-          if (!response.ok) {
-            throw new Error(result.error ?? "Unable to save calendar source display.");
-          }
-        } catch {
-          setCalendarSourceMessage("Unable to save source display. This view was updated locally.");
-        } finally {
-          setSavingCalendarSourceId((current) => current === sourceId ? null : current);
-        }
-      })();
-      return;
-    }
-
     const nextSelected = !currentSelected;
-    const hasOtherSelectedSource = calendarSourcePreferences.some((item) => (
-      item.id !== sourceId && calendarSourceIsSelected(calendarDisplaySettings, item)
-    ));
 
     setCalendarSourceMessage("");
     setCalendarDisplaySettings((current) => ({
       ...current,
-      google: nextSelected ? true : hasOtherSelectedSource && current.google,
       googleSources: {
         ...current.googleSources,
         [sourceId]: nextSelected,
