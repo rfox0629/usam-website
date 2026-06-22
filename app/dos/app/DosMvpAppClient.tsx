@@ -6291,51 +6291,34 @@ function DesktopTableToolbar({
   );
 }
 
-function recentlyCompletedMeetingNote(meeting: DosAppMeeting, leaderReflections: DosAppLeaderReflection[]) {
-  const reflection = leaderReflections.find((item) => item.meetingId === meeting.id);
-
-  return normalizeText(reflection?.whatHappened)
-    || normalizeText(reflection?.privateNotes)
-    || normalizeText(meeting.notes)
-    || "No reflection yet.";
-}
-
 function RecentlyCompletedTables({
-  leaderReflections,
   meetings,
-  onLogTable,
   onOpenMeeting,
   people,
 }: {
-  leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
-  onLogTable: () => void;
   onOpenMeeting: (meetingId: string) => void;
   people: DosAppPerson[];
 }) {
   return (
-    <section className="w-full max-w-full overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white p-3 shadow-[0_10px_24px_rgba(37,99,235,0.045)]">
-      <div className="flex items-center justify-between gap-3">
+    <section className="min-w-0 w-full max-w-full overflow-hidden">
+      <div className="mb-2 flex items-center justify-between gap-3 px-1">
         <h2 className="text-sm font-black leading-tight text-[#0F172A]">Recently Completed</h2>
-        <button
-          className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]"
-          onClick={onLogTable}
-          type="button"
-        >
-          Log Table
-        </button>
+        <span className="rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+          {meetings.length}
+        </span>
       </div>
       {meetings.length ? (
-        <div className="mt-3 w-full max-w-full overflow-x-auto pb-1">
+        <div className="w-full max-w-full overflow-x-auto pb-1">
           <div className="flex w-max max-w-none gap-2.5">
             {meetings.map((meeting) => (
               <button
-                className="grid min-h-[116px] w-[162px] shrink-0 content-between gap-2 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-left shadow-[0_8px_20px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-white sm:w-[188px]"
+                className="grid min-h-[84px] w-[156px] shrink-0 content-between gap-2 rounded-[18px] border border-[#DCEBFF] bg-white p-2.5 text-left shadow-[0_8px_20px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] sm:w-[174px]"
                 key={meeting.id}
                 onClick={() => onOpenMeeting(meeting.id)}
                 type="button"
               >
-                <span className="min-w-0 space-y-1.5">
+                <span className="min-w-0 space-y-1">
                   <span className="inline-flex max-w-full rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
                     <span className="truncate">{meetingActivityTitle(meeting)}</span>
                   </span>
@@ -6343,14 +6326,13 @@ function RecentlyCompletedTables({
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-xs font-bold text-[#64748B]">{formatDate(meeting.date)}</span>
-                  <span className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#475569]">{recentlyCompletedMeetingNote(meeting, leaderReflections)}</span>
                 </span>
               </button>
             ))}
           </div>
         </div>
       ) : (
-        <p className="mt-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3 text-sm font-semibold text-[#64748B]">
+        <p className="px-1 text-xs font-semibold leading-5 text-[#64748B]">
           Logged tables will appear here after conversations are complete.
         </p>
       )}
@@ -8141,11 +8123,11 @@ function calendarNeedsReviewSecondaryActionLabel(item: MeetingCalendarItem) {
     return "Dismiss";
   }
 
-  if (item.meeting || item.reminder) {
+  if (item.kind === "meeting") {
     return "Reschedule";
   }
 
-  return "Dismiss";
+  return "Edit";
 }
 
 function calendarQuickSecondaryActionLabel(item: MeetingCalendarItem) {
@@ -8638,7 +8620,6 @@ function MeetingCalendarView({
   googleEventCount,
   isSyncingGoogleCalendar,
   items,
-  leaderReflections,
   month,
   onChangeMonth,
   onEditMeeting,
@@ -8667,7 +8648,6 @@ function MeetingCalendarView({
   googleEventCount: number;
   isSyncingGoogleCalendar: boolean;
   items: MeetingCalendarItem[];
-  leaderReflections: DosAppLeaderReflection[];
   month: Date;
   onChangeMonth: (offset: number) => void;
   onEditMeeting: (meeting: DosAppMeeting) => void;
@@ -9038,9 +9018,7 @@ function MeetingCalendarView({
       />
 
       <RecentlyCompletedTables
-        leaderReflections={leaderReflections}
         meetings={recentlyCompletedMeetings}
-        onLogTable={() => onLogTable()}
         onOpenMeeting={onOpenMeeting}
         people={people}
       />
@@ -18198,7 +18176,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       googleEventCount={data.externalCalendarEvents.length}
                       isSyncingGoogleCalendar={isSyncingGoogleCalendar}
                       items={visibleMeetingCalendarItems}
-                      leaderReflections={data.leaderReflections}
                       month={meetingsCalendarMonth}
                       onChangeMonth={changeMeetingsCalendarMonth}
                       onEditMeeting={openMeetingEdit}
