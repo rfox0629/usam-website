@@ -591,7 +591,6 @@ type FruitFormStatus = "coming_soon" | "live";
 type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "my_requests" | "partners" | "praying_for";
-type MeetingCalendarFilter = "all" | "dos" | "google" | "reminders";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
 type MeetingReviewFollowUp = "none" | "quick_review" | "testimony_request";
 type MeetingCalendarItemKind = "anniversary" | "birthday" | "follow_up" | "google" | "meeting" | "prayer";
@@ -607,6 +606,68 @@ type MeetingCalendarItem = {
   subtitle: string;
   syncLabel?: string;
   title: string;
+};
+type CalendarCoreSource = "dos" | "google" | "reminders";
+type CalendarDisplaySettings = {
+  dos: boolean;
+  google: boolean;
+  googleSources: Record<string, boolean>;
+  reminders: boolean;
+};
+type CalendarSourcePreference = {
+  canPersist: boolean;
+  eventCount: number;
+  externalCalendarId: string;
+  id: string;
+  importedCount: number;
+  isPrimary: boolean;
+  lastSyncedAt: string | null;
+  name: string;
+  selectedForAvailability: boolean | null;
+  selectedForDisplay: boolean;
+  selectedForImport: boolean | null;
+  timeZone: string | null;
+};
+type CalendarSourceApiSource = {
+  accessRole?: string | null;
+  externalCalendarId?: string | null;
+  id?: string | null;
+  isPrimary?: boolean | null;
+  lastSyncedAt?: string | null;
+  name?: string | null;
+  selectedForAvailability?: boolean | null;
+  selectedForDisplay?: boolean | null;
+  selectedForImport?: boolean | null;
+  timeZone?: string | null;
+};
+type AvailabilityEditSection = "booking" | "calendar" | "meeting_types" | "preferred_times" | "weekly_schedule";
+type AvailabilityTimeWindow = {
+  end: string;
+  id: string;
+  start: string;
+};
+type AvailabilityDaySetting = {
+  available: boolean;
+  id: string;
+  label: string;
+  windows: AvailabilityTimeWindow[];
+};
+type AvailabilityMeetingTypeSetting = {
+  duration: number;
+  enabled: boolean;
+  id: string;
+  label: string;
+};
+type AvailabilitySettings = {
+  bookingRules: {
+    bufferMinutes: number;
+    maxPerDay: number;
+    maxPerWeek: number;
+  };
+  meetingTypes: AvailabilityMeetingTypeSetting[];
+  preferredDays: string[];
+  preferredTimes: string[];
+  weeklySchedule: AvailabilityDaySetting[];
 };
 type PendingMeetingSendAction = {
   meeting: DosAppMeeting;
@@ -5952,19 +6013,47 @@ const meetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
   { label: "Availability", value: "availability" },
 ];
 
-const meetingCalendarFilterTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarFilter>> = [
-  { label: "All", value: "all" },
-  { label: "DOS", value: "dos" },
-  { label: "Google", value: "google" },
-  { label: "Reminders", value: "reminders" },
-];
-
 const meetingCalendarViewTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarViewMode>> = [
   { label: "Month", value: "month" },
   { label: "Week", value: "week" },
 ];
 
 const meetingCalendarWeekHours = Array.from({ length: 13 }, (_, index) => index + 8);
+const availabilityPreferredTimeOptions = ["Morning", "Afternoon", "Evening"] as const;
+const availabilityDayOptions = [
+  { id: "mon", label: "Monday", shortLabel: "Mon" },
+  { id: "tue", label: "Tuesday", shortLabel: "Tue" },
+  { id: "wed", label: "Wednesday", shortLabel: "Wed" },
+  { id: "thu", label: "Thursday", shortLabel: "Thu" },
+  { id: "fri", label: "Friday", shortLabel: "Fri" },
+  { id: "sat", label: "Saturday", shortLabel: "Sat" },
+  { id: "sun", label: "Sunday", shortLabel: "Sun" },
+] as const;
+const defaultAvailabilitySettings: AvailabilitySettings = {
+  bookingRules: {
+    bufferMinutes: 30,
+    maxPerDay: 2,
+    maxPerWeek: 6,
+  },
+  meetingTypes: [
+    { duration: 45, enabled: true, id: "coffee", label: "Coffee" },
+    { duration: 90, enabled: true, id: "kitchen_table", label: "Kitchen Table" },
+    { duration: 30, enabled: true, id: "prayer", label: "Prayer" },
+    { duration: 30, enabled: true, id: "phone_call", label: "Phone Call" },
+    { duration: 60, enabled: false, id: "custom", label: "Custom" },
+  ],
+  preferredDays: ["mon", "tue", "wed", "thu", "sat"],
+  preferredTimes: ["Evening"],
+  weeklySchedule: [
+    { available: true, id: "mon", label: "Monday", windows: [{ end: "21:00", id: "mon-evening", start: "18:00" }] },
+    { available: true, id: "tue", label: "Tuesday", windows: [{ end: "21:00", id: "tue-evening", start: "18:00" }] },
+    { available: true, id: "wed", label: "Wednesday", windows: [{ end: "21:00", id: "wed-evening", start: "18:00" }] },
+    { available: true, id: "thu", label: "Thursday", windows: [{ end: "21:00", id: "thu-evening", start: "18:00" }] },
+    { available: true, id: "fri", label: "Friday", windows: [{ end: "20:00", id: "fri-evening", start: "17:00" }] },
+    { available: true, id: "sat", label: "Saturday", windows: [{ end: "12:00", id: "sat-morning", start: "09:00" }] },
+    { available: true, id: "sun", label: "Sunday", windows: [{ end: "17:00", id: "sun-afternoon", start: "14:00" }] },
+  ],
+};
 
 const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
   { label: "Activity", value: "activity" },
@@ -6223,7 +6312,7 @@ function RecentlyCompletedTables({
   people: DosAppPerson[];
 }) {
   return (
-    <section className="rounded-[24px] border border-[#DCEBFF] bg-white p-3 shadow-[0_10px_24px_rgba(37,99,235,0.045)]">
+    <section className="w-full max-w-full overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white p-3 shadow-[0_10px_24px_rgba(37,99,235,0.045)]">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-black leading-tight text-[#0F172A]">Recently Completed</h2>
         <button
@@ -6235,24 +6324,28 @@ function RecentlyCompletedTables({
         </button>
       </div>
       {meetings.length ? (
-        <div className="mt-3 grid gap-2">
-          {meetings.map((meeting) => (
-            <button
-              className="grid w-full gap-2 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-left transition-colors hover:border-[#BFDBFE] hover:bg-white md:grid-cols-[minmax(0,1.1fr)_128px_minmax(0,1.2fr)] md:items-center"
-              key={meeting.id}
-              onClick={() => onOpenMeeting(meeting.id)}
-              type="button"
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-black text-[#0F172A]">{meetingDisplayTitle(meeting, people)}</span>
-                <span className="mt-1 inline-flex rounded-full border border-[#DCEBFF] bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                  {meetingActivityTitle(meeting)}
+        <div className="mt-3 w-full max-w-full overflow-x-auto pb-1">
+          <div className="flex w-max max-w-none gap-2.5">
+            {meetings.map((meeting) => (
+              <button
+                className="grid min-h-[116px] w-[162px] shrink-0 content-between gap-2 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-left shadow-[0_8px_20px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-white sm:w-[188px]"
+                key={meeting.id}
+                onClick={() => onOpenMeeting(meeting.id)}
+                type="button"
+              >
+                <span className="min-w-0 space-y-1.5">
+                  <span className="inline-flex max-w-full rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                    <span className="truncate">{meetingActivityTitle(meeting)}</span>
+                  </span>
+                  <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{meetingDisplayTitle(meeting, people)}</span>
                 </span>
-              </span>
-              <span className="text-xs font-bold text-[#64748B]">{formatDate(meeting.date)}</span>
-              <span className="line-clamp-2 text-xs leading-5 text-[#475569]">{recentlyCompletedMeetingNote(meeting, leaderReflections)}</span>
-            </button>
-          ))}
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-bold text-[#64748B]">{formatDate(meeting.date)}</span>
+                  <span className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#475569]">{recentlyCompletedMeetingNote(meeting, leaderReflections)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       ) : (
         <p className="mt-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3 text-sm font-semibold text-[#64748B]">
@@ -6263,13 +6356,67 @@ function RecentlyCompletedTables({
   );
 }
 
+function createDefaultCalendarDisplaySettings(): CalendarDisplaySettings {
+  return {
+    dos: true,
+    google: false,
+    googleSources: {},
+    reminders: true,
+  };
+}
+
+function calendarSourceKeyFromEvent(event: DosAppExternalCalendarEvent) {
+  return event.calendarSourceId ?? event.externalCalendarId ?? "google";
+}
+
+function isHolidayCalendarName(name: string | null | undefined) {
+  return normalizeText(name).includes("holiday");
+}
+
+function shortCalendarSourceLabel(name: string | null | undefined) {
+  const value = name?.trim();
+
+  if (!value) {
+    return "Google";
+  }
+
+  const lowerValue = value.toLowerCase();
+
+  if (isHolidayCalendarName(value)) {
+    return "Holidays";
+  }
+
+  if (lowerValue.includes("dirkbond")) {
+    return "Dirk";
+  }
+
+  if (lowerValue.includes("ryan@") || lowerValue.includes("ryan fox")) {
+    return "Ryan";
+  }
+
+  if (value.includes("@")) {
+    return value.split("@")[0].split(/[._-]/).filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ") || "Google";
+  }
+
+  return value.split(/\s+/).slice(0, 2).join(" ");
+}
+
+function calendarSourceDefaultDisplay(source: { name: string; selectedForDisplay?: boolean | null }) {
+  if (typeof source.selectedForDisplay === "boolean") {
+    return source.selectedForDisplay;
+  }
+
+  return !isHolidayCalendarName(source.name);
+}
+
 function calendarSourceSummaries(events: DosAppExternalCalendarEvent[]) {
-  const summaries = new Map<string, { count: number; id: string; imported: number; name: string }>();
+  const summaries = new Map<string, { count: number; externalCalendarId: string; id: string; imported: number; name: string }>();
 
   events.forEach((event) => {
-    const key = event.calendarSourceId ?? event.externalCalendarId ?? "google";
+    const key = calendarSourceKeyFromEvent(event);
     const current = summaries.get(key) ?? {
       count: 0,
+      externalCalendarId: event.externalCalendarId,
       id: key,
       imported: 0,
       name: event.sourceName ?? event.externalCalendarId ?? "Google Calendar",
@@ -6283,6 +6430,106 @@ function calendarSourceSummaries(events: DosAppExternalCalendarEvent[]) {
   });
 
   return Array.from(summaries.values()).sort((first, second) => first.name.localeCompare(second.name));
+}
+
+function fallbackCalendarSourcePreferences(events: DosAppExternalCalendarEvent[]): CalendarSourcePreference[] {
+  return calendarSourceSummaries(events).map((source) => ({
+    canPersist: false,
+    eventCount: source.count,
+    externalCalendarId: source.externalCalendarId,
+    id: source.id,
+    importedCount: source.imported,
+    isPrimary: false,
+    lastSyncedAt: null,
+    name: source.name,
+    selectedForAvailability: null,
+    selectedForDisplay: calendarSourceDefaultDisplay(source),
+    selectedForImport: null,
+    timeZone: null,
+  }));
+}
+
+function calendarSourcePreferencesFromApi(sources: CalendarSourceApiSource[], events: DosAppExternalCalendarEvent[]) {
+  const summaries = calendarSourceSummaries(events);
+  const summaryById = new Map(summaries.map((source) => [source.id, source]));
+  const summaryByExternalId = new Map(summaries.map((source) => [source.externalCalendarId, source]));
+  const usedSourceIds = new Set<string>();
+
+  const apiPreferences = sources
+    .map((source): CalendarSourcePreference | null => {
+      const id = source.id?.trim();
+      const externalCalendarId = source.externalCalendarId?.trim();
+
+      if (!id || !externalCalendarId) {
+        return null;
+      }
+
+      const summary = summaryById.get(id) ?? summaryByExternalId.get(externalCalendarId);
+      const name = source.name?.trim() || summary?.name || externalCalendarId || "Google Calendar";
+      usedSourceIds.add(id);
+      usedSourceIds.add(externalCalendarId);
+
+      return {
+        canPersist: true,
+        eventCount: summary?.count ?? 0,
+        externalCalendarId,
+        id,
+        importedCount: summary?.imported ?? 0,
+        isPrimary: source.isPrimary === true,
+        lastSyncedAt: source.lastSyncedAt ?? null,
+        name,
+        selectedForAvailability: typeof source.selectedForAvailability === "boolean" ? source.selectedForAvailability : null,
+        selectedForDisplay: calendarSourceDefaultDisplay({ name, selectedForDisplay: source.selectedForDisplay }),
+        selectedForImport: typeof source.selectedForImport === "boolean" ? source.selectedForImport : null,
+        timeZone: source.timeZone ?? null,
+      };
+    })
+    .filter((source): source is CalendarSourcePreference => Boolean(source));
+
+  const fallbackPreferences = fallbackCalendarSourcePreferences(events).filter((source) => !usedSourceIds.has(source.id));
+
+  return [...apiPreferences, ...fallbackPreferences].sort((first, second) => {
+    if (first.isPrimary !== second.isPrimary) {
+      return first.isPrimary ? -1 : 1;
+    }
+
+    return first.name.localeCompare(second.name);
+  });
+}
+
+function syncCalendarDisplaySettingsWithSources(settings: CalendarDisplaySettings, sources: CalendarSourcePreference[]) {
+  const googleSources = { ...settings.googleSources };
+
+  sources.forEach((source) => {
+    if (typeof googleSources[source.id] !== "boolean") {
+      googleSources[source.id] = source.selectedForDisplay;
+    }
+  });
+
+  return {
+    ...settings,
+    googleSources,
+  };
+}
+
+function calendarItemMatchesDisplaySettings(item: MeetingCalendarItem, settings: CalendarDisplaySettings) {
+  if (item.kind === "meeting") {
+    return settings.dos;
+  }
+
+  if (item.kind !== "google") {
+    return settings.reminders;
+  }
+
+  if (!settings.google || !item.externalEvent) {
+    return false;
+  }
+
+  const sourceKey = calendarSourceKeyFromEvent(item.externalEvent);
+
+  return settings.googleSources[sourceKey] ?? calendarSourceDefaultDisplay({
+    name: item.externalEvent.sourceName ?? item.externalEvent.externalCalendarId,
+  });
 }
 
 function calendarConnectionStatus(connection: DosAppCalendarConnection) {
@@ -6301,38 +6548,460 @@ function googleCalendarConnectHref(workspaceId: string) {
   return `/api/dos/app/calendar/google/connect?workspaceId=${encodeURIComponent(workspaceId)}&next=${encodeURIComponent(`/dos/app?workspace=${workspaceId}`)}`;
 }
 
+function createDefaultAvailabilitySettings(): AvailabilitySettings {
+  return {
+    bookingRules: { ...defaultAvailabilitySettings.bookingRules },
+    meetingTypes: defaultAvailabilitySettings.meetingTypes.map((type) => ({ ...type })),
+    preferredDays: [...defaultAvailabilitySettings.preferredDays],
+    preferredTimes: [...defaultAvailabilitySettings.preferredTimes],
+    weeklySchedule: defaultAvailabilitySettings.weeklySchedule.map((day) => ({
+      ...day,
+      windows: day.windows.map((window) => ({ ...window })),
+    })),
+  };
+}
+
+function formatAvailabilityTime(value: string) {
+  const [rawHour, rawMinute = "00"] = value.split(":");
+  const hour = Number(rawHour);
+
+  if (!Number.isFinite(hour)) {
+    return value;
+  }
+
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+
+  return rawMinute === "00" ? `${displayHour} ${suffix}` : `${displayHour}:${rawMinute} ${suffix}`;
+}
+
+function availabilityWindowLabel(window: AvailabilityTimeWindow) {
+  return `${formatAvailabilityTime(window.start)} - ${formatAvailabilityTime(window.end)}`;
+}
+
+function availabilityDayShortLabel(dayId: string) {
+  return availabilityDayOptions.find((day) => day.id === dayId)?.shortLabel ?? dayId;
+}
+
+function availabilityWeeklySummary(settings: AvailabilitySettings) {
+  const availableDays = settings.weeklySchedule.filter((day) => day.available);
+
+  if (!availableDays.length) {
+    return "No available days selected";
+  }
+
+  const firstWindow = availableDays.flatMap((day) => day.windows).at(0);
+  const daySummary = availableDays.length === 7
+    ? "Every day"
+    : availableDays.map((day) => availabilityDayShortLabel(day.id)).join(", ");
+
+  return firstWindow ? `${daySummary} · ${availabilityWindowLabel(firstWindow)}` : daySummary;
+}
+
+function availabilityMeetingTypesSummary(settings: AvailabilitySettings) {
+  const enabledTypes = settings.meetingTypes.filter((type) => type.enabled);
+
+  return enabledTypes.length
+    ? enabledTypes.slice(0, 3).map((type) => type.label).join(", ") + (enabledTypes.length > 3 ? ` +${enabledTypes.length - 3}` : "")
+    : "No meeting types enabled";
+}
+
+function availabilityConnectionSummary(connection: DosAppCalendarConnection, sourceCount: number) {
+  if (calendarConnectionNeedsReconnect(connection)) {
+    return "Reconnect needed";
+  }
+
+  if (calendarConnectionIsHealthy(connection)) {
+    return `${sourceCount} source${sourceCount === 1 ? "" : "s"} connected`;
+  }
+
+  return connection.googleConfigured ? "Ready to connect" : "Google setup needed";
+}
+
+function AvailabilityActionCard({
+  children,
+  icon,
+  onClick,
+  summary,
+  title,
+}: {
+  children?: ReactNode;
+  icon: ReactNode;
+  onClick: () => void;
+  summary: string;
+  title: string;
+}) {
+  return (
+    <button
+      className="group grid min-h-[148px] content-between gap-3 rounded-[22px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_10px_24px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex min-w-0 items-start justify-between gap-3">
+        <span className="flex min-w-0 items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+            {icon}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-black leading-5 text-[#0F172A]">{title}</span>
+            <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">{summary}</span>
+          </span>
+        </span>
+        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={1.9} />
+      </span>
+      {children ? <span className="block min-w-0">{children}</span> : null}
+    </button>
+  );
+}
+
+function AvailabilityChipRow({ items }: { items: string[] }) {
+  return (
+    <span className="flex min-w-0 flex-wrap gap-1.5">
+      {items.map((item) => (
+        <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]" key={item}>
+          {item}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function AvailabilityEditSheet({
+  activeSection,
+  calendarConnection,
+  isDisconnecting,
+  onClose,
+  onDisconnectCalendar,
+  settings,
+  setSettings,
+  sourceCount,
+  workspaceId,
+}: {
+  activeSection: AvailabilityEditSection;
+  calendarConnection: DosAppCalendarConnection;
+  isDisconnecting: boolean;
+  onClose: () => void;
+  onDisconnectCalendar: () => void;
+  settings: AvailabilitySettings;
+  setSettings: (updater: (current: AvailabilitySettings) => AvailabilitySettings) => void;
+  sourceCount: number;
+  workspaceId: string;
+}) {
+  const titleBySection: Record<AvailabilityEditSection, string> = {
+    booking: "Booking Rules",
+    calendar: "Connected Calendar",
+    meeting_types: "Meeting Types",
+    preferred_times: "Preferred Times",
+    weekly_schedule: "Weekly Schedule",
+  };
+
+  function updateDay(dayId: string, updater: (day: AvailabilityDaySetting) => AvailabilityDaySetting) {
+    setSettings((current) => ({
+      ...current,
+      weeklySchedule: current.weeklySchedule.map((day) => day.id === dayId ? updater(day) : day),
+    }));
+  }
+
+  function togglePreferredTime(value: string) {
+    setSettings((current) => {
+      const selected = current.preferredTimes.includes(value);
+
+      return {
+        ...current,
+        preferredTimes: selected
+          ? current.preferredTimes.filter((time) => time !== value)
+          : [...current.preferredTimes, value],
+      };
+    });
+  }
+
+  function togglePreferredDay(value: string) {
+    setSettings((current) => {
+      const selected = current.preferredDays.includes(value);
+
+      return {
+        ...current,
+        preferredDays: selected
+          ? current.preferredDays.filter((day) => day !== value)
+          : [...current.preferredDays, value],
+      };
+    });
+  }
+
+  function updateMeetingType(typeId: string, updater: (type: AvailabilityMeetingTypeSetting) => AvailabilityMeetingTypeSetting) {
+    setSettings((current) => ({
+      ...current,
+      meetingTypes: current.meetingTypes.map((type) => type.id === typeId ? updater(type) : type),
+    }));
+  }
+
+  return (
+    <Sheet
+      description="Changes update this screen for now and will be saved once availability saving is connected."
+      onClose={onClose}
+      title={titleBySection[activeSection]}
+    >
+      <div className="grid gap-4">
+        {activeSection === "weekly_schedule" ? (
+          <div className="grid gap-3">
+            {settings.weeklySchedule.map((day) => (
+              <section className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={day.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    aria-pressed={day.available}
+                    className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-bold ${
+                      day.available
+                        ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
+                        : "border-[#E2E8F0] bg-white text-[#64748B]"
+                    }`}
+                    onClick={() => updateDay(day.id, (currentDay) => ({ ...currentDay, available: !currentDay.available }))}
+                    type="button"
+                  >
+                    {day.available ? "Available" : "Unavailable"}
+                  </button>
+                  <h3 className="min-w-0 flex-1 text-right text-sm font-black text-[#0F172A]">{day.label}</h3>
+                </div>
+                {day.available ? (
+                  <div className="mt-3 grid gap-2">
+                    {day.windows.map((window) => (
+                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2" key={window.id}>
+                        <label className="min-w-0">
+                          <FieldLabel>Start</FieldLabel>
+                          <input
+                            className={`${FieldInputClass()} min-h-10 rounded-[14px] px-3 text-sm`}
+                            onChange={(event) => updateDay(day.id, (currentDay) => ({
+                              ...currentDay,
+                              windows: currentDay.windows.map((currentWindow) => currentWindow.id === window.id ? { ...currentWindow, start: event.target.value } : currentWindow),
+                            }))}
+                            type="time"
+                            value={window.start}
+                          />
+                        </label>
+                        <label className="min-w-0">
+                          <FieldLabel>End</FieldLabel>
+                          <input
+                            className={`${FieldInputClass()} min-h-10 rounded-[14px] px-3 text-sm`}
+                            onChange={(event) => updateDay(day.id, (currentDay) => ({
+                              ...currentDay,
+                              windows: currentDay.windows.map((currentWindow) => currentWindow.id === window.id ? { ...currentWindow, end: event.target.value } : currentWindow),
+                            }))}
+                            type="time"
+                            value={window.end}
+                          />
+                        </label>
+                        <button
+                          aria-label={`Remove ${day.label} window`}
+                          className="mb-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B]"
+                          onClick={() => updateDay(day.id, (currentDay) => ({ ...currentDay, windows: currentDay.windows.filter((currentWindow) => currentWindow.id !== window.id) }))}
+                          type="button"
+                        >
+                          <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8]"
+                      onClick={() => updateDay(day.id, (currentDay) => ({
+                        ...currentDay,
+                        windows: [...currentDay.windows, { end: "21:00", id: `${day.id}-${Date.now()}`, start: "18:00" }],
+                      }))}
+                      type="button"
+                    >
+                      Add Time Window
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+            ))}
+          </div>
+        ) : null}
+
+        {activeSection === "preferred_times" ? (
+          <div className="grid gap-4">
+            <section className="grid gap-2">
+              <h3 className="text-sm font-black text-[#0F172A]">Preferred Times</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {availabilityPreferredTimeOptions.map((time) => {
+                  const selected = settings.preferredTimes.includes(time);
+
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`min-h-11 rounded-full border px-2 text-xs font-bold ${
+                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#64748B]"
+                      }`}
+                      key={time}
+                      onClick={() => togglePreferredTime(time)}
+                      type="button"
+                    >
+                      {time}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+            <section className="grid gap-2">
+              <h3 className="text-sm font-black text-[#0F172A]">Preferred Days</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {availabilityDayOptions.map((day) => {
+                  const selected = settings.preferredDays.includes(day.id);
+
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`min-h-10 rounded-full border px-2 text-xs font-bold ${
+                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#64748B]"
+                      }`}
+                      key={day.id}
+                      onClick={() => togglePreferredDay(day.id)}
+                      type="button"
+                    >
+                      {day.shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {activeSection === "meeting_types" ? (
+          <div className="grid gap-3">
+            {settings.meetingTypes.map((type) => (
+              <section className="grid gap-3 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={type.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    aria-pressed={type.enabled}
+                    className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-bold ${
+                      type.enabled ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]" : "border-[#E2E8F0] bg-white text-[#64748B]"
+                    }`}
+                    onClick={() => updateMeetingType(type.id, (currentType) => ({ ...currentType, enabled: !currentType.enabled }))}
+                    type="button"
+                  >
+                    {type.enabled ? "Enabled" : "Off"}
+                  </button>
+                  <h3 className="min-w-0 flex-1 text-right text-sm font-black text-[#0F172A]">{type.label}</h3>
+                </div>
+                <label className="block">
+                  <FieldLabel>Duration</FieldLabel>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      className={`${FieldInputClass(false)} min-h-10 rounded-[14px] px-3 text-sm`}
+                      min={15}
+                      onChange={(event) => updateMeetingType(type.id, (currentType) => ({ ...currentType, duration: Math.max(15, Number(event.target.value) || 15) }))}
+                      step={15}
+                      type="number"
+                      value={type.duration}
+                    />
+                    <span className="shrink-0 text-xs font-bold text-[#64748B]">min</span>
+                  </div>
+                </label>
+              </section>
+            ))}
+          </div>
+        ) : null}
+
+        {activeSection === "booking" ? (
+          <div className="grid gap-3">
+            {[
+              { key: "bufferMinutes" as const, label: "Buffer time", suffix: "min" },
+              { key: "maxPerDay" as const, label: "Max meetings per day", suffix: "per day" },
+              { key: "maxPerWeek" as const, label: "Max meetings per week", suffix: "per week" },
+            ].map((setting) => (
+              <label className="block rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={setting.key}>
+                <FieldLabel>{setting.label}</FieldLabel>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    className={`${FieldInputClass(false)} min-h-10 rounded-[14px] px-3 text-sm`}
+                    min={setting.key === "bufferMinutes" ? 0 : 1}
+                    onChange={(event) => setSettings((current) => ({
+                      ...current,
+                      bookingRules: {
+                        ...current.bookingRules,
+                        [setting.key]: Math.max(setting.key === "bufferMinutes" ? 0 : 1, Number(event.target.value) || 0),
+                      },
+                    }))}
+                    type="number"
+                    value={settings.bookingRules[setting.key]}
+                  />
+                  <span className="shrink-0 text-xs font-bold text-[#64748B]">{setting.suffix}</span>
+                </div>
+              </label>
+            ))}
+          </div>
+        ) : null}
+
+        {activeSection === "calendar" ? (
+          <div className="grid gap-3">
+            <CalendarConnectionCard
+              calendarConnection={calendarConnection}
+              isDisconnecting={isDisconnecting}
+              onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
+              workspaceId={workspaceId}
+            />
+            <section className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-black text-[#0F172A]">Calendar Sources</h3>
+                <span className="rounded-full border border-[#DCEBFF] bg-white px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">{sourceCount} connected</span>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-[#64748B]">Google events can inform availability. Busy-time conflict checks come in a later scheduling pass.</p>
+            </section>
+            <section className="rounded-[20px] border border-[#EAF2FF] bg-white p-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-black text-[#0F172A]">Team Calendar</h3>
+                <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Planned</span>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-[#64748B]">Spouse and team availability hooks are reserved for shared household booking.</p>
+            </section>
+          </div>
+        ) : null}
+
+        <p className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
+          Local only for now. These settings reset after refresh.
+        </p>
+        <button
+          className="inline-flex min-h-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]"
+          onClick={onClose}
+          type="button"
+        >
+          Done
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 function DesktopAvailabilityPanel({
   calendarConnection,
-  externalCalendarEvents,
+  calendarDisplaySettings,
+  calendarSourceMessage,
+  calendarSourcePreferences,
   isDisconnecting,
   onDisconnectCalendar,
   onScheduleMeeting,
+  onToggleCalendarCoreSource,
+  onToggleGoogleCalendarSource,
+  savingCalendarSourceId,
   workspaceId,
 }: {
   calendarConnection: DosAppCalendarConnection;
-  externalCalendarEvents: DosAppExternalCalendarEvent[];
+  calendarDisplaySettings: CalendarDisplaySettings;
+  calendarSourceMessage: string;
+  calendarSourcePreferences: CalendarSourcePreference[];
   isDisconnecting: boolean;
   onDisconnectCalendar: () => void;
   onScheduleMeeting: () => void;
+  onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
+  onToggleGoogleCalendarSource: (sourceId: string) => void;
+  savingCalendarSourceId: string | null;
   workspaceId: string;
 }) {
-  const sourceSummaries = calendarSourceSummaries(externalCalendarEvents);
-  const weeklySchedule = [
-    { day: "Mon", windows: [{ label: "8 AM - 5 PM", status: "Unavailable" }, { label: "6 PM - 9 PM", status: "Available" }] },
-    { day: "Tue", windows: [{ label: "8 AM - 5 PM", status: "Unavailable" }, { label: "6 PM - 9 PM", status: "Available" }] },
-    { day: "Wed", windows: [{ label: "8 AM - 5 PM", status: "Unavailable" }, { label: "6 PM - 9 PM", status: "Available" }] },
-    { day: "Thu", windows: [{ label: "8 AM - 5 PM", status: "Unavailable" }, { label: "6 PM - 9 PM", status: "Available" }] },
-    { day: "Fri", windows: [{ label: "8 AM - 4 PM", status: "Unavailable" }, { label: "5 PM - 8 PM", status: "Available" }] },
-    { day: "Sat", windows: [{ label: "9 AM - 12 PM", status: "Available" }] },
-    { day: "Sun", windows: [{ label: "2 PM - 5 PM", status: "Available" }] },
-  ];
-  const meetingTypes = ["Coffee", "Kitchen Table", "Prayer", "Phone Call", "Custom"];
-  const preferredTimes = ["Weeknights 6-9 PM", "Saturday mornings", "Sunday afternoons"];
-  const bookingSettings = [
-    { label: "Buffer", value: "30 min" },
-    { label: "Max / day", value: "2" },
-    { label: "Max / week", value: "6" },
-  ];
+  const [availabilitySettings, setAvailabilitySettings] = useState<AvailabilitySettings>(() => createDefaultAvailabilitySettings());
+  const [activeEditSection, setActiveEditSection] = useState<AvailabilityEditSection | null>(null);
+  const enabledMeetingTypes = availabilitySettings.meetingTypes.filter((type) => type.enabled);
+  const preferredDayLabels = availabilitySettings.preferredDays.map(availabilityDayShortLabel);
+  const weeklyPreview = availabilitySettings.weeklySchedule.filter((day) => day.available).slice(0, 4);
+  const connectedCalendarStatus = availabilityConnectionSummary(calendarConnection, calendarSourcePreferences.length);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(310px,360px)]">
@@ -6347,7 +7016,7 @@ function DesktopAvailabilityPanel({
                 Availability
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
-                Set the rhythm people can book around. Live saving is planned; these defaults shape the DOS booking model.
+                Set the rhythm people can book around.
               </p>
             </div>
           </div>
@@ -6361,94 +7030,110 @@ function DesktopAvailabilityPanel({
           </button>
         </div>
 
-        <div className="mt-5 grid gap-4">
-          <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-black text-[#0F172A]">Weekly Schedule</h3>
-              <span className="rounded-full border border-[#DCEBFF] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Draft</span>
-            </div>
-            <div className="grid gap-2">
-              {weeklySchedule.map((day) => (
-                <div className="grid gap-2 rounded-[18px] border border-[#EAF2FF] bg-white p-2.5 sm:grid-cols-[52px_minmax(0,1fr)] sm:items-center" key={day.day}>
-                  <span className="text-xs font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{day.day}</span>
-                  <span className="flex min-w-0 flex-wrap gap-1.5">
-                    {day.windows.map((window) => (
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
-                          window.status === "Available"
-                            ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
-                            : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]"
-                        }`}
-                        key={`${day.day}-${window.label}-${window.status}`}
-                      >
-                        {window.label} {window.status}
-                      </span>
-                    ))}
-                  </span>
-                </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <AvailabilityActionCard
+            icon={<Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+            onClick={() => setActiveEditSection("weekly_schedule")}
+            summary={availabilityWeeklySummary(availabilitySettings)}
+            title="Weekly Schedule"
+          >
+            <span className="grid gap-1.5">
+              {weeklyPreview.map((day) => (
+                <span className="flex items-center justify-between gap-2 rounded-full border border-[#EAF2FF] bg-[#F8FBFF] px-2.5 py-1.5" key={day.id}>
+                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{availabilityDayShortLabel(day.id)}</span>
+                  <span className="truncate text-[11px] font-bold text-[#15803D]">{day.windows[0] ? availabilityWindowLabel(day.windows[0]) : "Available"}</span>
+                </span>
               ))}
-            </div>
-          </section>
+            </span>
+          </AvailabilityActionCard>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
-              <h3 className="text-sm font-black text-[#0F172A]">Preferred Meeting Times</h3>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {preferredTimes.map((time) => (
-                  <span className="rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-2.5 py-1 text-[11px] font-bold text-[#1D4ED8]" key={time}>{time}</span>
-                ))}
-              </div>
-            </section>
-            <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
-              <h3 className="text-sm font-black text-[#0F172A]">Meeting Types</h3>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {meetingTypes.map((type) => (
-                  <div className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-xs font-bold text-[#0F172A]" key={type}>{type}</div>
-                ))}
-              </div>
-            </section>
-          </div>
+          <AvailabilityActionCard
+            icon={<CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+            onClick={() => setActiveEditSection("preferred_times")}
+            summary={availabilitySettings.preferredTimes.length ? availabilitySettings.preferredTimes.join(", ") : "Choose time of day"}
+            title="Preferred Times"
+          >
+            <AvailabilityChipRow items={[...availabilitySettings.preferredTimes, ...preferredDayLabels.slice(0, 3)]} />
+          </AvailabilityActionCard>
 
-          <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-black text-[#0F172A]">Booking Settings</h3>
-              <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Planned</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {bookingSettings.map((setting) => (
-                <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-center" key={setting.label}>
-                  <span className="block text-lg font-black leading-none text-[#0F172A]">{setting.value}</span>
+          <AvailabilityActionCard
+            icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+            onClick={() => setActiveEditSection("meeting_types")}
+            summary={availabilityMeetingTypesSummary(availabilitySettings)}
+            title="Meeting Types"
+          >
+            <AvailabilityChipRow items={enabledMeetingTypes.slice(0, 4).map((type) => `${type.label} · ${type.duration}m`)} />
+          </AvailabilityActionCard>
+
+          <AvailabilityActionCard
+            icon={<Settings className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+            onClick={() => setActiveEditSection("booking")}
+            summary={`${availabilitySettings.bookingRules.bufferMinutes}m buffer · ${availabilitySettings.bookingRules.maxPerDay}/day · ${availabilitySettings.bookingRules.maxPerWeek}/week`}
+            title="Booking Rules"
+          >
+            <span className="grid grid-cols-3 gap-1.5">
+              {[
+                { label: "Buffer", value: `${availabilitySettings.bookingRules.bufferMinutes}m` },
+                { label: "Day", value: availabilitySettings.bookingRules.maxPerDay },
+                { label: "Week", value: availabilitySettings.bookingRules.maxPerWeek },
+              ].map((setting) => (
+                <span className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-2 py-2 text-center" key={setting.label}>
+                  <span className="block text-sm font-black leading-none text-[#0F172A]">{setting.value}</span>
                   <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{setting.label}</span>
-                </div>
+                </span>
               ))}
-            </div>
-          </section>
+            </span>
+          </AvailabilityActionCard>
+
+          <AvailabilityActionCard
+            icon={<RefreshCw className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+            onClick={() => setActiveEditSection("calendar")}
+            summary={connectedCalendarStatus}
+            title="Connected Calendar"
+          >
+            <span className="flex flex-wrap gap-1.5">
+              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+                calendarConnectionNeedsReconnect(calendarConnection)
+                  ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
+                  : calendarConnectionIsHealthy(calendarConnection)
+                    ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
+                    : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]"
+              }`}>
+                {calendarConnectionNeedsReconnect(calendarConnection) ? "Reconnect" : calendarConnectionIsHealthy(calendarConnection) ? "Connected" : "Not Connected"}
+              </span>
+              <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold text-[#64748B]">Team planned</span>
+            </span>
+          </AvailabilityActionCard>
         </div>
       </section>
 
       <aside className="space-y-3">
-        <CalendarConnectionCard
-          calendarConnection={calendarConnection}
-          isDisconnecting={isDisconnecting}
-          onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
-          workspaceId={workspaceId}
-        />
         <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-black text-[#0F172A]">Calendar Awareness</h3>
+            <h3 className="text-sm font-black text-[#0F172A]">Sources</h3>
             <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {sourceSummaries.length} sources
+              {calendarSourcePreferences.length} sources
             </span>
           </div>
-          <div className="mt-3 grid gap-2">
-            {sourceSummaries.length ? sourceSummaries.map((source) => (
+          <div className="mt-3 grid gap-3">
+            <CalendarSourceControls
+              calendarConnection={calendarConnection}
+              displaySettings={calendarDisplaySettings}
+              message={calendarSourceMessage}
+              onToggleCoreSource={onToggleCalendarCoreSource}
+              onToggleGoogleSource={onToggleGoogleCalendarSource}
+              savingSourceId={savingCalendarSourceId}
+              showMessage
+              sourcePreferences={calendarSourcePreferences}
+            />
+            {calendarSourcePreferences.length ? calendarSourcePreferences.map((source) => (
               <div className="rounded-[18px] border border-[#EFF6FF] bg-[#F8FBFF] p-3" key={source.id}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="truncate text-sm font-bold text-[#0F172A]">{source.name}</span>
-                  <span className="shrink-0 text-xs font-semibold text-[#64748B]">{source.count} events</span>
+                  <span className="shrink-0 text-xs font-semibold text-[#64748B]">{source.eventCount} events</span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-[#64748B]">
-                  {source.imported} added to DOS. Busy-time awareness is planned for booking checks.
+                  {source.importedCount} added to DOS. Busy-time awareness is planned for booking checks.
                 </p>
               </div>
             )) : (
@@ -6460,21 +7145,34 @@ function DesktopAvailabilityPanel({
         </section>
         <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-black text-[#0F172A]">Team / Spouse Hooks</h3>
-            <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Coming Soon</span>
+            <h3 className="text-sm font-black text-[#0F172A]">Team Calendar</h3>
+            <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Planned</span>
           </div>
           <div className="mt-3 grid gap-2">
             <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
               <p className="text-sm font-bold text-[#0F172A]">Spouse availability</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">Shared household calendar checks are planned.</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">Shared household checks are planned.</p>
             </div>
             <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
               <p className="text-sm font-bold text-[#0F172A]">Team calendars</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">Leader and team availability hooks are ready for a later scheduling pass.</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">Leader availability hooks are reserved for later scheduling.</p>
             </div>
           </div>
         </section>
       </aside>
+      {activeEditSection ? (
+        <AvailabilityEditSheet
+          activeSection={activeEditSection}
+          calendarConnection={calendarConnection}
+          isDisconnecting={isDisconnecting}
+          onClose={() => setActiveEditSection(null)}
+          onDisconnectCalendar={onDisconnectCalendar}
+          settings={availabilitySettings}
+          setSettings={setAvailabilitySettings}
+          sourceCount={calendarSourcePreferences.length}
+          workspaceId={workspaceId}
+        />
+      ) : null}
     </div>
   );
 }
@@ -7164,15 +7862,15 @@ function calendarItemTone(kind: MeetingCalendarItemKind) {
       };
     case "birthday":
       return {
-        bg: "bg-[#FEF3C7]",
-        dot: "bg-[#F59E0B]",
-        text: "text-[#B45309]",
+        bg: "bg-[#DCFCE7]",
+        dot: "bg-[#16A34A]",
+        text: "text-[#15803D]",
       };
     case "anniversary":
       return {
-        bg: "bg-[#FCE7F3]",
-        dot: "bg-[#DB2777]",
-        text: "text-[#BE185D]",
+        bg: "bg-[#EAF2FF]",
+        dot: "bg-[#2563EB]",
+        text: "text-[#1D4ED8]",
       };
     case "follow_up":
       return {
@@ -7182,9 +7880,9 @@ function calendarItemTone(kind: MeetingCalendarItemKind) {
       };
     case "prayer":
       return {
-        bg: "bg-[#EDE9FE]",
-        dot: "bg-[#7C3AED]",
-        text: "text-[#6D28D9]",
+        bg: "bg-[#DCFCE7]",
+        dot: "bg-[#16A34A]",
+        text: "text-[#15803D]",
       };
     case "meeting":
     default:
@@ -7214,22 +7912,6 @@ function calendarItemLabel(kind: MeetingCalendarItemKind) {
   }
 }
 
-function calendarItemMatchesFilter(item: MeetingCalendarItem, filter: MeetingCalendarFilter) {
-  if (filter === "all") {
-    return true;
-  }
-
-  if (filter === "dos") {
-    return item.kind === "meeting";
-  }
-
-  if (filter === "google") {
-    return item.kind === "google";
-  }
-
-  return item.kind !== "meeting" && item.kind !== "google";
-}
-
 function CalendarItemIcon({ kind }: { kind: MeetingCalendarItemKind }) {
   const className = "h-4 w-4";
 
@@ -7252,7 +7934,7 @@ function CalendarItemIcon({ kind }: { kind: MeetingCalendarItemKind }) {
 
 function calendarItemSourceLabel(item: MeetingCalendarItem) {
   if (item.kind === "google") {
-    return "Google";
+    return item.externalEvent?.sourceName ? `Google · ${shortCalendarSourceLabel(item.externalEvent.sourceName)}` : "Google";
   }
 
   if (item.kind === "meeting") {
@@ -7361,6 +8043,26 @@ function calendarItemSourceTone(item: MeetingCalendarItem) {
   return "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]";
 }
 
+function calendarQuickPrimaryActionLabel(item: MeetingCalendarItem) {
+  if (item.kind === "meeting") {
+    return "Log Table";
+  }
+
+  if (item.kind === "follow_up") {
+    return "Complete Follow-Up";
+  }
+
+  if (item.kind === "google") {
+    return "View Details";
+  }
+
+  return "Mark Done";
+}
+
+function calendarQuickSecondaryActionLabel(item: MeetingCalendarItem) {
+  return item.meeting || item.reminder ? "Edit" : null;
+}
+
 function calendarWeekHourLabel(hour: number) {
   if (hour === 12) {
     return "12 PM";
@@ -7450,17 +8152,17 @@ function CalendarSyncStatus({
   }
 
   const needsReconnect = calendarConnectionNeedsReconnect(calendarConnection);
-  const lastSyncedLabel = calendarConnection.lastSyncedAt ? `Last synced ${formatTime(calendarConnection.lastSyncedAt)}` : "Automatic sync is on";
+  const lastSyncedLabel = calendarConnection.lastSyncedAt ? `Last synced ${formatTime(calendarConnection.lastSyncedAt)}` : "Calendar events refresh automatically.";
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2">
-      <span className={`inline-flex min-w-0 items-center gap-1.5 text-xs font-bold ${needsReconnect ? "text-[#B45309]" : "text-[#15803D]"}`}>
+      <span className={`inline-flex min-w-0 items-center gap-1.5 text-xs font-bold ${needsReconnect ? "text-[#1D4ED8]" : "text-[#15803D]"}`}>
         <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={1.9} />
         <span className="truncate">{needsReconnect ? "Reconnect Google Calendar" : "Google Calendar Connected"}</span>
       </span>
       {needsReconnect ? (
         <a
-          className="inline-flex min-h-7 shrink-0 items-center justify-center rounded-full border border-[#FDBA74] bg-white px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#B45309]"
+          className="inline-flex min-h-7 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]"
           href={googleCalendarConnectHref(workspaceId)}
           style={{ fontFamily: font.rajdhani }}
         >
@@ -7486,19 +8188,128 @@ function CalendarSyncStatus({
   );
 }
 
+function CalendarSourceChip({
+  count,
+  disabled = false,
+  label,
+  onClick,
+  selected,
+  tone = "blue",
+}: {
+  count?: number;
+  disabled?: boolean;
+  label: string;
+  onClick: () => void;
+  selected: boolean;
+  tone?: "blue" | "green" | "muted";
+}) {
+  const selectedClasses = tone === "green"
+    ? "border-[#86EFAC] bg-[#DCFCE7] text-[#15803D]"
+    : tone === "muted"
+      ? "border-[#BAE6FD] bg-[#F0F9FF] text-[#0369A1]"
+      : "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
+
+  return (
+    <button
+      aria-pressed={selected}
+      className={`inline-flex min-h-8 max-w-[156px] shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-[10px] font-black uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        selected
+          ? selectedClasses
+          : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:bg-[#F8FBFF] hover:text-[#1D4ED8]"
+      }`}
+      disabled={disabled}
+      onClick={onClick}
+      style={{ fontFamily: font.rajdhani }}
+      type="button"
+    >
+      <span className="truncate">{label}</span>
+      {typeof count === "number" ? <span className="shrink-0 opacity-70">{count}</span> : null}
+    </button>
+  );
+}
+
+function CalendarSourceControls({
+  calendarConnection,
+  displaySettings,
+  message,
+  onToggleCoreSource,
+  onToggleGoogleSource,
+  savingSourceId,
+  showMessage = false,
+  sourcePreferences,
+}: {
+  calendarConnection: DosAppCalendarConnection;
+  displaySettings: CalendarDisplaySettings;
+  message?: string;
+  onToggleCoreSource: (source: CalendarCoreSource) => void;
+  onToggleGoogleSource: (sourceId: string) => void;
+  savingSourceId: string | null;
+  showMessage?: boolean;
+  sourcePreferences: CalendarSourcePreference[];
+}) {
+  const googleDisabled = !calendarConnection.connected || calendarConnectionNeedsReconnect(calendarConnection);
+  const googleEventCount = sourcePreferences.reduce((total, source) => total + source.eventCount, 0);
+
+  return (
+    <div className="min-w-0">
+      <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1">
+        <CalendarSourceChip
+          label="DOS"
+          onClick={() => onToggleCoreSource("dos")}
+          selected={displaySettings.dos}
+        />
+        <CalendarSourceChip
+          label="Reminders"
+          onClick={() => onToggleCoreSource("reminders")}
+          selected={displaySettings.reminders}
+          tone="green"
+        />
+        <CalendarSourceChip
+          count={googleEventCount || undefined}
+          disabled={googleDisabled}
+          label="Google"
+          onClick={() => onToggleCoreSource("google")}
+          selected={displaySettings.google}
+          tone="muted"
+        />
+        {sourcePreferences.map((source) => {
+          const sourceEnabled = displaySettings.googleSources[source.id] ?? source.selectedForDisplay;
+
+          return (
+            <CalendarSourceChip
+              count={source.eventCount || undefined}
+              disabled={googleDisabled || savingSourceId === source.id}
+              key={source.id}
+              label={shortCalendarSourceLabel(source.name)}
+              onClick={() => onToggleGoogleSource(source.id)}
+              selected={displaySettings.google && sourceEnabled}
+              tone="muted"
+            />
+          );
+        })}
+      </div>
+      {showMessage && message ? (
+        <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{message}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function CalendarQuickView({
   item,
   onClose,
   onEdit,
-  onLogTable,
+  onPrimaryAction,
 }: {
   item: MeetingCalendarItem;
   onClose: () => void;
   onEdit: () => void;
-  onLogTable: () => void;
+  onPrimaryAction: () => void;
 }) {
   const tone = calendarItemTone(item.kind);
   const notes = calendarItemNotes(item);
+  const primaryActionLabel = calendarQuickPrimaryActionLabel(item);
+  const secondaryActionLabel = calendarQuickSecondaryActionLabel(item);
 
   return (
     <section className="rounded-[28px] border border-[#DCEBFF] bg-white p-4 shadow-[0_18px_48px_rgba(37,99,235,0.08)]">
@@ -7546,20 +8357,22 @@ function CalendarQuickView({
           <span className="font-semibold">{item.syncLabel ?? calendarItemSourceLabel(item)}</span>
         </div>
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-2 pr-16 sm:pr-0">
-        <button
-          className="min-h-11 rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
-          onClick={onEdit}
-          type="button"
-        >
-          {item.externalEvent ? "Open" : "Edit"}
-        </button>
+      <div className={`mt-5 grid gap-2 pr-16 sm:pr-0 ${secondaryActionLabel ? "grid-cols-2" : "grid-cols-1"}`}>
+        {secondaryActionLabel ? (
+          <button
+            className="min-h-11 rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+            onClick={onEdit}
+            type="button"
+          >
+            {secondaryActionLabel}
+          </button>
+        ) : null}
         <button
           className="min-h-11 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.2)]"
-          onClick={onLogTable}
+          onClick={onPrimaryAction}
           type="button"
         >
-          Log Table
+          {primaryActionLabel}
         </button>
       </div>
     </section>
@@ -7567,19 +8380,22 @@ function CalendarQuickView({
 }
 
 function MeetingCalendarView({
-  calendarFilter,
   calendarConnection,
+  calendarDisplaySettings,
+  calendarSourceMessage,
+  calendarSourcePreferences,
   calendarSyncMessage,
   googleEventCount,
   isSyncingGoogleCalendar,
   items,
   leaderReflections,
   month,
-  onCalendarFilterChange,
   onChangeMonth,
   onEditMeeting,
   onOpenExternalEvent,
   onEditReminder,
+  onToggleCalendarCoreSource,
+  onToggleGoogleCalendarSource,
   onLogTable,
   onOpenMeeting,
   onScheduleMeeting,
@@ -7588,24 +8404,28 @@ function MeetingCalendarView({
   onToday,
   people,
   recentlyCompletedMeetings,
+  savingCalendarSourceId,
   selectedDateKey,
   viewMode,
   onViewModeChange,
   workspaceId,
 }: {
-  calendarFilter: MeetingCalendarFilter;
   calendarConnection: DosAppCalendarConnection;
+  calendarDisplaySettings: CalendarDisplaySettings;
+  calendarSourceMessage: string;
+  calendarSourcePreferences: CalendarSourcePreference[];
   calendarSyncMessage: string;
   googleEventCount: number;
   isSyncingGoogleCalendar: boolean;
   items: MeetingCalendarItem[];
   leaderReflections: DosAppLeaderReflection[];
   month: Date;
-  onCalendarFilterChange: (filter: MeetingCalendarFilter) => void;
   onChangeMonth: (offset: number) => void;
   onEditMeeting: (meeting: DosAppMeeting) => void;
   onOpenExternalEvent: (eventId: string) => void;
   onEditReminder: (reminderId: string) => void;
+  onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
+  onToggleGoogleCalendarSource: (sourceId: string) => void;
   onLogTable: (personIds?: string[], meetingType?: DosAppMeetingType) => void;
   onOpenMeeting: (meetingId: string) => void;
   onScheduleMeeting: () => void;
@@ -7614,12 +8434,14 @@ function MeetingCalendarView({
   onToday: () => void;
   people: DosAppPerson[];
   recentlyCompletedMeetings: DosAppMeeting[];
+  savingCalendarSourceId: string | null;
   selectedDateKey: string;
   viewMode: MeetingCalendarViewMode;
   onViewModeChange: (value: MeetingCalendarViewMode) => void;
   workspaceId: string;
 }) {
   const [selectedQuickItemId, setSelectedQuickItemId] = useState<string | null>(null);
+  const [locallyCompletedItemIds, setLocallyCompletedItemIds] = useState<string[]>([]);
   const monthStart = startOfCalendarMonth(month);
   const gridStart = new Date(monthStart);
   gridStart.setDate(monthStart.getDate() - monthStart.getDay());
@@ -7634,7 +8456,9 @@ function MeetingCalendarView({
     date.setDate(gridStart.getDate() + index);
     return date;
   });
-  const filteredItems = items.filter((item) => calendarItemMatchesFilter(item, calendarFilter));
+  const filteredItems = items
+    .filter((item) => calendarItemMatchesDisplaySettings(item, calendarDisplaySettings))
+    .filter((item) => !locallyCompletedItemIds.includes(item.id));
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const upcomingItems = filteredItems.filter((item) => dateSortValue(item.date) >= todayStart.getTime()).slice(0, 12);
@@ -7656,7 +8480,7 @@ function MeetingCalendarView({
   const sourceStatusText = calendarSyncMessage
     || (calendarConnectionNeedsReconnect(calendarConnection)
       ? googleCalendarReconnectCopy
-      : googleCalendarConnected ? "Google read-only events included." : "Connect Google to read events.");
+      : googleCalendarConnected ? "Google overlays are optional." : "Connect Google to add overlays.");
   const weekItems = filteredItems.filter((item) => {
     const date = parseDisplayDate(item.date);
     const weekEndDay = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 23, 59, 59, 999);
@@ -7699,6 +8523,21 @@ function MeetingCalendarView({
     onLogTable(personIds, item.meeting?.type);
   }
 
+  function handleQuickPrimaryAction(item: MeetingCalendarItem) {
+    if (item.kind === "meeting") {
+      logQuickItem(item);
+      return;
+    }
+
+    if (item.kind === "google") {
+      editQuickItem(item);
+      return;
+    }
+
+    setLocallyCompletedItemIds((current) => current.includes(item.id) ? current : [...current, item.id]);
+    setSelectedQuickItemId(null);
+  }
+
   function shiftCalendar(offset: number) {
     if (viewMode === "week") {
       onSelectDate(addCalendarDays(selectedDate, offset * 7));
@@ -7725,14 +8564,14 @@ function MeetingCalendarView({
   }
 
   return (
-    <section className="grid gap-3">
-      <section className="min-w-0">
+    <section className="grid min-w-0 max-w-full gap-3">
+      <section className="min-w-0 w-full max-w-full overflow-hidden">
         <div className="mb-2 px-1">
           <h2 className="text-sm font-black leading-tight text-[#0F172A]">Upcoming</h2>
         </div>
         {upcomingCardItems.length ? (
-          <div className="max-w-full overflow-x-auto pb-1">
-            <div className="flex min-w-0 gap-2.5">
+          <div className="w-full max-w-full overflow-x-auto pb-1">
+            <div className="flex w-max max-w-none gap-2.5">
               {upcomingCardItems.map((item) => (
                 <CalendarUpcomingCard
                   item={item}
@@ -7746,7 +8585,7 @@ function MeetingCalendarView({
         ) : (
           <SectionEmptyState
             action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Table</CompactButton>}
-            text="Scheduled tables, reminders, and connected calendar events will appear here."
+            text="Scheduled tables and reminders appear here. Turn on Google overlays when needed."
             title="Nothing upcoming."
           />
         )}
@@ -7757,11 +8596,11 @@ function MeetingCalendarView({
           item={selectedQuickItem}
           onClose={() => setSelectedQuickItemId(null)}
           onEdit={() => editQuickItem(selectedQuickItem)}
-          onLogTable={() => logQuickItem(selectedQuickItem)}
+          onPrimaryAction={() => handleQuickPrimaryAction(selectedQuickItem)}
         />
       ) : null}
 
-      <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)] md:rounded-[26px] md:bg-white/92 md:backdrop-blur">
+      <div className="w-full max-w-full overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)] md:rounded-[26px] md:bg-white/92 md:backdrop-blur">
         <header className="grid gap-3 border-b border-[#EFF6FF] px-3 py-3">
           <div className="flex min-w-0 items-center justify-between gap-2">
             <button
@@ -7791,13 +8630,26 @@ function MeetingCalendarView({
           </div>
           <div className="grid gap-2">
             <SegmentedTabs onChange={onViewModeChange} options={meetingCalendarViewTabs} value={viewMode} />
-            <CalendarSyncStatus
+            <CalendarSourceControls
               calendarConnection={calendarConnection}
-              googleEventCount={googleEventCount}
-              isSyncingGoogleCalendar={isSyncingGoogleCalendar}
-              onSyncGoogleCalendar={onSyncGoogleCalendar}
-              workspaceId={workspaceId}
+              displaySettings={calendarDisplaySettings}
+              onToggleCoreSource={onToggleCalendarCoreSource}
+              onToggleGoogleSource={onToggleGoogleCalendarSource}
+              savingSourceId={savingCalendarSourceId}
+              sourcePreferences={calendarSourcePreferences}
             />
+            {calendarConnectionNeedsReconnect(calendarConnection) ? (
+              <div className="flex items-center justify-between gap-2 rounded-[16px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2">
+                <span className="min-w-0 text-xs font-bold leading-5 text-[#1D4ED8]">{googleCalendarReconnectCopy}</span>
+                <a
+                  className="inline-flex min-h-7 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]"
+                  href={googleCalendarConnectHref(workspaceId)}
+                  style={{ fontFamily: font.rajdhani }}
+                >
+                  Reconnect
+                </a>
+              </div>
+            ) : null}
           </div>
         </header>
 
@@ -7929,7 +8781,23 @@ function MeetingCalendarView({
           <span className="text-xs font-semibold text-[#64748B]">{sourceStatusText}</span>
         </summary>
         <div className="mt-3 grid gap-3">
-          <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
+          <CalendarSourceControls
+            calendarConnection={calendarConnection}
+            displaySettings={calendarDisplaySettings}
+            message={calendarSourceMessage}
+            onToggleCoreSource={onToggleCalendarCoreSource}
+            onToggleGoogleSource={onToggleGoogleCalendarSource}
+            savingSourceId={savingCalendarSourceId}
+            showMessage
+            sourcePreferences={calendarSourcePreferences}
+          />
+          <CalendarSyncStatus
+            calendarConnection={calendarConnection}
+            googleEventCount={googleEventCount}
+            isSyncingGoogleCalendar={isSyncingGoogleCalendar}
+            onSyncGoogleCalendar={onSyncGoogleCalendar}
+            workspaceId={workspaceId}
+          />
           <p className="text-xs leading-5 text-[#64748B]">Source badges stay visible on each event so the calendar stays focused on what is next.</p>
         </div>
       </details>
@@ -8850,7 +9718,7 @@ function CalendarConnectionCard({
   const isHealthy = calendarConnectionIsHealthy(calendarConnection);
   const statusLabel = needsReconnect ? "Reconnect Google Calendar" : calendarConnection.connected ? "Connected" : "Not Connected";
   const statusClassName = needsReconnect
-    ? "border-[#FDBA74] bg-[#FFF7ED] text-[#B45309]"
+    ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
     : isHealthy
       ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
       : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]";
@@ -14233,8 +15101,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const tabTransitionTimeoutRef = useRef<number | null>(null);
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("calendar");
-  const [meetingCalendarFilter, setMeetingCalendarFilter] = useState<MeetingCalendarFilter>("all");
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
+  const [calendarDisplaySettings, setCalendarDisplaySettings] = useState<CalendarDisplaySettings>(() => syncCalendarDisplaySettingsWithSources(
+    createDefaultCalendarDisplaySettings(),
+    fallbackCalendarSourcePreferences(data.externalCalendarEvents),
+  ));
+  const [calendarSourcePreferences, setCalendarSourcePreferences] = useState<CalendarSourcePreference[]>(() => fallbackCalendarSourcePreferences(data.externalCalendarEvents));
+  const [calendarSourceMessage, setCalendarSourceMessage] = useState("");
+  const [savingCalendarSourceId, setSavingCalendarSourceId] = useState<string | null>(null);
   const [fruitView, setFruitView] = useState<FruitView>("activity");
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("praying_for");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
@@ -14321,6 +15195,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ...data.calendarConnection,
     ...calendarConnectionOverride,
   }), [calendarConnectionOverride, data.calendarConnection]);
+  const fallbackGoogleCalendarSources = useMemo(() => fallbackCalendarSourcePreferences(data.externalCalendarEvents), [data.externalCalendarEvents]);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
@@ -14731,6 +15606,59 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       cancelled = true;
     };
   }, [data.calendarConnection.connected, data.calendarConnection.lastSyncedAt, data.workspace.id, isPreview]);
+
+  useEffect(() => {
+    if (isPreview || !calendarConnection.connected || calendarConnectionNeedsReconnect(calendarConnection)) {
+      setCalendarSourcePreferences(fallbackGoogleCalendarSources);
+      setCalendarDisplaySettings((current) => syncCalendarDisplaySettingsWithSources(current, fallbackGoogleCalendarSources));
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/dos/app/calendar/sources?workspaceId=${encodeURIComponent(data.workspace.id)}`);
+        const result = await response.json().catch(() => ({})) as {
+          error?: string;
+          message?: string | null;
+          sources?: CalendarSourceApiSource[];
+          status?: "connected" | "failed" | "needs_reconnect" | "not_connected";
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "Unable to load calendar sources.");
+        }
+
+        if (result.status === "needs_reconnect" || result.status === "not_connected") {
+          const nextStatus = result.status;
+
+          setCalendarConnectionOverride((current) => ({
+            ...current,
+            status: nextStatus,
+            statusMessage: nextStatus === "needs_reconnect" ? result.message ?? googleCalendarReconnectCopy : null,
+          }));
+        }
+
+        const preferences = calendarSourcePreferencesFromApi(result.sources ?? [], data.externalCalendarEvents);
+        setCalendarSourcePreferences(preferences);
+        setCalendarDisplaySettings((current) => syncCalendarDisplaySettingsWithSources(current, preferences));
+        setCalendarSourceMessage(result.message ?? "");
+      } catch {
+        setCalendarSourcePreferences(fallbackGoogleCalendarSources);
+        setCalendarDisplaySettings((current) => syncCalendarDisplaySettingsWithSources(current, fallbackGoogleCalendarSources));
+        setCalendarSourceMessage("Calendar source display is local until sources load.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarConnection.connected, calendarConnection.status, data.externalCalendarEvents, data.workspace.id, fallbackGoogleCalendarSources, isPreview]);
 
   useEffect(() => {
     setIsDesktopActionMenuOpen(false);
@@ -15524,6 +16452,81 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         setCalendarSyncMessage("Unable to sync Google Calendar events.");
       } finally {
         setIsSyncingGoogleCalendar(false);
+      }
+    })();
+  }
+
+  function handleToggleCalendarCoreSource(source: CalendarCoreSource) {
+    setCalendarDisplaySettings((current) => ({
+      ...current,
+      [source]: !current[source],
+    }));
+  }
+
+  function handleToggleGoogleCalendarSource(sourceId: string) {
+    const source = calendarSourcePreferences.find((item) => item.id === sourceId);
+
+    if (!source) {
+      return;
+    }
+
+    const currentSelected = calendarDisplaySettings.googleSources[sourceId] ?? source.selectedForDisplay;
+
+    if (!calendarDisplaySettings.google && currentSelected) {
+      setCalendarDisplaySettings((current) => ({
+        ...current,
+        google: true,
+        googleSources: {
+          ...current.googleSources,
+          [sourceId]: true,
+        },
+      }));
+      return;
+    }
+
+    const nextSelected = !currentSelected;
+    setCalendarSourceMessage("");
+    setCalendarDisplaySettings((current) => ({
+      ...current,
+      google: nextSelected ? true : current.google,
+      googleSources: {
+        ...current.googleSources,
+        [sourceId]: nextSelected,
+      },
+    }));
+    setCalendarSourcePreferences((current) => current.map((item) => (
+      item.id === sourceId ? { ...item, selectedForDisplay: nextSelected } : item
+    )));
+
+    if (!source.canPersist || isPreview) {
+      setCalendarSourceMessage("Source display is local for now.");
+      return;
+    }
+
+    setSavingCalendarSourceId(sourceId);
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/dos/app/calendar/sources", {
+          body: JSON.stringify({
+            selectedForDisplay: nextSelected,
+            sourceId,
+            workspaceId: data.workspace.id,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "PATCH",
+        });
+        const result = await response.json().catch(() => ({})) as { error?: string };
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "Unable to save calendar source display.");
+        }
+      } catch {
+        setCalendarSourceMessage("Unable to save source display. This view was updated locally.");
+      } finally {
+        setSavingCalendarSourceId((current) => current === sourceId ? null : current);
       }
     })();
   }
@@ -16889,7 +17892,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             ) : null}
 
             {activeTab === "meetings" ? (
-              <div className="space-y-4">
+              <div className="min-w-0 max-w-full space-y-4">
                 <TabHero
                   desktopCompact
                   icon={<Icon name="meetings" size={20} />}
@@ -16927,18 +17930,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     value={meetingsView}
                   />
                 </div>
-                <div>
+                <div className="min-w-0 max-w-full">
                   {meetingsView === "calendar" ? (
                     <MeetingCalendarView
-                      calendarFilter={meetingCalendarFilter}
                       calendarConnection={calendarConnection}
+                      calendarDisplaySettings={calendarDisplaySettings}
+                      calendarSourceMessage={calendarSourceMessage}
+                      calendarSourcePreferences={calendarSourcePreferences}
                       calendarSyncMessage={calendarSyncMessage}
                       googleEventCount={data.externalCalendarEvents.length}
                       isSyncingGoogleCalendar={isSyncingGoogleCalendar}
                       items={visibleMeetingCalendarItems}
                       leaderReflections={data.leaderReflections}
                       month={meetingsCalendarMonth}
-                      onCalendarFilterChange={setMeetingCalendarFilter}
                       onChangeMonth={changeMeetingsCalendarMonth}
                       onEditMeeting={openMeetingEdit}
                       onEditReminder={openReminderEdit}
@@ -16948,9 +17952,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onScheduleMeeting={() => openScheduleMeeting()}
                       onSelectDate={selectMeetingsCalendarDate}
                       onSyncGoogleCalendar={handleSyncGoogleCalendar}
+                      onToggleCalendarCoreSource={handleToggleCalendarCoreSource}
+                      onToggleGoogleCalendarSource={handleToggleGoogleCalendarSource}
                       onToday={jumpMeetingsCalendarToToday}
                       people={people}
                       recentlyCompletedMeetings={recentlyCompletedMeetings}
+                      savingCalendarSourceId={savingCalendarSourceId}
                       selectedDateKey={selectedMeetingsCalendarDate}
                       viewMode={meetingCalendarViewMode}
                       onViewModeChange={setMeetingCalendarViewMode}
@@ -16959,10 +17966,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   ) : (
                     <DesktopAvailabilityPanel
                       calendarConnection={calendarConnection}
-                      externalCalendarEvents={data.externalCalendarEvents}
+                      calendarDisplaySettings={calendarDisplaySettings}
+                      calendarSourceMessage={calendarSourceMessage}
+                      calendarSourcePreferences={calendarSourcePreferences}
                       isDisconnecting={isCalendarDisconnecting}
                       onDisconnectCalendar={handleDisconnectCalendar}
                       onScheduleMeeting={() => openScheduleMeeting()}
+                      onToggleCalendarCoreSource={handleToggleCalendarCoreSource}
+                      onToggleGoogleCalendarSource={handleToggleGoogleCalendarSource}
+                      savingCalendarSourceId={savingCalendarSourceId}
                       workspaceId={data.workspace.id}
                     />
                   )}

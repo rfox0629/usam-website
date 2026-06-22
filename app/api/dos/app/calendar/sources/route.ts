@@ -9,6 +9,10 @@ function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function asBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : null;
+}
+
 async function authorizeCalendarWrite(workspaceId: string) {
   const authorization = await getDosAuthorization();
 
@@ -80,5 +84,59 @@ export async function GET(request: Request) {
       timeZone: source.time_zone,
     })),
     status: syncResult.status,
+  });
+}
+
+export async function PATCH(request: Request) {
+  let payload: unknown;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const body = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+  const workspaceId = await resolveDosAppWorkspaceId(asString(body.workspaceId));
+  const sourceId = asString(body.sourceId);
+  const selectedForDisplay = asBoolean(body.selectedForDisplay);
+
+  if (!workspaceId) {
+    return NextResponse.json({ error: "Missionary workspace not found." }, { status: 404 });
+  }
+
+  if (!sourceId || selectedForDisplay === null) {
+    return NextResponse.json({ error: "Calendar source and display preference are required." }, { status: 400 });
+  }
+
+  const authResult = await authorizeCalendarWrite(workspaceId);
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("calendar_sources")
+    .update({ selected_for_display: selectedForDisplay })
+    .eq("id", sourceId)
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .select("id, selected_for_display")
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: "Unable to save calendar source display." }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Calendar source not found." }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    source: {
+      id: data.id,
+      selectedForDisplay: data.selected_for_display,
+    },
   });
 }
