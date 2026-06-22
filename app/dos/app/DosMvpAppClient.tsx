@@ -1277,6 +1277,68 @@ function calendarDateKeyFromValue(value: string | null | undefined) {
   return date ? calendarDateKey(date) : "";
 }
 
+function normalizeDateInputValue(value: string | null | undefined) {
+  const trimmedValue = String(value ?? "").trim();
+
+  if (!trimmedValue) {
+    return "";
+  }
+
+  const isoDateValue = trimmedValue.includes("T") ? trimmedValue.slice(0, 10) : trimmedValue;
+  const isoMatch = isoDateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (isoMatch) {
+    const [, yearValue, monthValue, dayValue] = isoMatch;
+    const date = new Date(Number(yearValue), Number(monthValue) - 1, Number(dayValue), 12);
+
+    return date.getFullYear() === Number(yearValue)
+      && date.getMonth() === Number(monthValue) - 1
+      && date.getDate() === Number(dayValue)
+      ? calendarDateKey(date)
+      : "";
+  }
+
+  const compactMatch = trimmedValue.match(/^(\d{2})(\d{2})(\d{4})$/);
+  const displayMatch = trimmedValue.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  const match = compactMatch
+    ? [compactMatch[0], compactMatch[3], compactMatch[1], compactMatch[2]]
+    : displayMatch
+      ? [displayMatch[0], displayMatch[3], displayMatch[1], displayMatch[2]]
+      : null;
+
+  if (!match) {
+    return "";
+  }
+
+  const [, yearValue, monthValue, dayValue] = match;
+  const year = Number(yearValue);
+  const month = Number(monthValue);
+  const day = Number(dayValue);
+  const date = new Date(year, month - 1, day, 12);
+
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+    ? calendarDateKey(date)
+    : "";
+}
+
+function formatDateInputDisplay(value: string | null | undefined) {
+  const normalizedValue = normalizeDateInputValue(value);
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const [year, month, day] = normalizedValue.split("-");
+
+  return `${month}/${day}/${year}`;
+}
+
+function dateInputCalendarMonth(value: string | null | undefined) {
+  const normalizedValue = normalizeDateInputValue(value);
+
+  return startOfCalendarMonth(normalizedValue ? dateFromCalendarKey(normalizedValue) : new Date());
+}
+
 function startOfCalendarMonth(date = new Date()) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
@@ -3085,6 +3147,235 @@ function DosFormGrid({
   return (
     <div className={`grid gap-3 min-[380px]:grid-cols-2 ${className}`}>
       {children}
+    </div>
+  );
+}
+
+const dateInputMonthLabels = Array.from({ length: 12 }, (_, index) => (
+  new Intl.DateTimeFormat("en-US", { month: "short" }).format(new Date(2026, index, 1))
+));
+const dateInputWeekdayLabels = ["S", "M", "T", "W", "T", "F", "S"];
+
+function DosDateInput({
+  ariaLabel,
+  autoComplete,
+  defaultValue,
+  label,
+  maxYear = new Date().getFullYear() + 25,
+  minYear = 1900,
+  name,
+  onChange,
+  required = false,
+  value,
+}: {
+  ariaLabel?: string;
+  autoComplete?: string;
+  defaultValue?: string | null;
+  label?: ReactNode;
+  maxYear?: number;
+  minYear?: number;
+  name: string;
+  onChange?: (value: string) => void;
+  required?: boolean;
+  value?: string;
+}) {
+  const isControlled = typeof value === "string";
+  const normalizedDefaultValue = normalizeDateInputValue(defaultValue);
+  const normalizedControlledValue = normalizeDateInputValue(value);
+  const [internalValue, setInternalValue] = useState(normalizedDefaultValue);
+  const isoValue = isControlled ? normalizedControlledValue : internalValue;
+  const [displayValue, setDisplayValue] = useState(formatDateInputDisplay(isoValue));
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => dateInputCalendarMonth(isoValue));
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const yearOptions = useMemo(() => Array.from(
+    { length: Math.max(0, maxYear - minYear + 1) },
+    (_, index) => minYear + index,
+  ), [maxYear, minYear]);
+  const calendarDays = useMemo(() => {
+    const gridStart = startOfCalendarWeek(startOfCalendarMonth(calendarMonth));
+
+    return Array.from({ length: 42 }, (_, index) => addCalendarDays(gridStart, index));
+  }, [calendarMonth]);
+
+  useEffect(() => {
+    if (!isControlled) {
+      const nextDefaultValue = normalizeDateInputValue(defaultValue);
+
+      setInternalValue(nextDefaultValue);
+      setDisplayValue(formatDateInputDisplay(nextDefaultValue));
+      setCalendarMonth(dateInputCalendarMonth(nextDefaultValue));
+    }
+  }, [defaultValue, isControlled]);
+
+  useEffect(() => {
+    if (isControlled) {
+      setDisplayValue(formatDateInputDisplay(normalizedControlledValue));
+      setCalendarMonth(dateInputCalendarMonth(normalizedControlledValue));
+    }
+  }, [isControlled, normalizedControlledValue]);
+
+  function setDateValue(nextValue: string, nextDisplayValue = formatDateInputDisplay(nextValue)) {
+    const normalizedValue = normalizeDateInputValue(nextValue);
+
+    if (!isControlled) {
+      setInternalValue(normalizedValue);
+    }
+
+    onChange?.(normalizedValue);
+    setDisplayValue(nextDisplayValue);
+    inputRef.current?.setCustomValidity("");
+
+    if (normalizedValue) {
+      setCalendarMonth(dateInputCalendarMonth(normalizedValue));
+    }
+  }
+
+  function handleDisplayChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextDisplayValue = event.target.value;
+    const normalizedValue = normalizeDateInputValue(nextDisplayValue);
+
+    setDisplayValue(nextDisplayValue);
+
+    if (!isControlled) {
+      setInternalValue(normalizedValue);
+    }
+
+    if (normalizedValue) {
+      setCalendarMonth(dateInputCalendarMonth(normalizedValue));
+    }
+
+    onChange?.(normalizedValue);
+    event.target.setCustomValidity(nextDisplayValue.trim() && !normalizedValue ? "Enter a date as MM/DD/YYYY." : "");
+  }
+
+  function handleDisplayBlur() {
+    const normalizedValue = normalizeDateInputValue(displayValue);
+
+    if (displayValue.trim() && !normalizedValue) {
+      inputRef.current?.setCustomValidity("Enter a date as MM/DD/YYYY.");
+      return;
+    }
+
+    setDateValue(normalizedValue);
+  }
+
+  function selectDate(date: Date) {
+    setDateValue(calendarDateKey(date));
+    setIsPickerOpen(false);
+    inputRef.current?.focus();
+  }
+
+  const selectedDateKey = isoValue;
+  const calendarYear = calendarMonth.getFullYear();
+  const calendarMonthIndex = calendarMonth.getMonth();
+
+  return (
+    <div className="min-w-0">
+      {label ? <FieldLabel>{label}</FieldLabel> : null}
+      <input name={name} readOnly type="hidden" value={isoValue} />
+      <div className={`relative ${label ? "mt-2" : ""}`}>
+        <input
+          aria-label={ariaLabel ?? (typeof label === "string" ? label : "Date")}
+          autoComplete={autoComplete}
+          className={`${FieldInputClass(false)} pr-12`}
+          data-dos-date-display={name}
+          inputMode="numeric"
+          onBlur={handleDisplayBlur}
+          onChange={handleDisplayChange}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setIsPickerOpen(false);
+            }
+          }}
+          placeholder="MM/DD/YYYY"
+          ref={inputRef}
+          required={required}
+          type="text"
+          value={displayValue}
+        />
+        <button
+          aria-expanded={isPickerOpen}
+          aria-label={`Choose ${ariaLabel ?? (typeof label === "string" ? label : "date")}`}
+          className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-[#EBF2FF] hover:text-[#2563EB]"
+          onClick={() => setIsPickerOpen((current) => !current)}
+          type="button"
+        >
+          <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+        </button>
+      </div>
+      {isPickerOpen ? (
+        <div className="mt-2 rounded-[20px] border border-[#D6E4F7] bg-white p-3 shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
+          <div className="grid grid-cols-[minmax(0,1fr)_104px] gap-2">
+            <select
+              aria-label="Month"
+              className="min-h-10 rounded-2xl border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+              onChange={(event) => setCalendarMonth(new Date(calendarYear, Number(event.target.value), 1))}
+              value={calendarMonthIndex}
+            >
+              {dateInputMonthLabels.map((month, index) => (
+                <option key={month} value={index}>{month}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Year"
+              className="min-h-10 rounded-2xl border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+              onChange={(event) => setCalendarMonth(new Date(Number(event.target.value), calendarMonthIndex, 1))}
+              value={calendarYear}
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            {dateInputWeekdayLabels.map((weekday, index) => (
+              <span key={`${weekday}-${index}`}>{weekday}</span>
+            ))}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {calendarDays.map((date) => {
+              const key = calendarDateKey(date);
+              const isSelected = key === selectedDateKey;
+              const isOutsideMonth = date.getMonth() !== calendarMonthIndex;
+
+              return (
+                <button
+                  aria-label={new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}
+                  className={`flex aspect-square min-h-8 items-center justify-center rounded-2xl text-sm font-bold transition-colors ${
+                    isSelected
+                      ? "bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_8px_20px_rgba(37,99,235,0.25)]"
+                      : isOutsideMonth
+                        ? "text-[#CBD5E1] hover:bg-[#F8FBFF] hover:text-[#64748B]"
+                        : "text-[#0F172A] hover:bg-[#EBF2FF] hover:text-[#1D4ED8]"
+                  }`}
+                  key={key}
+                  onClick={() => selectDate(date)}
+                  type="button"
+                >
+                  {date.getDate()}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <button
+              className="min-h-9 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
+              onClick={() => setDateValue("")}
+              type="button"
+            >
+              Clear
+            </button>
+            <button
+              className="min-h-9 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE]"
+              onClick={() => selectDate(new Date())}
+              type="button"
+            >
+              Today
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -9903,9 +10194,7 @@ function MeetingFormContent({
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
       <DosFormSection icon="calendar" title="Date">
-        <DosFormField>
-          <input aria-label="Date" className={FieldInputClass(false)} defaultValue={dateDefault} name="table_date" type="date" />
-        </DosFormField>
+        <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
       </DosFormSection>
       <DosFormSection icon="people" title="People">
         {peopleSelector}
@@ -10056,10 +10345,11 @@ function ScheduleMeetingForm({
   workspaceId: string;
 }) {
   const canSyncToGoogle = calendarConnectionIsHealthy(calendarConnection);
+  const [scheduledDate, setScheduledDate] = useState(todayDateValue());
 
   function applySchedulePreset(event: MouseEvent<HTMLButtonElement>, offsetDays: number | null) {
     const form = event.currentTarget.form;
-    const dateInput = form?.elements.namedItem("scheduled_date") as HTMLInputElement | null;
+    const dateInput = form?.querySelector<HTMLInputElement>('[data-dos-date-display="scheduled_date"]') ?? null;
 
     if (!dateInput) {
       return;
@@ -10070,7 +10360,7 @@ function ScheduleMeetingForm({
       return;
     }
 
-    dateInput.value = dateValueFromToday(offsetDays);
+    setScheduledDate(dateValueFromToday(offsetDays));
     dateInput.focus();
   }
 
@@ -10126,9 +10416,7 @@ function ScheduleMeetingForm({
           </div>
         </div>
         <DosFormGrid>
-          <DosFormField label="Date">
-            <input className={FieldInputClass()} defaultValue={todayDateValue()} name="scheduled_date" required type="date" />
-          </DosFormField>
+          <DosDateInput label="Date" name="scheduled_date" onChange={setScheduledDate} required value={scheduledDate} />
           <DosFormField label="Start Time">
             <input className={FieldInputClass()} defaultValue="18:00" name="scheduled_time" required type="time" />
           </DosFormField>
@@ -10319,9 +10607,7 @@ function ReminderFormContent({
       </DosFormSection>
       <DosFormSection icon="calendar" title="Date & Rhythm">
         <DosFormGrid>
-          <DosFormField label="Date">
-            <input className={FieldInputClass()} defaultValue={(reminder?.reminderDate ?? todayDateValue()).slice(0, 10)} name="reminder_date" required type="date" />
-          </DosFormField>
+          <DosDateInput defaultValue={(reminder?.reminderDate ?? todayDateValue()).slice(0, 10)} label="Date" name="reminder_date" required />
           <FormOptionSelect
             defaultValue={defaultRecurrence}
             label="Repeat"
@@ -12933,9 +13219,7 @@ function AdditionalPersonInformation({
             <input className={FieldInputClass()} defaultValue={defaults.occupation} name="occupation" placeholder="What do they do?" />
           </DosFormField>
         </DosFormGrid>
-        <DosFormField label="Birthday">
-          <input className={FieldInputClass()} defaultValue={defaults.birthday} name="birthday" type="date" />
-        </DosFormField>
+        <DosDateInput autoComplete="bday" defaultValue={defaults.birthday} label="Birthday" maxYear={new Date().getFullYear()} name="birthday" />
       </DosFormSection>
       <DosFormSection icon="home" title="Household Information">
         <details className="group overflow-hidden rounded-[20px] border border-[#D6E4F7] bg-white">
@@ -12952,9 +13236,7 @@ function AdditionalPersonInformation({
                 <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} value={householdDraft.spouseLastName} />
               </DosFormField>
             </DosFormGrid>
-            <DosFormField label="Anniversary Date">
-              <input className={FieldInputClass()} defaultValue={defaults.anniversaryDate} name="anniversary_date" type="date" />
-            </DosFormField>
+            <DosDateInput defaultValue={defaults.anniversaryDate} label="Anniversary Date" name="anniversary_date" />
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-3">
                 <FieldLabel>Children</FieldLabel>
@@ -13066,9 +13348,7 @@ function ImportantDatesReminderSection() {
         </DosFormField>
         <div className="grid gap-3 min-[380px]:grid-cols-2">
           <CompactOptionSelect label="Tag" onChange={handleTagChange} options={importantReminderTagOptions} value={tag} />
-          <DosFormField label="Date">
-            <input className={FieldInputClass()} name="important_reminder_date" type="date" />
-          </DosFormField>
+          <DosDateInput label="Date" name="important_reminder_date" />
         </div>
         <div className="grid gap-3 min-[380px]:grid-cols-2">
           <CompactOptionSelect label="Repeats" onChange={(value) => setRepeat(value as ImportantReminderRepeat)} options={importantReminderRepeatOptions} value={repeat} />
@@ -19193,9 +19473,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               </DosFormField>
             </DosFormSection>
             <DosFormSection icon="people" title="Details">
-              <DosFormField label="Date">
-                <input className={FieldInputClass()} defaultValue={todayDateValue()} name="testimony_date" type="date" />
-              </DosFormField>
+              <DosDateInput defaultValue={todayDateValue()} label="Date" name="testimony_date" />
               <FormOptionSelect
                 label="Linked Person"
                 name="field_person_id"
