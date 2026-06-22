@@ -20,7 +20,7 @@ import {
   type RoleInMyLifeValue,
 } from "@/src/lib/dos/relationship-model";
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
-import { isGoogleCalendarConfigured } from "@/src/lib/dos/google-calendar";
+import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -253,6 +253,8 @@ export type DosAppCalendarConnection = {
   googleAccountEmail: string | null;
   googleConfigured: boolean;
   lastSyncedAt: string | null;
+  status?: GoogleCalendarConnectionHealthStatus;
+  statusMessage?: string | null;
 };
 
 export type DosAppOrganizationConnection = {
@@ -508,6 +510,10 @@ type CalendarEventLinkRow = {
   source_id: string;
   source_type: string;
   sync_status: string | null;
+};
+
+type CalendarWorkspaceSyncStateRow = {
+  last_error: string | null;
 };
 
 type RelationshipReminderRow = {
@@ -1026,6 +1032,30 @@ async function loadCalendarEventLinksForWorkspace(supabase: SupabaseAdminClient,
     : result;
 }
 
+async function loadCalendarWorkspaceSyncStateForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("calendar_sync_cursors")
+    .select("last_error")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .is("calendar_source_id", null)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return result.error && isMissingWorkflowTable(result.error, "calendar_sync_cursors")
+    ? { data: null, error: null }
+    : result;
+}
+
+function isGoogleCalendarReconnectState(error: string | null | undefined) {
+  const normalized = error?.toLowerCase() ?? "";
+
+  return normalized.includes("permission")
+    || normalized.includes("scope")
+    || normalized.includes("reconnect");
+}
+
 async function loadRelationshipRemindersForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("relationship_reminders")
@@ -1320,7 +1350,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, calendarConnectionResult, calendarEventLinksResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -1331,6 +1361,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadPrayerPartnersForWorkspace(supabase, workspace),
     loadCalendarConnectionForWorkspace(supabase, workspace.id),
     loadCalendarEventLinksForWorkspace(supabase, workspace.id),
+    loadCalendarWorkspaceSyncStateForWorkspace(supabase, workspace.id),
     loadRelationshipRemindersForWorkspace(supabase, workspace.id),
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
@@ -1338,7 +1369,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -1350,6 +1381,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
         ?? prayerPartnersResult.error?.message
         ?? calendarConnectionResult.error?.message
         ?? calendarEventLinksResult.error?.message
+        ?? calendarWorkspaceSyncStateResult.error?.message
         ?? remindersResult.error?.message
         ?? externalCalendarEventsResult.error?.message
         ?? reviewsFruitResult.error?.message
@@ -1366,6 +1398,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const prayerPartnerRows = (prayerPartnersResult.data ?? []) as PrayerPartnerRow[];
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
+  const calendarWorkspaceSyncStateRow = calendarWorkspaceSyncStateResult.data as CalendarWorkspaceSyncStateRow | null;
   const reminderRows = (remindersResult.data ?? []) as RelationshipReminderRow[];
   const externalCalendarEventRows = (externalCalendarEventsResult.data ?? []) as ExternalCalendarEventRow[];
   const reviewLinkByMeetingId = new Map<string, ReviewLinkRow>();
@@ -1621,6 +1654,12 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     title: reminder.title,
     updatedAt: reminder.updated_at,
   })).sort((first, second) => activityDateValue(first.reminderDate) - activityDateValue(second.reminderDate));
+  const calendarNeedsReconnect = Boolean(calendarConnectionRow && isGoogleCalendarReconnectState(calendarWorkspaceSyncStateRow?.last_error));
+  const calendarConnectionStatus: GoogleCalendarConnectionHealthStatus = calendarConnectionRow
+    ? calendarNeedsReconnect
+      ? "needs_reconnect"
+      : "connected"
+    : "not_connected";
   const calendarConnection = {
     calendarId: calendarConnectionRow?.calendar_id ?? null,
     connected: Boolean(calendarConnectionRow),
@@ -1631,6 +1670,8 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       .map((link) => link.last_synced_at)
       .filter((value): value is string => Boolean(value))
       .sort((first, second) => activityDateValue(second) - activityDateValue(first))[0] ?? null,
+    status: calendarConnectionStatus,
+    statusMessage: calendarNeedsReconnect ? googleCalendarReconnectMessage : null,
   };
   const externalCalendarEvents = externalCalendarEventRows.map((event) => {
     const sourceName = Array.isArray(event.calendar_sources)

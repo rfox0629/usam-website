@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
-import { syncGoogleCalendarSources } from "@/src/lib/dos/google-calendar";
+import { googleCalendarReconnectMessage, syncGoogleCalendarSources } from "@/src/lib/dos/google-calendar";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
-    message: syncResult.status === "needs_reconnect" ? "Reconnect Google Calendar to read events." : null,
+    message: syncResult.status === "needs_reconnect" ? googleCalendarReconnectMessage : null,
     sources: (data ?? []).map((source) => ({
       accessRole: source.access_role,
       externalCalendarId: source.external_calendar_id,

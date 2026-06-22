@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
-import { pullFutureGoogleCalendarEvents } from "@/src/lib/dos/google-calendar";
+import { googleCalendarReconnectMessage, pullFutureGoogleCalendarEvents } from "@/src/lib/dos/google-calendar";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     if (result.status === "needs_reconnect") {
       return NextResponse.json({
         eventCount: result.eventCount,
-        message: "Reconnect Google Calendar to read events.",
+        message: googleCalendarReconnectMessage,
         sourceCount: result.sourceCount,
         status: result.status,
       });

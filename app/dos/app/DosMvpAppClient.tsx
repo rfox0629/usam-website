@@ -52,6 +52,8 @@ const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter',
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
 const dosPhoneShellClassName = "relative isolate mx-auto flex h-[100dvh] w-full max-w-[430px] overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[100dvh] md:max-h-none md:max-w-none md:rounded-none md:border-0 md:bg-[#F8FBFF] md:shadow-none";
 const dosDawnShellClassName = "bg-[radial-gradient(circle_at_78%_8%,rgba(219,234,254,0.92),transparent_34%),radial-gradient(circle_at_86%_92%,rgba(254,215,170,0.54),transparent_36%),radial-gradient(circle_at_48%_62%,rgba(221,214,254,0.48),transparent_42%),linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_48%,#FFF4EC_100%)]";
+const googleCalendarReconnectCopy = "Calendar permissions need to be updated.";
+const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choose calendars to import or refresh your connection.";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
 type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
@@ -6283,6 +6285,22 @@ function calendarSourceSummaries(events: DosAppExternalCalendarEvent[]) {
   return Array.from(summaries.values()).sort((first, second) => first.name.localeCompare(second.name));
 }
 
+function calendarConnectionStatus(connection: DosAppCalendarConnection) {
+  return connection.status ?? (connection.connected ? "connected" : "not_connected");
+}
+
+function calendarConnectionNeedsReconnect(connection: DosAppCalendarConnection) {
+  return calendarConnectionStatus(connection) === "needs_reconnect";
+}
+
+function calendarConnectionIsHealthy(connection: DosAppCalendarConnection) {
+  return calendarConnectionStatus(connection) === "connected";
+}
+
+function googleCalendarConnectHref(workspaceId: string) {
+  return `/api/dos/app/calendar/google/connect?workspaceId=${encodeURIComponent(workspaceId)}&next=${encodeURIComponent(`/dos/app?workspace=${workspaceId}`)}`;
+}
+
 function DesktopAvailabilityPanel({
   calendarConnection,
   externalCalendarEvents,
@@ -6435,7 +6453,7 @@ function DesktopAvailabilityPanel({
               </div>
             )) : (
               <p className="rounded-[18px] border border-dashed border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#64748B]">
-                No imported Google sources loaded yet.
+                {calendarConnectionNeedsReconnect(calendarConnection) ? googleCalendarReconnectCopy : googleCalendarEmptyStateCopy}
               </p>
             )}
           </div>
@@ -7416,36 +7434,54 @@ function CalendarUpcomingCard({
 
 function CalendarSyncStatus({
   calendarConnection,
+  googleEventCount,
   isSyncingGoogleCalendar,
   onSyncGoogleCalendar,
+  workspaceId,
 }: {
   calendarConnection: DosAppCalendarConnection;
+  googleEventCount: number;
   isSyncingGoogleCalendar: boolean;
   onSyncGoogleCalendar: () => void;
+  workspaceId: string;
 }) {
   if (!calendarConnection.connected) {
     return null;
   }
 
+  const needsReconnect = calendarConnectionNeedsReconnect(calendarConnection);
   const lastSyncedLabel = calendarConnection.lastSyncedAt ? `Last synced ${formatTime(calendarConnection.lastSyncedAt)}` : "Automatic sync is on";
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2">
-      <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold text-[#15803D]">
+      <span className={`inline-flex min-w-0 items-center gap-1.5 text-xs font-bold ${needsReconnect ? "text-[#B45309]" : "text-[#15803D]"}`}>
         <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={1.9} />
-        <span className="truncate">Google Calendar Connected</span>
+        <span className="truncate">{needsReconnect ? "Reconnect Google Calendar" : "Google Calendar Connected"}</span>
       </span>
-      <button
-        className="inline-flex min-h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
-        disabled={isSyncingGoogleCalendar}
-        onClick={onSyncGoogleCalendar}
-        style={{ fontFamily: font.rajdhani }}
-        type="button"
-      >
-        <RefreshCw className={`h-3 w-3 ${isSyncingGoogleCalendar ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={1.9} />
-        Refresh
-      </button>
-      <span className="col-span-2 text-xs font-semibold text-[#64748B]">{lastSyncedLabel}</span>
+      {needsReconnect ? (
+        <a
+          className="inline-flex min-h-7 shrink-0 items-center justify-center rounded-full border border-[#FDBA74] bg-white px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#B45309]"
+          href={googleCalendarConnectHref(workspaceId)}
+          style={{ fontFamily: font.rajdhani }}
+        >
+          Reconnect
+        </a>
+      ) : (
+        <button
+          className="inline-flex min-h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8] disabled:opacity-60"
+          disabled={isSyncingGoogleCalendar}
+          onClick={onSyncGoogleCalendar}
+          style={{ fontFamily: font.rajdhani }}
+          type="button"
+        >
+          <RefreshCw className={`h-3 w-3 ${isSyncingGoogleCalendar ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={1.9} />
+          Refresh
+        </button>
+      )}
+      <span className="col-span-2 text-xs font-semibold text-[#64748B]">{needsReconnect ? googleCalendarReconnectCopy : lastSyncedLabel}</span>
+      {!needsReconnect && googleEventCount === 0 ? (
+        <span className="col-span-2 text-xs leading-5 text-[#64748B]">{googleCalendarEmptyStateCopy}</span>
+      ) : null}
     </div>
   );
 }
@@ -7534,6 +7570,7 @@ function MeetingCalendarView({
   calendarFilter,
   calendarConnection,
   calendarSyncMessage,
+  googleEventCount,
   isSyncingGoogleCalendar,
   items,
   leaderReflections,
@@ -7554,10 +7591,12 @@ function MeetingCalendarView({
   selectedDateKey,
   viewMode,
   onViewModeChange,
+  workspaceId,
 }: {
   calendarFilter: MeetingCalendarFilter;
   calendarConnection: DosAppCalendarConnection;
   calendarSyncMessage: string;
+  googleEventCount: number;
   isSyncingGoogleCalendar: boolean;
   items: MeetingCalendarItem[];
   leaderReflections: DosAppLeaderReflection[];
@@ -7578,6 +7617,7 @@ function MeetingCalendarView({
   selectedDateKey: string;
   viewMode: MeetingCalendarViewMode;
   onViewModeChange: (value: MeetingCalendarViewMode) => void;
+  workspaceId: string;
 }) {
   const [selectedQuickItemId, setSelectedQuickItemId] = useState<string | null>(null);
   const monthStart = startOfCalendarMonth(month);
@@ -7587,7 +7627,7 @@ function MeetingCalendarView({
   const weekStart = startOfCalendarWeek(selectedDate);
   const weekEnd = addCalendarDays(weekStart, 6);
   const weekDays = Array.from({ length: 7 }, (_, index) => addCalendarDays(weekStart, index));
-  const googleCalendarConnected = calendarConnection.connected;
+  const googleCalendarConnected = calendarConnection.connected && !calendarConnectionNeedsReconnect(calendarConnection);
 
   const calendarDays = Array.from({ length: 42 }, (_, index) => {
     const date = new Date(gridStart);
@@ -7613,6 +7653,10 @@ function MeetingCalendarView({
     return map;
   }, new Map<string, MeetingCalendarItem[]>());
   const selectedQuickItem = selectedQuickItemId ? filteredItems.find((item) => item.id === selectedQuickItemId) ?? null : null;
+  const sourceStatusText = calendarSyncMessage
+    || (calendarConnectionNeedsReconnect(calendarConnection)
+      ? googleCalendarReconnectCopy
+      : googleCalendarConnected ? "Google read-only events included." : "Connect Google to read events.");
   const weekItems = filteredItems.filter((item) => {
     const date = parseDisplayDate(item.date);
     const weekEndDay = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 23, 59, 59, 999);
@@ -7749,8 +7793,10 @@ function MeetingCalendarView({
             <SegmentedTabs onChange={onViewModeChange} options={meetingCalendarViewTabs} value={viewMode} />
             <CalendarSyncStatus
               calendarConnection={calendarConnection}
+              googleEventCount={googleEventCount}
               isSyncingGoogleCalendar={isSyncingGoogleCalendar}
               onSyncGoogleCalendar={onSyncGoogleCalendar}
+              workspaceId={workspaceId}
             />
           </div>
         </header>
@@ -7880,7 +7926,7 @@ function MeetingCalendarView({
       <details className="hidden rounded-[22px] border border-[#DCEBFF] bg-white p-3 shadow-[0_10px_24px_rgba(37,99,235,0.045)] md:block">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#0F172A] [&::-webkit-details-marker]:hidden">
           <span>Sources</span>
-          <span className="text-xs font-semibold text-[#64748B]">{calendarSyncMessage || (googleCalendarConnected ? "Google read-only events included." : "Connect Google to read events.")}</span>
+          <span className="text-xs font-semibold text-[#64748B]">{sourceStatusText}</span>
         </summary>
         <div className="mt-3 grid gap-3">
           <SegmentedTabs onChange={onCalendarFilterChange} options={meetingCalendarFilterTabs} value={calendarFilter} />
@@ -8800,15 +8846,24 @@ function CalendarConnectionCard({
   onDisconnect?: () => void;
   workspaceId: string;
 }) {
-  const connectHref = `/api/dos/app/calendar/google/connect?workspaceId=${encodeURIComponent(workspaceId)}&next=${encodeURIComponent(`/dos/app?workspace=${workspaceId}`)}`;
-  const statusLabel = calendarConnection.connected ? "Connected" : "Not Connected";
-  const statusClassName = calendarConnection.connected
-    ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
-    : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]";
-  const statusDetail = calendarConnection.connected
-    ? calendarConnection.googleAccountEmail ?? "Google Calendar is ready."
-    : calendarConnection.googleConfigured ? "Connect Google Calendar to sync." : "Google setup needed before live sync.";
-  const lastSyncLabel = calendarConnection.lastSyncedAt ? `Last sync ${formatDateTime(calendarConnection.lastSyncedAt)}` : "Tables and reminders still save locally when disconnected.";
+  const needsReconnect = calendarConnectionNeedsReconnect(calendarConnection);
+  const isHealthy = calendarConnectionIsHealthy(calendarConnection);
+  const statusLabel = needsReconnect ? "Reconnect Google Calendar" : calendarConnection.connected ? "Connected" : "Not Connected";
+  const statusClassName = needsReconnect
+    ? "border-[#FDBA74] bg-[#FFF7ED] text-[#B45309]"
+    : isHealthy
+      ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
+      : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]";
+  const statusDetail = needsReconnect
+    ? googleCalendarReconnectCopy
+    : calendarConnection.connected
+      ? calendarConnection.googleAccountEmail ?? "Google Calendar is ready."
+      : calendarConnection.googleConfigured ? "Connect Google Calendar to sync." : "Google setup needed before live sync.";
+  const lastSyncLabel = needsReconnect
+    ? "Refresh is available after reconnect."
+    : calendarConnection.lastSyncedAt
+      ? `Last sync ${formatDateTime(calendarConnection.lastSyncedAt)}`
+      : "Tables and reminders still save locally when disconnected.";
 
   return (
     <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
@@ -8830,9 +8885,9 @@ function CalendarConnectionCard({
         </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        {!calendarConnection.connected && calendarConnection.googleConfigured ? (
-          <a className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" href={connectHref}>
-            Connect Google Calendar
+        {(!calendarConnection.connected || needsReconnect) && calendarConnection.googleConfigured ? (
+          <a className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" href={googleCalendarConnectHref(workspaceId)}>
+            {needsReconnect ? "Reconnect Google Calendar" : "Connect Google Calendar"}
           </a>
         ) : null}
         {calendarConnection.connected && onDisconnect ? (
@@ -8889,6 +8944,8 @@ function ScheduleMeetingForm({
   selectedPersonIds: string[];
   workspaceId: string;
 }) {
+  const canSyncToGoogle = calendarConnectionIsHealthy(calendarConnection);
+
   function applySchedulePreset(event: MouseEvent<HTMLButtonElement>, offsetDays: number | null) {
     const form = event.currentTarget.form;
     const dateInput = form?.elements.namedItem("scheduled_date") as HTMLInputElement | null;
@@ -8976,9 +9033,9 @@ function ScheduleMeetingForm({
             </select>
           </DosFormField>
           <DosFormToggleRow
-            defaultChecked={calendarConnection.connected}
-            description={calendarConnection.connected ? "Create a calendar event." : "Connect Google Calendar to sync."}
-            disabled={!calendarConnection.connected}
+            defaultChecked={canSyncToGoogle}
+            description={canSyncToGoogle ? "Create a calendar event." : calendarConnectionNeedsReconnect(calendarConnection) ? "Reconnect Google Calendar to sync." : "Connect Google Calendar to sync."}
+            disabled={!canSyncToGoogle}
             name="google_sync_enabled"
             title="Sync to Google"
           />
@@ -9035,6 +9092,7 @@ function ReminderFormContent({
     shortcutPerson?.childrenNames ? "Child birthday" : null,
     shortcutPerson?.spouseName || shortcutPerson?.householdNotes ? "Anniversary" : null,
   ].filter((title): title is string => Boolean(title))));
+  const canSyncToGoogle = calendarConnectionIsHealthy(calendarConnection);
 
   function applyReminderTitle(event: MouseEvent<HTMLButtonElement>, title: string) {
     const form = event.currentTarget.form;
@@ -9190,9 +9248,9 @@ function ReminderFormContent({
       </DosFormSection>
       <DosFormSection icon="calendar" title="Sync">
         <DosFormToggleRow
-          defaultChecked={calendarConnection.connected && reminder?.googleSyncEnabled !== false}
-          description={calendarConnection.connected ? "Create or update a calendar event." : "Connect Google Calendar to sync. Local save still works."}
-          disabled={!calendarConnection.connected}
+          defaultChecked={canSyncToGoogle && reminder?.googleSyncEnabled !== false}
+          description={canSyncToGoogle ? "Create or update a calendar event." : calendarConnectionNeedsReconnect(calendarConnection) ? "Reconnect Google Calendar to sync. Local save still works." : "Connect Google Calendar to sync. Local save still works."}
+          disabled={!canSyncToGoogle}
           name="google_sync_enabled"
           title="Sync to Google"
         />
@@ -14214,6 +14272,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isSyncingGoogleCalendar, setIsSyncingGoogleCalendar] = useState(false);
   const [isSubmittingUsamApplication, setIsSubmittingUsamApplication] = useState(false);
   const [calendarSyncMessage, setCalendarSyncMessage] = useState("");
+  const [calendarConnectionOverride, setCalendarConnectionOverride] = useState<Partial<DosAppCalendarConnection>>({});
   const [usamApplicationMessage, setUsamApplicationMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [usamApplication, setUsamApplication] = useState(data.usamApplication);
   const [usamApplicationDraft, setUsamApplicationDraft] = useState<UsamApplicationDraft>(() => defaultUsamApplicationDraft(data));
@@ -14258,6 +14317,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
   const [selectedScripture, setSelectedScripture] = useState<ScriptureQuickViewState | null>(null);
   const [newReminderType, setNewReminderType] = useState<DosAppRelationshipReminder["reminderType"]>("follow_up");
+  const calendarConnection = useMemo(() => ({
+    ...data.calendarConnection,
+    ...calendarConnectionOverride,
+  }), [calendarConnectionOverride, data.calendarConnection]);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
@@ -14632,6 +14695,42 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setFirstLaunchWalkthroughStep(0);
     setIsFirstLaunchWalkthroughOpen(true);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (isPreview || !data.calendarConnection.connected) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/dos/app/calendar/google/status?workspaceId=${encodeURIComponent(data.workspace.id)}`);
+        const result = await response.json().catch(() => ({})) as {
+          lastSyncedAt?: string | null;
+          message?: string | null;
+          status?: DosAppCalendarConnection["status"];
+        };
+
+        if (!response.ok || cancelled || !result.status) {
+          return;
+        }
+
+        setCalendarConnectionOverride((current) => ({
+          ...current,
+          lastSyncedAt: result.lastSyncedAt ?? data.calendarConnection.lastSyncedAt,
+          status: result.status,
+          statusMessage: result.status === "needs_reconnect" ? result.message ?? googleCalendarReconnectCopy : null,
+        }));
+      } catch {
+        // Keep the server-rendered connection state if the lightweight health check fails.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data.calendarConnection.connected, data.calendarConnection.lastSyncedAt, data.workspace.id, isPreview]);
 
   useEffect(() => {
     setIsDesktopActionMenuOpen(false);
@@ -15221,8 +15320,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return {
       method: "POST" as const,
       payload: {
-        googleSyncEnabled: destination === "calendar" && data.calendarConnection.connected,
-        google_sync_enabled: destination === "calendar" && data.calendarConnection.connected,
+        googleSyncEnabled: destination === "calendar" && calendarConnectionIsHealthy(calendarConnection),
+        google_sync_enabled: destination === "calendar" && calendarConnectionIsHealthy(calendarConnection),
         notes: joinReminderNotesMetadata(notes, meta),
         personId,
         person_id: personId,
@@ -15326,7 +15425,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return;
     }
 
-    if (!data.calendarConnection.connected || isCalendarDisconnecting) {
+    if (!calendarConnection.connected || isCalendarDisconnecting) {
       return;
     }
 
@@ -15371,8 +15470,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return;
     }
 
-    if (!data.calendarConnection.connected || isSyncingGoogleCalendar) {
+    if (!calendarConnection.connected || isSyncingGoogleCalendar) {
       setCalendarSyncMessage("Connect Google Calendar to read events.");
+      return;
+    }
+
+    if (calendarConnectionNeedsReconnect(calendarConnection)) {
+      setCalendarSyncMessage(googleCalendarReconnectCopy);
       return;
     }
 
@@ -15405,7 +15509,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }
 
         if (result.status === "needs_reconnect" || result.status === "not_connected") {
-          setCalendarSyncMessage(result.message ?? "Reconnect Google Calendar to read events.");
+          setCalendarSyncMessage(result.status === "needs_reconnect" ? result.message ?? googleCalendarReconnectCopy : result.message ?? "Connect Google Calendar to read events.");
+          setCalendarConnectionOverride((current) => ({
+            ...current,
+            status: result.status === "needs_reconnect" ? "needs_reconnect" : "not_connected",
+            statusMessage: result.status === "needs_reconnect" ? result.message ?? googleCalendarReconnectCopy : null,
+          }));
           return;
         }
 
@@ -16822,8 +16931,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   {meetingsView === "calendar" ? (
                     <MeetingCalendarView
                       calendarFilter={meetingCalendarFilter}
-                      calendarConnection={data.calendarConnection}
+                      calendarConnection={calendarConnection}
                       calendarSyncMessage={calendarSyncMessage}
+                      googleEventCount={data.externalCalendarEvents.length}
                       isSyncingGoogleCalendar={isSyncingGoogleCalendar}
                       items={visibleMeetingCalendarItems}
                       leaderReflections={data.leaderReflections}
@@ -16844,10 +16954,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       selectedDateKey={selectedMeetingsCalendarDate}
                       viewMode={meetingCalendarViewMode}
                       onViewModeChange={setMeetingCalendarViewMode}
+                      workspaceId={data.workspace.id}
                     />
                   ) : (
                     <DesktopAvailabilityPanel
-                      calendarConnection={data.calendarConnection}
+                      calendarConnection={calendarConnection}
                       externalCalendarEvents={data.externalCalendarEvents}
                       isDisconnecting={isCalendarDisconnecting}
                       onDisconnectCalendar={handleDisconnectCalendar}
@@ -17747,7 +17858,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         <Sheet onClose={closeForm} showEyebrow={false} title="Schedule Table">
           <ScheduleMeetingForm
             allPeople={people}
-            calendarConnection={data.calendarConnection}
+            calendarConnection={calendarConnection}
             errorMessage={errorMessage}
             isCalendarDisconnecting={isCalendarDisconnecting}
             isCreatingPerson={isCreatingMeetingPerson}
@@ -17771,7 +17882,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       {formMode === "reminder" ? (
         <Sheet onClose={closeForm} showEyebrow={false} title={selectedReminder ? (selectedReminder.reminderType === "prayer" ? "Edit Prayer Request" : "Edit Reminder") : (newReminderType === "prayer" ? "Add Prayer Request" : "Add Reminder")}>
           <ReminderFormContent
-            calendarConnection={data.calendarConnection}
+            calendarConnection={calendarConnection}
             defaultPersonId={selectedMeetingPersonIds[0] ?? selectedPerson?.id ?? null}
             defaultReminderType={newReminderType}
             errorMessage={errorMessage}

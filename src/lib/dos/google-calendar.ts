@@ -8,6 +8,11 @@ const googleTokenUrl = "https://oauth2.googleapis.com/token";
 const googleUserInfoUrl = "https://www.googleapis.com/oauth2/v2/userinfo";
 const googleCalendarApiBase = "https://www.googleapis.com/calendar/v3";
 const tokenPrefix = "dos-gcal-v1";
+const googleCalendarReconnectError = "Calendar permissions need to be updated.";
+
+export type GoogleCalendarConnectionHealthStatus = "connected" | "needs_reconnect" | "not_connected";
+
+export const googleCalendarReconnectMessage = googleCalendarReconnectError;
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -378,6 +383,12 @@ export async function upsertConnectedGoogleCalendar({
     throw new Error(error.message);
   }
 
+  await recordWorkspaceCalendarScopeState({
+    error: null,
+    supabase,
+    workspaceId,
+  }).catch(() => undefined);
+
   return data?.id ? String(data.id) : null;
 }
 
@@ -578,6 +589,60 @@ async function upsertCalendarSources({
   return data ?? [];
 }
 
+async function recordWorkspaceCalendarScopeState({
+  error,
+  supabase,
+  workspaceId,
+}: {
+  error: string | null;
+  supabase: SupabaseAdminClient;
+  workspaceId: string;
+}) {
+  const now = new Date().toISOString();
+  const { data: existingRows, error: readError } = await supabase
+    .from("calendar_sync_cursors")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .is("calendar_source_id", null)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (readError) {
+    return;
+  }
+
+  const existingId = existingRows?.[0]?.id;
+
+  if (existingId) {
+    await supabase
+      .from("calendar_sync_cursors")
+      .update({
+        last_error: error,
+        last_finished_at: now,
+        last_started_at: now,
+      })
+      .eq("workspace_id", workspaceId)
+      .eq("provider", "google")
+      .is("calendar_source_id", null);
+    return;
+  }
+
+  if (!error) {
+    return;
+  }
+
+  await supabase
+    .from("calendar_sync_cursors")
+    .insert({
+      last_error: error,
+      last_finished_at: now,
+      last_started_at: now,
+      provider: "google",
+      workspace_id: workspaceId,
+    });
+}
+
 export async function syncGoogleCalendarSources(workspaceId: string, supabase = createSupabaseAdminClient()) {
   const connectedCalendar = await loadConnectedCalendar(supabase, workspaceId);
 
@@ -620,9 +685,21 @@ export async function syncGoogleCalendarSources(workspaceId: string, supabase = 
       workspaceId,
     });
 
+    await recordWorkspaceCalendarScopeState({
+      error: null,
+      supabase,
+      workspaceId,
+    }).catch(() => undefined);
+
     return { sources, status: "synced" as const };
   } catch (error) {
     if (isGoogleCalendarScopeError(error)) {
+      await recordWorkspaceCalendarScopeState({
+        error: googleCalendarReconnectError,
+        supabase,
+        workspaceId,
+      }).catch(() => undefined);
+
       return { sources: [], status: "needs_reconnect" as const };
     }
 
@@ -813,6 +890,12 @@ export async function pullFutureGoogleCalendarEvents({
       eventCount += records.length;
     } catch (error) {
       if (isGoogleCalendarScopeError(error)) {
+        await recordWorkspaceCalendarScopeState({
+          error: googleCalendarReconnectError,
+          supabase,
+          workspaceId,
+        }).catch(() => undefined);
+
         return { eventCount, sourceCount: (sources ?? []).length, status: "needs_reconnect" as const };
       }
 
@@ -835,6 +918,50 @@ export async function pullFutureGoogleCalendarEvents({
   }
 
   return { eventCount, sourceCount: (sources ?? []).length, status: "synced" as const };
+}
+
+export async function checkGoogleCalendarConnectionHealth(workspaceId: string, supabase = createSupabaseAdminClient()) {
+  const connectedCalendar = await loadConnectedCalendar(supabase, workspaceId);
+
+  if (!connectedCalendar) {
+    return { message: null, status: "not_connected" as const };
+  }
+
+  try {
+    const accessToken = await calendarAccessToken(supabase, connectedCalendar);
+    const params = new URLSearchParams({
+      maxResults: "1",
+      minAccessRole: "reader",
+      showDeleted: "false",
+      showHidden: "false",
+    });
+    const response = await fetch(`${googleCalendarApiBase}/users/me/calendarList?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    await readGoogleResponse<{ items?: GoogleCalendarListItem[] }>(response);
+    await recordWorkspaceCalendarScopeState({
+      error: null,
+      supabase,
+      workspaceId,
+    }).catch(() => undefined);
+
+    return { message: null, status: "connected" as const };
+  } catch (error) {
+    if (isGoogleCalendarScopeError(error)) {
+      await recordWorkspaceCalendarScopeState({
+        error: googleCalendarReconnectError,
+        supabase,
+        workspaceId,
+      }).catch(() => undefined);
+
+      return { message: googleCalendarReconnectError, status: "needs_reconnect" as const };
+    }
+
+    throw error;
+  }
 }
 
 export async function deleteGoogleCalendarEventForSource(

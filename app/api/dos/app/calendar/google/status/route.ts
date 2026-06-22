@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { getDosAuthorization } from "@/src/lib/dos/auth";
-import { isGoogleCalendarConfigured } from "@/src/lib/dos/google-calendar";
+import { checkGoogleCalendarConnectionHealth, isGoogleCalendarConfigured } from "@/src/lib/dos/google-calendar";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -56,6 +56,9 @@ export async function GET(request: Request) {
     .not("last_synced_at", "is", null)
     .order("last_synced_at", { ascending: false })
     .limit(1);
+  const health = data
+    ? await checkGoogleCalendarConnectionHealth(workspaceId, supabase).catch(() => ({ message: null, status: "connected" as const }))
+    : { message: null, status: "not_connected" as const };
 
   return NextResponse.json({
     calendarId: data?.calendar_id ?? null,
@@ -64,5 +67,8 @@ export async function GET(request: Request) {
     googleAccountEmail: data?.google_account_email ?? null,
     googleConfigured: isGoogleCalendarConfigured(),
     lastSyncedAt: syncLinks?.[0]?.last_synced_at ?? null,
+    message: health.message,
+    reconnectRequired: health.status === "needs_reconnect",
+    status: health.status,
   });
 }
