@@ -653,15 +653,9 @@ function supportSummary(draft: ApplicationDraft) {
 function generatedWorkspaceName(draft: ApplicationDraft) {
   const firstName = draft.firstName.trim();
   const lastName = draft.lastName.trim();
-  const spouseLastName = draft.spouseLastName.trim();
-
-  if (lastName && spouseLastName && spouseLastName.toLowerCase() === lastName.toLowerCase()) {
-    return `${lastName} Family`;
-  }
-
   const personName = [firstName, lastName].filter(Boolean).join(" ");
 
-  return personName ? `${personName} DOS` : "Your DOS workspace";
+  return personName || "Your DOS workspace";
 }
 
 function fieldLabel(value: string) {

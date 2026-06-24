@@ -554,7 +554,7 @@ export async function POST(request: Request) {
   const state = asString(payload.state).toUpperCase().slice(0, 2);
   const city = asString(payload.city);
   const location = locationText(city, state);
-  const workspaceName = asString(payload.workspaceName) || `${applicantName} DOS`;
+  const workspaceName = applicantName || asString(payload.workspaceName) || "DOS Workspace";
   const createdIds: CreatedResourceIds = {};
 
   try {

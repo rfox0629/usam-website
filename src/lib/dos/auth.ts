@@ -100,13 +100,21 @@ type DosScopeAuthorization = Pick<DosAuthorizedUser, "email" | "userId"> & {
   phone?: string | null;
 };
 
+const canonicalLaunchWorkspaceSlugs: Record<string, string> = {
+  "bond-family": "dirk-bond",
+};
+
+const legacyWorkspaceSlugAliases: Record<string, string> = {
+  "dirk-bond": "bond-family",
+};
+
 const launchWorkspaceDisplayNames: Record<string, string> = {
-  "ryan-brooke-fox": "Ryan Fox",
+  "dirk-bond": "Dirk Bond",
 };
 
 const hiddenLaunchWorkspaceSlugs = new Set([
   "fox-family",
-  "ryan-fox",
+  "ryan-brooke-fox",
 ]);
 
 function isUuid(value: string) {
@@ -183,6 +191,20 @@ function workspaceSlug(value: string) {
     .slice(0, 64);
 }
 
+function canonicalLaunchWorkspaceSlug(slug: string) {
+  return canonicalLaunchWorkspaceSlugs[slug] ?? slug;
+}
+
+function resolveWorkspaceRef(workspaceRef: string) {
+  if (isUuid(workspaceRef)) {
+    return workspaceRef;
+  }
+
+  const slug = workspaceRef.trim().toLowerCase();
+
+  return legacyWorkspaceSlugAliases[slug] ?? slug;
+}
+
 function normalizedPhone(value: string | null | undefined) {
   const digits = value?.replace(/\D/g, "") ?? "";
 
@@ -205,12 +227,13 @@ async function loadWorkspaceByRef(workspaceRef: string | null | undefined) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const resolvedRef = resolveWorkspaceRef(workspaceRef);
   const query = supabase
     .from("missionary_households")
     .select("id, slug, display_name");
-  const { data, error } = isUuid(workspaceRef)
-    ? await query.eq("id", workspaceRef).maybeSingle()
-    : await query.eq("slug", workspaceRef).maybeSingle();
+  const { data, error } = isUuid(resolvedRef)
+    ? await query.eq("id", resolvedRef).maybeSingle()
+    : await query.eq("slug", resolvedRef).maybeSingle();
 
   if (error) {
     throw new Error(error.message);
@@ -280,14 +303,16 @@ function launchWorkspaceStatus(workspace: LaunchWorkspaceRow) {
 }
 
 function launchWorkspaceFromRow(workspace: LaunchWorkspaceRow): DosLaunchWorkspace {
+  const slug = canonicalLaunchWorkspaceSlug(workspace.slug);
+
   return {
-    displayName: launchWorkspaceDisplayNames[workspace.slug] ?? workspace.display_name,
-    href: `/dos/app?workspace=${encodeURIComponent(workspace.slug)}`,
+    displayName: launchWorkspaceDisplayNames[slug] ?? workspace.display_name,
+    href: `/dos/app?workspace=${encodeURIComponent(slug)}`,
     id: workspace.id,
     isConfirmedDefault: isConfirmedWorkspace(workspace),
     isLikelyTest: isLikelyTestWorkspace(workspace),
     lastUpdatedAt: workspace.updated_at,
-    slug: workspace.slug,
+    slug,
     statusLabel: launchWorkspaceStatus(workspace),
   };
 }
@@ -314,10 +339,7 @@ function shouldShowInDosLauncher(workspace: LaunchWorkspaceRow) {
 }
 
 function visibleLaunchWorkspaceRows(workspaces: LaunchWorkspaceRow[]) {
-  const visibleWorkspaces = workspaces.filter(shouldShowInDosLauncher);
-  const preferredWorkspace = visibleWorkspaces.find((workspace) => workspace.slug === "ryan-brooke-fox");
-
-  return preferredWorkspace ? [preferredWorkspace] : visibleWorkspaces;
+  return workspaces.filter(shouldShowInDosLauncher);
 }
 
 async function loadLaunchWorkspaceRowsByIds(workspaceIds: string[]) {
