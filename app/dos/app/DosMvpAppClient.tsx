@@ -3143,7 +3143,6 @@ function VoiceTextarea({
   const savedSelectionRef = useRef<{ end: number; start: number } | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
-  const [liveTranscript, setLiveTranscript] = useState("");
 
   useEffect(() => {
     setIsSupported(Boolean(getSpeechRecognitionConstructor()));
@@ -3203,7 +3202,6 @@ function VoiceTextarea({
     };
 
     voiceSessionRef.current = session;
-    setLiveTranscript("");
 
     return session;
   }
@@ -3243,33 +3241,25 @@ function VoiceTextarea({
     recognition.interimResults = true;
     recognition.lang = document.documentElement.lang || "en-US";
     recognition.onresult = (event) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
+      const transcriptParts: string[] = [];
 
       for (let index = 0; index < event.results.length; index += 1) {
         const result = event.results[index];
-        const transcript = result?.[0]?.transcript ?? "";
+        const transcript = result?.[0]?.transcript?.replace(/\s+/g, " ").trim();
 
-        if (result?.isFinal) {
-          finalTranscript += ` ${transcript}`;
-        } else {
-          interimTranscript += ` ${transcript}`;
+        if (transcript) {
+          transcriptParts.push(transcript);
         }
       }
 
-      const liveText = `${finalTranscript} ${interimTranscript}`.trim();
-
-      applyVoiceTranscript(liveText);
-      setLiveTranscript((interimTranscript || finalTranscript).replace(/\s+/g, " ").trim());
+      applyVoiceTranscript(transcriptParts.join(" "));
     };
     recognition.onerror = () => {
       setIsListening(false);
-      setLiveTranscript("");
       voiceSessionRef.current = null;
     };
     recognition.onend = () => {
       setIsListening(false);
-      setLiveTranscript("");
       voiceSessionRef.current = null;
     };
     recognitionRef.current = recognition;
@@ -3332,15 +3322,6 @@ function VoiceTextarea({
           <span className="max-[360px]:sr-only">{isListening ? "Listening" : "Voice"}</span>
         </button>
       </div>
-      {isListening ? (
-        <div className="mt-2 flex items-start gap-2 rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">
-          <span className="mt-1 flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-[#2563EB]" aria-hidden="true" />
-          <span className="min-w-0">
-            <span className="font-black">Listening</span>
-            <span className="text-[#475569]"> · {liveTranscript || "Start speaking. Your words will appear here."}</span>
-          </span>
-        </div>
-      ) : null}
     </div>
   );
 }
