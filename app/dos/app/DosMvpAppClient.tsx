@@ -3088,6 +3088,168 @@ function FieldTextareaClass(spaced = true) {
   return `${spaced ? "mt-2 " : ""}min-h-24 w-full resize-none rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
 }
 
+type SpeechRecognitionResultLike = {
+  isFinal?: boolean;
+  [index: number]: { transcript?: string };
+};
+
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: SpeechRecognitionResultLike;
+  };
+};
+
+type SpeechRecognitionLike = {
+  abort: () => void;
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+};
+
+function getSpeechRecognitionConstructor() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const speechWindow = window as SpeechRecognitionWindow;
+
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
+}
+
+function VoiceTextarea({
+  className = "",
+  disabled,
+  ...props
+}: Omit<ComponentProps<"textarea">, "ref">) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [isSupported, setIsSupported] = useState(false);
+
+  useEffect(() => {
+    setIsSupported(Boolean(getSpeechRecognitionConstructor()));
+
+    return () => {
+      recognitionRef.current?.abort();
+    };
+  }, []);
+
+  function appendTranscript(transcript: string) {
+    const textarea = textareaRef.current;
+    const cleanTranscript = transcript.replace(/\s+/g, " ").trim();
+
+    if (!textarea || !cleanTranscript) {
+      return;
+    }
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    const before = textarea.value.slice(0, start);
+    const after = textarea.value.slice(end);
+    const prefix = before && !/\s$/.test(before) ? " " : "";
+    const suffix = after && !/^\s/.test(after) ? " " : "";
+    const nextValue = `${before}${prefix}${cleanTranscript}${suffix}${after}`;
+    const nextCursor = before.length + prefix.length + cleanTranscript.length;
+    const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+
+    valueSetter?.call(textarea, nextValue);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.focus();
+    textarea.setSelectionRange(nextCursor, nextCursor);
+  }
+
+  function startListening() {
+    const Recognition = getSpeechRecognitionConstructor();
+
+    if (!Recognition) {
+      return;
+    }
+
+    recognitionRef.current?.abort();
+
+    const recognition = new Recognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = document.documentElement.lang || "en-US";
+    recognition.onresult = (event) => {
+      let transcript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+
+        if (result?.isFinal === false) {
+          continue;
+        }
+
+        transcript += ` ${result?.[0]?.transcript ?? ""}`;
+      }
+
+      appendTranscript(transcript);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+      setIsListening(true);
+    } catch {
+      setIsListening(false);
+    }
+  }
+
+  function toggleListening() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    startListening();
+  }
+
+  const buttonTitle = isSupported ? (isListening ? "Stop voice input" : "Start voice input") : "Voice input is not available in this browser";
+
+  return (
+    <div className="relative">
+      <textarea
+        {...props}
+        className={`${className} pr-14`}
+        disabled={disabled}
+        ref={textareaRef}
+      />
+      <button
+        aria-label={buttonTitle}
+        aria-pressed={isListening}
+        className={`absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 ${
+          isListening
+            ? "border-[#2563EB] bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)]"
+            : "border-[#BFDBFE] bg-[#EBF2FF] text-[#2563EB] hover:border-[#2563EB] hover:bg-white"
+        } disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]`}
+        disabled={disabled || !isSupported}
+        onClick={toggleListening}
+        title={buttonTitle}
+        type="button"
+      >
+        <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={isListening ? 2.4 : 2} />
+      </button>
+    </div>
+  );
+}
+
 function DosFormSection({
   children,
   description,
@@ -5723,19 +5885,19 @@ function UsamApplicationSheet({
           {currentStep === "calling" ? (
             <label className="mt-3 block">
               <FieldLabel>Tell us briefly why you feel called to USA Missionaries.</FieldLabel>
-              <textarea className={`${FieldTextareaClass()} min-h-32 bg-white`} onChange={(event) => onChange("callingReason", event.target.value)} required value={draft.callingReason} />
+              <VoiceTextarea className={`${FieldTextareaClass()} min-h-32 bg-white`} onChange={(event) => onChange("callingReason", event.target.value)} required value={draft.callingReason} />
             </label>
           ) : null}
           {currentStep === "story" ? (
             <label className="mt-3 block">
               <FieldLabel>Share your story or testimony.</FieldLabel>
-              <textarea className={`${FieldTextareaClass()} min-h-40 bg-white`} onChange={(event) => onChange("storyTestimony", event.target.value)} required value={draft.storyTestimony} />
+              <VoiceTextarea className={`${FieldTextareaClass()} min-h-40 bg-white`} onChange={(event) => onChange("storyTestimony", event.target.value)} required value={draft.storyTestimony} />
             </label>
           ) : null}
           {currentStep === "focus" ? (
             <label className="mt-3 block">
               <FieldLabel>Who do you feel called to reach or disciple?</FieldLabel>
-              <textarea className={`${FieldTextareaClass()} min-h-32 bg-white`} onChange={(event) => onChange("ministryFocus", event.target.value)} required value={draft.ministryFocus} />
+              <VoiceTextarea className={`${FieldTextareaClass()} min-h-32 bg-white`} onChange={(event) => onChange("ministryFocus", event.target.value)} required value={draft.ministryFocus} />
             </label>
           ) : null}
           {currentStep === "location" ? (
@@ -5768,13 +5930,13 @@ function UsamApplicationSheet({
           {currentStep === "prayer" ? (
             <label className="mt-3 block">
               <FieldLabel>How can people be praying for you?</FieldLabel>
-              <textarea className={`${FieldTextareaClass()} min-h-32 bg-white`} onChange={(event) => onChange("prayerNeeds", event.target.value)} required value={draft.prayerNeeds} />
+              <VoiceTextarea className={`${FieldTextareaClass()} min-h-32 bg-white`} onChange={(event) => onChange("prayerNeeds", event.target.value)} required value={draft.prayerNeeds} />
             </label>
           ) : null}
           {currentStep === "references" ? (
             <label className="mt-3 block">
               <FieldLabel>Optional references or pastor/church contact</FieldLabel>
-              <textarea className={`${FieldTextareaClass()} min-h-28 bg-white`} onChange={(event) => onChange("referencesText", event.target.value)} value={draft.referencesText} />
+              <VoiceTextarea className={`${FieldTextareaClass()} min-h-28 bg-white`} onChange={(event) => onChange("referencesText", event.target.value)} value={draft.referencesText} />
             </label>
           ) : null}
           {currentStep === "review" ? (
@@ -9760,7 +9922,7 @@ function ConversationQuestionCard({
     return (
       <label className="block rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
         <span className="text-sm font-semibold text-[#0F172A]">{question.label}</span>
-        <textarea
+        <VoiceTextarea
           className={`${FieldInputClass()} mt-2 min-h-20 bg-white py-3`}
           onChange={(event) => onResponseChange(question.id, event.target.value)}
           placeholder={question.placeholder}
@@ -9919,7 +10081,7 @@ function MeetingCaptureNotes({
 }) {
   return (
     <DosFormField label={showLabel ? label : undefined}>
-      <textarea aria-label={label} className={`${FieldTextareaClass(showLabel)} min-h-24`} defaultValue={defaultValue ?? ""} name="notes" />
+      <VoiceTextarea aria-label={label} className={`${FieldTextareaClass(showLabel)} min-h-24`} defaultValue={defaultValue ?? ""} name="notes" />
     </DosFormField>
   );
 }
@@ -9943,7 +10105,7 @@ function MeetingLeaderReflectionSection({
       </DosFormSection>
       <DosFormSection icon="prayer" title="Prayer Needs">
         <DosFormField>
-          <textarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} name="prayer_needs" />
+          <VoiceTextarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} name="prayer_needs" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="arrow" title="What needs follow up?">
@@ -10456,7 +10618,7 @@ function ScheduleMeetingForm({
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
         <DosFormField>
-          <textarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} name="notes" />
+          <VoiceTextarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} name="notes" />
         </DosFormField>
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
@@ -10654,7 +10816,7 @@ function ReminderFormContent({
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
         <DosFormField>
-          <textarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={reminderVisibleNotes(reminder?.notes)} name="notes" />
+          <VoiceTextarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={reminderVisibleNotes(reminder?.notes)} name="notes" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="calendar" title="Sync">
@@ -12085,7 +12247,7 @@ function AddPrayerPartnerSheet({
               </DosFormField>
               <PrayerPartnerSelectField label="How They Joined" name="how_heard" options={prayerPartnerHowHeardOptions} />
               <DosFormField label="Notes">
-                <textarea className={`${FieldTextareaClass()} min-h-24`} name="notes" placeholder="What do they help cover?" />
+                <VoiceTextarea className={`${FieldTextareaClass()} min-h-24`} name="notes" placeholder="What do they help cover?" />
               </DosFormField>
             </div>
           </details>
@@ -12146,7 +12308,7 @@ function LogPrayerSheet({
                     </select>
                   </label>
                   <label className="block">
-                    <textarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-24`} name="notes" />
+                    <VoiceTextarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-24`} name="notes" />
                   </label>
                 </div>
               </div>
@@ -13293,7 +13455,7 @@ function AdditionalPersonInformation({
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
         <DosFormField>
-          <textarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={defaults.notes} name="notes" />
+          <VoiceTextarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={defaults.notes} name="notes" />
         </DosFormField>
       </DosFormSection>
     </div>
@@ -13377,7 +13539,7 @@ function ImportantDatesReminderSection() {
         />
         <CompactOptionSelect label="Send to app" onChange={(value) => setDestination(normalizeImportantReminderDestination(value))} options={importantReminderDestinationOptions} value={destination} />
         <DosFormField label="Notes">
-          <textarea className={`${FieldTextareaClass()} min-h-20`} name="important_reminder_notes" placeholder="Context for the reminder." />
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-20`} name="important_reminder_notes" placeholder="Context for the reminder." />
         </DosFormField>
       </div>
     </details>
@@ -15282,7 +15444,7 @@ function MeetingNotesEditorSheet({
       <form className="space-y-5" onSubmit={onSubmit}>
         <DosFormSection icon="log" title="Notes">
           <DosFormField>
-            <textarea
+            <VoiceTextarea
               aria-label="Notes"
               autoFocus
               className={`${FieldTextareaClass(false)} min-h-40`}
@@ -19484,7 +19646,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <form className="space-y-5" onSubmit={handleFruitSubmit}>
             <DosFormSection icon="fruit" title="Fruit Summary">
               <DosFormField>
-                <textarea aria-label="Fruit Summary" className={`${FieldTextareaClass(false)} min-h-24`} name="summary" placeholder="Short private summary of the fruit." required />
+                <VoiceTextarea aria-label="Fruit Summary" className={`${FieldTextareaClass(false)} min-h-24`} name="summary" placeholder="Short private summary of the fruit." required />
               </DosFormField>
             </DosFormSection>
             <DosFormSection icon="people" title="Details">
