@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Building2, FileText, Image as ImageIcon, Layers, Upload, Users, Workflow, X } from "lucide-react";
@@ -1215,10 +1216,39 @@ export function UsamOrganizationHubClient({
   const [actionKey, setActionKey] = useState("");
   const [selectedApplicationId, setSelectedApplicationId] = useState(initialApplicationId ?? "");
   const [copyMessage, setCopyMessage] = useState("");
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const pendingApplications = applications.filter((application) => (
     application.status === "application_submitted" || application.status === "pending_review" || application.status === "more_info_requested"
   )).length;
   const selectedApplication = applications.find((application) => application.id === selectedApplicationId) ?? null;
+  const workspaceHrefById = new Map(
+    organization.workspaces.map((workspace) => [workspace.id, workspaceActionHref(workspace)]),
+  );
+
+  useEffect(() => {
+    const nextTab = searchParams.get("tab");
+
+    if (isHubTab(nextTab)) {
+      setActiveTab(nextTab);
+      if (nextTab !== "applications") {
+        setSelectedApplicationId("");
+      }
+    }
+  }, [searchParams]);
+
+  function selectTab(tab: HubTab) {
+    setActiveTab(tab);
+    if (tab !== "applications") {
+      setSelectedApplicationId("");
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", tab);
+    params.delete("application");
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
 
   function handleWorkflowAction(application: OrganizationApplicationSummary, action: ApplicationWorkflowAction, successLabel: string, adminNotes?: string) {
     setActionKey(`${application.id}:${action}`);
@@ -1340,12 +1370,7 @@ export function UsamOrganizationHubClient({
             active={activeTab === tab.value}
             key={tab.value}
             label={tab.label}
-            onClick={() => {
-              setActiveTab(tab.value);
-              if (tab.value !== "applications") {
-                setSelectedApplicationId("");
-              }
-            }}
+            onClick={() => selectTab(tab.value)}
           />
         ))}
       </nav>
@@ -1464,7 +1489,7 @@ export function UsamOrganizationHubClient({
                     <p className="truncate text-sm text-stone-300">{member.workspaceName || "Organization"}</p>
                     <p className="text-sm text-stone-400">{formatDate(member.lastActiveAt)}</p>
                     <div className="flex justify-start xl:justify-end">
-                      {member.workspaceId ? <TextAction href={usamOrganizationWorkspacesHref} label="View" /> : <span className="text-xs text-stone-600">None</span>}
+                      {member.workspaceId ? <TextAction href={workspaceHrefById.get(member.workspaceId) ?? usamOrganizationWorkspacesHref} label="View" /> : <span className="text-xs text-stone-600">None</span>}
                     </div>
                   </div>
                 </article>
