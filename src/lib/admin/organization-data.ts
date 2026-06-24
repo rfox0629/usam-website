@@ -1085,8 +1085,9 @@ function profileDisplayName(profile: OrganizationProfileRow) {
 
 function isOrganizationTeamMember(member: OrganizationTeamMemberRow) {
   const role = member.role_title?.toLowerCase() ?? "";
+  const hasAccessSignal = Boolean(member.invite_email?.trim() || member.dos_user_id?.trim());
 
-  return member.source !== "public_form" && !role.includes("prayer partner");
+  return hasAccessSignal && member.source !== "public_form" && !role.includes("prayer partner");
 }
 
 function memberSummaries({
