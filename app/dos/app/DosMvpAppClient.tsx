@@ -3132,12 +3132,18 @@ function getSpeechRecognitionConstructor() {
 function VoiceTextarea({
   className = "",
   disabled,
+  onClick,
+  onKeyUp,
+  onSelect,
   ...props
 }: Omit<ComponentProps<"textarea">, "ref">) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceSessionRef = useRef<{ after: string; before: string } | null>(null);
+  const savedSelectionRef = useRef<{ end: number; start: number } | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState("");
 
   useEffect(() => {
     setIsSupported(Boolean(getSpeechRecognitionConstructor()));
@@ -3147,28 +3153,75 @@ function VoiceTextarea({
     };
   }, []);
 
-  function appendTranscript(transcript: string) {
+  function rememberSelection() {
     const textarea = textareaRef.current;
-    const cleanTranscript = transcript.replace(/\s+/g, " ").trim();
 
-    if (!textarea || !cleanTranscript) {
+    if (!textarea) {
       return;
     }
 
-    const start = textarea.selectionStart ?? textarea.value.length;
-    const end = textarea.selectionEnd ?? textarea.value.length;
-    const before = textarea.value.slice(0, start);
-    const after = textarea.value.slice(end);
-    const prefix = before && !/\s$/.test(before) ? " " : "";
-    const suffix = after && !/^\s/.test(after) ? " " : "";
-    const nextValue = `${before}${prefix}${cleanTranscript}${suffix}${after}`;
-    const nextCursor = before.length + prefix.length + cleanTranscript.length;
+    savedSelectionRef.current = {
+      end: textarea.selectionEnd ?? textarea.value.length,
+      start: textarea.selectionStart ?? textarea.value.length,
+    };
+  }
+
+  function setTextareaValue(value: string, cursorPosition: number) {
+    const textarea = textareaRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
     const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
 
-    valueSetter?.call(textarea, nextValue);
+    valueSetter?.call(textarea, value);
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
     textarea.focus();
-    textarea.setSelectionRange(nextCursor, nextCursor);
+    textarea.setSelectionRange(cursorPosition, cursorPosition);
+    savedSelectionRef.current = { end: cursorPosition, start: cursorPosition };
+  }
+
+  function prepareVoiceSession() {
+    const textarea = textareaRef.current;
+
+    if (!textarea) {
+      return null;
+    }
+
+    const savedSelection = savedSelectionRef.current;
+    const fallbackCursor = textarea.value.length;
+    const start = Math.min(savedSelection?.start ?? fallbackCursor, textarea.value.length);
+    const end = Math.min(savedSelection?.end ?? start, textarea.value.length);
+
+    textarea.focus();
+    textarea.setSelectionRange(start, end);
+
+    const session = {
+      after: textarea.value.slice(end),
+      before: textarea.value.slice(0, start),
+    };
+
+    voiceSessionRef.current = session;
+    setLiveTranscript("");
+
+    return session;
+  }
+
+  function applyVoiceTranscript(transcript: string) {
+    const session = voiceSessionRef.current;
+    const cleanTranscript = transcript.replace(/\s+/g, " ").trim();
+
+    if (!session) {
+      return;
+    }
+
+    const prefix = session.before && cleanTranscript && !/\s$/.test(session.before) ? " " : "";
+    const suffix = session.after && cleanTranscript && !/^\s/.test(session.after) ? " " : "";
+    const nextValue = `${session.before}${prefix}${cleanTranscript}${suffix}${session.after}`;
+    const nextCursor = session.before.length + prefix.length + cleanTranscript.length;
+
+    setTextareaValue(nextValue, nextCursor);
   }
 
   function startListening() {
@@ -3179,28 +3232,46 @@ function VoiceTextarea({
     }
 
     recognitionRef.current?.abort();
+    const session = prepareVoiceSession();
+
+    if (!session) {
+      return;
+    }
 
     const recognition = new Recognition();
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.lang = document.documentElement.lang || "en-US";
     recognition.onresult = (event) => {
-      let transcript = "";
+      let finalTranscript = "";
+      let interimTranscript = "";
 
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      for (let index = 0; index < event.results.length; index += 1) {
         const result = event.results[index];
+        const transcript = result?.[0]?.transcript ?? "";
 
-        if (result?.isFinal === false) {
-          continue;
+        if (result?.isFinal) {
+          finalTranscript += ` ${transcript}`;
+        } else {
+          interimTranscript += ` ${transcript}`;
         }
-
-        transcript += ` ${result?.[0]?.transcript ?? ""}`;
       }
 
-      appendTranscript(transcript);
+      const liveText = `${finalTranscript} ${interimTranscript}`.trim();
+
+      applyVoiceTranscript(liveText);
+      setLiveTranscript((interimTranscript || finalTranscript).replace(/\s+/g, " ").trim());
     };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      setLiveTranscript("");
+      voiceSessionRef.current = null;
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      setLiveTranscript("");
+      voiceSessionRef.current = null;
+    };
     recognitionRef.current = recognition;
 
     try {
@@ -3224,28 +3295,52 @@ function VoiceTextarea({
   const buttonTitle = isSupported ? (isListening ? "Stop voice input" : "Start voice input") : "Voice input is not available in this browser";
 
   return (
-    <div className="relative">
-      <textarea
-        {...props}
-        className={`${className} pr-14`}
-        disabled={disabled}
-        ref={textareaRef}
-      />
-      <button
-        aria-label={buttonTitle}
-        aria-pressed={isListening}
-        className={`absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 ${
-          isListening
-            ? "border-[#2563EB] bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)]"
-            : "border-[#BFDBFE] bg-[#EBF2FF] text-[#2563EB] hover:border-[#2563EB] hover:bg-white"
-        } disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]`}
-        disabled={disabled || !isSupported}
-        onClick={toggleListening}
-        title={buttonTitle}
-        type="button"
-      >
-        <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={isListening ? 2.4 : 2} />
-      </button>
+    <div>
+      <div className="relative">
+        <textarea
+          {...props}
+          className={`${className} pr-[7.25rem] max-[360px]:pr-14`}
+          disabled={disabled}
+          onClick={(event) => {
+            rememberSelection();
+            onClick?.(event);
+          }}
+          onKeyUp={(event) => {
+            rememberSelection();
+            onKeyUp?.(event);
+          }}
+          onSelect={(event) => {
+            rememberSelection();
+            onSelect?.(event);
+          }}
+          ref={textareaRef}
+        />
+        <button
+          aria-label={buttonTitle}
+          aria-pressed={isListening}
+          className={`absolute bottom-3 right-3 inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[360px]:px-0 ${
+            isListening
+              ? "border-[#2563EB] bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)]"
+              : "border-[#BFDBFE] bg-[#EBF2FF] text-[#2563EB] hover:border-[#2563EB] hover:bg-white"
+          } disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]`}
+          disabled={disabled || !isSupported}
+          onClick={toggleListening}
+          title={buttonTitle}
+          type="button"
+        >
+          <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={isListening ? 2.4 : 2} />
+          <span className="max-[360px]:sr-only">{isListening ? "Listening" : "Voice"}</span>
+        </button>
+      </div>
+      {isListening ? (
+        <div className="mt-2 flex items-start gap-2 rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">
+          <span className="mt-1 flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-[#2563EB]" aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="font-black">Listening</span>
+            <span className="text-[#475569]"> · {liveTranscript || "Start speaking. Your words will appear here."}</span>
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
