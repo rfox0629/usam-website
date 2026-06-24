@@ -585,7 +585,7 @@ type ImportantReminderMeta = {
 
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
-type PeopleCircleView = CircleFocusView;
+type PeopleCircleView = "all" | CircleFocusView;
 type MeetingsView = "availability" | "calendar";
 type MeetingCalendarViewMode = "month" | "week";
 type FruitView = "activity" | "forms" | "impact";
@@ -6432,6 +6432,7 @@ const desktopPrayerRequestSamples = [
 ] as const;
 
 const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
+  { label: "All", value: "all" },
   { label: "My 3", value: "three" },
   { label: "My 12", value: "twelve" },
   { label: "My 70", value: "seventy" },
@@ -6446,7 +6447,7 @@ function PeopleCircleTabs({
   value: PeopleCircleView;
 }) {
   return (
-    <div className="grid grid-cols-4 gap-1 rounded-full border border-[#DCEBFF] bg-white p-1 shadow-[0_8px_22px_rgba(37,99,235,0.05)]">
+    <div className="grid grid-cols-5 gap-1 rounded-full border border-[#DCEBFF] bg-white p-1 shadow-[0_8px_22px_rgba(37,99,235,0.05)]">
       {peopleCircleTabs.map((option) => {
         const selected = value === option.value;
 
@@ -7637,6 +7638,8 @@ function PersonCard({
 
 function circleDisplayName(circle: string) {
   switch (circle) {
+    case "all":
+      return "All Contacts";
     case "three":
       return "My 3";
     case "twelve":
@@ -7733,7 +7736,18 @@ function previewCircleLayerItems(activeCircle: CircleFocusView, items: CirclePer
   return activeCircle === "seventy" || activeCircle === "my_120" ? items.slice(0, 6) : items;
 }
 
-function peopleCircleDetails(activeCircle: PeopleCircleView, circleGroups: CircleLayerGroups) {
+function peopleCircleDetails(activeCircle: PeopleCircleView, circleGroups: CircleLayerGroups, allItems: CircleListItem[]) {
+  if (activeCircle === "all") {
+    return {
+      empty: "No field contacts yet.",
+      items: allItems,
+      sectionLabel: "All Contacts",
+      startIndex: 0,
+      subtitle: "Everyone currently saved in your field.",
+      title: "All Contacts",
+    };
+  }
+
   const details = circleLayerDetails(activeCircle, circleGroups);
 
   return {
@@ -15682,7 +15696,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isAppsSearchOpen, setIsAppsSearchOpen] = useState(false);
   const [isTableSearchOpen, setIsTableSearchOpen] = useState(false);
   const [isPrayerSearchOpen, setIsPrayerSearchOpen] = useState(false);
-  const [peopleCircleView, setPeopleCircleView] = useState<PeopleCircleView>("three");
+  const [peopleCircleView, setPeopleCircleView] = useState<PeopleCircleView>("all");
   const [peopleImportMessage, setPeopleImportMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [meetingNotesOverrides, setMeetingNotesOverrides] = useState<Record<string, string | null>>({});
   const [pendingMeetingSendAction, setPendingMeetingSendAction] = useState<PendingMeetingSendAction | null>(null);
@@ -15831,7 +15845,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       twelve: mapScores(data.circles?.my12 ?? []),
     };
   }, [data.circles, people]);
-  const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer), [circlePeopleByLayer, peopleCircleView]);
+  const allCirclePeople = useMemo<CircleListItem[]>(() => people.map((person) => ({ person })), [people]);
+  const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, allCirclePeople), [allCirclePeople, circlePeopleByLayer, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
   const latestMeetingDateByPersonId = useMemo(() => {
     const latestDates = new Map<string, string | null>();
@@ -16336,7 +16351,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     });
   }
 
-  function openPeopleCircle(circle: PeopleCircleView = "three") {
+  function openPeopleCircle(circle: PeopleCircleView = "all") {
     setActiveTab("people");
     setMoreAppView(null);
     setIsAppsSearchOpen(false);
