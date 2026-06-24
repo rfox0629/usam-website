@@ -266,7 +266,15 @@ function InlineButton({
 }
 
 function workspaceActionHref(workspace: OrganizationWorkspaceSummary) {
-  return workspace.viewHref ?? usamOrganizationWorkspacesHref;
+  if (workspace.viewHref) {
+    return workspace.viewHref;
+  }
+
+  if (workspace.kind === "workspace" && workspace.slug) {
+    return `/dos/app?workspace=${encodeURIComponent(workspace.slug)}`;
+  }
+
+  return usamOrganizationWorkspacesHref;
 }
 
 function SectionShell({ children, title }: { children: ReactNode; title: string }) {
