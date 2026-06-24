@@ -286,12 +286,32 @@ function hasMeaningfulPositiveScore(breakdown?: DosRelationshipScore["breakdown"
     || breakdown.multiplication > 0;
 }
 
+function personEngagementLevel(person: { engagement_level?: string | null; engagementLevel?: string | null }) {
+  return person.engagement_level ?? person.engagementLevel ?? null;
+}
+
 function isAutomaticCircleEligible(
-  person: { status?: string | null },
+  person: { engagement_level?: string | null; engagementLevel?: string | null; status?: string | null },
   totalScore: number,
   breakdown?: DosRelationshipScore["breakdown"],
 ) {
-  return totalScore > 0 && hasMeaningfulPositiveScore(breakdown) && !isInactivePerson(person);
+  if (isInactivePerson(person)) {
+    return false;
+  }
+
+  if (totalScore > 0 && hasMeaningfulPositiveScore(breakdown)) {
+    return true;
+  }
+
+  return relationshipScoreFromEngagementLevel(personEngagementLevel(person)) >= 0;
+}
+
+function automaticCircleSummary(circle: CircleAssignment, totalScore: number, breakdown?: DosRelationshipScore["breakdown"]) {
+  if (hasMeaningfulPositiveScore(breakdown) && totalScore > 0) {
+    return `Assigned to ${circleLabel(circle)} because of current discipleship activity, investment, fruit, and momentum.`;
+  }
+
+  return `Assigned to ${circleLabel(circle)} as an active field contact while discipleship activity builds.`;
 }
 
 function sortCircleScores(first: DosRelationshipScore, second: DosRelationshipScore) {
@@ -370,7 +390,7 @@ export function buildFallbackCircleDataFromActivity({
     score.circle = automaticCircle(eligibleIndex);
     eligibleIndex += 1;
     score.explanation.summary = score.circle !== "field"
-      ? `Assigned to ${circleLabel(score.circle)} because of logged meeting activity.`
+      ? automaticCircleSummary(score.circle, score.totalScore, score.breakdown)
       : score.explanation.summary;
   });
 
@@ -824,7 +844,7 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     item.record.score_explanation.summary = manualOverride
       ? `Pinned to ${circleLabel(circle)} for workspace stewardship.${manualOverride.reason ? ` ${manualOverride.reason}` : ""}`
       : circle !== "field"
-        ? `Assigned to ${circleLabel(circle)} because of current discipleship activity, investment, fruit, and momentum.`
+        ? automaticCircleSummary(circle, item.record.total_score, breakdown)
         : isInactivePerson(item.person)
           ? "In Field because this person is inactive."
           : isAutomaticCircleEligible(item.person, item.record.total_score, breakdown)
