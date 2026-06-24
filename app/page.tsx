@@ -625,7 +625,7 @@ export default function Home() {
           </Reveal>
           <Reveal delay={300}>
             <div>
-              <p className="text-lg md:text-[1.3rem] font-medium text-stone-300 leading-[1.75] max-w-2xl mx-auto mb-4">Deploying across the United States.<br/>Expanding to the ends of the earth.</p>
+              <p className="text-lg md:text-[1.3rem] font-medium text-stone-300 leading-[1.75] max-w-2xl mx-auto mb-4">USA Missionaries exists to locate, train, and deploy disciple makers across America.</p>
               <div
                 className="mt-4 text-center uppercase text-stone-400"
                 style={{ fontFamily: font.rajdhani, fontWeight: 500, fontSize: "11px", letterSpacing: "0.25em", lineHeight: 1.8 }}
@@ -654,7 +654,11 @@ export default function Home() {
         <div className="max-w-4xl mx-auto">
           <Reveal><div className="w-12 h-px bg-stone-700 mx-auto"/></Reveal>
           <div className="mt-16 text-center">
-            <Reveal delay={100}><SectionHeading headline={<>NOT AN ORGANIZATION.<br/>A DEPLOYMENT.</>}/></Reveal>
+            <Reveal delay={100}>
+              <SectionHeading headline={<>NOT AN ORGANIZATION.<br/>A DEPLOYMENT.</>}>
+                <p>Deploying across the United States.<br/>Expanding to the ends of the earth.</p>
+              </SectionHeading>
+            </Reveal>
             <Reveal delay={250}>
               <div className="mt-10 space-y-1">
                 {["No buildings.","No stages.","No spectators.","Only obedience."].map((l,i)=>(
