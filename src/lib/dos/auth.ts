@@ -532,6 +532,17 @@ export async function getDosWorkspaceAccess(
       return { status: "not_found" };
     }
 
+    if (isAdminDosAuthorization(authorization)) {
+      return {
+        status: "allowed",
+        workspace: {
+          displayName: workspace.display_name,
+          id: workspace.id,
+          slug: workspace.slug,
+        },
+      };
+    }
+
     const scopedWorkspaceRows = visibleLaunchWorkspaceRows(await loadLaunchWorkspaceRowsForUser(authorization));
 
     if (scopedWorkspaceRows.length) {
@@ -547,17 +558,6 @@ export async function getDosWorkspaceAccess(
           },
         }
         : { status: "forbidden" };
-    }
-
-    if (isAdminDosAuthorization(authorization)) {
-      return {
-        status: "allowed",
-        workspace: {
-          displayName: workspace.display_name,
-          id: workspace.id,
-          slug: workspace.slug,
-        },
-      };
     }
 
     return { status: "forbidden" };
