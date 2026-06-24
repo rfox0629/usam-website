@@ -625,7 +625,10 @@ export default function Home() {
           </Reveal>
           <Reveal delay={300}>
             <div>
-              <p className="text-lg md:text-[1.3rem] font-medium text-stone-300 leading-[1.75] max-w-2xl mx-auto mb-4">USA Missionaries exists to locate, train, and deploy disciple makers across America.</p>
+              <p className="text-lg md:text-[1.3rem] font-medium text-stone-300 leading-[1.75] max-w-2xl mx-auto mb-4">
+                <span className="md:block">USA Missionaries exists to locate, train, and</span>{" "}
+                <span className="md:block">deploy disciple makers across America.</span>
+              </p>
               <div
                 className="mt-4 text-center uppercase text-stone-400"
                 style={{ fontFamily: font.rajdhani, fontWeight: 500, fontSize: "11px", letterSpacing: "0.25em", lineHeight: 1.8 }}
