@@ -877,7 +877,7 @@ export async function POST(request: Request) {
       },
       photoStorage: "supabase_storage",
       status: "pending_review",
-      workspaceHref: `/dos/app?workspace=${encodeURIComponent(fallbackHouseholdResult.data.slug)}&walkthrough=usam`,
+      workspaceHref: `/dos/${encodeURIComponent(fallbackHouseholdResult.data.slug)}?walkthrough=usam`,
       workspaceId: fallbackHouseholdResult.data.id,
       workspaceSlug: fallbackHouseholdResult.data.slug,
     }, { status: 201 });

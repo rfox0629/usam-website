@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getDosAuthorization, getDosWorkspaceAccess } from "@/src/lib/dos/auth";
-import { loadDosAppData } from "@/src/lib/dos/missionary-app";
 import { DosMobileMessageScreen } from "./DosMobileMessageScreen";
-import { DosMvpAppClient } from "./DosMvpAppClient";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +11,11 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
+};
+
+type DosAppSearchParams = {
+  workspace?: string;
+  [key: string]: string | string[] | undefined;
 };
 
 function BlockedState({
@@ -33,14 +36,41 @@ function BlockedState({
   );
 }
 
+function cleanWorkspacePath(workspaceSlug: string, params: DosAppSearchParams) {
+  const query = new URLSearchParams();
+  const canonicalSlug = {
+    "fox-family": "ryan-fox",
+    "ryan-brooke-fox": "ryan-fox",
+  }[workspaceSlug] ?? workspaceSlug;
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (key === "workspace") {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => query.append(key, item));
+      return;
+    }
+
+    if (typeof value === "string") {
+      query.set(key, value);
+    }
+  });
+
+  const suffix = query.toString();
+
+  return `/dos/${encodeURIComponent(canonicalSlug)}${suffix ? `?${suffix}` : ""}`;
+}
+
 export default async function DosAppCompatibilityRedirect({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string }>;
+  searchParams: Promise<DosAppSearchParams>;
 }) {
   const params = await searchParams;
   const nextPath = params.workspace
-    ? `/dos/app?workspace=${encodeURIComponent(params.workspace)}`
+    ? cleanWorkspacePath(params.workspace, params)
     : "/dos";
   const authorization = await getDosAuthorization();
 
@@ -78,25 +108,5 @@ export default async function DosAppCompatibilityRedirect({
     return <BlockedState detail="You do not have access to this DOS workspace." title="Workspace unavailable" />;
   }
 
-  const result = await loadDosAppData(workspaceAccess.workspace.slug);
-
-  if (result.status === "not_found") {
-    return <BlockedState detail="Create a personal DOS workspace before opening the app." title="No workspace found" />;
-  }
-
-  if (result.status === "error") {
-    return <BlockedState detail={result.message} title="DOS unavailable" />;
-  }
-
-  return (
-    <DosMvpAppClient
-      data={{
-        ...result.data,
-        workspace: {
-          ...result.data.workspace,
-          userEmail: authorization.email,
-        },
-      }}
-    />
-  );
+  redirect(cleanWorkspacePath(workspaceAccess.workspace.slug, params));
 }

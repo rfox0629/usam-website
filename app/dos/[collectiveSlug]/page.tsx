@@ -16,6 +16,36 @@ export const metadata: Metadata = {
   },
 };
 
+type DosWorkspaceSearchParams = {
+  [key: string]: string | string[] | undefined;
+};
+
+const cleanWorkspaceSlugAliases: Record<string, string> = {
+  "bond-family": "dirk-bond",
+  "fox-family": "ryan-fox",
+  "ryan-brooke-fox": "ryan-fox",
+};
+
+function cleanWorkspacePath(workspaceSlug: string, params: DosWorkspaceSearchParams = {}) {
+  const query = new URLSearchParams();
+  const canonicalSlug = cleanWorkspaceSlugAliases[workspaceSlug] ?? workspaceSlug;
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => query.append(key, item));
+      return;
+    }
+
+    if (typeof value === "string") {
+      query.set(key, value);
+    }
+  });
+
+  const suffix = query.toString();
+
+  return `/dos/${encodeURIComponent(canonicalSlug)}${suffix ? `?${suffix}` : ""}`;
+}
+
 function BlockedState({
   detail,
   title,
@@ -103,10 +133,18 @@ function DosAppRouteFrame({ children }: { children: ReactNode }) {
 
 export default async function DosWorkspaceAppPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ collectiveSlug: string }>;
+  searchParams: Promise<DosWorkspaceSearchParams>;
 }) {
   const { collectiveSlug } = await params;
+  const queryParams = await searchParams;
+
+  if (cleanWorkspaceSlugAliases[collectiveSlug]) {
+    redirect(cleanWorkspacePath(collectiveSlug, queryParams));
+  }
+
   const nextPath = `/dos/${encodeURIComponent(collectiveSlug)}`;
   const authorization = await getDosAuthorization();
 

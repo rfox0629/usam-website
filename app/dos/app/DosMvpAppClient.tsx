@@ -7222,8 +7222,8 @@ function calendarConnectionIsHealthy(connection: DosAppCalendarConnection) {
   return calendarConnectionStatus(connection) === "connected";
 }
 
-function googleCalendarConnectHref(workspaceId: string) {
-  return `/api/dos/app/calendar/google/connect?workspaceId=${encodeURIComponent(workspaceId)}&next=${encodeURIComponent(`/dos/app?workspace=${workspaceId}`)}`;
+function googleCalendarConnectHref(workspaceId: string, workspaceSlug: string) {
+  return `/api/dos/app/calendar/google/connect?workspaceId=${encodeURIComponent(workspaceId)}&next=${encodeURIComponent(`/dos/${workspaceSlug}`)}`;
 }
 
 function createDefaultAvailabilitySettings(): AvailabilitySettings {
@@ -7354,6 +7354,7 @@ function AvailabilityEditSheet({
   setSettings,
   sourceCount,
   workspaceId,
+  workspaceSlug,
 }: {
   activeSection: AvailabilityEditSection;
   calendarConnection: DosAppCalendarConnection;
@@ -7364,6 +7365,7 @@ function AvailabilityEditSheet({
   setSettings: (updater: (current: AvailabilitySettings) => AvailabilitySettings) => void;
   sourceCount: number;
   workspaceId: string;
+  workspaceSlug: string;
 }) {
   const titleBySection: Record<AvailabilityEditSection, string> = {
     booking: "Booking Rules",
@@ -7616,6 +7618,7 @@ function AvailabilityEditSheet({
               isDisconnecting={isDisconnecting}
               onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
               workspaceId={workspaceId}
+              workspaceSlug={workspaceSlug}
             />
             <section className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
               <div className="flex items-center justify-between gap-3">
@@ -7661,6 +7664,7 @@ function DesktopAvailabilityPanel({
   onToggleGoogleCalendarSource,
   savingCalendarSourceId,
   workspaceId,
+  workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
   calendarDisplaySettings: CalendarDisplaySettings;
@@ -7673,6 +7677,7 @@ function DesktopAvailabilityPanel({
   onToggleGoogleCalendarSource: (sourceId: string) => void;
   savingCalendarSourceId: string | null;
   workspaceId: string;
+  workspaceSlug: string;
 }) {
   const [availabilitySettings, setAvailabilitySettings] = useState<AvailabilitySettings>(() => createDefaultAvailabilitySettings());
   const [activeEditSection, setActiveEditSection] = useState<AvailabilityEditSection | null>(null);
@@ -7849,6 +7854,7 @@ function DesktopAvailabilityPanel({
           setSettings={setAvailabilitySettings}
           sourceCount={calendarSourcePreferences.length}
           workspaceId={workspaceId}
+          workspaceSlug={workspaceSlug}
         />
       ) : null}
     </div>
@@ -8995,12 +9001,14 @@ function CalendarSyncStatus({
   isSyncingGoogleCalendar,
   onSyncGoogleCalendar,
   workspaceId,
+  workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
   googleEventCount: number;
   isSyncingGoogleCalendar: boolean;
   onSyncGoogleCalendar: () => void;
   workspaceId: string;
+  workspaceSlug: string;
 }) {
   if (!calendarConnection.connected) {
     return null;
@@ -9018,7 +9026,7 @@ function CalendarSyncStatus({
       {needsReconnect ? (
         <a
           className="inline-flex min-h-7 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]"
-          href={googleCalendarConnectHref(workspaceId)}
+          href={googleCalendarConnectHref(workspaceId, workspaceSlug)}
           style={{ fontFamily: font.rajdhani }}
         >
           Reconnect
@@ -9287,6 +9295,7 @@ function MeetingCalendarView({
   viewMode,
   onViewModeChange,
   workspaceId,
+  workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
   calendarDisplaySettings: CalendarDisplaySettings;
@@ -9315,6 +9324,7 @@ function MeetingCalendarView({
   viewMode: MeetingCalendarViewMode;
   onViewModeChange: (value: MeetingCalendarViewMode) => void;
   workspaceId: string;
+  workspaceSlug: string;
 }) {
   const [selectedQuickItemId, setSelectedQuickItemId] = useState<string | null>(null);
   const [locallyCompletedItemIds, setLocallyCompletedItemIds] = useState<string[]>([]);
@@ -9535,7 +9545,7 @@ function MeetingCalendarView({
                 <span className="min-w-0 text-xs font-bold leading-5 text-[#1D4ED8]">{googleCalendarReconnectCopy}</span>
                 <a
                   className="inline-flex min-h-7 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]"
-                  href={googleCalendarConnectHref(workspaceId)}
+                  href={googleCalendarConnectHref(workspaceId, workspaceSlug)}
                   style={{ fontFamily: font.rajdhani }}
                 >
                   Reconnect
@@ -9693,6 +9703,7 @@ function MeetingCalendarView({
             isSyncingGoogleCalendar={isSyncingGoogleCalendar}
             onSyncGoogleCalendar={onSyncGoogleCalendar}
             workspaceId={workspaceId}
+            workspaceSlug={workspaceSlug}
           />
           <p className="text-xs leading-5 text-[#64748B]">Source badges stay visible on each event so the calendar stays focused on what is next.</p>
         </div>
@@ -10682,11 +10693,13 @@ function CalendarConnectionCard({
   isDisconnecting = false,
   onDisconnect,
   workspaceId,
+  workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
   isDisconnecting?: boolean;
   onDisconnect?: () => void;
   workspaceId: string;
+  workspaceSlug: string;
 }) {
   const needsReconnect = calendarConnectionNeedsReconnect(calendarConnection);
   const isHealthy = calendarConnectionIsHealthy(calendarConnection);
@@ -10728,7 +10741,7 @@ function CalendarConnectionCard({
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {(!calendarConnection.connected || needsReconnect) && calendarConnection.googleConfigured ? (
-          <a className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" href={googleCalendarConnectHref(workspaceId)}>
+          <a className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" href={googleCalendarConnectHref(workspaceId, workspaceSlug)}>
             {needsReconnect ? "Reconnect Google Calendar" : "Connect Google Calendar"}
           </a>
         ) : null}
@@ -10766,6 +10779,7 @@ function ScheduleMeetingForm({
   selectedMeetingContext,
   selectedPersonIds,
   workspaceId,
+  workspaceSlug,
 }: {
   allPeople: DosAppPerson[];
   calendarConnection: DosAppCalendarConnection;
@@ -10785,6 +10799,7 @@ function ScheduleMeetingForm({
   selectedMeetingContext: DosAppMeetingType;
   selectedPersonIds: string[];
   workspaceId: string;
+  workspaceSlug: string;
 }) {
   const canSyncToGoogle = calendarConnectionIsHealthy(calendarConnection);
   const [scheduledDate, setScheduledDate] = useState(todayDateValue());
@@ -10814,6 +10829,7 @@ function ScheduleMeetingForm({
           isDisconnecting={isCalendarDisconnecting}
           onDisconnect={onDisconnectCalendar}
           workspaceId={workspaceId}
+          workspaceSlug={workspaceSlug}
         />
       </DosFormSection>
       <DosFormSection icon="people" title="People">
@@ -10902,6 +10918,7 @@ function ReminderFormContent({
   people,
   reminder,
   workspaceId,
+  workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
   defaultReminderType?: DosAppRelationshipReminder["reminderType"];
@@ -10916,6 +10933,7 @@ function ReminderFormContent({
   people: DosAppPerson[];
   reminder?: DosAppRelationshipReminder | null;
   workspaceId: string;
+  workspaceSlug: string;
 }) {
   const fallbackPersonId = defaultPersonId ?? people[0]?.id ?? "";
   const resolvedReminderType = reminder?.reminderType ?? defaultReminderType ?? "follow_up";
@@ -10967,6 +10985,7 @@ function ReminderFormContent({
           isDisconnecting={isCalendarDisconnecting}
           onDisconnect={onDisconnectCalendar}
           workspaceId={workspaceId}
+          workspaceSlug={workspaceSlug}
         />
       </DosFormSection>
       <DosFormSection
@@ -18968,6 +18987,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       viewMode={meetingCalendarViewMode}
                       onViewModeChange={setMeetingCalendarViewMode}
                       workspaceId={data.workspace.id}
+                      workspaceSlug={data.workspace.slug}
                     />
                   ) : (
                     <DesktopAvailabilityPanel
@@ -18982,6 +19002,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onToggleGoogleCalendarSource={handleToggleGoogleCalendarSource}
                       savingCalendarSourceId={savingCalendarSourceId}
                       workspaceId={data.workspace.id}
+                      workspaceSlug={data.workspace.slug}
                     />
                   )}
                 </div>
@@ -19889,6 +19910,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             selectedMeetingContext={selectedMeetingContext}
             selectedPersonIds={selectedMeetingPersonIds}
             workspaceId={data.workspace.id}
+            workspaceSlug={data.workspace.slug}
           />
         </Sheet>
       ) : null}
@@ -19909,6 +19931,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             people={people}
             reminder={selectedReminder}
             workspaceId={data.workspace.id}
+            workspaceSlug={data.workspace.slug}
           />
         </Sheet>
       ) : null}

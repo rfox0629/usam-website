@@ -102,10 +102,13 @@ type DosScopeAuthorization = Pick<DosAuthorizedUser, "email" | "userId"> & {
 
 const canonicalLaunchWorkspaceSlugs: Record<string, string> = {
   "bond-family": "dirk-bond",
+  "ryan-brooke-fox": "ryan-fox",
 };
 
 const legacyWorkspaceSlugAliases: Record<string, string> = {
   "dirk-bond": "bond-family",
+  "fox-family": "ryan-fox",
+  "ryan-brooke-fox": "ryan-fox",
 };
 
 const launchWorkspaceDisplayNames: Record<string, string> = {
@@ -306,7 +309,7 @@ function launchWorkspaceFromRow(workspace: LaunchWorkspaceRow): DosLaunchWorkspa
 
   return {
     displayName: launchWorkspaceDisplayNames[slug] ?? workspace.display_name,
-    href: `/dos/app?workspace=${encodeURIComponent(slug)}`,
+    href: `/dos/${encodeURIComponent(slug)}`,
     id: workspace.id,
     isConfirmedDefault: isConfirmedWorkspace(workspace),
     isLikelyTest: isLikelyTestWorkspace(workspace),

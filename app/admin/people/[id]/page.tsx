@@ -101,7 +101,7 @@ function PersonWorkspace({ person }: { person: OrganizationPersonDetail }) {
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <AdminActionLink href={person.workspace.intelligenceHref}>View Intelligence</AdminActionLink>
-          <AdminActionLink href={`/dos/app?workspace=${encodeURIComponent(person.workspace.slug)}`}>Open DOS</AdminActionLink>
+          <AdminActionLink href={`/dos/${encodeURIComponent(person.workspace.slug)}`}>Open DOS</AdminActionLink>
         </div>
       </div>
     </section>

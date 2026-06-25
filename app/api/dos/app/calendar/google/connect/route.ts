@@ -9,7 +9,7 @@ import {
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 
 function safeNextPath(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/dos/app";
+  return value?.startsWith("/") && !value.startsWith("//") ? value : "/dos";
 }
 
 export async function GET(request: Request) {

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get("code");
   const error = requestUrl.searchParams.get("error");
   const state = verifyCalendarOAuthState(requestUrl.searchParams.get("state"));
-  const nextPath = state?.next || "/dos/app";
+  const nextPath = state?.next || "/dos";
 
   if (error) {
     return redirectWithParams(requestUrl, nextPath, { calendar: "error" });

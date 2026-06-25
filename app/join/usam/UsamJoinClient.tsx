@@ -2842,8 +2842,8 @@ export function UsamJoinClient() {
       ? "Your organization setup interest has been submitted. You can begin using DOS personally while the organization path is prepared."
       : "Your DOS setup is ready. Start stewarding the people God has placed in front of you.";
   const dosEntryHref = draft.setupPath === "usam"
-    ? submittedWorkspaceHref || "/dos/app?workspace=ryan-brooke-fox&walkthrough=usam"
-    : "/dos/app?workspace=ryan-brooke-fox";
+    ? submittedWorkspaceHref || "/dos/ryan-fox?walkthrough=usam"
+    : "/dos/ryan-fox";
   const isSubmitStep = currentStep.id === "review" || currentStep.id === "organization_interest" || currentStep.id === "personal_finish";
   const submitLabel = currentStep.id === "review"
     ? "Submit Application"

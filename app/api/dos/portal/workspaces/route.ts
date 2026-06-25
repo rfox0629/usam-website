@@ -143,7 +143,7 @@ function normalizePhone(value: string) {
 }
 
 function appWorkspaceHref(slug: string) {
-  return `/dos/app?workspace=${encodeURIComponent(slug)}`;
+  return `/dos/${encodeURIComponent(slug)}`;
 }
 
 function setupApplicationPayload({
