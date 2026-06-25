@@ -1407,6 +1407,34 @@ function localDateTimeIso(dateValue: string, timeValue: string) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function dateInputValueFromDateTime(value: string | null | undefined, fallback = todayDateValue()) {
+  const date = parseDisplayDate(value ?? null);
+
+  return date ? calendarDateKey(date) : fallback;
+}
+
+function timeInputValueFromDateTime(value: string | null | undefined, fallback = "18:00") {
+  if (!value || !value.includes("T")) {
+    return fallback;
+  }
+
+  const date = parseDisplayDate(value);
+
+  if (!date) {
+    return fallback;
+  }
+
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function durationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined) {
+  const start = startValue ? new Date(startValue).getTime() : Number.NaN;
+  const end = endValue ? new Date(endValue).getTime() : Number.NaN;
+  const duration = Math.round((end - start) / 60_000);
+
+  return Number.isFinite(duration) && duration > 0 ? duration : 60;
+}
+
 function formDurationMinutes(value: FormDataEntryValue | null) {
   const minutes = Number(value);
 
@@ -10209,6 +10237,13 @@ const meetingDurationOptions = [
   { label: "2h", value: "120" },
   { label: "Custom", value: "custom" },
 ] as const;
+const scheduledTableDurationOptions = [
+  { label: "30 min", value: "30" },
+  { label: "45 min", value: "45" },
+  { label: "1 hour", value: "60" },
+  { label: "90 min", value: "90" },
+  { label: "2 hours", value: "120" },
+] as const;
 
 type MeetingDurationOptionValue = typeof meetingDurationOptions[number]["value"];
 
@@ -10255,6 +10290,57 @@ function MeetingDurationSelector() {
         </label>
       ) : null}
     </fieldset>
+  );
+}
+
+function scheduledTableDurationValue(minutes: number | string | null | undefined) {
+  const value = String(minutes ?? "60");
+
+  return scheduledTableDurationOptions.some((option) => option.value === value) ? value : "60";
+}
+
+function ScheduledTableTimingFields({
+  dateDefault,
+  dateName,
+  dateValue,
+  durationDefault = "60",
+  durationName,
+  onDateChange,
+  timeDefault = "18:00",
+  timeName,
+}: {
+  dateDefault?: string;
+  dateName: string;
+  dateValue?: string;
+  durationDefault?: number | string | null;
+  durationName: string;
+  onDateChange?: (value: string) => void;
+  timeDefault?: string | null;
+  timeName: string;
+}) {
+  return (
+    <>
+      <DosDateInput
+        label="Date"
+        name={dateName}
+        onChange={onDateChange}
+        required
+        value={dateValue}
+        defaultValue={dateDefault}
+      />
+      <DosFormGrid>
+        <DosFormField label="Start Time">
+          <input className={FieldInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time" />
+        </DosFormField>
+        <DosFormField label="Duration">
+          <select className={FieldInputClass()} defaultValue={scheduledTableDurationValue(durationDefault)} name={durationName}>
+            {scheduledTableDurationOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </DosFormField>
+      </DosFormGrid>
+    </>
   );
 }
 
@@ -10385,11 +10471,15 @@ function MeetingFormContent({
   onTogglePerson,
   onPeopleQueryChange,
   recommendedResources,
+  scheduledEndAtDefault,
+  scheduledStartAtDefault,
   selectedConversationFlow,
   selectedMeetingContext,
   selectedOutcomeTags,
   selectedPersonIds,
+  showConversationFlow = true,
   showDurationField = false,
+  showScheduledTiming = false,
   submittingText,
 }: {
   allPeople: DosAppPerson[];
@@ -10414,11 +10504,15 @@ function MeetingFormContent({
   onTogglePerson: (personId: string) => void;
   onPeopleQueryChange: (value: string) => void;
   recommendedResources: DosRecommendedResource[];
+  scheduledEndAtDefault?: string | null;
+  scheduledStartAtDefault?: string | null;
   selectedConversationFlow: DosConversationFlowKey;
   selectedMeetingContext: DosAppMeetingType;
   selectedOutcomeTags?: string[];
   selectedPersonIds: string[];
+  showConversationFlow?: boolean;
   showDurationField?: boolean;
+  showScheduledTiming?: boolean;
   submittingText: string;
 }) {
   const peopleSelector = (
@@ -10435,18 +10529,32 @@ function MeetingFormContent({
   );
   const durationSelector = showDurationField ? <MeetingDurationSelector /> : null;
   const meetingContextPicker = <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />;
-  const conversationFlowPicker = (
+  const conversationFlowPicker = showConversationFlow ? (
     <ConversationFlowPicker
       allowConversationFlows={allowConversationFlows}
       onChange={onConversationFlowChange}
       value={selectedConversationFlow}
     />
-  );
+  ) : null;
+  const scheduledDateDefault = dateInputValueFromDateTime(scheduledStartAtDefault ?? dateDefault, dateDefault);
+  const scheduledTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault, "18:00");
+  const scheduledDurationDefault = durationMinutesFromDateRange(scheduledStartAtDefault, scheduledEndAtDefault);
 
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
-      <DosFormSection icon="calendar" title="Date">
-        <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
+      <DosFormSection icon="calendar" title={showScheduledTiming ? "Date & Time" : "Date"}>
+        {showScheduledTiming ? (
+          <ScheduledTableTimingFields
+            dateDefault={scheduledDateDefault}
+            dateName="scheduled_date"
+            durationDefault={scheduledDurationDefault}
+            durationName="duration_minutes"
+            timeDefault={scheduledTimeDefault}
+            timeName="scheduled_time"
+          />
+        ) : (
+          <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
+        )}
       </DosFormSection>
       <DosFormSection icon="people" title="People">
         {peopleSelector}
@@ -10456,10 +10564,10 @@ function MeetingFormContent({
           {durationSelector}
         </DosFormSection>
       ) : null}
-      <DosFormSection icon="meetings" title="What happened?">
+      <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "What happened?"}>
         {meetingContextPicker}
         {conversationFlowPicker}
-        {selectedConversationFlow !== "none" ? (
+        {showConversationFlow && selectedConversationFlow !== "none" ? (
           <ConversationFlowExperience
             flowKey={selectedConversationFlow}
             onResponseChange={onConversationResponse}
@@ -10480,7 +10588,7 @@ function MeetingFormContent({
           <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
         </DosFormSection>
       )}
-      {selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
+      {showConversationFlow && selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
     </form>
@@ -10667,22 +10775,16 @@ function ScheduleMeetingForm({
             </button>
           </div>
         </div>
-        <DosFormGrid>
-          <DosDateInput label="Date" name="scheduled_date" onChange={setScheduledDate} required value={scheduledDate} />
-          <DosFormField label="Start Time">
-            <input className={FieldInputClass()} defaultValue="18:00" name="scheduled_time" required type="time" />
-          </DosFormField>
-        </DosFormGrid>
-        <DosFormGrid>
-          <DosFormField label="Duration">
-            <select className={FieldInputClass()} defaultValue="60" name="duration_minutes">
-              <option value="30">30 min</option>
-              <option value="45">45 min</option>
-              <option value="60">1 hour</option>
-              <option value="90">90 min</option>
-              <option value="120">2 hours</option>
-            </select>
-          </DosFormField>
+        <ScheduledTableTimingFields
+          dateName="scheduled_date"
+          dateValue={scheduledDate}
+          durationDefault="60"
+          durationName="duration_minutes"
+          onDateChange={setScheduledDate}
+          timeDefault="18:00"
+          timeName="scheduled_time"
+        />
+        <div>
           <DosFormToggleRow
             defaultChecked={canSyncToGoogle}
             description={canSyncToGoogle ? "Create a calendar event." : calendarConnectionNeedsReconnect(calendarConnection) ? "Reconnect Google Calendar to sync." : "Connect Google Calendar to sync."}
@@ -10690,7 +10792,7 @@ function ScheduleMeetingForm({
             name="google_sync_enabled"
             title="Sync to Google"
           />
-        </DosFormGrid>
+        </div>
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
         <DosFormField>
@@ -17680,16 +17782,35 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     const conversationFlowKey = data.workspace.isUsamWorkspace ? selectedConversationFlow : "none";
-
-    void submitJson("/api/dos/app/meetings", {
+    const isScheduledMeeting = selectedMeeting.meetingStatus === "scheduled";
+    const tableDate = String(formData.get(isScheduledMeeting ? "scheduled_date" : "table_date") ?? selectedMeeting.date ?? todayDateValue());
+    const payload: Record<string, unknown> = {
       conversationFlowKey,
       conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
       fieldPersonIds: selectedMeetingPersonIds,
+      googleSyncEnabled: isScheduledMeeting && selectedMeeting.googleSyncEnabled,
       id: selectedMeeting.id,
+      meetingStatus: selectedMeeting.meetingStatus,
       notes: String(formData.get("notes") ?? ""),
-      tableDate: String(formData.get("table_date") ?? selectedMeeting.date ?? todayDateValue()),
+      tableDate,
       tableType: selectedMeetingContext,
-    }, "PATCH");
+      timezone: isScheduledMeeting ? Intl.DateTimeFormat().resolvedOptions().timeZone || selectedMeeting.timezone : selectedMeeting.timezone,
+    };
+
+    if (isScheduledMeeting) {
+      const scheduledTime = String(formData.get("scheduled_time") ?? "");
+      const scheduledStartAt = localDateTimeIso(tableDate, scheduledTime);
+
+      if (!scheduledStartAt) {
+        setErrorMessage("Choose a valid table date and time.");
+        return;
+      }
+
+      payload.scheduledStartAt = scheduledStartAt;
+      payload.scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + formDurationMinutes(formData.get("duration_minutes")) * 60_000).toISOString();
+    }
+
+    void submitJson("/api/dos/app/meetings", payload, "PATCH");
   }
 
   function handleMeetingNotesSubmit(event: FormEvent<HTMLFormElement>) {
@@ -19690,9 +19811,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onToggleFollowUpAction={handleConversationFollowUpAction}
               onTogglePerson={toggleMeetingPersonId}
               recommendedResources={draftRecommendedResources}
+              scheduledEndAtDefault={selectedMeeting.scheduledEndAt}
+              scheduledStartAtDefault={selectedMeeting.scheduledStartAt}
               selectedConversationFlow={selectedConversationFlow}
               selectedMeetingContext={selectedMeetingContext}
               selectedPersonIds={selectedMeetingPersonIds}
+              showConversationFlow={selectedMeeting.meetingStatus !== "scheduled"}
+              showScheduledTiming={selectedMeeting.meetingStatus === "scheduled"}
               submittingText="Saving..."
             />
             <button
