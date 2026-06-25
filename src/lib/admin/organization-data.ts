@@ -204,10 +204,10 @@ const householdBaseSelect = "id, slug, display_name, public_visible, updated_at,
 const householdFeatureSelect = `${householdBaseSelect}, show_household, show_prayer, show_support, show_fruit, show_story, enable_prayer_team`;
 const usamOrganizationWorkspacesHref = "/admin/organizations/usa-missionaries?tab=workspaces";
 
-function dosWorkspaceHref(workspaceRef: string | null | undefined) {
-  const normalizedRef = workspaceRef?.trim();
+function workspaceIntelligenceHref(workspaceId: string | null | undefined) {
+  const normalizedId = workspaceId?.trim();
 
-  return normalizedRef ? `/dos/app?workspace=${encodeURIComponent(normalizedRef)}` : null;
+  return normalizedId ? `/admin/workspaces/${encodeURIComponent(normalizedId)}/preview` : null;
 }
 
 function isUsamOrganization(organization: Pick<OrganizationRow, "branding_mode" | "slug">) {
@@ -425,7 +425,7 @@ function getOrganizationWorkspaces(
     slug: household.slug,
     sourceLabel: "DOS Workspace",
     status: "active" as const,
-    viewHref: dosWorkspaceHref(household.slug) ?? usamOrganizationWorkspacesHref,
+    viewHref: workspaceIntelligenceHref(household.id) ?? usamOrganizationWorkspacesHref,
   }));
   const foundationWorkspaces = orgCollectives
     .filter((collective) => !activeHouseholdSlugs.has(collective.slug))
@@ -693,7 +693,7 @@ function workspaceSummaryFromIndex(workspace: AdminWorkspaceIndexItem): Organiza
     slug: workspace.slug ?? workspace.id,
     sourceLabel: workspace.workspaceType,
     status: workspace.status,
-    viewHref: dosWorkspaceHref(workspace.slug ?? workspace.id) ?? usamOrganizationWorkspacesHref,
+    viewHref: workspaceIntelligenceHref(workspace.id) ?? usamOrganizationWorkspacesHref,
   };
 }
 

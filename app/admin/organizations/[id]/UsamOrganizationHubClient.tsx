@@ -274,8 +274,8 @@ function workspaceActionHref(workspace: OrganizationWorkspaceSummary) {
     return workspace.viewHref;
   }
 
-  if (workspace.kind === "workspace" && workspace.slug) {
-    return `/dos/app?workspace=${encodeURIComponent(workspace.slug)}`;
+  if (workspace.kind === "workspace" && workspace.id) {
+    return `/admin/workspaces/${encodeURIComponent(workspace.id)}/preview`;
   }
 
   return usamOrganizationWorkspacesHref;
