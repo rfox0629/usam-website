@@ -31,8 +31,8 @@ export const metadata: Metadata = {
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
-type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "scheduledEndAt" | "scheduledStartAt" | "timezone">
-  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "scheduledEndAt" | "scheduledStartAt" | "timezone">>;
+type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "timezone">
+  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "timezone">>;
 
 function LockedPreviewScreen() {
   return (
@@ -75,8 +75,13 @@ function buildDemoMeeting(meeting: DemoMeetingInput): DosAppMeeting {
     googleSyncEnabled: false,
     googleSyncStatus: null,
     meetingStatus: "logged",
+    ministryEventId: null,
+    ministryTeam: [],
+    participants: [],
+    recorder: null,
     scheduledEndAt: null,
     scheduledStartAt: null,
+    supportingAttendees: [],
     timezone: "America/Chicago",
     ...meeting,
   };

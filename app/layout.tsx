@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { SiteFooter } from "../components/SiteFooter";
+import { RouteAwareSiteFooter } from "../components/RouteAwareSiteFooter";
 
 export const metadata: Metadata = {
   title: "USA Missionaries",
@@ -26,7 +26,7 @@ export default function RootLayout({
         <div className="flex-1">
           {children}
         </div>
-        <SiteFooter />
+        <RouteAwareSiteFooter />
       </body>
     </html>
   );

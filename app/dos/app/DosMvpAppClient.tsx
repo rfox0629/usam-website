@@ -20,7 +20,8 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace } from "@/src/lib/dos/missionary-app";
+import type { DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import { dosQuickReviewFormDefinition, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { dosPrayerResourceAttribution, dosPrayerResourceCategories, dosPrayerResources, getDosPrayerResourceBySlug, type DosPrayerResource, type DosPrayerResourceCategory } from "@/src/lib/dos/prayer-resources";
@@ -205,6 +206,36 @@ const conversationFlowOptions: ReadonlyArray<{ helper?: string; label: string; v
     value: flow.id,
   })),
 ];
+
+const supportingAttendeeSubRoleOptions: ReadonlyArray<{ label: string; value: DosSupportingAttendeeSubRole | "" }> = [
+  { label: "No sub-role", value: "" },
+  { label: "Observer", value: "observer" },
+  { label: "Contributor", value: "contributor" },
+  { label: "Learning", value: "learning" },
+  { label: "Support", value: "support" },
+  { label: "Child present", value: "child_present" },
+];
+
+function defaultMinistryTeamMemberIdsForWorkspace(data: Pick<DosAppData, "householdMembers" | "workspace">) {
+  const activeMembers = data.householdMembers.filter((member) => !["archived", "inactive"].includes(member.status.toLowerCase()));
+  const workspaceLabel = `${data.workspace.slug} ${data.workspace.displayName}`.toLowerCase();
+
+  if (workspaceLabel.includes("ryan") || workspaceLabel.includes("brooke") || workspaceLabel.includes("fox")) {
+    const foxMembers = activeMembers.filter((member) => /(^|\s)(ryan|brooke)(\s|$)/i.test(member.displayName));
+
+    if (foxMembers.length) {
+      return foxMembers.map((member) => member.id);
+    }
+  }
+
+  const responsibleMembers = activeMembers.filter((member) => {
+    const label = `${member.relationship ?? ""} ${member.roleTitle ?? ""}`.toLowerCase();
+
+    return member.linked || label.includes("missionary") || label.includes("leader") || label.includes("spouse") || label.includes("primary");
+  });
+
+  return (responsibleMembers.length ? responsibleMembers : activeMembers.slice(0, 1)).map((member) => member.id);
+}
 
 const commitmentLevelOptions: ReadonlyArray<{
   helper: string;
@@ -468,29 +499,6 @@ const fruitImpactSourceConfigs = [
   },
 ] as const satisfies ReadonlyArray<{ description: string; key: FruitOutcomeSourceKey; title: FruitActivitySource }>;
 
-const quickReviewExperienceOutcomeKeys = [
-  "life_giving",
-  "felt_encouraged",
-  "peaceful",
-  "challenging_good",
-  "transformational",
-  "not_sure_yet",
-] as const;
-const quickReviewLifeChangeOutcomeKeys = [
-  "closer_to_god",
-  "reconciled_relationship",
-  "surrendered_something",
-  "decision_to_follow_jesus",
-  "joined_group",
-  "baptism_requested",
-  "still_processing",
-  "other",
-] as const;
-const testimonyReviewSharingPermissionOptions = [
-  "I give permission for USA Missionaries to share my testimony publicly (written or verbal) in an anonymized form.",
-  "I give permission for USA Missionaries to share my testimony publicly with my name included.",
-  "I do not give permission for my responses to be shared publicly.",
-] as const;
 const fruitImpactGroupConfig = [
   {
     key: "spiritual",
@@ -523,14 +531,6 @@ const outcomeTagOptions = fruitOutcomeDefinitions
   .filter((outcome) => outcome.sources.includes("leader_review"))
   .map((outcome) => outcome.leaderLabel ?? outcome.label);
 const meetingObservedFruitOptions = outcomeTagOptions.map((label) => ({ label, value: label }));
-
-function fruitOutcomeFormLabels(outcomeKeys: readonly string[]) {
-  return outcomeKeys.map((key) => {
-    const outcome = fruitOutcomeByKey.get(key);
-
-    return outcome?.formLabel ?? outcome?.label ?? key;
-  });
-}
 
 const reminderTypeOptions = [
   { helper: "Yearly", label: "Birthday", value: "birthday" },
@@ -595,7 +595,7 @@ type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "my_requests" | "partners" | "praying_for";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
-type MeetingReviewFollowUp = "none" | "quick_review" | "testimony_request";
+type MeetingReviewFollowUp = "none" | "quick_review" | "review_options" | "testimony_request";
 type MeetingCalendarItemKind = "anniversary" | "birthday" | "follow_up" | "google" | "meeting" | "prayer";
 type MeetingCalendarItem = {
   date: string;
@@ -708,120 +708,8 @@ type SendableFormPreview = {
   sections: readonly FormPreviewSection[];
   title: string;
 };
-const quickReviewFormPreview: {
-  title: string;
-  sections: readonly FormPreviewSection[];
-} = {
-  title: "2 Minute Reflection",
-  sections: [
-    {
-      fieldType: "text",
-      label: "Your name",
-      required: true,
-      type: "field",
-    },
-    {
-      fieldType: "text",
-      label: "Last name",
-      type: "field",
-    },
-    {
-      fieldType: "email",
-      label: "Email address",
-      required: true,
-      type: "field",
-    },
-    {
-      label: "How would you describe your experience?",
-      options: fruitOutcomeFormLabels(quickReviewExperienceOutcomeKeys),
-      type: "choice",
-    },
-    {
-      fieldType: "textarea",
-      label: "What impact did this meeting have on you? Any encouragement you want to share with USA Missionaries?",
-      type: "field",
-    },
-    {
-      label: "Did anything change in your life because of this meeting?",
-      options: fruitOutcomeFormLabels(quickReviewLifeChangeOutcomeKeys),
-      type: "choice",
-    },
-    {
-      copy: "Your responses to this reflection form are kept confidential and stewarded with care. We may use parts of what you share here to encourage others, but only with your permission.",
-      label: "Your Reflection & Privacy",
-      type: "notice",
-    },
-    {
-      label: "May we share your testimony?",
-      options: [
-        "Yes, anonymously",
-        "Yes, with my name included",
-        "No, please keep my story private",
-      ],
-      type: "choice",
-    },
-  ],
-};
-const testimonyReviewFormPreview: SendableFormPreview = {
-  intro: "Thank you for welcoming us into your home and allowing space for the Holy Spirit to move. Every table looks different, and we believe the Lord often continues His work long after our time together ends. Your reflections help us give glory to God and steward this ministry with humility and care.",
-  title: "Kitchen Table Reflection",
-  sections: [
-    {
-      fieldType: "text",
-      label: "Your name",
-      placeholder: "First name",
-      required: true,
-      type: "field",
-    },
-    {
-      fieldType: "text",
-      label: "Last name",
-      type: "field",
-    },
-    {
-      fieldType: "email",
-      label: "Email address",
-      placeholder: "name@example.com",
-      required: true,
-      type: "field",
-    },
-    {
-      fieldType: "textarea",
-      helper: "A moment, a word, a prayer, a conversation, or something the Lord impressed on your heart.",
-      label: "What stood out to you most from our time together at the table?",
-      type: "field",
-    },
-    {
-      fieldType: "textarea",
-      helper: "If so, what was it, and how did it impact you?",
-      label: "Did you sense the Lord speaking, revealing, or stirring anything in you during or after our time together?",
-      type: "field",
-    },
-    {
-      fieldType: "textarea",
-      helper: "This could be obedience, repentance, rest, prayer, reconciliation, or simply deeper trust.",
-      label: "As you reflect on this meeting, is there anything you feel the Lord is inviting you to step into or respond to next?",
-      type: "field",
-    },
-    {
-      fieldType: "textarea",
-      helper: "Please feel free to share any additional thoughts or feedback.",
-      label: "Is there anything else you would like to share or that feels important to add?",
-      type: "field",
-    },
-    {
-      copy: "Your responses are shared in confidence and will be stewarded with care. What you share may be used internally for prayer, reflection, and to help us steward this ministry well. Any testimony or story shared publicly will only be done with your clear permission, and identifying details will be removed unless you explicitly approve otherwise. Our desire is to honor your trust, protect what the Lord is doing in your life, and give glory to God through stories that encourage others.",
-      label: "Your Reflection and Privacy",
-      type: "notice",
-    },
-    {
-      choiceType: "checkbox",
-      label: "Sharing Permission",
-      options: testimonyReviewSharingPermissionOptions,
-      type: "choice",
-    },
-  ],
-};
+const quickReviewFormPreview = dosQuickReviewFormDefinition;
+const testimonyReviewFormPreview = dosTestimonyReviewFormDefinition;
 type ScriptureReference = {
   reference: string;
   text: string;
@@ -2784,7 +2672,17 @@ function meetingTestimonyRecipientTitle(meeting: DosAppMeeting, people: DosAppPe
 }
 
 function canSendMeetingTestimonyRequest(meeting: DosAppMeeting, people: DosAppPerson[]) {
-  return Boolean(meetingTestimonyRecipientTitle(meeting, people));
+  return meetingRecipientOptions(meeting, people).length > 0;
+}
+
+function meetingRecipientOptions(meeting: DosAppMeeting, people: DosAppPerson[]) {
+  return Array.from(new Set(meeting.fieldPersonIds.filter(Boolean)))
+    .map((personId) => {
+      const person = people.find((item) => item.id === personId);
+
+      return person ? { id: person.id, name: person.name } : null;
+    })
+    .filter((person): person is { id: string; name: string } => Boolean(person));
 }
 
 function meetingAvatarNames(meeting: DosAppMeeting, people: DosAppPerson[]) {
@@ -6701,14 +6599,14 @@ const fruitFormCards: ReadonlyArray<{
   title: string;
 }> = [
   {
-    description: "Send after a meeting so someone can share what happened, how the meeting impacted them, and any next steps.",
+    description: "Preview the short review sent after a saved Table.",
     icon: "send",
     key: "quick_review",
     status: "live",
     title: "Quick Review",
   },
   {
-    description: "Send this when someone has a testimony to share so it can be reviewed and connected to visible fruit.",
+    description: "Preview the testimony form sent after a saved Table.",
     icon: "fruit",
     key: "testimony_review",
     status: "live",
@@ -10166,30 +10064,36 @@ function ConversationQuestionCard({
 
 function MeetingPeopleSelector({
   allPeople,
+  disabledPersonIds = [],
   isCreatingPerson = false,
   onCreatePerson,
   onQueryChange,
   onToggle,
   people,
+  placeholder = "Search your field",
   query,
+  removeLabel = "from table",
   selectedPersonIds,
 }: {
   allPeople: DosAppPerson[];
+  disabledPersonIds?: string[];
   isCreatingPerson?: boolean;
   onCreatePerson?: (name: string) => Promise<void>;
   onQueryChange: (value: string) => void;
   onToggle: (personId: string) => void;
   people: DosAppPerson[];
+  placeholder?: string;
   query: string;
+  removeLabel?: string;
   selectedPersonIds: string[];
 }) {
   const selectedPeople = selectedPersonIds
     .map((personId) => allPeople.find((person) => person.id === personId))
     .filter((person): person is DosAppPerson => Boolean(person));
-  const visiblePeople = people.filter((person) => !selectedPersonIds.includes(person.id));
+  const visiblePeople = people.filter((person) => !selectedPersonIds.includes(person.id) && !disabledPersonIds.includes(person.id));
   const hasSearch = query.trim().length > 0;
   const quickAddName = query.trim().replace(/\s+/g, " ");
-  const canQuickAdd = Boolean(onCreatePerson && hasSearch && quickAddName && people.length === 0);
+  const canQuickAdd = Boolean(onCreatePerson && hasSearch && quickAddName && visiblePeople.length === 0);
 
   return (
     <div className="grid gap-2">
@@ -10197,7 +10101,7 @@ function MeetingPeopleSelector({
         <div className="flex flex-wrap gap-1.5">
           {selectedPeople.map((person, index) => (
             <button
-              aria-label={`Remove ${person.name} from table`}
+              aria-label={`Remove ${person.name} ${removeLabel}`}
               className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#2563EB]"
               key={person.id}
               onClick={() => onToggle(person.id)}
@@ -10223,7 +10127,7 @@ function MeetingPeopleSelector({
           aria-label="Search people"
           className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white pl-9 pr-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search your field"
+          placeholder={placeholder}
           type="search"
           value={query}
         />
@@ -10262,6 +10166,190 @@ function MeetingPeopleSelector({
             {isCreatingPerson ? "Adding..." : <>+ Add &ldquo;{quickAddName}&rdquo;</>}
           </span>
         </button>
+      ) : null}
+    </div>
+  );
+}
+
+function MinistryTeamSelector({
+  allPeople,
+  householdMembers,
+  onPersonQueryChange,
+  onToggleMember,
+  onTogglePerson,
+  people,
+  query,
+  selectedMemberIds,
+  selectedPersonIds,
+}: {
+  allPeople: DosAppPerson[];
+  householdMembers: DosAppData["householdMembers"];
+  onPersonQueryChange: (value: string) => void;
+  onToggleMember: (memberId: string) => void;
+  onTogglePerson: (personId: string) => void;
+  people: DosAppPerson[];
+  query: string;
+  selectedMemberIds: string[];
+  selectedPersonIds: string[];
+}) {
+  const activeMembers = householdMembers.filter((member) => !["archived", "inactive"].includes(member.status.toLowerCase()));
+  const selectedMembers = selectedMemberIds
+    .map((memberId) => activeMembers.find((member) => member.id === memberId))
+    .filter((member): member is DosAppData["householdMembers"][number] => Boolean(member));
+  const selectedPeople = selectedPersonIds
+    .map((personId) => allPeople.find((person) => person.id === personId))
+    .filter((person): person is DosAppPerson => Boolean(person));
+  const hasSearch = query.trim().length > 0;
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleMembers = activeMembers.filter((member) => (
+    !selectedMemberIds.includes(member.id)
+    && hasSearch
+    && member.displayName.toLowerCase().includes(normalizedQuery)
+  ));
+  const visiblePeople = people.filter((person) => !selectedPersonIds.includes(person.id));
+
+  return (
+    <div className="grid gap-2">
+      {selectedMembers.length || selectedPeople.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedMembers.map((member, index) => (
+            <button
+              aria-label={`Remove ${member.displayName} from ministry team`}
+              className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#F2C94C] bg-[#FFFBEB] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#D6A300]"
+              key={`member-${member.id}`}
+              onClick={() => onToggleMember(member.id)}
+              type="button"
+            >
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold ${avatarTone(index)}`}>
+                {initials(member.displayName)}
+              </span>
+              <span className="max-w-[9rem] truncate">{member.displayName}</span>
+              <span className="ml-0.5 text-[13px] leading-none text-[#A16207]" aria-hidden="true">&times;</span>
+            </button>
+          ))}
+          {selectedPeople.map((person, index) => (
+            <button
+              aria-label={`Remove ${person.name} from ministry team`}
+              className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#F2C94C] bg-[#FFFBEB] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#D6A300]"
+              key={`person-${person.id}`}
+              onClick={() => onTogglePerson(person.id)}
+              type="button"
+            >
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold ${avatarTone(index + selectedMembers.length)}`}>
+                {initials(person.name)}
+              </span>
+              <span className="max-w-[9rem] truncate">{person.name}</span>
+              <span className="ml-0.5 text-[13px] leading-none text-[#A16207]" aria-hidden="true">&times;</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
+          <Icon name="search" size={14} />
+        </span>
+        <input
+          aria-label="Search ministry team"
+          className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white pl-9 pr-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+          onChange={(event) => onPersonQueryChange(event.target.value)}
+          placeholder="Search team or field"
+          type="search"
+          value={query}
+        />
+      </div>
+
+      {hasSearch && (visibleMembers.length || visiblePeople.length) ? (
+        <div className="mt-2 grid gap-1 pr-1">
+          {visibleMembers.map((member, index) => (
+            <button
+              className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
+              key={member.id}
+              onClick={() => onToggleMember(member.id)}
+              type="button"
+            >
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
+                {initials(member.displayName)}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium">{member.displayName}</span>
+              <span className="rounded-full bg-[#FFFBEB] px-2 py-0.5 text-[10px] font-bold text-[#A16207]">Team</span>
+            </button>
+          ))}
+          {visiblePeople.map((person, index) => (
+            <button
+              className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
+              key={person.id}
+              onClick={() => onTogglePerson(person.id)}
+              type="button"
+            >
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index + visibleMembers.length)}`}>
+                {initials(person.name)}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium">{person.name}</span>
+              <span className="rounded-full bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-bold text-[#64748B]">Field</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SupportingAttendeeSelector({
+  allPeople,
+  disabledPersonIds,
+  onQueryChange,
+  onSubRoleChange,
+  onToggle,
+  people,
+  query,
+  selectedPersonIds,
+  subRoles,
+}: {
+  allPeople: DosAppPerson[];
+  disabledPersonIds: string[];
+  onQueryChange: (value: string) => void;
+  onSubRoleChange: (personId: string, value: DosSupportingAttendeeSubRole | "") => void;
+  onToggle: (personId: string) => void;
+  people: DosAppPerson[];
+  query: string;
+  selectedPersonIds: string[];
+  subRoles: Record<string, DosSupportingAttendeeSubRole | "">;
+}) {
+  const selectedPeople = selectedPersonIds
+    .map((personId) => allPeople.find((person) => person.id === personId))
+    .filter((person): person is DosAppPerson => Boolean(person));
+
+  return (
+    <div className="grid gap-3">
+      <MeetingPeopleSelector
+        allPeople={allPeople}
+        disabledPersonIds={disabledPersonIds}
+        onQueryChange={onQueryChange}
+        onToggle={onToggle}
+        people={people}
+        placeholder="Search supporting attendees"
+        query={query}
+        removeLabel="from supporting attendees"
+        selectedPersonIds={selectedPersonIds}
+      />
+      {selectedPeople.length ? (
+        <div className="grid gap-2">
+          {selectedPeople.map((person) => (
+            <label className="grid gap-1.5 rounded-[18px] border border-[#EAF2FF] bg-[#F8FAFC] p-2.5" key={person.id}>
+              <span className="text-xs font-bold text-[#0F172A]">{person.name}</span>
+              <select
+                className="min-h-9 rounded-2xl border border-[#D6E4F7] bg-white px-3 text-xs font-bold text-[#475569] outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                onChange={(event) => onSubRoleChange(person.id, event.target.value as DosSupportingAttendeeSubRole | "")}
+                value={subRoles[person.id] ?? ""}
+              >
+                {supportingAttendeeSubRoleOptions.map((option) => (
+                  <option key={option.value || "none"} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
       ) : null}
     </div>
   );
@@ -10548,32 +10636,47 @@ function MeetingFormContent({
   conversationResponses,
   dateDefault,
   errorMessage,
+  householdMembers,
   includeReflectionFields = false,
   isCreatingPerson = false,
   isSubmitting,
   meetingPeopleOptions,
   meetingPeopleQuery,
+  ministryTeamPeopleOptions,
+  ministryTeamQuery,
   notesDefault,
   onContextChange,
   onCreatePerson,
   onConversationFlowChange,
   onConversationResponse,
+  onMinistryTeamQueryChange,
   onSubmit,
+  onSupportingAttendeeQueryChange,
+  onSupportingAttendeeSubRoleChange,
   onToggleFollowUpAction,
+  onToggleMinistryTeamMember,
+  onToggleMinistryTeamPerson,
   onToggleOutcomeTag,
   onTogglePerson,
+  onToggleSupportingAttendee,
   onPeopleQueryChange,
   recommendedResources,
   scheduledEndAtDefault,
   scheduledStartAtDefault,
   selectedConversationFlow,
   selectedMeetingContext,
+  selectedMinistryTeamMemberIds,
+  selectedMinistryTeamPersonIds,
   selectedOutcomeTags,
   selectedPersonIds,
+  selectedSupportingAttendeeIds,
   showConversationFlow = true,
   showDurationField = false,
   showScheduledTiming = false,
   submittingText,
+  supportingAttendeeOptions,
+  supportingAttendeeQuery,
+  supportingAttendeeSubRoles,
 }: {
   allPeople: DosAppPerson[];
   allowConversationFlows: boolean;
@@ -10581,42 +10684,60 @@ function MeetingFormContent({
   conversationResponses: DosConversationResponses;
   dateDefault: string;
   errorMessage?: string;
+  householdMembers: DosAppData["householdMembers"];
   includeReflectionFields?: boolean;
   isCreatingPerson?: boolean;
   isSubmitting: boolean;
   meetingPeopleOptions: DosAppPerson[];
   meetingPeopleQuery: string;
+  ministryTeamPeopleOptions: DosAppPerson[];
+  ministryTeamQuery: string;
   notesDefault?: string | null;
   onContextChange: (value: DosAppMeetingType) => void;
   onCreatePerson?: (name: string) => Promise<void>;
   onConversationFlowChange: (value: DosConversationFlowKey) => void;
   onConversationResponse: (questionId: string, value: DosConversationResponseValue | undefined) => void;
+  onMinistryTeamQueryChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSupportingAttendeeQueryChange: (value: string) => void;
+  onSupportingAttendeeSubRoleChange: (personId: string, value: DosSupportingAttendeeSubRole | "") => void;
   onToggleFollowUpAction: (actionId: string) => void;
+  onToggleMinistryTeamMember: (memberId: string) => void;
+  onToggleMinistryTeamPerson: (personId: string) => void;
   onToggleOutcomeTag?: (tag: string) => void;
   onTogglePerson: (personId: string) => void;
+  onToggleSupportingAttendee: (personId: string) => void;
   onPeopleQueryChange: (value: string) => void;
   recommendedResources: DosRecommendedResource[];
   scheduledEndAtDefault?: string | null;
   scheduledStartAtDefault?: string | null;
   selectedConversationFlow: DosConversationFlowKey;
   selectedMeetingContext: DosAppMeetingType;
+  selectedMinistryTeamMemberIds: string[];
+  selectedMinistryTeamPersonIds: string[];
   selectedOutcomeTags?: string[];
   selectedPersonIds: string[];
+  selectedSupportingAttendeeIds: string[];
   showConversationFlow?: boolean;
   showDurationField?: boolean;
   showScheduledTiming?: boolean;
   submittingText: string;
+  supportingAttendeeOptions: DosAppPerson[];
+  supportingAttendeeQuery: string;
+  supportingAttendeeSubRoles: Record<string, DosSupportingAttendeeSubRole | "">;
 }) {
   const peopleSelector = (
     <MeetingPeopleSelector
       allPeople={allPeople}
+      disabledPersonIds={selectedSupportingAttendeeIds}
       isCreatingPerson={isCreatingPerson}
       onCreatePerson={onCreatePerson}
       onQueryChange={onPeopleQueryChange}
       onToggle={onTogglePerson}
       people={meetingPeopleOptions}
+      placeholder="Search participants"
       query={meetingPeopleQuery}
+      removeLabel="from participants"
       selectedPersonIds={selectedPersonIds}
     />
   );
@@ -10649,8 +10770,34 @@ function MeetingFormContent({
           <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
         )}
       </DosFormSection>
-      <DosFormSection icon="people" title="People">
+      <DosFormSection icon="people" title="Ministry Team">
+        <MinistryTeamSelector
+          allPeople={allPeople}
+          householdMembers={householdMembers}
+          onPersonQueryChange={onMinistryTeamQueryChange}
+          onToggleMember={onToggleMinistryTeamMember}
+          onTogglePerson={onToggleMinistryTeamPerson}
+          people={ministryTeamPeopleOptions}
+          query={ministryTeamQuery}
+          selectedMemberIds={selectedMinistryTeamMemberIds}
+          selectedPersonIds={selectedMinistryTeamPersonIds}
+        />
+      </DosFormSection>
+      <DosFormSection icon="people" title="Participants">
         {peopleSelector}
+      </DosFormSection>
+      <DosFormSection icon="people" title="Supporting Attendees">
+        <SupportingAttendeeSelector
+          allPeople={allPeople}
+          disabledPersonIds={selectedPersonIds}
+          onQueryChange={onSupportingAttendeeQueryChange}
+          onSubRoleChange={onSupportingAttendeeSubRoleChange}
+          onToggle={onToggleSupportingAttendee}
+          people={supportingAttendeeOptions}
+          query={supportingAttendeeQuery}
+          selectedPersonIds={selectedSupportingAttendeeIds}
+          subRoles={supportingAttendeeSubRoles}
+        />
       </DosFormSection>
       {showDurationField && durationSelector ? (
         <DosFormSection icon="meetings" title="Duration">
@@ -11976,10 +12123,7 @@ function FruitFormCard({
   onComingSoon,
 }: {
   action?: {
-    isBusy?: boolean;
-    onCopy: () => void;
     onPreview: () => void;
-    onSend: () => void;
   };
   form: (typeof fruitFormCards)[number];
   onComingSoon: (form: (typeof fruitFormCards)[number]) => void;
@@ -11995,21 +12139,17 @@ function FruitFormCard({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <h3 className="text-base font-black leading-5 tracking-[-0.01em] text-[#0F172A]">{form.title}</h3>
-            {isLive ? (
-              <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                Sendable
-              </span>
-            ) : (
+            {!isLive ? (
               <span className="shrink-0 rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
                 Coming Soon
               </span>
-            )}
+            ) : null}
           </div>
           <p className="mt-1 text-xs leading-5 text-[#64748B]">{form.description}</p>
         </div>
       </div>
       {isLive ? (
-        <FruitFormActions action={action} className="mt-4 grid-cols-3" />
+        <FruitFormActions action={action} className="mt-4" />
       ) : (
         <div className="mt-4">
           <AppButton icon={form.icon} onClick={() => onComingSoon(form)} tone="soft">Coming Soon</AppButton>
@@ -12024,33 +12164,26 @@ function FruitFormActions({
   className = "",
 }: {
   action?: {
-    isBusy?: boolean;
-    onCopy: () => void;
     onPreview: () => void;
-    onSend: () => void;
   };
   className?: string;
 }) {
-  const disabled = !action || action.isBusy;
+  const disabled = !action;
 
   return (
     <div className={`grid gap-2 max-[350px]:grid-cols-1 ${className}`}>
-      <FruitFormActionButton disabled={disabled} isBusy={action?.isBusy} label="Preview" onClick={action?.onPreview} />
-      <FruitFormActionButton disabled={disabled} isBusy={action?.isBusy} label="Copy Link" onClick={action?.onCopy} />
-      <FruitFormActionButton disabled={disabled} isBusy={action?.isBusy} label="Send" onClick={action?.onSend} primary />
+      <FruitFormActionButton disabled={disabled} label="View Form" onClick={action?.onPreview} primary />
     </div>
   );
 }
 
 function FruitFormActionButton({
   disabled,
-  isBusy,
   label,
   onClick,
   primary = false,
 }: {
   disabled?: boolean;
-  isBusy?: boolean;
   label: string;
   onClick?: () => void;
   primary?: boolean;
@@ -12066,7 +12199,7 @@ function FruitFormActionButton({
       onClick={onClick}
       type="button"
     >
-      <span className="truncate">{isBusy ? "Preparing..." : label}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
@@ -12091,6 +12224,9 @@ function FruitFormsGrid({
       {comingSoonMessage ? (
         <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">{comingSoonMessage}</p>
       ) : null}
+      <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">
+        Forms are sent after logging a Table so responses stay connected to the right meeting.
+      </p>
       <div className="grid gap-3 md:hidden">
         {fruitFormCards.map((form) => (
           <FruitFormCard
@@ -12102,18 +12238,17 @@ function FruitFormsGrid({
         ))}
       </div>
       <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_30px_rgba(37,99,235,0.045)] md:block">
-        <div className="grid grid-cols-[1.05fr_1.55fr_0.65fr_1.2fr] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="grid grid-cols-[1.05fr_1.55fr_1.2fr] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
           <span>Form</span>
           <span>Purpose</span>
-          <span>Status</span>
-          <span>Actions</span>
+          <span>Preview</span>
         </div>
         {fruitFormCards.map((form) => {
           const isLive = form.status === "live";
           const action = actionForForm(form);
 
           return (
-            <div className="grid grid-cols-[1.05fr_1.55fr_0.65fr_1.2fr] items-center gap-3 border-b border-[#F1F5F9] px-4 py-3 last:border-b-0" key={form.key}>
+            <div className="grid grid-cols-[1.05fr_1.55fr_1.2fr] items-center gap-3 border-b border-[#F1F5F9] px-4 py-3 last:border-b-0" key={form.key}>
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
                   <Icon name={form.icon} size={16} />
@@ -12121,11 +12256,8 @@ function FruitFormsGrid({
                 <p className="truncate text-sm font-black text-[#0F172A]">{form.title}</p>
               </div>
               <p className="text-xs leading-5 text-[#64748B]">{form.description}</p>
-              <span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] ${isLive ? "bg-[#EBF2FF] text-[#1D4ED8]" : "bg-[#F1F5F9] text-[#64748B]"}`} style={{ fontFamily: font.rajdhani }}>
-                {isLive ? "Sendable" : "Coming Soon"}
-              </span>
               {isLive ? (
-                <FruitFormActions action={action} className="grid-cols-3" />
+                <FruitFormActions action={action} />
               ) : (
                 <button
                   className="inline-flex min-h-10 w-fit items-center justify-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[11px] font-bold text-[#64748B]"
@@ -14276,6 +14408,97 @@ function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
   );
 }
 
+function supportingAttendeeSubRoleLabel(value: DosSupportingAttendeeSubRole | null) {
+  return supportingAttendeeSubRoleOptions.find((option) => option.value === value)?.label ?? null;
+}
+
+function EventPeopleRoleGroup({
+  people,
+  title,
+  tone = "blue",
+}: {
+  people: Array<{ displayName: string; id: string; supportingSubRole?: DosSupportingAttendeeSubRole | null }>;
+  title: string;
+  tone?: "amber" | "blue" | "slate";
+}) {
+  if (!people.length) {
+    return null;
+  }
+
+  const toneClassName = tone === "amber"
+    ? "border-[#F2C94C] bg-[#FFFBEB] text-[#92400E]"
+    : tone === "slate"
+      ? "border-[#E2E8F0] bg-[#F8FAFC] text-[#475569]"
+      : "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
+
+  return (
+    <div className="grid gap-2">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{title}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {people.map((person) => {
+          const subRoleLabel = supportingAttendeeSubRoleLabel(person.supportingSubRole ?? null);
+
+          return (
+            <span className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-xs font-bold ${toneClassName}`} key={person.id}>
+              <span className="truncate">{person.displayName}</span>
+              {subRoleLabel ? <span className="ml-1 shrink-0 opacity-75">· {subRoleLabel}</span> : null}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MeetingPeopleDetailCard({ meeting, people }: { meeting: DosAppMeeting; people: DosAppPerson[] }) {
+  const fallbackParticipants = resolveDosMeetingParticipantNames({
+    fieldPersonIds: meeting.fieldPersonIds,
+    participantNames: meeting.participantNames,
+    people,
+  }).map((name, index) => ({
+    displayName: name,
+    id: `${meeting.id}-participant-${index}-${name}`,
+  }));
+  const participants = meeting.participants.length
+    ? meeting.participants.map((participant) => ({
+      displayName: participant.displayName,
+      id: participant.id,
+    }))
+    : fallbackParticipants;
+
+  if (!meeting.ministryTeam.length && !participants.length && !meeting.supportingAttendees.length && !meeting.recorder) {
+    return null;
+  }
+
+  return (
+    <DetailCard title="People">
+      <EventPeopleRoleGroup
+        people={meeting.ministryTeam.map((person) => ({
+          displayName: person.displayName,
+          id: person.id,
+        }))}
+        title="Ministry Team"
+        tone="amber"
+      />
+      <EventPeopleRoleGroup people={participants} title="Participants" />
+      <EventPeopleRoleGroup
+        people={meeting.supportingAttendees.map((person) => ({
+          displayName: person.displayName,
+          id: person.id,
+          supportingSubRole: person.supportingSubRole,
+        }))}
+        title="Supporting Attendees"
+        tone="slate"
+      />
+      {meeting.recorder ? (
+        <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs font-semibold leading-5 text-[#64748B]">
+          Recorder: {meeting.recorder.displayName}
+        </p>
+      ) : null}
+    </DetailCard>
+  );
+}
+
 function DetailRow({
   ariaLabel,
   href,
@@ -15656,19 +15879,23 @@ function MeetingSendConfirmationSheet({
   action: PendingMeetingSendAction;
   isSending: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (recipientPersonId: string) => void;
   people: DosAppPerson[];
 }) {
   const isTestimony = action.type === "testimony_request";
-  const title = isTestimony ? "Send Testimony Request" : "Send Quick Review";
-  const description = isTestimony
+  const isReviewOptions = action.type === "review_options";
+  const title = isReviewOptions ? "Send Review Options" : isTestimony ? "Send Testimony Request" : "Send Quick Review";
+  const description = isReviewOptions
+    ? "Send one link where they can choose Quick Review or Testimony Review."
+    : isTestimony
     ? "Invite them to share what changed from this table."
     : "Invite them to share a quick review of the table.";
-  const recipientTitle = isTestimony
-    ? meetingTestimonyRecipientTitle(action.meeting, people)
-    : meetingParticipantTitle(action.meeting, people);
+  const recipientOptions = meetingRecipientOptions(action.meeting, people);
+  const [selectedRecipientId, setSelectedRecipientId] = useState(recipientOptions[0]?.id ?? "");
+  const selectedRecipient = recipientOptions.find((recipient) => recipient.id === selectedRecipientId) ?? null;
+  const recipientTitle = selectedRecipient?.name ?? meetingParticipantTitle(action.meeting, people);
   const fallbackTitle = meetingFallbackTitle(action.meeting);
-  const cannotSendTestimony = isTestimony && !recipientTitle;
+  const cannotSend = !selectedRecipientId;
 
   return (
     <Sheet description={description} onClose={onClose} showEyebrow={false} title={title}>
@@ -15680,21 +15907,42 @@ function MeetingSendConfirmationSheet({
             <DetailRow icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Table" value={fallbackTitle} />
           )}
           <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label={recipientTitle ? "Table" : "Date"} value={recipientTitle ? meetingMetadataLine(action.meeting) : formatDate(action.meeting.date)} />
-          <DetailRow icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Request Type" value={isTestimony ? "Testimony Request" : "Quick Review"} />
+          <DetailRow icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Request Type" value={isReviewOptions ? "Review Options" : isTestimony ? "Testimony Request" : "Quick Review"} />
         </div>
+        {recipientOptions.length > 1 ? (
+          <label className="grid gap-1.5 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+              Recipient
+            </span>
+            <select
+              className="min-h-11 rounded-2xl border border-[#D6E4F7] bg-[#F8FBFF] px-3 text-sm font-bold text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+              onChange={(event) => setSelectedRecipientId(event.target.value)}
+              value={selectedRecipientId}
+            >
+              {recipientOptions.map((recipient) => (
+                <option key={recipient.id} value={recipient.id}>{recipient.name}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs leading-5 text-[#64748B]">
-          {cannotSendTestimony
-            ? "Add a person to this table before sending a testimony request."
+          {cannotSend
+            ? "Add a person to this table before sending a review link."
             : "DOS will create a share link for this request. You can use the phone share sheet or copy the link if sharing is not available."}
         </p>
-        {isTestimony ? (
+        {isReviewOptions ? (
+          <>
+            <SendableFormPreviewCard eyebrow="Quick Review" form={quickReviewFormPreview} />
+            <SendableFormPreviewCard eyebrow="Testimony Review" form={testimonyReviewFormPreview} />
+          </>
+        ) : isTestimony ? (
           <SendableFormPreviewCard eyebrow="Testimony Review" form={testimonyReviewFormPreview} />
         ) : (
           <SendableFormPreviewCard eyebrow="Quick Review" form={quickReviewFormPreview} />
         )}
         <div className="grid gap-2">
-          <AppButton disabled={isSending || cannotSendTestimony} onClick={onConfirm} tone="black">
-            {isSending ? "Preparing..." : isTestimony ? "Send Testimony Request" : "Send Review"}
+          <AppButton disabled={isSending || cannotSend} onClick={() => selectedRecipientId ? onConfirm(selectedRecipientId) : undefined} tone="black">
+            {isSending ? "Preparing..." : isReviewOptions ? "Send Review Options" : isTestimony ? "Send Testimony Request" : "Send Quick Review"}
           </AppButton>
           <AppButton disabled={isSending} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
@@ -15753,6 +16001,7 @@ function MeetingDetailOverlay({
   hasReviewRequestLink,
   hasTestimonyRequestLink,
   isSendingReview,
+  isSendingReviewOptions,
   isSendingTestimony,
   leaderReflections,
   meeting,
@@ -15761,6 +16010,7 @@ function MeetingDetailOverlay({
   onDone,
   onEditNotes,
   onPrepareQuickReview,
+  onPrepareReviewOptions,
   onPrepareTestimonyRequest,
   onScheduleNextMeeting,
   onSendReview,
@@ -15769,6 +16019,7 @@ function MeetingDetailOverlay({
   participantTestimonies,
   people,
   reviewShareMessage,
+  reviewOptionsShareMessage,
   showPostMeetingFollowUp,
   testimonyShareMessage,
 }: {
@@ -15776,6 +16027,7 @@ function MeetingDetailOverlay({
   hasReviewRequestLink?: boolean;
   hasTestimonyRequestLink?: boolean;
   isSendingReview?: boolean;
+  isSendingReviewOptions?: boolean;
   isSendingTestimony?: boolean;
   leaderReflections: DosAppLeaderReflection[];
   meeting: DosAppMeeting;
@@ -15784,6 +16036,7 @@ function MeetingDetailOverlay({
   onEdit: () => void;
   onEditNotes: () => void;
   onPrepareQuickReview: () => void;
+  onPrepareReviewOptions: () => void;
   onPrepareTestimonyRequest: () => void;
   onScheduleNextMeeting: () => void;
   onSendReview: () => void;
@@ -15792,6 +16045,7 @@ function MeetingDetailOverlay({
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
   reviewShareMessage?: string;
+  reviewOptionsShareMessage?: string;
   showPostMeetingFollowUp?: boolean;
   testimonyShareMessage?: string;
 }) {
@@ -15868,6 +16122,15 @@ function MeetingDetailOverlay({
               </button>
             ) : null}
             <button
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#F8FBFF]"
+              disabled={isSendingReviewOptions}
+              onClick={onPrepareReviewOptions}
+              type="button"
+            >
+              <Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              Send Review Options
+            </button>
+            <button
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A] transition-colors hover:border-[#BFDBFE]"
               onClick={onScheduleNextMeeting}
               type="button"
@@ -15885,6 +16148,12 @@ function MeetingDetailOverlay({
           </div>
           {reviewShareMessage ? (
             <p className="mt-4 rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p>
+          ) : null}
+          {testimonyShareMessage ? (
+            <p className="mt-4 rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p>
+          ) : null}
+          {reviewOptionsShareMessage ? (
+            <p className="mt-4 rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewOptionsShareMessage}</p>
           ) : null}
         </section>
       </div>
@@ -15947,6 +16216,8 @@ function MeetingDetailOverlay({
       </section>
 
       <div className="mt-5 grid gap-3">
+        <MeetingPeopleDetailCard meeting={meeting} people={people} />
+
         {isLoggedTableMeeting ? (
           <DetailCard title="Quick Review">
             <div>
@@ -15964,7 +16235,7 @@ function MeetingDetailOverlay({
             {meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
               <div className="mt-3">
                 <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
-                  Send Review
+                  Send Quick Review
                 </ReviewActionButton>
               </div>
             ) : null}
@@ -16130,6 +16401,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [usamApplicationDraft, setUsamApplicationDraft] = useState<UsamApplicationDraft>(() => defaultUsamApplicationDraft(data));
   const [conversationResponses, setConversationResponses] = useState<DosConversationResponses>({});
   const [meetingPeopleQuery, setMeetingPeopleQuery] = useState("");
+  const [ministryTeamQuery, setMinistryTeamQuery] = useState("");
+  const [supportingAttendeeQuery, setSupportingAttendeeQuery] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
   const [tableQuery, setTableQuery] = useState("");
   const [prayerQuery, setPrayerQuery] = useState("");
@@ -16144,6 +16417,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [reviewLinksByMeetingId, setReviewLinksByMeetingId] = useState<Record<string, string>>({});
   const [reviewLinkMeetingId, setReviewLinkMeetingId] = useState<string | null>(null);
   const [reviewShareMessage, setReviewShareMessage] = useState("");
+  const [reviewOptionsLinksByMeetingId, setReviewOptionsLinksByMeetingId] = useState<Record<string, string>>({});
+  const [reviewOptionsLinkMeetingId, setReviewOptionsLinkMeetingId] = useState<string | null>(null);
+  const [reviewOptionsShareMessage, setReviewOptionsShareMessage] = useState("");
   const [postMeetingFollowUpId, setPostMeetingFollowUpId] = useState<string | null>(null);
   const [testimonyLinksByMeetingId, setTestimonyLinksByMeetingId] = useState<Record<string, string>>({});
   const [testimonyLinkMeetingId, setTestimonyLinkMeetingId] = useState<string | null>(null);
@@ -16156,6 +16432,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
+  const [selectedMinistryTeamMemberIds, setSelectedMinistryTeamMemberIds] = useState<string[]>(() => defaultMinistryTeamMemberIdsForWorkspace(data));
+  const [selectedMinistryTeamPersonIds, setSelectedMinistryTeamPersonIds] = useState<string[]>([]);
+  const [selectedSupportingAttendeeIds, setSelectedSupportingAttendeeIds] = useState<string[]>([]);
+  const [supportingAttendeeSubRoles, setSupportingAttendeeSubRoles] = useState<Record<string, DosSupportingAttendeeSubRole | "">>({});
   const [localPrayerNeeds, setLocalPrayerNeeds] = useState<LocalPrayerNeed[]>([]);
   const [isMobileAddPrayerPartnerOpen, setIsMobileAddPrayerPartnerOpen] = useState(false);
   const [isMobileLogPrayerOpen, setIsMobileLogPrayerOpen] = useState(false);
@@ -16197,12 +16477,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const fruitImpactOutcomeGroups = useMemo(() => fruitImpactGroups(visibleFruitStories), [visibleFruitStories]);
   const fruitSnapshotGroups = useMemo(() => fruitImpactSnapshotGroups(visibleFruitStories), [visibleFruitStories]);
   const latestMeeting = loggedMeetings[0];
-  const latestLoggedTableMeeting = useMemo(() => (
-    loggedMeetings.find((meeting) => meeting.source === "table") ?? null
-  ), [loggedMeetings]);
-  const latestTestimonyReviewMeeting = useMemo(() => (
-    loggedMeetings.find((meeting) => meeting.source === "table" && canSendMeetingTestimonyRequest(meeting, people)) ?? null
-  ), [loggedMeetings, people]);
   const latestFruitActivity = useMemo(() => {
     const fruitItems = [
       ...visibleFruit.map((fruit) => ({
@@ -16228,6 +16502,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return new Map(scores.map((score) => [score.person.id, score]));
   }, [data.circles]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
+  const ministryTeamPeopleOptions = useMemo(() => filteredPeople(people, ministryTeamQuery), [people, ministryTeamQuery]);
+  const supportingAttendeeOptions = useMemo(() => filteredPeople(people, supportingAttendeeQuery), [people, supportingAttendeeQuery]);
   const draftRecommendedResources = useMemo(() => (
     buildMeetingRecommendations(selectedConversationFlow, conversationResponses)
   ), [conversationResponses, selectedConversationFlow]);
@@ -16250,7 +16526,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return null;
     }
 
-    const token = reviewLinksByMeetingId[selectedMeeting.id];
+    const token = Object.entries(reviewLinksByMeetingId)
+      .find(([key]) => key.startsWith(`${selectedMeeting.id}:`))?.[1];
 
     if (!token || selectedMeeting.review.status !== "not_sent") {
       return selectedMeeting;
@@ -16664,9 +16941,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function resetMeetingDraft(personIds: string[] = []) {
     setConversationResponses({});
     setMeetingPeopleQuery("");
+    setMinistryTeamQuery("");
+    setSupportingAttendeeQuery("");
     setSelectedConversationFlow("none");
     setSelectedMeetingContext("kitchen_table");
     setSelectedMeetingPersonIds(personIds);
+    setSelectedMinistryTeamMemberIds(defaultMinistryTeamMemberIdsForWorkspace(data));
+    setSelectedMinistryTeamPersonIds([]);
+    setSelectedSupportingAttendeeIds([]);
+    setSupportingAttendeeSubRoles({});
     setSelectedOutcomeTags([]);
   }
 
@@ -16678,6 +16961,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewShareMessage("");
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
+    setReviewOptionsLinkMeetingId(null);
+    setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedReminderId(null);
     setNewReminderType("follow_up");
@@ -16750,6 +17035,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewShareMessage("");
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
+    setReviewOptionsLinkMeetingId(null);
+    setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
     setSelectedReminderId(null);
@@ -16813,6 +17100,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewShareMessage("");
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
+    setReviewOptionsLinkMeetingId(null);
+    setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
     setSelectedReminderId(null);
@@ -17054,6 +17343,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewShareMessage("");
     setTestimonyLinkMeetingId(null);
     setTestimonyShareMessage("");
+    setReviewOptionsLinkMeetingId(null);
+    setReviewOptionsShareMessage("");
     setSelectedPersonId(null);
     setSelectedExternalCalendarEventId(null);
     setSelectedReminderId(null);
@@ -17085,6 +17376,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingContext(meeting.type);
     setSelectedMeetingId(meeting.id);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
+    setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
+    setSelectedMinistryTeamPersonIds(meeting.ministryTeam.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
+    setSelectedSupportingAttendeeIds(meeting.supportingAttendees.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
+    setSupportingAttendeeSubRoles(Object.fromEntries(
+      meeting.supportingAttendees
+        .filter((eventPerson) => Boolean(eventPerson.fieldPersonId))
+        .map((eventPerson) => [eventPerson.fieldPersonId as string, eventPerson.supportingSubRole ?? ""]),
+    ));
   }
 
   function openMeetingNotesEdit(meeting: DosAppMeeting) {
@@ -17825,6 +18124,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         conversationFlowKey,
         conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
         fieldPersonIds: selectedMeetingPersonIds,
+        ...meetingRolePayload(),
         notes: meetingNotes,
         scheduledEndAt: loggedEndAt,
         scheduledStartAt: loggedStartAt,
@@ -17898,6 +18198,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         conversationFlowKey: "none",
         conversationResponses: {},
         fieldPersonIds: selectedMeetingPersonIds,
+        ...meetingRolePayload(),
         googleSyncEnabled: formData.get("google_sync_enabled") === "on",
         meetingStatus: "scheduled",
         notes: String(formData.get("notes") ?? ""),
@@ -17931,6 +18232,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       conversationFlowKey,
       conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
       fieldPersonIds: selectedMeetingPersonIds,
+      ...meetingRolePayload(),
       googleSyncEnabled: isScheduledMeeting && selectedMeeting.googleSyncEnabled,
       id: selectedMeeting.id,
       meetingStatus: selectedMeeting.meetingStatus,
@@ -18080,29 +18382,45 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function reviewUrlFromToken(token: string) {
     return typeof window !== "undefined"
-      ? `${window.location.origin}/review/${token}`
-      : `/review/${token}`;
+      ? `${window.location.origin}/dos/review/${token}`
+      : `/dos/review/${token}`;
   }
 
   function testimonyUrlFromToken(token: string) {
     return typeof window !== "undefined"
-      ? `${window.location.origin}/testimony/${token}`
-      : `/testimony/${token}`;
+      ? `${window.location.origin}/dos/testimony/${token}`
+      : `/dos/testimony/${token}`;
   }
 
-  function existingReviewUrl(meeting: DosAppMeeting) {
-    const token = reviewLinksByMeetingId[meeting.id] ?? meeting.review.token;
+  function reviewOptionsUrlFromToken(token: string) {
+    return typeof window !== "undefined"
+      ? `${window.location.origin}/dos/review-options/${token}`
+      : `/dos/review-options/${token}`;
+  }
+
+  function reviewRequestKey(meeting: DosAppMeeting, recipientPersonId?: string | null) {
+    return `${meeting.id}:${recipientPersonId ?? meeting.fieldPersonIds[0] ?? "default"}`;
+  }
+
+  function existingReviewUrl(meeting: DosAppMeeting, recipientPersonId?: string | null) {
+    const token = reviewLinksByMeetingId[reviewRequestKey(meeting, recipientPersonId)] ?? (!recipientPersonId ? meeting.review.token : null);
 
     return token ? reviewUrlFromToken(token) : null;
   }
 
-  function existingTestimonyUrl(meeting: DosAppMeeting) {
-    const token = testimonyLinksByMeetingId[meeting.id];
+  function existingTestimonyUrl(meeting: DosAppMeeting, recipientPersonId?: string | null) {
+    const token = testimonyLinksByMeetingId[reviewRequestKey(meeting, recipientPersonId)];
 
     return token ? testimonyUrlFromToken(token) : null;
   }
 
-  async function ensureReviewLink(meeting: DosAppMeeting) {
+  function existingReviewOptionsUrl(meeting: DosAppMeeting, recipientPersonId?: string | null) {
+    const token = reviewOptionsLinksByMeetingId[reviewRequestKey(meeting, recipientPersonId)];
+
+    return token ? reviewOptionsUrlFromToken(token) : null;
+  }
+
+  async function ensureReviewLink(meeting: DosAppMeeting, recipientPersonId?: string | null) {
     if (meeting.source !== "table") {
       return null;
     }
@@ -18111,7 +18429,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       throw new Error("Preview mode is read-only. Review links are not created.");
     }
 
-    const existingUrl = existingReviewUrl(meeting);
+    const existingUrl = existingReviewUrl(meeting, recipientPersonId);
 
     if (existingUrl) {
       return existingUrl;
@@ -18120,6 +18438,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const response = await fetch("/api/dos/app/review-links", {
       body: JSON.stringify({
         meetingId: meeting.id,
+        recipientPersonId,
         workspaceId: data.workspace.id,
       }),
       headers: {
@@ -18136,14 +18455,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     if (result.token) {
       setReviewLinksByMeetingId((current) => ({
         ...current,
-        [meeting.id]: result.token as string,
+        [reviewRequestKey(meeting, recipientPersonId)]: result.token as string,
       }));
     }
 
     return result.url;
   }
 
-  async function ensureTestimonyLink(meeting: DosAppMeeting) {
+  async function ensureTestimonyLink(meeting: DosAppMeeting, recipientPersonId?: string | null) {
     if (meeting.source !== "table") {
       return null;
     }
@@ -18156,7 +18475,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       throw new Error("Preview mode is read-only. Story links are not created.");
     }
 
-    const existingUrl = existingTestimonyUrl(meeting);
+    const existingUrl = existingTestimonyUrl(meeting, recipientPersonId);
 
     if (existingUrl) {
       return existingUrl;
@@ -18165,6 +18484,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const response = await fetch("/api/dos/app/testimony-links", {
       body: JSON.stringify({
         meetingId: meeting.id,
+        recipientPersonId,
         workspaceId: data.workspace.id,
       }),
       headers: {
@@ -18181,7 +18501,49 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     if (result.token) {
       setTestimonyLinksByMeetingId((current) => ({
         ...current,
-        [meeting.id]: result.token as string,
+        [reviewRequestKey(meeting, recipientPersonId)]: result.token as string,
+      }));
+    }
+
+    return result.url;
+  }
+
+  async function ensureReviewOptionsLink(meeting: DosAppMeeting, recipientPersonId?: string | null) {
+    if (meeting.source !== "table") {
+      return null;
+    }
+
+    if (isPreview) {
+      throw new Error("Preview mode is read-only. Review option links are not created.");
+    }
+
+    const existingUrl = existingReviewOptionsUrl(meeting, recipientPersonId);
+
+    if (existingUrl) {
+      return existingUrl;
+    }
+
+    const response = await fetch("/api/dos/app/review-options-links", {
+      body: JSON.stringify({
+        meetingId: meeting.id,
+        recipientPersonId,
+        workspaceId: data.workspace.id,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    const result = await response.json().catch(() => ({})) as { error?: string; token?: string; url?: string };
+
+    if (!response.ok || !result.url) {
+      throw new Error(result.error ?? "Unable to create review options link.");
+    }
+
+    if (result.token) {
+      setReviewOptionsLinksByMeetingId((current) => ({
+        ...current,
+        [reviewRequestKey(meeting, recipientPersonId)]: result.token as string,
       }));
     }
 
@@ -18202,13 +18564,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return false;
   }
 
-  async function handleShareReview(meeting: DosAppMeeting) {
+  async function handleShareReview(meeting: DosAppMeeting, recipientPersonId?: string | null) {
     setErrorMessage("");
     setReviewLinkMeetingId(meeting.id);
     setReviewShareMessage("");
 
     try {
-      const url = await ensureReviewLink(meeting);
+      const url = await ensureReviewLink(meeting, recipientPersonId);
 
       if (!url) {
         return;
@@ -18239,17 +18601,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  async function handleSendReview(meeting: DosAppMeeting) {
-    await handleShareReview(meeting);
+  async function handleSendReview(meeting: DosAppMeeting, recipientPersonId?: string | null) {
+    await handleShareReview(meeting, recipientPersonId);
   }
 
-  async function handleShareTestimony(meeting: DosAppMeeting) {
+  async function handleShareTestimony(meeting: DosAppMeeting, recipientPersonId?: string | null) {
     setErrorMessage("");
     setTestimonyLinkMeetingId(meeting.id);
     setTestimonyShareMessage("");
 
     try {
-      const url = await ensureTestimonyLink(meeting);
+      const url = await ensureTestimonyLink(meeting, recipientPersonId);
 
       if (!url) {
         return;
@@ -18278,6 +18640,42 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  async function handleShareReviewOptions(meeting: DosAppMeeting, recipientPersonId?: string | null) {
+    setErrorMessage("");
+    setReviewOptionsLinkMeetingId(meeting.id);
+    setReviewOptionsShareMessage("");
+
+    try {
+      const url = await ensureReviewOptionsLink(meeting, recipientPersonId);
+
+      if (!url) {
+        return;
+      }
+
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({
+            text: "Choose a quick review or testimony review for our conversation.",
+            title: "DOS Review Options",
+            url,
+          });
+          setReviewOptionsShareMessage("Review options link shared.");
+          return;
+        } catch {
+          // Fall through to clipboard for browsers that cancel or block sharing.
+        }
+      }
+
+      const copied = await copyReviewUrl(url);
+
+      setReviewOptionsShareMessage(copied ? "Review options link copied." : url);
+    } catch (error) {
+      setReviewOptionsShareMessage(error instanceof Error ? error.message : "Unable to share review options link.");
+    } finally {
+      setReviewOptionsLinkMeetingId(null);
+    }
+  }
+
   function handleComingSoonFruitForm(form: (typeof fruitFormCards)[number]) {
     setFruitView("forms");
     setFruitFormsNotice(`${form.title} is coming soon. Prayer request forms will connect to Prayer later.`);
@@ -18289,79 +18687,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedFruitFormPreviewKey(formKey);
   }
 
-  async function handleFruitFormLinkAction(formKey: Extract<FruitFormKey, "quick_review" | "testimony_review">, meeting: DosAppMeeting | null, action: "copy" | "send") {
-    const isTestimony = formKey === "testimony_review";
-    const title = isTestimony ? "Testimony Review" : "Quick Review";
-    const setBusyMeetingId = isTestimony ? setTestimonyLinkMeetingId : setReviewLinkMeetingId;
-    const ensureLink = isTestimony ? ensureTestimonyLink : ensureReviewLink;
-
-    setFruitFormsNotice("");
-
-    if (!meeting) {
-      setFruitFormsNotice(isTestimony
-        ? "Log a table with a person before sending a testimony review."
-        : "Log a table before sending a quick review.");
-      return;
-    }
-
-    setErrorMessage("");
-    setBusyMeetingId(meeting.id);
-
-    try {
-      const url = await ensureLink(meeting);
-
-      if (!url) {
-        return;
-      }
-
-      if (action === "copy") {
-        const copied = await copyReviewUrl(url);
-
-        setFruitFormsNotice(copied ? `${title} link copied.` : url);
-        return;
-      }
-
-      if (typeof navigator !== "undefined" && navigator.share) {
-        try {
-          await navigator.share({
-            text: isTestimony ? "Share your story from our conversation." : "Quick check-in for our conversation.",
-            title: isTestimony ? "DOS Testimony Request" : "DOS Quick Review",
-            url,
-          });
-          setFruitFormsNotice(isTestimony ? "Testimony review link shared." : "Quick review link shared.");
-          return;
-        } catch {
-          // Fall through to clipboard for browsers that cancel or block sharing.
-        }
-      }
-
-      const copied = await copyReviewUrl(url);
-
-      setFruitFormsNotice(copied ? `${title} link copied.` : url);
-    } catch (error) {
-      setFruitFormsNotice(error instanceof Error ? error.message : `Unable to prepare ${title.toLowerCase()} link.`);
-    } finally {
-      setBusyMeetingId(null);
-    }
-  }
-
   function handleMobileFruitFormAction(form: (typeof fruitFormCards)[number]) {
     setFruitView("forms");
 
     if (form.key === "quick_review") {
-      void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "send");
+      handlePreviewFruitForm("quick_review");
       return;
     }
 
     if (form.key === "testimony_review") {
-      void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "send");
+      handlePreviewFruitForm("testimony_review");
       return;
     }
 
     handleComingSoonFruitForm(form);
   }
 
-  async function handleConfirmMeetingSendAction() {
+  async function handleConfirmMeetingSendAction(recipientPersonId: string) {
     if (!pendingMeetingSendAction) {
       return;
     }
@@ -18369,11 +18711,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const action = pendingMeetingSendAction;
 
     if (action.type === "quick_review") {
-      await handleSendReview(action.meeting);
+      await handleSendReview(action.meeting, recipientPersonId);
+    } else if (action.type === "review_options") {
+      await handleShareReviewOptions(action.meeting, recipientPersonId);
     } else if (!canSendMeetingTestimonyRequest(action.meeting, people)) {
       setPendingMeetingSendAction(null);
     } else {
-      await handleShareTestimony(action.meeting);
+      await handleShareTestimony(action.meeting, recipientPersonId);
     }
 
     setPendingMeetingSendAction(null);
@@ -18388,11 +18732,77 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function toggleMeetingPersonId(personId: string) {
-    setSelectedMeetingPersonIds((current) =>
+    setSelectedMeetingPersonIds((current) => {
+      const isSelected = current.includes(personId);
+
+      if (!isSelected) {
+        setSelectedSupportingAttendeeIds((supportingIds) => supportingIds.filter((supportingId) => supportingId !== personId));
+        setSupportingAttendeeSubRoles((currentRoles) => {
+          const { [personId]: _removed, ...rest } = currentRoles;
+
+          return rest;
+        });
+      }
+
+      return isSelected
+        ? current.filter((currentPersonId) => currentPersonId !== personId)
+        : [...current, personId];
+    });
+  }
+
+  function toggleMinistryTeamMemberId(memberId: string) {
+    setSelectedMinistryTeamMemberIds((current) =>
+      current.includes(memberId)
+        ? current.filter((currentMemberId) => currentMemberId !== memberId)
+        : [...current, memberId],
+    );
+  }
+
+  function toggleMinistryTeamPersonId(personId: string) {
+    setSelectedMinistryTeamPersonIds((current) =>
       current.includes(personId)
         ? current.filter((currentPersonId) => currentPersonId !== personId)
         : [...current, personId],
     );
+  }
+
+  function toggleSupportingAttendeeId(personId: string) {
+    setSelectedSupportingAttendeeIds((current) => {
+      const isSelected = current.includes(personId);
+
+      if (!isSelected) {
+        setSelectedMeetingPersonIds((participantIds) => participantIds.filter((participantId) => participantId !== personId));
+      } else {
+        setSupportingAttendeeSubRoles((currentRoles) => {
+          const { [personId]: _removed, ...rest } = currentRoles;
+
+          return rest;
+        });
+      }
+
+      return isSelected
+        ? current.filter((currentPersonId) => currentPersonId !== personId)
+        : [...current, personId];
+    });
+  }
+
+  function updateSupportingAttendeeSubRole(personId: string, value: DosSupportingAttendeeSubRole | "") {
+    setSupportingAttendeeSubRoles((current) => ({
+      ...current,
+      [personId]: value,
+    }));
+  }
+
+  function meetingRolePayload() {
+    return {
+      ministryTeamMemberIds: selectedMinistryTeamMemberIds,
+      ministryTeamPersonIds: selectedMinistryTeamPersonIds,
+      participantPersonIds: selectedMeetingPersonIds,
+      supportingAttendees: selectedSupportingAttendeeIds.map((personId) => ({
+        personId,
+        subRole: supportingAttendeeSubRoles[personId] || null,
+      })),
+    };
   }
 
   function handleConversationResponse(questionId: string, value: DosConversationResponseValue | undefined) {
@@ -18668,16 +19078,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     action();
   };
   const quickReviewFruitFormAction = {
-    isBusy: latestLoggedTableMeeting ? reviewLinkMeetingId === latestLoggedTableMeeting.id : false,
-    onCopy: () => void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "copy"),
     onPreview: () => handlePreviewFruitForm("quick_review"),
-    onSend: () => void handleFruitFormLinkAction("quick_review", latestLoggedTableMeeting, "send"),
   };
   const testimonyReviewFruitFormAction = {
-    isBusy: latestTestimonyReviewMeeting ? testimonyLinkMeetingId === latestTestimonyReviewMeeting.id : false,
-    onCopy: () => void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "copy"),
     onPreview: () => handlePreviewFruitForm("testimony_review"),
-    onSend: () => void handleFruitFormLinkAction("testimony_review", latestTestimonyReviewMeeting, "send"),
   };
   const mobileFloatingActionItems: MobileFloatingActionItem[] = activeTab === "meetings"
     ? [
@@ -19508,9 +19912,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {selectedMeetingWithReview ? (
           <MeetingDetailOverlay
             fruitEvents={data.fruitEvents}
-            hasReviewRequestLink={Boolean(existingReviewUrl(selectedMeetingWithReview))}
-            hasTestimonyRequestLink={Boolean(existingTestimonyUrl(selectedMeetingWithReview))}
+            hasReviewRequestLink={Boolean(existingReviewUrl(selectedMeetingWithReview)) || Object.keys(reviewLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
+            hasTestimonyRequestLink={Boolean(existingTestimonyUrl(selectedMeetingWithReview)) || Object.keys(testimonyLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             isSendingReview={reviewLinkMeetingId === selectedMeetingWithReview.id}
+            isSendingReviewOptions={reviewOptionsLinkMeetingId === selectedMeetingWithReview.id}
             isSendingTestimony={testimonyLinkMeetingId === selectedMeetingWithReview.id}
             leaderReflections={data.leaderReflections}
             meeting={selectedMeetingWithReview}
@@ -19526,17 +19931,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
             onEditNotes={() => openMeetingNotesEdit(selectedMeetingWithReview)}
             onPrepareQuickReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
+            onPrepareReviewOptions={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "review_options" })}
             onPrepareTestimonyRequest={() => {
               if (canSendMeetingTestimonyRequest(selectedMeetingWithReview, people)) {
                 setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "testimony_request" });
               }
             }}
             onScheduleNextMeeting={() => openScheduleMeeting(selectedMeetingWithReview.fieldPersonIds)}
-            onSendReview={() => handleSendReview(selectedMeetingWithReview)}
-            onSendTestimony={() => handleShareTestimony(selectedMeetingWithReview)}
+            onSendReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
+            onSendTestimony={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "testimony_request" })}
             participantReviews={data.participantReviews}
             participantTestimonies={data.participantTestimonies}
             people={people}
+            reviewOptionsShareMessage={reviewOptionsShareMessage}
             reviewShareMessage={reviewShareMessage}
             showPostMeetingFollowUp={postMeetingFollowUpId === selectedMeetingWithReview.id}
             testimonyShareMessage={testimonyShareMessage}
@@ -19612,6 +20019,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             isSending={
               pendingMeetingSendAction.type === "quick_review"
                 ? reviewLinkMeetingId === pendingMeetingSendAction.meeting.id
+                : pendingMeetingSendAction.type === "review_options"
+                  ? reviewOptionsLinkMeetingId === pendingMeetingSendAction.meeting.id
                 : testimonyLinkMeetingId === pendingMeetingSendAction.meeting.id
             }
             onClose={() => setPendingMeetingSendAction(null)}
@@ -19864,27 +20273,42 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             conversationResponses={conversationResponses}
             dateDefault={todayDateValue()}
             errorMessage={errorMessage}
+            householdMembers={data.householdMembers}
             includeReflectionFields
             isCreatingPerson={isCreatingMeetingPerson}
             isSubmitting={isSubmitting}
             meetingPeopleOptions={meetingPeopleOptions}
             meetingPeopleQuery={meetingPeopleQuery}
+            ministryTeamPeopleOptions={ministryTeamPeopleOptions}
+            ministryTeamQuery={ministryTeamQuery}
             onContextChange={setSelectedMeetingContext}
             onCreatePerson={handleCreateMeetingPerson}
             onConversationFlowChange={handleConversationFlowChange}
             onConversationResponse={handleConversationResponse}
+            onMinistryTeamQueryChange={setMinistryTeamQuery}
             onPeopleQueryChange={setMeetingPeopleQuery}
             onSubmit={handleMeetingSubmit}
+            onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
+            onSupportingAttendeeSubRoleChange={updateSupportingAttendeeSubRole}
             onToggleFollowUpAction={handleConversationFollowUpAction}
+            onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
+            onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
             onToggleOutcomeTag={toggleOutcomeTag}
             onTogglePerson={toggleMeetingPersonId}
+            onToggleSupportingAttendee={toggleSupportingAttendeeId}
             recommendedResources={draftRecommendedResources}
             selectedConversationFlow={selectedConversationFlow}
             selectedMeetingContext={selectedMeetingContext}
+            selectedMinistryTeamMemberIds={selectedMinistryTeamMemberIds}
+            selectedMinistryTeamPersonIds={selectedMinistryTeamPersonIds}
             selectedOutcomeTags={selectedOutcomeTags}
             selectedPersonIds={selectedMeetingPersonIds}
+            selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
             showDurationField
             submittingText="Saving..."
+            supportingAttendeeOptions={supportingAttendeeOptions}
+            supportingAttendeeQuery={supportingAttendeeQuery}
+            supportingAttendeeSubRoles={supportingAttendeeSubRoles}
           />
         </Sheet>
       ) : null}
@@ -19946,28 +20370,43 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               conversationResponses={conversationResponses}
               dateDefault={selectedMeeting.date ?? todayDateValue()}
               errorMessage={errorMessage}
+              householdMembers={data.householdMembers}
               isCreatingPerson={isCreatingMeetingPerson}
               isSubmitting={isSubmitting}
               meetingPeopleOptions={meetingPeopleOptions}
               meetingPeopleQuery={meetingPeopleQuery}
+              ministryTeamPeopleOptions={ministryTeamPeopleOptions}
+              ministryTeamQuery={ministryTeamQuery}
               notesDefault={selectedMeeting.notes}
               onContextChange={setSelectedMeetingContext}
               onCreatePerson={handleCreateMeetingPerson}
               onConversationFlowChange={handleConversationFlowChange}
               onConversationResponse={handleConversationResponse}
+              onMinistryTeamQueryChange={setMinistryTeamQuery}
               onPeopleQueryChange={setMeetingPeopleQuery}
               onSubmit={handleEditMeetingSubmit}
+              onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
+              onSupportingAttendeeSubRoleChange={updateSupportingAttendeeSubRole}
               onToggleFollowUpAction={handleConversationFollowUpAction}
+              onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
+              onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
               onTogglePerson={toggleMeetingPersonId}
+              onToggleSupportingAttendee={toggleSupportingAttendeeId}
               recommendedResources={draftRecommendedResources}
               scheduledEndAtDefault={selectedMeeting.scheduledEndAt}
               scheduledStartAtDefault={selectedMeeting.scheduledStartAt}
               selectedConversationFlow={selectedConversationFlow}
               selectedMeetingContext={selectedMeetingContext}
+              selectedMinistryTeamMemberIds={selectedMinistryTeamMemberIds}
+              selectedMinistryTeamPersonIds={selectedMinistryTeamPersonIds}
               selectedPersonIds={selectedMeetingPersonIds}
+              selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
               showConversationFlow={selectedMeeting.meetingStatus !== "scheduled"}
               showScheduledTiming={selectedMeeting.meetingStatus === "scheduled"}
               submittingText="Saving..."
+              supportingAttendeeOptions={supportingAttendeeOptions}
+              supportingAttendeeQuery={supportingAttendeeQuery}
+              supportingAttendeeSubRoles={supportingAttendeeSubRoles}
             />
             <button
               className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"

@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { asString, createDosReviewRequestLink } from "@/src/lib/dos/review-requests";
-import { dosQuickReviewType } from "@/src/lib/dos/review-types";
+import { dosReviewOptionsType } from "@/src/lib/dos/review-types";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
-type ReviewLinkPayload = {
+type LinkPayload = {
   meetingId?: unknown;
   recipientPersonId?: unknown;
   workspaceId?: unknown;
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return authResult.response;
   }
 
-  let payload: ReviewLinkPayload;
+  let payload: LinkPayload;
 
   try {
     payload = await request.json();
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
   const result = await createDosReviewRequestLink({
     authorization: authResult.authorization,
-    formType: dosQuickReviewType,
+    formType: dosReviewOptionsType,
     meetingId,
     recipientPersonId: asString(payload.recipientPersonId) || null,
     requestUrl: request.url,

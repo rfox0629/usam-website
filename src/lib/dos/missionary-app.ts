@@ -47,6 +47,7 @@ export const dosAppOutcomeTags = [
   "Baptized",
   "Discipling",
   "Started Discipling Others",
+  "Answered Prayer",
   "Gospel Conversation",
   "Prayer Received",
   "Church Connection",
@@ -75,6 +76,8 @@ export const dosAppFruitTypeOptions = dosAppOutcomeTags;
 export type DosAppMeetingType = typeof dosAppMeetingTypes[number];
 export type DosAppOutcomeTag = typeof dosAppOutcomeTags[number] | typeof dosAppLegacyOutcomeTags[number];
 export type DosAppReviewStatus = "approved" | "not_sent" | "pending" | "private" | "submitted";
+export type DosMinistryEventRole = "ministry_team" | "participant" | "recorder" | "supporting_attendee";
+export type DosSupportingAttendeeSubRole = "child_present" | "contributor" | "learning" | "observer" | "support";
 
 export type DosAppWorkspace = {
   displayName: string;
@@ -126,6 +129,16 @@ export type DosAppPerson = {
   updatedAt: string | null;
 };
 
+export type DosAppMinistryEventPerson = {
+  displayName: string;
+  fieldPersonId: string | null;
+  id: string;
+  role: DosMinistryEventRole;
+  supportingSubRole: DosSupportingAttendeeSubRole | null;
+  teamMemberId: string | null;
+  userId: string | null;
+};
+
 export type DosAppMeeting = {
   conversationFlowKey: DosConversationFlowKey;
   conversationResponses: DosConversationResponses;
@@ -136,10 +149,14 @@ export type DosAppMeeting = {
   googleSyncStatus?: "failed" | "pending" | "synced" | null;
   id: string;
   meetingStatus: "canceled" | "logged" | "scheduled";
+  ministryEventId: string | null;
+  ministryTeam: DosAppMinistryEventPerson[];
   movementStep?: string | null;
   notes: string | null;
   participantNames: string[];
+  participants: DosAppMinistryEventPerson[];
   recommendedResources: DosRecommendedResource[];
+  recorder: DosAppMinistryEventPerson | null;
   review: {
     sharePermission: string | null;
     status: DosAppReviewStatus;
@@ -151,6 +168,7 @@ export type DosAppMeeting = {
   source: "connection" | "table";
   scheduledEndAt: string | null;
   scheduledStartAt: string | null;
+  supportingAttendees: DosAppMinistryEventPerson[];
   timezone: string | null;
   title: string;
   type: DosAppMeetingType;
@@ -438,15 +456,29 @@ type MeetingRow = {
   google_sync_enabled?: boolean | null;
   id: string;
   meeting_status?: string | null;
+  ministry_event_id?: string | null;
   notes: string | null;
   participant_names: string[] | null;
   recommended_resources?: unknown;
+  recorded_by_display_name?: string | null;
+  recorded_by_user_id?: string | null;
   scheduled_end_at?: string | null;
   scheduled_start_at?: string | null;
   table_date: string | null;
   table_type: string | null;
   timezone?: string | null;
   updated_at: string | null;
+};
+
+type MinistryEventPersonRow = {
+  display_name: string | null;
+  field_person_id: string | null;
+  id: string;
+  ministry_event_id: string;
+  role: string;
+  supporting_sub_role: string | null;
+  team_member_id: string | null;
+  user_id: string | null;
 };
 
 type ConnectionLogRow = {
@@ -666,6 +698,18 @@ function mapMeetingStatus(value: string | null | undefined): DosAppMeeting["meet
   return value === "scheduled" || value === "canceled" ? value : "logged";
 }
 
+function mapMinistryEventRole(value: string | null | undefined): DosMinistryEventRole | null {
+  return value === "ministry_team" || value === "participant" || value === "recorder" || value === "supporting_attendee"
+    ? value
+    : null;
+}
+
+function mapSupportingSubRole(value: string | null | undefined): DosSupportingAttendeeSubRole | null {
+  return value === "child_present" || value === "contributor" || value === "learning" || value === "observer" || value === "support"
+    ? value
+    : null;
+}
+
 function mapCalendarSyncStatus(value: string | null | undefined): "failed" | "pending" | "synced" | null {
   return value === "failed" || value === "pending" || value === "synced" ? value : null;
 }
@@ -797,6 +841,25 @@ function isMissingWorkflowTable(error: SupabaseQueryError, tableName: string) {
       || message.includes("could not find"));
 }
 
+function isMissingMinistryEventModel(error: SupabaseQueryError) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return [
+    "ministry_events",
+    "ministry_event_people",
+    "ministry_event_id",
+    "recorded_by_user_id",
+    "recorded_by_display_name",
+  ].some((term) => message.includes(term))
+    && (
+      message.includes("does not exist")
+      || message.includes("schema cache")
+      || message.includes("could not find")
+      || message.includes("column")
+      || message.includes("relation")
+    );
+}
+
 function activityDateValue(value: string | null | undefined) {
   if (!value) {
     return 0;
@@ -876,7 +939,7 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
 }
 
 async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
-  const meetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
+  const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
   const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
   const scopedResult = await supabase
     .from("missionary_tables")
@@ -894,14 +957,65 @@ async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspace
       .order("created_at", { ascending: false });
   }
 
-  return scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)
-    ? supabase
+  if (scopedResult.error && isMissingMinistryEventModel(scopedResult.error)) {
+    const legacyScopedResult = await supabase
       .from("missionary_tables")
-      .select(isMissingColumnError(scopedResult.error) ? legacyMeetingSelect : meetingSelect)
+      .select(legacyMeetingSelect)
+      .eq("workspace_id", workspaceId)
+      .order("table_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    return legacyScopedResult.error && isMissingWorkspaceScopeColumn(legacyScopedResult.error)
+      ? supabase
+        .from("missionary_tables")
+        .select(legacyMeetingSelect)
+        .eq("household_id", workspaceId)
+        .order("table_date", { ascending: false })
+        .order("created_at", { ascending: false })
+      : legacyScopedResult;
+  }
+
+  if (scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)) {
+    if (isMissingColumnError(scopedResult.error)) {
+      return supabase
+        .from("missionary_tables")
+        .select(legacyMeetingSelect)
+        .eq("household_id", workspaceId)
+        .order("table_date", { ascending: false })
+        .order("created_at", { ascending: false });
+    }
+
+    return supabase
+      .from("missionary_tables")
+      .select(meetingSelect)
       .eq("household_id", workspaceId)
       .order("table_date", { ascending: false })
-      .order("created_at", { ascending: false })
-    : scopedResult;
+      .order("created_at", { ascending: false });
+  }
+
+  return scopedResult;
+}
+
+async function loadMinistryEventPeopleForMeetings(
+  supabase: SupabaseAdminClient,
+  workspaceId: string,
+  meetingRows: MeetingRow[],
+) {
+  const eventIds = Array.from(new Set(meetingRows.map((meeting) => meeting.ministry_event_id).filter((id): id is string => Boolean(id))));
+
+  if (!eventIds.length) {
+    return { data: [] as MinistryEventPersonRow[], error: null };
+  }
+
+  const result = await supabase
+    .from("ministry_event_people")
+    .select("id, ministry_event_id, role, supporting_sub_role, field_person_id, team_member_id, user_id, display_name")
+    .eq("workspace_id", workspaceId)
+    .in("ministry_event_id", eventIds);
+
+  return result.error && isMissingMinistryEventModel(result.error)
+    ? { data: [] as MinistryEventPersonRow[], error: null }
+    : result;
 }
 
 async function loadConnectionLogsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
@@ -1437,6 +1551,16 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   }
 
   const meetingRows = (meetingsResult.data ?? []) as MeetingRow[];
+  const ministryEventPeopleResult = await loadMinistryEventPeopleForMeetings(supabase, workspace.id, meetingRows);
+
+  if (ministryEventPeopleResult.error) {
+    return {
+      message: ministryEventPeopleResult.error.message ?? "Unable to load ministry event people.",
+      status: "error",
+    };
+  }
+
+  const ministryEventPeopleRows = (ministryEventPeopleResult.data ?? []) as MinistryEventPersonRow[];
   const connectionRows = (connectionLogsResult.data ?? []) as ConnectionLogRow[];
   const reviewLinkRows = (reviewLinksResult.data ?? []) as ReviewLinkRow[];
   const meetingReviewRows = (meetingReviewsResult.data ?? []) as MeetingReviewRow[];
@@ -1448,10 +1572,55 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const calendarWorkspaceSyncStateRow = calendarWorkspaceSyncStateResult.data as CalendarWorkspaceSyncStateRow | null;
   const reminderRows = (remindersResult.data ?? []) as RelationshipReminderRow[];
   const externalCalendarEventRows = (externalCalendarEventsResult.data ?? []) as ExternalCalendarEventRow[];
+  const rawPeopleById = new Map(((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => [person.id, person]));
+  const householdMemberById = new Map(householdMemberRows.map((member) => [member.id, member]));
+  const ministryPeopleByEventId = new Map<string, MinistryEventPersonRow[]>();
   const reviewLinkByMeetingId = new Map<string, ReviewLinkRow>();
   const meetingReviewByMeetingId = new Map<string, MeetingReviewRow>();
   const calendarSyncStatusBySource = new Map<string, "failed" | "pending" | "synced" | null>();
   const latestActivityByPersonId = new Map<string, string>();
+
+  ministryEventPeopleRows.forEach((eventPerson) => {
+    const rows = ministryPeopleByEventId.get(eventPerson.ministry_event_id) ?? [];
+
+    rows.push(eventPerson);
+    ministryPeopleByEventId.set(eventPerson.ministry_event_id, rows);
+  });
+
+  const eventPeopleForMeeting = (meeting: MeetingRow) => (
+    meeting.ministry_event_id ? ministryPeopleByEventId.get(meeting.ministry_event_id) ?? [] : []
+  );
+  const participantIdsForMeeting = (meeting: MeetingRow) => {
+    const roleRows = eventPeopleForMeeting(meeting).filter((eventPerson) => eventPerson.role === "participant" && eventPerson.field_person_id);
+
+    return roleRows.length
+      ? roleRows.map((eventPerson) => eventPerson.field_person_id as string)
+      : meeting.field_person_ids ?? [];
+  };
+  const mapEventPerson = (eventPerson: MinistryEventPersonRow): DosAppMinistryEventPerson | null => {
+    const role = mapMinistryEventRole(eventPerson.role);
+
+    if (!role) {
+      return null;
+    }
+
+    const personName = eventPerson.field_person_id ? rawPeopleById.get(eventPerson.field_person_id)?.name : null;
+    const teamMemberName = eventPerson.team_member_id ? householdMemberById.get(eventPerson.team_member_id)?.display_name : null;
+    const displayName = cleanOptionalText(eventPerson.display_name)
+      ?? cleanOptionalText(personName)
+      ?? cleanOptionalText(teamMemberName)
+      ?? "Unknown";
+
+    return {
+      displayName,
+      fieldPersonId: eventPerson.field_person_id,
+      id: eventPerson.id,
+      role,
+      supportingSubRole: role === "supporting_attendee" ? mapSupportingSubRole(eventPerson.supporting_sub_role) : null,
+      teamMemberId: eventPerson.team_member_id,
+      userId: eventPerson.user_id,
+    };
+  };
 
   calendarEventLinkRows.forEach((link) => {
     calendarSyncStatusBySource.set(`${link.source_type}:${link.source_id}`, mapCalendarSyncStatus(link.sync_status));
@@ -1476,7 +1645,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
     const activityDate = latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at);
 
-    meeting.field_person_ids?.forEach((personId) => {
+    participantIdsForMeeting(meeting).forEach((personId) => {
       const currentDate = latestActivityByPersonId.get(personId);
       const latestDate = latestActivityDate(activityDate, currentDate);
 
@@ -1538,23 +1707,48 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     ...meetingRows.map((meeting) => {
       const conversationFlowKey = normalizeConversationFlowKey(meeting.conversation_flow_key);
       const meetingStatus = mapMeetingStatus(meeting.meeting_status);
+      const eventPeople = eventPeopleForMeeting(meeting).map(mapEventPerson).filter((eventPerson): eventPerson is DosAppMinistryEventPerson => Boolean(eventPerson));
+      const roleParticipants = eventPeople.filter((eventPerson) => eventPerson.role === "participant");
+      const roleParticipantIds = roleParticipants.map((eventPerson) => eventPerson.fieldPersonId).filter((personId): personId is string => Boolean(personId));
+      const participantIds = roleParticipantIds.length ? roleParticipantIds : meeting.field_person_ids ?? [];
+      const participantNames = roleParticipants.length
+        ? roleParticipants.map((eventPerson) => eventPerson.displayName)
+        : meeting.participant_names ?? [];
+      const recorder = eventPeople.find((eventPerson) => eventPerson.role === "recorder") ?? (
+        meeting.recorded_by_display_name || meeting.recorded_by_user_id
+          ? {
+            displayName: meeting.recorded_by_display_name ?? "Recorder",
+            fieldPersonId: null,
+            id: `recorder-${meeting.id}`,
+            role: "recorder" as const,
+            supportingSubRole: null,
+            teamMemberId: null,
+            userId: meeting.recorded_by_user_id ?? null,
+          }
+          : null
+      );
 
       return {
         date: latestActivityDate(meeting.scheduled_start_at, meeting.table_date, meeting.updated_at, meeting.created_at),
         conversationFlowKey,
         conversationResponses: normalizeConversationResponses(conversationFlowKey, meeting.conversation_responses),
-        fieldPersonIds: meeting.field_person_ids ?? [],
+        fieldPersonIds: participantIds,
         googleSyncEnabled: meeting.google_sync_enabled === true,
         googleSyncStatus: calendarSyncStatusBySource.get(`meeting:${meeting.id}`) ?? null,
         id: meeting.id,
         meetingStatus,
+        ministryEventId: meeting.ministry_event_id ?? null,
+        ministryTeam: eventPeople.filter((eventPerson) => eventPerson.role === "ministry_team"),
         notes: meeting.notes,
-        participantNames: meeting.participant_names ?? [],
+        participantNames,
+        participants: roleParticipants,
         recommendedResources: normalizeRecommendedResources(meeting.recommended_resources),
+        recorder,
         review: meetingReviewSummary(meeting.id, reviewLinkByMeetingId, meetingReviewByMeetingId),
         source: "table" as const,
         scheduledEndAt: meeting.scheduled_end_at ?? null,
         scheduledStartAt: meeting.scheduled_start_at ?? null,
+        supportingAttendees: eventPeople.filter((eventPerson) => eventPerson.role === "supporting_attendee"),
         timezone: meeting.timezone ?? null,
         title: "Meeting",
         type: mapMeetingType(meeting.table_type),
@@ -1571,16 +1765,21 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       googleSyncStatus: null,
       id: `connection-${connection.id}`,
       meetingStatus: "logged" as const,
+      ministryEventId: null,
+      ministryTeam: [],
       movementStep: connection.movement_step ?? null,
       notes: connection.notes,
       participantNames: connection.field_person_id && peopleById.has(connection.field_person_id)
         ? [peopleById.get(connection.field_person_id) as string]
         : [],
+      participants: [],
       recommendedResources: [],
+      recorder: null,
       review: emptyReviewSummary(),
       scheduledEndAt: null,
       scheduledStartAt: null,
       source: "connection" as const,
+      supportingAttendees: [],
       timezone: null,
       title: connection.interaction_type ?? "Connection",
       type: mapConnectionType(connection.interaction_type),

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { loadDosReviewLink } from "@/src/lib/dos/reviews";
-import { DosQuickReviewForm } from "./DosQuickReviewForm";
+import { loadDosReviewOptionsLink } from "@/src/lib/dos/reviews";
+import { DosReviewOptionsForm } from "./DosReviewOptionsForm";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "How was your conversation? | DOS",
+  title: "Review Options | DOS",
   robots: {
     follow: false,
     index: false,
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
-function ReviewState({
+function ReviewOptionsState({
   detail,
   title,
 }: {
@@ -57,19 +57,19 @@ function stateCopy(status: "already_submitted" | "expired" | "invalid" | "not_co
   }[status];
 }
 
-export default async function DosQuickReviewPage({
+export default async function DosReviewOptionsPage({
   params,
 }: {
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const reviewLink = await loadDosReviewLink(token);
+  const reviewLink = await loadDosReviewOptionsLink(token);
 
   if (reviewLink.status !== "ready") {
     const copy = stateCopy(reviewLink.status);
 
-    return <ReviewState detail={copy.detail} title={copy.title} />;
+    return <ReviewOptionsState detail={copy.detail} title={copy.title} />;
   }
 
-  return <DosQuickReviewForm reviewLink={reviewLink} />;
+  return <DosReviewOptionsForm link={reviewLink} />;
 }

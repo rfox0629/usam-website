@@ -1,26 +1,16 @@
-import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
-import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { asString, createDosReviewRequestLink } from "@/src/lib/dos/review-requests";
+import { dosTestimonyReviewType } from "@/src/lib/dos/review-types";
+import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
+import { isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type LinkPayload = {
   meetingId?: unknown;
+  recipientPersonId?: unknown;
   workspaceId?: unknown;
 };
-
-function asString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-function token() {
-  return randomBytes(24).toString("base64url");
-}
 
 async function authorizeWrite() {
   const authorization = await getDosAuthorization();
@@ -62,8 +52,8 @@ export async function POST(request: Request) {
   const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId));
   const meetingId = asString(payload.meetingId);
 
-  if (!workspaceId || !isUuid(meetingId)) {
-    return NextResponse.json({ error: "Meeting not found." }, { status: 404 });
+  if (!workspaceId) {
+    return NextResponse.json({ error: "Missionary workspace not found." }, { status: 404 });
   }
 
   const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
@@ -72,73 +62,18 @@ export async function POST(request: Request) {
     return workspaceAccess.response;
   }
 
-  const supabase = createSupabaseAdminClient();
-  const scopedMeetingResult = await supabase
-    .from("missionary_tables")
-    .select("id, field_person_ids")
-    .eq("id", meetingId)
-    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-    .maybeSingle();
-  const { data: meeting, error: meetingError } = scopedMeetingResult.error && isMissingWorkspaceScopeColumn(scopedMeetingResult.error)
-    ? await supabase
-      .from("missionary_tables")
-      .select("id, field_person_ids")
-      .eq("id", meetingId)
-      .eq("household_id", workspaceId)
-      .maybeSingle()
-    : scopedMeetingResult;
+  const result = await createDosReviewRequestLink({
+    authorization: authResult.authorization,
+    formType: dosTestimonyReviewType,
+    meetingId,
+    recipientPersonId: asString(payload.recipientPersonId) || null,
+    requestUrl: request.url,
+    workspaceId,
+  });
 
-  if (meetingError) {
-    return NextResponse.json({ error: meetingError.message }, { status: 500 });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  if (!meeting) {
-    return NextResponse.json({ error: "Meeting not found." }, { status: 404 });
-  }
-
-  const fieldPersonIds = Array.isArray(meeting.field_person_ids) ? meeting.field_person_ids.filter((id): id is string => typeof id === "string") : [];
-  const reviewerPersonId = fieldPersonIds.length === 1 ? fieldPersonIds[0] : null;
-  const existingQuery = supabase
-    .from("dos_review_links")
-    .select("token")
-    .eq("workspace_id", workspaceId)
-    .eq("meeting_id", meetingId)
-    .eq("review_type", "testimony")
-    .is("used_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1);
-  const existingResult = await (reviewerPersonId
-    ? existingQuery.eq("reviewer_person_id", reviewerPersonId)
-    : existingQuery.is("reviewer_person_id", null)).maybeSingle();
-
-  if (existingResult.error) {
-    return NextResponse.json({ error: existingResult.error.message }, { status: 500 });
-  }
-
-  if (existingResult.data?.token) {
-    const url = new URL(`/testimony/${existingResult.data.token}`, request.url);
-
-    return NextResponse.json({ ok: true, token: existingResult.data.token, url: url.toString() });
-  }
-
-  const { data: insertedLink, error: insertError } = await supabase
-    .from("dos_review_links")
-    .insert({
-      created_by_user_id: authResult.authorization.userId,
-      meeting_id: meetingId,
-      reviewer_person_id: reviewerPersonId,
-      review_type: "testimony",
-      token: token(),
-      workspace_id: workspaceId,
-    })
-    .select("token")
-    .single();
-
-  if (insertError || !insertedLink?.token) {
-    return NextResponse.json({ error: insertError?.message ?? "Unable to create story link." }, { status: 500 });
-  }
-
-  const url = new URL(`/testimony/${insertedLink.token}`, request.url);
-
-  return NextResponse.json({ ok: true, token: insertedLink.token, url: url.toString() });
+  return NextResponse.json(result);
 }
