@@ -7,6 +7,10 @@ import { CircleEngineClient } from "./CircleEngineClient";
 
 export const dynamic = "force-dynamic";
 
+const publicProfileOnlyWorkspaceSlugs = new Set([
+  "ryan-brooke-fox",
+]);
+
 export const metadata: Metadata = {
   title: "Circle Engine | USA Missionaries",
   robots: {
@@ -26,10 +30,12 @@ async function loadWorkspaces() {
     .order("sort_order", { ascending: true })
     .order("display_name", { ascending: true });
 
-  return (data ?? []).map((workspace) => ({
-    id: workspace.id as string,
-    label: (workspace.display_name || workspace.slug || "Workspace") as string,
-  }));
+  return (data ?? [])
+    .filter((workspace) => !publicProfileOnlyWorkspaceSlugs.has(String(workspace.slug ?? "")))
+    .map((workspace) => ({
+      id: workspace.id as string,
+      label: (workspace.display_name || workspace.slug || "Workspace") as string,
+    }));
 }
 
 export default async function RelationshipIntelligencePage() {

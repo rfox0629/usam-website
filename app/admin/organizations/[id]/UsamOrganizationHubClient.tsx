@@ -63,6 +63,9 @@ const needsInfoSectionOptions: Array<{ id: ReviewSectionId; title: string }> = [
   ...applicationSections,
 ];
 const usamOrganizationWorkspacesHref = "/admin/organizations/usa-missionaries?tab=workspaces";
+const publicProfileOnlyWorkspaceSlugs = new Set([
+  "ryan-brooke-fox",
+]);
 
 // TODO: Add these visibility preference questions to the USA Missionaries onboarding/application flow.
 const usamPhotoPromptConcept = "Create a USA Missionaries public profile photo using the submitted person/family photo. Add coordinated USA Missionaries military-style ministry attire and hat. Keep faces natural and recognizable.";
@@ -276,6 +279,10 @@ function workspaceActionHref(workspace: OrganizationWorkspaceSummary) {
   }
 
   return usamOrganizationWorkspacesHref;
+}
+
+function shouldShowPrivateWorkspace(workspace: OrganizationWorkspaceSummary) {
+  return !publicProfileOnlyWorkspaceSlugs.has(workspace.slug);
 }
 
 function SectionShell({ children, title }: { children: ReactNode; title: string }) {
@@ -1223,6 +1230,7 @@ export function UsamOrganizationHubClient({
     application.status === "application_submitted" || application.status === "pending_review" || application.status === "more_info_requested"
   )).length;
   const selectedApplication = applications.find((application) => application.id === selectedApplicationId) ?? null;
+  const privateWorkspaces = organization.workspaces.filter(shouldShowPrivateWorkspace);
   const workspaceHrefById = new Map(
     organization.workspaces.map((workspace) => [workspace.id, workspaceActionHref(workspace)]),
   );
@@ -1503,7 +1511,7 @@ export function UsamOrganizationHubClient({
 
       {activeTab === "workspaces" ? (
         <SectionShell title="Workspaces">
-          {organization.workspaces.length > 0 ? (
+          {privateWorkspaces.length > 0 ? (
             <div className="space-y-2 p-2">
               <div className="hidden rounded-lg border border-stone-800 bg-[#0f0f0f] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-stone-500 xl:grid xl:grid-cols-[minmax(0,1fr)_130px_minmax(160px,0.75fr)_minmax(190px,0.9fr)_115px_145px] xl:items-center xl:gap-3" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
                 <span>Workspace</span>
@@ -1513,7 +1521,7 @@ export function UsamOrganizationHubClient({
                 <span>Last Active</span>
                 <span className="text-right">Actions</span>
               </div>
-              {organization.workspaces.map((workspace) => (
+              {privateWorkspaces.map((workspace) => (
                 <article className="rounded-lg border border-stone-800 bg-[#0f0f0f] px-3 py-2.5" key={workspace.id}>
                   <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_130px_minmax(160px,0.75fr)_minmax(190px,0.9fr)_115px_145px] xl:items-center">
                     <div className="min-w-0">

@@ -674,52 +674,34 @@ export async function getDefaultDosWorkspaceAccess(
       }
     }
 
-    const slugResult = collectiveSlugs.length
-      ? await supabase
-        .from("missionary_households")
-        .select("id, slug, display_name")
-        .in("slug", collectiveSlugs)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      : { data: null, error: null };
+    const slugWorkspace = sortLaunchWorkspaces(
+      visibleLaunchWorkspaceRows(await loadLaunchWorkspaceRowsBySlugs(collectiveSlugs))
+        .map(launchWorkspaceFromRow),
+    )[0];
 
-    if (slugResult.error) {
-      throw new Error(slugResult.error.message);
-    }
-
-    if (slugResult.data) {
+    if (slugWorkspace) {
       return {
         status: "allowed",
         workspace: {
-          displayName: slugResult.data.display_name,
-          id: slugResult.data.id,
-          slug: slugResult.data.slug,
+          displayName: slugWorkspace.displayName,
+          id: slugWorkspace.id,
+          slug: slugWorkspace.slug,
         },
       };
     }
 
-    const idResult = workspaceIds.length
-      ? await supabase
-        .from("missionary_households")
-        .select("id, slug, display_name")
-        .in("id", workspaceIds)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      : { data: null, error: null };
+    const idWorkspace = sortLaunchWorkspaces(
+      visibleLaunchWorkspaceRows(await loadLaunchWorkspaceRowsByIds(workspaceIds))
+        .map(launchWorkspaceFromRow),
+    )[0];
 
-    if (idResult.error) {
-      throw new Error(idResult.error.message);
-    }
-
-    return idResult.data
+    return idWorkspace
       ? {
         status: "allowed",
         workspace: {
-          displayName: idResult.data.display_name,
-          id: idResult.data.id,
-          slug: idResult.data.slug,
+          displayName: idWorkspace.displayName,
+          id: idWorkspace.id,
+          slug: idWorkspace.slug,
         },
       }
       : { status: "not_found" };
