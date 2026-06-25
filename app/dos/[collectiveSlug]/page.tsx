@@ -120,6 +120,13 @@ function DosAppRouteFrame({ children }: { children: ReactNode }) {
               }
             }
 
+            @media (min-width: 768px) {
+              .dos-app-route {
+                max-width: min(100%, 1440px);
+                flex-basis: min(100%, 1440px);
+              }
+            }
+
             body:has(.dos-app-route) nextjs-portal {
               display: none !important;
             }
