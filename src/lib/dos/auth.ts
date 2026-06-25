@@ -114,7 +114,6 @@ const launchWorkspaceDisplayNames: Record<string, string> = {
 
 const hiddenLaunchWorkspaceSlugs = new Set([
   "fox-family",
-  "ryan-brooke-fox",
 ]);
 
 function isUuid(value: string) {
