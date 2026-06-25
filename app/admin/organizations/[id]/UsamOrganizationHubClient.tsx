@@ -40,7 +40,7 @@ type ApplicationSectionRow = {
 const hubTabs: Array<{ label: string; value: HubTab }> = [
   { label: "Overview", value: "overview" },
   { label: "Applications", value: "applications" },
-  { label: "Approved Profiles", value: "approved-profiles" },
+  { label: "Public Profiles", value: "approved-profiles" },
   { label: "Members", value: "members" },
   { label: "Workspaces", value: "workspaces" },
   { label: "Settings", value: "settings" },
