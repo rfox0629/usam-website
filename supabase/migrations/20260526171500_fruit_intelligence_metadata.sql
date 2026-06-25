@@ -14,7 +14,7 @@ comment on column public.fruit_events.generation_key is
   'Stable idempotency key for automatic Fruit Intelligence generation.';
 
 comment on column public.fruit_events.generated_by is
-  'Generator that created the event: manual, reflection_keywords, review_submission, testimony_keywords, engagement_pattern, or similar.';
+  'Explicit user action that created the event: record_fruit, quick_review, testimony_review, or leader_review.';
 
 comment on column public.fruit_events.debug_context is
   'Lightweight admin/debug metadata describing why the Fruit event was generated.';

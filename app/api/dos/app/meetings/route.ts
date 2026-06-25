@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
-import { inferFruitEventsFromEngagement } from "@/src/lib/dos/fruit-intelligence";
 import {
   buildMeetingRecommendations,
   getConversationFlowDefinition,
@@ -369,16 +368,6 @@ export async function POST(request: Request) {
     });
   }
 
-  if (meetingStatus === "logged") {
-    await Promise.all(validPersonIds.map((personId) => inferFruitEventsFromEngagement({
-      leaderId: authResult.authorization.userId,
-      personId,
-      workspaceId,
-    }, supabase))).catch((fruitError) => {
-      console.warn("[Fruit Intelligence] Unable to infer engagement fruit after meeting create", fruitError);
-    });
-  }
-
   if (data?.id && googleSyncEnabled && meetingStatus === "scheduled") {
     await syncMeetingCalendarEvent({
       meetingId: String(data.id),
@@ -565,16 +554,6 @@ export async function PATCH(request: Request) {
   if (meetingStatus === "logged") {
     await recalculateCircleScores(workspaceId).catch((scoreError) => {
       console.warn("[DOS circles] Unable to recalculate after meeting update", scoreError);
-    });
-  }
-
-  if (meetingStatus === "logged") {
-    await Promise.all(validPersonIds.map((personId) => inferFruitEventsFromEngagement({
-      leaderId: authResult.authorization.userId,
-      personId,
-      workspaceId,
-    }, supabase))).catch((fruitError) => {
-      console.warn("[Fruit Intelligence] Unable to infer engagement fruit after meeting update", fruitError);
     });
   }
 

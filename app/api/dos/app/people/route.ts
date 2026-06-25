@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
-import { inferFruitEventsFromEngagement } from "@/src/lib/dos/fruit-intelligence";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { joinPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { relationshipModelFromFields, relationshipModelSummary, relationshipScoreFromEngagementLevel, relationshipScoreLabel } from "@/src/lib/dos/relationship-model";
@@ -230,14 +229,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to create person." }, { status: 500 });
   }
 
-  await inferFruitEventsFromEngagement({
-    leaderId: authResult.authorization.userId,
-    personId: String(data.id),
-    workspaceId,
-  }, supabase).catch((fruitError) => {
-    console.warn("[Fruit Intelligence] Unable to infer engagement fruit after person create", fruitError);
-  });
-
   await recalculateCircleScores(workspaceId).catch((scoreError) => {
     console.warn("[DOS circles] Unable to recalculate after person create", scoreError);
   });
@@ -327,14 +318,6 @@ export async function PATCH(request: Request) {
   if (!data) {
     return NextResponse.json({ error: "Unable to update person." }, { status: 500 });
   }
-
-  await inferFruitEventsFromEngagement({
-    leaderId: authResult.authorization.userId,
-    personId: String(data.id),
-    workspaceId,
-  }, supabase).catch((fruitError) => {
-    console.warn("[Fruit Intelligence] Unable to infer engagement fruit after person update", fruitError);
-  });
 
   await recalculateCircleScores(workspaceId).catch((scoreError) => {
     console.warn("[DOS circles] Unable to recalculate after person update", scoreError);

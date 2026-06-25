@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     outcome_tags: asOutcomeTags(payload.outcomeTags),
     permission_to_share: false,
     source: "dos",
-    source_app: "dos_mvp",
+    source_app: "record_fruit",
     status: "draft",
     testimony_date: asDateString(payload.testimonyDate),
     visibility: "private",
