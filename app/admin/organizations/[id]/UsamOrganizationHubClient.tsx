@@ -281,6 +281,10 @@ function workspaceActionHref(workspace: OrganizationWorkspaceSummary) {
   return usamOrganizationWorkspacesHref;
 }
 
+function dosWorkspaceHref(workspace: OrganizationWorkspaceSummary) {
+  return `/dos/app?workspace=${encodeURIComponent(workspace.slug || workspace.id)}`;
+}
+
 function shouldShowPrivateWorkspace(workspace: OrganizationWorkspaceSummary) {
   return !publicProfileOnlyWorkspaceSlugs.has(workspace.slug);
 }
@@ -1231,8 +1235,8 @@ export function UsamOrganizationHubClient({
   )).length;
   const selectedApplication = applications.find((application) => application.id === selectedApplicationId) ?? null;
   const privateWorkspaces = organization.workspaces.filter(shouldShowPrivateWorkspace);
-  const workspaceHrefById = new Map(
-    organization.workspaces.map((workspace) => [workspace.id, workspaceActionHref(workspace)]),
+  const dosWorkspaceHrefById = new Map(
+    organization.workspaces.map((workspace) => [workspace.id, dosWorkspaceHref(workspace)]),
   );
 
   useEffect(() => {
@@ -1497,7 +1501,7 @@ export function UsamOrganizationHubClient({
                     <p className="truncate text-sm text-stone-300">{member.workspaceName || "Organization"}</p>
                     <p className="text-sm text-stone-400">{formatDate(member.lastActiveAt)}</p>
                     <div className="flex justify-start xl:justify-end">
-                      {member.workspaceId ? <TextAction href={workspaceHrefById.get(member.workspaceId) ?? usamOrganizationWorkspacesHref} label="View" /> : <span className="text-xs text-stone-600">None</span>}
+                      {member.workspaceId ? <TextAction href={dosWorkspaceHrefById.get(member.workspaceId) ?? "/dos"} label="View" /> : <span className="text-xs text-stone-600">None</span>}
                     </div>
                   </div>
                 </article>
