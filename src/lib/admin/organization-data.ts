@@ -12,6 +12,7 @@ import {
   type OrganizationApplicationSummary,
   type OrganizationDetail,
   type OrganizationMemberSummary,
+  type OrganizationPersonDetail,
   type OrganizationSummary,
   type OrganizationWorkspaceSummary,
   type WorkspacePreviewData,
@@ -132,6 +133,30 @@ type OrganizationTeamMemberRow = {
   updated_at: string | null;
 };
 
+type OrganizationPersonTeamMemberRow = OrganizationTeamMemberRow & {
+  is_public?: boolean | null;
+};
+
+type OrganizationPersonFieldPersonRow = {
+  created_at: string | null;
+  created_by?: string | null;
+  id: string;
+  last_activity_at?: string | null;
+  name: string;
+  updated_at: string | null;
+};
+
+type OrganizationPersonTableRow = {
+  created_at: string | null;
+  created_by?: string | null;
+  field_person_ids?: string[] | null;
+  id: string;
+  participant_names: string[] | null;
+  table_date: string | null;
+  table_type: string | null;
+  updated_at: string | null;
+};
+
 type WorkspaceScopedRow = {
   created_at?: string | null;
   household_id?: string | null;
@@ -208,6 +233,12 @@ function workspaceIntelligenceHref(workspaceId: string | null | undefined) {
   const normalizedId = workspaceId?.trim();
 
   return normalizedId ? `/admin/workspaces/${encodeURIComponent(normalizedId)}/preview` : null;
+}
+
+function personDetailHref(personId: string | null | undefined) {
+  const normalizedId = personId?.trim();
+
+  return normalizedId ? `/admin/people/${encodeURIComponent(normalizedId)}` : null;
 }
 
 function isUsamOrganization(organization: Pick<OrganizationRow, "branding_mode" | "slug">) {
@@ -1126,8 +1157,10 @@ function memberSummaries({
       id: key,
       lastActiveAt: latestDate([membership.updated_at, profile?.updated_at, membership.created_at, profile?.created_at]),
       name: profile ? profileDisplayName(profile) : "Organization member",
+      personId: membership.profile_id,
       role: membership.role ?? "member",
       status: membership.status,
+      viewHref: personDetailHref(membership.profile_id),
       workspaceId: null,
       workspaceName: null,
     });
@@ -1148,8 +1181,10 @@ function memberSummaries({
       id: key,
       lastActiveAt: latestDate([member.updated_at, member.created_at, application?.updated_at, application?.submitted_at]),
       name: member.display_name,
+      personId: member.id,
       role: member.role_title || member.relationship_to_workspace || "Member",
       status: member.status,
+      viewHref: personDetailHref(member.id),
       workspaceId: member.household_id,
       workspaceName: workspace?.name ?? null,
     });
@@ -1406,6 +1441,263 @@ export async function loadPrimaryUsamOrganizationDetail(): Promise<{ error?: str
     return {
       error: error instanceof Error ? error.message : "Unable to load USA Missionaries.",
       organization: null,
+    };
+  }
+}
+
+async function loadOrganizationPersonTeamMember(
+  supabase: SupabaseAdminClient,
+  personId: string,
+) {
+  const result = await supabase
+    .from("missionary_team_members")
+    .select("id, household_id, display_name, role_title, dos_user_id, source, status, updated_at, created_at, invite_email, relationship_to_workspace, is_public")
+    .eq("id", personId)
+    .maybeSingle();
+  const fallbackResult = result.error && isMissingColumnError(result.error)
+    ? await supabase
+      .from("missionary_team_members")
+      .select("id, household_id, display_name, role_title, dos_user_id, source, status, updated_at, created_at")
+      .eq("id", personId)
+      .maybeSingle()
+    : result;
+
+  if (fallbackResult.error) {
+    if (isMissingTableError(fallbackResult.error, "missionary_team_members") || isMissingColumnError(fallbackResult.error)) {
+      return null;
+    }
+
+    throw new Error(fallbackResult.error.message);
+  }
+
+  return fallbackResult.data as OrganizationPersonTeamMemberRow | null;
+}
+
+async function loadOrganizationProfilePerson(
+  supabase: SupabaseAdminClient,
+  profileId: string,
+) {
+  const result = await supabase
+    .from("profiles")
+    .select("id, first_name, last_name, email, created_at, updated_at")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (result.error) {
+    if (isMissingTableError(result.error, "profiles") || isMissingColumnError(result.error)) {
+      return null;
+    }
+
+    throw new Error(result.error.message);
+  }
+
+  return result.data as OrganizationProfileRow | null;
+}
+
+function identityUserIds(member: Pick<OrganizationPersonTeamMemberRow, "dos_user_id">) {
+  return Array.from(new Set([
+    member.dos_user_id?.trim() ?? "",
+  ].filter((value) => value && isUuid(value))));
+}
+
+function identityEmail(member: Pick<OrganizationPersonTeamMemberRow, "dos_user_id" | "invite_email">) {
+  const inviteEmail = member.invite_email?.trim();
+
+  if (inviteEmail?.includes("@")) {
+    return inviteEmail;
+  }
+
+  const dosUserId = member.dos_user_id?.trim();
+
+  return dosUserId?.includes("@") ? dosUserId : null;
+}
+
+async function loadPersonCreatedFieldPeople({
+  supabase,
+  userIds,
+  workspaceId,
+}: {
+  supabase: SupabaseAdminClient;
+  userIds: string[];
+  workspaceId: string;
+}) {
+  if (userIds.length === 0) {
+    return [] as OrganizationPersonFieldPersonRow[];
+  }
+
+  const result = await supabase
+    .from("missionary_field_people")
+    .select("id, name, created_by, last_activity_at, updated_at, created_at")
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+    .in("created_by", userIds)
+    .order("last_activity_at", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false })
+    .limit(80);
+
+  if (result.error) {
+    if (isMissingTableError(result.error, "missionary_field_people") || isMissingColumnError(result.error)) {
+      return [];
+    }
+
+    throw new Error(result.error.message);
+  }
+
+  return (result.data ?? []) as OrganizationPersonFieldPersonRow[];
+}
+
+async function loadWorkspaceTablesForPersonMetrics({
+  supabase,
+  workspaceId,
+}: {
+  supabase: SupabaseAdminClient;
+  workspaceId: string;
+}) {
+  const result = await supabase
+    .from("missionary_tables")
+    .select("id, table_type, table_date, participant_names, field_person_ids, created_by, updated_at, created_at")
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+    .order("table_date", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false })
+    .limit(160);
+  const fallbackResult = result.error && isMissingColumnError(result.error)
+    ? await supabase
+      .from("missionary_tables")
+      .select("id, table_type, table_date, participant_names, created_by, updated_at, created_at")
+      .eq("household_id", workspaceId)
+      .order("table_date", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false })
+      .limit(160)
+    : result;
+
+  if (fallbackResult.error) {
+    if (isMissingTableError(fallbackResult.error, "missionary_tables") || isMissingColumnError(fallbackResult.error)) {
+      return [];
+    }
+
+    throw new Error(fallbackResult.error.message);
+  }
+
+  return (fallbackResult.data ?? []) as OrganizationPersonTableRow[];
+}
+
+export async function loadOrganizationPersonDetail(personId: string): Promise<{ error?: string; person: OrganizationPersonDetail | null }> {
+  if (!isSupabaseAdminConfigured()) {
+    return {
+      error: "Supabase admin environment variables are not configured.",
+      person: null,
+    };
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const member = await loadOrganizationPersonTeamMember(supabase, personId);
+
+    if (!member) {
+      const profile = await loadOrganizationProfilePerson(supabase, personId);
+
+      if (!profile) {
+        return { person: null };
+      }
+
+      return {
+        person: {
+          createdAt: profile.created_at ?? null,
+          email: profile.email,
+          id: profile.id,
+          identityKind: "profile",
+          identityValue: profile.id,
+          isPublic: null,
+          lastActiveAt: latestDate([profile.updated_at, profile.created_at]),
+          metrics: {
+            fieldPeople: 0,
+            tables: 0,
+            tableSignal: "unlinked",
+          },
+          name: profileDisplayName(profile),
+          recentTables: [],
+          relationshipToWorkspace: null,
+          role: "Organization member",
+          source: "profiles",
+          status: null,
+          updatedAt: profile.updated_at ?? null,
+          workspace: null,
+        },
+      };
+    }
+
+    const workspaceId = member.household_id;
+    const workspaceResult = workspaceId
+      ? await supabase
+        .from("missionary_households")
+        .select("id, slug, display_name, updated_at, created_at")
+        .eq("id", workspaceId)
+        .maybeSingle()
+      : null;
+
+    if (workspaceResult?.error) {
+      throw new Error(workspaceResult.error.message);
+    }
+
+    const workspace = workspaceResult?.data as Pick<HouseholdRow, "created_at" | "display_name" | "id" | "slug" | "updated_at"> | null;
+    const userIds = identityUserIds(member);
+    let createdPeople: OrganizationPersonFieldPersonRow[] = [];
+    let workspaceTables: OrganizationPersonTableRow[] = [];
+
+    if (workspaceId) {
+      [createdPeople, workspaceTables] = await Promise.all([
+        loadPersonCreatedFieldPeople({ supabase, userIds, workspaceId }),
+        loadWorkspaceTablesForPersonMetrics({ supabase, workspaceId }),
+      ]);
+    }
+
+    const userIdSet = new Set(userIds);
+    const createdPersonIds = new Set(createdPeople.map((person) => person.id));
+    const relevantTables = workspaceTables.filter((table) => (
+      Boolean(table.created_by && userIdSet.has(table.created_by))
+      || (table.field_person_ids ?? []).some((fieldPersonId) => createdPersonIds.has(fieldPersonId))
+    ));
+    const distinctRelevantTables = Array.from(new Map(relevantTables.map((table) => [table.id, table])).values());
+
+    return {
+      person: {
+        createdAt: member.created_at,
+        email: identityEmail(member),
+        id: member.id,
+        identityKind: "team_member",
+        identityValue: member.dos_user_id?.trim() || member.invite_email?.trim() || null,
+        isPublic: typeof member.is_public === "boolean" ? member.is_public : null,
+        lastActiveAt: latestDate([member.updated_at, member.created_at]),
+        metrics: {
+          fieldPeople: createdPeople.length,
+          tables: distinctRelevantTables.length,
+          tableSignal: userIds.length > 0 ? "auth-linked" : "unlinked",
+        },
+        name: member.display_name,
+        recentTables: distinctRelevantTables.slice(0, 8).map((table) => ({
+          date: table.table_date ?? table.updated_at ?? table.created_at,
+          id: table.id,
+          participantNames: (table.participant_names ?? []).filter(Boolean),
+          type: table.table_type,
+        })),
+        relationshipToWorkspace: member.relationship_to_workspace ?? null,
+        role: member.role_title || member.relationship_to_workspace || "Member",
+        source: member.source,
+        status: member.status,
+        updatedAt: member.updated_at,
+        workspace: workspace
+          ? {
+            id: workspace.id,
+            intelligenceHref: workspaceIntelligenceHref(workspace.id) ?? usamOrganizationWorkspacesHref,
+            name: workspace.display_name,
+            slug: workspace.slug,
+          }
+          : null,
+      },
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Unable to load person.",
+      person: null,
     };
   }
 }

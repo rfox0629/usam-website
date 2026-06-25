@@ -101,8 +101,10 @@ export type OrganizationMemberSummary = {
   id: string;
   lastActiveAt: string | null;
   name: string;
+  personId: string | null;
   role: string | null;
   status: string | null;
+  viewHref: string | null;
   workspaceId: string | null;
   workspaceName: string | null;
 };
@@ -126,6 +128,39 @@ export type OrganizationDetail = OrganizationSummary & {
   applications: OrganizationApplicationSummary[];
   members: OrganizationMemberSummary[];
   workspaces: OrganizationWorkspaceSummary[];
+};
+
+export type OrganizationPersonDetail = {
+  createdAt: string | null;
+  email: string | null;
+  id: string;
+  identityKind: "profile" | "team_member";
+  identityValue: string | null;
+  isPublic: boolean | null;
+  lastActiveAt: string | null;
+  metrics: {
+    fieldPeople: number;
+    tables: number;
+    tableSignal: "auth-linked" | "unlinked";
+  };
+  name: string;
+  recentTables: Array<{
+    date: string | null;
+    id: string;
+    participantNames: string[];
+    type: string | null;
+  }>;
+  relationshipToWorkspace: string | null;
+  role: string | null;
+  source: string | null;
+  status: string | null;
+  updatedAt: string | null;
+  workspace: {
+    id: string;
+    intelligenceHref: string;
+    name: string;
+    slug: string;
+  } | null;
 };
 
 export type WorkspacePreviewData = {

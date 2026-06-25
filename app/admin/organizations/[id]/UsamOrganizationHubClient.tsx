@@ -41,7 +41,7 @@ const hubTabs: Array<{ label: string; value: HubTab }> = [
   { label: "Overview", value: "overview" },
   { label: "Applications", value: "applications" },
   { label: "Public Profiles", value: "approved-profiles" },
-  { label: "DOS Users", value: "members" },
+  { label: "People", value: "members" },
   { label: "Workspaces", value: "workspaces" },
   { label: "Settings", value: "settings" },
 ];
@@ -63,9 +63,6 @@ const needsInfoSectionOptions: Array<{ id: ReviewSectionId; title: string }> = [
   ...applicationSections,
 ];
 const usamOrganizationWorkspacesHref = "/admin/organizations/usa-missionaries?tab=workspaces";
-const publicProfileOnlyWorkspaceSlugs = new Set([
-  "ryan-brooke-fox",
-]);
 
 // TODO: Add these visibility preference questions to the USA Missionaries onboarding/application flow.
 const usamPhotoPromptConcept = "Create a USA Missionaries public profile photo using the submitted person/family photo. Add coordinated USA Missionaries military-style ministry attire and hat. Keep faces natural and recognizable.";
@@ -279,14 +276,6 @@ function workspaceActionHref(workspace: OrganizationWorkspaceSummary) {
   }
 
   return usamOrganizationWorkspacesHref;
-}
-
-function dosWorkspaceHref(workspace: OrganizationWorkspaceSummary) {
-  return `/dos/app?workspace=${encodeURIComponent(workspace.slug || workspace.id)}`;
-}
-
-function shouldShowPrivateWorkspace(workspace: OrganizationWorkspaceSummary) {
-  return !publicProfileOnlyWorkspaceSlugs.has(workspace.slug);
 }
 
 function SectionShell({ children, title }: { children: ReactNode; title: string }) {
@@ -1234,10 +1223,7 @@ export function UsamOrganizationHubClient({
     application.status === "application_submitted" || application.status === "pending_review" || application.status === "more_info_requested"
   )).length;
   const selectedApplication = applications.find((application) => application.id === selectedApplicationId) ?? null;
-  const privateWorkspaces = organization.workspaces.filter(shouldShowPrivateWorkspace);
-  const dosWorkspaceHrefById = new Map(
-    organization.workspaces.map((workspace) => [workspace.id, dosWorkspaceHref(workspace)]),
-  );
+  const privateWorkspaces = organization.workspaces;
 
   useEffect(() => {
     const nextTab = searchParams.get("tab");
@@ -1389,7 +1375,7 @@ export function UsamOrganizationHubClient({
 
       {activeTab === "overview" ? (
         <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard icon={Users} label="DOS Users" value={organization.memberCount} />
+          <MetricCard icon={Users} label="People" value={organization.memberCount} />
           <MetricCard icon={Layers} label="Workspaces" value={organization.workspaceCount} />
           <MetricCard icon={Workflow} label="Pending Applications" value={pendingApplications} />
           <MetricCard icon={FileText} label="Approved Profiles" value={approvedProfiles.length} />
@@ -1479,7 +1465,7 @@ export function UsamOrganizationHubClient({
       ) : null}
 
       {activeTab === "members" ? (
-        <SectionShell title="DOS Users">
+        <SectionShell title="People">
           {organization.members.length > 0 ? (
             <div className="space-y-2 p-2">
               <div className="hidden rounded-lg border border-stone-800 bg-[#0f0f0f] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-stone-500 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(160px,0.8fr)_110px_90px_minmax(160px,0.75fr)_115px_90px] xl:items-center xl:gap-3" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
@@ -1501,14 +1487,14 @@ export function UsamOrganizationHubClient({
                     <p className="truncate text-sm text-stone-300">{member.workspaceName || "Organization"}</p>
                     <p className="text-sm text-stone-400">{formatDate(member.lastActiveAt)}</p>
                     <div className="flex justify-start xl:justify-end">
-                      {member.workspaceId ? <TextAction href={dosWorkspaceHrefById.get(member.workspaceId) ?? "/dos"} label="View" /> : <span className="text-xs text-stone-600">None</span>}
+                      {member.viewHref ? <TextAction href={member.viewHref} label="View" /> : <span className="text-xs text-stone-600">None</span>}
                     </div>
                   </div>
                 </article>
               ))}
             </div>
           ) : (
-            <div className="p-5 text-sm leading-6 text-stone-400">No DOS users are connected to this organization yet.</div>
+            <div className="p-5 text-sm leading-6 text-stone-400">No people are connected to this organization yet.</div>
           )}
         </SectionShell>
       ) : null}
