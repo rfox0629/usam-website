@@ -93,6 +93,17 @@ export type DosAppWorkspace = {
   userPhone?: string | null;
 };
 
+export type DosAppHouseholdMember = {
+  displayName: string;
+  id: string;
+  inviteEmail: string | null;
+  isPublic: boolean;
+  linked: boolean;
+  relationship: string | null;
+  roleTitle: string | null;
+  status: string;
+};
+
 export type DosAppPerson = {
   childrenNames?: string | null;
   church: string | null;
@@ -305,6 +316,7 @@ export type DosAppData = {
   externalCalendarEvents: DosAppExternalCalendarEvent[];
   fruit: DosAppFruit[];
   fruitEvents: DosAppFruitEvent[];
+  householdMembers: DosAppHouseholdMember[];
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
   organizations: DosAppOrganizationConnection[];
@@ -384,6 +396,17 @@ type HouseholdRow = {
   usam_application_submitted_at?: string | null;
   usam_assigned_admin_email?: string | null;
   usam_profile_status?: string | null;
+};
+
+type HouseholdMemberRow = {
+  display_name: string;
+  dos_user_id?: string | null;
+  id: string;
+  invite_email?: string | null;
+  is_public?: boolean | null;
+  relationship_to_workspace?: string | null;
+  role_title: string | null;
+  status: string | null;
 };
 
 type FieldPersonRow = {
@@ -1341,6 +1364,28 @@ function buildOrganizationConnections({
   return Array.from(connections.values());
 }
 
+async function loadHouseholdMembersForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("missionary_team_members")
+    .select("id, display_name, role_title, relationship_to_workspace, invite_email, dos_user_id, is_public, status")
+    .eq("household_id", workspaceId)
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("display_name", { ascending: true });
+  const fallbackResult = result.error && isMissingColumnError(result.error)
+    ? await supabase
+      .from("missionary_team_members")
+      .select("id, display_name, role_title, dos_user_id, is_public, status")
+      .eq("household_id", workspaceId)
+      .order("display_name", { ascending: true })
+    : result;
+
+  if (fallbackResult.error) {
+    return { data: [], error: null };
+  }
+
+  return fallbackResult;
+}
+
 export async function loadDosAppData(workspaceSlug?: string | null): Promise<LoadResult<DosAppData>> {
   const workspaceResult = await loadWorkspace(workspaceSlug);
 
@@ -1350,7 +1395,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -1365,6 +1410,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
     loadRelationshipRemindersForWorkspace(supabase, workspace.id),
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
+    loadHouseholdMembersForWorkspace(supabase, workspace.id),
     loadOrganizationForWorkspace(supabase, workspace.slug),
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
@@ -1396,6 +1442,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const meetingReviewRows = (meetingReviewsResult.data ?? []) as MeetingReviewRow[];
   const prayerLogRows = (prayerLogsResult.data ?? []) as PrayerLogRow[];
   const prayerPartnerRows = (prayerPartnersResult.data ?? []) as PrayerPartnerRow[];
+  const householdMemberRows = (householdMembersResult.data ?? []) as HouseholdMemberRow[];
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
   const calendarWorkspaceSyncStateRow = calendarWorkspaceSyncStateResult.data as CalendarWorkspaceSyncStateRow | null;
@@ -1640,6 +1687,18 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       updatedAt: partner.updated_at,
     };
   });
+  const householdMembers = householdMemberRows
+    .filter((member) => !["archived", "inactive"].includes((member.status ?? "").toLowerCase()))
+    .map((member) => ({
+      displayName: member.display_name,
+      id: member.id,
+      inviteEmail: cleanOptionalText(member.invite_email ?? null),
+      isPublic: member.is_public === true,
+      linked: Boolean(member.dos_user_id?.trim()),
+      relationship: cleanOptionalText(member.relationship_to_workspace ?? null),
+      roleTitle: cleanOptionalText(member.role_title),
+      status: member.status ?? "active",
+    }));
   const reminders = reminderRows.map((reminder) => ({
     googleSyncEnabled: reminder.google_sync_enabled === true,
     googleSyncStatus: calendarSyncStatusBySource.get(`reminder:${reminder.id}`)
@@ -1704,6 +1763,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
       externalCalendarEvents,
       fruit,
       fruitEvents,
+      householdMembers,
       leaderReflections,
       meetings,
       organizations: buildOrganizationConnections({ organization, usamApplication, workspace }),

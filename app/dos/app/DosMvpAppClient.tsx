@@ -4711,9 +4711,42 @@ function DesktopSettingsRow({
   return <div className={className}>{content}</div>;
 }
 
+function householdRelationshipLabel(value: string | null | undefined) {
+  switch (value) {
+    case "owner":
+      return "Owner";
+    case "spouse":
+      return "Spouse";
+    case "household_member":
+      return "Household Member";
+    case "child":
+      return "Household Member";
+    case "other":
+      return "Member";
+    default:
+      return "Member";
+  }
+}
+
+function householdStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "active":
+      return "Active";
+    case "pending":
+      return "Pending";
+    case "hidden":
+      return "Hidden";
+    case "declined":
+      return "Declined";
+    default:
+      return "Pending";
+  }
+}
+
 function DesktopSettingsProfileView({
   application,
   email,
+  householdMembers,
   missionaryLayerStatus,
   name,
   onEditProfile,
@@ -4731,6 +4764,7 @@ function DesktopSettingsProfileView({
 }: {
   application: DosAppData["usamApplication"];
   email: string;
+  householdMembers: DosAppData["householdMembers"];
   missionaryLayerStatus: string;
   name: string;
   onEditProfile: () => void;
@@ -4831,6 +4865,30 @@ function DesktopSettingsProfileView({
             </div>
           </DesktopPanel>
         </div>
+
+        <DesktopPanel compact eyebrow="Household">
+          <div className="grid gap-2">
+            <DesktopSettingsRow
+              description="Household name"
+              icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+              label={workspaceName}
+              meta={`${householdMembers.length} ${householdMembers.length === 1 ? "member" : "members"}`}
+            />
+            {householdMembers.map((member) => (
+              <DesktopSettingsRow
+                description={[
+                  householdRelationshipLabel(member.relationship),
+                  member.inviteEmail,
+                ].filter(Boolean).join(" · ")}
+                icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                key={member.id}
+                label={member.displayName}
+                meta={member.linked ? "Linked" : householdStatusLabel(member.status)}
+              />
+            ))}
+            <p className="px-1 pt-1 text-xs font-semibold text-[#64748B]">Household management is coming soon.</p>
+          </div>
+        </DesktopPanel>
 
         <div className="grid gap-3">
           {/* TODO: Later conditionally show this section only after USA Missionaries onboarding/application approval or organization attachment. */}
@@ -6394,6 +6452,7 @@ function ProfileRow({
 
 function ProfileSheet({
   email,
+  householdMembers,
   name,
   onClose,
   onEditProfile,
@@ -6403,6 +6462,7 @@ function ProfileSheet({
   workspaceSublabel,
 }: {
   email: string;
+  householdMembers: DosAppData["householdMembers"];
   name: string;
   onClose: () => void;
   onEditProfile: () => void;
@@ -6439,6 +6499,24 @@ function ProfileSheet({
           <ProfileRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} isLast onClick={onOpenCircles}>
             Field & circles
           </ProfileRow>
+        </ProfileGroup>
+
+        <ProfileGroup title="Household">
+          <ProfileRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} meta={`${householdMembers.length}`}>
+            {workspaceName}
+          </ProfileRow>
+          {householdMembers.slice(0, 5).map((member, index, members) => (
+            <ProfileRow
+              icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+              isLast={index === members.length - 1}
+              key={member.id}
+              meta={member.linked ? "Linked" : householdStatusLabel(member.status)}
+              sublabel={[householdRelationshipLabel(member.relationship), member.inviteEmail].filter(Boolean).join(" · ")}
+            >
+              {member.displayName}
+            </ProfileRow>
+          ))}
+          <p className="px-3 py-2 text-xs font-semibold text-[#64748B]">Household management is coming soon.</p>
         </ProfileGroup>
 
         <ProfileGroup title="Account">
@@ -18910,6 +18988,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <DesktopSettingsProfileView
                     application={usamApplication}
                     email={profileEmail}
+                    householdMembers={data.householdMembers}
                     missionaryLayerStatus={missionaryLayerStatus}
                     name={profileName}
                     onEditProfile={() => setIsEditProfileOpen(true)}
@@ -19409,6 +19488,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {isProfileOpen ? (
           <ProfileSheet
             email={profileEmail}
+            householdMembers={data.householdMembers}
             name={profileName}
             onClose={() => setIsProfileOpen(false)}
             onEditProfile={() => {

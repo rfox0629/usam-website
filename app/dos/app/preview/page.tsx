@@ -476,6 +476,28 @@ function buildDosPreviewDemoData(): DosAppData {
     externalCalendarEvents: [],
     fruit,
     fruitEvents,
+    householdMembers: [
+      {
+        displayName: "Ryan Fox",
+        id: "demo-household-member-ryan",
+        inviteEmail: "ryan@example.com",
+        isPublic: true,
+        linked: true,
+        relationship: "owner",
+        roleTitle: "Missionary",
+        status: "active",
+      },
+      {
+        displayName: "Brooke Fox",
+        id: "demo-household-member-brooke",
+        inviteEmail: "brooke@example.com",
+        isPublic: true,
+        linked: false,
+        relationship: "spouse",
+        roleTitle: "Missionary",
+        status: "active",
+      },
+    ],
     leaderReflections,
     meetings,
     organizations: [
