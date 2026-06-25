@@ -7142,12 +7142,14 @@ function calendarSourcePreferencesFromApi(sources: CalendarSourceApiSource[], ev
   });
 }
 
-function syncCalendarDisplaySettingsWithSources(settings: CalendarDisplaySettings, sources: CalendarSourcePreference[]) {
+function syncCalendarDisplaySettingsWithSources(settings: CalendarDisplaySettings, sources: CalendarSourcePreference[], options?: { preferPersisted?: boolean }) {
   const googleSources = { ...settings.googleSources };
 
   sources.forEach((source) => {
-    if (typeof googleSources[source.id] !== "boolean") {
-      googleSources[source.id] = false;
+    if (options?.preferPersisted && source.canPersist) {
+      googleSources[source.id] = source.selectedForDisplay === true;
+    } else if (typeof googleSources[source.id] !== "boolean") {
+      googleSources[source.id] = source.selectedForDisplay === true;
     }
   });
 
@@ -7161,13 +7163,15 @@ function calendarSourceIsSelected(settings: CalendarDisplaySettings, source: Cal
   return settings.googleSources[source.id] ?? false;
 }
 
-function calendarPreferenceForEvent(event: DosAppExternalCalendarEvent, sources: CalendarSourcePreference[]) {
+function calendarSourceMatchesEvent(source: CalendarSourcePreference, event: DosAppExternalCalendarEvent) {
   const calendarSourceId = event.calendarSourceId?.trim();
   const externalCalendarId = event.externalCalendarId?.trim();
 
-  return sources.find((source) => source.id === calendarSourceId)
-    ?? sources.find((source) => source.externalCalendarId === externalCalendarId)
-    ?? null;
+  return source.id === calendarSourceId || source.externalCalendarId === externalCalendarId;
+}
+
+function calendarPreferenceForEvent(event: DosAppExternalCalendarEvent, sources: CalendarSourcePreference[]) {
+  return sources.find((source) => calendarSourceMatchesEvent(source, event)) ?? null;
 }
 
 function calendarItemMatchesDisplaySettings(item: MeetingCalendarItem, settings: CalendarDisplaySettings, sources: CalendarSourcePreference[]) {
@@ -16602,7 +16606,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         const preferences = calendarSourcePreferencesFromApi(result.sources ?? [], data.externalCalendarEvents);
         setCalendarSourcePreferences(preferences);
-        setCalendarDisplaySettings((current) => syncCalendarDisplaySettingsWithSources(current, preferences));
+        setCalendarDisplaySettings((current) => syncCalendarDisplaySettingsWithSources(current, preferences, { preferPersisted: true }));
         setCalendarSourceMessage(result.message ?? "");
       } catch {
         setCalendarSourcePreferences(fallbackGoogleCalendarSources);
@@ -17412,11 +17416,49 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     })();
   }
 
+  function sourceHasImportedGoogleEvents(source: CalendarSourcePreference) {
+    return data.externalCalendarEvents.some((event) => (
+      !event.importedMeetingId && calendarSourceMatchesEvent(source, event)
+    ));
+  }
+
+  function shouldSyncGoogleCalendarOverlays(source?: CalendarSourcePreference) {
+    if (isPreview || !calendarConnectionIsHealthy(calendarConnection) || isSyncingGoogleCalendar) {
+      return false;
+    }
+
+    if (source) {
+      return !sourceHasImportedGoogleEvents(source) || !source.lastSyncedAt;
+    }
+
+    const selectedSources = calendarSourcePreferences.filter((item) => calendarSourceIsSelected(calendarDisplaySettings, item));
+
+    if (!selectedSources.length) {
+      return false;
+    }
+
+    return selectedSources.some((item) => !sourceHasImportedGoogleEvents(item) || !item.lastSyncedAt);
+  }
+
+  function syncGoogleCalendarOverlaysIfNeeded(source?: CalendarSourcePreference) {
+    if (!shouldSyncGoogleCalendarOverlays(source)) {
+      return;
+    }
+
+    handleSyncGoogleCalendar();
+  }
+
   function handleToggleCalendarCoreSource(source: CalendarCoreSource) {
+    const willEnable = !calendarDisplaySettings[source];
+
     setCalendarDisplaySettings((current) => ({
       ...current,
       [source]: !current[source],
     }));
+
+    if (source === "calendars" && willEnable) {
+      syncGoogleCalendarOverlaysIfNeeded();
+    }
   }
 
   function handleToggleGoogleCalendarSource(sourceId: string) {
@@ -17440,6 +17482,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCalendarSourcePreferences((current) => current.map((item) => (
       item.id === sourceId ? { ...item, selectedForDisplay: nextSelected } : item
     )));
+
+    if (nextSelected) {
+      syncGoogleCalendarOverlaysIfNeeded(source);
+    }
 
     if (!source.canPersist || isPreview) {
       setCalendarSourceMessage("Source display is local for now.");
