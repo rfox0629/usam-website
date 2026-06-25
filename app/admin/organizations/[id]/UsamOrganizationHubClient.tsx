@@ -41,7 +41,7 @@ const hubTabs: Array<{ label: string; value: HubTab }> = [
   { label: "Overview", value: "overview" },
   { label: "Applications", value: "applications" },
   { label: "Public Profiles", value: "approved-profiles" },
-  { label: "Members", value: "members" },
+  { label: "DOS Users", value: "members" },
   { label: "Workspaces", value: "workspaces" },
   { label: "Settings", value: "settings" },
 ];
@@ -1389,7 +1389,7 @@ export function UsamOrganizationHubClient({
 
       {activeTab === "overview" ? (
         <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard icon={Users} label="Members" value={organization.memberCount} />
+          <MetricCard icon={Users} label="DOS Users" value={organization.memberCount} />
           <MetricCard icon={Layers} label="Workspaces" value={organization.workspaceCount} />
           <MetricCard icon={Workflow} label="Pending Applications" value={pendingApplications} />
           <MetricCard icon={FileText} label="Approved Profiles" value={approvedProfiles.length} />
@@ -1479,7 +1479,7 @@ export function UsamOrganizationHubClient({
       ) : null}
 
       {activeTab === "members" ? (
-        <SectionShell title="Members">
+        <SectionShell title="DOS Users">
           {organization.members.length > 0 ? (
             <div className="space-y-2 p-2">
               <div className="hidden rounded-lg border border-stone-800 bg-[#0f0f0f] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-stone-500 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(160px,0.8fr)_110px_90px_minmax(160px,0.75fr)_115px_90px] xl:items-center xl:gap-3" style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}>
@@ -1508,7 +1508,7 @@ export function UsamOrganizationHubClient({
               ))}
             </div>
           ) : (
-            <div className="p-5 text-sm leading-6 text-stone-400">No members are connected to this organization yet.</div>
+            <div className="p-5 text-sm leading-6 text-stone-400">No DOS users are connected to this organization yet.</div>
           )}
         </SectionShell>
       ) : null}
