@@ -1041,7 +1041,7 @@ function approvedProfileSummaries({
   const approvedWorkspaceIds = new Set(
     applications
       .filter((application) => isApprovedApplication(application.status))
-      .flatMap((application) => [application.workspace_id, application.missionary_profile_id])
+      .map((application) => application.workspace_id ?? application.missionary_profile_id)
       .filter((id): id is string => Boolean(id)),
   );
   const applicationByWorkspaceId = new Map(
@@ -1052,6 +1052,7 @@ function approvedProfileSummaries({
   const supportByHouseholdId = new Map(supportSettings.map((support) => [support.household_id, support]));
 
   return profiles
+    .filter((profile) => profile.usam_profile_status !== "archived")
     .filter((profile) => approvedWorkspaceIds.has(profile.id) || profile.public_visible === true || profile.usam_profile_status === "approved" || profile.usam_profile_status === "published")
     .map((profile) => {
       const support = supportByHouseholdId.get(profile.id);

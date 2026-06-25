@@ -193,6 +193,48 @@ function locationText(city: string, state: string) {
   return [city, state].filter(Boolean).join(", ");
 }
 
+function firstNameFromFullName(name: string) {
+  return name.trim().split(/\s+/).filter(Boolean)[0] ?? "";
+}
+
+function lastNameFromFullName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
+  return parts.length > 1 ? parts[parts.length - 1] : "";
+}
+
+function householdWorkspaceName({
+  applicantName,
+  requestedWorkspaceName,
+  spouseName,
+}: {
+  applicantName: string;
+  requestedWorkspaceName: string;
+  spouseName: string;
+}) {
+  if (requestedWorkspaceName) {
+    return requestedWorkspaceName;
+  }
+
+  if (!spouseName) {
+    return applicantName || "DOS Workspace";
+  }
+
+  const applicantFirstName = firstNameFromFullName(applicantName);
+  const applicantLastName = lastNameFromFullName(applicantName);
+  const spouseFirstName = firstNameFromFullName(spouseName);
+  const spouseLastName = lastNameFromFullName(spouseName);
+  const sharedLastName = applicantLastName && spouseLastName && applicantLastName.toLowerCase() === spouseLastName.toLowerCase()
+    ? applicantLastName
+    : "";
+
+  if (applicantFirstName && spouseFirstName && sharedLastName) {
+    return `${applicantFirstName} & ${spouseFirstName} ${sharedLastName}`;
+  }
+
+  return [applicantName, spouseName].filter(Boolean).join(" & ") || "DOS Workspace";
+}
+
 async function readPayload(request: Request) {
   try {
     return await request.json() as JoinSubmitPayload;
@@ -296,6 +338,43 @@ async function insertTeamMember(supabase: ReturnType<typeof createSupabaseAdminC
   }
 }
 
+async function findExistingTeamMemberForEmail(supabase: ReturnType<typeof createSupabaseAdminClient>, email: string) {
+  if (!email) {
+    return null;
+  }
+
+  const activeStatuses = ["active", "pending", "hidden"];
+  const inviteResult = await supabase
+    .from("missionary_team_members")
+    .select("id, household_id, status")
+    .ilike("invite_email", email)
+    .in("status", activeStatuses)
+    .limit(1);
+
+  if (inviteResult.error && !isMissingColumnError(inviteResult.error)) {
+    throw new Error(inviteResult.error.message);
+  }
+
+  const inviteMatch = inviteResult.data?.[0] ?? null;
+
+  if (inviteMatch) {
+    return inviteMatch;
+  }
+
+  const userResult = await supabase
+    .from("missionary_team_members")
+    .select("id, household_id, status")
+    .ilike("dos_user_id", email)
+    .in("status", activeStatuses)
+    .limit(1);
+
+  if (userResult.error) {
+    throw new Error(userResult.error.message);
+  }
+
+  return userResult.data?.[0] ?? null;
+}
+
 async function cleanupCreatedResources(supabase: ReturnType<typeof createSupabaseAdminClient>, ids: CreatedResourceIds) {
   if (ids.householdId) {
     await supabase.from("missionary_team_members").delete().eq("household_id", ids.householdId);
@@ -320,10 +399,6 @@ async function cleanupCreatedResources(supabase: ReturnType<typeof createSupabas
 
   if (ids.organizationId && ids.organizationWasCreated) {
     await supabase.from("organizations").delete().eq("id", ids.organizationId);
-  }
-
-  if (ids.authUserId) {
-    await supabase.auth.admin.deleteUser(ids.authUserId);
   }
 }
 
@@ -551,14 +626,19 @@ export async function POST(request: Request) {
   const firstName = asString(payload.firstName);
   const lastName = asString(payload.lastName);
   const applicantName = [firstName, lastName].filter(Boolean).join(" ");
+  const spouseName = [asString(payload.spouseFirstName), asString(payload.spouseLastName)].filter(Boolean).join(" ") || asString(payload.spouseName);
   const state = asString(payload.state).toUpperCase().slice(0, 2);
   const city = asString(payload.city);
   const location = locationText(city, state);
-  const workspaceName = applicantName || asString(payload.workspaceName) || "DOS Workspace";
+  const workspaceName = householdWorkspaceName({
+    applicantName,
+    requestedWorkspaceName: asString(payload.workspaceName),
+    spouseName,
+  });
   const createdIds: CreatedResourceIds = {};
 
   try {
-    const [existingProfileResult, existingApplicationResult] = await Promise.all([
+    const [existingProfileResult, existingApplicationResult, existingTeamMember] = await Promise.all([
       supabase.from("profiles").select("id").ilike("email", email).limit(1),
       supabase
         .from("usam_missionary_applications")
@@ -566,6 +646,7 @@ export async function POST(request: Request) {
         .ilike("applicant_email", email)
         .not("status", "in", "(rejected,declined,archived)")
         .limit(1),
+      findExistingTeamMemberForEmail(supabase, email),
     ]);
 
     if (existingProfileResult.error) {
@@ -576,9 +657,9 @@ export async function POST(request: Request) {
       throw new Error(existingApplicationResult.error.message);
     }
 
-    if (existingProfileResult.data?.length || existingApplicationResult.data?.length) {
+    if (existingProfileResult.data?.length || existingApplicationResult.data?.length || existingTeamMember) {
       return NextResponse.json({
-        error: "An account or application already exists for this email. Use a different email or contact USA Missionaries for help.",
+        error: "An account, household invitation, or application already exists for this email. Use a different email or contact USA Missionaries for help.",
       }, { status: 409 });
     }
 
@@ -713,8 +794,6 @@ export async function POST(request: Request) {
       source: "dos",
       status: "active",
     });
-
-    const spouseName = [asString(payload.spouseFirstName), asString(payload.spouseLastName)].filter(Boolean).join(" ") || asString(payload.spouseName);
 
     if (spouseName) {
       await insertTeamMember(supabase, {

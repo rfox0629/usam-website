@@ -146,6 +146,12 @@ function publicProfileLive(workspace: HouseholdApplicationRow) {
   return workspace.public_visible === true && workspace.show_household !== false;
 }
 
+function looksLikeHouseholdDisplayName(value: string | null | undefined) {
+  const text = value?.trim() ?? "";
+
+  return /(?:\s&\s|\sand\s|\sfamily\b|\shousehold\b)/i.test(text);
+}
+
 function statusFromWorkspace(workspace: HouseholdApplicationRow): UsamApplicationStatus {
   const status = normalizeStatus(workspace.usam_application_status);
 
@@ -408,6 +414,19 @@ async function writeUsamApplication({
   supabase,
 }: WriteUsamApplicationInput) {
   const organization = await findOrCreateUsamOrganization(supabase);
+  const workspaceIdentityResult = await supabase
+    .from("missionary_households")
+    .select("display_name")
+    .eq("id", payload.workspaceId)
+    .maybeSingle();
+  const currentWorkspaceDisplayName = workspaceIdentityResult.error
+    ? null
+    : cleanText(String(workspaceIdentityResult.data?.display_name ?? ""));
+  const publicDisplayName = currentWorkspaceDisplayName
+    && looksLikeHouseholdDisplayName(currentWorkspaceDisplayName)
+    && !looksLikeHouseholdDisplayName(payload.applicantName)
+    ? currentWorkspaceDisplayName
+    : payload.applicantName;
   const existingResult = await supabase
     .from("usam_missionary_applications")
     .select("id")
@@ -478,7 +497,7 @@ async function writeUsamApplication({
 
   const monthlyGoal = payload.supportGoal ?? payload.monthlyBudget ?? null;
   const householdUpdate = {
-    display_name: payload.applicantName,
+    display_name: publicDisplayName,
     location: cleanText(payload.location),
     original_story: cleanText(payload.storyTestimony),
     profile_image_url: cleanText(payload.profilePhotoUrl),
@@ -619,6 +638,12 @@ export async function updateUsamApplicationWorkflow({
     applicationUpdate.status = nextApplicationStatus;
   }
 
+  const canonicalMissionaryProfileId = application.workspace_id || application.missionary_profile_id;
+
+  if (application.workspace_id && application.missionary_profile_id !== application.workspace_id) {
+    applicationUpdate.missionary_profile_id = application.workspace_id;
+  }
+
   const updateResult = await supabase
     .from("usam_missionary_applications")
     .update(applicationUpdate)
@@ -667,7 +692,7 @@ export async function updateUsamApplicationWorkflow({
   const householdResult = await supabase
     .from("missionary_households")
     .update(householdUpdate)
-    .eq("id", application.missionary_profile_id ?? application.workspace_id);
+    .eq("id", canonicalMissionaryProfileId);
 
   if (householdResult.error) {
     throw new Error(householdResult.error.message);
