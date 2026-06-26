@@ -92,6 +92,12 @@ assert(
   route.includes('.from("ministry_events")') && route.includes('.eq("source_id", id)'),
   "Notes-only table edits must sync the shared ministry_events record.",
 );
+assert(
+  loader.includes("meetingSchedulingSelect")
+    && loader.includes("meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled")
+    && loader.includes(".select(meetingSchedulingSelect)"),
+  "Meeting fallback selects must preserve scheduled table lifecycle columns before using the legacy select.",
+);
 
 const merged = mergeVisibleRows(
   [{ id: "ryan-table", ministry_event_id: "event-1", viewer: "ryan" }],
