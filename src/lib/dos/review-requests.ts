@@ -47,6 +47,16 @@ export function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
 }
 
+function extractUuid(value: string) {
+  const match = value.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}/i);
+
+  return match?.[0] ?? null;
+}
+
+function normalizeMeetingId(value: string) {
+  return isUuid(value) ? value : extractUuid(value);
+}
+
 export function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -73,30 +83,40 @@ async function loadMeeting(
 ) {
   const scopedMeetingResult = await supabase
     .from("missionary_tables")
-    .select("id, workspace_id, household_id, field_person_ids, ministry_event_id")
+    .select("id, workspace_id, household_id, field_person_ids")
     .eq("id", meetingId)
     .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
     .maybeSingle();
-
-  if (scopedMeetingResult.error && isMissingMeetingMinistryEventColumn(scopedMeetingResult.error)) {
-    return supabase
-      .from("missionary_tables")
-      .select("id, workspace_id, household_id, field_person_ids")
-      .eq("id", meetingId)
-      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-      .maybeSingle();
-  }
-
-  if (scopedMeetingResult.error && isMissingWorkspaceScopeColumn(scopedMeetingResult.error)) {
-    return supabase
+  const baseMeetingResult = scopedMeetingResult.error && isMissingWorkspaceScopeColumn(scopedMeetingResult.error)
+    ? await supabase
       .from("missionary_tables")
       .select("id, household_id, field_person_ids")
       .eq("id", meetingId)
       .eq("household_id", workspaceId)
-      .maybeSingle();
+      .maybeSingle()
+    : scopedMeetingResult;
+
+  if (baseMeetingResult.error || !baseMeetingResult.data) {
+    return baseMeetingResult;
   }
 
-  return scopedMeetingResult;
+  const ministryEventResult = await supabase
+    .from("missionary_tables")
+    .select("ministry_event_id")
+    .eq("id", meetingId)
+    .maybeSingle();
+
+  if (ministryEventResult.error && !isMissingMeetingMinistryEventColumn(ministryEventResult.error)) {
+    return ministryEventResult;
+  }
+
+  return {
+    data: {
+      ...baseMeetingResult.data,
+      ministry_event_id: ministryEventResult.error ? null : ministryEventResult.data?.ministry_event_id ?? null,
+    } as MeetingLookupRow,
+    error: null,
+  };
 }
 
 async function loadMinistryEventParticipantIds(
@@ -174,12 +194,14 @@ function requestedRecipientId(recipientPersonId: string | null | undefined, part
 }
 
 export async function createDosReviewRequestLink(input: CreateReviewRequestLinkInput): Promise<ReviewRequestLinkResult> {
-  if (!isUuid(input.meetingId)) {
+  const meetingId = normalizeMeetingId(input.meetingId);
+
+  if (!meetingId) {
     return { error: "Meeting not found.", ok: false, status: 404 };
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data: meeting, error: meetingError } = await loadMeeting(supabase, input.workspaceId, input.meetingId);
+  const { data: meeting, error: meetingError } = await loadMeeting(supabase, input.workspaceId, meetingId);
 
   if (meetingError) {
     return { error: meetingError.message, ok: false, status: 500 };
@@ -205,7 +227,7 @@ export async function createDosReviewRequestLink(input: CreateReviewRequestLinkI
     .from("dos_review_links")
     .select("token")
     .eq("workspace_id", input.workspaceId)
-    .eq("meeting_id", input.meetingId)
+    .eq("meeting_id", meetingId)
     .eq("review_type", input.formType)
     .eq("recipient_person_id", recipientPersonId)
     .in("status", ["pending", "opened"])
@@ -230,7 +252,7 @@ export async function createDosReviewRequestLink(input: CreateReviewRequestLinkI
   const token = reviewToken();
   const insertRecord = {
     created_by_user_id: input.authorization.userId,
-    meeting_id: input.meetingId,
+    meeting_id: meetingId,
     recipient_person_id: recipientPersonId,
     reviewer_person_id: recipientPersonId,
     review_type: input.formType,
