@@ -43,12 +43,14 @@ const formTypeRoutes: Record<typeof dosQuickReviewType | typeof dosTestimonyRevi
   [dosReviewOptionsType]: "/dos/review-options",
 };
 
+const uuidPattern = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+
 export function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
+  return new RegExp(`^${uuidPattern}$`, "i").test(value);
 }
 
 function extractUuid(value: string) {
-  const match = value.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}/i);
+  const match = value.match(new RegExp(uuidPattern, "i"));
 
   return match?.[0] ?? null;
 }
