@@ -16736,7 +16736,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, [data.prayerLogs, loggedMeetings, people]);
   const greetingName = cleanIdentitySegment(data.workspace.greetingName) ?? firstNameFromDisplayName(data.workspace.displayName);
-  const [homeSubtitle, setHomeSubtitle] = useState(() => homeDateSubtitle());
+  const [homeSubtitle, setHomeSubtitle] = useState("");
   const profileName = workspaceProfileName(data.workspace, greetingName);
   const profileEmail = workspaceProfileEmail(data.workspace);
   const profilePhone = workspaceProfilePhone(data.workspace);
@@ -19198,9 +19198,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <span className="block">Discipleship</span>
                   <span className="block">on the go.</span>
                 </h1>
-                <span className="mt-2 inline-flex rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-[11px] font-semibold leading-none text-[#64748B] shadow-[0_6px_14px_rgba(37,99,235,0.045)]">
-                  {homeSubtitle}
-                </span>
+                {homeSubtitle ? (
+                  <span className="mt-2 inline-flex rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-[11px] font-semibold leading-none text-[#64748B] shadow-[0_6px_14px_rgba(37,99,235,0.045)]">
+                    {homeSubtitle}
+                  </span>
+                ) : null}
               </div>
               <button
                 aria-label="Open profile"
