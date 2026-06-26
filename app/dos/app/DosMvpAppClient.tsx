@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, Palette, Pencil, Phone, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -586,7 +586,7 @@ type ImportantReminderMeta = {
 type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = "all" | CircleFocusView;
-type MeetingsView = "availability" | "calendar";
+type MeetingsView = "calendar" | "invite";
 type MeetingCalendarViewMode = "month" | "week";
 type FruitView = "activity" | "forms" | "impact";
 type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
@@ -645,7 +645,6 @@ type CalendarSourceApiSource = {
   selectedForImport?: boolean | null;
   timeZone?: string | null;
 };
-type AvailabilityEditSection = "booking" | "calendar" | "meeting_types" | "preferred_times" | "weekly_schedule";
 type AvailabilityTimeWindow = {
   end: string;
   id: string;
@@ -673,6 +672,18 @@ type AvailabilitySettings = {
   preferredDays: string[];
   preferredTimes: string[];
   weeklySchedule: AvailabilityDaySetting[];
+};
+type AvailabilityEditSection = "booking" | "calendar" | "meeting_types" | "preferred_times" | "weekly_schedule";
+type InviteCardKey = "coffee" | "kitchen_table" | "prayer";
+type InviteCard = {
+  audience: string;
+  daySummary: string;
+  description: string;
+  durationMinutes: number;
+  id: InviteCardKey;
+  status: "Active" | "Draft";
+  timeSummary: string;
+  title: string;
 };
 type PendingMeetingSendAction = {
   meeting: DosAppMeeting;
@@ -6097,8 +6108,14 @@ function Sheet({
   showEyebrow?: boolean;
   title: string;
 }) {
-  return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18" onMouseDown={onClose} role="presentation">
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const content = (
+    <div className="fixed inset-0 z-[1000] overflow-y-auto bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18" onMouseDown={onClose} role="presentation">
       <div className="flex min-h-full items-end justify-center md:items-center">
         <div
           aria-modal="true"
@@ -6129,6 +6146,8 @@ function Sheet({
       </div>
     </div>
   );
+
+  return isMounted ? createPortal(content, document.body) : null;
 }
 
 function MobileBottomSheet({
@@ -6540,7 +6559,7 @@ function SegmentedTabs<T extends string>({
 
 const meetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
   { label: "Calendar", value: "calendar" },
-  { label: "Availability", value: "availability" },
+  { label: "Invite", value: "invite" },
 ];
 
 const meetingCalendarViewTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarViewMode>> = [
@@ -7550,17 +7569,484 @@ function AvailabilityEditSheet({
   );
 }
 
-function DesktopAvailabilityPanel({
+function createDefaultInvitationCards(settings: AvailabilitySettings): InviteCard[] {
+  const durationById = new Map(settings.meetingTypes.map((type) => [type.id, type.duration]));
+
+  return [
+    {
+      audience: "1:1 or Couples",
+      daySummary: "Tuesday & Thursday",
+      description: "Invite someone to your table for a focused conversation.",
+      durationMinutes: durationById.get("kitchen_table") ?? 90,
+      id: "kitchen_table",
+      status: "Active",
+      timeSummary: "8:00 - 11:00 PM",
+      title: "Kitchen Table",
+    },
+    {
+      audience: "1:1",
+      daySummary: "Monday mornings",
+      description: "Invite someone to pray together.",
+      durationMinutes: durationById.get("prayer") ?? 30,
+      id: "prayer",
+      status: "Active",
+      timeSummary: "6:00 - 8:00 AM",
+      title: "Prayer",
+    },
+    {
+      audience: "Weekdays",
+      daySummary: "Weekdays",
+      description: "Invite someone to meet over coffee.",
+      durationMinutes: durationById.get("coffee") ?? 45,
+      id: "coffee",
+      status: "Active",
+      timeSummary: "Flexible",
+      title: "Coffee",
+    },
+  ];
+}
+
+function invitationHref(workspaceSlug: string, invitationId: InviteCardKey) {
+  return `/dos/${workspaceSlug}?invite=${invitationId}`;
+}
+
+function invitationUrl(workspaceSlug: string, invitationId: InviteCardKey) {
+  if (typeof window === "undefined") {
+    return invitationHref(workspaceSlug, invitationId);
+  }
+
+  return new URL(invitationHref(workspaceSlug, invitationId), window.location.origin).toString();
+}
+
+function InvitationIcon({ id }: { id: InviteCardKey }) {
+  const IconComponent = id === "prayer" ? HeartHandshake : id === "coffee" ? Coffee : Users;
+
+  return <IconComponent className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />;
+}
+
+function InviteMetaItem({ children, icon }: { children: ReactNode; icon: ReactNode }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2 text-sm font-semibold leading-5 text-[#334155]">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-[#475569]">{icon}</span>
+      <span className="min-w-0 truncate">{children}</span>
+    </span>
+  );
+}
+
+function InvitationCard({
+  invitation,
+  onCopy,
+  onOpen,
+}: {
+  invitation: InviteCard;
+  onCopy: () => void;
+  onOpen: () => void;
+}) {
+  return (
+    <article className="min-w-0 rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_10px_26px_rgba(37,99,235,0.05)] transition-colors hover:border-[#BFDBFE]">
+      <button className="block w-full p-4 text-left" onClick={onOpen} type="button">
+        <span className="flex min-w-0 items-start justify-between gap-3">
+          <span className="flex min-w-0 items-start gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.2)]">
+              <InvitationIcon id={invitation.id} />
+            </span>
+            <span className="min-w-0 pt-1">
+              <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{invitation.title}</span>
+              <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#334155]">{invitation.audience}</span>
+            </span>
+          </span>
+          <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">{invitation.status}</span>
+        </span>
+        <span className="mt-5 grid gap-3">
+          <InviteMetaItem icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitation.daySummary}</InviteMetaItem>
+          <InviteMetaItem icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitation.timeSummary}</InviteMetaItem>
+          <InviteMetaItem icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitation.durationMinutes} minutes</InviteMetaItem>
+        </span>
+      </button>
+      <div className="flex items-center justify-between gap-3 border-t border-[#EFF6FF] px-4 py-3">
+        <button
+          className="inline-flex min-h-9 min-w-0 items-center gap-2 rounded-full px-1 text-sm font-bold text-[#1D4ED8]"
+          onClick={onCopy}
+          type="button"
+        >
+          <Link2 className="h-4 w-4 shrink-0" aria-hidden="true" strokeWidth={1.9} />
+          <span className="truncate">Copy Link</span>
+        </button>
+        <button
+          aria-label={`Open ${invitation.title} options`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#334155] transition-colors hover:bg-[#F8FBFF]"
+          onClick={onOpen}
+          type="button"
+        >
+          <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={2.1} />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function InvitationDetailSection({
+  children,
+  icon,
+  title,
+}: {
+  children: ReactNode;
+  icon: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_8px_22px_rgba(37,99,235,0.035)]">
+      <div className="flex items-center gap-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          {icon}
+        </span>
+        <h3 className="text-sm font-black text-[#0F172A]">{title}</h3>
+      </div>
+      <div className="mt-4 grid gap-3">{children}</div>
+    </section>
+  );
+}
+
+function InvitationRuleInput({
+  label,
+  onChange,
+  suffix,
+  value,
+}: {
+  label: string;
+  onChange: (value: number) => void;
+  suffix: string;
+  value: number;
+}) {
+  return (
+    <label className="block">
+      <FieldLabel>{label}</FieldLabel>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          className={`${FieldInputClass(false)} min-h-10 rounded-[14px] px-3 text-sm`}
+          min={0}
+          onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))}
+          type="number"
+          value={value}
+        />
+        <span className="shrink-0 text-xs font-bold text-[#64748B]">{suffix}</span>
+      </div>
+    </label>
+  );
+}
+
+function InvitationStatusRow({
+  label,
+  status,
+  tone = "neutral",
+}: {
+  label: string;
+  status: string;
+  tone?: "blue" | "green" | "neutral";
+}) {
+  const toneClass = tone === "green"
+    ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
+    : tone === "blue"
+      ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
+      : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]";
+
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
+      <span className="min-w-0 truncate text-sm font-bold text-[#0F172A]">{label}</span>
+      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold ${toneClass}`}>{status}</span>
+    </div>
+  );
+}
+
+function InvitationDetailSheet({
+  calendarConnection,
+  calendarDisplaySettings,
+  calendarSourceMessage,
+  calendarSourcePreferences,
+  invitation,
+  inviteShareMessage,
+  isDisconnecting,
+  onClose,
+  onCopy,
+  onDisconnectCalendar,
+  onOpenInvitation,
+  onToggleCalendarCoreSource,
+  onToggleGoogleCalendarSource,
+  savingCalendarSourceId,
+  setSettings,
+  settings,
+  workspaceDisplayName,
+  workspaceId,
+  workspaceSlug,
+}: {
+  calendarConnection: DosAppCalendarConnection;
+  calendarDisplaySettings: CalendarDisplaySettings;
+  calendarSourceMessage: string;
+  calendarSourcePreferences: CalendarSourcePreference[];
+  invitation: InviteCard;
+  inviteShareMessage: string;
+  isDisconnecting: boolean;
+  onClose: () => void;
+  onCopy: () => void;
+  onDisconnectCalendar: () => void;
+  onOpenInvitation: () => void;
+  onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
+  onToggleGoogleCalendarSource: (sourceId: string) => void;
+  savingCalendarSourceId: string | null;
+  setSettings: (updater: (current: AvailabilitySettings) => AvailabilitySettings) => void;
+  settings: AvailabilitySettings;
+  workspaceDisplayName: string;
+  workspaceId: string;
+  workspaceSlug: string;
+}) {
+  const durationValue = settings.meetingTypes.find((type) => type.id === invitation.id)?.duration ?? invitation.durationMinutes;
+  const preferredDayLabels = settings.preferredDays.map(availabilityDayShortLabel);
+
+  function updateDuration(value: number) {
+    setSettings((current) => ({
+      ...current,
+      meetingTypes: current.meetingTypes.map((type) => type.id === invitation.id ? { ...type, duration: Math.max(15, value) } : type),
+    }));
+  }
+
+  function togglePreferredTime(value: string) {
+    setSettings((current) => {
+      const selected = current.preferredTimes.includes(value);
+
+      return {
+        ...current,
+        preferredTimes: selected
+          ? current.preferredTimes.filter((time) => time !== value)
+          : [...current.preferredTimes, value],
+      };
+    });
+  }
+
+  function togglePreferredDay(value: string) {
+    setSettings((current) => {
+      const selected = current.preferredDays.includes(value);
+
+      return {
+        ...current,
+        preferredDays: selected
+          ? current.preferredDays.filter((day) => day !== value)
+          : [...current.preferredDays, value],
+      };
+    });
+  }
+
+  function updateBookingRule(key: keyof AvailabilitySettings["bookingRules"], value: number) {
+    setSettings((current) => ({
+      ...current,
+      bookingRules: {
+        ...current.bookingRules,
+        [key]: Math.max(key === "bufferMinutes" ? 0 : 1, value),
+      },
+    }));
+  }
+
+  return (
+    <Sheet onClose={onClose} title={invitation.title}>
+      <div className="grid gap-4">
+        {inviteShareMessage ? (
+          <p className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-5 text-[#1D4ED8]">{inviteShareMessage}</p>
+        ) : null}
+
+        <InvitationDetailSection icon={<Settings className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Overview">
+          <label className="block">
+            <FieldLabel>Name</FieldLabel>
+            <input className={`${FieldInputClass()} min-h-10 rounded-[14px] px-3 text-sm`} defaultValue={invitation.title} />
+          </label>
+          <label className="block">
+            <FieldLabel>Description</FieldLabel>
+            <textarea className={`${FieldTextareaClass()} min-h-20 rounded-[14px] px-3 py-2 text-sm`} defaultValue={invitation.description} />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <label className="block">
+              <FieldLabel>Duration</FieldLabel>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  className={`${FieldInputClass(false)} min-h-10 rounded-[14px] px-3 text-sm`}
+                  min={15}
+                  onChange={(event) => updateDuration(Number(event.target.value) || 15)}
+                  step={15}
+                  type="number"
+                  value={durationValue}
+                />
+                <span className="shrink-0 text-xs font-bold text-[#64748B]">min</span>
+              </div>
+            </label>
+            <div className="flex items-end gap-2">
+              <span className="inline-flex min-h-10 items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-xs font-bold text-[#15803D]">Active</span>
+              <button className="inline-flex min-h-10 items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" onClick={onCopy} type="button">
+                <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+                Copy Link
+              </button>
+            </div>
+          </div>
+        </InvitationDetailSection>
+
+        <InvitationDetailSection icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Availability">
+          <div className="grid gap-2">
+            {settings.weeklySchedule.map((day) => (
+              <div className="grid gap-2 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center" key={day.id}>
+                <span className="text-sm font-black text-[#0F172A]">{day.label}</span>
+                <span className="min-w-0 text-sm font-semibold text-[#334155]">
+                  {day.available && day.windows.length ? day.windows.map(availabilityWindowLabel).join(", ") : "Unavailable"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <FieldLabel>Preferred Times</FieldLabel>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {availabilityPreferredTimeOptions.map((time) => {
+                  const selected = settings.preferredTimes.includes(time);
+
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`min-h-9 rounded-full border px-3 text-xs font-bold ${
+                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#64748B]"
+                      }`}
+                      key={time}
+                      onClick={() => togglePreferredTime(time)}
+                      type="button"
+                    >
+                      {time}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <FieldLabel>Preferred Days</FieldLabel>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {availabilityDayOptions.map((day) => {
+                  const selected = settings.preferredDays.includes(day.id);
+
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`min-h-9 rounded-full border px-3 text-xs font-bold ${
+                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#64748B]"
+                      }`}
+                      key={day.id}
+                      onClick={() => togglePreferredDay(day.id)}
+                      type="button"
+                    >
+                      {day.shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <InvitationStatusRow label="Date overrides" status="Placeholder" />
+          {preferredDayLabels.length ? <p className="text-xs font-semibold leading-5 text-[#64748B]">Current days: {preferredDayLabels.join(", ")}</p> : null}
+        </InvitationDetailSection>
+
+        <InvitationDetailSection icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Hosts">
+          <InvitationStatusRow label={workspaceDisplayName} status="Host" tone="green" />
+          <InvitationStatusRow label="Spouse / household" status="Future" />
+          <InvitationStatusRow label="Team hosts" status="Future" />
+        </InvitationDetailSection>
+
+        <InvitationDetailSection icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Questions">
+          {["Name", "Email", "Phone", "Notes", "Prayer request"].map((question) => (
+            <InvitationStatusRow key={question} label={question} status={question === "Name" ? "Required" : "Included"} tone={question === "Name" ? "green" : "blue"} />
+          ))}
+        </InvitationDetailSection>
+
+        <InvitationDetailSection icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Calendar">
+          <CalendarConnectionCard
+            calendarConnection={calendarConnection}
+            isDisconnecting={isDisconnecting}
+            onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
+            workspaceId={workspaceId}
+            workspaceSlug={workspaceSlug}
+          />
+          <CalendarSourceControls
+            calendarConnection={calendarConnection}
+            displaySettings={calendarDisplaySettings}
+            message={calendarSourceMessage}
+            onToggleCoreSource={onToggleCalendarCoreSource}
+            onToggleGoogleSource={onToggleGoogleCalendarSource}
+            savingSourceId={savingCalendarSourceId}
+            showMessage
+            sourcePreferences={calendarSourcePreferences}
+          />
+          <InvitationStatusRow label="Google Calendar" status={availabilityConnectionSummary(calendarConnection, calendarSourcePreferences.length)} tone={calendarConnectionIsHealthy(calendarConnection) ? "green" : "neutral"} />
+          <InvitationStatusRow label="DOS Calendar" status="Active" tone="green" />
+          <InvitationStatusRow label="Busy-time awareness" status="Planned" />
+        </InvitationDetailSection>
+
+        <InvitationDetailSection icon={<Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Rules">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <InvitationRuleInput
+              label="Buffer"
+              onChange={(value) => updateBookingRule("bufferMinutes", value)}
+              suffix="min"
+              value={settings.bookingRules.bufferMinutes}
+            />
+            <InvitationRuleInput
+              label="Max per day"
+              onChange={(value) => updateBookingRule("maxPerDay", value)}
+              suffix="daily"
+              value={settings.bookingRules.maxPerDay}
+            />
+            <InvitationRuleInput
+              label="Max per week"
+              onChange={(value) => updateBookingRule("maxPerWeek", value)}
+              suffix="weekly"
+              value={settings.bookingRules.maxPerWeek}
+            />
+          </div>
+          <InvitationStatusRow label="Notice" status="12 hours" tone="blue" />
+          <InvitationStatusRow label="Booking window" status="30 days" tone="blue" />
+        </InvitationDetailSection>
+
+        <InvitationDetailSection icon={<Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Sharing">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]" onClick={onCopy} type="button">
+              <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              Copy Link
+            </button>
+            <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8]" onClick={onOpenInvitation} type="button">
+              <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              Open Invitation
+            </button>
+            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
+              <Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+              Text
+            </button>
+            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
+              <Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+              Email
+            </button>
+            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B] sm:col-span-2" disabled type="button">
+              <Square className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+              QR Code
+            </button>
+          </div>
+        </InvitationDetailSection>
+      </div>
+    </Sheet>
+  );
+}
+
+function DesktopInvitePanel({
   calendarConnection,
   calendarDisplaySettings,
   calendarSourceMessage,
   calendarSourcePreferences,
   isDisconnecting,
   onDisconnectCalendar,
-  onScheduleMeeting,
   onToggleCalendarCoreSource,
   onToggleGoogleCalendarSource,
   savingCalendarSourceId,
+  workspaceDisplayName,
   workspaceId,
   workspaceSlug,
 }: {
@@ -7570,192 +8056,98 @@ function DesktopAvailabilityPanel({
   calendarSourcePreferences: CalendarSourcePreference[];
   isDisconnecting: boolean;
   onDisconnectCalendar: () => void;
-  onScheduleMeeting: () => void;
   onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
   onToggleGoogleCalendarSource: (sourceId: string) => void;
   savingCalendarSourceId: string | null;
+  workspaceDisplayName: string;
   workspaceId: string;
   workspaceSlug: string;
 }) {
-  const [availabilitySettings, setAvailabilitySettings] = useState<AvailabilitySettings>(() => createDefaultAvailabilitySettings());
-  const [activeEditSection, setActiveEditSection] = useState<AvailabilityEditSection | null>(null);
-  const enabledMeetingTypes = availabilitySettings.meetingTypes.filter((type) => type.enabled);
-  const preferredDayLabels = availabilitySettings.preferredDays.map(availabilityDayShortLabel);
-  const weeklyPreview = availabilitySettings.weeklySchedule.filter((day) => day.available).slice(0, 4);
-  const connectedCalendarStatus = availabilityConnectionSummary(calendarConnection, calendarSourcePreferences.length);
+  const [inviteSettings, setInviteSettings] = useState<AvailabilitySettings>(() => createDefaultAvailabilitySettings());
+  const [selectedInvitationId, setSelectedInvitationId] = useState<InviteCardKey | null>(null);
+  const [inviteShareMessage, setInviteShareMessage] = useState("");
+  const invitations = useMemo(() => createDefaultInvitationCards(inviteSettings), [inviteSettings]);
+  const selectedInvitation = selectedInvitationId ? invitations.find((invitation) => invitation.id === selectedInvitationId) ?? null : null;
+
+  async function copyInvitationLink(invitation: InviteCard) {
+    try {
+      await navigator.clipboard.writeText(invitationUrl(workspaceSlug, invitation.id));
+      setInviteShareMessage(`${invitation.title} link copied.`);
+    } catch {
+      setInviteShareMessage("Copy link is unavailable in this browser.");
+    }
+  }
+
+  function openInvitation(invitation: InviteCard) {
+    window.open(invitationUrl(workspaceSlug, invitation.id), "_blank", "noopener,noreferrer");
+  }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(310px,360px)]">
-      <section className="rounded-[26px] border border-[#EAF2FF] bg-white/92 p-4 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:p-5">
-        <div className="flex min-w-0 items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-              <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-                Availability
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
-                Set the rhythm people can book around.
-              </p>
-            </div>
-          </div>
-          <button
-            className="hidden min-h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)] sm:inline-flex"
-            onClick={onScheduleMeeting}
-            type="button"
-          >
-            <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-            Schedule Table
-          </button>
+    <section className="min-w-0 rounded-[26px] border border-[#EAF2FF] bg-white/92 p-4 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:p-5">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-2xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+            Your Invitations
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
+            Create invitations people can use to find a time to meet with you.
+          </p>
         </div>
+        <span className="inline-flex w-fit items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-bold text-[#15803D]">
+          {invitations.length} Active
+        </span>
+      </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <AvailabilityActionCard
-            icon={<Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-            onClick={() => setActiveEditSection("weekly_schedule")}
-            summary={availabilityWeeklySummary(availabilitySettings)}
-            title="Weekly Schedule"
-          >
-            <span className="grid gap-1.5">
-              {weeklyPreview.map((day) => (
-                <span className="flex items-center justify-between gap-2 rounded-full border border-[#EAF2FF] bg-[#F8FBFF] px-2.5 py-1.5" key={day.id}>
-                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{availabilityDayShortLabel(day.id)}</span>
-                  <span className="truncate text-[11px] font-bold text-[#15803D]">{day.windows[0] ? availabilityWindowLabel(day.windows[0]) : "Available"}</span>
-                </span>
-              ))}
-            </span>
-          </AvailabilityActionCard>
+      {inviteShareMessage ? (
+        <p className="mt-4 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-5 text-[#1D4ED8]">{inviteShareMessage}</p>
+      ) : null}
 
-          <AvailabilityActionCard
-            icon={<CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-            onClick={() => setActiveEditSection("preferred_times")}
-            summary={availabilitySettings.preferredTimes.length ? availabilitySettings.preferredTimes.join(", ") : "Choose time of day"}
-            title="Preferred Times"
-          >
-            <AvailabilityChipRow items={[...availabilitySettings.preferredTimes, ...preferredDayLabels.slice(0, 3)]} />
-          </AvailabilityActionCard>
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {invitations.map((invitation) => (
+          <InvitationCard
+            invitation={invitation}
+            key={invitation.id}
+            onCopy={() => void copyInvitationLink(invitation)}
+            onOpen={() => setSelectedInvitationId(invitation.id)}
+          />
+        ))}
+      </div>
 
-          <AvailabilityActionCard
-            icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-            onClick={() => setActiveEditSection("meeting_types")}
-            summary={availabilityMeetingTypesSummary(availabilitySettings)}
-            title="Meeting Types"
-          >
-            <AvailabilityChipRow items={enabledMeetingTypes.slice(0, 4).map((type) => `${type.label} · ${type.duration}m`)} />
-          </AvailabilityActionCard>
+      <button
+        className="mt-5 flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-[22px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-4 text-center text-sm font-black text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]"
+        onClick={() => setSelectedInvitationId("kitchen_table")}
+        type="button"
+      >
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.2)]">
+          <Plus className="h-5 w-5" aria-hidden="true" strokeWidth={2} />
+        </span>
+        New Invitation
+      </button>
 
-          <AvailabilityActionCard
-            icon={<Settings className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-            onClick={() => setActiveEditSection("booking")}
-            summary={`${availabilitySettings.bookingRules.bufferMinutes}m buffer · ${availabilitySettings.bookingRules.maxPerDay}/day · ${availabilitySettings.bookingRules.maxPerWeek}/week`}
-            title="Booking Rules"
-          >
-            <span className="grid grid-cols-3 gap-1.5">
-              {[
-                { label: "Buffer", value: `${availabilitySettings.bookingRules.bufferMinutes}m` },
-                { label: "Day", value: availabilitySettings.bookingRules.maxPerDay },
-                { label: "Week", value: availabilitySettings.bookingRules.maxPerWeek },
-              ].map((setting) => (
-                <span className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-2 py-2 text-center" key={setting.label}>
-                  <span className="block text-sm font-black leading-none text-[#0F172A]">{setting.value}</span>
-                  <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{setting.label}</span>
-                </span>
-              ))}
-            </span>
-          </AvailabilityActionCard>
-
-          <AvailabilityActionCard
-            icon={<RefreshCw className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-            onClick={() => setActiveEditSection("calendar")}
-            summary={connectedCalendarStatus}
-            title="Connected Calendar"
-          >
-            <span className="flex flex-wrap gap-1.5">
-              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
-                calendarConnectionNeedsReconnect(calendarConnection)
-                  ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
-                  : calendarConnectionIsHealthy(calendarConnection)
-                    ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
-                    : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]"
-              }`}>
-                {calendarConnectionNeedsReconnect(calendarConnection) ? "Reconnect" : calendarConnectionIsHealthy(calendarConnection) ? "Connected" : "Not Connected"}
-              </span>
-              <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold text-[#64748B]">Team planned</span>
-            </span>
-          </AvailabilityActionCard>
-        </div>
-      </section>
-
-      <aside className="space-y-3">
-        <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-black text-[#0F172A]">Sources</h3>
-            <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {calendarSourcePreferences.length} sources
-            </span>
-          </div>
-          <div className="mt-3 grid gap-3">
-            <CalendarSourceControls
-              calendarConnection={calendarConnection}
-              displaySettings={calendarDisplaySettings}
-              message={calendarSourceMessage}
-              onToggleCoreSource={onToggleCalendarCoreSource}
-              onToggleGoogleSource={onToggleGoogleCalendarSource}
-              savingSourceId={savingCalendarSourceId}
-              showMessage
-              sourcePreferences={calendarSourcePreferences}
-            />
-            {calendarSourcePreferences.length ? calendarSourcePreferences.map((source) => (
-              <div className="rounded-[18px] border border-[#EFF6FF] bg-[#F8FBFF] p-3" key={source.id}>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="truncate text-sm font-bold text-[#0F172A]">{source.name}</span>
-                  <span className="shrink-0 text-xs font-semibold text-[#64748B]">{source.eventCount} events</span>
-                </div>
-                <p className="mt-1 text-xs leading-5 text-[#64748B]">
-                  {source.importedCount} added to DOS. Busy-time awareness is planned for booking checks.
-                </p>
-              </div>
-            )) : (
-              <p className="rounded-[18px] border border-dashed border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#64748B]">
-                {calendarConnectionNeedsReconnect(calendarConnection) ? googleCalendarReconnectCopy : googleCalendarEmptyStateCopy}
-              </p>
-            )}
-          </div>
-        </section>
-        <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-black text-[#0F172A]">Team Calendar</h3>
-            <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Planned</span>
-          </div>
-          <div className="mt-3 grid gap-2">
-            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
-              <p className="text-sm font-bold text-[#0F172A]">Spouse availability</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">Shared household checks are planned.</p>
-            </div>
-            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
-              <p className="text-sm font-bold text-[#0F172A]">Team calendars</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">Leader availability hooks are reserved for later scheduling.</p>
-            </div>
-          </div>
-        </section>
-      </aside>
-      {activeEditSection ? (
-        <AvailabilityEditSheet
-          activeSection={activeEditSection}
+      {selectedInvitation ? (
+        <InvitationDetailSheet
           calendarConnection={calendarConnection}
+          calendarDisplaySettings={calendarDisplaySettings}
+          calendarSourceMessage={calendarSourceMessage}
+          calendarSourcePreferences={calendarSourcePreferences}
+          invitation={selectedInvitation}
+          inviteShareMessage={inviteShareMessage}
           isDisconnecting={isDisconnecting}
-          onClose={() => setActiveEditSection(null)}
+          onClose={() => setSelectedInvitationId(null)}
+          onCopy={() => void copyInvitationLink(selectedInvitation)}
           onDisconnectCalendar={onDisconnectCalendar}
-          settings={availabilitySettings}
-          setSettings={setAvailabilitySettings}
-          sourceCount={calendarSourcePreferences.length}
+          onOpenInvitation={() => openInvitation(selectedInvitation)}
+          onToggleCalendarCoreSource={onToggleCalendarCoreSource}
+          onToggleGoogleCalendarSource={onToggleGoogleCalendarSource}
+          savingCalendarSourceId={savingCalendarSourceId}
+          setSettings={setInviteSettings}
+          settings={inviteSettings}
+          workspaceDisplayName={workspaceDisplayName}
           workspaceId={workspaceId}
           workspaceSlug={workspaceSlug}
         />
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -19394,17 +19786,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       workspaceSlug={data.workspace.slug}
                     />
                   ) : (
-                    <DesktopAvailabilityPanel
+                    <DesktopInvitePanel
                       calendarConnection={calendarConnection}
                       calendarDisplaySettings={calendarDisplaySettings}
                       calendarSourceMessage={calendarSourceMessage}
                       calendarSourcePreferences={calendarSourcePreferences}
                       isDisconnecting={isCalendarDisconnecting}
                       onDisconnectCalendar={handleDisconnectCalendar}
-                      onScheduleMeeting={() => openScheduleMeeting()}
                       onToggleCalendarCoreSource={handleToggleCalendarCoreSource}
                       onToggleGoogleCalendarSource={handleToggleGoogleCalendarSource}
                       savingCalendarSourceId={savingCalendarSourceId}
+                      workspaceDisplayName={data.workspace.displayName}
                       workspaceId={data.workspace.id}
                       workspaceSlug={data.workspace.slug}
                     />
