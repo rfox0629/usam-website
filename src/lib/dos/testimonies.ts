@@ -140,7 +140,7 @@ export async function loadDosTestimonyLink(token: string): Promise<DosReviewLink
     recipientPersonId
       ? supabase
         .from("missionary_field_people")
-        .select("id, name")
+        .select("id, name, email")
         .eq("id", recipientPersonId)
         .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -156,6 +156,7 @@ export async function loadDosTestimonyLink(token: string): Promise<DosReviewLink
     meetingType: String(meeting.table_type ?? ""),
     recipientPersonId,
     reviewerPersonId: recipientPersonId,
+    reviewerPersonEmail: reviewerPerson && "email" in reviewerPerson ? String(reviewerPerson.email ?? "") || null : null,
     reviewerPersonName: reviewerPerson && "name" in reviewerPerson ? String(reviewerPerson.name ?? "") : null,
     reviewRequestId: typedLink.id,
     reviewType: dosTestimonyReviewType,

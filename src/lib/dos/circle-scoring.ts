@@ -132,9 +132,16 @@ type FruitRow = {
 };
 
 type QuickReviewRow = {
+  conversation_helpful: string | null;
   created_at: string | null;
+  felt_cared_for: string | null;
+  felt_heard_response: string | null;
   meeting_id: string | null;
+  outcome_tags: string[] | null;
+  reviewer_person_id: string | null;
   status: string | null;
+  wants_follow_up: string | null;
+  would_meet_again_response: string | null;
 };
 
 type OverrideRow = {
@@ -288,6 +295,43 @@ function hasMeaningfulPositiveScore(breakdown?: DosRelationshipScore["breakdown"
 
 function personEngagementLevel(person: { engagement_level?: string | null; engagementLevel?: string | null }) {
   return person.engagement_level ?? person.engagementLevel ?? null;
+}
+
+function quickReviewAnswerScore(value: string | null | undefined) {
+  if (value === "yes") {
+    return 1;
+  }
+
+  if (value === "somewhat") {
+    return 0.5;
+  }
+
+  return 0;
+}
+
+function quickReviewPositiveSignals(review: QuickReviewRow) {
+  return quickReviewAnswerScore(review.felt_heard_response)
+    + quickReviewAnswerScore(review.felt_cared_for)
+    + quickReviewAnswerScore(review.conversation_helpful)
+    + quickReviewAnswerScore(review.would_meet_again_response);
+}
+
+function quickReviewRequestedFollowUp(review: QuickReviewRow) {
+  const tags = review.outcome_tags ?? [];
+
+  return tags.includes("Follow Up Requested")
+    || review.wants_follow_up === "yes"
+    || review.wants_follow_up === "maybe"
+    || review.would_meet_again_response === "yes"
+    || review.would_meet_again_response === "somewhat";
+}
+
+function quickReviewGrowthSignals(review: QuickReviewRow) {
+  const tags = review.outcome_tags ?? [];
+
+  return Number(tags.includes("Discipling"))
+    + Number(tags.includes("New Believers"))
+    + Number(tags.includes("Reconciliation"));
 }
 
 function isAutomaticCircleEligible(
@@ -664,7 +708,7 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     safeSelect<QuickReviewRow>(
       supabase
         .from("dos_meeting_reviews")
-        .select("meeting_id, status, created_at")
+        .select("meeting_id, reviewer_person_id, status, created_at, felt_cared_for, felt_heard_response, conversation_helpful, would_meet_again_response, wants_follow_up, outcome_tags")
         .eq("workspace_id", workspaceId),
       "dos_meeting_reviews",
     ),
@@ -696,7 +740,15 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     const personReviews = personMeetings
       .map((meeting) => reviewByTableId.get(meeting.id))
       .filter((review): review is ReviewRow => Boolean(review));
-    const personQuickReviews = quickReviews.filter((review) => review.meeting_id && personMeetings.some((meeting) => meeting.id === review.meeting_id));
+    const personQuickReviews = quickReviews
+      .filter((review) => review.status !== "archived")
+      .filter((review) => review.reviewer_person_id === person.id || (review.meeting_id && personMeetings.some((meeting) => meeting.id === review.meeting_id)));
+    const positiveQuickReviewSignals = personQuickReviews.reduce((sum, review) => sum + quickReviewPositiveSignals(review), 0);
+    const quickReviewGrowthSignalCount = personQuickReviews.reduce((sum, review) => sum + quickReviewGrowthSignals(review), 0);
+    const quickReviewFollowUpRequested = personQuickReviews.some(quickReviewRequestedFollowUp);
+    const quickReviewRelationshipScore = personQuickReviews.length
+      ? personQuickReviews.length * 14 + positiveQuickReviewSignals * 8 + quickReviewGrowthSignalCount * 12
+      : 0;
     const allActivityDates = [
       person.last_activity_at,
       person.updated_at,
@@ -729,7 +781,7 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     const followUpNeeded = personConnections.some((connection) => Boolean(connection.follow_up_needed?.trim()));
     const daysSinceLastActivity = dayDiff(latestDate(...allActivityDates));
     const breakdown = {
-      discipleshipProgress: clampScore(Math.max(readinessScore, completedFlows * 30, personReviews.length * 25, personQuickReviews.length * 18, engagementContribution)),
+      discipleshipProgress: clampScore(Math.max(readinessScore, completedFlows * 30, personReviews.length * 25, quickReviewRelationshipScore, engagementContribution)),
       fruit: clampScore(personFruit.length * 50),
       meetingFrequency: clampScore(recentMeetings.length * 25 + recentConnections.length * 15),
       momentum: clampScore(daysSinceLastActivity <= 7 ? 100 : daysSinceLastActivity <= 14 ? 70 : daysSinceLastActivity <= 30 ? 35 : 0),
@@ -742,12 +794,15 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
       recentConnections.length ? `${recentConnections.length} connection logs in the last 30 days` : "",
       completedFlows ? `Completed ${completedFlows} discipleship ${completedFlows === 1 ? "flow" : "flows"}` : "",
       personFruit.length ? `${personFruit.length} approved fruit ${personFruit.length === 1 ? "review" : "reviews"}` : "",
+      personQuickReviews.length ? `${personQuickReviews.length} Quick ${personQuickReviews.length === 1 ? "Review" : "Reviews"} received` : "",
+      positiveQuickReviewSignals ? "Recipient feedback shows relationship health" : "",
       engagementScore > 0 ? `Engagement marked ${relationshipScoreLabel(engagementScore)}` : "",
       multiplicationSignals ? "Shows multiplication or discipling activity" : "",
     ].filter(Boolean);
     const negativeFactors = [
       daysSinceLastActivity > 10 ? "No recent follow up in the last 10 days" : "",
       followUpNeeded ? "Follow up is still open" : "",
+      quickReviewFollowUpRequested ? "Recipient requested follow up" : "",
       engagementScore < 0 ? `Engagement marked ${relationshipScoreLabel(engagementScore)}` : "",
       !personMeetings.length && !personConnections.length ? "No logged discipleship activity yet" : "",
     ].filter(Boolean);
@@ -757,7 +812,7 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
       record: {
         assignment_source: "automatic" as AssignmentSource,
         circle_assignment: "field" as CircleAssignment,
-        confidence_score: clampScore(45 + Math.min(35, (personMeetings.length + personConnections.length + personFruit.length) * 8) + (latestDate(...allActivityDates) ? 10 : 0)),
+        confidence_score: clampScore(45 + Math.min(35, (personMeetings.length + personConnections.length + personFruit.length + personQuickReviews.length) * 8) + (latestDate(...allActivityDates) ? 10 : 0)),
         discipleship_progress_score: breakdown.discipleshipProgress,
         fruit_score: breakdown.fruit,
         last_calculated_at: new Date().toISOString(),

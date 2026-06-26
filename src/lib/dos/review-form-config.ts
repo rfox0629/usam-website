@@ -8,28 +8,34 @@ export const dosReviewOutcomeOptions = [
   { label: "Answered Prayer", value: "Answered Prayer" },
 ] as const;
 
+export const dosQuickReviewOutcomeOptions = [
+  { label: "I experienced encouragement", value: "Encouragement" },
+  { label: "I experienced hope", value: "Hope" },
+  { label: "I experienced peace", value: "Peace" },
+  { label: "Someone prayed with me", value: "Prayer" },
+  { label: "I experienced forgiveness", value: "Reconciliation" },
+  { label: "I want to grow spiritually", value: "Discipling" },
+  { label: "I made a decision to follow Jesus", value: "New Believers" },
+  { label: "I'd like someone to follow up with me", value: "Follow Up Requested" },
+  { label: "Other", value: "Other" },
+] as const;
+
 export const dosReviewSharePermissionOptions = [
   { label: "Yes, anonymously", value: "anonymous" },
   { label: "Yes, with my name included", value: "with_name" },
   { label: "No, keep it private", value: "private" },
 ] as const;
 
-export const dosQuickReviewHelpedOptions = [
+export const dosQuickReviewAnswerOptions = [
   { label: "Yes", value: "yes" },
-  { label: "Unsure", value: "unsure" },
-  { label: "No", value: "no" },
-] as const;
-
-export const dosQuickReviewMeetAgainOptions = [
-  { label: "Yes", value: "yes" },
-  { label: "Maybe", value: "maybe" },
+  { label: "Somewhat", value: "somewhat" },
   { label: "No", value: "no" },
 ] as const;
 
 export const dosReviewOptionChoices = [
   {
-    description: "Four short questions for quick care and follow-up.",
-    label: "2 Minute Review / Quick Review",
+    description: "A short feedback form for care and follow-up.",
+    label: "Quick Review",
     value: "quick_review",
   },
   {
@@ -40,67 +46,54 @@ export const dosReviewOptionChoices = [
 ] as const;
 
 export const dosQuickReviewFormDefinition = {
-  description: "A short reflection form someone completes after a saved Table.",
-  title: "2 Minute Review",
+  description: "Thank you for taking a minute to share your experience. Your feedback helps us care for people better.",
+  title: "Quick Review",
   sections: [
     {
       fieldType: "text",
-      helper: "Optional confirmation only. The secure link already connects this response to the right Table.",
-      label: "Your name",
+      label: "Name",
       type: "field",
     },
     {
       fieldType: "email",
-      helper: "Optional confirmation only.",
-      label: "Email address",
+      label: "Email",
       type: "field",
     },
     {
-      choiceType: "pill",
+      choiceType: "segmented",
       label: "I felt heard",
-      options: ["Yes", "No"],
+      options: dosQuickReviewAnswerOptions.map((option) => option.label),
       type: "choice",
     },
     {
-      choiceType: "pill",
+      choiceType: "segmented",
       label: "I felt cared for",
-      options: ["Yes", "No"],
+      options: dosQuickReviewAnswerOptions.map((option) => option.label),
       type: "choice",
     },
     {
-      choiceType: "pill",
-      label: "This conversation helped me",
-      options: dosQuickReviewHelpedOptions.map((option) => option.label),
+      choiceType: "segmented",
+      label: "This conversation was helpful",
+      options: dosQuickReviewAnswerOptions.map((option) => option.label),
       type: "choice",
     },
     {
-      choiceType: "pill",
-      label: "I would meet again",
-      options: dosQuickReviewMeetAgainOptions.map((option) => option.label),
+      choiceType: "segmented",
+      label: "I would be happy to meet again",
+      options: dosQuickReviewAnswerOptions.map((option) => option.label),
       type: "choice",
     },
     {
       choiceType: "checkbox",
-      label: "What fruit did you notice?",
-      options: dosReviewOutcomeOptions.map((option) => option.label),
+      label: "What stood out during your conversation?",
+      options: dosQuickReviewOutcomeOptions.map((option) => option.label),
       type: "choice",
     },
     {
       fieldType: "textarea",
-      label: "Anything you want us to know?",
-      placeholder: "Optional note",
+      label: "Is there anything you'd like to share?",
+      placeholder: "Optional",
       type: "field",
-    },
-    {
-      copy: "Responses are reviewed before anything is shared publicly.",
-      label: "Privacy",
-      type: "notice",
-    },
-    {
-      choiceType: "radio",
-      label: "May we share this testimony?",
-      options: dosReviewSharePermissionOptions.map((option) => option.label),
-      type: "choice",
     },
   ],
 } as const;
@@ -161,10 +154,12 @@ export const dosTestimonyReviewFormDefinition = {
 } as const;
 
 export type DosReviewOutcomeValue = typeof dosReviewOutcomeOptions[number]["value"];
+export type DosQuickReviewOutcomeValue = typeof dosQuickReviewOutcomeOptions[number]["value"];
 export type DosReviewOptionChoice = typeof dosReviewOptionChoices[number]["value"];
 export type DosReviewSharePermissionValue = typeof dosReviewSharePermissionOptions[number]["value"];
 
 const dosReviewOutcomeValueSet = new Set<string>(dosReviewOutcomeOptions.map((option) => option.value));
+const dosQuickReviewOutcomeValueSet = new Set<string>(dosQuickReviewOutcomeOptions.map((option) => option.value));
 
 export function normalizeDosReviewOutcomeTags(value: unknown): DosReviewOutcomeValue[] {
   if (!Array.isArray(value)) {
@@ -174,6 +169,18 @@ export function normalizeDosReviewOutcomeTags(value: unknown): DosReviewOutcomeV
   return Array.from(new Set(
     value.filter((item): item is DosReviewOutcomeValue => (
       typeof item === "string" && dosReviewOutcomeValueSet.has(item)
+    )),
+  ));
+}
+
+export function normalizeDosQuickReviewOutcomeTags(value: unknown): DosQuickReviewOutcomeValue[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(new Set(
+    value.filter((item): item is DosQuickReviewOutcomeValue => (
+      typeof item === "string" && dosQuickReviewOutcomeValueSet.has(item)
     )),
   ));
 }

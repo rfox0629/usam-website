@@ -2,15 +2,16 @@ import "server-only";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
-import { createFruitEvent, inferFruitEventsFromReview } from "@/src/lib/dos/fruit-intelligence";
-import { normalizeDosReviewOutcomeTags } from "@/src/lib/dos/review-form-config";
+import { normalizeDosQuickReviewOutcomeTags } from "@/src/lib/dos/review-form-config";
 import {
+  dosQuickReviewAnswers,
   dosQuickReviewType,
   dosExperienceReviewTypes,
   dosReviewOptionsType,
   dosReviewFollowUpAnswers,
   dosReviewSharePermissions,
   dosReviewStepAnswers,
+  type DosQuickReviewAnswer,
   type DosQuickReviewSubmission,
   type DosReviewLinkState,
 } from "@/src/lib/dos/review-types";
@@ -58,6 +59,56 @@ function normalizedChoice<T extends readonly string[]>(value: unknown, options: 
   return options.includes(nextValue) ? nextValue as T[number] : fallback;
 }
 
+function normalizedQuickReviewAnswer(value: unknown): DosQuickReviewAnswer | null {
+  const nextValue = asString(value).toLowerCase();
+
+  if (dosQuickReviewAnswers.includes(nextValue as DosQuickReviewAnswer)) {
+    return nextValue as DosQuickReviewAnswer;
+  }
+
+  if (nextValue === "maybe" || nextValue === "unsure") {
+    return "somewhat";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "yes" : "no";
+  }
+
+  return null;
+}
+
+function answerToBoolean(value: DosQuickReviewAnswer | null | undefined) {
+  if (value === "yes") {
+    return true;
+  }
+
+  if (value === "no") {
+    return false;
+  }
+
+  return null;
+}
+
+function answerToLegacyMaybe(value: DosQuickReviewAnswer | null | undefined) {
+  if (value === "yes" || value === "no") {
+    return value;
+  }
+
+  return value === "somewhat" ? "maybe" : null;
+}
+
+function answerToLegacyUnsure(value: DosQuickReviewAnswer | null | undefined) {
+  if (value === "yes" || value === "no") {
+    return value;
+  }
+
+  return value === "somewhat" ? "unsure" : null;
+}
+
+function answerForParticipantReview(value: DosQuickReviewAnswer | null | undefined) {
+  return value ?? "skipped";
+}
+
 export function normalizeQuickReviewSubmission(value: unknown): DosQuickReviewSubmission | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -65,66 +116,30 @@ export function normalizeQuickReviewSubmission(value: unknown): DosQuickReviewSu
 
   const payload = value as Record<string, unknown>;
   const sharePermission = normalizedChoice(payload.sharePermission, dosReviewSharePermissions) ?? "private";
+  const conversationHelpful = normalizedQuickReviewAnswer(payload.conversationHelpful)
+    ?? normalizedQuickReviewAnswer(payload.stepTowardJesus)
+    ?? normalizedQuickReviewAnswer(payload.encouraged);
+  const wouldMeetAgain = normalizedQuickReviewAnswer(payload.wouldMeetAgain)
+    ?? normalizedQuickReviewAnswer(payload.wantsFollowUp);
 
   return {
-    encouraged: asBoolean(payload.encouraged),
-    feltCaredFor: asBoolean(payload.feltCaredFor),
-    feltHeard: asBoolean(payload.feltHeard),
-    outcomeTags: normalizeDosReviewOutcomeTags(payload.outcomeTags),
+    conversationHelpful,
+    encouraged: answerToBoolean(conversationHelpful) ?? asBoolean(payload.encouraged),
+    feltCaredFor: normalizedQuickReviewAnswer(payload.feltCaredFor),
+    feltHeard: normalizedQuickReviewAnswer(payload.feltHeard),
+    outcomeTags: normalizeDosQuickReviewOutcomeTags(payload.outcomeTags),
     sharePermission,
-    stepTowardJesus: normalizedChoice(payload.stepTowardJesus, dosReviewStepAnswers),
+    stepTowardJesus: normalizedChoice(payload.stepTowardJesus, dosReviewStepAnswers) ?? answerToLegacyUnsure(conversationHelpful),
     submittedEmail: asString(payload.submittedEmail).slice(0, 160) || null,
     stoodOut: asString(payload.stoodOut).slice(0, 1200) || null,
     submittedName: asString(payload.submittedName).slice(0, 120) || null,
-    wantsFollowUp: normalizedChoice(payload.wantsFollowUp, dosReviewFollowUpAnswers),
+    wantsFollowUp: normalizedChoice(payload.wantsFollowUp, dosReviewFollowUpAnswers) ?? answerToLegacyMaybe(wouldMeetAgain),
+    wouldMeetAgain,
   };
 }
 
 export function isValidReviewToken(token: string) {
   return /^[A-Za-z0-9_-]{16,96}$/.test(token);
-}
-
-function formatBoolean(value: boolean | null | undefined) {
-  if (value === true) {
-    return "Yes";
-  }
-
-  if (value === false) {
-    return "No";
-  }
-
-  return "Skipped";
-}
-
-function formatChoice(value: string | null | undefined) {
-  if (!value) {
-    return "Skipped";
-  }
-
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function quickReviewInternalNotes(submission: DosQuickReviewSubmission) {
-  return [
-    "DOS Quick Review",
-    `Encouraged: ${formatBoolean(submission.encouraged)}`,
-    `Felt heard: ${formatBoolean(submission.feltHeard)}`,
-    `Felt cared for: ${formatBoolean(submission.feltCaredFor)}`,
-    `Step toward Jesus: ${formatChoice(submission.stepTowardJesus)}`,
-    `Wants another conversation: ${formatChoice(submission.wantsFollowUp)}`,
-    submission.outcomeTags?.length ? `Outcomes: ${submission.outcomeTags.join(", ")}` : "",
-    `Share permission: ${submission.sharePermission}`,
-    submission.submittedName ? `Submitted name: ${submission.submittedName}` : "",
-    submission.submittedEmail ? `Submitted email: ${submission.submittedEmail}` : "",
-  ].filter(Boolean).join("\n");
-}
-
-export function quickReviewFruitSummary(submission: DosQuickReviewSubmission) {
-  const stoodOut = submission.stoodOut?.trim();
-
-  return stoodOut
-    ? `Review submitted: ${stoodOut}`
-    : "Review submitted after a DOS meeting.";
 }
 
 function linkIsSubmitted(link: Pick<ReviewLinkRow, "status" | "submitted_at" | "used_at">) {
@@ -196,7 +211,7 @@ export async function loadDosReviewLink(token: string): Promise<DosReviewLinkSta
     recipientPersonId
       ? supabase
         .from("missionary_field_people")
-        .select("id, name")
+        .select("id, name, email")
         .eq("id", recipientPersonId)
         .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -214,6 +229,7 @@ export async function loadDosReviewLink(token: string): Promise<DosReviewLinkSta
     meetingType: typedMeeting.table_type,
     recipientPersonId,
     reviewerPersonId: recipientPersonId,
+    reviewerPersonEmail: reviewerPerson && "email" in reviewerPerson ? String(reviewerPerson.email ?? "") || null : null,
     reviewerPersonName: reviewerPerson && "name" in reviewerPerson ? String(reviewerPerson.name ?? "") : null,
     reviewRequestId: typedLink.id,
     reviewType: typedLink.review_type === "quick_check_in" ? "quick_check_in" : dosQuickReviewType,
@@ -272,7 +288,7 @@ export async function loadDosReviewOptionsLink(token: string): Promise<DosReview
     recipientPersonId
       ? supabase
         .from("missionary_field_people")
-        .select("id, name")
+        .select("id, name, email")
         .eq("id", recipientPersonId)
         .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -290,6 +306,7 @@ export async function loadDosReviewOptionsLink(token: string): Promise<DosReview
     meetingType: typedMeeting.table_type,
     recipientPersonId,
     reviewerPersonId: recipientPersonId,
+    reviewerPersonEmail: reviewerPerson && "email" in reviewerPerson ? String(reviewerPerson.email ?? "") || null : null,
     reviewerPersonName: reviewerPerson && "name" in reviewerPerson ? String(reviewerPerson.name ?? "") : null,
     reviewRequestId: typedLink.id,
     reviewType: dosReviewOptionsType,
@@ -337,22 +354,40 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     return { error: "This review link is missing a Table recipient.", status: 409 as const };
   }
 
+  const submittedAt = new Date().toISOString();
+  const responseDetails = {
+    answers: {
+      conversationHelpful: submission.conversationHelpful ?? null,
+      feltCaredFor: submission.feltCaredFor ?? null,
+      feltHeard: submission.feltHeard ?? null,
+      wouldMeetAgain: submission.wouldMeetAgain ?? null,
+    },
+    comments: submission.stoodOut ?? null,
+    outcomeTags: submission.outcomeTags ?? [],
+    submittedEmail: submission.submittedEmail ?? null,
+    submittedName: submission.submittedName ?? null,
+  };
   const reviewInsert = {
-    encouraged: submission.encouraged,
-    felt_heard: submission.feltHeard,
+    conversation_helpful: answerForParticipantReview(submission.conversationHelpful),
+    encouraged: answerToBoolean(submission.conversationHelpful),
+    felt_cared_for: answerForParticipantReview(submission.feltCaredFor),
+    felt_heard: answerToBoolean(submission.feltHeard),
+    felt_heard_response: answerForParticipantReview(submission.feltHeard),
     meeting_id: typedLink.meeting_id,
     missionary_user_id: typedLink.created_by_user_id,
     outcome_tags: submission.outcomeTags ?? [],
+    response_details: responseDetails,
     review_link_id: typedLink.id,
     review_type: dosQuickReviewType,
     reviewer_person_id: recipientPersonId,
-    share_permission: submission.sharePermission,
-    status: "pending_review",
-    step_toward_jesus: submission.stepTowardJesus,
+    share_permission: "private",
+    status: "submitted",
+    step_toward_jesus: answerToLegacyUnsure(submission.conversationHelpful),
     submitted_email: submission.submittedEmail,
     stood_out: submission.stoodOut,
     submitted_name: submission.submittedName,
-    wants_follow_up: submission.wantsFollowUp,
+    wants_follow_up: submission.outcomeTags?.includes("Follow Up Requested") ? "yes" : answerToLegacyMaybe(submission.wouldMeetAgain),
+    would_meet_again_response: answerForParticipantReview(submission.wouldMeetAgain),
     workspace_id: typedLink.workspace_id,
   };
   const { data: review, error: reviewError } = await supabase
@@ -365,14 +400,13 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     return { error: reviewError?.message ?? "Unable to save review.", status: 500 as const };
   }
 
-  const submittedAt = new Date().toISOString();
-  const { data: participantReview } = await supabase
+  const { error: participantReviewError } = await supabase
     .from("participant_reviews")
     .insert({
       comments: submission.stoodOut,
-      conversation_helpful: submission.stepTowardJesus ?? "skipped",
-      felt_cared_for: submission.feltCaredFor === null || submission.feltCaredFor === undefined ? "skipped" : submission.feltCaredFor ? "yes" : "no",
-      felt_heard: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
+      conversation_helpful: answerForParticipantReview(submission.conversationHelpful),
+      felt_cared_for: answerForParticipantReview(submission.feltCaredFor),
+      felt_heard: answerForParticipantReview(submission.feltHeard),
       leader_id: typedLink.created_by_user_id,
       meeting_id: typedLink.meeting_id,
       outcome_tags: submission.outcomeTags ?? [],
@@ -381,74 +415,22 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
       submitted_email: submission.submittedEmail,
       submitted_name: submission.submittedName,
       submitted_at: submittedAt,
-      would_meet_again: submission.wantsFollowUp === "yes" ? true : submission.wantsFollowUp === "no" ? false : null,
+      would_meet_again: answerToBoolean(submission.wouldMeetAgain),
+      would_meet_again_response: answerForParticipantReview(submission.wouldMeetAgain),
     })
     .select("id")
     .maybeSingle();
 
-  const fruitInsert = {
-    body: quickReviewFruitSummary(submission),
-    cc_status: "pending_review",
-    field_person_id: recipientPersonId,
-    household_id: typedLink.workspace_id,
-    internal_notes: quickReviewInternalNotes(submission),
-    missionary_public_approved: false,
-    outcome_tags: submission.outcomeTags?.length ? submission.outcomeTags : ["Other"],
-    permission_to_share: submission.sharePermission !== "private",
-    source: "dos",
-    source_app: "dos_quick_review",
-    source_external_id: String(review.id),
-    submitted_by_name: submission.sharePermission === "with_name" ? submission.submittedName : null,
-    status: "draft",
-    table_id: typedLink.meeting_id,
-    testimony_date: new Date().toISOString().slice(0, 10),
-    visibility: "private",
-    workspace_id: typedLink.workspace_id,
-  };
-  const { data: fruit, error: fruitError } = await supabase
-    .from("missionary_fruit_items")
-    .insert(fruitInsert)
-    .select("id")
-    .single();
-
-  if (fruitError || !fruit) {
-    return { error: fruitError?.message ?? "Unable to queue review fruit.", status: 500 as const };
+  if (participantReviewError) {
+    return { error: participantReviewError.message ?? "Unable to save contact review.", status: 500 as const };
   }
-
-  await inferFruitEventsFromReview({
-    comments: submission.stoodOut,
-    conversationHelpful: submission.stepTowardJesus,
-    feltCaredFor: submission.feltCaredFor === null || submission.feltCaredFor === undefined ? "skipped" : submission.feltCaredFor ? "yes" : "no",
-    feltHeard: submission.feltHeard === null || submission.feltHeard === undefined ? "skipped" : submission.feltHeard ? "yes" : "no",
-    id: String(participantReview?.id ?? review.id),
-    leaderId: typedLink.created_by_user_id,
-    meetingId: typedLink.meeting_id,
-    personId: recipientPersonId,
-    submittedAt,
-    wouldMeetAgain: submission.wantsFollowUp === "yes" ? true : submission.wantsFollowUp === "no" ? false : null,
-  }, supabase);
-
-  await Promise.all((submission.outcomeTags ?? []).map((fruitType) => createFruitEvent({
-    confidenceLevel: "confirmed",
-    debugContext: { selectedBy: "recipient", source: "Quick Review" },
-    description: submission.stoodOut || "A participant selected this outcome in a DOS Quick Review.",
-    fruitType,
-    generatedBy: "quick_review",
-    leaderId: typedLink.created_by_user_id,
-    meetingId: typedLink.meeting_id,
-    occurredAt: submittedAt,
-    personId: recipientPersonId,
-    sourceId: String(participantReview?.id ?? review.id),
-    sourceType: "participant_review",
-    title: fruitType,
-    visibility: "private",
-  }, supabase)));
 
   await Promise.all([
     supabase
-      .from("dos_meeting_reviews")
-      .update({ fruit_item_id: fruit.id })
-      .eq("id", review.id),
+      .from("missionary_field_people")
+      .update({ last_activity_at: submittedAt })
+      .eq("id", recipientPersonId)
+      .or(`workspace_id.eq.${typedLink.workspace_id},household_id.eq.${typedLink.workspace_id}`),
     supabase
       .from("dos_review_links")
       .update({ status: "submitted", submitted_at: submittedAt, used_at: submittedAt })

@@ -704,7 +704,7 @@ type UsamApplicationDraft = {
   supportGoal: string;
 };
 type FormPreviewSection = {
-  choiceType?: "checkbox" | "pill" | "radio";
+  choiceType?: "checkbox" | "pill" | "radio" | "segmented";
   copy?: string;
   fieldType?: "email" | "text" | "textarea";
   helper?: string;
@@ -12149,31 +12149,6 @@ function fieldFruitStories({
         type: outcomeFields.tags[0] ?? "Testimony",
       } satisfies FruitDashboardStory;
     });
-  const reviewStories = participantReviews
-    .filter((review) => isSubmittedStatus(review.status))
-    .filter((review) => Boolean(review.comments?.trim() || review.conversationHelpful || review.feltCaredFor || review.feltHeard || review.wouldMeetAgain))
-    .map((review) => {
-      const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(
-        review.conversationHelpful,
-        review.feltHeard ? "Felt heard" : "",
-        review.feltCaredFor ? "Felt cared for" : "",
-        review.wouldMeetAgain ? "Life giving" : "",
-        review.comments,
-      ));
-
-      return {
-        date: review.submittedAt,
-        id: `review-story-${review.id}`,
-        impactSource: fruitOutcomeSourceLabels.quick_review,
-        personId: review.personId,
-        personName: review.personId ? personName(people, review.personId) : null,
-        source: fruitOutcomeSourceLabels.quick_review,
-        ...outcomeFields,
-        text: review.comments ?? "Someone shared that the table helped them take a next step.",
-        title: review.comments ? fruitStoryTitle(review.comments) : "Review shared",
-        type: outcomeFields.tags[0] ?? "Quick Review",
-      } satisfies FruitDashboardStory;
-    });
   const reflectionStories = leaderReflections
     .filter((reflection) => Boolean(reflection.observedFruit.length || reflection.whatHappened?.trim() || reflection.prayerNeeds?.trim()))
     .map((reflection) => {
@@ -12197,7 +12172,7 @@ function fieldFruitStories({
       } satisfies FruitDashboardStory;
     });
 
-  return [...directStories, ...testimonyStories, ...reviewStories, ...reflectionStories]
+  return [...directStories, ...testimonyStories, ...reflectionStories]
     .sort((first, second) => {
       const firstTime = parseDisplayDate(first.date)?.getTime() ?? 0;
       const secondTime = parseDisplayDate(second.date)?.getTime() ?? 0;
@@ -14643,6 +14618,33 @@ function LeaderReflectionRow({ reflection }: { reflection: DosAppLeaderReflectio
   );
 }
 
+function quickReviewAnswerLabel(value: string | null | undefined) {
+  switch (value) {
+    case "yes":
+      return "Yes";
+    case "somewhat":
+      return "Somewhat";
+    case "no":
+      return "No";
+    case "unsure":
+      return "Somewhat";
+    default:
+      return "Skipped";
+  }
+}
+
+function quickReviewMeetAgainLabel(review: DosAppParticipantReview) {
+  if (review.wouldMeetAgainResponse) {
+    return quickReviewAnswerLabel(review.wouldMeetAgainResponse);
+  }
+
+  if (review.wouldMeetAgain === null) {
+    return "Skipped";
+  }
+
+  return review.wouldMeetAgain ? "Yes" : "No";
+}
+
 function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
   return (
     <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
@@ -14651,14 +14653,23 @@ function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-sm font-bold text-[#0F172A]">Review</p>
+          <p className="text-sm font-bold text-[#0F172A]">Quick Review</p>
           <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(review.submittedAt)}</span>
         </div>
         <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{review.comments || "Participant review submitted."}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Heard: {review.feltHeard ?? "Skipped"}</span>
-          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Meet Again: {review.wouldMeetAgain === null ? "Skipped" : review.wouldMeetAgain ? "Yes" : "No"}</span>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Heard: {quickReviewAnswerLabel(review.feltHeard)}</span>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Cared For: {quickReviewAnswerLabel(review.feltCaredFor)}</span>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Helpful: {quickReviewAnswerLabel(review.conversationHelpful)}</span>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Meet Again: {quickReviewMeetAgainLabel(review)}</span>
         </div>
+        {review.outcomeTags.length ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {review.outcomeTags.map((tag) => (
+              <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-semibold text-[#1D4ED8]" key={tag}>{tag}</span>
+            ))}
+          </div>
+        ) : null}
       </div>
     </article>
   );
@@ -16069,6 +16080,16 @@ function PersonDetailOverlay({
                 </button>
               )) : <SectionEmptyState action={<CompactButton icon="log" onClick={onLogMeeting}>Log Table</CompactButton>} text="Log the next conversation when it happens." title="No tables yet." />}
             </DetailCard>
+
+            {personParticipantReviews.length ? (
+              <DetailCard icon={<MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Quick Reviews">
+                <div className="grid gap-2.5">
+                  {personParticipantReviews.map((review) => (
+                    <ParticipantReviewRow key={review.id} review={review} />
+                  ))}
+                </div>
+              </DetailCard>
+            ) : null}
 
             <DetailCard icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Resources Sent">
               <SectionEmptyState

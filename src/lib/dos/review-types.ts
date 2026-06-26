@@ -17,11 +17,13 @@ export const dosReviewRequestTypes = [
 export const dosReviewSharePermissions = ["anonymous", "with_name", "private"] as const;
 export const dosReviewStepAnswers = ["yes", "no", "unsure"] as const;
 export const dosReviewFollowUpAnswers = ["yes", "no", "maybe"] as const;
+export const dosQuickReviewAnswers = ["yes", "somewhat", "no"] as const;
 
 export type DosReviewRequestType = typeof dosReviewRequestTypes[number];
 export type DosReviewSharePermission = typeof dosReviewSharePermissions[number];
 export type DosReviewStepAnswer = typeof dosReviewStepAnswers[number];
 export type DosReviewFollowUpAnswer = typeof dosReviewFollowUpAnswers[number];
+export type DosQuickReviewAnswer = typeof dosQuickReviewAnswers[number];
 
 export type DosReviewLinkState =
   | {
@@ -33,6 +35,7 @@ export type DosReviewLinkState =
       reviewerPersonName: string | null;
       reviewRequestId: string;
       reviewType: DosReviewRequestType;
+      reviewerPersonEmail: string | null;
       status: "ready";
       token: string;
       workspaceDisplayName: string;
@@ -43,14 +46,16 @@ export type DosReviewLinkState =
     };
 
 export type DosQuickReviewSubmission = {
+  conversationHelpful?: DosQuickReviewAnswer | null;
   encouraged?: boolean | null;
-  feltCaredFor?: boolean | null;
-  feltHeard?: boolean | null;
+  feltCaredFor?: DosQuickReviewAnswer | null;
+  feltHeard?: DosQuickReviewAnswer | null;
   outcomeTags?: string[];
-  sharePermission: DosReviewSharePermission;
+  sharePermission?: DosReviewSharePermission;
   stepTowardJesus?: DosReviewStepAnswer | null;
   submittedEmail?: string | null;
   stoodOut?: string | null;
   submittedName?: string | null;
+  wouldMeetAgain?: DosQuickReviewAnswer | null;
   wantsFollowUp?: DosReviewFollowUpAnswer | null;
 };

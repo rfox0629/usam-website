@@ -207,10 +207,12 @@ export type DosAppParticipantReview = {
   feltHeard: string | null;
   id: string;
   meetingId: string;
+  outcomeTags: string[];
   personId: string | null;
   status: "draft" | "submitted" | "reviewed" | "approved" | "hidden";
   submittedAt: string | null;
   wouldMeetAgain: boolean | null;
+  wouldMeetAgainResponse: string | null;
 };
 
 export type DosAppParticipantTestimony = {
@@ -645,10 +647,12 @@ type ParticipantReviewRow = {
   felt_heard: string | null;
   id: string;
   meeting_id: string;
+  outcome_tags?: string[] | null;
   person_id: string | null;
   status?: string | null;
   submitted_at: string | null;
   would_meet_again: boolean | null;
+  would_meet_again_response?: string | null;
 };
 
 type ParticipantTestimonyRow = {
@@ -1625,7 +1629,7 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     meetingIds.length
       ? supabase
         .from("participant_reviews")
-        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, comments, status, submitted_at")
+        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, would_meet_again_response, outcome_tags, comments, status, submitted_at")
         .in("meeting_id", meetingIds)
         .order("submitted_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
@@ -2042,6 +2046,20 @@ export async function loadDosAppData(
     }
   });
 
+  reviewsFruitResult.participantReviews.forEach((review) => {
+    if (!review.person_id) {
+      return;
+    }
+
+    const activityDate = latestActivityDate(review.submitted_at);
+    const currentDate = latestActivityByPersonId.get(review.person_id);
+    const latestDate = latestActivityDate(activityDate, currentDate);
+
+    if (latestDate) {
+      latestActivityByPersonId.set(review.person_id, latestDate);
+    }
+  });
+
   const people = ((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => {
     const relationshipModel = relationshipModelFromFields({
       discipleshipStage: person.discipleship_stage,
@@ -2192,10 +2210,12 @@ export async function loadDosAppData(
     feltHeard: review.felt_heard,
     id: review.id,
     meetingId: review.meeting_id,
+    outcomeTags: Array.isArray(review.outcome_tags) ? review.outcome_tags.filter((tag): tag is string => typeof tag === "string" && Boolean(tag.trim())) : [],
     personId: review.person_id,
     status: mapModerationStatus(review.status),
     submittedAt: review.submitted_at,
     wouldMeetAgain: review.would_meet_again,
+    wouldMeetAgainResponse: review.would_meet_again_response ?? null,
   }));
   const participantTestimonies = reviewsFruitResult.participantTestimonies.map((testimony) => ({
     decisionMade: testimony.decision_made,

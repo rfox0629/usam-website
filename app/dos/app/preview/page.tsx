@@ -419,10 +419,12 @@ function buildDosPreviewDemoData(): DosAppData {
       feltHeard: "yes",
       id: "demo-participant-review-tim",
       meetingId: "demo-meeting-table-george-brooke-tim",
+      outcomeTags: ["Encouragement", "Discipling"],
       personId: "demo-person-tim-tran",
       status: "approved",
       submittedAt: "2026-05-25T21:10:00-05:00",
       wouldMeetAgain: true,
+      wouldMeetAgainResponse: "yes",
     },
   ];
   const reminders: DosAppRelationshipReminder[] = [
