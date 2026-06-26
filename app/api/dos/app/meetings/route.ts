@@ -895,6 +895,16 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const eventNotesResult = await supabase
+      .from("ministry_events")
+      .update({ notes: notesOnlyUpdate.notes })
+      .eq("source_table", "missionary_tables")
+      .eq("source_id", id);
+
+    if (eventNotesResult.error && !isMissingMinistryEventModel(eventNotesResult.error)) {
+      return NextResponse.json({ error: eventNotesResult.error.message }, { status: 500 });
+    }
+
     return NextResponse.json({ id: data.id, ok: true });
   }
 

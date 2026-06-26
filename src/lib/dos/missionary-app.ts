@@ -22,6 +22,7 @@ import {
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
+import type { DosAuthorizedUser } from "@/src/lib/dos/auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -31,6 +32,16 @@ function cleanOptionalText(value: string | null | undefined) {
   const text = value?.trim();
 
   return text ? text : null;
+}
+
+function uniqueStrings(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+}
+
+function normalizedPhone(value: string | null | undefined) {
+  const digits = value?.replace(/\D/g, "") ?? "";
+
+  return digits.length >= 7 ? digits : null;
 }
 
 function isMissingColumnError(error: SupabaseQueryError) {
@@ -481,6 +492,18 @@ type MinistryEventPersonRow = {
   user_id: string | null;
 };
 
+type MinistryEventSourceRow = {
+  id: string;
+  source_id: string | null;
+  source_table: string | null;
+};
+
+type MinistryEventViewerIdentity = {
+  fieldPersonIds: string[];
+  teamMemberIds: string[];
+  userIds: string[];
+};
+
 type ConnectionLogRow = {
   connection_date: string | null;
   created_at?: string | null;
@@ -659,6 +682,9 @@ type FruitEventRow = {
   title: string | null;
   visibility: string | null;
 };
+
+const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
+const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
 
 function mapMeetingType(value: string | null): DosAppMeetingType {
   return dosAppMeetingTypes.includes(value as DosAppMeetingType) ? value as DosAppMeetingType : "other";
@@ -877,6 +903,238 @@ function latestActivityDate(...values: Array<string | null | undefined>) {
     .sort((first, second) => activityDateValue(second) - activityDateValue(first))[0] ?? null;
 }
 
+function isMissingIdentityColumn(error: SupabaseQueryError, columnNames: string[]) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return columnNames.some((columnName) => message.includes(columnName))
+    && (message.includes("schema cache")
+      || message.includes("could not find")
+      || message.includes("column")
+      || message.includes("does not exist"));
+}
+
+function activeIdentityIds(rows: Array<{ id: string | null; status?: string | null }>) {
+  return uniqueStrings(rows
+    .filter((row) => row.id && !["inactive", "archived", "deleted"].includes((row.status ?? "").toLowerCase()))
+    .map((row) => row.id));
+}
+
+async function loadViewerTeamMemberIds(
+  supabase: SupabaseAdminClient,
+  viewer: DosAuthorizedUser,
+) {
+  const rows: Array<{ id: string | null; status?: string | null }> = [];
+  const appendRows = (nextRows: Array<{ id: string | null; status?: string | null }> | null | undefined) => {
+    rows.push(...(nextRows ?? []));
+  };
+  const directValues = uniqueStrings([viewer.userId, viewer.email]);
+
+  if (directValues.length) {
+    const directResult = await supabase
+      .from("missionary_team_members")
+      .select("id, status")
+      .in("dos_user_id", directValues);
+
+    if (directResult.error) {
+      if (!isMissingIdentityColumn(directResult.error, ["dos_user_id"])) {
+        return { data: [] as string[], error: directResult.error };
+      }
+    } else {
+      appendRows(directResult.data as Array<{ id: string | null; status?: string | null }>);
+    }
+  }
+
+  if (viewer.email) {
+    const inviteEmailResult = await supabase
+      .from("missionary_team_members")
+      .select("id, status")
+      .ilike("invite_email", viewer.email);
+
+    if (inviteEmailResult.error) {
+      if (!isMissingIdentityColumn(inviteEmailResult.error, ["invite_email"])) {
+        return { data: [] as string[], error: inviteEmailResult.error };
+      }
+    } else {
+      appendRows(inviteEmailResult.data as Array<{ id: string | null; status?: string | null }>);
+    }
+  }
+
+  const phone = "phone" in viewer ? normalizedPhone(viewer.phone) : null;
+
+  if (phone) {
+    const invitePhoneResult = await supabase
+      .from("missionary_team_members")
+      .select("id, status")
+      .eq("invite_phone_normalized", phone);
+
+    if (invitePhoneResult.error) {
+      if (!isMissingIdentityColumn(invitePhoneResult.error, ["invite_phone_normalized", "invite_phone"])) {
+        return { data: [] as string[], error: invitePhoneResult.error };
+      }
+    } else {
+      appendRows(invitePhoneResult.data as Array<{ id: string | null; status?: string | null }>);
+    }
+  }
+
+  return { data: activeIdentityIds(rows), error: null };
+}
+
+async function loadViewerFieldPersonIds(
+  supabase: SupabaseAdminClient,
+  viewer: DosAuthorizedUser,
+) {
+  const rows: Array<{ id: string | null; status?: string | null }> = [];
+  const appendRows = (nextRows: Array<{ id: string | null; status?: string | null }> | null | undefined) => {
+    rows.push(...(nextRows ?? []));
+  };
+
+  if (viewer.email) {
+    const emailResult = await supabase
+      .from("missionary_field_people")
+      .select("id, status")
+      .ilike("email", viewer.email)
+      .limit(200);
+
+    if (emailResult.error) {
+      if (!isMissingIdentityColumn(emailResult.error, ["email"])) {
+        return { data: [] as string[], error: emailResult.error };
+      }
+    } else {
+      appendRows(emailResult.data as Array<{ id: string | null; status?: string | null }>);
+    }
+  }
+
+  const rawPhone = "phone" in viewer ? cleanOptionalText(viewer.phone) : null;
+  const phoneValues = uniqueStrings([rawPhone, normalizedPhone(rawPhone)]);
+
+  if (phoneValues.length) {
+    const phoneResult = await supabase
+      .from("missionary_field_people")
+      .select("id, status")
+      .in("phone", phoneValues)
+      .limit(200);
+
+    if (phoneResult.error) {
+      if (!isMissingIdentityColumn(phoneResult.error, ["phone"])) {
+        return { data: [] as string[], error: phoneResult.error };
+      }
+    } else {
+      appendRows(phoneResult.data as Array<{ id: string | null; status?: string | null }>);
+    }
+  }
+
+  return { data: activeIdentityIds(rows), error: null };
+}
+
+async function loadMinistryEventViewerIdentity(
+  supabase: SupabaseAdminClient,
+  viewer?: DosAuthorizedUser | null,
+) {
+  if (!viewer) {
+    return {
+      data: { fieldPersonIds: [], teamMemberIds: [], userIds: [] } satisfies MinistryEventViewerIdentity,
+      error: null,
+    };
+  }
+
+  const [teamMemberResult, fieldPersonResult] = await Promise.all([
+    loadViewerTeamMemberIds(supabase, viewer),
+    loadViewerFieldPersonIds(supabase, viewer),
+  ]);
+
+  return {
+    data: {
+      fieldPersonIds: fieldPersonResult.data,
+      teamMemberIds: teamMemberResult.data,
+      userIds: uniqueStrings([viewer.userId]),
+    } satisfies MinistryEventViewerIdentity,
+    error: teamMemberResult.error ?? fieldPersonResult.error,
+  };
+}
+
+function ministryEventPersonIdentityFilter(identity: MinistryEventViewerIdentity) {
+  return [
+    ...identity.userIds.map((userId) => `user_id.eq.${userId}`),
+    identity.teamMemberIds.length ? `team_member_id.in.(${identity.teamMemberIds.join(",")})` : "",
+    identity.fieldPersonIds.length ? `field_person_id.in.(${identity.fieldPersonIds.join(",")})` : "",
+  ].filter(Boolean).join(",");
+}
+
+async function loadRoleVisibleMinistryEventIds(
+  supabase: SupabaseAdminClient,
+  identity: MinistryEventViewerIdentity,
+) {
+  const identityFilter = ministryEventPersonIdentityFilter(identity);
+
+  if (!identityFilter) {
+    return { data: [] as string[], error: null };
+  }
+
+  const result = await supabase
+    .from("ministry_event_people")
+    .select("ministry_event_id")
+    .in("role", ["ministry_team", "participant", "supporting_attendee"])
+    .or(identityFilter)
+    .limit(1000);
+
+  if (result.error) {
+    return isMissingMinistryEventModel(result.error)
+      ? { data: [] as string[], error: null }
+      : { data: [] as string[], error: result.error };
+  }
+
+  return {
+    data: uniqueStrings(((result.data ?? []) as Array<{ ministry_event_id: string | null }>).map((row) => row.ministry_event_id)),
+    error: null,
+  };
+}
+
+async function loadMinistryEventSourceRows(supabase: SupabaseAdminClient, eventIds: string[]) {
+  if (!eventIds.length) {
+    return { data: [] as MinistryEventSourceRow[], error: null };
+  }
+
+  const result = await supabase
+    .from("ministry_events")
+    .select("id, source_table, source_id")
+    .in("id", eventIds)
+    .eq("source_table", "missionary_tables");
+
+  return result.error && isMissingMinistryEventModel(result.error)
+    ? { data: [] as MinistryEventSourceRow[], error: null }
+    : result;
+}
+
+function meetingVisibilityKey(meeting: { id: string; ministry_event_id?: string | null }) {
+  return meeting.ministry_event_id ? `event:${meeting.ministry_event_id}` : `table:${meeting.id}`;
+}
+
+export function mergeDosMeetingRowsForVisibility<T extends { id: string; ministry_event_id?: string | null }>(
+  workspaceRows: T[],
+  roleVisibleRows: T[],
+) {
+  const rowsByKey = new Map<string, T>();
+
+  [...workspaceRows, ...roleVisibleRows].forEach((row) => {
+    const key = meetingVisibilityKey(row);
+
+    if (!rowsByKey.has(key)) {
+      rowsByKey.set(key, row);
+    }
+  });
+
+  return Array.from(rowsByKey.values());
+}
+
+function sortMeetingRows(rows: MeetingRow[]) {
+  return rows.sort((first, second) => {
+    const firstDate = latestActivityDate(first.table_date, first.updated_at, first.created_at);
+    const secondDate = latestActivityDate(second.table_date, second.updated_at, second.created_at);
+
+    return activityDateValue(secondDate) - activityDateValue(firstDate);
+  });
+}
+
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
   const relationshipCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
@@ -938,9 +1196,7 @@ async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId
   return scopedResult;
 }
 
-async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
-  const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
-  const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
+async function loadWorkspaceScopedMeetingsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const scopedResult = await supabase
     .from("missionary_tables")
     .select(meetingSelect)
@@ -996,9 +1252,81 @@ async function loadMeetingsForWorkspace(supabase: SupabaseAdminClient, workspace
   return scopedResult;
 }
 
-async function loadMinistryEventPeopleForMeetings(
+async function loadRoleVisibleMeetingsForViewer(
+  supabase: SupabaseAdminClient,
+  viewer?: DosAuthorizedUser | null,
+) {
+  const identityResult = await loadMinistryEventViewerIdentity(supabase, viewer);
+
+  if (identityResult.error) {
+    return { data: [] as MeetingRow[], error: identityResult.error };
+  }
+
+  const eventIdsResult = await loadRoleVisibleMinistryEventIds(supabase, identityResult.data);
+
+  if (eventIdsResult.error) {
+    return { data: [] as MeetingRow[], error: eventIdsResult.error };
+  }
+
+  const sourceRowsResult = await loadMinistryEventSourceRows(supabase, eventIdsResult.data);
+
+  if (sourceRowsResult.error) {
+    return { data: [] as MeetingRow[], error: sourceRowsResult.error };
+  }
+
+  const tableIds = uniqueStrings(((sourceRowsResult.data ?? []) as MinistryEventSourceRow[]).map((row) => row.source_id));
+
+  if (!tableIds.length) {
+    return { data: [] as MeetingRow[], error: null };
+  }
+
+  const result = await supabase
+    .from("missionary_tables")
+    .select(meetingSelect)
+    .in("id", tableIds)
+    .order("table_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (result.error && isMissingColumnError(result.error)) {
+    return supabase
+      .from("missionary_tables")
+      .select(legacyMeetingSelect)
+      .in("id", tableIds)
+      .order("table_date", { ascending: false })
+      .order("created_at", { ascending: false });
+  }
+
+  return result;
+}
+
+async function loadMeetingsForWorkspace(
   supabase: SupabaseAdminClient,
   workspaceId: string,
+  viewer?: DosAuthorizedUser | null,
+) {
+  const workspaceResult = await loadWorkspaceScopedMeetingsForWorkspace(supabase, workspaceId);
+
+  if (workspaceResult.error) {
+    return workspaceResult;
+  }
+
+  const roleVisibleResult = await loadRoleVisibleMeetingsForViewer(supabase, viewer);
+
+  if (roleVisibleResult.error) {
+    return roleVisibleResult;
+  }
+
+  return {
+    data: sortMeetingRows(mergeDosMeetingRowsForVisibility(
+      (workspaceResult.data ?? []) as MeetingRow[],
+      (roleVisibleResult.data ?? []) as MeetingRow[],
+    )),
+    error: null,
+  };
+}
+
+async function loadMinistryEventPeopleForMeetings(
+  supabase: SupabaseAdminClient,
   meetingRows: MeetingRow[],
 ) {
   const eventIds = Array.from(new Set(meetingRows.map((meeting) => meeting.ministry_event_id).filter((id): id is string => Boolean(id))));
@@ -1010,7 +1338,6 @@ async function loadMinistryEventPeopleForMeetings(
   const result = await supabase
     .from("ministry_event_people")
     .select("id, ministry_event_id, role, supporting_sub_role, field_person_id, team_member_id, user_id, display_name")
-    .eq("workspace_id", workspaceId)
     .in("ministry_event_id", eventIds);
 
   return result.error && isMissingMinistryEventModel(result.error)
@@ -1500,7 +1827,10 @@ async function loadHouseholdMembersForWorkspace(supabase: SupabaseAdminClient, w
   return fallbackResult;
 }
 
-export async function loadDosAppData(workspaceSlug?: string | null): Promise<LoadResult<DosAppData>> {
+export async function loadDosAppData(
+  workspaceSlug?: string | null,
+  viewer?: DosAuthorizedUser | null,
+): Promise<LoadResult<DosAppData>> {
   const workspaceResult = await loadWorkspace(workspaceSlug);
 
   if (workspaceResult.status !== "ready") {
@@ -1511,7 +1841,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   const supabase = createSupabaseAdminClient();
   const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
-    loadMeetingsForWorkspace(supabase, workspace.id),
+    loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
     loadFruitForWorkspace(supabase, workspace.id),
     loadReviewLinksForWorkspace(supabase, workspace.id),
@@ -1551,7 +1881,7 @@ export async function loadDosAppData(workspaceSlug?: string | null): Promise<Loa
   }
 
   const meetingRows = (meetingsResult.data ?? []) as MeetingRow[];
-  const ministryEventPeopleResult = await loadMinistryEventPeopleForMeetings(supabase, workspace.id, meetingRows);
+  const ministryEventPeopleResult = await loadMinistryEventPeopleForMeetings(supabase, meetingRows);
 
   if (ministryEventPeopleResult.error) {
     return {

@@ -105,6 +105,19 @@ create unique index if not exists ministry_event_people_event_user_role_unique
   on public.ministry_event_people(ministry_event_id, role, user_id)
   where user_id is not null;
 
+delete from public.ministry_event_people supporting
+using public.ministry_event_people participant
+where supporting.ministry_event_id = participant.ministry_event_id
+  and supporting.field_person_id = participant.field_person_id
+  and supporting.role = 'supporting_attendee'
+  and participant.role = 'participant'
+  and supporting.field_person_id is not null;
+
+create unique index if not exists ministry_event_people_event_field_participant_support_unique
+  on public.ministry_event_people(ministry_event_id, field_person_id)
+  where field_person_id is not null
+    and role in ('participant', 'supporting_attendee');
+
 create table if not exists public.ministry_event_person_responses (
   id uuid primary key default gen_random_uuid(),
   ministry_event_id uuid not null references public.ministry_events(id) on delete cascade,
@@ -219,6 +232,10 @@ create index if not exists missionary_tables_recorded_by_user_idx
   on public.missionary_tables(recorded_by_user_id)
   where recorded_by_user_id is not null;
 
+-- Legacy compatibility: old missionary_tables.field_person_ids did not distinguish
+-- hosts, participants, and supporters. Backfill every historical linked person as
+-- a participant to preserve existing activity/scoring; do not infer old hosts or
+-- supporting attendees automatically.
 insert into public.ministry_event_people (
   ministry_event_id,
   workspace_id,
@@ -303,6 +320,9 @@ alter table public.ministry_events enable row level security;
 alter table public.ministry_event_people enable row level security;
 alter table public.ministry_event_person_responses enable row level security;
 
+-- TODO: These server routes use the service-role client today. Before direct
+-- authenticated client reads are added, replace admin-only policies with
+-- role-aware RLS based on ministry_event_people visibility.
 revoke all on table public.ministry_events from anon;
 revoke all on table public.ministry_events from authenticated;
 grant select, insert, update on table public.ministry_events to authenticated;
@@ -399,7 +419,7 @@ comment on table public.ministry_events is
   'Reusable DOS ministry event record. Table logs, connection logs, and future event types should map here instead of duplicating activity per person.';
 
 comment on table public.ministry_event_people is
-  'Role assignments for a ministry event: ministry_team, participant, supporting_attendee, and recorder. Participants receive person activity and fruit; supporting attendees do not.';
+  'Role assignments for a ministry event: ministry_team, participant, supporting_attendee, and recorder. Participants receive person activity and fruit; supporting attendees do not. TODO: direct client reads need role-aware RLS before browser queries use this table.';
 
 comment on table public.ministry_event_person_responses is
   'Participant-specific guided conversation responses for a ministry event. Use this when Jared and Heather need separate Commands answers under the same table.';
