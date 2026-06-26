@@ -53,18 +53,6 @@ export type ReviewInferenceInput = {
   wouldMeetAgain?: boolean | null;
 };
 
-export type TestimonyInferenceInput = {
-  decisionMade?: string | null;
-  id: string;
-  leaderId?: string | null;
-  meetingId: string;
-  nextStep?: string | null;
-  personId?: string | null;
-  story: string;
-  submittedAt?: string | null;
-  whatChanged?: string | null;
-};
-
 const explicitFruitSourceActions: readonly FruitSourceAction[] = ["leader_review", "quick_review", "record_fruit", "testimony_review"];
 
 function normalizeText(...values: Array<string | null | undefined>) {
@@ -184,64 +172,4 @@ export async function inferFruitEventsFromReview(input: ReviewInferenceInput, su
   }, supabase);
 
   return 1;
-}
-
-export async function inferFruitEventsFromTestimony(input: TestimonyInferenceInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {
-  const text = normalizeText(input.story, input.whatChanged, input.decisionMade, input.nextStep);
-  const events: FruitEventInput[] = [
-    {
-      confidenceLevel: "confirmed",
-      debugContext: { matchedBy: "testimony submitted", source: "Testimony" },
-      description: input.whatChanged || input.story,
-      fruitType: "Shared Testimony",
-      generatedBy: "testimony_review",
-      generationKey: eventKey("testimony", input.id, "Shared Testimony", input.personId),
-      leaderId: input.leaderId,
-      meetingId: input.meetingId,
-      occurredAt: input.submittedAt,
-      personId: input.personId,
-      sourceId: input.id,
-      sourceType: "testimony",
-      title: "Shared Testimony",
-      visibility: "private",
-    },
-  ];
-  const add = (fruitType: string, matchedBy: string) => {
-    events.push({
-      confidenceLevel: "confirmed",
-      debugContext: { matchedBy, source: "Testimony" },
-      description: input.whatChanged || input.story,
-      fruitType,
-      generatedBy: "testimony_review",
-      generationKey: eventKey("testimony", input.id, fruitType, input.personId),
-      leaderId: input.leaderId,
-      meetingId: input.meetingId,
-      occurredAt: input.submittedAt,
-      personId: input.personId,
-      sourceId: input.id,
-      sourceType: "testimony",
-      title: fruitType,
-      visibility: "private",
-    });
-  };
-
-  if (includesAny(text, ["saved", "salvation", "gave my life", "accepted jesus", "follow jesus", "born again"])) {
-    add("Salvation", "salvation language");
-  }
-
-  if (includesAny(text, ["rededicated", "re-dedicated", "came back to god", "return to jesus", "renewed my faith"])) {
-    add("Re Dedication", "re dedication language");
-  }
-
-  if (includesAny(text, ["church", "attended church", "joined church", "visited church", "small group"])) {
-    add(includesAny(text, ["joined church", "member"]) ? "Joined Church" : "Church Visit", "church engagement language");
-  }
-
-  if (includesAny(text, ["discipleship", "disciple", "mentor", "being discipled", "study the bible", "bible study"])) {
-    add("Joined Discipleship", "discipleship language");
-  }
-
-  await Promise.all(events.map((event) => createFruitEvent(event, supabase)));
-
-  return events.length;
 }

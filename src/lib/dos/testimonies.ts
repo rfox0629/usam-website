@@ -3,7 +3,6 @@ import "server-only";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { isValidReviewToken } from "@/src/lib/dos/reviews";
-import { createFruitEvent, inferFruitEventsFromTestimony } from "@/src/lib/dos/fruit-intelligence";
 import { normalizeDosReviewOutcomeTags } from "@/src/lib/dos/review-form-config";
 import { dosReviewOptionsType, dosTestimonyReviewType, dosTestimonyReviewTypes, type DosReviewLinkState, type DosReviewSharePermission } from "@/src/lib/dos/review-types";
 
@@ -230,33 +229,8 @@ export async function submitDosTestimony(token: string, submission: TestimonySub
     return { error: testimonyError?.message ?? "Unable to save story.", status: 500 as const };
   }
 
-  await inferFruitEventsFromTestimony({
-    decisionMade: submission.decisionMade,
-    id: String(testimony.id),
-    leaderId: typedLink.created_by_user_id,
-    meetingId: typedLink.meeting_id,
-    nextStep: submission.nextStep,
-    personId: recipientPersonId,
-    story: submission.story,
-    submittedAt,
-    whatChanged: submission.whatChanged,
-  }, supabase);
-
-  await Promise.all(submission.outcomeTags.map((fruitType) => createFruitEvent({
-    confidenceLevel: "confirmed",
-    debugContext: { selectedBy: "recipient", source: "Testimony Review" },
-    description: submission.whatChanged || submission.story,
-    fruitType,
-    generatedBy: "testimony_review",
-    leaderId: typedLink.created_by_user_id,
-    meetingId: typedLink.meeting_id,
-    occurredAt: submittedAt,
-    personId: recipientPersonId,
-    sourceId: String(testimony.id),
-    sourceType: "testimony",
-    title: fruitType,
-    visibility: "private",
-  }, supabase)));
+  // Testimony outcome tags are stored on the testimony for leader review.
+  // They should not become Fruit records until a missionary confirms them.
 
   await supabase
     .from("dos_review_links")
