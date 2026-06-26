@@ -684,6 +684,7 @@ type FruitEventRow = {
 };
 
 const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
+const meetingSchedulingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
 const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
 
 function mapMeetingType(value: string | null): DosAppMeetingType {
@@ -1205,6 +1206,17 @@ async function loadWorkspaceScopedMeetingsForWorkspace(supabase: SupabaseAdminCl
     .order("created_at", { ascending: false });
 
   if (scopedResult.error && isMissingColumnError(scopedResult.error) && !isMissingWorkspaceScopeColumn(scopedResult.error)) {
+    const schedulingCompatibleResult = await supabase
+      .from("missionary_tables")
+      .select(meetingSchedulingSelect)
+      .or(workspaceScopeFilter(workspaceId))
+      .order("table_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (!schedulingCompatibleResult.error || !isMissingColumnError(schedulingCompatibleResult.error)) {
+      return schedulingCompatibleResult;
+    }
+
     return supabase
       .from("missionary_tables")
       .select(legacyMeetingSelect)
@@ -1216,19 +1228,39 @@ async function loadWorkspaceScopedMeetingsForWorkspace(supabase: SupabaseAdminCl
   if (scopedResult.error && isMissingMinistryEventModel(scopedResult.error)) {
     const legacyScopedResult = await supabase
       .from("missionary_tables")
+      .select(meetingSchedulingSelect)
+      .eq("workspace_id", workspaceId)
+      .order("table_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    const schedulingCompatibleResult = legacyScopedResult.error && isMissingWorkspaceScopeColumn(legacyScopedResult.error)
+      ? await supabase
+        .from("missionary_tables")
+        .select(meetingSchedulingSelect)
+        .eq("household_id", workspaceId)
+        .order("table_date", { ascending: false })
+        .order("created_at", { ascending: false })
+      : legacyScopedResult;
+
+    if (!schedulingCompatibleResult.error || !isMissingColumnError(schedulingCompatibleResult.error)) {
+      return schedulingCompatibleResult;
+    }
+
+    const legacySchedulingResult = await supabase
+      .from("missionary_tables")
       .select(legacyMeetingSelect)
       .eq("workspace_id", workspaceId)
       .order("table_date", { ascending: false })
       .order("created_at", { ascending: false });
 
-    return legacyScopedResult.error && isMissingWorkspaceScopeColumn(legacyScopedResult.error)
+    return legacySchedulingResult.error && isMissingWorkspaceScopeColumn(legacySchedulingResult.error)
       ? supabase
         .from("missionary_tables")
         .select(legacyMeetingSelect)
         .eq("household_id", workspaceId)
         .order("table_date", { ascending: false })
         .order("created_at", { ascending: false })
-      : legacyScopedResult;
+      : legacySchedulingResult;
   }
 
   if (scopedResult.error && isMissingWorkspaceScopeColumn(scopedResult.error)) {
@@ -1288,6 +1320,17 @@ async function loadRoleVisibleMeetingsForViewer(
     .order("created_at", { ascending: false });
 
   if (result.error && isMissingColumnError(result.error)) {
+    const schedulingCompatibleResult = await supabase
+      .from("missionary_tables")
+      .select(meetingSchedulingSelect)
+      .in("id", tableIds)
+      .order("table_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (!schedulingCompatibleResult.error || !isMissingColumnError(schedulingCompatibleResult.error)) {
+      return schedulingCompatibleResult;
+    }
+
     return supabase
       .from("missionary_tables")
       .select(legacyMeetingSelect)
