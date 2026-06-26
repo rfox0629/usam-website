@@ -12298,9 +12298,7 @@ function FruitFormPreviewSheet({
           </p>
           <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{isTestimony ? testimonyReviewFormPreview.title : quickReviewFormPreview.title}</h3>
           <p className="mt-1 text-sm leading-6 text-[#64748B]">
-            {isTestimony
-              ? "Taking a moment to reflect on what the Lord did at your kitchen table."
-              : "A short reflection form someone can complete after a meeting or gathering."}
+            {isTestimony ? testimonyReviewFormPreview.description : quickReviewFormPreview.description}
           </p>
         </section>
         {isTestimony ? (
