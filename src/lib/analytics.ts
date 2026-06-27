@@ -13,6 +13,20 @@ export type AnalyticsEventName = (typeof analyticsEvents)[keyof typeof analytics
 
 type AnalyticsEventParams = Record<string, boolean | number | string | null | undefined>;
 
+export const excludedAnalyticsRoutePrefixes = [
+  "/dos",
+  "/admin",
+  "/api",
+  "/auth",
+  "/login",
+  "/join",
+  "/missionary-intake",
+  "/review",
+  "/testimony",
+  "/update-password",
+  "/system/preview",
+] as const;
+
 declare global {
   interface Window {
     clarity?: (command: string, ...args: unknown[]) => void;
@@ -33,21 +47,7 @@ function normalizedAnalyticsPath(pathname?: string | null) {
 export function isPublicAnalyticsPath(pathname?: string | null) {
   const normalizedPath = normalizedAnalyticsPath(pathname);
 
-  return [
-    "/",
-    "/briefing",
-    "/financialfreedom",
-    "/mission",
-    "/missionaries",
-    "/prayer",
-    "/support",
-    "/system",
-  ].includes(normalizedPath)
-    || [
-      "/briefing/assignments/",
-      "/guide/",
-      "/missionaries/",
-    ].some((prefix) => normalizedPath.startsWith(prefix));
+  return !excludedAnalyticsRoutePrefixes.some((prefix) => normalizedPath.startsWith(prefix));
 }
 
 export function trackPageView(path: string) {
