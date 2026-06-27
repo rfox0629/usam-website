@@ -7183,31 +7183,6 @@ function formatAvailabilityTime(value: string) {
   return rawMinute === "00" ? `${displayHour} ${suffix}` : `${displayHour}:${rawMinute} ${suffix}`;
 }
 
-function parseAvailabilityTimeInput(value: string, fallback: string) {
-  const normalized = value.trim().toLowerCase();
-  const meridiem = normalized.includes("pm") ? "pm" : normalized.includes("am") ? "am" : null;
-  const timeValue = normalized.replace(/\s*(am|pm)\s*$/, "").trim();
-  const [rawHour, rawMinute = "00"] = timeValue.split(/[:.]/);
-  let hour = Number(rawHour);
-  const minute = Number(rawMinute);
-
-  if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) {
-    return fallback;
-  }
-
-  if (meridiem === "pm" && hour < 12) {
-    hour += 12;
-  } else if (meridiem === "am" && hour === 12) {
-    hour = 0;
-  }
-
-  if (hour < 0 || hour > 23) {
-    return fallback;
-  }
-
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
 function availabilityWindowLabel(window: AvailabilityTimeWindow) {
   return `${formatAvailabilityTime(window.start)} - ${formatAvailabilityTime(window.end)}`;
 }
@@ -7976,6 +7951,47 @@ function InvitationLivePreview({
   );
 }
 
+const invitationTimeSelectOptions = Array.from({ length: 48 }, (_, index) => {
+  const hour = Math.floor(index / 2);
+  const minute = index % 2 === 0 ? "00" : "30";
+
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+});
+
+function InvitationTimeSelect({
+  ariaLabel,
+  label,
+  onChange,
+  value,
+}: {
+  ariaLabel: string;
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const options = invitationTimeSelectOptions.includes(value)
+    ? invitationTimeSelectOptions
+    : [...invitationTimeSelectOptions, value].sort();
+
+  return (
+    <label className="grid min-w-0 gap-1">
+      <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]">{label}</span>
+      <select
+        aria-label={ariaLabel}
+        className="h-11 min-w-0 rounded-[14px] border border-[#DCEBFF] bg-white px-3 text-sm font-black text-[#0F172A] outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 sm:h-12"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {formatAvailabilityTime(option)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function InvitationAvailabilityEditor({
   settings,
   setSettings,
@@ -8086,57 +8102,72 @@ function InvitationAvailabilityEditor({
           </span>
         </div>
 
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           {settings.weeklySchedule.map((day) => (
-            <div className="grid grid-cols-[88px_minmax(0,1fr)_34px_34px] items-center gap-2 sm:grid-cols-[104px_minmax(0,1fr)_36px_36px]" key={day.id}>
-              <p className="truncate text-[13px] font-black text-[#0F172A] sm:text-sm">{day.label}</p>
-              {day.available && day.windows.length ? (
-                <div className="grid min-w-0 gap-2">
-                  {day.windows.map((window) => (
-                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 rounded-[10px] border border-[#DCEBFF] bg-white px-2 py-1.5" key={window.id}>
-                      <input
-                        aria-label={`${day.label} start time`}
-                        className="min-w-0 bg-transparent text-center text-xs font-bold text-[#0F172A] outline-none"
-                        inputMode="numeric"
-                        onChange={(event) => updateWindow(day, window.id, "start", parseAvailabilityTimeInput(event.target.value, window.start))}
-                        type="text"
-                        value={formatAvailabilityTime(window.start)}
+            <div
+              className="grid gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start sm:gap-4"
+              key={day.id}
+            >
+              <p className="truncate text-[13px] font-black text-[#0F172A] sm:pt-8 sm:text-sm">{day.label}</p>
+              <div className="grid min-w-0 gap-2">
+                {day.available && day.windows.length ? (
+                  day.windows.map((window, windowIndex) => (
+                    <div
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] items-end gap-2 sm:grid-cols-[minmax(130px,1fr)_auto_minmax(130px,1fr)_44px_44px]"
+                      key={window.id}
+                    >
+                      <InvitationTimeSelect
+                        ariaLabel={`${day.label} start time window ${windowIndex + 1}`}
+                        label="Start"
+                        onChange={(value) => updateWindow(day, window.id, "start", value)}
+                        value={window.start}
                       />
-                      <span className="text-xs font-bold text-[#94A3B8]">-</span>
-                      <input
-                        aria-label={`${day.label} end time`}
-                        className="min-w-0 bg-transparent text-center text-xs font-bold text-[#0F172A] outline-none"
-                        inputMode="numeric"
-                        onChange={(event) => updateWindow(day, window.id, "end", parseAvailabilityTimeInput(event.target.value, window.end))}
-                        type="text"
-                        value={formatAvailabilityTime(window.end)}
+                      <span className="hidden h-12 items-center justify-center text-xs font-black text-[#94A3B8] sm:flex">to</span>
+                      <InvitationTimeSelect
+                        ariaLabel={`${day.label} end time window ${windowIndex + 1}`}
+                        label="End"
+                        onChange={(value) => updateWindow(day, window.id, "end", value)}
+                        value={window.end}
                       />
+                      {windowIndex === 0 ? (
+                        <button
+                          aria-label={`Add ${day.label} time window`}
+                          className="flex h-11 w-11 items-center justify-center rounded-full border border-[#CBD5E1] bg-white text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/15 sm:h-12 sm:w-12"
+                          onClick={() => addWindow(day)}
+                          type="button"
+                        >
+                          <Plus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                        </button>
+                      ) : (
+                        <span className="h-11 w-11 sm:h-12 sm:w-12" aria-hidden="true" />
+                      )}
+                      <button
+                        aria-label={`Remove ${day.label} ${formatAvailabilityTime(window.start)} to ${formatAvailabilityTime(window.end)} window`}
+                        className="col-span-3 flex h-10 w-10 items-center justify-center justify-self-end rounded-full text-[#94A3B8] transition-colors hover:bg-white hover:text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/15 sm:col-span-1 sm:h-12 sm:w-12"
+                        onClick={() => removeWindow(day, window.id)}
+                        type="button"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+                      </button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <span className="px-2 text-sm font-black text-[#94A3B8]">-</span>
-              )}
-              <button
-                aria-label={`Add ${day.label} time window`}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[#CBD5E1] bg-white text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
-                onClick={() => addWindow(day)}
-                type="button"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-              </button>
-              {day.available && day.windows.length ? (
-                <button
-                  aria-label={`Remove ${day.label} time window`}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F8FAFC] hover:text-[#0F172A]"
-                  onClick={() => removeWindow(day, day.windows.at(-1)?.id ?? "")}
-                  type="button"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-                </button>
-              ) : (
-                <span aria-hidden="true" />
-              )}
+                  ))
+                ) : (
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_44px_44px] items-center gap-2 sm:grid-cols-[minmax(0,1fr)_44px_44px]">
+                    <span className="inline-flex min-h-11 min-w-0 items-center rounded-[14px] border border-dashed border-[#DCEBFF] bg-white px-3 text-sm font-black text-[#64748B] sm:min-h-12">
+                      Unavailable
+                    </span>
+                    <button
+                      aria-label={`Add ${day.label} time window`}
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#CBD5E1] bg-white text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/15 sm:h-12 sm:w-12"
+                      onClick={() => addWindow(day)}
+                      type="button"
+                    >
+                      <Plus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                    </button>
+                    <span className="h-11 w-11 sm:h-12 sm:w-12" aria-hidden="true" />
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
