@@ -911,6 +911,7 @@ const teamMemberStatusOptions: Array<{ label: string; value: AdminTeamMemberStat
 
 const teamMemberCategoryOptions = [
   { label: "Missionary", value: "Missionary" },
+  { label: "Missionary in Training", value: "Missionary in Training" },
   { label: "Prayer Partner", value: "Prayer Partner" },
   { label: "Support Partner", value: "Support Partner" },
   { label: "Volunteer", value: "Volunteer" },
@@ -8662,7 +8663,7 @@ function TeamMemberManager({
           <div className="overflow-hidden rounded-xl border border-[#e2ded5] bg-white">
             <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_92px_72px_70px] gap-3 border-b border-[#e2ded5] bg-[#fbfaf7] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#6f6658] md:grid" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
               <span>Name</span>
-              <span>Category</span>
+              <span>Public Role</span>
               <span>Location</span>
               <span>Status</span>
               <span>Public</span>
@@ -8784,8 +8785,8 @@ function TeamMemberRow({
         ) : null}
       </div>
       <div className="flex items-center justify-between gap-3 md:block">
-        <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Category</span>
-        <span className="text-sm text-[#4b443b]">{member.role_title || "Not set"}</span>
+        <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Public Role</span>
+        <span className="text-sm text-[#4b443b]">{member.role_title || "Missionary in Training"}</span>
       </div>
       <div className="flex items-center justify-between gap-3 md:block">
         <span className="text-[10px] uppercase tracking-[0.16em] text-[#8a8174] md:hidden" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>Location</span>
@@ -8948,10 +8949,11 @@ function TeamMemberEditor({
           ) : null}
         </div>
         <SelectField
-          label="Category"
+          helperText="Public profile display label only. This does not change DOS, workspace, auth, or internal NCC roles."
+          label="Public Display Role"
           onChange={(value) => onUpdate(member.id, { role_title: value })}
           options={teamMemberCategoryOptions}
-          value={member.role_title || "Other"}
+          value={member.role_title || "Missionary in Training"}
         />
         <Field
           label="Sort Order"

@@ -4,6 +4,11 @@ import { useState } from "react";
 import type { MissionaryHouseholdMember } from "@/src/data/missionaries";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const publicTrainingRoleLabel = "Missionary in Training";
+
+function publicRoleLabel(member: MissionaryHouseholdMember) {
+  return member.roleTitle?.trim() || publicTrainingRoleLabel;
+}
 
 export function ExpandableTeamMemberList({
   members,
@@ -31,11 +36,9 @@ export function ExpandableTeamMemberList({
               </span>
             ) : null}
           </div>
-          {member.roleTitle ? (
-            <p className="mt-1 text-xs text-stone-400">
-              {member.roleTitle}
-            </p>
-          ) : null}
+          <p className="mt-1 text-xs text-stone-400">
+            {publicRoleLabel(member)}
+          </p>
         </div>
       ))}
       {hiddenMemberCount > 0 ? (
