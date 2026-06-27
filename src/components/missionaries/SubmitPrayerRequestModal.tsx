@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { analyticsEvents, trackAnalyticsEvent } from "@/src/lib/analytics";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
@@ -111,7 +112,13 @@ export function SubmitPrayerRequestModal({
     <>
       <button
         className={compactButtonClassName(buttonClassName)}
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          trackAnalyticsEvent(analyticsEvents.prayerRequestClick, {
+            missionary_slug: profileSlug,
+            placement: "missionary_profile",
+          });
+          setIsOpen(true);
+        }}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         type="button"
       >

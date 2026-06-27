@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
+import { AnalyticsScripts } from "../components/AnalyticsScripts";
 import { RouteAwareSiteFooter } from "../components/RouteAwareSiteFooter";
 
 export const metadata: Metadata = {
@@ -23,6 +25,9 @@ export default function RootLayout({
         className="flex min-h-screen flex-col bg-usam-black text-stone-100"
         style={{ fontFamily: "'Inter', sans-serif", WebkitFontSmoothing: "antialiased" }}
       >
+        <Suspense fallback={null}>
+          <AnalyticsScripts />
+        </Suspense>
         <div className="flex-1">
           {children}
         </div>

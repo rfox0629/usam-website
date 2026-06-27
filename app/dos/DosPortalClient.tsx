@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { analyticsEvents, trackAnalyticsEvent } from "@/src/lib/analytics";
 
 type SetupType = "church" | "ministry_team" | "personal" | "usa_missionaries";
 type TeamStatus = "individual" | "married_team";
@@ -188,7 +189,15 @@ export function DosPortalClient({
             <a className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#2563EB] px-6 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:bg-[#1D4ED8]" href="#get-started">
               Get Started
             </a>
-            <Link className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-6 text-sm font-semibold text-[#0F172A] transition hover:border-[#2563EB]" href="/login?next=/dos">
+            <Link
+              className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-6 text-sm font-semibold text-[#0F172A] transition hover:border-[#2563EB]"
+              href="/login?next=/dos"
+              onClick={() => {
+                trackAnalyticsEvent(analyticsEvents.dosLoginClick, {
+                  placement: "dos_portal",
+                });
+              }}
+            >
               Sign In
             </Link>
           </div>
@@ -213,7 +222,15 @@ export function DosPortalClient({
                 <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-semibold text-white" href={workspaceHref}>
                   Open DOS
                 </Link>
-                <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-semibold text-[#0F172A]" href={`/login?next=${encodeURIComponent(workspaceHref)}`}>
+                <Link
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-semibold text-[#0F172A]"
+                  href={`/login?next=${encodeURIComponent(workspaceHref)}`}
+                  onClick={() => {
+                    trackAnalyticsEvent(analyticsEvents.dosLoginClick, {
+                      placement: "dos_portal_workspace_ready",
+                    });
+                  }}
+                >
                   Sign In
                 </Link>
               </div>

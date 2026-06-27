@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { CommitmentGiftType } from "@/components/missionaries/GivingCommitmentForm";
 import { MajorGiftInquiryModal } from "@/src/components/missionaries/MajorGiftInquiryModal";
 import { SupportMissionModal } from "@/src/components/missionaries/SupportMissionModal";
+import { analyticsEvents, trackAnalyticsEvent } from "@/src/lib/analytics";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 const monthlySupportLabel = "Support Monthly";
@@ -113,13 +114,22 @@ export function HeroSupportActions(props: SharedSupportProps) {
     showSupport = true,
   } = props;
 
+  function openTrackedSupportModal(giftType: CommitmentGiftType, placement: string) {
+    trackAnalyticsEvent(analyticsEvents.donateClick, {
+      gift_type: giftType,
+      missionary_slug: props.missionarySlug,
+      placement,
+    });
+    openModal(giftType);
+  }
+
   return (
     <>
       <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:gap-4 md:mt-10">
         {showSupport && enableMonthlyPartnership ? (
           <button
             className={primaryButtonClassName()}
-            onClick={() => openModal("monthly")}
+            onClick={() => openTrackedSupportModal("monthly", "profile_hero")}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="button"
           >
@@ -143,6 +153,15 @@ export function MonthlySupportActions(props: SharedSupportProps) {
   const { closeModal, initialGiftType, isSupportModalOpen, openModal } = useSupportModal();
   const triggerLabel = props.supportButtonLabel || props.monthlyButtonLabel || monthlySupportLabel;
 
+  function openTrackedSupportModal() {
+    trackAnalyticsEvent(analyticsEvents.donateClick, {
+      gift_type: "monthly",
+      missionary_slug: props.missionarySlug,
+      placement: "monthly_support_section",
+    });
+    openModal("monthly");
+  }
+
   if (props.enableMonthlyPartnership === false) {
     return null;
   }
@@ -154,7 +173,7 @@ export function MonthlySupportActions(props: SharedSupportProps) {
           type="button"
           className={primaryButtonClassName()}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          onClick={() => openModal("monthly")}
+          onClick={openTrackedSupportModal}
         >
           {triggerLabel}
         </button>
@@ -194,13 +213,22 @@ export function ProfileSupportSectionActions(props: SharedSupportProps & { layou
 
   const isCompact = layout === "compact";
 
+  function openTrackedSupportModal(giftType: CommitmentGiftType, placement: string) {
+    trackAnalyticsEvent(analyticsEvents.donateClick, {
+      gift_type: giftType,
+      missionary_slug: props.missionarySlug,
+      placement,
+    });
+    openModal(giftType);
+  }
+
   return (
     <>
       <div className={isCompact ? "mt-4 grid gap-2" : "mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap"}>
         {enableMonthlyPartnership ? (
           <button
             className={isCompact ? compactPrimaryButtonClassName() : primaryButtonClassName()}
-            onClick={() => openModal("monthly")}
+            onClick={() => openTrackedSupportModal("monthly", isCompact ? "profile_support_compact" : "profile_support")}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="button"
           >
@@ -210,7 +238,7 @@ export function ProfileSupportSectionActions(props: SharedSupportProps & { layou
         {enableOneTimeGift ? (
           <button
             className={isCompact ? compactSecondaryButtonClassName() : secondaryButtonClassName()}
-            onClick={() => openModal("onetime")}
+            onClick={() => openTrackedSupportModal("onetime", isCompact ? "profile_support_compact" : "profile_support")}
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             type="button"
           >

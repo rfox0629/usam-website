@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SupportMissionModal } from "@/src/components/missionaries/SupportMissionModal";
+import { analyticsEvents, trackAnalyticsEvent } from "@/src/lib/analytics";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -24,7 +25,13 @@ export function GeneralSupportGivingButton({
     <>
       <button
         className="inline-block border border-usam-gold bg-usam-gold px-7 py-3 text-sm uppercase tracking-[0.2em] text-usam-black transition-all duration-300 hover:bg-usam-gold/90"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          trackAnalyticsEvent(analyticsEvents.donateClick, {
+            gift_type: "monthly",
+            placement: "general_support_page",
+          });
+          setIsOpen(true);
+        }}
         style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
         type="button"
       >

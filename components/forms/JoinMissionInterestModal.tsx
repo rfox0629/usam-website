@@ -16,6 +16,7 @@ import {
   PublicTextInput,
 } from "@/components/forms/PublicForm";
 import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
+import { analyticsEvents, trackAnalyticsEvent } from "@/src/lib/analytics";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -56,7 +57,9 @@ export function JoinMissionInterestModal({
 
   useEffect(() => {
     if (initialOpen) {
-      openModal();
+      setStatus("idle");
+      setErrorMessage("");
+      setIsOpen(true);
     }
   }, [initialOpen]);
 
@@ -84,6 +87,13 @@ export function JoinMissionInterestModal({
     setStatus("idle");
     setErrorMessage("");
     setIsOpen(true);
+
+    trackAnalyticsEvent(defaultInterest === "Become a missionary"
+      ? analyticsEvents.becomeMissionaryClick
+      : analyticsEvents.joinMissionClick, {
+      interest: defaultInterest ?? "general",
+      source_page: pathname || "/",
+    });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
