@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createFormSubmission } from "@/src/lib/forms/form-submissions";
+import { resolveSupportMissionaryProfile } from "@/src/lib/missionaries/support-profile-resolution";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupportCommitmentPayload = {
@@ -12,6 +13,7 @@ type SupportCommitmentPayload = {
   householdName?: unknown;
   lastName?: unknown;
   message?: unknown;
+  missionaryName?: unknown;
   otherAmount?: unknown;
   phone?: unknown;
   profileSlug?: unknown;
@@ -90,6 +92,8 @@ function isSupportCommitmentsSchemaError(error: { message?: string } | null | un
   return message.includes("submitted_at")
     || message.includes("completed_at")
     || message.includes("admin_notes")
+    || message.includes("missionary_profile_id")
+    || message.includes("profile_match_status")
     || message.includes("support_commitments_status_check")
     || message.includes("pending_giving_setup");
 }
@@ -124,45 +128,84 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const profileResolution = await resolveSupportMissionaryProfile(supabase, {
+    householdId,
+    missionaryName: asNullableString(payload.missionaryName) ?? asNullableString(payload.householdName),
+    profileSlug: asNullableString(payload.profileSlug),
+  });
+  const resolvedHouseholdName = profileResolution.householdName
+    ?? asNullableString(payload.householdName);
+  const resolvedProfileSlug = profileResolution.slug
+    ?? asNullableString(payload.profileSlug);
 
   // TODO: Future Church Center webhook can reconcile completed donations against
   // support_commitments by donor email, amount, timing, and profile_slug.
     // TODO: Future accounting view in Command Center can show donor intent vs completed giving.
-  const insertResult = await supabase
-    .from("support_commitments")
-    .insert({
-      allocation_preference: asNullableString(payload.allocationPreference),
-      default_allocation: asNullableString(payload.defaultAllocation),
-      email,
-      first_name: firstName,
-      gift_type: giftType,
-      household_id: householdId,
-      household_name: asNullableString(payload.householdName),
-      last_name: lastName,
-      message: asNullableString(payload.message),
-      other_amount: asNullableNumber(payload.otherAmount),
-      phone: asNullableString(payload.phone),
-      profile_slug: asNullableString(payload.profileSlug),
-      redirect_giving_url: asNullableString(payload.redirectGivingUrl),
-      resolved_monthly_giving_url: asNullableString(payload.resolvedMonthlyGivingUrl),
-      resolved_one_time_giving_url: asNullableString(payload.resolvedOneTimeGivingUrl),
-      selected_amount: asNullableString(payload.selectedAmount),
-      source: toSource(payload.source),
-      status: "pending_giving_setup",
-      submitted_at: new Date().toISOString(),
-      support_mode: asNullableString(payload.supportMode),
-    })
-    .select("id")
-    .single();
+  const timestamp = new Date().toISOString();
+  const commitmentPayload = {
+    allocation_preference: asNullableString(payload.allocationPreference),
+    default_allocation: asNullableString(payload.defaultAllocation),
+    email,
+    first_name: firstName,
+    gift_type: giftType,
+    household_id: profileResolution.id,
+    household_name: resolvedHouseholdName,
+    last_name: lastName,
+    message: asNullableString(payload.message),
+    missionary_profile_id: profileResolution.id,
+    other_amount: asNullableNumber(payload.otherAmount),
+    phone: asNullableString(payload.phone),
+    profile_match_query: profileResolution.matchQuery,
+    profile_match_source: profileResolution.matchSource,
+    profile_match_status: profileResolution.matchStatus,
+    profile_slug: resolvedProfileSlug,
+    redirect_giving_url: asNullableString(payload.redirectGivingUrl),
+    resolved_monthly_giving_url: asNullableString(payload.resolvedMonthlyGivingUrl),
+    resolved_one_time_giving_url: asNullableString(payload.resolvedOneTimeGivingUrl),
+    selected_amount: asNullableString(payload.selectedAmount),
+    source: toSource(payload.source),
+    status: "pending_giving_setup",
+    submitted_at: timestamp,
+    support_mode: asNullableString(payload.supportMode),
+  };
+  const existingResult = profileResolution.id
+    ? await supabase
+      .from("support_commitments")
+      .select("id")
+      .eq("email", email)
+      .eq("gift_type", giftType)
+      .eq("missionary_profile_id", profileResolution.id)
+      .in("status", ["pending_giving_setup", "needs_follow_up"])
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+    : { data: null, error: null };
+  const existingCommitmentId = !existingResult.error && existingResult.data?.[0]?.id
+    ? String(existingResult.data[0].id)
+    : null;
+  const saveResult = existingCommitmentId
+    ? await supabase
+      .from("support_commitments")
+      .update({
+        ...commitmentPayload,
+        updated_at: timestamp,
+      })
+      .eq("id", existingCommitmentId)
+      .select("id")
+      .single()
+    : await supabase
+      .from("support_commitments")
+      .insert(commitmentPayload)
+      .select("id")
+      .single();
 
-  if (insertResult.error) {
-    if (isMissingSupportCommitmentsTable(insertResult.error)) {
+  if (saveResult.error) {
+    if (isMissingSupportCommitmentsTable(saveResult.error)) {
       return NextResponse.json({
         error: "Support commitment table is not ready yet. Please contact USA Missionaries before continuing to the giving page.",
       }, { status: 503 });
     }
 
-    if (isSupportCommitmentsSchemaError(insertResult.error)) {
+    if (isSupportCommitmentsSchemaError(saveResult.error)) {
       return NextResponse.json({
         error: "Support commitment workflow migration is not applied yet. Please contact USA Missionaries before continuing to the giving page.",
       }, { status: 503 });
@@ -171,7 +214,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to save this support commitment." }, { status: 500 });
   }
 
-  const commitmentId = (insertResult.data as { id?: string } | null)?.id ?? null;
+  const commitmentId = (saveResult.data as { id?: string } | null)?.id ?? null;
   const formSubmissionResult = await createFormSubmission({
     assignedTeam: "support_team",
     email,
@@ -184,13 +227,16 @@ export async function POST(request: Request) {
       amount: asNullableString(payload.selectedAmount) ?? asNullableNumber(payload.otherAmount),
       default_allocation: asNullableString(payload.defaultAllocation),
       gift_type: giftType,
-      household_id: householdId,
-      household_name: asNullableString(payload.householdName),
-      missionary_name: asNullableString(payload.householdName),
-      missionary_profile_id: asNullableString(payload.householdId),
+      household_id: profileResolution.id,
+      household_name: resolvedHouseholdName,
+      missionary_name: resolvedHouseholdName ?? asNullableString(payload.missionaryName),
+      missionary_profile_id: profileResolution.id,
       note: asNullableString(payload.message),
       other_amount: asNullableNumber(payload.otherAmount),
-      profile_slug: asNullableString(payload.profileSlug),
+      profile_match_query: profileResolution.matchQuery,
+      profile_match_source: profileResolution.matchSource,
+      profile_match_status: profileResolution.matchStatus,
+      profile_slug: resolvedProfileSlug,
       redirect_giving_url: asNullableString(payload.redirectGivingUrl),
       selected_amount: asNullableString(payload.selectedAmount),
       status: "pending_giving_setup",
@@ -198,8 +244,8 @@ export async function POST(request: Request) {
       support_mode: asNullableString(payload.supportMode),
     },
     phone: asNullableString(payload.phone),
-    sourcePage: asNullableString(payload.profileSlug)
-      ? `/missionaries/${asString(payload.profileSlug)}`
+    sourcePage: resolvedProfileSlug
+      ? `/missionaries/${resolvedProfileSlug}`
       : "/support",
   });
 

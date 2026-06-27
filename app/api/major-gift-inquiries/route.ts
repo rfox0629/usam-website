@@ -104,6 +104,13 @@ function isMissingMajorGiftTable(error: { message?: string } | null | undefined)
   return Boolean(error?.message?.includes("major_gift_inquiries"));
 }
 
+function isMajorGiftSchemaError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return message.includes("missionary_profile_id")
+    || message.includes("profile_match_status");
+}
+
 function isMissingPublicProfileColumn(error: { code?: string; message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
@@ -186,6 +193,16 @@ export async function POST(request: Request) {
   const household = householdData?.show_household === false ? null : householdData;
   const householdDisplayName = household?.public_display_name?.trim() || household?.display_name || submittedHouseholdName || null;
   const householdPublicSlug = household?.public_slug?.trim() || household?.slug || profileSlug || null;
+  const profileMatchQuery = (householdId ?? profileSlug) || submittedHouseholdName || null;
+  const profileMatchSource = household
+    ? householdId
+      ? "public_profile_id"
+      : profileSlug
+        ? "public_slug"
+        : "public_name"
+    : profileMatchQuery
+      ? "submitted_name"
+      : null;
 
   if ((householdId || profileSlug) && !household && !submittedHouseholdName) {
     return NextResponse.json({ error: "This missionary profile is not available." }, { status: 404 });
@@ -213,7 +230,11 @@ export async function POST(request: Request) {
       intended_for: intendedFor,
       last_name: lastName,
       message: asNullableString(payload.message),
+      missionary_profile_id: household?.id ?? null,
       phone: asNullableString(payload.phone),
+      profile_match_query: profileMatchQuery,
+      profile_match_source: profileMatchSource,
+      profile_match_status: household ? "matched" : profileMatchQuery ? "needs_review" : "unassigned",
       profile_slug: householdPublicSlug,
       projected_amount_range: projectedAmountRange,
       source: "missionary_profile",
@@ -225,6 +246,10 @@ export async function POST(request: Request) {
   if (insertResult.error) {
     if (isMissingMajorGiftTable(insertResult.error)) {
       return NextResponse.json({ error: "Major gift inquiry database table is not ready yet." }, { status: 503 });
+    }
+
+    if (isMajorGiftSchemaError(insertResult.error)) {
+      return NextResponse.json({ error: "Major gift profile routing migration is not applied yet." }, { status: 503 });
     }
 
     return NextResponse.json({ error: "Unable to save this inquiry." }, { status: 500 });
@@ -244,6 +269,10 @@ export async function POST(request: Request) {
       household_name: householdDisplayName,
       intended_for: intendedFor,
       major_gift_inquiry_id: majorGiftInquiryId,
+      missionary_profile_id: household?.id ?? null,
+      profile_match_query: profileMatchQuery,
+      profile_match_source: profileMatchSource,
+      profile_match_status: household ? "matched" : profileMatchQuery ? "needs_review" : "unassigned",
       profile_slug: householdPublicSlug,
       projected_amount_range: projectedAmountRange,
     },

@@ -640,7 +640,7 @@ function isMissingSupportCommitmentsTable(error: { message?: string } | null | u
 function isMissingSupportCommitmentWorkflowColumns(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
-  return ["submitted_at", "completed_at", "admin_notes"].some((columnName) => message.includes(columnName));
+  return ["submitted_at", "completed_at", "admin_notes", "missionary_profile_id", "profile_match_status"].some((columnName) => message.includes(columnName));
 }
 
 function isMissingMajorGiftInquiriesTable(error: { message?: string } | null | undefined) {
@@ -648,6 +648,12 @@ function isMissingMajorGiftInquiriesTable(error: { message?: string } | null | u
 
   return message.includes("major_gift_inquiries")
     || message.toLowerCase().includes("could not find the table");
+}
+
+function isMissingMajorGiftInquiryProfileColumns(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return ["missionary_profile_id", "profile_match_status"].some((columnName) => message.includes(columnName));
 }
 
 function getSupportCommitmentStatus(value: string | null | undefined): AdminSupportCommitmentStatus {
@@ -742,6 +748,7 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
   const teamMembersByHouseholdId = new Map<string, AdminTeamMember[]>();
 
   if (ids.length > 0) {
+    const profileIdFilter = `(${ids.join(",")})`;
     const supportResult = await supabase
       .from("missionary_support_settings")
       .select("household_id, show_support, annual_goal, monthly_goal, monthly_committed, monthly_received, general_fund_percentage, goal_basis, monthly_giving_url, one_time_giving_url, monthly_button_label, one_time_button_label, major_gift_button_label, enable_monthly_partnership, enable_one_time_gift, enable_major_gift_inquiry, monthly_support_description, one_time_support_description, major_gift_notify_email, major_gift_public_description, flyer_headline, flyer_support_appeal, flyer_prayer_ask, flyer_note")
@@ -765,8 +772,8 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
 
     const supportCommitmentsResult = await supabase
       .from("support_commitments")
-      .select("id, household_id, first_name, last_name, email, phone, gift_type, selected_amount, other_amount, allocation_preference, message, redirect_giving_url, status, submitted_at, completed_at, admin_notes, created_at, updated_at")
-      .in("household_id", ids)
+      .select("id, household_id, missionary_profile_id, first_name, last_name, email, phone, gift_type, selected_amount, other_amount, allocation_preference, message, redirect_giving_url, status, submitted_at, completed_at, admin_notes, profile_match_status, profile_match_source, profile_match_query, created_at, updated_at")
+      .or(`missionary_profile_id.in.${profileIdFilter},household_id.in.${profileIdFilter}`)
       .order("submitted_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
     const fallbackSupportCommitmentsResult = supportCommitmentsResult.error && isMissingSupportCommitmentWorkflowColumns(supportCommitmentsResult.error)
@@ -782,11 +789,13 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     }
 
     ((fallbackSupportCommitmentsResult.data ?? []) as Array<Partial<AdminSupportCommitment> & { status: string | null }>).forEach((commitment) => {
-      if (!commitment.household_id || !ids.includes(commitment.household_id)) {
+      const linkedProfileId = commitment.missionary_profile_id ?? commitment.household_id;
+
+      if (!linkedProfileId || !ids.includes(linkedProfileId)) {
         return;
       }
 
-      const currentCommitments = supportCommitmentsByHouseholdId.get(commitment.household_id) ?? [];
+      const currentCommitments = supportCommitmentsByHouseholdId.get(linkedProfileId) ?? [];
 
       currentCommitments.push({
         admin_notes: commitment.admin_notes ?? null,
@@ -796,12 +805,16 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         email: commitment.email ?? "",
         first_name: commitment.first_name ?? "",
         gift_type: commitment.gift_type === "one_time" ? "one_time" : "monthly",
-        household_id: commitment.household_id,
+        household_id: commitment.household_id ?? linkedProfileId,
         id: commitment.id ?? "",
         last_name: commitment.last_name ?? "",
         message: commitment.message ?? null,
+        missionary_profile_id: linkedProfileId,
         other_amount: commitment.other_amount ?? null,
         phone: commitment.phone ?? null,
+        profile_match_query: commitment.profile_match_query ?? null,
+        profile_match_source: commitment.profile_match_source ?? null,
+        profile_match_status: commitment.profile_match_status ?? null,
         redirect_giving_url: commitment.redirect_giving_url ?? null,
         selected_amount: commitment.selected_amount ?? null,
         ...commitment,
@@ -809,25 +822,34 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         status: getSupportCommitmentStatus(commitment.status),
         updated_at: commitment.updated_at ?? null,
       });
-      supportCommitmentsByHouseholdId.set(commitment.household_id, currentCommitments);
+      supportCommitmentsByHouseholdId.set(linkedProfileId, currentCommitments);
     });
 
     const majorGiftInquiriesResult = await supabase
       .from("major_gift_inquiries")
-      .select("id, household_id, household_name, profile_slug, first_name, last_name, email, phone, donation_types, projected_amount_range, intended_for, message, best_time_to_contact, status, created_at, updated_at")
-      .in("household_id", ids)
+      .select("id, household_id, missionary_profile_id, household_name, profile_slug, first_name, last_name, email, phone, donation_types, projected_amount_range, intended_for, message, best_time_to_contact, profile_match_status, profile_match_source, profile_match_query, status, created_at, updated_at")
+      .or(`missionary_profile_id.in.${profileIdFilter},household_id.in.${profileIdFilter}`)
       .order("created_at", { ascending: false });
+    const fallbackMajorGiftInquiriesResult = majorGiftInquiriesResult.error && isMissingMajorGiftInquiryProfileColumns(majorGiftInquiriesResult.error)
+      ? await supabase
+        .from("major_gift_inquiries")
+        .select("id, household_id, household_name, profile_slug, first_name, last_name, email, phone, donation_types, projected_amount_range, intended_for, message, best_time_to_contact, status, created_at, updated_at")
+        .in("household_id", ids)
+        .order("created_at", { ascending: false })
+      : majorGiftInquiriesResult;
 
-    if (majorGiftInquiriesResult.error && !isMissingMajorGiftInquiriesTable(majorGiftInquiriesResult.error)) {
-      return { error: majorGiftInquiriesResult.error.message, profiles: [] };
+    if (fallbackMajorGiftInquiriesResult.error && !isMissingMajorGiftInquiriesTable(fallbackMajorGiftInquiriesResult.error)) {
+      return { error: fallbackMajorGiftInquiriesResult.error.message, profiles: [] };
     }
 
-    ((majorGiftInquiriesResult.data ?? []) as Array<Partial<AdminMajorGiftInquiry> & { status: string | null }>).forEach((inquiry) => {
-      if (!inquiry.household_id || !ids.includes(inquiry.household_id)) {
+    ((fallbackMajorGiftInquiriesResult.data ?? []) as Array<Partial<AdminMajorGiftInquiry> & { status: string | null }>).forEach((inquiry) => {
+      const linkedProfileId = inquiry.missionary_profile_id ?? inquiry.household_id;
+
+      if (!linkedProfileId || !ids.includes(linkedProfileId)) {
         return;
       }
 
-      const currentInquiries = majorGiftInquiriesByHouseholdId.get(inquiry.household_id) ?? [];
+      const currentInquiries = majorGiftInquiriesByHouseholdId.get(linkedProfileId) ?? [];
 
       currentInquiries.push({
         best_time_to_contact: inquiry.best_time_to_contact ?? null,
@@ -835,19 +857,23 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         donation_types: inquiry.donation_types ?? null,
         email: inquiry.email ?? "",
         first_name: inquiry.first_name ?? "",
-        household_id: inquiry.household_id,
+        household_id: inquiry.household_id ?? linkedProfileId,
         household_name: inquiry.household_name ?? null,
         id: inquiry.id ?? "",
         intended_for: inquiry.intended_for ?? null,
         last_name: inquiry.last_name ?? "",
         message: inquiry.message ?? null,
+        missionary_profile_id: linkedProfileId,
         phone: inquiry.phone ?? null,
+        profile_match_query: inquiry.profile_match_query ?? null,
+        profile_match_source: inquiry.profile_match_source ?? null,
+        profile_match_status: inquiry.profile_match_status ?? null,
         profile_slug: inquiry.profile_slug ?? null,
         projected_amount_range: inquiry.projected_amount_range ?? null,
         status: getMajorGiftInquiryStatus(inquiry.status),
         updated_at: inquiry.updated_at ?? null,
       });
-      majorGiftInquiriesByHouseholdId.set(inquiry.household_id, currentInquiries);
+      majorGiftInquiriesByHouseholdId.set(linkedProfileId, currentInquiries);
     });
 
     const [prayerPartnersResult, prayerRequestsResult] = await Promise.all([

@@ -18,7 +18,9 @@ export default function FinanceOperationsPage() {
         active: "finance",
         description: "Track giving commitments, monthly support setup, and finance follow-up without turning public pages into finance dashboards.",
         emptyDescription: "Finance submissions and support commitments will appear here when available.",
-        formTypes: ["financial_freedom", "support_giving"],
+        formTypes: ["financial_freedom"],
+        includeMajorGiftInquiries: true,
+        includeProfileAssignment: true,
         includeSupportCommitments: true,
         sourceForms: [
           { name: "Giving Commitments", route: "/support" },

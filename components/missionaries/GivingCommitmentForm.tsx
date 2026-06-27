@@ -3,6 +3,7 @@
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { getGivingUrl } from "@/src/lib/giving";
+import type { PublicSupportProfileOption } from "@/src/lib/missionaries/support-profile-types";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -18,6 +19,7 @@ export type GivingCommitmentFormProps = {
   householdName?: string | null;
   initialGiftType?: CommitmentGiftType;
   profileSlug?: string | null;
+  profileOptions?: PublicSupportProfileOption[];
   resolvedMonthlyGivingUrl?: string | null;
   resolvedOneTimeGivingUrl?: string | null;
   source?: SupportCommitmentSource;
@@ -151,6 +153,7 @@ export function GivingCommitmentForm({
   householdName,
   initialGiftType = "monthly",
   profileSlug = null,
+  profileOptions = [],
   resolvedMonthlyGivingUrl,
   resolvedOneTimeGivingUrl,
   source = "missionary_profile",
@@ -184,6 +187,7 @@ export function GivingCommitmentForm({
   const [monthlyAmount, setMonthlyAmount] = useState("");
   const [oneTimeAmount, setOneTimeAmount] = useState("");
   const [allocationPreference, setAllocationPreference] = useState(allocationLabel);
+  const [selectedMissionaryProfileId, setSelectedMissionaryProfileId] = useState("");
   const [status, setStatus] = useState<"error" | "idle" | "submitting" | "success">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [givingWindowBlocked, setGivingWindowBlocked] = useState(false);
@@ -194,6 +198,8 @@ export function GivingCommitmentForm({
   const formTitle = giftType === "monthly" ? "Support Monthly" : "Give One Time";
   const resolvedMonthlyUrl = getGivingUrl(resolvedMonthlyGivingUrl, "monthly");
   const resolvedOneTimeUrl = getGivingUrl(resolvedOneTimeGivingUrl, "onetime");
+  const showMissionarySelector = source === "general_support_page" && allocationPreference === "Support this missionary";
+  const selectedProfile = profileOptions.find((profile) => profile.id === selectedMissionaryProfileId) ?? null;
 
   useEffect(() => {
     setGiftType(initialGiftType);
@@ -219,6 +225,18 @@ export function GivingCommitmentForm({
     const otherAmount = activeAmount === "Other" ? parseAmount(formData.get("otherAmount")) : null;
     const selectedAmount = activeAmount === "Other" ? "Other" : activeAmount;
     const nextRedirectUrl = giftType === "monthly" ? resolvedMonthlyUrl : resolvedOneTimeUrl;
+    const submittedMissionaryName = showMissionarySelector
+      ? selectedProfile?.displayName ?? String(formData.get("missionaryName") ?? "").trim()
+      : "";
+    const submittedHouseholdId = showMissionarySelector
+      ? selectedProfile?.id ?? null
+      : householdId;
+    const submittedHouseholdName = showMissionarySelector
+      ? selectedProfile?.displayName ?? submittedMissionaryName
+      : contextName;
+    const submittedProfileSlug = showMissionarySelector
+      ? selectedProfile?.slug ?? null
+      : profileSlug;
 
     setStatus("submitting");
     setErrorMessage("");
@@ -233,13 +251,14 @@ export function GivingCommitmentForm({
           email: String(formData.get("email") ?? ""),
           firstName: String(formData.get("firstName") ?? ""),
           giftType,
-          householdId,
-          householdName: contextName,
+          householdId: submittedHouseholdId,
+          householdName: submittedHouseholdName,
           lastName: String(formData.get("lastName") ?? ""),
           message: String(formData.get("message") ?? ""),
+          missionaryName: submittedMissionaryName,
           otherAmount,
           phone: String(formData.get("phone") ?? ""),
-          profileSlug,
+          profileSlug: submittedProfileSlug,
           redirectGivingUrl: nextRedirectUrl,
           resolvedMonthlyGivingUrl: resolvedMonthlyUrl,
           resolvedOneTimeGivingUrl: resolvedOneTimeUrl,
@@ -395,6 +414,39 @@ export function GivingCommitmentForm({
                     <option key={preference} value={preference}>{preference}</option>
                   ))}
                 </SelectField>
+                {showMissionarySelector ? (
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <SelectField
+                      id="missionaryProfileId"
+                      label="Missionary Profile"
+                      name="missionaryProfileId"
+                      onChange={setSelectedMissionaryProfileId}
+                      required
+                      value={selectedMissionaryProfileId}
+                    >
+                      <option value="">Select missionary</option>
+                      {profileOptions.map((profile) => (
+                        <option key={profile.id} title={profile.searchLabel} value={profile.id}>
+                          {profile.displayName}
+                        </option>
+                      ))}
+                      <option value="__unknown">I don't see them</option>
+                    </SelectField>
+                    {selectedMissionaryProfileId === "__unknown" ? (
+                      <div>
+                        <FieldLabel htmlFor="missionaryName">Missionary Name</FieldLabel>
+                        <input
+                          id="missionaryName"
+                          name="missionaryName"
+                          type="text"
+                          required
+                          className={inputClassName}
+                          placeholder="Name or family"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <p className="mt-3 text-sm leading-6 text-stone-600">
                   Current profile routing: {allocationLabel}.
                 </p>

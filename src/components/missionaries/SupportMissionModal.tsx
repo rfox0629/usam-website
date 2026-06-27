@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { GivingCommitmentForm, type CommitmentGiftType, type SupportCommitmentSource } from "@/components/missionaries/GivingCommitmentForm";
+import type { PublicSupportProfileOption } from "@/src/lib/missionaries/support-profile-types";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -15,6 +16,7 @@ type SupportMissionModalProps = {
   monthlyGivingUrl?: string | null;
   oneTimeGivingUrl?: string | null;
   profileSlug?: string | null;
+  profileOptions?: PublicSupportProfileOption[];
   source?: SupportCommitmentSource;
   supportButtonLabel?: string;
   supportMode?: string;
@@ -35,6 +37,7 @@ export function SupportMissionModal({
   monthlyGivingUrl,
   oneTimeGivingUrl,
   profileSlug,
+  profileOptions,
   source = "missionary_profile",
   supportMode,
   supportPublicLabel,
@@ -97,6 +100,7 @@ export function SupportMissionModal({
           householdName={householdName}
           initialGiftType={initialGiftType}
           profileSlug={profileSlug}
+          profileOptions={profileOptions}
           resolvedMonthlyGivingUrl={monthlyGivingUrl}
           resolvedOneTimeGivingUrl={oneTimeGivingUrl}
           source={source}

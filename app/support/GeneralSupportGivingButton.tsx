@@ -3,15 +3,18 @@
 import { useEffect, useState } from "react";
 import { SupportMissionModal } from "@/src/components/missionaries/SupportMissionModal";
 import { analyticsEvents, trackAnalyticsEvent } from "@/src/lib/analytics";
+import type { PublicSupportProfileOption } from "@/src/lib/missionaries/support-profile-types";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
 export function GeneralSupportGivingButton({
   children,
   initialOpen = false,
+  profileOptions = [],
 }: {
   children: React.ReactNode;
   initialOpen?: boolean;
+  profileOptions?: PublicSupportProfileOption[];
 }) {
   const [isOpen, setIsOpen] = useState(initialOpen);
 
@@ -46,6 +49,7 @@ export function GeneralSupportGivingButton({
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         profileSlug={null}
+        profileOptions={profileOptions}
         source="general_support_page"
         supportMode="general_fund"
       />

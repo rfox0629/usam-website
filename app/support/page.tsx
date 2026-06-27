@@ -5,6 +5,7 @@ import { PrimaryNav } from "../../components/PrimaryNav";
 import { GeneralSupportGivingButton } from "./GeneralSupportGivingButton";
 import { ViewTeamComingSoonButton } from "./ViewTeamComingSoonButton";
 import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
+import { getPublicSupportProfileOptions } from "@/src/lib/missionaries/support-profile-options";
 
 export const metadata: Metadata = {
   title: "Support the Mission | USA Missionaries",
@@ -78,6 +79,7 @@ export default async function SupportPage({
   const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
   const shouldOpenSupportGiving = params.previewForm === "support_giving";
   const shouldOpenTeamAccess = (params.team === "1" || params.previewForm === "team_access_code") && !hasAccess;
+  const supportProfileOptions = await getPublicSupportProfileOptions();
   const resourceAreas = [
     "Equipping and training leaders",
     "Supporting active missionaries",
@@ -213,7 +215,7 @@ export default async function SupportPage({
                 </p>
                 <div className="mt-8">
                   {option.title === "Standard Giving" ? (
-                    <GeneralSupportGivingButton initialOpen={shouldOpenSupportGiving}>
+                    <GeneralSupportGivingButton initialOpen={shouldOpenSupportGiving} profileOptions={supportProfileOptions}>
                       {option.cta}
                     </GeneralSupportGivingButton>
                   ) : (

@@ -190,8 +190,12 @@ export type AdminSupportCommitment = {
   id: string;
   last_name: string;
   message: string | null;
+  missionary_profile_id: string | null;
   other_amount: number | null;
   phone: string | null;
+  profile_match_query: string | null;
+  profile_match_source: string | null;
+  profile_match_status: "matched" | "manual" | "needs_review" | "unassigned" | null;
   redirect_giving_url: string | null;
   selected_amount: string | null;
   status: AdminSupportCommitmentStatus;
@@ -218,7 +222,11 @@ export type AdminMajorGiftInquiry = {
   intended_for: string | null;
   last_name: string;
   message: string | null;
+  missionary_profile_id: string | null;
   phone: string | null;
+  profile_match_query: string | null;
+  profile_match_source: string | null;
+  profile_match_status: "matched" | "manual" | "needs_review" | "unassigned" | null;
   profile_slug: string | null;
   projected_amount_range: string | null;
   status: AdminMajorGiftInquiryStatus;
@@ -7536,6 +7544,13 @@ function majorGiftTypesLabel(types: string[] | null) {
   return types?.length ? types.join(", ") : "Not specified";
 }
 
+function titleCaseValue(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function countSupportCommitments(commitments: readonly AdminSupportCommitment[], status: AdminSupportCommitmentStatus) {
   return commitments.filter((commitment) => commitment.status === status).length;
 }
@@ -8415,11 +8430,14 @@ function SupportCommitmentDetailModal({
         <DetailField label="Submitted" value={submittedDate} />
         <DetailField label="Allocation" value={commitment.allocation_preference} />
         <DetailField label="Completed" value={completedDate} />
+        <DetailField label="Profile Match" value={commitment.profile_match_status ? titleCaseValue(commitment.profile_match_status) : "Not recorded"} />
       </div>
 
       <div className="mt-3 grid gap-3">
         <DetailField label="Support Notes" value={commitment.message} />
         <DetailField label="Admin Notes" value={commitment.admin_notes} />
+        <DetailField label="Match Source" value={commitment.profile_match_source} />
+        <DetailField label="Match Query" value={commitment.profile_match_query} />
         <DetailField
           label="Giving Destination"
           value={commitment.redirect_giving_url ? (
@@ -8453,11 +8471,14 @@ function MajorGiftInquiryDetailModal({
         <DetailField label="Submitted" value={formatProfileUpdatedDate(inquiry.created_at)} />
         <DetailField label="Intended For" value={inquiry.intended_for} />
         <DetailField label="Best Time" value={inquiry.best_time_to_contact} />
+        <DetailField label="Profile Match" value={inquiry.profile_match_status ? titleCaseValue(inquiry.profile_match_status) : "Not recorded"} />
       </div>
 
       <div className="mt-3 grid gap-3">
         <DetailField label="Message" value={inquiry.message} />
         <DetailField label="Household" value={inquiry.household_name || inquiry.profile_slug} />
+        <DetailField label="Match Source" value={inquiry.profile_match_source} />
+        <DetailField label="Match Query" value={inquiry.profile_match_query} />
       </div>
     </DetailModalShell>
   );
