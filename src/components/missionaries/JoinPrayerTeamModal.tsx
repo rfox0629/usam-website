@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { PublicSelect } from "@/components/forms/PublicForm";
 import type { MissionaryPrayerRequest } from "@/src/data/missionaries";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -328,22 +329,19 @@ export function JoinPrayerTeamModal({
                     />
                   </label>
                 </div>
-                <label className="block">
-                  <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    How did you hear about our prayer team?
-                  </span>
-                  <select
-                    className="mt-2 min-h-11 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#C2A14E]"
-                    onChange={(event) => setFormValues((current) => ({ ...current, source: event.target.value as typeof sourceOptions[number]["value"] }))}
-                    value={formValues.source}
-                  >
+                <PublicSelect
+                  label="How did you hear about our prayer team?"
+                  name="source"
+                  onChange={(value) => setFormValues((current) => ({ ...current, source: value as typeof sourceOptions[number]["value"] }))}
+                  tone="dark"
+                  value={formValues.source}
+                >
                     {sourceOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
-                  </select>
-                </label>
+                </PublicSelect>
                 <p className="text-xs leading-5 text-stone-500">
                   We use this information to review prayer team applications and understand how each household is building prayer coverage.
                 </p>

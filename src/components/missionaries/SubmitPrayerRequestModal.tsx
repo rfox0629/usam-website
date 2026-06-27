@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { PublicSelect } from "@/components/forms/PublicForm";
 import { analyticsEvents, trackAnalyticsEvent } from "@/src/lib/analytics";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -212,38 +213,32 @@ export function SubmitPrayerRequestModal({
                   </label>
 
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="block">
-                      <span className={labelClassName()} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Category
-                      </span>
-                      <select
-                        className={inputClassName()}
-                        onChange={(event) => setFormValues((current) => ({ ...current, category: event.target.value as PrayerCategory }))}
-                        value={formValues.category}
-                      >
+                    <PublicSelect
+                      label="Category"
+                      name="category"
+                      onChange={(value) => setFormValues((current) => ({ ...current, category: value as PrayerCategory }))}
+                      tone="dark"
+                      value={formValues.category}
+                    >
                         {categoryOptions.map((category) => (
                           <option key={category} value={category}>
                             {category}
                           </option>
                         ))}
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className={labelClassName()} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                        Urgency
-                      </span>
-                      <select
-                        className={inputClassName()}
-                        onChange={(event) => setFormValues((current) => ({ ...current, urgency: event.target.value as PrayerUrgency }))}
-                        value={formValues.urgency}
-                      >
+                    </PublicSelect>
+                    <PublicSelect
+                      label="Urgency"
+                      name="urgency"
+                      onChange={(value) => setFormValues((current) => ({ ...current, urgency: value as PrayerUrgency }))}
+                      tone="dark"
+                      value={formValues.urgency}
+                    >
                         {urgencyOptions.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
                         ))}
-                      </select>
-                    </label>
+                    </PublicSelect>
                   </div>
 
                   {error ? (

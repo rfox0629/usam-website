@@ -84,7 +84,6 @@ function ProfileSupportModal({
 }) {
   return (
     <SupportMissionModal
-      defaultAllocation={props.supportPublicLabel}
       enableMonthlyPartnership={props.enableMonthlyPartnership}
       enableOneTimeGift={props.enableOneTimeGift}
       householdId={props.missionaryId}

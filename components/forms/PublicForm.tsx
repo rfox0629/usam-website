@@ -1,4 +1,7 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { Children, isValidElement, useEffect, useId, useMemo, useState } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
 const font = { rajdhani: "'Rajdhani', sans-serif" };
 
@@ -195,27 +198,170 @@ export function SelectChevron() {
   );
 }
 
+type OptionElementProps = {
+  children?: ReactNode;
+  disabled?: boolean;
+  title?: string;
+  value?: number | string;
+};
+
+function optionText(value: ReactNode) {
+  return Children.toArray(value).join("");
+}
+
 export function PublicSelect({
   children,
   defaultValue,
   label,
   name,
+  onChange,
   required = false,
+  tone = "light",
+  value,
 }: {
   children: ReactNode;
   defaultValue?: string;
   label: string;
   name: string;
+  onChange?: (value: string) => void;
   required?: boolean;
+  tone?: "dark" | "light";
+  value?: string;
 }) {
+  const listboxId = useId();
+  const [isOpen, setIsOpen] = useState(false);
+  const options = useMemo(() => {
+    return Children.toArray(children).flatMap((child) => {
+      if (!isValidElement<OptionElementProps>(child) || child.props.value === undefined) {
+        return [];
+      }
+
+      return [{
+        disabled: Boolean(child.props.disabled),
+        label: optionText(child.props.children) || String(child.props.value),
+        title: child.props.title,
+        value: String(child.props.value),
+      }];
+    });
+  }, [children]);
+  const initialValue = defaultValue ?? options[0]?.value ?? "";
+  const [internalValue, setInternalValue] = useState(initialValue);
+  const selectedValue = value ?? internalValue;
+  const selectedOption = options.find((option) => option.value === selectedValue) ?? options[0];
+  const selectedLabel = selectedOption?.label ?? "Select";
+  const firstOptionValue = options[0]?.value ?? "";
+  const optionValuesKey = options.map((option) => option.value).join("|");
+  const buttonClassName = tone === "dark"
+    ? "min-h-11 w-full rounded-xl border border-stone-800 bg-[#0D0D0D] px-3 text-left text-sm text-stone-100 shadow-sm outline-none transition-colors hover:border-[#C2A14E]/70 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/10"
+    : "min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-left text-base text-stone-950 shadow-sm outline-none transition hover:border-[#C2A14E]/65 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
+  const menuClassName = tone === "dark"
+    ? "absolute left-0 right-0 top-[calc(100%+8px)] z-[120] overflow-hidden rounded-2xl border border-stone-700 bg-[#0D0D0D] p-2 shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+    : "absolute left-0 right-0 top-[calc(100%+8px)] z-[120] overflow-hidden rounded-2xl border border-[#C2A14E]/40 bg-white p-2 shadow-[0_24px_60px_rgba(28,25,23,0.18)]";
+  const optionClassName = (isSelected: boolean, disabled: boolean) => tone === "dark"
+    ? `flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm transition-colors ${isSelected ? "bg-[#C2A14E]/18 text-[#F1D37A]" : "text-stone-100 hover:bg-white/[0.07]"} ${disabled ? "cursor-not-allowed opacity-45" : ""}`
+    : `flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-sm font-semibold transition-colors ${isSelected ? "bg-[#C2A14E]/16 text-stone-950" : "text-stone-800 hover:bg-stone-50"} ${disabled ? "cursor-not-allowed opacity-45" : ""}`;
+
+  useEffect(() => {
+    if (value !== undefined) {
+      return;
+    }
+
+    setInternalValue((currentValue) => {
+      if (currentValue && options.some((option) => option.value === currentValue)) {
+        return currentValue;
+      }
+
+      return defaultValue ?? firstOptionValue;
+    });
+  }, [defaultValue, firstOptionValue, optionValuesKey, options, value]);
+
+  function chooseOption(nextValue: string) {
+    if (value === undefined) {
+      setInternalValue(nextValue);
+    }
+
+    onChange?.(nextValue);
+    setIsOpen(false);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "Escape") {
+      setIsOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setIsOpen(true);
+    }
+  }
+
+  const labelClassName = tone === "dark"
+    ? "text-[10px] uppercase tracking-[0.18em] text-stone-400"
+    : "text-[11px] uppercase tracking-[0.15em] text-stone-700";
+
   return (
-    <div>
-      <PublicFieldLabel htmlFor={name} required={required}>{label}</PublicFieldLabel>
+    <div
+      className="relative"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsOpen(false);
+        }
+      }}
+    >
+      <label htmlFor={`${name}-button`} className={labelClassName} style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+        {label}
+        {required ? <span className="ml-1 text-[#C2A14E]">*</span> : null}
+      </label>
+      <input name={name} readOnly type="hidden" value={selectedOption?.value ?? ""} />
       <div className="relative mt-2">
-        <select className={publicSelectClassName} defaultValue={defaultValue} id={name} name={name} required={required}>
-          {children}
-        </select>
-        <SelectChevron />
+        <button
+          aria-controls={listboxId}
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          aria-required={required}
+          className={`${buttonClassName} flex items-center justify-between gap-3`}
+          id={`${name}-button`}
+          onClick={() => setIsOpen((current) => !current)}
+          onKeyDown={handleKeyDown}
+          type="button"
+        >
+          <span className={`truncate ${selectedOption?.value ? "" : tone === "dark" ? "text-stone-500" : "text-stone-500"}`}>
+            {selectedLabel}
+          </span>
+          <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border transition ${tone === "dark" ? "border-stone-700 text-[#C2A14E]" : "border-stone-200 bg-stone-50 text-[#8F7431]"} ${isOpen ? "rotate-180" : ""}`}>
+            <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+            </svg>
+          </span>
+        </button>
+        {isOpen ? (
+          <div className={menuClassName} id={listboxId} role="listbox">
+            <div className="max-h-64 overflow-y-auto pr-1">
+              {options.map((option) => {
+                const isSelected = option.value === selectedValue;
+
+                return (
+                  <button
+                    aria-selected={isSelected}
+                    className={optionClassName(isSelected, option.disabled)}
+                    disabled={option.disabled}
+                    key={option.value}
+                    onClick={() => chooseOption(option.value)}
+                    role="option"
+                    title={option.title}
+                    type="button"
+                  >
+                    <span className="truncate">{option.label}</span>
+                    {isSelected ? (
+                      <span className={`ml-3 h-2.5 w-2.5 shrink-0 rounded-full ${tone === "dark" ? "bg-[#C2A14E]" : "bg-[#C2A14E]"}`} />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

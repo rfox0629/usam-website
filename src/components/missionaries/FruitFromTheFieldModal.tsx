@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PublicSelect } from "@/components/forms/PublicForm";
 import type { MissionaryFruitItem } from "@/src/data/missionaries";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -137,35 +138,33 @@ export function FruitFromTheFieldModal({
             </div>
 
             <div className="mt-6 flex flex-col gap-3 border-y border-stone-800 py-4 sm:flex-row sm:items-center">
-              <label className="block sm:w-56">
-                <span className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Category
-                </span>
-                <select
-                  className="mt-2 min-h-10 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none focus:border-[#C2A14E]"
-                  onChange={(event) => setCategory(event.target.value)}
+              <div className="block sm:w-56">
+                <PublicSelect
+                  label="Category"
+                  name="fruitCategory"
+                  onChange={setCategory}
+                  tone="dark"
                   value={category}
                 >
                   <option value="all">All</option>
                   {categories.map((itemCategory) => (
                     <option key={itemCategory} value={itemCategory}>{itemCategory}</option>
                   ))}
-                </select>
-              </label>
-              <label className="block sm:w-56">
-                <span className="text-[10px] uppercase tracking-[0.18em] text-stone-400" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  Sort
-                </span>
-                <select
-                  className="mt-2 min-h-10 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none focus:border-[#C2A14E]"
-                  onChange={(event) => setSortMode(event.target.value as "featured" | "impactful" | "newest")}
+                </PublicSelect>
+              </div>
+              <div className="block sm:w-56">
+                <PublicSelect
+                  label="Sort"
+                  name="fruitSort"
+                  onChange={(value) => setSortMode(value as "featured" | "impactful" | "newest")}
+                  tone="dark"
                   value={sortMode}
                 >
                   <option value="featured">Featured first</option>
                   <option value="impactful">Most impactful</option>
                   <option value="newest">Newest</option>
-                </select>
-              </label>
+                </PublicSelect>
+              </div>
             </div>
 
             <div className="mt-6 grid gap-4">

@@ -2,6 +2,7 @@
 
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { PublicSelect } from "@/components/forms/PublicForm";
 import { getGivingUrl } from "@/src/lib/giving";
 import type { PublicSupportProfileOption } from "@/src/lib/missionaries/support-profile-types";
 
@@ -59,7 +60,6 @@ const baseAllocationPreferences = [
 ] as const;
 
 const inputClassName = "mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-base text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
-const selectClassName = "min-h-12 w-full appearance-none rounded-xl border border-stone-300 bg-white px-4 pr-11 text-base text-stone-950 shadow-sm outline-none transition focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
 const textareaClassName = "mt-2 min-h-24 w-full resize-none rounded-xl border border-stone-300 bg-white px-4 py-3 text-base leading-6 text-stone-950 shadow-sm outline-none transition placeholder:text-stone-400 focus:border-[#C2A14E] focus:ring-4 focus:ring-[#C2A14E]/15 md:text-sm";
 
 function parseAmount(value: FormDataEntryValue | null) {
@@ -94,56 +94,6 @@ function SectionTitle({ children }: { children: ReactNode }) {
   );
 }
 
-function SelectChevron() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-    </svg>
-  );
-}
-
-function SelectField({
-  children,
-  id,
-  label,
-  name,
-  onChange,
-  required = true,
-  value,
-}: {
-  children: ReactNode;
-  id: string;
-  label: string;
-  name: string;
-  onChange?: (value: string) => void;
-  required?: boolean;
-  value?: string;
-}) {
-  return (
-    <div>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <div className="relative mt-2">
-        <select
-          className={selectClassName}
-          id={id}
-          name={name}
-          onChange={onChange ? (event) => onChange(event.target.value) : undefined}
-          required={required}
-          value={value}
-        >
-          {children}
-        </select>
-        <SelectChevron />
-      </div>
-    </div>
-  );
-}
-
 export function GivingCommitmentForm({
   defaultAllocation,
   displayMode = "section",
@@ -164,9 +114,7 @@ export function GivingCommitmentForm({
   const contextName = householdName?.trim() || "USA Missionaries";
   const fallbackAllocation = source === "general_support_page"
     ? "Support the General Mission Fund"
-    : supportMode === "household"
-      ? "Support this missionary"
-      : "Support the General Mission Fund";
+    : "Support this missionary";
   const allocationLabel = defaultAllocation?.trim() || fallbackAllocation;
   const allocationPreferences = useMemo(() => {
     return baseAllocationPreferences.includes(allocationLabel as typeof baseAllocationPreferences[number])
@@ -237,6 +185,24 @@ export function GivingCommitmentForm({
     const submittedProfileSlug = showMissionarySelector
       ? selectedProfile?.slug ?? null
       : profileSlug;
+
+    if (!activeAmount) {
+      setStatus("error");
+      setErrorMessage("Please choose a giving amount.");
+      return;
+    }
+
+    if (activeAmount === "Other" && (!otherAmount || otherAmount <= 0)) {
+      setStatus("error");
+      setErrorMessage("Please enter a valid giving amount.");
+      return;
+    }
+
+    if (showMissionarySelector && !submittedHouseholdId && !submittedMissionaryName) {
+      setStatus("error");
+      setErrorMessage("Please choose a missionary profile or enter the missionary name.");
+      return;
+    }
 
     setStatus("submitting");
     setErrorMessage("");
@@ -365,28 +331,28 @@ export function GivingCommitmentForm({
             <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-6">
               <SectionTitle>Gift Details</SectionTitle>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <SelectField id="giftType" label="Gift Type" name="gift_type" value={giftType} onChange={(value) => setGiftType(value as CommitmentGiftType)}>
+                <PublicSelect label="Gift Type" name="gift_type" value={giftType} onChange={(value) => setGiftType(value as CommitmentGiftType)} required>
                   {enabledGiftTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
-                </SelectField>
+                </PublicSelect>
 
                 {giftType === "monthly" ? (
-                  <SelectField id="monthlyAmount" label="Monthly Amount" name="monthlyAmount" value={monthlyAmount} onChange={setMonthlyAmount}>
+                  <PublicSelect label="Monthly Amount" name="monthlyAmount" value={monthlyAmount} onChange={setMonthlyAmount} required>
                     <option value="">Select amount</option>
                     {monthlyAmounts.map((amount) => (
                       <option key={amount.value} value={amount.value}>{amount.label}</option>
                     ))}
-                  </SelectField>
+                  </PublicSelect>
                 ) : null}
 
                 {giftType === "onetime" ? (
-                  <SelectField id="oneTimeAmount" label="One Time Amount" name="oneTimeAmount" value={oneTimeAmount} onChange={setOneTimeAmount}>
+                  <PublicSelect label="One Time Amount" name="oneTimeAmount" value={oneTimeAmount} onChange={setOneTimeAmount} required>
                     <option value="">Select amount</option>
                     {oneTimeAmounts.map((amount) => (
                       <option key={amount.value} value={amount.value}>{amount.label}</option>
                     ))}
-                  </SelectField>
+                  </PublicSelect>
                 ) : null}
 
                 {showOtherAmount ? (
@@ -409,15 +375,14 @@ export function GivingCommitmentForm({
             <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:p-6">
               <SectionTitle>Allocation Preference</SectionTitle>
               <div className="mt-4">
-                <SelectField id="allocationPreference" label="Where should this gift be directed?" name="allocationPreference" value={allocationPreference} onChange={setAllocationPreference}>
+                <PublicSelect label="Where should this gift be directed?" name="allocationPreference" value={allocationPreference} onChange={setAllocationPreference} required>
                   {allocationPreferences.map((preference) => (
                     <option key={preference} value={preference}>{preference}</option>
                   ))}
-                </SelectField>
+                </PublicSelect>
                 {showMissionarySelector ? (
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <SelectField
-                      id="missionaryProfileId"
+                    <PublicSelect
                       label="Missionary Profile"
                       name="missionaryProfileId"
                       onChange={setSelectedMissionaryProfileId}
@@ -431,7 +396,7 @@ export function GivingCommitmentForm({
                         </option>
                       ))}
                       <option value="__unknown">I don't see them</option>
-                    </SelectField>
+                    </PublicSelect>
                     {selectedMissionaryProfileId === "__unknown" ? (
                       <div>
                         <FieldLabel htmlFor="missionaryName">Missionary Name</FieldLabel>

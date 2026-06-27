@@ -40,7 +40,6 @@ export function SupportMissionModal({
   profileOptions,
   source = "missionary_profile",
   supportMode,
-  supportPublicLabel,
   supportTargetFund,
   supportTargetHouseholdName,
   initialGiftType = "monthly",
@@ -92,7 +91,7 @@ export function SupportMissionModal({
         </button>
 
         <GivingCommitmentForm
-          defaultAllocation={defaultAllocation ?? supportPublicLabel}
+          defaultAllocation={defaultAllocation}
           displayMode="modal"
           enableMonthlyPartnership={enableMonthlyPartnership}
           enableOneTimeGift={enableOneTimeGift}

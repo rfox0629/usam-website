@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { PublicSelect } from "@/components/forms/PublicForm";
 import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -176,15 +177,12 @@ function RadioGroup({
 
 function SelectField() {
   return (
-    <div>
-      <FieldLabel htmlFor="role">Role</FieldLabel>
-      <select id="role" name="role" className={fieldClassName()} defaultValue="">
-        <option value="" disabled>Select role</option>
-        {roleOptions.map((role) => (
-          <option key={role} value={role}>{role}</option>
-        ))}
-      </select>
-    </div>
+    <PublicSelect defaultValue="" label="Role" name="role">
+      <option value="" disabled>Select role</option>
+      {roleOptions.map((role) => (
+        <option key={role} value={role}>{role}</option>
+      ))}
+    </PublicSelect>
   );
 }
 
