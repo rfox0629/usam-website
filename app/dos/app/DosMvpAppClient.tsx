@@ -9574,6 +9574,7 @@ function MeetingCalendarView({
   onToggleCalendarCoreSource,
   onToggleGoogleCalendarSource,
   onLogTable,
+  onLogScheduledMeeting,
   onOpenMeeting,
   onSelectDate,
   onSyncGoogleCalendar,
@@ -9603,6 +9604,7 @@ function MeetingCalendarView({
   onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
   onToggleGoogleCalendarSource: (sourceId: string) => void;
   onLogTable: (personIds?: string[], meetingType?: DosAppMeetingType) => void;
+  onLogScheduledMeeting: (meeting: DosAppMeeting) => void;
   onOpenMeeting: (meetingId: string) => void;
   onSelectDate: (date: Date) => void;
   onSyncGoogleCalendar: () => void;
@@ -9694,13 +9696,14 @@ function MeetingCalendarView({
   }
 
   function logQuickItem(item: MeetingCalendarItem) {
-    const personIds = item.meeting?.fieldPersonIds.length
-      ? item.meeting.fieldPersonIds
-      : item.personId
-        ? [item.personId]
-        : [];
+    if (item.meeting) {
+      onLogScheduledMeeting(item.meeting);
+      return;
+    }
 
-    onLogTable(personIds, item.meeting?.type);
+    const personIds = item.personId ? [item.personId] : [];
+
+    onLogTable(personIds);
   }
 
   function handleQuickPrimaryAction(item: MeetingCalendarItem) {
@@ -16842,6 +16845,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [fruitFormsNotice, setFruitFormsNotice] = useState("");
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
+  const [loggingScheduledMeetingId, setLoggingScheduledMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
   const [selectedMinistryTeamMemberIds, setSelectedMinistryTeamMemberIds] = useState<string[]>(() => defaultMinistryTeamMemberIdsForWorkspace(data));
   const [selectedMinistryTeamPersonIds, setSelectedMinistryTeamPersonIds] = useState<string[]>([]);
@@ -17376,6 +17380,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedReminderId(null);
+    setLoggingScheduledMeetingId(null);
     setNewReminderType("follow_up");
     setSelectedRelationshipModel(defaultRelationshipModel);
     setSelectedRelationshipScore(0);
@@ -17391,6 +17396,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsAdditionalPersonInfoOpen(false);
     if (mode === "meeting") {
       setSelectedMeetingId(null);
+      setLoggingScheduledMeetingId(null);
       resetMeetingDraft();
     }
     if (mode === "person") {
@@ -17450,6 +17456,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
+    setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
@@ -17476,6 +17483,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
@@ -17515,6 +17523,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
+    setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
@@ -17701,6 +17710,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedExternalCalendarEventId(null);
     setErrorMessage("");
@@ -17714,6 +17724,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setLoggingScheduledMeetingId(null);
     setErrorMessage("");
     setFormMode("scheduleMeeting");
     setIsAdditionalPersonInfoOpen(false);
@@ -17724,6 +17735,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedReminderId(null);
+    setLoggingScheduledMeetingId(null);
     setErrorMessage("");
     setFormMode("reminder");
     setNewReminderType(reminderType);
@@ -17734,6 +17746,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedExternalCalendarEventId(null);
+    setLoggingScheduledMeetingId(null);
     setSelectedReminderId(reminderId);
     setErrorMessage("");
     setFormMode("reminder");
@@ -17743,7 +17756,33 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openScheduledDraftAsMeeting() {
     setErrorMessage("");
     setSelectedMeetingId(null);
+    setLoggingScheduledMeetingId(null);
     setFormMode("meeting");
+  }
+
+  function openScheduledMeetingLog(meeting: DosAppMeeting) {
+    if (meeting.source !== "table") {
+      return;
+    }
+
+    setErrorMessage("");
+    setFormMode("editMeeting");
+    setIsAdditionalPersonInfoOpen(false);
+    setLoggingScheduledMeetingId(meeting.id);
+    setConversationResponses({});
+    setMeetingPeopleQuery("");
+    setSelectedConversationFlow("none");
+    setSelectedMeetingContext(meeting.type);
+    setSelectedMeetingId(meeting.id);
+    setSelectedMeetingPersonIds(meeting.fieldPersonIds);
+    setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
+    setSelectedMinistryTeamPersonIds(meeting.ministryTeam.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
+    setSelectedSupportingAttendeeIds(meeting.supportingAttendees.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
+    setSupportingAttendeeSubRoles(Object.fromEntries(
+      meeting.supportingAttendees
+        .filter((eventPerson) => Boolean(eventPerson.fieldPersonId))
+        .map((eventPerson) => [eventPerson.fieldPersonId as string, eventPerson.supportingSubRole ?? ""]),
+    ));
   }
 
   function openMeetingDetail(meetingId: string) {
@@ -17759,6 +17798,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedPersonId(null);
     setSelectedExternalCalendarEventId(null);
     setSelectedReminderId(null);
+    setLoggingScheduledMeetingId(null);
     setSelectedMeetingId(meetingId);
   }
 
@@ -17768,6 +17808,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setFormMode(null);
     setSelectedMeetingId(null);
+    setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
     setSelectedExternalCalendarEventId(eventId);
@@ -17779,6 +17820,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     setErrorMessage("");
+    setLoggingScheduledMeetingId(null);
     setFormMode("editMeeting");
     setIsAdditionalPersonInfoOpen(false);
     setConversationResponses(meeting.conversationFlowKey !== "none" ? meeting.conversationResponses : {});
@@ -18638,22 +18680,43 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     const conversationFlowKey = data.workspace.isUsamWorkspace ? selectedConversationFlow : "none";
     const isScheduledMeeting = selectedMeeting.meetingStatus === "scheduled";
-    const tableDate = String(formData.get(isScheduledMeeting ? "scheduled_date" : "table_date") ?? selectedMeeting.date ?? todayDateValue());
+    const isLoggingScheduledMeeting = loggingScheduledMeetingId === selectedMeeting.id && isScheduledMeeting;
+    const tableDate = String(formData.get(isScheduledMeeting && !isLoggingScheduledMeeting ? "scheduled_date" : "table_date") ?? selectedMeeting.date ?? todayDateValue());
+    const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
+    const loggedStartAt = localDateTimeIso(tableDate, "12:00");
+    const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
+    const observedFruit = [...selectedOutcomeTags];
+    const followUpNeeded = formData.get("follow_up_needed") === "on";
+    const nextStep = String(formData.get("next_step") ?? "");
+    const prayerNeeds = String(formData.get("prayer_needs") ?? "");
+    const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
+    const meetingNotes = String(formData.get("notes") ?? "");
+    const shouldSaveReflection = isLoggingScheduledMeeting && Boolean(
+      meetingNotes.trim()
+      || observedFruit.length
+      || followUpNeeded
+      || nextStep.trim()
+      || prayerNeeds.trim()
+      || spiritualOpenness.trim(),
+    );
     const payload: Record<string, unknown> = {
       conversationFlowKey,
       conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
       fieldPersonIds: selectedMeetingPersonIds,
       ...meetingRolePayload(),
-      googleSyncEnabled: isScheduledMeeting && selectedMeeting.googleSyncEnabled,
+      googleSyncEnabled: isScheduledMeeting && !isLoggingScheduledMeeting && selectedMeeting.googleSyncEnabled,
       id: selectedMeeting.id,
-      meetingStatus: selectedMeeting.meetingStatus,
-      notes: String(formData.get("notes") ?? ""),
+      meetingStatus: isLoggingScheduledMeeting ? "logged" : selectedMeeting.meetingStatus,
+      notes: meetingNotes,
       tableDate,
       tableType: selectedMeetingContext,
       timezone: isScheduledMeeting ? Intl.DateTimeFormat().resolvedOptions().timeZone || selectedMeeting.timezone : selectedMeeting.timezone,
     };
 
-    if (isScheduledMeeting) {
+    if (isLoggingScheduledMeeting) {
+      payload.scheduledStartAt = loggedStartAt;
+      payload.scheduledEndAt = loggedEndAt;
+    } else if (isScheduledMeeting) {
       const scheduledTime = String(formData.get("scheduled_time") ?? "");
       const scheduledStartAt = localDateTimeIso(tableDate, scheduledTime);
 
@@ -18666,7 +18729,58 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       payload.scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + formDurationMinutes(formData.get("duration_minutes")) * 60_000).toISOString();
     }
 
-    void submitJson("/api/dos/app/meetings", payload, "PATCH");
+    if (!isLoggingScheduledMeeting) {
+      void submitJson("/api/dos/app/meetings", payload, "PATCH");
+      return;
+    }
+
+    void (async () => {
+      const result = await submitJson("/api/dos/app/meetings", payload, "PATCH", false);
+
+      if (!result?.id) {
+        return;
+      }
+
+      if (shouldSaveReflection) {
+        const reflectionResult = await submitJson("/api/dos/app/reflections", {
+          followUpNeeded,
+          meetingId: selectedMeeting.id,
+          nextStep,
+          observedFruit,
+          prayerNeeds,
+          privateNotes: "",
+          spiritualOpenness,
+          whatHappened: meetingNotes,
+        }, "POST", false);
+
+        if (!reflectionResult) {
+          return;
+        }
+
+        if (prayerNeeds.trim()) {
+          const newPrayerNeedId = String(reflectionResult.id ?? `local-${selectedMeeting.id}`);
+          const primaryPersonId = selectedMeetingPersonIds.length === 1 ? selectedMeetingPersonIds[0] : null;
+          const primaryPerson = primaryPersonId ? people.find((person) => person.id === primaryPersonId) ?? null : null;
+
+          setLocalPrayerNeeds((current) => [
+            {
+              createdAt: new Date().toISOString(),
+              id: newPrayerNeedId,
+              meetingId: selectedMeeting.id,
+              personId: primaryPersonId,
+              personName: primaryPerson?.name ?? null,
+              prayerNeeds: prayerNeeds.trim(),
+            },
+            ...current.filter((item) => item.id !== newPrayerNeedId),
+          ]);
+        }
+      }
+
+      closeForm();
+      setActiveTab("meetings");
+      setSelectedMeetingId(selectedMeeting.id);
+      setPostMeetingFollowUpId(selectedMeeting.id);
+    })();
   }
 
   function handleMeetingNotesSubmit(event: FormEvent<HTMLFormElement>) {
@@ -19790,6 +19904,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onEditMeeting={openMeetingEdit}
                       onEditReminder={openReminderEdit}
                       onLogTable={openLogTableFromCalendar}
+                      onLogScheduledMeeting={openScheduledMeetingLog}
                       onOpenExternalEvent={openExternalCalendarEventDetail}
                       onOpenMeeting={openMeetingDetail}
                       onSelectDate={selectMeetingsCalendarDate}
@@ -20773,17 +20888,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         </Sheet>
       ) : null}
 
-      {formMode === "editMeeting" && selectedMeeting ? (
-        <Sheet onClose={closeForm} title="Edit Table">
+      {formMode === "editMeeting" && selectedMeeting ? (() => {
+        const isLoggingSelectedScheduledMeeting = selectedMeeting.meetingStatus === "scheduled" && loggingScheduledMeetingId === selectedMeeting.id;
+        const logDateDefault = dateInputValueFromDateTime(selectedMeeting.scheduledStartAt ?? selectedMeeting.date, selectedMeeting.date ?? todayDateValue());
+
+        return (
+        <Sheet onClose={closeForm} title={isLoggingSelectedScheduledMeeting ? "Log Table" : "Edit Table"}>
           <div className="space-y-3">
             <MeetingFormContent
               allPeople={people}
               allowConversationFlows={data.workspace.isUsamWorkspace}
-              buttonText="Save Table"
+              buttonText={isLoggingSelectedScheduledMeeting ? "Log Table" : "Save Table"}
               conversationResponses={conversationResponses}
-              dateDefault={selectedMeeting.date ?? todayDateValue()}
+              dateDefault={isLoggingSelectedScheduledMeeting ? logDateDefault : selectedMeeting.date ?? todayDateValue()}
               errorMessage={errorMessage}
               householdMembers={data.householdMembers}
+              includeReflectionFields={isLoggingSelectedScheduledMeeting}
               isCreatingPerson={isCreatingMeetingPerson}
               isSubmitting={isSubmitting}
               meetingPeopleOptions={meetingPeopleOptions}
@@ -20814,8 +20934,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               selectedMinistryTeamPersonIds={selectedMinistryTeamPersonIds}
               selectedPersonIds={selectedMeetingPersonIds}
               selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
-              showConversationFlow={selectedMeeting.meetingStatus !== "scheduled"}
-              showScheduledTiming={selectedMeeting.meetingStatus === "scheduled"}
+              showConversationFlow={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
+              showDurationField={isLoggingSelectedScheduledMeeting}
+              showScheduledTiming={selectedMeeting.meetingStatus === "scheduled" && !isLoggingSelectedScheduledMeeting}
               submittingText="Saving..."
               supportingAttendeeOptions={supportingAttendeeOptions}
               supportingAttendeeQuery={supportingAttendeeQuery}
@@ -20831,7 +20952,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             </button>
           </div>
         </Sheet>
-      ) : null}
+        );
+      })() : null}
 
       {formMode === "meetingNotes" && selectedMeeting ? (
         <MeetingNotesEditorSheet
