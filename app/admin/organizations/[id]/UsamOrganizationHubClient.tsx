@@ -634,7 +634,7 @@ function SectionViewModal({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <SmallBadge status={row.review === "OK" ? "approved" : row.review === "Needs Info" || row.review === "Missing" ? "needs_info" : undefined}>{row.review}</SmallBadge>
-          <SmallBadge>Editing coming soon</SmallBadge>
+          <SmallBadge>Review only</SmallBadge>
         </div>
         <div className="rounded-lg border border-stone-800 bg-black/45 p-3">
           {row.content}
@@ -1138,7 +1138,7 @@ function ApplicationReviewDetail({
                 <p className="text-sm text-stone-300">{row.visibility}</p>
                 <ReviewValueBadge value={row.review} />
                 <div className="flex flex-wrap gap-1.5 xl:justify-end">
-                  <InlineButton label="View / Edit" onClick={() => setSelectedSectionRow(row)} />
+                  <InlineButton label="Review" onClick={() => setSelectedSectionRow(row)} />
                   <InlineButton label="Needs Info" onClick={() => openNeedsInfo(row.id)} />
                 </div>
               </div>
@@ -1180,10 +1180,12 @@ function ApplicationReviewDetail({
 }
 
 function ApprovedProfileActions({
+  canEditContent,
   onCopy,
   onVisibilityAction,
   profile,
 }: {
+  canEditContent: boolean;
   onCopy: (profile: OrganizationApprovedProfileSummary) => void;
   onVisibilityAction: (profile: OrganizationApprovedProfileSummary, action: "hide" | "publish") => void;
   profile: OrganizationApprovedProfileSummary;
@@ -1192,19 +1194,21 @@ function ApprovedProfileActions({
 
   return (
     <div className="flex flex-wrap justify-start gap-1.5 xl:justify-end">
-      <InlineButton disabled label="Edit" />
+      {canEditContent ? <TextAction href={profile.editorUrl} label="Edit" /> : <InlineButton disabled label="View Only" />}
       <TextAction href={profile.publicUrl} label="View" />
       <InlineButton label="Copy Link" onClick={() => onCopy(profile)} />
-      <InlineButton disabled={!profile.applicationId} label={nextAction === "hide" ? "Hide" : "Publish"} onClick={() => onVisibilityAction(profile, nextAction)} />
+      <InlineButton disabled={!canEditContent || !profile.applicationId} label={nextAction === "hide" ? "Hide" : "Publish"} onClick={() => onVisibilityAction(profile, nextAction)} />
     </div>
   );
 }
 
 export function UsamOrganizationHubClient({
+  canEditContent,
   initialApplicationId,
   initialTab,
   organization,
 }: {
+  canEditContent: boolean;
   initialApplicationId?: string;
   initialTab?: string;
   organization: OrganizationDetail;
@@ -1453,7 +1457,12 @@ export function UsamOrganizationHubClient({
                     <SmallBadge status={profile.visibility}>{profile.visibility}</SmallBadge>
                     <p className="text-sm text-stone-300">{formatMoney(profile.supportGoal)}</p>
                     <p className="text-sm text-stone-400">{formatDate(profile.lastUpdated)}</p>
-                    <ApprovedProfileActions onCopy={copyProfileLink} onVisibilityAction={handleProfileVisibilityAction} profile={profile} />
+                    <ApprovedProfileActions
+                      canEditContent={canEditContent}
+                      onCopy={copyProfileLink}
+                      onVisibilityAction={handleProfileVisibilityAction}
+                      profile={profile}
+                    />
                   </div>
                 </article>
               ))}

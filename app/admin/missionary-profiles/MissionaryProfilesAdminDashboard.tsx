@@ -4,7 +4,7 @@ import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Activity, BookOpen, Check, Copy, ExternalLink, Eye, FileText, Globe, Heart, ImageIcon, Link as LinkIcon, Mail, MessageCircle, MoreHorizontal, Printer, RefreshCw, Search, Send, Share2, Smartphone, Sparkles, Upload, Users, Wand2, X, type LucideIcon } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   MISSIONARY_IMAGE_MAX_BYTES,
   missionaryImageMimeTypes,
@@ -1156,6 +1156,34 @@ function getProfilePublicSlug(profile: Pick<AdminHousehold, "public_slug" | "slu
 
 function getProfilePublicDisplayName(profile: Pick<AdminHousehold, "display_name" | "public_display_name">) {
   return profile.public_display_name?.trim() || profile.display_name;
+}
+
+function resolveRequestedProfileId(profiles: readonly AdminProfile[], value: string | null) {
+  const normalizedValue = value?.trim().toLowerCase();
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  return profiles.find((profile) => (
+    profile.id.toLowerCase() === normalizedValue
+    || profile.slug.toLowerCase() === normalizedValue
+    || profile.public_slug?.trim().toLowerCase() === normalizedValue
+  ))?.id ?? "";
+}
+
+function slugAliasesFromText(value: string) {
+  return Array.from(new Set(
+    value
+      .split(/[\n,]+/)
+      .map((alias) => alias
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, " and ")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, ""))
+      .filter(Boolean),
+  ));
 }
 
 function nextHouseholdTeamMemberName(profile: AdminProfile) {
@@ -7384,10 +7412,12 @@ function DetailText({ label, value }: { label: string; value: string }) {
 function FundraisingProgressControls({
   monthlyGoal,
   onAnnualGoalChange,
+  onMonthlyCommittedChange,
   support,
 }: {
   monthlyGoal: number;
   onAnnualGoalChange: (value: number) => void;
+  onMonthlyCommittedChange: (value: number) => void;
   support: AdminSupportSettings;
 }) {
   const monthlyCommitted = toNumber(support.monthly_committed);
@@ -7413,9 +7443,9 @@ function FundraisingProgressControls({
           value={monthlyGoal}
         />
         <CurrencyField
-          helperText="Confirmed through admin reconciliation or giving system sync."
+          helperText="Public funded progress. Update from confirmed support records or giving system reconciliation."
           label="Monthly Committed"
-          readOnly
+          onChange={onMonthlyCommittedChange}
           value={support.monthly_committed}
         />
       </div>
@@ -7589,6 +7619,7 @@ function SupportOverview({
   givingPageStatus,
   monthlyGoal,
   onAnnualGoalChange,
+  onMonthlyCommittedChange,
   onCopy,
   supportLink,
   support,
@@ -7597,6 +7628,7 @@ function SupportOverview({
   givingPageStatus: string;
   monthlyGoal: number;
   onAnnualGoalChange: (value: number) => void;
+  onMonthlyCommittedChange: (value: number) => void;
   onCopy: (value: string, label: string) => void;
   supportLink: string;
   support: AdminSupportSettings;
@@ -7684,7 +7716,7 @@ function SupportOverview({
           />
           <CurrencyField
             label="Monthly Committed"
-            readOnly
+            onChange={onMonthlyCommittedChange}
             value={support.monthly_committed}
           />
         </div>
@@ -9916,12 +9948,14 @@ export function MissionaryProfilesAdminDashboard({
   initialProfiles,
 }: MissionaryProfilesAdminDashboardProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
+  const requestedProfile = searchParams.get("profile") ?? searchParams.get("household");
   const initialTab = isEditorTab(requestedTab) ? requestedTab : "overview";
   const initialPrimaryNav = getPrimaryNavForTab(normalizeEditorTab(initialTab));
   const [profiles, setProfiles] = useState(initialProfiles);
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(() => resolveRequestedProfileId(initialProfiles, requestedProfile));
   const [activeTab, setActiveTab] = useState<EditorTab>(normalizeEditorTab(initialTab));
   const [activePrimaryNav, setActivePrimaryNav] = useState<PrimaryNavKey>(initialPrimaryNav);
   const [activeSubnavId, setActiveSubnavId] = useState<string>(getSubnavIdForTab(normalizeEditorTab(initialTab), initialPrimaryNav));
@@ -9950,6 +9984,7 @@ export function MissionaryProfilesAdminDashboard({
   const [targetHouseholdError, setTargetHouseholdError] = useState("");
   const [targetHouseholdLoadState, setTargetHouseholdLoadState] = useState<TargetHouseholdLoadState>("idle");
   const [targetHouseholds, setTargetHouseholds] = useState<TargetHouseholdOption[]>([]);
+  const [slugAliasDrafts, setSlugAliasDrafts] = useState<Record<string, string>>({});
   const [isRefreshing, startRefreshTransition] = useTransition();
   const [lastSavedProfiles, setLastSavedProfiles] = useState(initialProfiles);
 
@@ -9970,6 +10005,15 @@ export function MissionaryProfilesAdminDashboard({
       changeEditorTab(requestedTab);
     }
   }, [requestedTab]);
+
+  useEffect(() => {
+    const requestedProfileId = resolveRequestedProfileId(profiles, requestedProfile);
+
+    if (requestedProfileId && requestedProfileId !== selectedId) {
+      setSelectedId(requestedProfileId);
+      resetTransientEditorState();
+    }
+  }, [profiles, requestedProfile, selectedId]);
 
   useEffect(() => {
     setProfiles(initialProfiles);
@@ -10262,6 +10306,11 @@ export function MissionaryProfilesAdminDashboard({
     setActivePrimaryNav("dashboard");
     setActiveSubnavId("");
     resetTransientEditorState();
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("profile", profileId);
+    params.set("tab", "overview");
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   function closeProfile() {
@@ -10270,6 +10319,13 @@ export function MissionaryProfilesAdminDashboard({
     setActivePrimaryNav("dashboard");
     setActiveSubnavId("");
     resetTransientEditorState();
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("profile");
+    params.delete("household");
+    params.delete("tab");
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
   }
 
   async function copySelectedProfileLink() {
@@ -10331,7 +10387,7 @@ export function MissionaryProfilesAdminDashboard({
     }
   }
 
-  function updateHouseholdField(field: keyof AdminHousehold, value: boolean | number | string | null) {
+  function updateHouseholdField(field: keyof AdminHousehold, value: boolean | number | string | string[] | null) {
     if (!selectedProfile) {
       return;
     }
@@ -10340,6 +10396,18 @@ export function MissionaryProfilesAdminDashboard({
       ...selectedProfile,
       [field]: field === "sort_order" ? Number(value) : value,
     });
+  }
+
+  function updatePublicSlugAliases(value: string) {
+    if (!selectedProfile) {
+      return;
+    }
+
+    setSlugAliasDrafts((current) => ({
+      ...current,
+      [selectedProfile.id]: value,
+    }));
+    updateHouseholdField("public_slug_aliases", slugAliasesFromText(value));
   }
 
   function updateRefinedStory(value: string) {
@@ -10671,6 +10739,10 @@ export function MissionaryProfilesAdminDashboard({
         monthly_goal: calculateMonthlyGoal(annualGoal),
       },
     });
+  }
+
+  function updateMonthlyCommitted(value: number) {
+    updateSupportField("monthly_committed", Math.max(0, toNumber(value)));
   }
 
   function updateEncounterSubmission(submissionId: string, patch: Partial<AdminEncounterSubmission>) {
@@ -11679,7 +11751,10 @@ export function MissionaryProfilesAdminDashboard({
                   {filteredProfiles.map((profile) => (
                     <tr className="border-b border-[#222222] transition-colors last:border-b-0 hover:bg-[#151515]" key={profile.id}>
                       <td className="px-4 py-4">
-                        <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
+                        <p className="truncate font-medium text-stone-100">{getProfilePublicDisplayName(profile)}</p>
+                        {getProfilePublicDisplayName(profile) !== profile.display_name ? (
+                          <p className="mt-0.5 truncate text-xs text-stone-500">{profile.display_name}</p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4">
                         <ProfileVisibilityBadge profile={profile} />
@@ -11712,7 +11787,10 @@ export function MissionaryProfilesAdminDashboard({
                 <article className="min-w-0 rounded-xl border border-[#222222] bg-[#0f0f0f] p-4" key={profile.id}>
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-stone-100">{profile.display_name}</p>
+                      <p className="truncate font-medium text-stone-100">{getProfilePublicDisplayName(profile)}</p>
+                      {getProfilePublicDisplayName(profile) !== profile.display_name ? (
+                        <p className="mt-0.5 truncate text-xs text-stone-500">{profile.display_name}</p>
+                      ) : null}
                       <p className="mt-1 text-sm text-stone-400">
                         {getProfileLocationVisibility(profile) === "hidden"
                           ? "Undisclosed"
@@ -11750,6 +11828,7 @@ export function MissionaryProfilesAdminDashboard({
   const supportMode = selectedProfileSupportMode;
   const calculatedMonthlyGoal = calculateMonthlyGoal(support.annual_goal);
   const publicDisplayName = getProfilePublicDisplayName(selectedProfile);
+  const publicSlugAliasesText = slugAliasDrafts[selectedProfile.id] ?? (selectedProfile.public_slug_aliases ?? []).join("\n");
   const publicProfileLink = getPublicMissionaryProfileUrl(getProfilePublicSlug(selectedProfile));
   const publicSupportLink = `${publicProfileLink}#support`;
   const publicFlyerLink = `${publicProfileLink}/flyer`;
@@ -12200,6 +12279,13 @@ export function MissionaryProfilesAdminDashboard({
                     label="Public Profile Slug"
                     onChange={(value) => updateHouseholdField("public_slug", value)}
                     value={selectedProfile.public_slug ?? ""}
+                  />
+                  <ProfileTextArea
+                    helperText="Legacy public URL slugs that should resolve to this profile. One per line; public routing only."
+                    label="Slug Aliases"
+                    onChange={updatePublicSlugAliases}
+                    rows={3}
+                    value={publicSlugAliasesText}
                   />
                   <ProfileField
                     helperText="Private workspace/DOS route."
@@ -12694,6 +12780,7 @@ export function MissionaryProfilesAdminDashboard({
                   givingPageStatus={getFeatureStatusLabel(supportStatus.status)}
                   monthlyGoal={calculatedMonthlyGoal}
                   onAnnualGoalChange={updateAnnualGoal}
+                  onMonthlyCommittedChange={updateMonthlyCommitted}
                   onCopy={copyTextToClipboard}
                   supportLink={publicSupportLink}
                   support={support}
@@ -12967,6 +13054,10 @@ export function MissionaryProfilesAdminDashboard({
               onClick={() => {
                 if (selectedLastSavedProfile) {
                   updateSelected(selectedLastSavedProfile);
+                  setSlugAliasDrafts((current) => ({
+                    ...current,
+                    [selectedLastSavedProfile.id]: (selectedLastSavedProfile.public_slug_aliases ?? []).join("\n"),
+                  }));
                 }
               }}
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}

@@ -86,6 +86,7 @@ export type OrganizationApplicationPhotoSummary = {
 
 export type OrganizationApprovedProfileSummary = {
   applicationId: string | null;
+  editorUrl: string;
   id: string;
   lastUpdated: string | null;
   location: string | null;

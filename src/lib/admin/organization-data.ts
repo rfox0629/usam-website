@@ -63,6 +63,8 @@ type OrganizationApprovedProfileRow = {
   display_name: string;
   id: string;
   location?: string | null;
+  public_display_name?: string | null;
+  public_slug?: string | null;
   public_visible?: boolean | null;
   show_household?: boolean | null;
   slug: string;
@@ -677,7 +679,7 @@ async function loadApprovedProfileRows(workspaceIds: string[]) {
   const supabase = createSupabaseAdminClient();
   const result = await supabase
     .from("missionary_households")
-    .select("id, slug, display_name, location, public_visible, show_household, usam_profile_status, updated_at, created_at")
+    .select("id, slug, public_slug, display_name, public_display_name, location, public_visible, show_household, usam_profile_status, updated_at, created_at")
     .in("id", uniqueWorkspaceIds)
     .order("updated_at", { ascending: false, nullsFirst: false });
   const fallbackResult = result.error && isMissingColumnError(result.error)
@@ -1088,15 +1090,18 @@ function approvedProfileSummaries({
     .map((profile) => {
       const support = supportByHouseholdId.get(profile.id);
       const application = applicationByWorkspaceId.get(profile.id);
+      const publicName = profile.public_display_name?.trim() || profile.display_name;
+      const publicSlug = profile.public_slug?.trim() || profile.slug;
 
       return {
         applicationId: application?.id ?? null,
+        editorUrl: `/admin/missionary-profiles?profile=${encodeURIComponent(profile.id)}&tab=profile`,
         id: profile.id,
         lastUpdated: profile.updated_at ?? profile.created_at,
         location: profile.location ?? null,
-        publicName: profile.display_name,
-        publicUrl: `/missionaries/${profile.slug}`,
-        slug: profile.slug,
+        publicName,
+        publicUrl: `/missionaries/${encodeURIComponent(publicSlug)}`,
+        slug: publicSlug,
         supportGoal: support?.monthly_goal ?? support?.annual_goal ?? application?.support_goal ?? null,
         visibility: profileVisibility(profile),
       };
