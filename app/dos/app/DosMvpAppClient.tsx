@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -674,6 +674,7 @@ type AvailabilitySettings = {
   weeklySchedule: AvailabilityDaySetting[];
 };
 type AvailabilityEditSection = "booking" | "calendar" | "meeting_types" | "preferred_times" | "weekly_schedule";
+type InvitationEditorSection = "availability" | "calendar" | "hosts" | "overview" | "questions" | "rules" | "sharing";
 type InviteCardKey = "coffee" | "kitchen_table" | "prayer";
 type InviteCard = {
   audience: string;
@@ -6100,12 +6101,16 @@ function Sheet({
   description,
   onClose,
   showEyebrow = false,
+  showHeader = true,
+  size = "default",
   title,
 }: {
   children: ReactNode;
   description?: string;
   onClose: () => void;
   showEyebrow?: boolean;
+  showHeader?: boolean;
+  size?: "default" | "wide";
   title: string;
 }) {
   const [isMounted, setIsMounted] = useState(false);
@@ -6114,34 +6119,42 @@ function Sheet({
     setIsMounted(true);
   }, []);
 
+  const panelClassName = size === "wide"
+    ? "max-w-[1060px] overflow-hidden rounded-t-[28px] rounded-b-[24px] md:rounded-[30px]"
+    : "max-w-lg overflow-y-auto rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:rounded-[30px]";
+
   const content = (
     <div className="fixed inset-0 z-[1000] overflow-y-auto bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18" onMouseDown={onClose} role="presentation">
       <div className="flex min-h-full items-end justify-center md:items-center">
         <div
           aria-modal="true"
-          className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-t-[30px] rounded-b-[24px] border border-white/80 bg-white p-4 shadow-[0_26px_90px_rgba(37,99,235,0.16)] [scrollbar-width:none] md:rounded-[30px]"
+          className={`max-h-[calc(100dvh-1.5rem)] w-full border border-white/80 bg-white shadow-[0_26px_90px_rgba(37,99,235,0.16)] ${panelClassName}`}
           onMouseDown={(event) => event.stopPropagation()}
           role="dialog"
         >
-          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E2E8F0]" aria-hidden="true" />
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              {showEyebrow ? <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-                DOS
-              </p> : null}
-              <h2 className={`${showEyebrow ? "mt-2" : ""} text-2xl font-bold leading-none text-[#0F172A]`}>{title}</h2>
-              {description ? <p className="mt-3 text-sm leading-6 text-[#64748B]">{description}</p> : null}
-            </div>
-            <button
-              aria-label="Close"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-xl leading-none text-[#0F172A]"
-              onClick={onClose}
-              type="button"
-            >
-              &times;
-            </button>
-          </div>
-          <div className="mt-5">{children}</div>
+          {showHeader ? (
+            <>
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E2E8F0]" aria-hidden="true" />
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  {showEyebrow ? <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+                    DOS
+                  </p> : null}
+                  <h2 className={`${showEyebrow ? "mt-2" : ""} text-2xl font-bold leading-none text-[#0F172A]`}>{title}</h2>
+                  {description ? <p className="mt-3 text-sm leading-6 text-[#64748B]">{description}</p> : null}
+                </div>
+                <button
+                  aria-label="Close"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-xl leading-none text-[#0F172A]"
+                  onClick={onClose}
+                  type="button"
+                >
+                  &times;
+                </button>
+              </div>
+              <div className="mt-5">{children}</div>
+            </>
+          ) : children}
         </div>
       </div>
     </div>
@@ -6591,16 +6604,16 @@ const defaultAvailabilitySettings: AvailabilitySettings = {
     { duration: 30, enabled: true, id: "phone_call", label: "Phone Call" },
     { duration: 60, enabled: false, id: "custom", label: "Custom" },
   ],
-  preferredDays: ["mon", "tue", "wed", "thu", "sat"],
+  preferredDays: ["mon", "tue", "wed", "thu"],
   preferredTimes: ["Evening"],
   weeklySchedule: [
-    { available: true, id: "mon", label: "Monday", windows: [{ end: "21:00", id: "mon-evening", start: "18:00" }] },
-    { available: true, id: "tue", label: "Tuesday", windows: [{ end: "21:00", id: "tue-evening", start: "18:00" }] },
+    { available: false, id: "mon", label: "Monday", windows: [] },
+    { available: true, id: "tue", label: "Tuesday", windows: [{ end: "23:00", id: "tue-evening", start: "20:00" }] },
     { available: true, id: "wed", label: "Wednesday", windows: [{ end: "21:00", id: "wed-evening", start: "18:00" }] },
-    { available: true, id: "thu", label: "Thursday", windows: [{ end: "21:00", id: "thu-evening", start: "18:00" }] },
-    { available: true, id: "fri", label: "Friday", windows: [{ end: "20:00", id: "fri-evening", start: "17:00" }] },
-    { available: true, id: "sat", label: "Saturday", windows: [{ end: "12:00", id: "sat-morning", start: "09:00" }] },
-    { available: true, id: "sun", label: "Sunday", windows: [{ end: "17:00", id: "sun-afternoon", start: "14:00" }] },
+    { available: true, id: "thu", label: "Thursday", windows: [{ end: "23:00", id: "thu-evening", start: "20:00" }] },
+    { available: false, id: "fri", label: "Friday", windows: [] },
+    { available: false, id: "sat", label: "Saturday", windows: [] },
+    { available: false, id: "sun", label: "Sunday", windows: [] },
   ],
 };
 
@@ -7170,6 +7183,31 @@ function formatAvailabilityTime(value: string) {
   return rawMinute === "00" ? `${displayHour} ${suffix}` : `${displayHour}:${rawMinute} ${suffix}`;
 }
 
+function parseAvailabilityTimeInput(value: string, fallback: string) {
+  const normalized = value.trim().toLowerCase();
+  const meridiem = normalized.includes("pm") ? "pm" : normalized.includes("am") ? "am" : null;
+  const timeValue = normalized.replace(/\s*(am|pm)\s*$/, "").trim();
+  const [rawHour, rawMinute = "00"] = timeValue.split(/[:.]/);
+  let hour = Number(rawHour);
+  const minute = Number(rawMinute);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) {
+    return fallback;
+  }
+
+  if (meridiem === "pm" && hour < 12) {
+    hour += 12;
+  } else if (meridiem === "am" && hour === 12) {
+    hour = 0;
+  }
+
+  if (hour < 0 || hour > 23) {
+    return fallback;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 function availabilityWindowLabel(window: AvailabilityTimeWindow) {
   return `${formatAvailabilityTime(window.start)} - ${formatAvailabilityTime(window.end)}`;
 }
@@ -7685,28 +7723,6 @@ function InvitationCard({
   );
 }
 
-function InvitationDetailSection({
-  children,
-  icon,
-  title,
-}: {
-  children: ReactNode;
-  icon: ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_8px_22px_rgba(37,99,235,0.035)]">
-      <div className="flex items-center gap-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-          {icon}
-        </span>
-        <h3 className="text-sm font-black text-[#0F172A]">{title}</h3>
-      </div>
-      <div className="mt-4 grid gap-3">{children}</div>
-    </section>
-  );
-}
-
 function InvitationRuleInput({
   label,
   onChange,
@@ -7758,6 +7774,382 @@ function InvitationStatusRow({
   );
 }
 
+const invitationEditorSections: ReadonlyArray<{ label: string; value: InvitationEditorSection }> = [
+  { label: "Overview", value: "overview" },
+  { label: "Availability", value: "availability" },
+  { label: "Hosts", value: "hosts" },
+  { label: "Questions", value: "questions" },
+  { label: "Calendar", value: "calendar" },
+  { label: "Rules", value: "rules" },
+  { label: "Sharing", value: "sharing" },
+];
+
+const invitationAvailabilityDayOptions = [
+  availabilityDayOptions[6],
+  ...availabilityDayOptions.slice(0, 6),
+];
+
+function invitationEditorSectionIcon(section: InvitationEditorSection) {
+  if (section === "availability") {
+    return <Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+  }
+
+  if (section === "hosts") {
+    return <User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+  }
+
+  if (section === "questions") {
+    return <HelpCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+  }
+
+  if (section === "calendar") {
+    return <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+  }
+
+  if (section === "rules") {
+    return <Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+  }
+
+  if (section === "sharing") {
+    return <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+  }
+
+  return <Settings className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+}
+
+function InvitationEditorNav({
+  activeSection,
+  onChange,
+}: {
+  activeSection: InvitationEditorSection;
+  onChange: (section: InvitationEditorSection) => void;
+}) {
+  return (
+    <nav className="-mx-4 overflow-x-auto border-b border-[#EAF2FF] px-4 [scrollbar-width:none] sm:-mx-5 sm:px-5" aria-label="Invitation editor sections">
+      <div className="flex min-w-max items-center gap-1">
+        {invitationEditorSections.map((section) => {
+          const selected = activeSection === section.value;
+
+          return (
+            <button
+              aria-pressed={selected}
+              className={`inline-flex min-h-14 items-center gap-2 border-b-2 px-3 text-xs font-black transition-colors ${
+                selected
+                  ? "border-[#2563EB] text-[#2563EB]"
+                  : "border-transparent text-[#475569] hover:text-[#0F172A]"
+              }`}
+              key={section.value}
+              onClick={() => onChange(section.value)}
+              type="button"
+            >
+              <span className={selected ? "text-[#2563EB]" : "text-[#64748B]"}>
+                {invitationEditorSectionIcon(section.value)}
+              </span>
+              <span>{section.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+function InvitationEditorBlock({
+  children,
+  subtitle,
+  title,
+}: {
+  children: ReactNode;
+  subtitle?: string;
+  title: string;
+}) {
+  return (
+    <section className="grid gap-5">
+      <div>
+        <h3 className="text-lg font-black leading-tight text-[#0F172A]">{title}</h3>
+        {subtitle ? <p className="mt-1 text-sm leading-5 text-[#64748B]">{subtitle}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function createAvailabilityWindowId(dayId: string) {
+  return `${dayId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function cloneWindowForDay(dayId: string, window: AvailabilityTimeWindow, index: number): AvailabilityTimeWindow {
+  return {
+    ...window,
+    id: `${dayId}-${index}-${window.start.replace(":", "")}-${window.end.replace(":", "")}`,
+  };
+}
+
+function invitationPreviewAvailableDays(settings: AvailabilitySettings) {
+  return settings.weeklySchedule.filter((day) => day.available && day.windows.length > 0);
+}
+
+function invitationPreviewDaySummary(settings: AvailabilitySettings) {
+  const availableDays = invitationPreviewAvailableDays(settings);
+
+  if (!availableDays.length) {
+    return "No days selected";
+  }
+
+  const dayIds = new Set(availableDays.map((day) => day.id));
+  const weekdayIds = ["mon", "tue", "wed", "thu", "fri"];
+
+  if (availableDays.length === 7) {
+    return "Every day";
+  }
+
+  if (weekdayIds.every((dayId) => dayIds.has(dayId)) && availableDays.length === 5) {
+    return "Weekdays";
+  }
+
+  const labels = availableDays.map((day) => availabilityDayShortLabel(day.id));
+
+  if (labels.length === 2) {
+    return labels.join(" & ");
+  }
+
+  return labels.join(", ");
+}
+
+function invitationPreviewTimeSummary(settings: AvailabilitySettings) {
+  const firstWindow = invitationPreviewAvailableDays(settings).flatMap((day) => day.windows).at(0);
+
+  return firstWindow ? availabilityWindowLabel(firstWindow) : "No hours set";
+}
+
+function InvitationLivePreview({
+  duration,
+  invitation,
+  name,
+  settings,
+}: {
+  duration: number;
+  invitation: InviteCard;
+  name: string;
+  settings: AvailabilitySettings;
+}) {
+  return (
+    <aside className="hidden lg:block">
+      <div className="sticky top-0 grid gap-4">
+        <section className="rounded-[22px] border border-[#E2E8F0] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.05)]">
+          <p className="text-xs font-black text-[#0F172A]">Preview</p>
+          <div className="mt-5 flex items-start gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)]">
+              <InvitationIcon id={invitation.id} />
+            </span>
+            <div className="min-w-0 pt-1">
+              <p className="truncate text-sm font-black leading-5 text-[#0F172A]">{name || invitation.title}</p>
+              <p className="mt-1 truncate text-sm font-semibold leading-5 text-[#334155]">{invitation.audience}</p>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3">
+            <InviteMetaItem icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitationPreviewDaySummary(settings)}</InviteMetaItem>
+            <InviteMetaItem icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitationPreviewTimeSummary(settings)}</InviteMetaItem>
+            <InviteMetaItem icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{duration} minutes</InviteMetaItem>
+          </div>
+          <span className="mt-5 inline-flex rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-bold text-[#15803D]">Active</span>
+        </section>
+
+        <section className="rounded-[22px] border border-[#EAF2FF] bg-[#F8FBFF] p-4 shadow-[0_12px_30px_rgba(37,99,235,0.04)]">
+          <p className="text-xs font-black text-[#0F172A]">Next Booking</p>
+          <p className="mt-3 text-sm font-black text-[#1D4ED8]">May 28, 7:30 PM</p>
+          <div className="mt-4 border-t border-[#E2E8F0] pt-4">
+            <p className="text-xs font-black text-[#0F172A]">Total Bookings</p>
+            <p className="mt-2 text-lg font-black leading-none text-[#0F172A]">27</p>
+          </div>
+        </section>
+
+        <section className="rounded-[22px] border border-[#EAF2FF] bg-white p-4">
+          <p className="text-xs font-black text-[#0F172A]">Need help?</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">Learn more about availability.</p>
+          <button className="mt-3 inline-flex min-h-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" type="button">
+            View Guide
+          </button>
+        </section>
+      </div>
+    </aside>
+  );
+}
+
+function InvitationAvailabilityEditor({
+  settings,
+  setSettings,
+}: {
+  settings: AvailabilitySettings;
+  setSettings: (updater: (current: AvailabilitySettings) => AvailabilitySettings) => void;
+}) {
+  const [useSameHours, setUseSameHours] = useState(false);
+
+  function applyWindows(dayId: string, windows: AvailabilityTimeWindow[]) {
+    setSettings((current) => {
+      const targetDayIds = useSameHours ? new Set(current.preferredDays.length ? current.preferredDays : [dayId]) : new Set([dayId]);
+
+      return {
+        ...current,
+        weeklySchedule: current.weeklySchedule.map((day) => {
+          if (!targetDayIds.has(day.id)) {
+            return day;
+          }
+
+          return {
+            ...day,
+            available: windows.length > 0,
+            windows: day.id === dayId ? windows : windows.map((window, index) => cloneWindowForDay(day.id, window, index)),
+          };
+        }),
+      };
+    });
+  }
+
+  function togglePreferredDay(dayId: string) {
+    setSettings((current) => {
+      const selected = current.preferredDays.includes(dayId);
+
+      return {
+        ...current,
+        preferredDays: selected
+          ? current.preferredDays.filter((currentDayId) => currentDayId !== dayId)
+          : [...current.preferredDays, dayId],
+      };
+    });
+  }
+
+  function addWindow(day: AvailabilityDaySetting) {
+    const nextWindows = [
+      ...day.windows,
+      { end: "21:00", id: createAvailabilityWindowId(day.id), start: "18:00" },
+    ];
+
+    applyWindows(day.id, nextWindows);
+  }
+
+  function updateWindow(day: AvailabilityDaySetting, windowId: string, key: keyof AvailabilityTimeWindow, value: string) {
+    applyWindows(day.id, day.windows.map((window) => window.id === windowId ? { ...window, [key]: value } : window));
+  }
+
+  function removeWindow(day: AvailabilityDaySetting, windowId: string) {
+    applyWindows(day.id, day.windows.filter((window) => window.id !== windowId));
+  }
+
+  return (
+    <InvitationEditorBlock title="Availability" subtitle="Set the days and times people can book with you.">
+      <div className="grid gap-5">
+        <div>
+          <p className="text-sm font-black text-[#0F172A]">Meeting Hours</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {invitationAvailabilityDayOptions.map((day) => {
+              const selected = settings.preferredDays.includes(day.id);
+
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={`flex h-10 w-10 items-center justify-center rounded-full border text-xs font-black transition-colors sm:h-12 sm:w-12 ${
+                    selected
+                      ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_10px_20px_rgba(37,99,235,0.18)]"
+                      : "border-[#DCEBFF] bg-white text-[#0F172A] hover:border-[#BFDBFE]"
+                  }`}
+                  key={day.id}
+                  onClick={() => togglePreferredDay(day.id)}
+                  type="button"
+                >
+                  {day.shortLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm font-black text-[#0F172A]">Use same hours for all selected days</span>
+          <button
+            aria-pressed={useSameHours}
+            aria-label="Use same hours for all selected days"
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${useSameHours ? "bg-[#2563EB]" : "bg-[#94A3B8]"}`}
+            onClick={() => setUseSameHours((current) => !current)}
+            type="button"
+          >
+            <span className={`absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${useSameHours ? "translate-x-6" : "translate-x-1"}`} />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-black text-[#0F172A]">Time zone</span>
+          <span className="inline-flex min-w-0 items-center gap-2 text-sm font-black text-[#1D4ED8]">
+            <Globe2 className="h-4 w-4 shrink-0" aria-hidden="true" strokeWidth={1.9} />
+            <span className="truncate">Central Time (CT)</span>
+            <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={1.9} />
+          </span>
+        </div>
+
+        <div className="grid gap-2">
+          {settings.weeklySchedule.map((day) => (
+            <div className="grid grid-cols-[88px_minmax(0,1fr)_34px_34px] items-center gap-2 sm:grid-cols-[104px_minmax(0,1fr)_36px_36px]" key={day.id}>
+              <p className="truncate text-[13px] font-black text-[#0F172A] sm:text-sm">{day.label}</p>
+              {day.available && day.windows.length ? (
+                <div className="grid min-w-0 gap-2">
+                  {day.windows.map((window) => (
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 rounded-[10px] border border-[#DCEBFF] bg-white px-2 py-1.5" key={window.id}>
+                      <input
+                        aria-label={`${day.label} start time`}
+                        className="min-w-0 bg-transparent text-center text-xs font-bold text-[#0F172A] outline-none"
+                        inputMode="numeric"
+                        onChange={(event) => updateWindow(day, window.id, "start", parseAvailabilityTimeInput(event.target.value, window.start))}
+                        type="text"
+                        value={formatAvailabilityTime(window.start)}
+                      />
+                      <span className="text-xs font-bold text-[#94A3B8]">-</span>
+                      <input
+                        aria-label={`${day.label} end time`}
+                        className="min-w-0 bg-transparent text-center text-xs font-bold text-[#0F172A] outline-none"
+                        inputMode="numeric"
+                        onChange={(event) => updateWindow(day, window.id, "end", parseAvailabilityTimeInput(event.target.value, window.end))}
+                        type="text"
+                        value={formatAvailabilityTime(window.end)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="px-2 text-sm font-black text-[#94A3B8]">-</span>
+              )}
+              <button
+                aria-label={`Add ${day.label} time window`}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[#CBD5E1] bg-white text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+                onClick={() => addWindow(day)}
+                type="button"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              </button>
+              {day.available && day.windows.length ? (
+                <button
+                  aria-label={`Remove ${day.label} time window`}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+                  onClick={() => removeWindow(day, day.windows.at(-1)?.id ?? "")}
+                  type="button"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+                </button>
+              ) : (
+                <span aria-hidden="true" />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <button className="inline-flex w-fit items-center gap-2 rounded-full px-0 text-sm font-black text-[#1D4ED8]" type="button">
+          <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          Add Date Override
+        </button>
+      </div>
+    </InvitationEditorBlock>
+  );
+}
+
 function InvitationDetailSheet({
   calendarConnection,
   calendarDisplaySettings,
@@ -7799,40 +8191,16 @@ function InvitationDetailSheet({
   workspaceId: string;
   workspaceSlug: string;
 }) {
+  const [activeSection, setActiveSection] = useState<InvitationEditorSection>("availability");
+  const [nameDraft, setNameDraft] = useState(invitation.title);
+  const [descriptionDraft, setDescriptionDraft] = useState(invitation.description);
   const durationValue = settings.meetingTypes.find((type) => type.id === invitation.id)?.duration ?? invitation.durationMinutes;
-  const preferredDayLabels = settings.preferredDays.map(availabilityDayShortLabel);
 
   function updateDuration(value: number) {
     setSettings((current) => ({
       ...current,
       meetingTypes: current.meetingTypes.map((type) => type.id === invitation.id ? { ...type, duration: Math.max(15, value) } : type),
     }));
-  }
-
-  function togglePreferredTime(value: string) {
-    setSettings((current) => {
-      const selected = current.preferredTimes.includes(value);
-
-      return {
-        ...current,
-        preferredTimes: selected
-          ? current.preferredTimes.filter((time) => time !== value)
-          : [...current.preferredTimes, value],
-      };
-    });
-  }
-
-  function togglePreferredDay(value: string) {
-    setSettings((current) => {
-      const selected = current.preferredDays.includes(value);
-
-      return {
-        ...current,
-        preferredDays: selected
-          ? current.preferredDays.filter((day) => day !== value)
-          : [...current.preferredDays, value],
-      };
-    });
   }
 
   function updateBookingRule(key: keyof AvailabilitySettings["bookingRules"], value: number) {
@@ -7845,192 +8213,213 @@ function InvitationDetailSheet({
     }));
   }
 
-  return (
-    <Sheet onClose={onClose} title={invitation.title}>
+  const activeContent = activeSection === "overview" ? (
+    <InvitationEditorBlock title="Overview">
       <div className="grid gap-4">
-        {inviteShareMessage ? (
-          <p className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-5 text-[#1D4ED8]">{inviteShareMessage}</p>
-        ) : null}
-
-        <InvitationDetailSection icon={<Settings className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Overview">
+        <label className="block">
+          <FieldLabel>Name</FieldLabel>
+          <input className={`${FieldInputClass()} min-h-11 rounded-[14px] px-3 text-sm`} onChange={(event) => setNameDraft(event.target.value)} value={nameDraft} />
+        </label>
+        <label className="block">
+          <FieldLabel>Description</FieldLabel>
+          <textarea className={`${FieldTextareaClass()} min-h-24 rounded-[14px] px-3 py-2 text-sm`} onChange={(event) => setDescriptionDraft(event.target.value)} value={descriptionDraft} />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <label className="block">
-            <FieldLabel>Name</FieldLabel>
-            <input className={`${FieldInputClass()} min-h-10 rounded-[14px] px-3 text-sm`} defaultValue={invitation.title} />
+            <FieldLabel>Duration</FieldLabel>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                className={`${FieldInputClass(false)} min-h-11 rounded-[14px] px-3 text-sm`}
+                min={15}
+                onChange={(event) => updateDuration(Number(event.target.value) || 15)}
+                step={15}
+                type="number"
+                value={durationValue}
+              />
+              <span className="shrink-0 text-xs font-bold text-[#64748B]">min</span>
+            </div>
           </label>
-          <label className="block">
-            <FieldLabel>Description</FieldLabel>
-            <textarea className={`${FieldTextareaClass()} min-h-20 rounded-[14px] px-3 py-2 text-sm`} defaultValue={invitation.description} />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <label className="block">
-              <FieldLabel>Duration</FieldLabel>
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  className={`${FieldInputClass(false)} min-h-10 rounded-[14px] px-3 text-sm`}
-                  min={15}
-                  onChange={(event) => updateDuration(Number(event.target.value) || 15)}
-                  step={15}
-                  type="number"
-                  value={durationValue}
-                />
-                <span className="shrink-0 text-xs font-bold text-[#64748B]">min</span>
-              </div>
-            </label>
-            <div className="flex items-end gap-2">
-              <span className="inline-flex min-h-10 items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-xs font-bold text-[#15803D]">Active</span>
-              <button className="inline-flex min-h-10 items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" onClick={onCopy} type="button">
-                <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                Copy Link
-              </button>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex min-h-10 items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-xs font-bold text-[#15803D]">Active</span>
+            <button className="inline-flex min-h-10 items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" onClick={onCopy} type="button">
+              <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+              Copy Link
+            </button>
           </div>
-        </InvitationDetailSection>
-
-        <InvitationDetailSection icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Availability">
-          <div className="grid gap-2">
-            {settings.weeklySchedule.map((day) => (
-              <div className="grid gap-2 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center" key={day.id}>
-                <span className="text-sm font-black text-[#0F172A]">{day.label}</span>
-                <span className="min-w-0 text-sm font-semibold text-[#334155]">
-                  {day.available && day.windows.length ? day.windows.map(availabilityWindowLabel).join(", ") : "Unavailable"}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <FieldLabel>Preferred Times</FieldLabel>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {availabilityPreferredTimeOptions.map((time) => {
-                  const selected = settings.preferredTimes.includes(time);
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-9 rounded-full border px-3 text-xs font-bold ${
-                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#64748B]"
-                      }`}
-                      key={time}
-                      onClick={() => togglePreferredTime(time)}
-                      type="button"
-                    >
-                      {time}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <FieldLabel>Preferred Days</FieldLabel>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {availabilityDayOptions.map((day) => {
-                  const selected = settings.preferredDays.includes(day.id);
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-9 rounded-full border px-3 text-xs font-bold ${
-                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#64748B]"
-                      }`}
-                      key={day.id}
-                      onClick={() => togglePreferredDay(day.id)}
-                      type="button"
-                    >
-                      {day.shortLabel}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <InvitationStatusRow label="Date overrides" status="Placeholder" />
-          {preferredDayLabels.length ? <p className="text-xs font-semibold leading-5 text-[#64748B]">Current days: {preferredDayLabels.join(", ")}</p> : null}
-        </InvitationDetailSection>
-
-        <InvitationDetailSection icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Hosts">
-          <InvitationStatusRow label={workspaceDisplayName} status="Host" tone="green" />
-          <InvitationStatusRow label="Spouse / household" status="Future" />
-          <InvitationStatusRow label="Team hosts" status="Future" />
-        </InvitationDetailSection>
-
-        <InvitationDetailSection icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Questions">
-          {["Name", "Email", "Phone", "Notes", "Prayer request"].map((question) => (
-            <InvitationStatusRow key={question} label={question} status={question === "Name" ? "Required" : "Included"} tone={question === "Name" ? "green" : "blue"} />
-          ))}
-        </InvitationDetailSection>
-
-        <InvitationDetailSection icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Calendar">
-          <CalendarConnectionCard
-            calendarConnection={calendarConnection}
-            isDisconnecting={isDisconnecting}
-            onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
-            workspaceId={workspaceId}
-            workspaceSlug={workspaceSlug}
-          />
-          <CalendarSourceControls
-            calendarConnection={calendarConnection}
-            displaySettings={calendarDisplaySettings}
-            message={calendarSourceMessage}
-            onToggleCoreSource={onToggleCalendarCoreSource}
-            onToggleGoogleSource={onToggleGoogleCalendarSource}
-            savingSourceId={savingCalendarSourceId}
-            showMessage
-            sourcePreferences={calendarSourcePreferences}
-          />
+        </div>
+      </div>
+    </InvitationEditorBlock>
+  ) : activeSection === "availability" ? (
+    <InvitationAvailabilityEditor settings={settings} setSettings={setSettings} />
+  ) : activeSection === "hosts" ? (
+    <InvitationEditorBlock title="Hosts">
+      <div className="grid gap-3">
+        <InvitationStatusRow label={workspaceDisplayName} status="Single host" tone="green" />
+        <InvitationStatusRow label="Spouse / household" status="Future" />
+        <InvitationStatusRow label="Team invitations" status="Future" />
+      </div>
+    </InvitationEditorBlock>
+  ) : activeSection === "questions" ? (
+    <InvitationEditorBlock title="Questions">
+      <div className="grid gap-3">
+        {["Name", "Email", "Phone", "Notes", "Prayer request"].map((question) => (
+          <InvitationStatusRow key={question} label={question} status={question === "Name" || question === "Email" ? "Required" : "Included"} tone={question === "Name" || question === "Email" ? "green" : "blue"} />
+        ))}
+      </div>
+    </InvitationEditorBlock>
+  ) : activeSection === "calendar" ? (
+    <InvitationEditorBlock title="Calendar">
+      <div className="grid gap-4">
+        <CalendarConnectionCard
+          calendarConnection={calendarConnection}
+          isDisconnecting={isDisconnecting}
+          onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
+          workspaceId={workspaceId}
+          workspaceSlug={workspaceSlug}
+        />
+        <CalendarSourceControls
+          calendarConnection={calendarConnection}
+          displaySettings={calendarDisplaySettings}
+          message={calendarSourceMessage}
+          onToggleCoreSource={onToggleCalendarCoreSource}
+          onToggleGoogleSource={onToggleGoogleCalendarSource}
+          savingSourceId={savingCalendarSourceId}
+          showMessage
+          sourcePreferences={calendarSourcePreferences}
+        />
+        <div className="grid gap-3">
           <InvitationStatusRow label="Google Calendar" status={availabilityConnectionSummary(calendarConnection, calendarSourcePreferences.length)} tone={calendarConnectionIsHealthy(calendarConnection) ? "green" : "neutral"} />
           <InvitationStatusRow label="DOS Calendar" status="Active" tone="green" />
           <InvitationStatusRow label="Busy-time awareness" status="Planned" />
-        </InvitationDetailSection>
-
-        <InvitationDetailSection icon={<Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Rules">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <InvitationRuleInput
-              label="Buffer"
-              onChange={(value) => updateBookingRule("bufferMinutes", value)}
-              suffix="min"
-              value={settings.bookingRules.bufferMinutes}
-            />
-            <InvitationRuleInput
-              label="Max per day"
-              onChange={(value) => updateBookingRule("maxPerDay", value)}
-              suffix="daily"
-              value={settings.bookingRules.maxPerDay}
-            />
-            <InvitationRuleInput
-              label="Max per week"
-              onChange={(value) => updateBookingRule("maxPerWeek", value)}
-              suffix="weekly"
-              value={settings.bookingRules.maxPerWeek}
-            />
-          </div>
+        </div>
+      </div>
+    </InvitationEditorBlock>
+  ) : activeSection === "rules" ? (
+    <InvitationEditorBlock title="Rules">
+      <div className="grid gap-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <InvitationRuleInput
+            label="Buffer"
+            onChange={(value) => updateBookingRule("bufferMinutes", value)}
+            suffix="min"
+            value={settings.bookingRules.bufferMinutes}
+          />
+          <InvitationRuleInput
+            label="Maximum bookings"
+            onChange={(value) => updateBookingRule("maxPerDay", value)}
+            suffix="daily"
+            value={settings.bookingRules.maxPerDay}
+          />
+          <InvitationRuleInput
+            label="Weekly maximum"
+            onChange={(value) => updateBookingRule("maxPerWeek", value)}
+            suffix="weekly"
+            value={settings.bookingRules.maxPerWeek}
+          />
+        </div>
+        <div className="grid gap-3">
           <InvitationStatusRow label="Notice" status="12 hours" tone="blue" />
           <InvitationStatusRow label="Booking window" status="30 days" tone="blue" />
-        </InvitationDetailSection>
+        </div>
+      </div>
+    </InvitationEditorBlock>
+  ) : (
+    <InvitationEditorBlock title="Sharing">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]" onClick={onCopy} type="button">
+          <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          Copy Link
+        </button>
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8]" onClick={onOpenInvitation} type="button">
+          <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          Open Invitation
+        </button>
+        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
+          <Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+          Text
+        </button>
+        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
+          <Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+          Email
+        </button>
+        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B] sm:col-span-2" disabled type="button">
+          <Square className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+          QR Code
+        </button>
+      </div>
+    </InvitationEditorBlock>
+  );
 
-        <InvitationDetailSection icon={<Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} title="Sharing">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]" onClick={onCopy} type="button">
-              <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+  return (
+    <Sheet onClose={onClose} showHeader={false} size="wide" title={nameDraft || invitation.title}>
+      <div className="flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden">
+        <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-[#E2E8F0] md:hidden" aria-hidden="true" />
+        <header className="shrink-0 px-4 pt-4 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              aria-label="Close invitation editor"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+              onClick={onClose}
+              type="button"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <h2 className="truncate text-lg font-black leading-tight text-[#0F172A]">{nameDraft || invitation.title}</h2>
+                <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">Active</span>
+              </div>
+              <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{invitation.audience}</p>
+            </div>
+            <button
+              className="hidden min-h-10 shrink-0 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] sm:inline-flex"
+              onClick={onCopy}
+              type="button"
+            >
+              <Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
               Copy Link
             </button>
-            <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8]" onClick={onOpenInvitation} type="button">
-              <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-              Open Invitation
-            </button>
-            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
-              <Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-              Text
-            </button>
-            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
-              <Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-              Email
-            </button>
-            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B] sm:col-span-2" disabled type="button">
-              <Square className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-              QR Code
+            <button
+              aria-label="Invitation options"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
+              type="button"
+            >
+              <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
             </button>
           </div>
-        </InvitationDetailSection>
+          {inviteShareMessage ? (
+            <p className="mt-3 rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-5 text-[#1D4ED8]">{inviteShareMessage}</p>
+          ) : null}
+          <InvitationEditorNav activeSection={activeSection} onChange={setActiveSection} />
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-5 [scrollbar-width:none] sm:px-5 md:pb-5">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="min-w-0">
+              {activeContent}
+            </div>
+            <InvitationLivePreview duration={durationValue} invitation={invitation} name={nameDraft} settings={settings} />
+          </div>
+        </div>
+
+        <footer className="shrink-0 border-t border-[#EAF2FF] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 sm:px-5 md:pb-4">
+          <div className="flex items-center gap-3">
+            <button
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)] md:flex-none md:min-w-[150px]"
+              onClick={onClose}
+              type="button"
+            >
+              Save Changes
+            </button>
+            <button
+              className="hidden min-h-11 items-center justify-center rounded-full px-4 text-sm font-bold text-[#1D4ED8] md:inline-flex"
+              onClick={onClose}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </footer>
       </div>
     </Sheet>
   );
