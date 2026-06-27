@@ -4,7 +4,6 @@ export const clarityProjectId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID?.trim
 export const analyticsEvents = {
   becomeMissionaryClick: "become_missionary_click",
   donateClick: "donate_click",
-  dosLoginClick: "dos_login_click",
   joinMissionClick: "join_mission_click",
   prayerRequestClick: "prayer_request_click",
   videoPlayClick: "video_play_click",
@@ -26,31 +25,33 @@ export function isAnalyticsEnabled() {
   return process.env.NODE_ENV === "production" && Boolean(gaMeasurementId || clarityProjectId);
 }
 
+function normalizedAnalyticsPath(pathname?: string | null) {
+  const path = pathname?.split(/[?#]/)[0] || "/";
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
 export function isPublicAnalyticsPath(pathname?: string | null) {
-  const normalizedPath = pathname || "/";
+  const normalizedPath = normalizedAnalyticsPath(pathname);
 
-  if (normalizedPath === "/dos") {
-    return true;
-  }
-
-  if (normalizedPath.startsWith("/dos/")) {
-    return false;
-  }
-
-  return ![
-    "/admin",
-    "/api",
-    "/auth",
-    "/login",
-    "/missionary-intake",
-    "/review",
-    "/testimony",
-    "/update-password",
-  ].some((prefix) => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`));
+  return [
+    "/",
+    "/briefing",
+    "/financialfreedom",
+    "/mission",
+    "/missionaries",
+    "/prayer",
+    "/support",
+    "/system",
+  ].includes(normalizedPath)
+    || [
+      "/briefing/assignments/",
+      "/guide/",
+      "/missionaries/",
+    ].some((prefix) => normalizedPath.startsWith(prefix));
 }
 
 export function trackPageView(path: string) {
-  if (!isAnalyticsEnabled() || typeof window === "undefined" || !gaMeasurementId || !window.gtag) {
+  if (!isAnalyticsEnabled() || typeof window === "undefined" || !gaMeasurementId || !window.gtag || !isPublicAnalyticsPath(path)) {
     return;
   }
 
@@ -62,7 +63,7 @@ export function trackPageView(path: string) {
 }
 
 export function trackAnalyticsEvent(eventName: AnalyticsEventName, params: AnalyticsEventParams = {}) {
-  if (!isAnalyticsEnabled() || typeof window === "undefined") {
+  if (!isAnalyticsEnabled() || typeof window === "undefined" || !isPublicAnalyticsPath(window.location.pathname)) {
     return;
   }
 
