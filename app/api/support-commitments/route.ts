@@ -48,6 +48,14 @@ function asNullableNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
+function asNullableUuid(value: unknown) {
+  const valueString = asString(value);
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(valueString)
+    ? valueString
+    : null;
+}
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -99,6 +107,7 @@ export async function POST(request: Request) {
   const lastName = asString(payload.lastName);
   const email = asString(payload.email).toLowerCase();
   const giftType = toGiftType(payload.giftType);
+  const householdId = asNullableUuid(payload.householdId);
 
   if (!firstName || !lastName || !email || !isValidEmail(email)) {
     return NextResponse.json({ error: "Please include your first name, last name, and a valid email." }, { status: 400 });
@@ -127,7 +136,7 @@ export async function POST(request: Request) {
       email,
       first_name: firstName,
       gift_type: giftType,
-      household_id: asNullableString(payload.householdId),
+      household_id: householdId,
       household_name: asNullableString(payload.householdName),
       last_name: lastName,
       message: asNullableString(payload.message),
@@ -175,7 +184,7 @@ export async function POST(request: Request) {
       amount: asNullableString(payload.selectedAmount) ?? asNullableNumber(payload.otherAmount),
       default_allocation: asNullableString(payload.defaultAllocation),
       gift_type: giftType,
-      household_id: asNullableString(payload.householdId),
+      household_id: householdId,
       household_name: asNullableString(payload.householdName),
       missionary_name: asNullableString(payload.householdName),
       missionary_profile_id: asNullableString(payload.householdId),

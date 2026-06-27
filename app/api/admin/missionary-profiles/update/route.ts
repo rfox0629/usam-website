@@ -120,6 +120,9 @@ type UpdatePayload = {
     location?: unknown;
     original_story?: unknown;
     profile_image_url?: unknown;
+    public_display_name?: unknown;
+    public_slug?: unknown;
+    public_slug_aliases?: unknown;
     prayer_cta_label?: unknown;
     prayer_destination?: unknown;
     prayer_section_description?: unknown;
@@ -405,6 +408,9 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
 
   return [
     "show_household",
+    "public_slug",
+    "public_display_name",
+    "public_slug_aliases",
     "show_story",
     "show_fruit",
     "show_support",
@@ -592,6 +598,7 @@ export async function POST(request: Request) {
   const support = payload.support ?? {};
   const displayName = asString(household.display_name);
   const slug = asString(household.slug);
+  const publicSlug = asString(household.public_slug);
   const originalSlug = asString(payload.originalSlug);
   const activeTab = asString(payload.activeTab);
   const requiresPublishingFeatureColumns = ["features", "team"].includes(activeTab);
@@ -643,6 +650,9 @@ export async function POST(request: Request) {
     prayer_section_headline: asNullableString(household.prayer_section_headline),
     primary_state: primaryState,
     profile_image_url: asNullableString(household.profile_image_url),
+    public_display_name: asNullableString(household.public_display_name),
+    public_slug: publicSlug || null,
+    public_slug_aliases: asStringArray(household.public_slug_aliases),
     public_story: publicStory,
     public_visible: showHousehold,
     region: ministryRegion,
@@ -1581,6 +1591,16 @@ export async function POST(request: Request) {
   revalidatePath("/missionaries");
   revalidatePath(`/missionaries/${slug}`);
 
+  if (publicSlug && publicSlug !== slug) {
+    revalidatePath(`/missionaries/${publicSlug}`);
+  }
+
+  asStringArray(household.public_slug_aliases).forEach((aliasSlug) => {
+    if (aliasSlug !== slug && aliasSlug !== publicSlug) {
+      revalidatePath(`/missionaries/${aliasSlug}`);
+    }
+  });
+
   if (originalSlug && originalSlug !== slug) {
     revalidatePath(`/missionaries/${originalSlug}`);
   }
@@ -1645,6 +1665,7 @@ export async function POST(request: Request) {
       savedFeatureFields ? "" : "Apply the profile features migration before feature controls can persist.",
       savedSupportLinkFields ? "" : "Apply the support major gift migration before giving links and major gift settings can persist.",
     ].filter(Boolean).join(" "),
+    publicSlug: publicSlug || slug,
     slug,
   });
 }

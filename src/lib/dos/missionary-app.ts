@@ -417,6 +417,7 @@ type HouseholdRow = {
   location?: string | null;
   primary_state?: string | null;
   profile_image_url: string | null;
+  public_slug?: string | null;
   public_visible?: boolean | null;
   show_household?: boolean | null;
   short_mission: string | null;
@@ -1703,7 +1704,7 @@ async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<
 
   const supabase = createSupabaseAdminClient();
   const baseSelect = "id, slug, display_name, short_mission, profile_image_url, location";
-  const identitySelect = `${baseSelect}, primary_state, public_visible, show_household, usam_application_id, usam_application_status, usam_profile_status, usam_application_submitted_at, usam_application_reviewed_at, usam_assigned_admin_email`;
+  const identitySelect = `${baseSelect}, public_slug, primary_state, public_visible, show_household, usam_application_id, usam_application_status, usam_profile_status, usam_application_submitted_at, usam_application_reviewed_at, usam_assigned_admin_email`;
   const runQuery = async (selectColumns: string) => {
     const query = supabase.from("missionary_households").select(selectColumns);
 
@@ -1785,6 +1786,10 @@ function organizationTypeFromBranding(organization: Awaited<ReturnType<typeof lo
   }
 
   return organization.brandingMode === "affiliate" ? "church" : "ministry";
+}
+
+function publicProfileHrefForWorkspace(workspace: Pick<HouseholdRow, "public_slug" | "slug">) {
+  return `/missionaries/${workspace.public_slug?.trim() || workspace.slug}`;
 }
 
 function buildOrganizationConnections({
@@ -2383,10 +2388,10 @@ export async function loadDosAppData(
         displayName: workspace.display_name,
         greetingName: null,
         id: workspace.id,
-        isUsamWorkspace: usamApplication.status === "approved" || usamApplication.status === "active" || usamApplication.publicProfileLive || organization?.brandingMode === "usam" || organization?.slug === "usa-missionaries" || isUsamKitchenTableGospelWorkspace({ publicProfileHref: organization?.brandingMode === "usam" ? `/missionaries/${workspace.slug}` : null, slug: workspace.slug }),
+        isUsamWorkspace: usamApplication.status === "approved" || usamApplication.status === "active" || usamApplication.publicProfileLive || organization?.brandingMode === "usam" || organization?.slug === "usa-missionaries" || isUsamKitchenTableGospelWorkspace({ publicProfileHref: organization?.brandingMode === "usam" ? publicProfileHrefForWorkspace(workspace) : null, slug: workspace.slug }),
         organizationName: organization?.name ?? null,
         profileImageUrl: workspace.profile_image_url,
-        publicProfileHref: `/missionaries/${workspace.slug}`,
+        publicProfileHref: publicProfileHrefForWorkspace(workspace),
         shortMission: workspace.short_mission,
         slug: workspace.slug,
         stateName: cleanOptionalText(workspace.primary_state ?? workspace.location),

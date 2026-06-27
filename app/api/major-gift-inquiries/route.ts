@@ -10,6 +10,7 @@ type MajorGiftPayload = {
   email?: unknown;
   firstName?: unknown;
   householdId?: unknown;
+  householdName?: unknown;
   intendedFor?: unknown;
   lastName?: unknown;
   message?: unknown;
@@ -21,6 +22,9 @@ type MajorGiftPayload = {
 type HouseholdRow = {
   display_name: string;
   id: string;
+  public_display_name?: string | null;
+  public_slug?: string | null;
+  public_slug_aliases?: string[] | null;
   show_household?: boolean | null;
   slug: string;
 };
@@ -68,6 +72,14 @@ function asNullableString(value: unknown) {
   return valueString ? valueString : null;
 }
 
+function asNullableUuid(value: unknown) {
+  const valueString = asString(value);
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(valueString)
+    ? valueString
+    : null;
+}
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -92,6 +104,15 @@ function isMissingMajorGiftTable(error: { message?: string } | null | undefined)
   return Boolean(error?.message?.includes("major_gift_inquiries"));
 }
 
+function isMissingPublicProfileColumn(error: { code?: string; message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+
+  return error?.code === "42703"
+    || message.includes("public_display_name")
+    || message.includes("public_slug")
+    || message.includes("public_slug_aliases");
+}
+
 export async function POST(request: Request) {
   let payload: MajorGiftPayload;
 
@@ -108,7 +129,8 @@ export async function POST(request: Request) {
   const firstName = asString(payload.firstName);
   const lastName = asString(payload.lastName);
   const email = asString(payload.email).toLowerCase();
-  const householdId = asString(payload.householdId);
+  const householdId = asNullableUuid(payload.householdId);
+  const submittedHouseholdName = asString(payload.householdName);
   const profileSlug = asString(payload.profileSlug);
   const donationTypes = toAllowedArray(payload.donationTypes);
   const projectedAmountRange = toAllowedValue(payload.projectedAmountRange, projectedAmountValues);
@@ -127,16 +149,34 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const householdQuery = supabase
+  const householdSelect = "id, display_name, public_display_name, slug, public_slug, public_slug_aliases, show_household";
+  const legacyHouseholdSelect = "id, display_name, slug, show_household";
+  const baseHouseholdQuery = (select = householdSelect) => supabase
     .from("missionary_households")
-    .select("id, display_name, slug, show_household")
+    .select(select)
     .eq("public_visible", true)
     .limit(1);
-  const householdResult = householdId
-    ? await householdQuery.eq("id", householdId).maybeSingle()
+  let householdResult = householdId
+    ? await baseHouseholdQuery().eq("id", householdId).maybeSingle()
     : profileSlug
-      ? await householdQuery.eq("slug", profileSlug).maybeSingle()
+      ? await baseHouseholdQuery().eq("public_slug", profileSlug).maybeSingle()
       : { data: null, error: null };
+
+  if (!householdId && profileSlug && !householdResult.error && !householdResult.data) {
+    householdResult = await baseHouseholdQuery().eq("slug", profileSlug).maybeSingle();
+  }
+
+  if (!householdId && profileSlug && !householdResult.error && !householdResult.data) {
+    householdResult = await baseHouseholdQuery().contains("public_slug_aliases", [profileSlug]).maybeSingle();
+  }
+
+  if (isMissingPublicProfileColumn(householdResult.error)) {
+    householdResult = householdId
+      ? await baseHouseholdQuery(legacyHouseholdSelect).eq("id", householdId).maybeSingle()
+      : profileSlug
+        ? await baseHouseholdQuery(legacyHouseholdSelect).eq("slug", profileSlug).maybeSingle()
+        : { data: null, error: null };
+  }
 
   if (householdResult.error) {
     return NextResponse.json({ error: "Unable to load the missionary profile." }, { status: 500 });
@@ -144,8 +184,10 @@ export async function POST(request: Request) {
 
   const householdData = householdResult.data as HouseholdRow | null;
   const household = householdData?.show_household === false ? null : householdData;
+  const householdDisplayName = household?.public_display_name?.trim() || household?.display_name || submittedHouseholdName || null;
+  const householdPublicSlug = household?.public_slug?.trim() || household?.slug || profileSlug || null;
 
-  if ((householdId || profileSlug) && !household) {
+  if ((householdId || profileSlug) && !household && !submittedHouseholdName) {
     return NextResponse.json({ error: "This missionary profile is not available." }, { status: 404 });
   }
 
@@ -167,12 +209,12 @@ export async function POST(request: Request) {
       email,
       first_name: firstName,
       household_id: household?.id ?? null,
-      household_name: household?.display_name ?? null,
+      household_name: householdDisplayName,
       intended_for: intendedFor,
       last_name: lastName,
       message: asNullableString(payload.message),
       phone: asNullableString(payload.phone),
-      profile_slug: household?.slug ?? (profileSlug || null),
+      profile_slug: householdPublicSlug,
       projected_amount_range: projectedAmountRange,
       source: "missionary_profile",
       status: "new",
@@ -199,15 +241,15 @@ export async function POST(request: Request) {
     payload: {
       donation_types: donationTypes,
       household_id: household?.id ?? null,
-      household_name: household?.display_name ?? null,
+      household_name: householdDisplayName,
       intended_for: intendedFor,
       major_gift_inquiry_id: majorGiftInquiryId,
-      profile_slug: household?.slug ?? (profileSlug || null),
+      profile_slug: householdPublicSlug,
       projected_amount_range: projectedAmountRange,
     },
     phone: asNullableString(payload.phone),
     priority: projectedAmountRange === "$100,000+" ? "urgent" : "high",
-    sourcePage: household?.slug ? `/missionaries/${household.slug}` : "/support",
+    sourcePage: householdPublicSlug ? `/missionaries/${householdPublicSlug}` : "/support",
   });
 
   if (formSubmissionResult.error) {
@@ -223,13 +265,13 @@ export async function POST(request: Request) {
       donationTypes,
       email,
       firstName,
-      householdName: household?.display_name ?? null,
+      householdName: householdDisplayName,
       intendedFor,
       lastName,
       message: asNullableString(payload.message),
       notifyEmail,
       phone: asNullableString(payload.phone),
-      profileSlug: household?.slug ?? (profileSlug || null),
+      profileSlug: householdPublicSlug,
       projectedAmountRange,
     });
     emailStatus = emailResult.status;

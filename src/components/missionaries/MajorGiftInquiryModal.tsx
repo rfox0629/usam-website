@@ -118,6 +118,7 @@ export function MajorGiftInquiryModal({
         email: String(formData.get("email") ?? ""),
         firstName: String(formData.get("firstName") ?? ""),
         householdId,
+        householdName,
         intendedFor: String(formData.get("intendedFor") ?? ""),
         lastName: String(formData.get("lastName") ?? ""),
         message: String(formData.get("message") ?? ""),

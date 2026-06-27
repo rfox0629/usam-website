@@ -55,6 +55,7 @@ type UsamApplicationRow = {
 
 type HouseholdApplicationRow = {
   id: string;
+  public_slug?: string | null;
   public_visible?: boolean | null;
   show_household?: boolean | null;
   slug: string;
@@ -144,6 +145,10 @@ function splitName(name: string) {
 
 function publicProfileLive(workspace: HouseholdApplicationRow) {
   return workspace.public_visible === true && workspace.show_household !== false;
+}
+
+function publicProfileHrefForWorkspace(workspace: HouseholdApplicationRow) {
+  return `/missionaries/${workspace.public_slug?.trim() || workspace.slug}`;
 }
 
 function looksLikeHouseholdDisplayName(value: string | null | undefined) {
@@ -241,7 +246,7 @@ export async function loadUsamApplicationForWorkspace(
     organizationId: application?.organization_id ?? organization?.id ?? null,
     organizationName: organization?.name ?? "USA Missionaries",
     profileStatus: inferredProfileStatus,
-    publicProfileHref: `/missionaries/${workspace.slug}`,
+    publicProfileHref: publicProfileHrefForWorkspace(workspace),
     publicProfileLive: publicProfileLive(workspace),
     reviewedAt: application?.reviewed_at ?? workspace.usam_application_reviewed_at ?? null,
     status,

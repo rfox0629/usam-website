@@ -47,6 +47,9 @@ export const metadata: Metadata = {
 
 const householdBaseSelect = "id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order, updated_at";
 const householdFeatureColumns = [
+  "public_slug",
+  "public_display_name",
+  "public_slug_aliases",
   "show_household",
   "show_photos",
   "show_team",
@@ -447,6 +450,9 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
   const message = error?.message ?? "";
 
   return [
+    "public_slug",
+    "public_display_name",
+    "public_slug_aliases",
     "show_household",
     "show_photos",
     "show_team",

@@ -20,7 +20,7 @@ export default function ProfilesOperationsPage() {
         emptyDescription: "Profile review submissions will appear here. Photo review is listed as a source but is not a separate inbox yet.",
         formTypes: ["missionary_profile_review"],
         sourceForms: [
-          { name: "Missionary Profile Review", route: "/missionaries/ryan-brooke-fox?previewForm=missionary_profile_review" },
+          { name: "Missionary Profile Review", route: "/missionaries/fox-family?previewForm=missionary_profile_review" },
           { name: "Photo Review", route: "/admin/missionary-profiles" },
         ],
         title: "Profiles",

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { PrintFlyerClient } from "@/src/components/missionaries/PrintFlyerClient";
 import { SupportFlyer } from "@/src/components/missionaries/SupportFlyer";
 import { getPublicMissionaryProfileUrl } from "@/src/lib/missionaries/public-origin";
@@ -48,6 +48,22 @@ export default async function MissionarySupportFlyerPage({
 
   if (!missionary || missionary.features?.showSupport === false || missionary.supportEnabled === false) {
     notFound();
+  }
+
+  if (missionary.slug !== slug) {
+    const redirectParams = new URLSearchParams();
+
+    if (query.print) {
+      redirectParams.set("print", query.print);
+    }
+
+    if (query.version) {
+      redirectParams.set("version", query.version);
+    }
+
+    const queryString = redirectParams.toString();
+
+    permanentRedirect(`/missionaries/${missionary.slug}/flyer${queryString ? `?${queryString}` : ""}`);
   }
 
   const profileUrl = getPublicMissionaryProfileUrl(missionary.slug);

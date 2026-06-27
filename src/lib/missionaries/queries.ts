@@ -41,7 +41,12 @@ const functionTags = [
 ] as const satisfies readonly MissionaryFunctionTag[];
 
 const directoryImageFallback = "/fox-family.png";
-const householdBaseSelect = "id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order";
+const legacyPublicSlugAliases: Record<string, string> = {
+  "ryan-brooke-fox": "fox-family",
+  "ryan-fox": "fox-family",
+};
+const householdBaseSelect = "id, slug, public_slug, public_display_name, public_slug_aliases, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order";
+const householdLegacyBaseSelect = "id, slug, display_name, location, profile_image_url, hero_image_url, short_mission, story, public_visible, sort_order";
 const householdFeatureSelect = [
   "show_household",
   "show_photos",
@@ -78,6 +83,9 @@ const supportSettingsFullSelect = `${supportSettingsBaseSelect}, monthly_giving_
 type HouseholdRow = {
   id: string;
   slug: string;
+  public_slug?: string | null;
+  public_display_name?: string | null;
+  public_slug_aliases?: string[] | null;
   display_name: string;
   location: string | null;
   profile_image_url: string | null;
@@ -208,6 +216,9 @@ type FruitItemRow = {
 export type MissionaryHouseholdDirectoryRow = {
   id: string;
   slug: string;
+  public_slug?: string | null;
+  public_display_name?: string | null;
+  public_slug_aliases?: string[] | null;
   display_name: string;
   location: string | null;
   profile_image_url: string | null;
@@ -339,6 +350,18 @@ function isHouseholdPubliclyVisible(household: { show_household?: boolean | null
   return isEnabledByDefault(household.show_household);
 }
 
+function publicSlugForHousehold(household: { public_slug?: string | null; slug: string }) {
+  return household.public_slug?.trim() || household.slug;
+}
+
+function canonicalPublicProfileSlug(slug: string) {
+  return legacyPublicSlugAliases[slug] ?? slug;
+}
+
+function publicDisplayNameForHousehold(household: { display_name: string; public_display_name?: string | null }) {
+  return household.public_display_name?.trim() || household.display_name;
+}
+
 function toSupportMode(value: string | null | undefined): MissionarySupportMode {
   return normalizeSupportRoutingMode(value) as MissionarySupportMode;
 }
@@ -348,6 +371,9 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
 
   return [
     "show_household",
+    "public_slug",
+    "public_display_name",
+    "public_slug_aliases",
     "show_photos",
     "show_team",
     "show_story",
@@ -559,8 +585,8 @@ function mapHouseholdToMissionary({
   return {
     id: household.id,
     missionaryNumber: sortedPeople[0]?.missionary_number ?? "",
-    slug: household.slug,
-    name: household.display_name,
+    slug: publicSlugForHousehold(household),
+    name: publicDisplayNameForHousehold(household),
     role: roleTypeLabel(roleType) || toDisplayRole(mappedTags.roleTags),
     category: getCategoryFromTags(mappedTags.roleTags),
     location,
@@ -646,6 +672,9 @@ export async function getMissionaryDirectory() {
       .select(`
         id,
         slug,
+        public_slug,
+        public_display_name,
+        public_slug_aliases,
         display_name,
         location,
         profile_image_url,
@@ -754,6 +783,9 @@ export async function getMissionaryHouseholdsResult(): Promise<MissionaryHouseho
       .select(`
         id,
         slug,
+        public_slug,
+        public_display_name,
+        public_slug_aliases,
         display_name,
         location,
         profile_image_url,
@@ -845,16 +877,18 @@ export async function getMissionaryHouseholds(): Promise<MissionaryHouseholdDire
 }
 
 export async function getMissionaryProfileBySlug(slug: string) {
+  const canonicalSlug = canonicalPublicProfileSlug(slug);
+
   if (!isSupabaseServerConfigured()) {
-    return getMissionaryBySlug(slug);
+    return getMissionaryBySlug(canonicalSlug);
   }
 
   try {
     const supabase = await createSupabaseServerClient();
-    const householdResult = await supabase
+    let householdResult = await supabase
       .from("missionary_households")
       .select(householdProfileSelect as string)
-      .eq("slug", slug)
+      .eq("public_slug", canonicalSlug)
       .eq("public_visible", true)
       .maybeSingle();
     let household = householdResult.data as HouseholdRow | null;
@@ -863,8 +897,8 @@ export async function getMissionaryProfileBySlug(slug: string) {
     if (householdError && hasMissingFeatureColumnsError(householdError)) {
       const fallbackResult = await supabase
         .from("missionary_households")
-        .select(householdBaseSelect)
-        .eq("slug", slug)
+        .select(householdLegacyBaseSelect)
+        .eq("slug", canonicalSlug)
         .eq("public_visible", true)
         .maybeSingle();
 
@@ -872,11 +906,37 @@ export async function getMissionaryProfileBySlug(slug: string) {
       householdError = fallbackResult.error;
     }
 
-    if (householdError) {
-      return getMissionaryBySlug(slug);
+    if (!household && !householdError) {
+      householdResult = await supabase
+        .from("missionary_households")
+        .select(householdProfileSelect as string)
+        .eq("slug", canonicalSlug)
+        .eq("public_visible", true)
+        .maybeSingle();
+      household = householdResult.data as HouseholdRow | null;
+      householdError = householdResult.error;
     }
 
-    if (!household || !isHouseholdPubliclyVisible(household)) {
+    if (!household && !householdError) {
+      householdResult = await supabase
+        .from("missionary_households")
+        .select(householdProfileSelect as string)
+        .contains("public_slug_aliases", [canonicalSlug])
+        .eq("public_visible", true)
+        .maybeSingle();
+      household = householdResult.data as HouseholdRow | null;
+      householdError = householdResult.error;
+    }
+
+    if (householdError) {
+      return getMissionaryBySlug(canonicalSlug);
+    }
+
+    if (!household) {
+      return getMissionaryBySlug(canonicalSlug);
+    }
+
+    if (!isHouseholdPubliclyVisible(household)) {
       return undefined;
     }
 

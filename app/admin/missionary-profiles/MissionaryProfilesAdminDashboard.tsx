@@ -102,6 +102,9 @@ export type AdminTeamMemberSource = "website_admin" | "dos" | "public_form";
 export type AdminHousehold = {
   id: string;
   slug: string;
+  public_slug?: string | null;
+  public_display_name?: string | null;
+  public_slug_aliases?: string[] | null;
   display_name: string;
   location: string | null;
   profile_image_url: string | null;
@@ -1144,6 +1147,14 @@ function householdNameCandidates(profile: AdminProfile) {
 
     return /\s/.test(part) ? part : `${part} ${lastName}`;
   });
+}
+
+function getProfilePublicSlug(profile: Pick<AdminHousehold, "public_slug" | "slug">) {
+  return profile.public_slug?.trim() || profile.slug;
+}
+
+function getProfilePublicDisplayName(profile: Pick<AdminHousehold, "display_name" | "public_display_name">) {
+  return profile.public_display_name?.trim() || profile.display_name;
 }
 
 function nextHouseholdTeamMemberName(profile: AdminProfile) {
@@ -10023,7 +10034,9 @@ export function MissionaryProfilesAdminDashboard({
       const publicProfile = isProfilePublic(profile);
       const searchable = [
         profile.display_name,
+        profile.public_display_name,
         profile.slug,
+        profile.public_slug,
         profile.short_mission,
         getProfilePrimaryState(profile),
         getProfileServingScope(profile),
@@ -10262,7 +10275,7 @@ export function MissionaryProfilesAdminDashboard({
       return;
     }
 
-    const profileUrl = getPublicMissionaryProfileUrl(selectedProfile.slug);
+    const profileUrl = getPublicMissionaryProfileUrl(getProfilePublicSlug(selectedProfile));
 
     try {
       await window.navigator.clipboard.writeText(profileUrl);
@@ -11515,6 +11528,9 @@ export function MissionaryProfilesAdminDashboard({
             original_story: selectedProfile.original_story,
             primary_state: primaryState,
             profile_image_url: selectedProfile.profile_image_url,
+            public_display_name: selectedProfile.public_display_name,
+            public_slug: selectedProfile.public_slug,
+            public_slug_aliases: selectedProfile.public_slug_aliases ?? [],
             prayer_cta_label: selectedProfile.prayer_cta_label,
             prayer_destination: selectedProfile.prayer_destination,
             prayer_section_description: selectedProfile.prayer_section_description,
@@ -11731,11 +11747,12 @@ export function MissionaryProfilesAdminDashboard({
   const support = selectedProfile.support ?? emptySupport(selectedProfile.id);
   const supportMode = selectedProfileSupportMode;
   const calculatedMonthlyGoal = calculateMonthlyGoal(support.annual_goal);
-  const publicProfileLink = getPublicMissionaryProfileUrl(selectedProfile.slug);
+  const publicDisplayName = getProfilePublicDisplayName(selectedProfile);
+  const publicProfileLink = getPublicMissionaryProfileUrl(getProfilePublicSlug(selectedProfile));
   const publicSupportLink = `${publicProfileLink}#support`;
   const publicFlyerLink = `${publicProfileLink}/flyer`;
   const supportMissionStatement = selectedProfile.short_mission || "We are serving with USA Missionaries to reach the lost, make disciples, and multiply across America.";
-  const supportEmailTemplate = `Subject: Would you prayerfully consider partnering with ${selectedProfile.display_name}?\n\nHi {{FirstName}},\n\nWe are serving with USA Missionaries and raising monthly support so we can keep saying yes to the mission God has put in front of us.\n\n${supportMissionStatement}\n\nWould you prayerfully consider becoming a monthly support partner? You can learn more about our mission and give securely here:\n${publicSupportLink}\n\nThank you for praying with us and considering partnership.\n\n${selectedProfile.display_name}`;
+  const supportEmailTemplate = `Subject: Would you prayerfully consider partnering with ${publicDisplayName}?\n\nHi {{FirstName}},\n\nWe are serving with USA Missionaries and raising monthly support so we can keep saying yes to the mission God has put in front of us.\n\n${supportMissionStatement}\n\nWould you prayerfully consider becoming a monthly support partner? You can learn more about our mission and give securely here:\n${publicSupportLink}\n\nThank you for praying with us and considering partnership.\n\n${publicDisplayName}`;
   const profileLinkCopyTitle = profileLinkCopyState === "copied"
     ? "Copied"
     : profileLinkCopyState === "failed"
@@ -11753,7 +11770,7 @@ export function MissionaryProfilesAdminDashboard({
   const targetHouseholdSelectDisabled = targetHouseholdLoadState !== "success" || targetHouseholds.length === 0;
   const selectedTargetHousehold = targetHouseholds.find((household) => household.id === selectedProfile.support_target_household_id);
   const givingRoutingDestination = supportMode === "household"
-    ? selectedProfile.display_name
+    ? publicDisplayName
     : supportMode === "household_nomination"
       ? selectedTargetHousehold?.display_name ?? "Selected missionary household"
       : supportMode === "general_fund"
@@ -11908,7 +11925,7 @@ export function MissionaryProfilesAdminDashboard({
               </Link>
               <Link
                 className="flex min-h-[74px] min-w-0 items-center rounded-2xl border border-[#D4A63D]/50 bg-[#101010] p-3.5 text-stone-100 shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[#D4A63D]/80 hover:bg-[#141414] hover:text-[#F5B942] hover:shadow-[0_16px_36px_rgba(212,166,61,0.1)] sm:min-h-24 sm:p-4"
-                href={`/missionaries/${selectedProfile.slug}`}
+                href={`/missionaries/${getProfilePublicSlug(selectedProfile)}`}
                 target="_blank"
               >
                 <div className="flex min-w-0 items-center gap-3">
@@ -12165,14 +12182,26 @@ export function MissionaryProfilesAdminDashboard({
                 </p>
                 <div className="mt-3 grid gap-x-4 gap-y-6 md:grid-cols-2">
                   <ProfileField
-                    helperText="Shown publicly."
-                    label="Display Name"
+                    helperText="Used inside Command Center and DOS."
+                    label="Workspace Name"
                     onChange={(value) => updateHouseholdField("display_name", value)}
                     value={selectedProfile.display_name}
                   />
                   <ProfileField
-                    helperText="Used for public URL."
-                    label="Slug"
+                    helperText="Shown on the public profile."
+                    label="Public Display Name"
+                    onChange={(value) => updateHouseholdField("public_display_name", value)}
+                    value={selectedProfile.public_display_name ?? ""}
+                  />
+                  <ProfileField
+                    helperText="Controls /missionaries/[slug]."
+                    label="Public Profile Slug"
+                    onChange={(value) => updateHouseholdField("public_slug", value)}
+                    value={selectedProfile.public_slug ?? ""}
+                  />
+                  <ProfileField
+                    helperText="Private workspace/DOS route."
+                    label="Workspace Slug"
                     onChange={(value) => updateHouseholdField("slug", value)}
                     value={selectedProfile.slug}
                   />
@@ -12767,8 +12796,8 @@ export function MissionaryProfilesAdminDashboard({
                           majorGiftButtonLabel="Contact About Major Gift"
                           majorGiftPublicDescription={support.major_gift_public_description}
                           missionaryId={selectedProfile.id}
-                          missionaryName={selectedProfile.display_name}
-                          missionarySlug={selectedProfile.slug}
+                          missionaryName={getProfilePublicDisplayName(selectedProfile)}
+                          missionarySlug={getProfilePublicSlug(selectedProfile)}
                           monthlyButtonLabel="Support Monthly"
                           monthlyGivingUrl={support.monthly_giving_url}
                           oneTimeButtonLabel="Give One Time"
@@ -12793,7 +12822,7 @@ export function MissionaryProfilesAdminDashboard({
                   annualGoal={toNumber(support.annual_goal)}
                   flyerLink={publicFlyerLink}
                   missionStatement={supportMissionStatement}
-                  missionaryName={selectedProfile.display_name}
+                  missionaryName={publicDisplayName}
                   onCopy={copyTextToClipboard}
                   profileLink={publicProfileLink}
                   support={support}
@@ -12835,6 +12864,27 @@ export function MissionaryProfilesAdminDashboard({
                         <StatusPill>Mode: {selectedSupportModeLabel}</StatusPill>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4A63D]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Giving Links
+                    </p>
+                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                      <Field
+                        label="Monthly Giving URL"
+                        onChange={(value) => updateSupportField("monthly_giving_url", value)}
+                        value={support.monthly_giving_url ?? ""}
+                      />
+                      <Field
+                        label="One-Time Giving URL"
+                        onChange={(value) => updateSupportField("one_time_giving_url", value)}
+                        value={support.one_time_giving_url ?? ""}
+                      />
+                    </div>
+                    <p className={lightHelperClass}>
+                      Blank links use the default USA Missionaries Church Center giving destination.
+                    </p>
                   </div>
 
                   <div className="rounded-2xl border border-[#e2ded5] bg-white p-4">

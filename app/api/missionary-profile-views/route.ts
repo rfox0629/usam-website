@@ -13,6 +13,8 @@ type ProfileViewPayload = {
 
 type HouseholdRow = {
   id: string;
+  public_slug?: string | null;
+  public_slug_aliases?: string[] | null;
   public_visible: boolean | null;
   show_household?: boolean | null;
   slug: string;
@@ -26,6 +28,14 @@ function asNullableString(value: unknown) {
   const nextValue = asString(value);
 
   return nextValue ? nextValue : null;
+}
+
+function asNullableUuid(value: unknown) {
+  const valueString = asString(value);
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(valueString)
+    ? valueString
+    : null;
 }
 
 function truncate(value: string | null, maxLength: number) {
@@ -95,7 +105,7 @@ export async function POST(request: Request) {
     return new NextResponse(null, { status: 204 });
   }
 
-  const missionaryProfileId = asString(payload.missionaryProfileId);
+  const missionaryProfileId = asNullableUuid(payload.missionaryProfileId);
   const profileSlug = asString(payload.profileSlug);
   const pagePath = asString(payload.pagePath);
 
@@ -106,9 +116,8 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient();
   const householdResult = await supabase
     .from("missionary_households")
-    .select("id, slug, public_visible, show_household")
+    .select("id, slug, public_slug, public_slug_aliases, public_visible, show_household")
     .eq("id", missionaryProfileId)
-    .eq("slug", profileSlug)
     .eq("public_visible", true)
     .limit(1)
     .maybeSingle();
@@ -122,6 +131,16 @@ export async function POST(request: Request) {
   const household = householdResult.data as HouseholdRow | null;
 
   if (!household || household.show_household === false) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  const allowedSlugs = new Set([
+    household.slug,
+    household.public_slug?.trim() || household.slug,
+    ...(household.public_slug_aliases ?? []),
+  ]);
+
+  if (!allowedSlugs.has(profileSlug)) {
     return new NextResponse(null, { status: 204 });
   }
 

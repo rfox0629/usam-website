@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { MissionaryProfileTemplate } from "@/src/components/missionaries/MissionaryProfileTemplate";
 import { getMissionaryProfileBySlug, getMissionaryStaticParams } from "@/src/lib/missionaries/queries";
 
@@ -43,6 +43,12 @@ export default async function MissionaryProfilePage({
 
   if (!missionary) {
     notFound();
+  }
+
+  if (missionary.slug !== slug) {
+    const previewForm = query.previewForm ? `?previewForm=${encodeURIComponent(query.previewForm)}` : "";
+
+    permanentRedirect(`/missionaries/${missionary.slug}${previewForm}`);
   }
 
   return <MissionaryProfileTemplate missionary={missionary} previewForm={query.previewForm} />;

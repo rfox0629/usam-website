@@ -154,8 +154,8 @@ export const missionaries: readonly Missionary[] = [
   {
     id: "001",
     missionaryNumber: "002",
-    slug: "ryan-brooke-fox",
-    name: "Ryan & Brooke Fox",
+    slug: "fox-family",
+    name: "Fox Family",
     role: "Minnesota Missionaries",
     category: "Missionaries",
     location: "Minnesota",
@@ -183,6 +183,15 @@ export const missionaries: readonly Missionary[] = [
     functionTags: ["LEADERSHIP"],
     heroImage: "/fox-family-no-background.png",
     headerImage: "/fox-family.png",
+    householdMembers: [
+      { displayName: "Ryan Fox", publicNumber: "#0002", roleTitle: "Missionary", sortOrder: 1 },
+      { displayName: "Brooke Fox", publicNumber: "#0003", roleTitle: "Missionary", sortOrder: 2 },
+      { displayName: "Parker Fox", publicNumber: "#0004", sortOrder: 3 },
+      { displayName: "Oakley Fox", publicNumber: "#0005", sortOrder: 4 },
+      { displayName: "Gunner Fox", publicNumber: "#0006", sortOrder: 5 },
+      { displayName: "Axel Fox", publicNumber: "#0007", sortOrder: 6 },
+      { displayName: "Jersey Fox", publicNumber: "#0008", sortOrder: 7 },
+    ],
     supportEnabled: true,
   },
   {
@@ -348,5 +357,11 @@ export const missionaries: readonly Missionary[] = [
 ];
 
 export function getMissionaryBySlug(slug: string) {
-  return missionaries.find((missionary) => missionary.slug === slug);
+  const legacyPublicSlugAliases: Record<string, string> = {
+    "ryan-brooke-fox": "fox-family",
+    "ryan-fox": "fox-family",
+  };
+  const canonicalSlug = legacyPublicSlugAliases[slug] ?? slug;
+
+  return missionaries.find((missionary) => missionary.slug === canonicalSlug);
 }

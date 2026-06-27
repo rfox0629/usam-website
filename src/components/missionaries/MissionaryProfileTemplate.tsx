@@ -9,6 +9,7 @@ import { JoinPrayerTeamModal, PrayerRequestsModalButton } from "@/src/components
 import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
 import { MissionaryProfileViewTracker } from "@/src/components/missionaries/MissionaryProfileViewTracker";
 import { SubmitPrayerRequestModal } from "@/src/components/missionaries/SubmitPrayerRequestModal";
+import { ExpandableTeamMemberList } from "@/src/components/missionaries/ExpandableTeamMemberList";
 import type { Missionary, MissionaryFruitItem } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
 
@@ -277,7 +278,6 @@ function StoryProfileCard({
 // models, not this public profile section.
 function TeamProfileCard({ missionary }: { missionary: Missionary }) {
   const members = missionary.householdMembers ?? [];
-  const visibleMembers = members.slice(0, 4);
 
   return (
     <MissionProfileCard
@@ -285,35 +285,7 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
       label={`${members.length} ${members.length === 1 ? "Member" : "Members"}`}
       title="Team"
     >
-      <div className="grid gap-2">
-        {visibleMembers.map((member) => (
-          <div
-            className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-2.5"
-            key={`${member.publicNumber ?? "member"}-${member.displayName}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-base font-bold leading-tight text-stone-100" style={{ fontFamily: font.oswald }}>
-                {member.displayName}
-              </h3>
-              {member.publicNumber ? (
-                <span className="text-[9px] uppercase tracking-[0.14em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                  {member.publicNumber}
-                </span>
-              ) : null}
-            </div>
-            {member.roleTitle ? (
-              <p className="mt-1 text-xs text-stone-400">
-                {member.roleTitle}
-              </p>
-            ) : null}
-          </div>
-        ))}
-        {members.length > visibleMembers.length ? (
-          <p className="pt-1 text-xs uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            +{members.length - visibleMembers.length} more
-          </p>
-        ) : null}
-      </div>
+      <ExpandableTeamMemberList members={members} />
     </MissionProfileCard>
   );
 }
@@ -525,10 +497,10 @@ export function MissionaryProfileTemplate({
   const storedStoryParagraphs = splitStory(missionary.story);
   const fallbackStoryParagraphs = missionary.features
     ? undefined
-    : missionary.slug === "ryan-brooke-fox" ? ryanBrookeStory : defaultStory;
+    : missionary.slug === "fox-family" ? ryanBrookeStory : defaultStory;
   const storyParagraphs = storedStoryParagraphs ?? fallbackStoryParagraphs;
   const storyPreview = getStoryPreview(storyParagraphs)
-    || (missionary.slug === "ryan-brooke-fox" ? ryanBrookeStoryPreview : "");
+    || (missionary.slug === "fox-family" ? ryanBrookeStoryPreview : "");
   const fruitItems = missionary.fruitItems ?? [];
   const showPhotos = features.showPhotos;
   const showTeam = features.showTeam && Boolean(missionary.householdMembers?.length);

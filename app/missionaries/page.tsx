@@ -67,9 +67,9 @@ function mapHouseholdToDirectoryProfile(household: MissionaryHouseholdDirectoryR
     functionTags,
     image: showPhotos ? household.profile_image_url || directoryImageFallback : null,
     location: locationVisibility === "hidden" ? "Undisclosed Location" : primaryState || household.location || "United States",
-    name: household.display_name,
+    name: household.public_display_name?.trim() || household.display_name,
     roleTags,
-    slug: household.slug,
+    slug: household.public_slug?.trim() || household.slug,
   };
 }
 
