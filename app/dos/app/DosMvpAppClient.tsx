@@ -14568,7 +14568,10 @@ function AdditionalPersonInformation({
       <DosFormSection icon="home" title="Household Information">
         <details className="group overflow-hidden rounded-[20px] border border-[#D6E4F7] bg-white">
           <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF] [&::-webkit-details-marker]:hidden">
-            <span className="text-sm font-bold text-[#0F172A]">Show household fields</span>
+            <span>
+              <span className="block text-sm font-bold text-[#0F172A]">Show household fields</span>
+              <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">Household names are kept selectable for tables.</span>
+            </span>
             <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
           </summary>
           <div className="grid gap-3 border-t border-[#EAF2FF] bg-white p-3">

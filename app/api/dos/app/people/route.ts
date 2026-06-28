@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
+import { syncHouseholdMembersAsPeople } from "@/src/lib/dos/household-member-people";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { joinPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { relationshipModelFromFields, relationshipModelSummary, relationshipScoreFromEngagementLevel, relationshipScoreLabel } from "@/src/lib/dos/relationship-model";
@@ -189,19 +190,22 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const childrenNames = asNullableString(payload.childrenNames) || asNullableString(payload.children_names);
+  const householdNotes = asNullableString(payload.householdNotes) || asNullableString(payload.household_notes);
+  const spouseName = asNullableString(payload.spouseName) || asNullableString(payload.spouse_name);
   const personInsert: Record<string, unknown> = {
-    children_names: asNullableString(payload.childrenNames) || asNullableString(payload.children_names),
+    children_names: childrenNames,
     church: asNullableString(payload.church),
     created_by: authResult.authorization.userId,
     email: asNullableString(payload.email),
     household_id: workspaceId,
-    household_notes: asNullableString(payload.householdNotes) || asNullableString(payload.household_notes),
+    household_notes: householdNotes,
     name,
     notes: buildPersonNotes(payload),
     phone,
     ...relationshipFieldsFromPayload(payload, true),
     source: "field",
-    spouse_name: asNullableString(payload.spouseName) || asNullableString(payload.spouse_name),
+    spouse_name: spouseName,
     status: "new",
     workspace_id: workspaceId,
   };
@@ -227,6 +231,22 @@ export async function POST(request: Request) {
 
   if (!data) {
     return NextResponse.json({ error: "Unable to create person." }, { status: 500 });
+  }
+
+  const householdSyncResult = await syncHouseholdMembersAsPeople(supabase, {
+    anchorName: name,
+    anchorPersonId: String(data.id),
+    childrenNames,
+    church: asNullableString(payload.church),
+    createdBy: authResult.authorization.userId,
+    engagementLevel: relationshipScoreLabel(relationshipScoreFromEngagementLevel(payload.engagementScore)),
+    householdNotes,
+    spouseName,
+    workspaceId,
+  });
+
+  if (householdSyncResult.error) {
+    return NextResponse.json({ error: householdSyncResult.error.message ?? "Unable to save household members as people." }, { status: 500 });
   }
 
   await recalculateCircleScores(workspaceId).catch((scoreError) => {
@@ -266,16 +286,19 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const childrenNames = asNullableString(payload.childrenNames) || asNullableString(payload.children_names);
+  const householdNotes = asNullableString(payload.householdNotes) || asNullableString(payload.household_notes);
+  const spouseName = asNullableString(payload.spouseName) || asNullableString(payload.spouse_name);
   const personUpdate: Record<string, unknown> = {
-    children_names: asNullableString(payload.childrenNames) || asNullableString(payload.children_names),
+    children_names: childrenNames,
     church: asNullableString(payload.church),
     email: asNullableString(payload.email),
-    household_notes: asNullableString(payload.householdNotes) || asNullableString(payload.household_notes),
+    household_notes: householdNotes,
     name,
     notes: buildPersonNotes(payload),
     phone,
     ...relationshipFieldsFromPayload(payload),
-    spouse_name: asNullableString(payload.spouseName) || asNullableString(payload.spouse_name),
+    spouse_name: spouseName,
   };
   let updateResult: { data: { id: unknown } | null; error: { message: string } | null } | null = null;
 
@@ -317,6 +340,22 @@ export async function PATCH(request: Request) {
 
   if (!data) {
     return NextResponse.json({ error: "Unable to update person." }, { status: 500 });
+  }
+
+  const householdSyncResult = await syncHouseholdMembersAsPeople(supabase, {
+    anchorName: name,
+    anchorPersonId: id,
+    childrenNames,
+    church: asNullableString(payload.church),
+    createdBy: authResult.authorization.userId,
+    engagementLevel: asString(payload.engagementScore),
+    householdNotes,
+    spouseName,
+    workspaceId,
+  });
+
+  if (householdSyncResult.error) {
+    return NextResponse.json({ error: householdSyncResult.error.message ?? "Unable to save household members as people." }, { status: 500 });
   }
 
   await recalculateCircleScores(workspaceId).catch((scoreError) => {

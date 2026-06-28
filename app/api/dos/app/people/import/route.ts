@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
+import { syncHouseholdMembersAsPeople } from "@/src/lib/dos/household-member-people";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -275,6 +276,31 @@ export async function POST(request: Request) {
   const importedCount = data?.length ?? 0;
 
   if (importedCount > 0) {
+    for (let index = 0; index < (data ?? []).length; index += 1) {
+      const person = (data ?? [])[index];
+      const sourceRecord = records[index];
+
+      if (!person || !sourceRecord) {
+        continue;
+      }
+
+      const householdSyncResult = await syncHouseholdMembersAsPeople(supabase, {
+        anchorName: String(sourceRecord.name ?? ""),
+        anchorPersonId: person.id,
+        childrenNames: String(sourceRecord.children_names ?? ""),
+        church: String(sourceRecord.church ?? ""),
+        createdBy: authResult.authorization.userId,
+        engagementLevel: String(sourceRecord.engagement_level ?? ""),
+        householdNotes: String(sourceRecord.household_notes ?? ""),
+        spouseName: String(sourceRecord.spouse_name ?? ""),
+        workspaceId,
+      });
+
+      if (householdSyncResult.error) {
+        return NextResponse.json({ error: householdSyncResult.error.message ?? "Unable to save household members as people." }, { status: 500 });
+      }
+    }
+
     await recalculateCircleScores(workspaceId).catch((scoreError) => {
       console.warn("[DOS circles] Unable to recalculate after person import", scoreError);
     });
