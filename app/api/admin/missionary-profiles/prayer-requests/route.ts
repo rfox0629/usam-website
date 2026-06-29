@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
-const requestSelect = "id, household_id, related_household_id, field_person_id, title, request, category, urgency, status, visibility, created_at, updated_at";
+const requestSelect = "id, workspace_id, household_id, related_household_id, field_person_id, title, request, category, urgency, status, visibility, person_tags, linked_person_ids, answer_testimony, created_at, updated_at";
+const legacyRequestSelect = "id, workspace_id, household_id, related_household_id, field_person_id, title, request, category, urgency, status, visibility, created_at, updated_at";
 const statuses = ["open", "covered", "answered", "archived"] as const;
 const urgencies = ["normal", "important", "urgent"] as const;
 const visibilities = ["private", "team", "public"] as const;
@@ -14,6 +15,10 @@ type PrayerPayload = {
   householdId?: unknown;
   household_id?: unknown;
   id?: unknown;
+  linkedPersonIds?: unknown;
+  linked_person_ids?: unknown;
+  personTags?: unknown;
+  person_tags?: unknown;
   request?: unknown;
   status?: unknown;
   title?: unknown;
@@ -31,6 +36,18 @@ function asNullableString(value: unknown) {
   const nextValue = asString(value);
 
   return nextValue ? nextValue : null;
+}
+
+function asStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(new Set(value.map((item) => asString(item)).filter(Boolean)));
+}
+
+function asUuidArray(value: unknown) {
+  return asStringArray(value).filter(isUuid);
 }
 
 function isUuid(value: string) {
@@ -90,6 +107,12 @@ function prayerErrorMessage(error: { code?: string; message?: string }) {
   return message;
 }
 
+function isMissingPrayerBridgeColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return ["answer_testimony", "linked_person_ids", "person_tags", "schema cache"].some((columnName) => message.includes(columnName));
+}
+
 export async function POST(request: Request) {
   const authResult = await authorizePrayerWrite();
 
@@ -107,6 +130,8 @@ export async function POST(request: Request) {
   const fieldPersonId = asString(payload.fieldPersonId) || asString(payload.field_person_id);
   const title = asString(payload.title);
   const requestText = asString(payload.request);
+  const personTags = asStringArray(payload.personTags ?? payload.person_tags);
+  const linkedPersonIds = asUuidArray(payload.linkedPersonIds ?? payload.linked_person_ids);
 
   if (!isUuid(workspaceId) || !title || !requestText) {
     return NextResponse.json({ error: "Workspace, title, and request are required." }, { status: 400 });
@@ -131,24 +156,51 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data, error } = await supabase
+  const insertPayload = {
+    category: asNullableString(payload.category),
+    confidentiality_level: "missionary_couple",
+    description: requestText,
+    field_person_id: fieldPersonId || null,
+    household_id: workspaceId,
+    linked_person_ids: linkedPersonIds,
+    person_tags: personTags,
+    related_household_id: workspaceId,
+    related_missionary_profile_id: workspaceId,
+    request: requestText,
+    source: "dos",
+    status: "open",
+    title,
+    urgency: asUrgency(payload.urgency),
+    visibility: asVisibility(payload.visibility),
+    workspace_id: workspaceId,
+  };
+  const insertResult = await supabase
     .from("prayer_requests")
-    .insert({
-      category: asNullableString(payload.category),
-      confidentiality_level: "missionary_couple",
-      description: requestText,
-      field_person_id: fieldPersonId || null,
-      household_id: workspaceId,
-      related_household_id: workspaceId,
-      request: requestText,
-      source: "missionary_workspace",
-      status: "open",
-      title,
-      urgency: asUrgency(payload.urgency),
-      visibility: asVisibility(payload.visibility),
-    })
+    .insert(insertPayload)
     .select(requestSelect)
     .single();
+  const { data, error } = insertResult.error && isMissingPrayerBridgeColumn(insertResult.error)
+    ? await supabase
+      .from("prayer_requests")
+      .insert({
+        category: insertPayload.category,
+        confidentiality_level: insertPayload.confidentiality_level,
+        description: insertPayload.description,
+        field_person_id: insertPayload.field_person_id,
+        household_id: insertPayload.household_id,
+        related_household_id: insertPayload.related_household_id,
+        related_missionary_profile_id: insertPayload.related_missionary_profile_id,
+        request: insertPayload.request,
+        source: insertPayload.source,
+        status: insertPayload.status,
+        title: insertPayload.title,
+        urgency: insertPayload.urgency,
+        visibility: insertPayload.visibility,
+        workspace_id: insertPayload.workspace_id,
+      })
+      .select(legacyRequestSelect)
+      .single()
+    : insertResult;
 
   if (error) {
     console.error("[Prayer Requests API] Failed to insert prayer request:", error);
@@ -181,6 +233,8 @@ export async function PATCH(request: Request) {
   const updatePayload: {
     status?: typeof statuses[number];
     visibility?: typeof visibilities[number];
+    person_tags?: string[];
+    linked_person_ids?: string[];
   } = {};
 
   if (payload.status !== undefined) {
@@ -191,17 +245,38 @@ export async function PATCH(request: Request) {
     updatePayload.visibility = asVisibility(payload.visibility);
   }
 
+  if (payload.personTags !== undefined || payload.person_tags !== undefined) {
+    updatePayload.person_tags = asStringArray(payload.personTags ?? payload.person_tags);
+  }
+
+  if (payload.linkedPersonIds !== undefined || payload.linked_person_ids !== undefined) {
+    updatePayload.linked_person_ids = asUuidArray(payload.linkedPersonIds ?? payload.linked_person_ids);
+  }
+
   if (!Object.keys(updatePayload).length) {
     return NextResponse.json({ error: "Prayer request status or visibility is required." }, { status: 400 });
   }
 
-  const { data, error } = await createSupabaseAdminClient()
+  const supabase = createSupabaseAdminClient();
+  const updateResult = await supabase
     .from("prayer_requests")
     .update(updatePayload)
     .eq("id", id)
-    .or(`household_id.eq.${workspaceId},related_household_id.eq.${workspaceId}`)
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId},related_household_id.eq.${workspaceId},related_missionary_profile_id.eq.${workspaceId}`)
     .select(requestSelect)
     .single();
+  const { data, error } = updateResult.error && isMissingPrayerBridgeColumn(updateResult.error)
+    ? await supabase
+      .from("prayer_requests")
+      .update({
+        status: updatePayload.status,
+        visibility: updatePayload.visibility,
+      })
+      .eq("id", id)
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId},related_household_id.eq.${workspaceId},related_missionary_profile_id.eq.${workspaceId}`)
+      .select(legacyRequestSelect)
+      .single()
+    : updateResult;
 
   if (error) {
     console.error("[Prayer Requests API] Failed to update prayer request:", error);

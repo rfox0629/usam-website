@@ -258,18 +258,23 @@ type InSeasonFocusRow = {
 };
 
 type PrayerRequestRow = {
+  answer_testimony?: string | null;
   category: string | null;
   created_at: string;
   field_person_id?: string | null;
   household_id: string | null;
   id: string;
+  linked_person_ids?: string[] | null;
+  person_tags?: string[] | null;
   related_household_id?: string | null;
+  related_missionary_profile_id?: string | null;
   request?: string | null;
   status: string | null;
   title: string;
   updated_at: string | null;
   urgency?: string | null;
   visibility?: string | null;
+  workspace_id?: string | null;
 };
 
 type PublicFruitItemRow = {
@@ -883,8 +888,8 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
         .or(ids.map((id) => `recruited_by_household_id.eq.${id},workspace_id.eq.${id},missionary_profile_id.eq.${id}`).join(",")),
       supabase
         .from("prayer_requests")
-        .select("household_id, status")
-        .in("household_id", ids),
+        .select("workspace_id, household_id, related_household_id, related_missionary_profile_id, status, visibility")
+        .or(ids.map((id) => `workspace_id.eq.${id},household_id.eq.${id},related_household_id.eq.${id},related_missionary_profile_id.eq.${id}`).join(",")),
     ]);
 
     if (prayerPartnersResult.error && !isMissingPrayerTeamTable(prayerPartnersResult.error)) {
@@ -933,22 +938,26 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     });
 
     (prayerRequestsResult.data ?? []).forEach((request) => {
-      if ((request.status !== "active" && request.status !== "open") || !request.household_id) {
+      const requestHouseholdId = request.workspace_id ?? request.household_id ?? request.related_household_id ?? request.related_missionary_profile_id;
+
+      if ((request.status !== "active" && request.status !== "open") || !requestHouseholdId || !ids.includes(requestHouseholdId)) {
         return;
       }
 
       activePrayerRequestCountByHouseholdId.set(
-        request.household_id,
-        (activePrayerRequestCountByHouseholdId.get(request.household_id) ?? 0) + 1,
+        requestHouseholdId,
+        (activePrayerRequestCountByHouseholdId.get(requestHouseholdId) ?? 0) + 1,
       );
     });
 
     const workspacePrayerRequestsResult = await supabase
       .from("prayer_requests")
-      .select("id, household_id, related_household_id, field_person_id, title, request, category, urgency, status, visibility, created_at, updated_at")
-      .or(ids.map((id) => `household_id.eq.${id},related_household_id.eq.${id}`).join(","))
+      .select("id, workspace_id, household_id, related_household_id, related_missionary_profile_id, field_person_id, title, request, category, urgency, status, visibility, person_tags, linked_person_ids, answer_testimony, created_at, updated_at")
+      .or(ids.map((id) => `workspace_id.eq.${id},household_id.eq.${id},related_household_id.eq.${id},related_missionary_profile_id.eq.${id}`).join(","))
       .order("created_at", { ascending: false });
     const fallbackWorkspacePrayerRequestsResult = workspacePrayerRequestsResult.error?.message?.includes("field_person_id")
+      || workspacePrayerRequestsResult.error?.message?.includes("person_tags")
+      || workspacePrayerRequestsResult.error?.message?.includes("related_missionary_profile_id")
       ? await supabase
         .from("prayer_requests")
         .select("id, household_id, related_household_id, title, request, category, urgency, status, visibility, created_at, updated_at")
@@ -961,11 +970,15 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
     }
 
     ((fallbackWorkspacePrayerRequestsResult.data ?? []) as PrayerRequestRow[]).forEach((request) => {
-      const workspaceId = request.household_id && ids.includes(request.household_id)
+      const workspaceId = request.workspace_id && ids.includes(request.workspace_id)
+        ? request.workspace_id
+        : request.household_id && ids.includes(request.household_id)
         ? request.household_id
         : request.related_household_id && ids.includes(request.related_household_id)
           ? request.related_household_id
-          : null;
+          : request.related_missionary_profile_id && ids.includes(request.related_missionary_profile_id)
+            ? request.related_missionary_profile_id
+            : null;
 
       if (!workspaceId) {
         return;
@@ -976,9 +989,12 @@ async function getAdminProfiles(): Promise<{ error?: string; profiles: AdminProf
       currentRequests.push({
         category: request.category,
         created_at: request.created_at,
+        answer_testimony: request.answer_testimony ?? null,
         field_person_id: request.field_person_id ?? null,
         household_id: request.household_id ?? workspaceId,
         id: request.id,
+        linked_person_ids: request.linked_person_ids ?? [],
+        person_tags: request.person_tags ?? [],
         request: request.request ?? "",
         status: getPrayerRequestStatus(request.status),
         title: request.title,

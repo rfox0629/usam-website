@@ -78,6 +78,7 @@ export type MissionaryPrayerSettings = {
   enablePrayerTeam?: boolean | null;
   headline?: string | null;
   description?: string | null;
+  prayerTeamCount?: number | null;
 };
 
 export type MissionaryPrayerRequest = {

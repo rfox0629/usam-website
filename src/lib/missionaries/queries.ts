@@ -5,7 +5,6 @@ import {
   type Missionary,
   type MissionaryFruitItem,
   type MissionaryFunctionTag,
-  type MissionaryPrayerRequest,
   type MissionaryRoleTag,
   type MissionarySupportMode,
 } from "@/src/data/missionaries";
@@ -19,6 +18,8 @@ import {
   normalizeRoleType,
 } from "@/src/lib/missionaries/location";
 import { normalizeSupportRoutingMode } from "@/src/lib/missionaries/support-routing";
+import { loadPublicProfilePrayerData, type PublicProfilePrayerData } from "@/src/lib/missionaries/prayer";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/lib/supabase/server";
 
 const roleTags = [
@@ -186,15 +187,6 @@ type SupportTargetHouseholdRow = {
   display_name: string;
   show_household?: boolean | null;
   slug: string;
-};
-
-type PrayerRequestRow = {
-  id: string;
-  title: string;
-  description: string;
-  category: string | null;
-  visibility: "public" | "team" | "private";
-  created_at: string;
 };
 
 // Fruit is the structured output layer. Public profile queries must read only
@@ -402,12 +394,6 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
   ].some((columnName) => message.includes(columnName));
 }
 
-function hasMissingPrayerRequestsTableError(error: { message?: string } | null | undefined) {
-  const message = error?.message ?? "";
-
-  return message.includes("prayer_requests");
-}
-
 function hasMissingFruitItemsTableError(error: { message?: string } | null | undefined) {
   const message = error?.message ?? "";
 
@@ -447,19 +433,6 @@ function hasMissingTeamMembersTableError(error: { code?: string; message?: strin
     || message.toLowerCase().includes("could not find the table");
 
   return missingRelation && message.includes("missionary_team_members");
-}
-
-function mapPrayerRequests(requests: readonly PrayerRequestRow[] = []): MissionaryPrayerRequest[] {
-  return requests
-    .filter((request) => request.visibility === "public" || request.visibility === "team")
-    .map((request) => ({
-      category: request.category,
-      date: request.created_at,
-      description: request.description,
-      id: request.id,
-      title: request.title,
-      visibility: request.visibility as "public" | "team",
-    }));
 }
 
 function fruitDateValue(item: MissionaryFruitItem) {
@@ -541,7 +514,7 @@ function mapHouseholdToMissionary({
   fruitItems = [],
   household,
   people = [],
-  prayerRequests = [],
+  prayerData = null,
   support = null,
   supportTargetHousehold = null,
   supportTargetSettings = null,
@@ -551,7 +524,7 @@ function mapHouseholdToMissionary({
   fruitItems?: readonly FruitItemRow[];
   household: HouseholdRow;
   people?: readonly PersonRow[];
-  prayerRequests?: readonly PrayerRequestRow[];
+  prayerData?: PublicProfilePrayerData | null;
   support?: SupportSettingsRow | null;
   supportTargetHousehold?: SupportTargetHouseholdRow | null;
   supportTargetSettings?: SupportSettingsRow | null;
@@ -654,8 +627,9 @@ function mapHouseholdToMissionary({
       description: household.prayer_section_description ?? null,
       enablePrayerTeam: isEnabledByDefault(household.enable_prayer_team),
       headline: household.prayer_section_headline ?? null,
+      prayerTeamCount: prayerData?.prayerTeamCount ?? 0,
     },
-    prayerRequests: mapPrayerRequests(prayerRequests),
+    prayerRequests: prayerData?.prayerRequests ?? [],
     supportEnabled: showSupport,
   };
 }
@@ -944,7 +918,13 @@ export async function getMissionaryProfileBySlug(slug: string) {
       ? household.support_target_household_id
       : "";
 
-    const [peopleResult, tagsResult, supportResult, supportTargetResult, supportTargetSettingsResult, prayerRequestsResult, fruitItemsResult, teamMembersResult] = await Promise.all([
+    const privateSupabase = isSupabaseAdminConfigured() ? createSupabaseAdminClient() : null;
+    const profileSlugs = [
+      household.slug,
+      household.public_slug,
+      ...((household.public_slug_aliases ?? []) as string[]),
+    ].filter((value): value is string => Boolean(value?.trim()));
+    const [peopleResult, tagsResult, supportResult, supportTargetResult, supportTargetSettingsResult, prayerDataResult, fruitItemsResult, teamMembersResult] = await Promise.all([
       supabase
         .from("missionary_people")
         .select("missionary_number, first_name, last_name, role, sort_order")
@@ -975,14 +955,12 @@ export async function getMissionaryProfileBySlug(slug: string) {
           .eq("household_id", supportTargetHouseholdId)
           .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      supabase
-        .from("prayer_requests")
-        .select("id, title, description, category, visibility, created_at")
-        .eq("household_id", household.id)
-        .in("status", ["active", "open"])
-        .eq("visibility", "public")
-        .order("created_at", { ascending: false })
-        .limit(6),
+      loadPublicProfilePrayerData({
+        privateClient: privateSupabase,
+        profileId: household.id,
+        profileSlugs,
+        publicClient: supabase,
+      }),
       supabase
         .from("missionary_fruit_items")
         .select("id, title, body, category, testimony_date, submitted_by_name, source, source_app, is_featured, sort_order, created_at")
@@ -1051,9 +1029,7 @@ export async function getMissionaryProfileBySlug(slug: string) {
         ? []
         : (fruitItemsResult.data ?? []) as FruitItemRow[],
       people,
-      prayerRequests: prayerRequestsResult.error && hasMissingPrayerRequestsTableError(prayerRequestsResult.error)
-        ? []
-        : (prayerRequestsResult.data ?? []) as PrayerRequestRow[],
+      prayerData: prayerDataResult,
       tags: (tagsResult.data ?? []) as TagRow[],
       support: supportSettings,
       supportTargetHousehold: supportTargetHousehold?.show_household === false ? null : supportTargetHousehold,

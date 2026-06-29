@@ -373,11 +373,14 @@ export type AdminInSeasonFocus = {
 };
 
 export type AdminPrayerRequest = {
+  answer_testimony?: string | null;
   category: string | null;
   created_at: string;
   field_person_id: string | null;
   household_id?: string | null;
   id: string;
+  linked_person_ids?: string[];
+  person_tags?: string[];
   request: string;
   status: "answered" | "archived" | "covered" | "open";
   title: string;
@@ -9142,7 +9145,7 @@ function PrayerRequestsWorkspace({
                   <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] uppercase tracking-[0.14em] text-[#6f6658]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     <span className="rounded-full border border-[#e2ded5] px-2 py-0.5">{request.field_person_id ? personNameById(fieldPeople, request.field_person_id) : "Household"}</span>
                     <span className="rounded-full border border-[#e2ded5] px-2 py-0.5">{request.urgency}</span>
-                    <span className="rounded-full border border-[#e2ded5] px-2 py-0.5">{request.visibility}</span>
+                    <span className="rounded-full border border-[#e2ded5] px-2 py-0.5">{prayerRequestVisibilityLabel(request.visibility)}</span>
                   </div>
                 </div>
                 <SelectField
@@ -9222,14 +9225,14 @@ function prayerRequestStatusLabel(status: AdminPrayerRequest["status"]) {
 
 function prayerRequestVisibilityLabel(visibility: AdminPrayerRequest["visibility"]) {
   if (visibility === "public") {
-    return "Public";
+    return "Public Profile";
   }
 
   if (visibility === "team") {
-    return "Internal";
+    return "Prayer Team Only";
   }
 
-  return "Private";
+  return "Private/Internal";
 }
 
 function PrayerStatusChip({ children, tone = "neutral" }: { children: ReactNode; tone?: "amber" | "green" | "neutral" | "red" }) {
@@ -9274,8 +9277,10 @@ function PrayerPublishingWorkspace({
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   ));
   const openRequests = requests.filter((request) => request.status === "open").length;
+  const publicOpenRequests = requests.filter((request) => request.status === "open" && request.visibility === "public").length;
   const privateRequests = requests.filter((request) => request.visibility !== "public").length;
   const publicRequests = requests.filter((request) => request.visibility === "public").length;
+  const publicPreviewRequests = requests.filter((request) => request.status === "open" && request.visibility === "public").slice(0, 3);
   const [editingPublicCopy, setEditingPublicCopy] = useState(false);
   const [isAddingPrayerRequest, setIsAddingPrayerRequest] = useState(false);
   const [prayerFilter, setPrayerFilter] = useState<PrayerFilter>("all");
@@ -9368,8 +9373,8 @@ function PrayerPublishingWorkspace({
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <ReviewStatCard helper="Approved prayer team" label="Active Prayer Partners" value={String(activePartners)} />
           <ReviewStatCard helper="Need follow-up" label="Pending Signups" value={String(pendingPartners)} />
-          <ReviewStatCard helper="Currently open" label="Open Prayer Requests" value={String(openRequests)} />
-          <ReviewStatCard helper="Not public" label="Private Requests" value={String(privateRequests)} />
+          <ReviewStatCard helper="Visible on profile" label="Open Public Requests" value={String(publicOpenRequests)} />
+          <ReviewStatCard helper={`${openRequests} total open`} label="Private/Internal" value={String(privateRequests)} />
         </div>
 
         <section className="mt-4 rounded-xl border border-[#e2ded5] bg-white p-4">
@@ -9384,6 +9389,19 @@ function PrayerPublishingWorkspace({
               <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4b443b]">
                 {publicDescription}
               </p>
+              <div className="mt-3 rounded-xl border border-[#e2ded5] bg-[#fbfaf7] p-3">
+                <p className="text-xs font-semibold text-[#111111]">Prayer Team: {activePartners === 1 ? "1 partner" : `${activePartners} partners`}</p>
+                <div className="mt-2 grid gap-2">
+                  {publicPreviewRequests.length ? publicPreviewRequests.map((request) => (
+                    <div className="rounded-lg border border-[#e2ded5] bg-white px-3 py-2" key={request.id}>
+                      <p className="text-sm font-semibold text-[#111111]">{request.title}</p>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#6f6658]">{request.request}</p>
+                    </div>
+                  )) : (
+                    <p className="text-xs leading-5 text-[#7b746a]">No open public prayer requests.</p>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <button className={lightSecondaryButtonClass} onClick={() => setEditingPublicCopy(true)} style={{ fontFamily: font.rajdhani, fontWeight: 700 }} type="button">
@@ -9781,9 +9799,9 @@ function PrayerRequestEditorModal({
               label="Visibility"
               onChange={(value) => updateDraft({ visibility: value as PrayerRequestDraft["visibility"] })}
               options={[
-                { label: "Private", value: "private" },
-                { label: "Internal", value: "team" },
-                { label: "Public", value: "public" },
+                { label: "Private / Internal", value: "private" },
+                { label: "Prayer Team Only", value: "team" },
+                { label: "Public Profile", value: "public" },
               ]}
               value={draft.visibility}
             />

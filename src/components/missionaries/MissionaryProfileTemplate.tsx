@@ -293,10 +293,12 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
 
 function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
   const prayerRequests = missionary.prayerRequests ?? [];
+  const prayerTeamCount = missionary.prayerSettings?.prayerTeamCount ?? 0;
   const previewRequest = prayerRequests[0];
   const previewText = previewRequest
     ? previewRequest.description
     : missionary.prayerSettings?.description || "Pray with this household as they reach, disciple, and serve.";
+  const prayerTeamLabel = prayerTeamCount === 1 ? "1 partner" : `${prayerTeamCount} partners`;
 
   return (
     <MissionProfileCard
@@ -328,6 +330,9 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
       <div className="space-y-2.5">
         <p className="max-h-[7rem] overflow-hidden">
           {previewText}
+        </p>
+        <p className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-xs font-medium leading-5 text-stone-300">
+          Prayer Team: {prayerTeamLabel}
         </p>
         {!previewRequest ? (
           <p className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-xs leading-5 text-stone-400">

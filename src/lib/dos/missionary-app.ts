@@ -290,6 +290,25 @@ export type DosAppPrayerPartner = {
   updatedAt: string | null;
 };
 
+export type DosAppPrayerRequest = {
+  answerTestimony: string | null;
+  answeredAt: string | null;
+  category: string | null;
+  createdAt: string;
+  fieldPersonId: string | null;
+  id: string;
+  linkedPersonIds: string[];
+  personTags: string[];
+  request: string;
+  source: string | null;
+  status: "answered" | "archived" | "covered" | "open";
+  title: string;
+  updatedAt: string | null;
+  urgency: "important" | "normal" | "urgent";
+  visibility: "private" | "public" | "team";
+  workspaceId: string;
+};
+
 export type DosAppCalendarConnection = {
   calendarId: string | null;
   connected: boolean;
@@ -358,6 +377,7 @@ export type DosAppData = {
   people: DosAppPerson[];
   prayerLogs: DosAppPrayerLog[];
   prayerPartners: DosAppPrayerPartner[];
+  prayerRequests: DosAppPrayerRequest[];
   reminders: DosAppRelationshipReminder[];
   usamApplication: DosUsamOrganizationApplication;
   stats: {
@@ -583,6 +603,28 @@ type PrayerPartnerRow = {
   updated_at: string | null;
 };
 
+type PrayerRequestRow = {
+  answer_testimony?: string | null;
+  answered_at?: string | null;
+  category: string | null;
+  created_at: string;
+  field_person_id?: string | null;
+  household_id?: string | null;
+  id: string;
+  linked_person_ids?: string[] | null;
+  person_tags?: string[] | null;
+  related_household_id?: string | null;
+  related_missionary_profile_id?: string | null;
+  request?: string | null;
+  source?: string | null;
+  status: string | null;
+  title: string | null;
+  updated_at: string | null;
+  urgency?: string | null;
+  visibility?: string | null;
+  workspace_id?: string | null;
+};
+
 type CalendarConnectionRow = {
   calendar_id: string | null;
   connected_at: string | null;
@@ -799,6 +841,30 @@ function mapDebugContext(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+function mapPrayerRequestStatus(value: string | null | undefined): DosAppPrayerRequest["status"] {
+  if (value === "answered" || value === "archived" || value === "covered") {
+    return value;
+  }
+
+  return "open";
+}
+
+function mapPrayerRequestUrgency(value: string | null | undefined): DosAppPrayerRequest["urgency"] {
+  if (value === "important" || value === "urgent") {
+    return value;
+  }
+
+  return "normal";
+}
+
+function mapPrayerRequestVisibility(value: string | null | undefined): DosAppPrayerRequest["visibility"] {
+  if (value === "public" || value === "team") {
+    return value;
+  }
+
+  return "private";
+}
+
 function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
   if (value === "approved") {
     return "approved";
@@ -863,6 +929,15 @@ function prayerPartnerScopeFilter(workspaceId: string, workspaceSlug: string) {
     `missionary_profile_id.eq.${workspaceId}`,
     `missionary_profile_slug.eq.${workspaceSlug}`,
     `recruited_by_profile_slug.eq.${workspaceSlug}`,
+  ].join(",");
+}
+
+function prayerRequestScopeFilter(workspaceId: string) {
+  return [
+    `workspace_id.eq.${workspaceId}`,
+    `household_id.eq.${workspaceId}`,
+    `related_household_id.eq.${workspaceId}`,
+    `related_missionary_profile_id.eq.${workspaceId}`,
   ].join(",");
 }
 
@@ -1520,6 +1595,27 @@ async function loadPrayerPartnersForWorkspace(supabase: SupabaseAdminClient, wor
     : result;
 }
 
+async function loadPrayerRequestsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("prayer_requests")
+    .select("id, workspace_id, household_id, related_household_id, related_missionary_profile_id, field_person_id, title, request, category, urgency, status, visibility, source, person_tags, linked_person_ids, answered_at, answer_testimony, created_at, updated_at")
+    .or(prayerRequestScopeFilter(workspaceId))
+    .order("created_at", { ascending: false })
+    .limit(80);
+  const fallbackResult = result.error && isMissingColumnError(result.error)
+    ? await supabase
+      .from("prayer_requests")
+      .select("id, workspace_id, household_id, related_household_id, field_person_id, title, request, category, urgency, status, visibility, source, answered_at, created_at, updated_at")
+      .or(workspaceScopeFilter(workspaceId))
+      .order("created_at", { ascending: false })
+      .limit(80)
+    : result;
+
+  return fallbackResult.error && isMissingWorkflowTable(fallbackResult.error, "prayer_requests")
+    ? { data: [], error: null }
+    : fallbackResult;
+}
+
 async function loadCalendarConnectionForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("connected_calendars")
@@ -1898,7 +1994,7 @@ export async function loadDosAppData(
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -1907,6 +2003,7 @@ export async function loadDosAppData(
     loadMeetingReviewsForWorkspace(supabase, workspace.id),
     loadPrayerLogsForWorkspace(supabase, workspace.id),
     loadPrayerPartnersForWorkspace(supabase, workspace),
+    loadPrayerRequestsForWorkspace(supabase, workspace.id),
     loadCalendarConnectionForWorkspace(supabase, workspace.id),
     loadCalendarEventLinksForWorkspace(supabase, workspace.id),
     loadCalendarWorkspaceSyncStateForWorkspace(supabase, workspace.id),
@@ -1918,7 +2015,7 @@ export async function loadDosAppData(
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -1928,6 +2025,7 @@ export async function loadDosAppData(
         ?? meetingReviewsResult.error?.message
         ?? prayerLogsResult.error?.message
         ?? prayerPartnersResult.error?.message
+        ?? prayerRequestsResult.error?.message
         ?? calendarConnectionResult.error?.message
         ?? calendarEventLinksResult.error?.message
         ?? calendarWorkspaceSyncStateResult.error?.message
@@ -1955,6 +2053,7 @@ export async function loadDosAppData(
   const meetingReviewRows = (meetingReviewsResult.data ?? []) as MeetingReviewRow[];
   const prayerLogRows = (prayerLogsResult.data ?? []) as PrayerLogRow[];
   const prayerPartnerRows = (prayerPartnersResult.data ?? []) as PrayerPartnerRow[];
+  const prayerRequestRows = (prayerRequestsResult.data ?? []) as PrayerRequestRow[];
   const householdMemberRows = (householdMembersResult.data ?? []) as HouseholdMemberRow[];
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
@@ -2292,6 +2391,30 @@ export async function loadDosAppData(
       updatedAt: partner.updated_at,
     };
   });
+  const prayerRequests = prayerRequestRows.map((request) => {
+    const workspaceId = request.workspace_id ?? request.household_id ?? request.related_household_id ?? request.related_missionary_profile_id ?? workspace.id;
+    const requestText = cleanOptionalText(request.request) ?? "";
+    const title = cleanOptionalText(request.title) ?? (requestText.slice(0, 80) || "Prayer request");
+
+    return {
+      answerTestimony: cleanOptionalText(request.answer_testimony),
+      answeredAt: request.answered_at ?? null,
+      category: cleanOptionalText(request.category),
+      createdAt: request.created_at,
+      fieldPersonId: request.field_person_id ?? null,
+      id: request.id,
+      linkedPersonIds: Array.isArray(request.linked_person_ids) ? request.linked_person_ids.filter(Boolean) : [],
+      personTags: Array.isArray(request.person_tags) ? request.person_tags.map((tag) => tag.trim()).filter(Boolean) : [],
+      request: requestText,
+      source: request.source ?? null,
+      status: mapPrayerRequestStatus(request.status),
+      title,
+      updatedAt: request.updated_at,
+      urgency: mapPrayerRequestUrgency(request.urgency),
+      visibility: mapPrayerRequestVisibility(request.visibility),
+      workspaceId,
+    };
+  });
   const householdMembers = householdMemberRows
     .filter((member) => !["archived", "inactive"].includes((member.status ?? "").toLowerCase()))
     .map((member) => ({
@@ -2377,6 +2500,7 @@ export async function loadDosAppData(
       people,
       prayerLogs,
       prayerPartners,
+      prayerRequests,
       reminders,
       usamApplication,
       stats: {
