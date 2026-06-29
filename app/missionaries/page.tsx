@@ -18,7 +18,7 @@ const directoryImageFallback = "/fox-family.png";
 const comingSoonMissionary: MissionaryDirectoryProfile = {
   displayNumber: "",
   functionTags: [],
-  image: "/images/usam/missionary-couple-placeholder.svg",
+  image: "/images/usam/missionary-couple-placeholder.png",
   isComingSoon: true,
   location: "Illinois",
   name: "Coming Soon",
