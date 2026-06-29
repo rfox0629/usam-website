@@ -13344,20 +13344,29 @@ function PrayerPartnerSelectField({
   label: string;
   name: string;
   onChange?: (value: string) => void;
-  options: ReadonlyArray<{ label: string; value: string }>;
+  options: ReadonlyArray<{ helper?: string; label: string; value: string }>;
 }) {
+  const fallbackValue = options[0]?.value ?? "";
+  const [value, setValue] = useState(defaultValue ?? fallbackValue);
+  const selectedValue = options.some((option) => option.value === value) ? value : fallbackValue;
+
+  useEffect(() => {
+    setValue(defaultValue ?? fallbackValue);
+  }, [defaultValue, fallbackValue]);
+
   return (
-    <label className="block min-w-0">
-      <FieldLabel>{label}</FieldLabel>
-      <div className="relative">
-        <select className={`${FieldInputClass()} appearance-none pr-10`} defaultValue={defaultValue ?? options[0]?.value} name={name} onChange={(event) => onChange?.(event.target.value)}>
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        <ChevronRight className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
-      </div>
-    </label>
+    <>
+      <input name={name} type="hidden" value={selectedValue} />
+      <CompactOptionSelect
+        label={label}
+        onChange={(nextValue) => {
+          setValue(nextValue);
+          onChange?.(nextValue);
+        }}
+        options={options}
+        value={selectedValue}
+      />
+    </>
   );
 }
 
@@ -13509,6 +13518,209 @@ function answerDateInputValue(value: string | null | undefined) {
   return value.slice(0, 10);
 }
 
+type PrayerRequestAudienceOption = {
+  helper?: string;
+  label: string;
+  linkedPersonId?: string;
+  tag: string;
+  value: string;
+};
+
+const prayerAudienceGeneralValue = "audience:household-general";
+const prayerAudienceFamilyValue = "audience:family";
+const prayerAudienceChildrenValue = "audience:children";
+
+function normalizePrayerAudienceTag(value: string) {
+  const normalized = normalizeText(value);
+  const key = normalized.toLowerCase();
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (["family/household", "general", "household", "household/general", "household / general"].includes(key)) {
+    return "Household / General";
+  }
+
+  if (["child", "children", "kids"].includes(key)) {
+    return "Children";
+  }
+
+  return normalized;
+}
+
+function prayerRequestAudienceOptions(householdMembers: DosAppHouseholdMember[]): PrayerRequestAudienceOption[] {
+  const options: PrayerRequestAudienceOption[] = [];
+  const seenValues = new Set<string>();
+  const seenMemberNames = new Set<string>();
+  const addOption = (option: PrayerRequestAudienceOption) => {
+    if (seenValues.has(option.value)) {
+      return;
+    }
+
+    seenValues.add(option.value);
+    options.push(option);
+  };
+
+  addOption({
+    helper: "Whole workspace",
+    label: "Household / General",
+    tag: "Household / General",
+    value: prayerAudienceGeneralValue,
+  });
+  addOption({
+    helper: "Shared family covering",
+    label: "Family",
+    tag: "Family",
+    value: prayerAudienceFamilyValue,
+  });
+  addOption({
+    helper: "Children together",
+    label: "Children",
+    tag: "Children",
+    value: prayerAudienceChildrenValue,
+  });
+
+  householdMembers.forEach((member) => {
+    const displayName = normalizeText(member.displayName);
+    const nameKey = displayName.toLowerCase();
+
+    if (!displayName || seenMemberNames.has(nameKey)) {
+      return;
+    }
+
+    seenMemberNames.add(nameKey);
+    addOption({
+      helper: member.roleTitle || member.relationship || undefined,
+      label: displayName,
+      linkedPersonId: member.id,
+      tag: displayName,
+      value: `member:${member.id}`,
+    });
+  });
+
+  return options;
+}
+
+function prayerRequestAudienceSelectedOptions(selectedValues: string[], householdMembers: DosAppHouseholdMember[]) {
+  const options = prayerRequestAudienceOptions(householdMembers);
+  const selectedSet = new Set(selectedValues);
+  const selectedOptions = options.filter((option) => selectedSet.has(option.value));
+
+  return selectedOptions.length ? selectedOptions : options.slice(0, 1);
+}
+
+function prayerRequestAudiencePayload(selectedValues: string[], householdMembers: DosAppHouseholdMember[]) {
+  const selectedOptions = prayerRequestAudienceSelectedOptions(selectedValues, householdMembers);
+
+  return {
+    linkedPersonIds: Array.from(new Set(selectedOptions.map((option) => option.linkedPersonId).filter((id): id is string => Boolean(id)))),
+    personTags: Array.from(new Set(selectedOptions.map((option) => option.tag).filter(Boolean))),
+  };
+}
+
+function prayerRequestAudienceValuesFromRequest(request: DosAppPrayerRequest, householdMembers: DosAppHouseholdMember[]) {
+  const options = prayerRequestAudienceOptions(householdMembers);
+  const linkedPersonIds = new Set(request.linkedPersonIds);
+  const normalizedTags = new Set(
+    request.personTags
+      .map(normalizePrayerAudienceTag)
+      .filter(Boolean)
+      .map((tag) => tag.toLowerCase()),
+  );
+  const selectedValues = options
+    .filter((option) => (
+      (option.linkedPersonId && linkedPersonIds.has(option.linkedPersonId))
+      || normalizedTags.has(option.tag.toLowerCase())
+    ))
+    .map((option) => option.value);
+
+  return selectedValues.length ? selectedValues : [prayerAudienceGeneralValue];
+}
+
+function PrayerRequestAudiencePicker({
+  householdMembers,
+  onChange,
+  selectedValues,
+}: {
+  householdMembers: DosAppHouseholdMember[];
+  onChange: (values: string[]) => void;
+  selectedValues: string[];
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const options = prayerRequestAudienceOptions(householdMembers);
+  const selectedOptions = prayerRequestAudienceSelectedOptions(selectedValues, householdMembers);
+  const selectedSet = new Set(selectedOptions.map((option) => option.value));
+  const summary = selectedOptions.length > 2
+    ? `${selectedOptions.slice(0, 2).map((option) => option.label).join(", ")} +${selectedOptions.length - 2}`
+    : selectedOptions.map((option) => option.label).join(", ");
+
+  function toggleValue(value: string) {
+    const nextValues = selectedSet.has(value)
+      ? selectedValues.filter((currentValue) => currentValue !== value)
+      : selectedValues.length === 1 && selectedValues[0] === prayerAudienceGeneralValue && value !== prayerAudienceGeneralValue
+        ? [value]
+      : [...selectedValues, value];
+
+    onChange(nextValues.length ? nextValues : [prayerAudienceGeneralValue]);
+  }
+
+  return (
+    <div
+      className="relative"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsOpen(false);
+        }
+      }}
+    >
+      <FieldLabel>Who is this request for?</FieldLabel>
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className={`mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border bg-white px-4 text-left text-sm transition-colors ${
+          isOpen ? "border-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.12)]" : "border-[#E2E8F0] hover:border-[#BFDBFE]"
+        }`}
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span className="min-w-0 flex-1 truncate font-semibold text-[#0F172A]">{summary || "Household / General"}</span>
+        <ChevronRight className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`} aria-hidden="true" strokeWidth={1.8} />
+      </button>
+      {isOpen ? (
+        <div aria-multiselectable="true" className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]" role="listbox">
+          {options.map((option) => {
+            const selected = selectedSet.has(option.value);
+
+            return (
+              <button
+                aria-selected={selected}
+                className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm transition-colors ${
+                  selected ? "bg-[#EBF2FF] text-[#1D4ED8]" : "text-[#0F172A] hover:bg-[#F1F5F9]"
+                }`}
+                key={option.value}
+                onClick={() => toggleValue(option.value)}
+                role="option"
+                type="button"
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  {selected ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={2} />
+                  ) : (
+                    <Square className="h-4 w-4 shrink-0 text-[#CBD5E1]" aria-hidden="true" strokeWidth={1.8} />
+                  )}
+                  <span className="min-w-0 truncate font-semibold">{option.label}</span>
+                </span>
+                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">{option.helper}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function AddPrayerPartnerSheet({
   onClose,
   onSubmit,
@@ -13636,14 +13848,8 @@ function AddPrayerRequestSheet({
   onSubmit: (draft: DosPrayerRequestDraft) => Promise<void>;
 }) {
   const [errorMessage, setErrorMessage] = useState("");
+  const [audienceValues, setAudienceValues] = useState<string[]>([prayerAudienceGeneralValue]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [visibility, setVisibility] = useState<DosAppPrayerRequest["visibility"]>("private");
-  const householdTagOptions = [
-    "Family/Household",
-    ...householdMembers
-      .map((member) => normalizeText(member.displayName))
-      .filter(Boolean),
-  ].filter((value, index, values) => values.indexOf(value) === index);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -13652,9 +13858,7 @@ function AddPrayerRequestSheet({
     const request = normalizeText(String(formData.get("request") ?? ""));
     const category = normalizeText(String(formData.get("category") ?? "")) || "Other";
     const nextVisibility = normalizeText(String(formData.get("visibility") ?? "")) as DosAppPrayerRequest["visibility"];
-    const personTags = formData.getAll("person_tags")
-      .map((value) => normalizeText(String(value)))
-      .filter(Boolean);
+    const audience = prayerRequestAudiencePayload(audienceValues, householdMembers);
 
     if (!title || !request) {
       setErrorMessage("Add a title and request.");
@@ -13667,7 +13871,8 @@ function AddPrayerRequestSheet({
     try {
       await onSubmit({
         category,
-        personTags,
+        linkedPersonIds: audience.linkedPersonIds,
+        personTags: audience.personTags,
         request,
         title,
         visibility: prayerRequestVisibilityOptions.some((option) => option.value === nextVisibility) ? nextVisibility : "private",
@@ -13695,30 +13900,17 @@ function AddPrayerRequestSheet({
           </DosFormField>
         </DosFormSection>
 
-        <DosFormSection icon="people" title="Visibility and Tags">
+        <DosFormSection icon="people" title="Visibility">
           <PrayerPartnerSelectField
             defaultValue="private"
             label="Visibility"
             name="visibility"
-            onChange={(value) => setVisibility(value as DosAppPrayerRequest["visibility"])}
             options={prayerRequestVisibilityOptions}
           />
-          {visibility === "public" ? (
-            <p className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-xs font-semibold leading-5 text-[#92400E]">
-              Public Profile requests can appear on the public missionary profile.
-            </p>
-          ) : null}
-          <div className="grid gap-2">
-            <FieldLabel>Tags</FieldLabel>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {householdTagOptions.map((tag, index) => (
-                <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-[#D6E4F7] bg-white px-3 py-2 text-sm font-bold text-[#0F172A]" key={tag}>
-                  <input className="h-4 w-4 accent-[#2563EB]" defaultChecked={index === 0} name="person_tags" type="checkbox" value={tag} />
-                  <span className="min-w-0 truncate">{tag}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+          <p className="rounded-2xl border border-[#D6E4F7] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#475569]">
+            Public Profile requests may appear on your missionary page. Private requests stay inside DOS.
+          </p>
+          <PrayerRequestAudiencePicker householdMembers={householdMembers} onChange={setAudienceValues} selectedValues={audienceValues} />
         </DosFormSection>
 
         {errorMessage ? (
@@ -13737,41 +13929,25 @@ function PrayerRequestDetailSheet({
   householdMembers,
   onClose,
   onSave,
-  people,
   request,
 }: {
   householdMembers: DosAppHouseholdMember[];
   onClose: () => void;
   onSave: (id: string, patch: DosPrayerRequestPatch) => Promise<DosAppPrayerRequest>;
-  people: DosAppPerson[];
   request: DosAppPrayerRequest;
 }) {
   const [answerTestimony, setAnswerTestimony] = useState(request.answerTestimony ?? "");
   const [answeredDate, setAnsweredDate] = useState(answerDateInputValue(request.answeredAt));
+  const [audienceValues, setAudienceValues] = useState<string[]>(() => prayerRequestAudienceValuesFromRequest(request, householdMembers));
   const [category, setCategory] = useState(request.category ?? "Other");
   const [errorMessage, setErrorMessage] = useState("");
-  const [fieldPersonId, setFieldPersonId] = useState(request.fieldPersonId ?? request.linkedPersonIds[0] ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [personTags, setPersonTags] = useState<string[]>(request.personTags);
   const [requestText, setRequestText] = useState(request.request);
   const [status, setStatus] = useState<DosAppPrayerRequest["status"]>(request.status);
   const [title, setTitle] = useState(request.title);
   const [visibility, setVisibility] = useState<DosAppPrayerRequest["visibility"]>(request.visibility);
-  const householdTagOptions = [
-    "Family/Household",
-    ...householdMembers.map((member) => normalizeText(member.displayName)).filter(Boolean),
-    ...request.personTags,
-  ].filter((value, index, values) => values.indexOf(value) === index);
   const isAnswered = status === "answered";
   const canSave = title.trim() && requestText.trim();
-
-  function toggleTag(tag: string) {
-    setPersonTags((current) => (
-      current.includes(tag)
-        ? current.filter((currentTag) => currentTag !== tag)
-        : [...current, tag]
-    ));
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -13788,14 +13964,15 @@ function PrayerRequestDetailSheet({
       const answeredAt = isAnswered
         ? new Date(`${answeredDate || new Date().toISOString().slice(0, 10)}T12:00:00`).toISOString()
         : null;
+      const audience = prayerRequestAudiencePayload(audienceValues, householdMembers);
 
       await onSave(request.id, {
         answerTestimony: isAnswered ? answerTestimony.trim() || null : null,
         answeredAt,
         category,
-        fieldPersonId: fieldPersonId || null,
-        linkedPersonIds: fieldPersonId ? [fieldPersonId] : [],
-        personTags,
+        fieldPersonId: null,
+        linkedPersonIds: audience.linkedPersonIds,
+        personTags: audience.personTags,
         request: requestText,
         status,
         title,
@@ -13830,7 +14007,7 @@ function PrayerRequestDetailSheet({
           </DosFormField>
         </DosFormSection>
 
-        <DosFormSection icon="people" title="Visibility and Links">
+        <DosFormSection icon="people" title="Visibility">
           <DosFormGrid>
             <PrayerPartnerSelectField
               defaultValue={visibility}
@@ -13847,27 +14024,10 @@ function PrayerRequestDetailSheet({
               options={prayerRequestStatusOptions}
             />
           </DosFormGrid>
-          <PrayerPartnerSelectField
-            defaultValue={fieldPersonId}
-            label="Linked Person"
-            name="field_person_id"
-            onChange={setFieldPersonId}
-            options={[
-              { label: "Household / general", value: "" },
-              ...people.map((person) => ({ label: person.name, value: person.id })),
-            ]}
-          />
-          <div className="grid gap-2">
-            <FieldLabel>Public Tags</FieldLabel>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {householdTagOptions.map((tag) => (
-                <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-[#D6E4F7] bg-white px-3 py-2 text-sm font-bold text-[#0F172A]" key={tag}>
-                  <input checked={personTags.includes(tag)} className="h-4 w-4 accent-[#2563EB]" onChange={() => toggleTag(tag)} type="checkbox" />
-                  <span className="min-w-0 truncate">{tag}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+          <p className="rounded-2xl border border-[#D6E4F7] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#475569]">
+            Public Profile requests may appear on your missionary page. Private requests stay inside DOS.
+          </p>
+          <PrayerRequestAudiencePicker householdMembers={householdMembers} onChange={setAudienceValues} selectedValues={audienceValues} />
         </DosFormSection>
 
         {isAnswered ? (
@@ -14770,7 +14930,6 @@ function DesktopPrayerWorkspace({
           householdMembers={householdMembers}
           onClose={() => setSelectedPrayerRequest(null)}
           onSave={savePrayerRequestUpdate}
-          people={people}
           request={selectedPrayerRequest}
         />
       ) : null}
@@ -21889,7 +22048,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             householdMembers={data.householdMembers}
             onClose={() => setSelectedMobilePrayerRequest(null)}
             onSave={saveMobilePrayerRequestUpdate}
-            people={people}
             request={selectedMobilePrayerRequest}
           />
         ) : null}
