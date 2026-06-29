@@ -1,14 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { AccessLogoutButton } from "../../components/forms/AccessLogoutButton";
 import { JoinMissionInterestModal } from "../../components/forms/JoinMissionInterestModal";
 import { PrimaryNav } from "../../components/PrimaryNav";
 import { MissionaryDirectory, type MissionaryDirectoryProfile } from "./MissionaryDirectory";
 import { getMissionaryHouseholdsResult, type MissionaryHouseholdDirectoryRow } from "@/src/lib/missionaries/queries";
 import { normalizeLocationVisibility, normalizePrimaryState } from "@/src/lib/missionaries/location";
-import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
   title: "Missionary Team | USA Missionaries",
@@ -19,6 +15,16 @@ export const revalidate = 60;
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 const directoryImageFallback = "/fox-family.png";
+const comingSoonMissionary: MissionaryDirectoryProfile = {
+  displayNumber: "",
+  functionTags: [],
+  image: "/images/usam/missionary-couple-placeholder.svg",
+  isComingSoon: true,
+  location: "Illinois",
+  name: "Coming Soon",
+  roleTags: ["Missionary Couple"],
+  slug: "coming-soon-illinois",
+};
 
 function actionClassName(variant: "primary" | "secondary" = "primary") {
   const className = variant === "primary"
@@ -94,15 +100,11 @@ function ActionLink({
 }
 
 export default async function MissionariesPage() {
-  const cookieStore = await cookies();
-  const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
-
-  if (!hasAccess) {
-    redirect("/support?team=1");
-  }
-
   const missionaryHouseholdsResult = await getMissionaryHouseholdsResult();
-  const missionaries = missionaryHouseholdsResult.data.map(mapHouseholdToDirectoryProfile);
+  const missionaries = [
+    ...missionaryHouseholdsResult.data.map(mapHouseholdToDirectoryProfile),
+    comingSoonMissionary,
+  ];
   const emptyMessage = missionaryHouseholdsResult.error
     ? "Error loading missionary data."
     : "Connected to Supabase, but no missionary records found.";
@@ -133,7 +135,6 @@ export default async function MissionariesPage() {
             >
               Become A Missionary
             </JoinMissionInterestModal>
-            <AccessLogoutButton redirectTo="/support?team=1">Exit Team View</AccessLogoutButton>
           </div>
         </div>
       </section>

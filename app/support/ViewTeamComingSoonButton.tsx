@@ -1,25 +1,15 @@
-"use client";
+import Link from "next/link";
 
-import { AccessCodeModal } from "@/components/forms/AccessCodeModal";
+const font = { rajdhani: "'Rajdhani', sans-serif" };
 
-export function ViewTeamComingSoonButton({
-  hasAccess = false,
-  initialOpen = false,
-}: {
-  hasAccess?: boolean;
-  initialOpen?: boolean;
-}) {
+export function ViewTeamComingSoonButton() {
   return (
-    <AccessCodeModal
-      alreadyHasAccess={hasAccess}
-      initialOpen={initialOpen}
-      redirectPath="/missionaries"
-      secondaryHref="/system?waitlist=1"
-      secondaryLabel="Request Access"
-      sourcePage="/support"
-      triggerClassName="inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-usam-gold hover:bg-white/[0.04] sm:w-auto"
-      triggerLabel="View the Team"
-      type="team"
-    />
+    <Link
+      href="/missionaries"
+      className="inline-flex min-h-12 w-full items-center justify-center border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-white transition-all duration-300 hover:border-usam-gold hover:bg-white/[0.04] sm:w-auto"
+      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+    >
+      View the Team
+    </Link>
   );
 }
