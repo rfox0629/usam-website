@@ -33,7 +33,7 @@ function compactButtonClassName(customClassName?: string) {
     return customClassName;
   }
 
-  return "inline-flex min-h-10 w-full items-center justify-center rounded-full border border-stone-700 bg-white/[0.03] px-4 py-2 text-center text-[11px] uppercase tracking-[0.18em] text-stone-200 transition-colors hover:border-[#C2A14E]/70 hover:text-[#C2A14E]";
+  return "inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#C2A14E]/35 bg-black/25 px-3 py-2.5 text-center text-[10px] uppercase leading-5 tracking-[0.18em] text-[#C2A14E] transition-all duration-300 hover:border-[#C2A14E] hover:bg-[#C2A14E]/10";
 }
 
 function inputClassName() {

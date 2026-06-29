@@ -46,7 +46,7 @@ export function StoryReadMoreButton({
     <>
       <button
         type="button"
-        className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-white/[0.3] bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.24em] text-white transition-all duration-300 hover:border-[#C2A14E] hover:bg-white/[0.04] sm:w-auto"
+        className="inline-flex min-h-9 w-full items-center justify-center rounded-lg border border-white/[0.14] bg-white/[0.03] px-3 py-2 text-center text-[9px] uppercase leading-5 tracking-[0.17em] text-stone-300 transition-all duration-300 hover:border-[#C2A14E]/50 hover:text-[#C2A14E]"
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         onClick={() => setIsOpen(true)}
       >

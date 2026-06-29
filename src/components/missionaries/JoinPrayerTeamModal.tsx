@@ -33,13 +33,21 @@ type JoinPrayerTeamModalProps = {
   variant?: "gold" | "outline" | "compact";
 };
 
+function compactPrimaryButtonClassName() {
+  return "inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-transparent bg-[#C2A14E] px-3 py-2.5 text-center text-[10px] uppercase leading-5 tracking-[0.18em] text-black transition-all duration-300 hover:bg-[#C2A14E]";
+}
+
+function compactTertiaryButtonClassName() {
+  return "inline-flex min-h-9 w-full items-center justify-center rounded-lg border border-white/[0.14] bg-white/[0.03] px-3 py-2 text-center text-[9px] uppercase leading-5 tracking-[0.17em] text-stone-300 transition-all duration-300 hover:border-[#C2A14E]/50 hover:text-[#C2A14E]";
+}
+
 function buttonClassName(variant: JoinPrayerTeamModalProps["variant"] = "gold", customClassName?: string) {
   if (customClassName) {
     return customClassName;
   }
 
   if (variant === "compact") {
-    return "inline-flex min-h-10 w-full items-center justify-center rounded-full border border-[#C2A14E]/45 bg-[#C2A14E]/10 px-4 py-2 text-center text-[11px] uppercase tracking-[0.18em] text-[#C2A14E] transition-colors hover:border-[#C2A14E] hover:bg-[#C2A14E]/15";
+    return compactPrimaryButtonClassName();
   }
 
   if (variant === "outline") {
@@ -212,7 +220,7 @@ export function PrayerRequestsModalButton({
   return (
     <>
       <button
-        className={buttonClassName("compact")}
+        className={compactTertiaryButtonClassName()}
         onClick={() => setIsOpen(true)}
         style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
         type="button"
