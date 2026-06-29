@@ -16,6 +16,8 @@ type PersonPayload = {
   city?: unknown;
   email?: unknown;
   engagementScore?: unknown;
+  fieldVisibility?: unknown;
+  field_visibility?: unknown;
   homeAddress?: unknown;
   home_address?: unknown;
   householdNotes?: unknown;
@@ -37,6 +39,8 @@ type PersonPayload = {
 };
 
 const householdMvpKeys = ["spouse_name", "children_names", "household_notes"];
+const fieldVisibilityKeys = ["field_visibility"];
+const fieldVisibilityValues = ["primary", "secondary", "hidden"] as const;
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -64,8 +68,14 @@ function isMissingHouseholdMvpColumn(error: { message?: string } | null | undefi
   return householdMvpKeys.some((column) => message.includes(column));
 }
 
+function isMissingFieldVisibilityColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return fieldVisibilityKeys.some((column) => message.includes(column));
+}
+
 function isRecoverablePersonSchemaError(error: { message?: string } | null | undefined) {
-  return isMissingWorkspaceScopeColumn(error) || isMissingRelationshipModelColumn(error) || isMissingHouseholdMvpColumn(error);
+  return isMissingWorkspaceScopeColumn(error) || isMissingRelationshipModelColumn(error) || isMissingHouseholdMvpColumn(error) || isMissingFieldVisibilityColumn(error);
 }
 
 function omitKeys(record: Record<string, unknown>, keys: string[]) {
@@ -76,17 +86,26 @@ function personRecordCandidates(record: Record<string, unknown>) {
   const relationshipKeys = ["relationship_context", "role_in_my_life", "discipleship_stage"];
   const noRelationshipModel = omitKeys(record, relationshipKeys);
   const noHouseholdMvp = omitKeys(record, householdMvpKeys);
+  const noFieldVisibility = omitKeys(record, fieldVisibilityKeys);
   const noWorkspaceScope = omitKeys(record, ["workspace_id"]);
 
   return [
     record,
+    noFieldVisibility,
     noHouseholdMvp,
+    omitKeys(noHouseholdMvp, fieldVisibilityKeys),
     noRelationshipModel,
+    omitKeys(noRelationshipModel, fieldVisibilityKeys),
     omitKeys(noRelationshipModel, householdMvpKeys),
+    omitKeys(omitKeys(noRelationshipModel, householdMvpKeys), fieldVisibilityKeys),
     noWorkspaceScope,
+    omitKeys(noWorkspaceScope, fieldVisibilityKeys),
     omitKeys(noWorkspaceScope, householdMvpKeys),
+    omitKeys(omitKeys(noWorkspaceScope, householdMvpKeys), fieldVisibilityKeys),
     omitKeys(noWorkspaceScope, relationshipKeys),
+    omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), fieldVisibilityKeys),
     omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), householdMvpKeys),
+    omitKeys(omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), householdMvpKeys), fieldVisibilityKeys),
   ];
 }
 
@@ -109,6 +128,14 @@ function relationshipFieldsFromPayload(payload: PersonPayload, includeDefaultSco
   }
 
   return fields;
+}
+
+function fieldVisibilityFromPayload(payload: PersonPayload) {
+  const value = asString(payload.fieldVisibility) || asString(payload.field_visibility);
+
+  return fieldVisibilityValues.includes(value as typeof fieldVisibilityValues[number])
+    ? value
+    : "primary";
 }
 
 function buildPersonNotes(payload: PersonPayload) {
@@ -198,6 +225,7 @@ export async function POST(request: Request) {
     church: asNullableString(payload.church),
     created_by: authResult.authorization.userId,
     email: asNullableString(payload.email),
+    field_visibility: fieldVisibilityFromPayload(payload),
     household_id: workspaceId,
     household_notes: householdNotes,
     name,
@@ -293,6 +321,7 @@ export async function PATCH(request: Request) {
     children_names: childrenNames,
     church: asNullableString(payload.church),
     email: asNullableString(payload.email),
+    field_visibility: fieldVisibilityFromPayload(payload),
     household_notes: householdNotes,
     name,
     notes: buildPersonNotes(payload),

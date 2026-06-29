@@ -86,6 +86,7 @@ export const dosAppFruitTypeOptions = dosAppOutcomeTags;
 
 export type DosAppMeetingType = typeof dosAppMeetingTypes[number];
 export type DosAppOutcomeTag = typeof dosAppOutcomeTags[number] | typeof dosAppLegacyOutcomeTags[number];
+export type DosAppFieldVisibility = "hidden" | "primary" | "secondary";
 export type DosAppReviewStatus = "approved" | "not_sent" | "pending" | "private" | "submitted";
 export type DosMinistryEventRole = "ministry_team" | "participant" | "recorder" | "supporting_attendee";
 export type DosSupportingAttendeeSubRole = "child_present" | "contributor" | "learning" | "observer" | "support";
@@ -126,6 +127,7 @@ export type DosAppPerson = {
   rawDiscipleshipStage?: string | null;
   email: string | null;
   engagementLevel: string | null;
+  fieldVisibility: DosAppFieldVisibility;
   householdNotes?: string | null;
   id: string;
   lastActivityAt: string | null;
@@ -448,6 +450,7 @@ type FieldPersonRow = {
   discipleship_stage?: string | null;
   email: string | null;
   engagement_level: string | null;
+  field_visibility?: string | null;
   household_notes?: string | null;
   id: string;
   last_activity_at: string | null;
@@ -724,6 +727,10 @@ function mapConnectionType(value: string | null): DosAppMeetingType {
   }
 
   return "other";
+}
+
+function mapFieldVisibility(value: string | null | undefined): DosAppFieldVisibility {
+  return value === "secondary" || value === "hidden" ? value : "primary";
 }
 
 function mapMeetingStatus(value: string | null | undefined): DosAppMeeting["meetingStatus"] {
@@ -1142,9 +1149,9 @@ function sortMeetingRows(rows: MeetingRow[]) {
 }
 
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
-  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
-  const relationshipCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
-  const householdCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, last_activity_at, created_at, updated_at";
+  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
+  const relationshipCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
+  const householdCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, last_activity_at, created_at, updated_at";
   const legacyPersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at";
   const scopedResult = await supabase
     .from("missionary_field_people")
@@ -2082,6 +2089,7 @@ export async function loadDosAppData(
       discipleshipStage: relationshipModel.discipleshipStage,
       email: person.email,
       engagementLevel: person.engagement_level,
+      fieldVisibility: mapFieldVisibility(person.field_visibility),
       householdNotes: person.household_notes ?? null,
       id: person.id,
       lastActivityAt: latestActivityDate(person.last_activity_at, latestActivityByPersonId.get(person.id)),

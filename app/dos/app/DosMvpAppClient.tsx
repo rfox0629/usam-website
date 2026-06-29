@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -214,6 +214,12 @@ const supportingAttendeeSubRoleOptions: ReadonlyArray<{ label: string; value: Do
   { label: "Learning", value: "learning" },
   { label: "Support", value: "support" },
   { label: "Child present", value: "child_present" },
+];
+
+const fieldVisibilityOptions: ReadonlyArray<{ label: string; value: DosAppFieldVisibility }> = [
+  { label: "Primary Field Contact", value: "primary" },
+  { label: "Secondary / Household Participant", value: "secondary" },
+  { label: "Hidden from Field", value: "hidden" },
 ];
 
 function defaultMinistryTeamMemberIdsForWorkspace(data: Pick<DosAppData, "householdMembers" | "workspace">) {
@@ -764,6 +770,7 @@ type PersonFormDefaults = {
   city?: string;
   email?: string;
   engagementScore?: RelationshipScoreValue;
+  fieldVisibility?: DosAppFieldVisibility;
   homeAddress?: string;
   householdNotes?: string;
   name?: string;
@@ -1802,6 +1809,18 @@ function normalizeText(value: string | null | undefined) {
   return value?.trim() || "";
 }
 
+function normalizeFieldVisibility(value: FormDataEntryValue | string | null | undefined, fallback: DosAppFieldVisibility = "primary"): DosAppFieldVisibility {
+  return value === "secondary" || value === "hidden" || value === "primary" ? value : fallback;
+}
+
+function showPersonInFieldList(person: DosAppPerson, showSecondary: boolean) {
+  if (person.fieldVisibility === "hidden") {
+    return false;
+  }
+
+  return person.fieldVisibility === "primary" || (showSecondary && person.fieldVisibility === "secondary");
+}
+
 function phoneDigitsOnly(value: string | null | undefined) {
   const digits = (value ?? "").replace(/\D/g, "").slice(0, 11);
 
@@ -1881,6 +1900,7 @@ function personFormDefaults(person?: DosAppPerson | null): PersonFormDefaults {
     church: person.church ?? "",
     email: person.email ?? "",
     engagementScore: relationshipScoreFromEngagementLevel(person.engagementLevel),
+    fieldVisibility: person.fieldVisibility,
     name: person.name,
     householdNotes: person.householdNotes ?? "",
     notes,
@@ -14846,6 +14866,14 @@ function PersonFormContent({
           />
         </DosFormField>
       </DosFormSection>
+      <DosFormSection icon="people" title="Field Visibility">
+        <FormOptionSelect
+          defaultValue={additionalDefaults?.fieldVisibility ?? "primary"}
+          label="Discipleship Role"
+          name="field_visibility"
+          options={fieldVisibilityOptions}
+        />
+      </DosFormSection>
       <DosFormSection icon="people" title="Relationship Type">
         <RelationshipTypePicker onChange={onRelationshipChange} value={relationshipModel} />
       </DosFormSection>
@@ -17251,6 +17279,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMobilePrayerDetail, setSelectedMobilePrayerDetail] = useState<PrayerDetail | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [selectedReminderId, setSelectedReminderId] = useState<string | null>(null);
+  const [showSecondaryFieldPeople, setShowSecondaryFieldPeople] = useState(false);
   const [selectedRelationshipModel, setSelectedRelationshipModel] = useState<DosRelationshipModel>(defaultRelationshipModel);
   const [selectedRelationshipScore, setSelectedRelationshipScore] = useState<RelationshipScoreValue>(0);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
@@ -17308,6 +17337,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return new Map(scores.map((score) => [score.person.id, score]));
   }, [data.circles]);
+  const fieldListPeople = useMemo(() => people.filter((person) => showPersonInFieldList(person, showSecondaryFieldPeople)), [people, showSecondaryFieldPeople]);
+  const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility === "secondary").length, [people]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
   const ministryTeamPeopleOptions = useMemo(() => filteredPeople(people, ministryTeamQuery), [people, ministryTeamQuery]);
   const supportingAttendeeOptions = useMemo(() => filteredPeople(people, supportingAttendeeQuery), [people, supportingAttendeeQuery]);
@@ -17358,7 +17389,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     data.externalCalendarEvents.find((event) => event.id === selectedExternalCalendarEventId) ?? null
   ), [data.externalCalendarEvents, selectedExternalCalendarEventId]);
   const circlePeopleByLayer = useMemo<CircleLayerGroups>(() => {
-    const peopleById = new Map(people.map((person) => [person.id, person]));
+    const peopleById = new Map(fieldListPeople.map((person) => [person.id, person]));
     const mapScores = (scores: DosRelationshipScore[]) => uniqueCircleMembers(scores
       .map((score) => ({ person: peopleById.get(score.person.id), score }))
       .filter((item): item is CirclePersonItem => Boolean(item.person)));
@@ -17369,8 +17400,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       three: mapScores(data.circles?.my3 ?? []),
       twelve: mapScores(data.circles?.my12 ?? []),
     };
-  }, [data.circles, people]);
-  const allCirclePeople = useMemo<CircleListItem[]>(() => people.map((person) => ({ person })), [people]);
+  }, [data.circles, fieldListPeople]);
+  const allCirclePeople = useMemo<CircleListItem[]>(() => fieldListPeople.map((person) => ({ person })), [fieldListPeople]);
   const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, allCirclePeople), [allCirclePeople, circlePeopleByLayer, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
   const latestMeetingDateByPersonId = useMemo(() => {
@@ -18256,6 +18287,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       city: formString("city", fallback.city ?? ""),
       email: formString("email", fallback.email ?? ""),
       engagementScore: relationshipScoreLabel(relationshipScore),
+      fieldVisibility: normalizeFieldVisibility(formData.get("field_visibility"), fallback.fieldVisibility ?? "primary"),
       homeAddress: formString("home_address", fallback.homeAddress ?? ""),
       householdNotes: formString("household_notes", fallback.householdNotes ?? ""),
       id,
@@ -18802,6 +18834,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             discipleshipStage: "not_started",
             email: null,
             engagementLevel: "0",
+            fieldVisibility: "primary",
             id: previewPersonId,
             lastActivityAt: null,
             name,
@@ -18849,6 +18882,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           discipleshipStage: "not_started",
           email: null,
           engagementLevel: "0",
+          fieldVisibility: "primary",
           id: result.id as string,
           lastActivityAt: null,
           name,
@@ -20197,8 +20231,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   placeholder="Search by name, phone, or relationship"
                   query={peopleQuery}
                 />
-                <div>
+                <div className="grid gap-2 min-[560px]:grid-cols-[minmax(0,1fr)_auto] min-[560px]:items-center">
                   <PeopleCircleTabs onChange={setPeopleCircleView} value={peopleCircleView} />
+                  {secondaryFieldPeopleCount ? (
+                    <button
+                      aria-pressed={showSecondaryFieldPeople}
+                      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border px-3 text-xs font-bold transition-colors ${
+                        showSecondaryFieldPeople
+                          ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                          : "border-[#D6E4F7] bg-white text-[#475569] hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                      }`}
+                      onClick={() => setShowSecondaryFieldPeople((current) => !current)}
+                      type="button"
+                    >
+                      {showSecondaryFieldPeople ? "Showing" : "Show"} Secondary / Household
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] text-[#2563EB] ring-1 ring-[#BFDBFE]">{secondaryFieldPeopleCount}</span>
+                    </button>
+                  ) : null}
                 </div>
                 {peopleImportMessage ? (
                   <p className={`mt-3 rounded-2xl border p-3 text-sm ${
@@ -20232,8 +20281,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         storyCountByPersonId={storyCountByPersonId}
                       />
                     </>
-                  ) : people.length ? (
+                  ) : fieldListPeople.length ? (
                     <EmptyState text={peopleQuery.trim() ? `Try a different search inside ${circleDisplayName(peopleCircleView)}.` : peopleCircleContent.empty} title={peopleQuery.trim() ? "No matching field results." : `No one in ${circleDisplayName(peopleCircleView)}.`} />
+                  ) : people.length ? (
+                    <EmptyState text={secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use Show Secondary / Household to include household participants." : peopleCircleContent.empty} title="No primary field contacts." />
                   ) : (
                     <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No field added yet." />
                   )}

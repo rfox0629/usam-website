@@ -10,6 +10,7 @@ type ExistingPersonRow = {
   church?: string | null;
   discipleship_stage?: string | null;
   engagement_level?: string | null;
+  field_visibility?: string | null;
   household_id?: string | null;
   household_notes?: string | null;
   id: string;
@@ -48,6 +49,7 @@ type HouseholdMemberSyncResult = {
 
 const relationshipModelKeys = ["relationship_context", "role_in_my_life", "discipleship_stage"];
 const householdMvpKeys = ["spouse_name", "children_names", "household_notes"];
+const fieldVisibilityKeys = ["field_visibility"];
 
 function cleanText(value: string | null | undefined) {
   return value?.trim().replace(/\s+/g, " ") ?? "";
@@ -70,22 +72,31 @@ function omitKeys(record: Record<string, unknown>, keys: string[]) {
 function personRecordCandidates(record: Record<string, unknown>) {
   const noRelationshipModel = omitKeys(record, relationshipModelKeys);
   const noHouseholdMvp = omitKeys(record, householdMvpKeys);
+  const noFieldVisibility = omitKeys(record, fieldVisibilityKeys);
   const noWorkspaceScope = omitKeys(record, ["workspace_id"]);
 
   return [
     record,
+    noFieldVisibility,
     noRelationshipModel,
+    omitKeys(noRelationshipModel, fieldVisibilityKeys),
     noHouseholdMvp,
+    omitKeys(noHouseholdMvp, fieldVisibilityKeys),
     omitKeys(noRelationshipModel, householdMvpKeys),
+    omitKeys(omitKeys(noRelationshipModel, householdMvpKeys), fieldVisibilityKeys),
     noWorkspaceScope,
+    omitKeys(noWorkspaceScope, fieldVisibilityKeys),
     omitKeys(noWorkspaceScope, relationshipModelKeys),
+    omitKeys(omitKeys(noWorkspaceScope, relationshipModelKeys), fieldVisibilityKeys),
     omitKeys(noWorkspaceScope, householdMvpKeys),
+    omitKeys(omitKeys(noWorkspaceScope, householdMvpKeys), fieldVisibilityKeys),
     omitKeys(omitKeys(noWorkspaceScope, relationshipModelKeys), householdMvpKeys),
+    omitKeys(omitKeys(omitKeys(noWorkspaceScope, relationshipModelKeys), householdMvpKeys), fieldVisibilityKeys),
   ];
 }
 
 function isRecoverablePersonSchemaError(error: SupabaseQueryError) {
-  return isMissingColumnError(error, ["workspace_id", ...relationshipModelKeys, ...householdMvpKeys]);
+  return isMissingColumnError(error, ["workspace_id", ...relationshipModelKeys, ...householdMvpKeys, ...fieldVisibilityKeys]);
 }
 
 function parseChildrenNames(value: string | null | undefined) {
@@ -121,8 +132,9 @@ export function householdMemberPersonCandidates(input: {
 }
 
 async function loadExistingPeople(supabase: SupabaseAdminClient, workspaceId: string) {
-  const select = "id, name, phone, church, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, spouse_name, children_names, household_notes, household_id, workspace_id";
-  const fallbackSelect = "id, name, phone, church, status, relationship_type, engagement_level, spouse_name, children_names, household_notes, household_id, workspace_id";
+  const select = "id, name, phone, church, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, spouse_name, children_names, household_notes, household_id, workspace_id";
+  const fallbackSelect = "id, name, phone, church, status, relationship_type, engagement_level, field_visibility, spouse_name, children_names, household_notes, household_id, workspace_id";
+  const legacyFallbackSelect = "id, name, phone, church, status, relationship_type, engagement_level, spouse_name, children_names, household_notes, household_id, workspace_id";
   const scopedResult = await supabase
     .from("missionary_field_people")
     .select(select)
@@ -132,7 +144,7 @@ async function loadExistingPeople(supabase: SupabaseAdminClient, workspaceId: st
     return scopedResult;
   }
 
-  if (isMissingColumnError(scopedResult.error, relationshipModelKeys)) {
+  if (isMissingColumnError(scopedResult.error, [...relationshipModelKeys, ...fieldVisibilityKeys])) {
     const fallbackResult = await supabase
       .from("missionary_field_people")
       .select(fallbackSelect)
@@ -141,12 +153,23 @@ async function loadExistingPeople(supabase: SupabaseAdminClient, workspaceId: st
     if (!fallbackResult.error) {
       return fallbackResult;
     }
+
+    if (isMissingColumnError(fallbackResult.error, fieldVisibilityKeys)) {
+      const legacyFallbackResult = await supabase
+        .from("missionary_field_people")
+        .select(legacyFallbackSelect)
+        .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`);
+
+      if (!legacyFallbackResult.error) {
+        return legacyFallbackResult;
+      }
+    }
   }
 
   if (isMissingColumnError(scopedResult.error, ["workspace_id"])) {
     return supabase
       .from("missionary_field_people")
-      .select(fallbackSelect)
+      .select(legacyFallbackSelect)
       .eq("household_id", workspaceId);
   }
 
@@ -168,6 +191,7 @@ function buildHouseholdMemberInsert(input: HouseholdMemberPersonInput, candidate
     created_by: input.createdBy ?? null,
     discipleship_stage: "not_started",
     engagement_level: cleanText(input.engagementLevel) || "0",
+    field_visibility: "secondary",
     household_id: input.workspaceId,
     household_notes: householdNoteFor(input, candidate),
     name: candidate.name,
@@ -203,6 +227,10 @@ function buildExistingPersonUpdate(existing: ExistingPersonRow, input: Household
 
   if (!cleanText(existing.engagement_level)) {
     update.engagement_level = cleanText(input.engagementLevel) || "0";
+  }
+
+  if (!cleanText(existing.field_visibility)) {
+    update.field_visibility = "secondary";
   }
 
   if (!cleanText(existing.household_notes)) {
