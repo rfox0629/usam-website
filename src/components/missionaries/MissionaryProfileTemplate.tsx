@@ -6,7 +6,7 @@ import { HeroProfile } from "@/components/missionaries/HeroProfile";
 import { ProfileSupportSectionActions } from "@/components/missionaries/SupportMissionButtons";
 import { StoryReadMoreButton } from "@/components/missionaries/StoryReadMoreButton";
 import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromTheFieldModal";
-import { JoinPrayerTeamModal, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
+import { JoinPrayerTeamModal, PrayerRequestPreviewList, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
 import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
 import { MissionaryProfileViewTracker } from "@/src/components/missionaries/MissionaryProfileViewTracker";
 import { SubmitPrayerRequestModal } from "@/src/components/missionaries/SubmitPrayerRequestModal";
@@ -294,16 +294,13 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
 function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
   const prayerRequests = missionary.prayerRequests ?? [];
   const prayerTeamCount = missionary.prayerSettings?.prayerTeamCount ?? 0;
-  const previewRequest = prayerRequests[0];
-  const previewText = previewRequest
-    ? previewRequest.description
-    : missionary.prayerSettings?.description || "Pray with this household as they reach, disciple, and serve.";
+  const prayerDescription = missionary.prayerSettings?.description || "Pray with this household as they reach, disciple, and serve.";
   const prayerTeamLabel = prayerTeamCount === 1 ? "1 partner" : `${prayerTeamCount} partners`;
 
   return (
     <MissionProfileCard
       action={(
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2">
           <JoinPrayerTeamModal
             buttonLabel="Join Prayer Team"
             householdId={missionary.id}
@@ -318,27 +315,35 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
             householdName={missionary.name}
             profileSlug={missionary.slug}
           />
-          {prayerRequests.length > 0 ? (
-            <PrayerRequestsModalButton buttonLabel="Requests" requests={prayerRequests} />
-          ) : null}
+          <PrayerRequestsModalButton buttonLabel="View All Requests" requests={prayerRequests} />
         </div>
       )}
       icon={<Heart aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />}
-      label={previewRequest ? "Current" : "Prayer"}
+      label={prayerRequests.length > 0 ? "Current" : "Prayer"}
       title={missionary.prayerSettings?.headline || "Prayer"}
     >
-      <div className="space-y-2.5">
-        <p className="max-h-[7rem] overflow-hidden">
-          {previewText}
+      <div className="space-y-3">
+        <div className="rounded-xl border border-[#C2A14E]/20 bg-[#C2A14E]/10 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+              Prayer Team
+            </p>
+            <p className="text-sm font-semibold leading-none text-stone-100">
+              {prayerTeamLabel}
+            </p>
+          </div>
+        </div>
+        <p className="max-h-[5.5rem] overflow-hidden">
+          {prayerDescription}
         </p>
-        <p className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-xs font-medium leading-5 text-stone-300">
-          Prayer Team: {prayerTeamLabel}
-        </p>
-        {!previewRequest ? (
-          <p className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-xs leading-5 text-stone-400">
-            Prayer requests will appear here as they are shared.
-          </p>
-        ) : null}
+        <div>
+          <h3 className="text-[10px] uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+            Prayer Requests
+          </h3>
+          <div className="mt-2">
+            <PrayerRequestPreviewList requests={prayerRequests} />
+          </div>
+        </div>
       </div>
     </MissionProfileCard>
   );

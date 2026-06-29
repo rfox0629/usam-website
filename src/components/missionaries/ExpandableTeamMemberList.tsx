@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import type { MissionaryHouseholdMember } from "@/src/data/missionaries";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -17,7 +18,7 @@ export function ExpandableTeamMemberList({
 }) {
   const [expanded, setExpanded] = useState(false);
   const visibleMembers = expanded ? members : members.slice(0, 4);
-  const hiddenMemberCount = members.length - visibleMembers.length;
+  const hiddenMemberCount = Math.max(members.length - 4, 0);
 
   return (
     <div className="grid gap-2">
@@ -43,12 +44,17 @@ export function ExpandableTeamMemberList({
       ))}
       {hiddenMemberCount > 0 ? (
         <button
-          className="min-h-9 rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 text-left text-xs uppercase tracking-[0.16em] text-[#C2A14E] transition-colors hover:border-[#C2A14E]/45 hover:bg-[#C2A14E]/10"
-          onClick={() => setExpanded(true)}
+          className="flex min-h-9 items-center justify-between gap-2 rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 text-left text-xs uppercase tracking-[0.16em] text-[#C2A14E] transition-colors hover:border-[#C2A14E]/45 hover:bg-[#C2A14E]/10"
+          onClick={() => setExpanded((current) => !current)}
           style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           type="button"
         >
-          +{hiddenMemberCount} more
+          <span>{expanded ? "Show less" : `+${hiddenMemberCount} more`}</span>
+          {expanded ? (
+            <ChevronUp aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+          ) : (
+            <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+          )}
         </button>
       ) : null}
     </div>

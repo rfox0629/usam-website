@@ -137,8 +137,7 @@ async function loadPublicPrayerRequests(client: SupabaseLike, profileId: string)
     .or(prayerRequestScopeFilter(profileId))
     .in("status", [...publicPrayerStatuses])
     .eq("visibility", "public")
-    .order("created_at", { ascending: false })
-    .limit(6);
+    .order("created_at", { ascending: false });
 
   const result = scopedResult.error && hasMissingPrayerBridgeColumn(scopedResult.error)
     ? await client
@@ -148,7 +147,6 @@ async function loadPublicPrayerRequests(client: SupabaseLike, profileId: string)
       .in("status", [...publicPrayerStatuses])
       .eq("visibility", "public")
       .order("created_at", { ascending: false })
-      .limit(6)
     : scopedResult;
 
   if (result.error) {
