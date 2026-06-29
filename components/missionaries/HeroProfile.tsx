@@ -15,11 +15,13 @@ type HeroProfileProps = {
   image?: string;
   backgroundImage?: string;
   actions?: ReactNode;
+  backLink?: ReactNode;
   spotlight?: ReactNode;
 };
 
 export function HeroProfile({
   actions,
+  backLink,
   backgroundImage,
   description,
   image,
@@ -42,6 +44,11 @@ export function HeroProfile({
 
       <div className="relative z-30 mx-auto grid max-w-6xl gap-6 md:items-center lg:min-h-[535px] lg:grid-cols-[minmax(0,0.96fr)_minmax(300px,360px)] lg:gap-8">
         <div className="max-w-[550px] py-6 md:py-10 lg:py-16">
+          {backLink ? (
+            <div className="mb-6">
+              {backLink}
+            </div>
+          ) : null}
           <p className="tactical-label uppercase" style={{ fontFamily: font.rajdhani }}>
             Missionary Profile
           </p>

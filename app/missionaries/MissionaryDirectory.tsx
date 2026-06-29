@@ -10,6 +10,7 @@ export type MissionaryDirectoryProfile = {
   displayNumber: string;
   functionTags: readonly string[];
   image: string | null;
+  isComingSoon?: boolean;
   location: string;
   name: string;
   roleTags: readonly string[];
@@ -33,12 +34,14 @@ function isExternalImage(src: string) {
 }
 
 function matchesFilter(missionary: MissionaryDirectoryProfile, filter: DirectoryFilter) {
+  const roleTags = missionary.roleTags.map((tag) => tag.toUpperCase());
+
   if (filter === "ALL") {
     return true;
   }
 
   if (filter === "MISSIONARIES") {
-    return missionary.roleTags.includes("MISSIONARY") || missionary.roleTags.includes("MISSIONARY COUPLE");
+    return roleTags.includes("MISSIONARY") || roleTags.includes("MISSIONARY COUPLE");
   }
 
   const roleByFilter = {
@@ -49,12 +52,13 @@ function matchesFilter(missionary: MissionaryDirectoryProfile, filter: Directory
     "SUPPORT TEAM": "SUPPORT TEAM",
   } as const satisfies Record<Exclude<DirectoryFilter, "ALL" | "MISSIONARIES">, string>;
 
-  return missionary.roleTags.includes(roleByFilter[filter]);
+  return roleTags.includes(roleByFilter[filter]);
 }
 
 function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile }) {
   const functionTags = missionary.functionTags ?? [];
   const showImage = Boolean(missionary.image);
+  const actionClassName = "inline-flex min-h-11 w-full items-center justify-center bg-stone-950 px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] text-white transition-all duration-300 hover:bg-[#C2A14E] hover:text-black";
 
   return (
     <article className="group flex h-full flex-col overflow-hidden border border-stone-200 bg-white shadow-[0_24px_80px_rgba(13,13,13,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-[#C2A14E]/50 hover:shadow-[0_28px_90px_rgba(13,13,13,0.14)]">
@@ -120,13 +124,24 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
         </div>
 
         <div className="mt-auto pt-8">
-          <Link
-            href={`/missionaries/${missionary.slug}`}
-            className="inline-flex min-h-11 w-full items-center justify-center bg-stone-950 px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] text-white transition-all duration-300 hover:bg-[#C2A14E] hover:text-black"
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          >
-            View Profile
-          </Link>
+          {missionary.isComingSoon ? (
+            <button
+              type="button"
+              disabled
+              className={`${actionClassName} cursor-not-allowed opacity-70 hover:bg-stone-950 hover:text-white`}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            >
+              Coming Soon
+            </button>
+          ) : (
+            <Link
+              href={`/missionaries/${missionary.slug}`}
+              className={actionClassName}
+              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+            >
+              View Profile
+            </Link>
+          )}
         </div>
       </div>
     </article>
@@ -190,7 +205,7 @@ export function MissionaryDirectory({
         </div>
       </div>
 
-      <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-8 grid gap-5 lg:grid-cols-2">
         {visibleMissionaries.map((missionary) => (
           <DirectoryCard key={missionary.slug} missionary={missionary} />
         ))}

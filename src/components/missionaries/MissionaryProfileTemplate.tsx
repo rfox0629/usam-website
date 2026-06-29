@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { BookOpen, HandHeart, Heart, Users } from "lucide-react";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { HeroProfile } from "@/components/missionaries/HeroProfile";
@@ -557,6 +558,15 @@ export function MissionaryProfileTemplate({
         description={missionary.statement}
         image={showPhotos ? missionary.heroImage : undefined}
         actions={joinPrayerTeamAction}
+        backLink={(
+          <Link
+            href="/missionaries"
+            className="inline-flex min-h-10 items-center text-[11px] uppercase tracking-[0.18em] text-stone-300 transition-colors duration-300 hover:text-[#C2A14E]"
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          >
+            ← Back to Team
+          </Link>
+        )}
       />
 
       <MissionProfileSection

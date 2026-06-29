@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">Missionary couple placeholder</title>
+  <desc id="desc">A simple generic silhouette of a missionary couple.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#181411" />
+      <stop offset="0.48" stop-color="#262018" />
+      <stop offset="1" stop-color="#0D0D0D" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="54%">
+      <stop offset="0" stop-color="#C2A14E" stop-opacity="0.24" />
+      <stop offset="0.58" stop-color="#C2A14E" stop-opacity="0.08" />
+      <stop offset="1" stop-color="#C2A14E" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="figure" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#F4F0E6" />
+      <stop offset="1" stop-color="#D7C99A" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#background)" />
+  <rect width="1200" height="900" fill="url(#glow)" />
+  <path d="M0 704c158-72 274-70 415-24 127 41 229 47 351 3 163-58 292-44 434 26v191H0Z" fill="#0D0D0D" opacity="0.6" />
+  <circle cx="494" cy="337" r="92" fill="url(#figure)" />
+  <circle cx="692" cy="334" r="86" fill="url(#figure)" opacity="0.96" />
+  <path d="M330 718c17-150 86-246 188-246h8c92 0 157 69 179 186-73 47-146 70-220 70-53 0-105-3-155-10Z" fill="url(#figure)" />
+  <path d="M567 716c16-139 77-229 176-229h8c89 0 154 74 174 224-54 13-111 20-172 20-65 0-127-5-186-15Z" fill="url(#figure)" opacity="0.95" />
+  <path d="M410 486c28 51 79 84 137 84 56 0 105-30 133-77" fill="none" stroke="#0D0D0D" stroke-opacity="0.22" stroke-width="14" stroke-linecap="round" />
+  <path d="M635 496c26 42 70 68 120 68 47 0 90-23 116-61" fill="none" stroke="#0D0D0D" stroke-opacity="0.18" stroke-width="13" stroke-linecap="round" />
+  <path d="M228 748c242 58 497 61 744 3" fill="none" stroke="#C2A14E" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round" />
+</svg>
