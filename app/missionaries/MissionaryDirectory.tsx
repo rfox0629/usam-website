@@ -62,7 +62,7 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
 
   return (
     <article className="group flex h-full flex-col overflow-hidden border border-stone-200 bg-white shadow-[0_24px_80px_rgba(13,13,13,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-[#C2A14E]/50 hover:shadow-[0_28px_90px_rgba(13,13,13,0.14)]">
-      <div className="relative h-[250px] overflow-hidden bg-stone-950">
+      <div className="relative aspect-[3/2] overflow-hidden bg-stone-950">
         {showImage && missionary.image ? (
           <>
             <Image
@@ -70,7 +70,7 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
               alt={`${missionary.name} profile photo`}
               fill
               unoptimized={isExternalImage(missionary.image)}
-              className="object-cover transition duration-500 group-hover:scale-105"
+              className="object-cover object-center transition duration-500 group-hover:scale-[1.02]"
               sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
             />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(13,13,13,0.08),rgba(13,13,13,0.2)_45%,rgba(13,13,13,0.72))]" />
