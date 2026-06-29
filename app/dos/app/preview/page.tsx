@@ -602,6 +602,7 @@ function buildDosPreviewDemoData(): DosAppData {
       profileImageUrl: null,
       publicProfileHref: "/missionaries/ryan-brooke-fox",
       shortMission: "DOS blue mobile demo preview.",
+      showPrayerTeamCount: true,
       slug: "dos-preview",
       stateName: "Minnesota",
       userEmail: "ryan@foxfamily.org",

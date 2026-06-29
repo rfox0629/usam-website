@@ -8,7 +8,12 @@ const statuses = ["active", "archived", "declined", "inactive", "pending"] as co
 const partnerSelect = "id, name, first_name, last_name, email, phone, city, state, region, how_heard, source, status, internal_notes, date_joined, approved_at, created_at, updated_at";
 
 type PrayerPartnerPayload = {
+  email?: unknown;
   id?: unknown;
+  name?: unknown;
+  notes?: unknown;
+  phone?: unknown;
+  relationship?: unknown;
   status?: unknown;
   workspaceId?: unknown;
   workspace_id?: unknown;
@@ -16,6 +21,12 @@ type PrayerPartnerPayload = {
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function asNullableString(value: unknown) {
+  const text = asString(value);
+
+  return text ? text : null;
 }
 
 function isUuid(value: string) {
@@ -26,6 +37,26 @@ function asStatus(value: unknown) {
   const status = asString(value).toLowerCase();
 
   return statuses.includes(status as typeof statuses[number]) ? status : "pending";
+}
+
+function splitName(name: string) {
+  const parts = name.split(/\s+/).filter(Boolean);
+  const firstName = parts.shift() ?? "";
+  const lastName = parts.join(" ");
+
+  return { firstName, lastName };
+}
+
+function approvalPatch(status: string, approvedBy: string | null | undefined) {
+  return status === "active"
+    ? {
+      approved_at: new Date().toISOString(),
+      approved_by: approvedBy ?? null,
+    }
+    : {
+      approved_at: null,
+      approved_by: null,
+    };
 }
 
 async function authorizeWrite() {
@@ -90,6 +121,65 @@ function mapPrayerPartner(row: {
   };
 }
 
+export async function POST(request: Request) {
+  const authResult = await authorizeWrite();
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  let payload: PrayerPartnerPayload;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId) || asString(payload.workspace_id));
+  const name = asString(payload.name);
+  const email = asString(payload.email).toLowerCase();
+  const status = asStatus(payload.status);
+
+  if (!workspaceId || !name || !email) {
+    return NextResponse.json({ error: "Workspace, name, and email are required." }, { status: 400 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
+  }
+
+  const { firstName, lastName } = splitName(name);
+  const { data, error } = await createSupabaseAdminClient()
+    .from("prayer_partners")
+    .insert({
+      ...approvalPatch(status, authResult.authorization.email),
+      email,
+      first_name: firstName || null,
+      how_heard: asNullableString(payload.relationship),
+      internal_notes: asNullableString(payload.notes),
+      last_name: lastName || null,
+      missionary_profile_id: workspaceId,
+      name,
+      phone: asNullableString(payload.phone),
+      recruited_by: "DOS",
+      recruited_by_household_id: workspaceId,
+      source: "dos",
+      status,
+      workspace_id: workspaceId,
+    })
+    .select(partnerSelect)
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ prayerPartner: mapPrayerPartner(data) });
+}
+
 export async function PATCH(request: Request) {
   const authResult = await authorizeWrite();
 
@@ -119,21 +209,50 @@ export async function PATCH(request: Request) {
     return workspaceAccess.response;
   }
 
-  const approvalPatch = status === "active"
-    ? {
-      approved_at: new Date().toISOString(),
-      approved_by: authResult.authorization.email,
+  const patch: Record<string, null | string> = {
+    ...approvalPatch(status, authResult.authorization.email),
+    status,
+  };
+
+  if (payload.name !== undefined) {
+    const name = asString(payload.name);
+
+    if (!name) {
+      return NextResponse.json({ error: "Name is required." }, { status: 400 });
     }
-    : {
-      approved_at: null,
-      approved_by: null,
-    };
+
+    const { firstName, lastName } = splitName(name);
+
+    patch.first_name = firstName || null;
+    patch.last_name = lastName || null;
+    patch.name = name;
+  }
+
+  if (payload.email !== undefined) {
+    const email = asString(payload.email).toLowerCase();
+
+    if (!email) {
+      return NextResponse.json({ error: "Email is required." }, { status: 400 });
+    }
+
+    patch.email = email;
+  }
+
+  if (payload.phone !== undefined) {
+    patch.phone = asNullableString(payload.phone);
+  }
+
+  if (payload.relationship !== undefined) {
+    patch.how_heard = asNullableString(payload.relationship);
+  }
+
+  if (payload.notes !== undefined) {
+    patch.internal_notes = asNullableString(payload.notes);
+  }
+
   const { data, error } = await createSupabaseAdminClient()
     .from("prayer_partners")
-    .update({
-      ...approvalPatch,
-      status,
-    })
+    .update(patch)
     .eq("id", id)
     .or(`recruited_by_household_id.eq.${workspaceId},workspace_id.eq.${workspaceId},missionary_profile_id.eq.${workspaceId}`)
     .select(partnerSelect)

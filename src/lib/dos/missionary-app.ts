@@ -101,6 +101,7 @@ export type DosAppWorkspace = {
   profileImageUrl: string | null;
   publicProfileHref: string;
   shortMission: string | null;
+  showPrayerTeamCount: boolean;
   slug: string;
   stateName?: string | null;
   userEmail?: string | null;
@@ -442,6 +443,7 @@ type HouseholdRow = {
   public_slug?: string | null;
   public_visible?: boolean | null;
   show_household?: boolean | null;
+  show_prayer_team_count?: boolean | null;
   short_mission: string | null;
   slug: string;
   usam_application_id?: string | null;
@@ -1807,7 +1809,7 @@ async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<
 
   const supabase = createSupabaseAdminClient();
   const baseSelect = "id, slug, display_name, short_mission, profile_image_url, location";
-  const identitySelect = `${baseSelect}, public_slug, primary_state, public_visible, show_household, usam_application_id, usam_application_status, usam_profile_status, usam_application_submitted_at, usam_application_reviewed_at, usam_assigned_admin_email`;
+  const identitySelect = `${baseSelect}, public_slug, primary_state, public_visible, show_household, show_prayer_team_count, usam_application_id, usam_application_status, usam_profile_status, usam_application_submitted_at, usam_application_reviewed_at, usam_assigned_admin_email`;
   const runQuery = async (selectColumns: string) => {
     const query = supabase.from("missionary_households").select(selectColumns);
 
@@ -2525,6 +2527,7 @@ export async function loadDosAppData(
         profileImageUrl: workspace.profile_image_url,
         publicProfileHref: publicProfileHrefForWorkspace(workspace),
         shortMission: workspace.short_mission,
+        showPrayerTeamCount: workspace.show_prayer_team_count !== false,
         slug: workspace.slug,
         stateName: cleanOptionalText(workspace.primary_state ?? workspace.location),
         userEmail: null,

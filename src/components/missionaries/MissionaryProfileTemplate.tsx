@@ -294,6 +294,7 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
 function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
   const prayerRequests = missionary.prayerRequests ?? [];
   const prayerTeamCount = missionary.prayerSettings?.prayerTeamCount ?? 0;
+  const showPrayerTeamCount = missionary.prayerSettings?.showPrayerTeamCount !== false;
   const prayerDescription = missionary.prayerSettings?.description || "Pray with this household as they reach, disciple, and serve.";
   const prayerTeamLabel = prayerTeamCount === 1 ? "1 partner" : `${prayerTeamCount} partners`;
 
@@ -323,16 +324,18 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
       title={missionary.prayerSettings?.headline || "Prayer"}
     >
       <div className="space-y-3">
-        <div className="rounded-xl border border-[#C2A14E]/20 bg-[#C2A14E]/10 px-3 py-2.5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Prayer Team
-            </p>
-            <p className="text-sm font-semibold leading-none text-stone-100">
-              {prayerTeamLabel}
-            </p>
+        {showPrayerTeamCount ? (
+          <div className="rounded-xl border border-[#C2A14E]/20 bg-[#C2A14E]/10 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                Prayer Team
+              </p>
+              <p className="text-sm font-semibold leading-none text-stone-100">
+                {prayerTeamLabel}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : null}
         <p className="max-h-[5.5rem] overflow-hidden">
           {prayerDescription}
         </p>

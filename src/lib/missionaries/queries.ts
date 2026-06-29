@@ -56,6 +56,7 @@ const householdFeatureSelect = [
   "show_fruit",
   "show_support",
   "show_prayer",
+  "show_prayer_team_count",
   "fruit_from_field",
   "public_story",
   "support_mode",
@@ -103,6 +104,7 @@ type HouseholdRow = {
   show_fruit?: boolean | null;
   show_support?: boolean | null;
   show_prayer?: boolean | null;
+  show_prayer_team_count?: boolean | null;
   primary_state?: string | null;
   serving_scope?: string | null;
   secondary_states?: string[] | null;
@@ -372,6 +374,7 @@ function hasMissingFeatureColumnsError(error: { message?: string } | null | unde
     "show_fruit",
     "show_support",
     "show_prayer",
+    "show_prayer_team_count",
     "primary_state",
     "serving_scope",
     "secondary_states",
@@ -628,6 +631,7 @@ function mapHouseholdToMissionary({
       enablePrayerTeam: isEnabledByDefault(household.enable_prayer_team),
       headline: household.prayer_section_headline ?? null,
       prayerTeamCount: prayerData?.prayerTeamCount ?? 0,
+      showPrayerTeamCount: isEnabledByDefault(household.show_prayer_team_count),
     },
     prayerRequests: prayerData?.prayerRequests ?? [],
     supportEnabled: showSupport,

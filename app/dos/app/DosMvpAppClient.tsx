@@ -133,6 +133,14 @@ type DosPrayerRequestPatch = Partial<{
   title: string;
   visibility: DosAppPrayerRequest["visibility"];
 }>;
+type DosPrayerPartnerPatch = Partial<{
+  email: string;
+  name: string;
+  notes: string;
+  phone: string;
+  relationship: string;
+  status: string;
+}>;
 type LocalPrayerLogEntry = {
   id: string;
   notes: string;
@@ -13390,17 +13398,6 @@ function prayerPartnerRelationshipLabel(partner: DosAppPrayerPartner) {
   return "Public Signup";
 }
 
-function prayerPartnerListNotes(partner: DosAppPrayerPartner) {
-  const location = [partner.city, partner.state].filter(Boolean).join(", ");
-
-  return [
-    partner.email,
-    partner.phone,
-    location,
-    partner.notes,
-  ].filter(Boolean).join(" · ") || "Prayer partner";
-}
-
 function mapDosPrayerPartnerToLocal(partner: DosAppPrayerPartner): LocalPrayerPartner {
   return {
     city: partner.city,
@@ -13409,13 +13406,21 @@ function mapDosPrayerPartnerToLocal(partner: DosAppPrayerPartner): LocalPrayerPa
     id: partner.id,
     lastContacted: partner.updatedAt || partner.joinedAt ? formatRelativeDate(partner.updatedAt ?? partner.joinedAt) : "New",
     name: partner.name,
-    notes: prayerPartnerListNotes(partner),
+    notes: partner.notes ?? "",
     phone: partner.phone,
     relationship: prayerPartnerRelationshipLabel(partner),
     source: partner.source,
     state: partner.state,
     status: statusLabel(partner.status),
   };
+}
+
+function prayerPartnerRowNotes(partner: LocalPrayerPartner) {
+  return [
+    partner.email,
+    partner.phone,
+    partner.notes,
+  ].filter(Boolean).join(" · ") || "Prayer partner";
 }
 
 function isPersistedUuid(value: string) {
@@ -13726,9 +13731,12 @@ function AddPrayerPartnerSheet({
   onSubmit,
 }: {
   onClose: () => void;
-  onSubmit: (partner: LocalPrayerPartner) => void;
+  onSubmit: (partner: DosPrayerPartnerPatch) => Promise<LocalPrayerPartner> | LocalPrayerPartner;
 }) {
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const firstName = normalizeText(String(formData.get("first_name") ?? ""));
@@ -13749,27 +13757,38 @@ function AddPrayerPartnerSheet({
     const detailNotes = [
       notes,
       church ? `Church: ${church}` : "",
+      howHeard ? `How joined: ${prayerPartnerOptionLabel(prayerPartnerHowHeardOptions, howHeard)}` : "",
       addressLine ? `Address: ${addressLine}` : "",
     ].filter(Boolean).join(" · ");
 
     if (!name) {
+      setErrorMessage("Name is required.");
       return;
     }
 
-    onSubmit({
-      id: `local-partner-${Date.now()}`,
-      city: city || null,
-      email: email || null,
-      howHeard,
-      lastContacted: "Added today",
-      name,
-      notes: detailNotes || email || phone || "Added from DOS.",
-      phone: phone || null,
-      relationship,
-      source: "dos",
-      state: state || null,
-      status,
-    });
+    if (!email) {
+      setErrorMessage("Email is required to save a prayer partner.");
+      return;
+    }
+
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    try {
+      await onSubmit({
+        email,
+        notes: detailNotes,
+        phone,
+        relationship,
+        status,
+        name,
+      });
+      onClose();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to save prayer partner.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -13789,7 +13808,7 @@ function AddPrayerPartnerSheet({
               <input className={FieldInputClass()} inputMode="tel" name="phone" placeholder="(651) 456-8974" type="tel" />
             </DosFormField>
             <DosFormField label="Email">
-              <input className={FieldInputClass()} name="email" placeholder="email@example.com" type="email" />
+              <input className={FieldInputClass()} name="email" placeholder="email@example.com" required type="email" />
             </DosFormField>
           </DosFormGrid>
           <DosFormGrid>
@@ -13829,9 +13848,12 @@ function AddPrayerPartnerSheet({
           </details>
           <DosFormToggleRow defaultChecked name="email_alerts" title="Email prayer updates" />
         </DosFormSection>
+        {errorMessage ? (
+          <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
+        ) : null}
         <div className="grid gap-2">
-          <AppButton tone="black" type="submit">Add Partner</AppButton>
-          <AppButton onClick={onClose} tone="white">Close</AppButton>
+          <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Partner"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Close</AppButton>
         </div>
       </form>
     </Sheet>
@@ -14060,43 +14082,104 @@ function PrayerRequestDetailSheet({
 
 function PrayerPartnerDetailSheet({
   onClose,
-  onSaveStatus,
+  onSavePartner,
   partner,
 }: {
   onClose: () => void;
-  onSaveStatus: (partner: LocalPrayerPartner, status: string) => Promise<LocalPrayerPartner> | LocalPrayerPartner;
+  onSavePartner: (partner: LocalPrayerPartner, patch: DosPrayerPartnerPatch) => Promise<LocalPrayerPartner> | LocalPrayerPartner;
   partner: LocalPrayerPartner;
 }) {
   const [errorMessage, setErrorMessage] = useState("");
+  const [isConfirmingArchive, setIsConfirmingArchive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [name, setName] = useState(partner.name);
+  const [email, setEmail] = useState(partner.email ?? "");
+  const [phone, setPhone] = useState(partner.phone ?? "");
+  const [relationship, setRelationship] = useState(partner.relationship || prayerPartnerRelationshipOptions[0].value);
+  const [notes, setNotes] = useState(partner.notes ?? "");
+  const [successMessage, setSuccessMessage] = useState("");
   const [status, setStatus] = useState(normalizePrayerPartnerStatus(partner.status));
+  const canSave = name.trim() && email.trim();
+  const relationshipOptions = prayerPartnerRelationshipOptions.some((option) => option.value === relationship)
+    ? prayerPartnerRelationshipOptions
+    : [{ label: relationship, value: relationship }, ...prayerPartnerRelationshipOptions];
 
-  async function saveStatus() {
+  async function savePartner(nextStatus = status, closeAfterSave = false) {
+    if (!canSave) {
+      setErrorMessage("Name and email are required.");
+      return null;
+    }
+
     setIsSubmitting(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
-      await onSaveStatus(partner, status);
-      onClose();
+      const savedPartner = await onSavePartner(partner, {
+        email: email.trim(),
+        name: name.trim(),
+        notes: notes.trim(),
+        phone: phone.trim(),
+        relationship,
+        status: nextStatus,
+      });
+
+      setSuccessMessage(nextStatus === "archived" ? "Partner archived." : "Partner saved.");
+
+      if (closeAfterSave) {
+        onClose();
+      }
+
+      return savedPartner;
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to update prayer partner.");
+      return null;
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  async function archivePartner() {
+    if (!isConfirmingArchive) {
+      setIsConfirmingArchive(true);
+      setSuccessMessage("");
+      return;
+    }
+
+    await savePartner("archived", true);
+  }
+
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={partner.name}>
-      <div className="space-y-5">
+      <form className="space-y-5" onSubmit={(event) => {
+        event.preventDefault();
+        void savePartner();
+      }}>
         <DosFormSection icon="people" title="Partner">
-          <div className="divide-y divide-[#E2E8F0] overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC]">
-            <PrayerDetailMetaRow label="Name" value={partner.name} />
-            <PrayerDetailMetaRow label="Email" value={partner.email || "Not provided"} />
-            <PrayerDetailMetaRow label="Phone" value={partner.phone || "Not provided"} />
-            <PrayerDetailMetaRow label="Relationship" value={partner.relationship} />
-            <PrayerDetailMetaRow label="Last Contact" value={partner.lastContacted} />
-            <PrayerDetailMetaRow label="Notes" value={partner.notes || "None"} />
-          </div>
+          <DosFormGrid>
+            <DosFormField label="Name">
+              <input className={FieldInputClass()} onChange={(event) => setName(event.target.value)} required type="text" value={name} />
+            </DosFormField>
+            <DosFormField label="Email">
+              <input className={FieldInputClass()} onChange={(event) => setEmail(event.target.value)} required type="email" value={email} />
+            </DosFormField>
+          </DosFormGrid>
+          <DosFormGrid>
+            <DosFormField label="Phone">
+              <input className={FieldInputClass()} inputMode="tel" onChange={(event) => setPhone(event.target.value)} type="tel" value={phone} />
+            </DosFormField>
+            <PrayerPartnerSelectField
+              defaultValue={relationship}
+              label="Relationship"
+              name="relationship"
+              onChange={setRelationship}
+              options={relationshipOptions}
+            />
+          </DosFormGrid>
+          <DosFormField label="Notes">
+            <VoiceTextarea className={`${FieldTextareaClass()} min-h-28`} onChange={(event) => setNotes(event.target.value)} value={notes} />
+          </DosFormField>
+          <p className="text-xs font-semibold text-[#64748B]">Last updated {partner.lastContacted}</p>
         </DosFormSection>
         <DosFormSection icon="settings" title="Status">
           <PrayerPartnerSelectField
@@ -14110,15 +14193,61 @@ function PrayerPartnerDetailSheet({
             }))}
           />
         </DosFormSection>
+        {successMessage ? (
+          <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>
+        ) : null}
         {errorMessage ? (
           <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
         ) : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} onClick={saveStatus} tone="black">{isSubmitting ? "Saving..." : "Save Partner"}</AppButton>
+          <AppButton disabled={!canSave || isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Partner"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={archivePartner} tone="white">{isConfirmingArchive ? "Confirm Archive" : "Archive Partner"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Close</AppButton>
         </div>
-      </div>
+      </form>
     </Sheet>
+  );
+}
+
+function PrayerTeamCountVisibilityToggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => Promise<void>;
+}) {
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function handleChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextValue = event.target.checked;
+
+    setErrorMessage("");
+    setIsSaving(true);
+
+    try {
+      await onChange(nextValue);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to update prayer team count visibility.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-2">
+      <DosFormToggleRow
+        checked={checked}
+        description="Partner names stay private either way."
+        disabled={isSaving}
+        name="show_prayer_team_count"
+        onChange={handleChange}
+        title="Show prayer team count on public profile"
+      />
+      {errorMessage ? (
+        <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -14339,10 +14468,12 @@ function MobilePrayerWorkspace({
   onOpenPrayerPartner,
   onOpenPrayerDetail,
   onOpenPrayerRequest,
+  onUpdatePrayerTeamCountVisibility,
   prayerPartners,
   prayerRows,
   prayerRequests,
   query,
+  showPrayerTeamCount,
   tab,
   onTabChange,
 }: {
@@ -14351,10 +14482,12 @@ function MobilePrayerWorkspace({
   onOpenPrayerPartner: (partner: LocalPrayerPartner) => void;
   onOpenPrayerRequest: (request: DosAppPrayerRequest) => void;
   onTabChange: (value: PrayerWorkspaceTab) => void;
+  onUpdatePrayerTeamCountVisibility: (value: boolean) => Promise<void>;
   prayerPartners: DosAppPrayerPartner[];
   prayerRows: PrayerDetail[];
   prayerRequests: DosAppPrayerRequest[];
   query: string;
+  showPrayerTeamCount: boolean;
   tab: PrayerWorkspaceTab;
 }) {
   const [prayingForView, setPrayingForView] = useState<PrayerRequestView>("praying");
@@ -14396,7 +14529,10 @@ function MobilePrayerWorkspace({
     request.view === prayerRequestView
     && matchesPrayerSearch(request.request, request.category, request.sharedWith, request.status, request.created, request.answered)
   ));
-  const visiblePrayerPartners = prayerPartnerRows.filter((partner) => matchesPrayerSearch(partner.name, partner.relationship, partner.status, partner.lastContacted, partner.notes));
+  const visiblePrayerPartners = prayerPartnerRows.filter((partner) => (
+    normalizePrayerPartnerStatus(partner.status) !== "archived"
+    && matchesPrayerSearch(partner.name, partner.relationship, partner.status, partner.lastContacted, partner.notes)
+  ));
 
   return (
     <div className="space-y-3 md:hidden">
@@ -14485,6 +14621,9 @@ function MobilePrayerWorkspace({
           eyebrow="Partners"
           hasRows={visiblePrayerPartners.length > 0}
         >
+          <div className="mb-3">
+            <PrayerTeamCountVisibilityToggle checked={showPrayerTeamCount} onChange={onUpdatePrayerTeamCountVisibility} />
+          </div>
           <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF]">
             <div className="grid grid-cols-[minmax(0,1fr)_82px_72px] gap-2 bg-[#F8FBFF] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
               <span>Name</span>
@@ -14526,13 +14665,16 @@ function DesktopPrayerWorkspace({
   onOpenMeeting,
   onOpenPerson,
   onScheduleMeeting,
-  onUpdatePrayerPartnerStatus,
+  onCreatePrayerPartner,
+  onUpdatePrayerPartner,
+  onUpdatePrayerTeamCountVisibility,
   onUpdatePrayerRequest,
   people,
   prayerPartners,
   prayerRequests,
   query,
   reminders,
+  showPrayerTeamCount,
   tab,
   onTabChange,
 }: {
@@ -14547,15 +14689,18 @@ function DesktopPrayerWorkspace({
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
   onScheduleMeeting: () => void;
+  onCreatePrayerPartner: (patch: DosPrayerPartnerPatch) => Promise<LocalPrayerPartner>;
   onSearchChange: (value: string) => void;
   onTabChange: (value: PrayerWorkspaceTab) => void;
-  onUpdatePrayerPartnerStatus: (partner: LocalPrayerPartner, status: string) => Promise<LocalPrayerPartner>;
+  onUpdatePrayerPartner: (partner: LocalPrayerPartner, patch: DosPrayerPartnerPatch) => Promise<LocalPrayerPartner>;
+  onUpdatePrayerTeamCountVisibility: (value: boolean) => Promise<void>;
   onUpdatePrayerRequest: (id: string, patch: DosPrayerRequestPatch) => Promise<DosAppPrayerRequest>;
   people: DosAppPerson[];
   prayerPartners: DosAppPrayerPartner[];
   prayerRequests: DosAppPrayerRequest[];
   query: string;
   reminders: DosAppRelationshipReminder[];
+  showPrayerTeamCount: boolean;
   tab: PrayerWorkspaceTab;
 }) {
   const prayerReminders = reminders
@@ -14596,7 +14741,10 @@ function DesktopPrayerWorkspace({
   const mergedPrayerRequests = mergeRowsById(localPrayerRequests, prayerRequests ?? []);
   const prayerRequestById = new Map(mergedPrayerRequests.map((request) => [request.id, request]));
   const prayerRequestRows = mergedPrayerRequests.map(mapDosPrayerRequestToLocal);
-  const visiblePrayerPartners = prayerPartnerRows.filter((partner) => matchesPrayerSearch(partner.name, partner.relationship, partner.status, partner.lastContacted, partner.notes));
+  const visiblePrayerPartners = prayerPartnerRows.filter((partner) => (
+    normalizePrayerPartnerStatus(partner.status) !== "archived"
+    && matchesPrayerSearch(partner.name, partner.relationship, partner.status, partner.lastContacted, partner.notes)
+  ));
   const visiblePrayerRequests = prayerRequestRows.filter((request) => (
     request.view === prayerRequestView
     && matchesPrayerSearch(request.request, request.category, request.sharedWith, request.status, request.created, request.answered)
@@ -14733,14 +14881,8 @@ function DesktopPrayerWorkspace({
     return savedRequest;
   }
 
-  async function savePrayerPartnerStatus(partner: LocalPrayerPartner, status: string) {
-    const savedPartner = isPersistedUuid(partner.id)
-      ? await onUpdatePrayerPartnerStatus(partner, status)
-      : {
-        ...partner,
-        lastContacted: "Updated today",
-        status: statusLabel(status),
-      };
+  async function savePrayerPartner(partner: LocalPrayerPartner, patch: DosPrayerPartnerPatch) {
+    const savedPartner = await onUpdatePrayerPartner(partner, patch);
 
     setLocalPrayerPartners((current) => upsertById(current, savedPartner));
     setSelectedPrayerPartner((current) => current?.id === savedPartner.id ? savedPartner : current);
@@ -14763,6 +14905,9 @@ function DesktopPrayerWorkspace({
           compact
           eyebrow="Prayer Partners"
         >
+          <div className="mb-3 max-w-xl">
+            <PrayerTeamCountVisibilityToggle checked={showPrayerTeamCount} onChange={onUpdatePrayerTeamCountVisibility} />
+          </div>
           <DesktopPrayerTable
             columns={["Name", "Relationship", "Status", "Last Contacted", "Notes", "Action"]}
             gridTemplateColumns="minmax(190px,1.1fr) 150px 116px 150px minmax(260px,1fr) 110px"
@@ -14779,7 +14924,7 @@ function DesktopPrayerWorkspace({
                 <span className="truncate font-semibold text-[#475569]">{partner.relationship}</span>
                 <DesktopPrayerStatusPill>{partner.status}</DesktopPrayerStatusPill>
                 <span className="truncate font-semibold text-[#475569]">{partner.lastContacted}</span>
-                <span className="truncate leading-5 text-[#64748B]">{partner.notes}</span>
+                <span className="truncate leading-5 text-[#64748B]">{prayerPartnerRowNotes(partner)}</span>
                 <span className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#1D4ED8]">View</span>
               </DesktopPrayerTableButtonRow>
             ))}
@@ -14899,9 +15044,10 @@ function DesktopPrayerWorkspace({
       {isAddPrayerPartnerOpen ? (
         <AddPrayerPartnerSheet
           onClose={() => setIsAddPrayerPartnerOpen(false)}
-          onSubmit={(partner) => {
-            setLocalPrayerPartners((current) => upsertById(current, partner));
-            setIsAddPrayerPartnerOpen(false);
+          onSubmit={async (partnerPatch) => {
+            const savedPartner = await onCreatePrayerPartner(partnerPatch);
+            setLocalPrayerPartners((current) => upsertById(current, savedPartner));
+            return savedPartner;
           }}
         />
       ) : null}
@@ -14936,7 +15082,7 @@ function DesktopPrayerWorkspace({
       {selectedPrayerPartner ? (
         <PrayerPartnerDetailSheet
           onClose={() => setSelectedPrayerPartner(null)}
-          onSaveStatus={savePrayerPartnerStatus}
+          onSavePartner={savePrayerPartner}
           partner={selectedPrayerPartner}
         />
       ) : null}
@@ -18041,6 +18187,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMobilePrayerDetail, setSelectedMobilePrayerDetail] = useState<PrayerDetail | null>(null);
   const [selectedMobilePrayerPartner, setSelectedMobilePrayerPartner] = useState<LocalPrayerPartner | null>(null);
   const [selectedMobilePrayerRequest, setSelectedMobilePrayerRequest] = useState<DosAppPrayerRequest | null>(null);
+  const [showPrayerTeamCount, setShowPrayerTeamCount] = useState(data.workspace.showPrayerTeamCount);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [selectedReminderId, setSelectedReminderId] = useState<string | null>(null);
   const [showSecondaryFieldPeople, setShowSecondaryFieldPeople] = useState(false);
@@ -19201,12 +19348,58 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  async function updatePrayerPartnerStatus(partner: LocalPrayerPartner, status: string) {
-    const normalizedStatus = normalizePrayerPartnerStatus(status);
+  async function createPrayerPartner(patch: DosPrayerPartnerPatch) {
+    const normalizedStatus = normalizePrayerPartnerStatus(patch.status ?? "pending");
+
+    setErrorMessage("");
+
+    if (isPreview) {
+      throw new Error("Preview mode is read-only. Demo changes are not saved.");
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/prayer-partners", {
+        body: JSON.stringify({
+          ...patch,
+          status: normalizedStatus,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        prayerPartner?: DosAppPrayerPartner;
+      };
+
+      if (!response.ok || !result.prayerPartner) {
+        throw new Error(result.error ?? "Unable to save prayer partner.");
+      }
+
+      router.refresh();
+
+      return mapDosPrayerPartnerToLocal(result.prayerPartner);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to save prayer partner.";
+
+      setErrorMessage(message);
+      throw new Error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function updatePrayerPartner(partner: LocalPrayerPartner, patch: DosPrayerPartnerPatch) {
+    const normalizedStatus = normalizePrayerPartnerStatus(patch.status ?? partner.status);
 
     if (!isPersistedUuid(partner.id)) {
       return {
         ...partner,
+        ...patch,
         lastContacted: "Updated today",
         status: statusLabel(normalizedStatus),
       };
@@ -19223,6 +19416,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     try {
       const response = await fetch("/api/dos/app/prayer-partners", {
         body: JSON.stringify({
+          ...patch,
           id: partner.id,
           status: normalizedStatus,
           workspaceId: data.workspace.id,
@@ -19251,6 +19445,48 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       throw new Error(message);
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function updatePrayerTeamCountVisibility(nextValue: boolean) {
+    const previousValue = showPrayerTeamCount;
+
+    setShowPrayerTeamCount(nextValue);
+    setErrorMessage("");
+
+    if (isPreview) {
+      setShowPrayerTeamCount(previousValue);
+      throw new Error("Preview mode is read-only. Demo changes are not saved.");
+    }
+
+    try {
+      const response = await fetch("/api/dos/app/prayer-settings", {
+        body: JSON.stringify({
+          showPrayerTeamCount: nextValue,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        settings?: { showPrayerTeamCount?: boolean };
+      };
+
+      if (!response.ok || !result.settings) {
+        throw new Error(result.error ?? "Unable to update prayer team count visibility.");
+      }
+
+      setShowPrayerTeamCount(result.settings.showPrayerTeamCount !== false);
+      router.refresh();
+    } catch (error) {
+      setShowPrayerTeamCount(previousValue);
+      const message = error instanceof Error ? error.message : "Unable to update prayer team count visibility.";
+
+      setErrorMessage(message);
+      throw new Error(message);
     }
   }
 
@@ -20796,8 +21032,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return savedRequest;
   }
 
-  async function saveMobilePrayerPartnerStatus(partner: LocalPrayerPartner, status: string) {
-    const savedPartner = await updatePrayerPartnerStatus(partner, status);
+  async function saveMobilePrayerPartner(partner: LocalPrayerPartner, patch: DosPrayerPartnerPatch) {
+    const savedPartner = await updatePrayerPartner(partner, patch);
 
     setMobilePrayerPartners((current) => upsertById(current, savedPartner));
     setSelectedMobilePrayerPartner((current) => current?.id === savedPartner.id ? savedPartner : current);
@@ -21415,10 +21651,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onOpenPrayerPartner={setSelectedMobilePrayerPartner}
                       onOpenPrayerRequest={setSelectedMobilePrayerRequest}
                       onTabChange={setPrayerWorkspaceTab}
+                      onUpdatePrayerTeamCountVisibility={updatePrayerTeamCountVisibility}
                       prayerPartners={data.prayerPartners}
                       prayerRows={mobilePrayerRows}
                       prayerRequests={mergedMobilePrayerRequests}
                       query={prayerQuery}
+                      showPrayerTeamCount={showPrayerTeamCount}
                       tab={prayerWorkspaceTab}
                     />
                     <DesktopPrayerWorkspace
@@ -21433,15 +21671,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onOpenMeeting={openMeetingDetail}
                       onOpenPerson={openPersonDetail}
                       onScheduleMeeting={() => openScheduleMeeting()}
+                      onCreatePrayerPartner={createPrayerPartner}
                       onSearchChange={setPrayerQuery}
                       onTabChange={setPrayerWorkspaceTab}
-                      onUpdatePrayerPartnerStatus={updatePrayerPartnerStatus}
+                      onUpdatePrayerPartner={updatePrayerPartner}
+                      onUpdatePrayerTeamCountVisibility={updatePrayerTeamCountVisibility}
                       onUpdatePrayerRequest={updatePrayerRequest}
                       people={people}
                       prayerPartners={data.prayerPartners}
                       prayerRequests={data.prayerRequests}
                       query={prayerQuery}
                       reminders={data.reminders}
+                      showPrayerTeamCount={showPrayerTeamCount}
                       tab={prayerWorkspaceTab}
                     />
                   </>
@@ -22014,9 +22255,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {isMobileAddPrayerPartnerOpen ? (
           <AddPrayerPartnerSheet
             onClose={() => setIsMobileAddPrayerPartnerOpen(false)}
-            onSubmit={(partner) => {
-              setMobilePrayerPartners((current) => upsertById(current, partner));
-              setIsMobileAddPrayerPartnerOpen(false);
+            onSubmit={async (partnerPatch) => {
+              const savedPartner = await createPrayerPartner(partnerPatch);
+              setMobilePrayerPartners((current) => upsertById(current, savedPartner));
+              return savedPartner;
             }}
           />
         ) : null}
@@ -22055,7 +22297,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {selectedMobilePrayerPartner ? (
           <PrayerPartnerDetailSheet
             onClose={() => setSelectedMobilePrayerPartner(null)}
-            onSaveStatus={saveMobilePrayerPartnerStatus}
+            onSavePartner={saveMobilePrayerPartner}
             partner={selectedMobilePrayerPartner}
           />
         ) : null}
