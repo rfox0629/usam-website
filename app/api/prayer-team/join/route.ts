@@ -4,6 +4,8 @@ import { resolveOrCreateWorkspacePersonForRole, upsertWorkspacePersonRole, type 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type JoinPrayerTeamPayload = {
+  emailOptIn?: unknown;
+  email_opt_in?: unknown;
   email?: unknown;
   firstName?: unknown;
   first_name?: unknown;
@@ -13,10 +15,13 @@ type JoinPrayerTeamPayload = {
   lastName?: unknown;
   last_name?: unknown;
   name?: unknown;
+  phone?: unknown;
   profileSlug?: unknown;
   region?: unknown;
   recruitmentSource?: unknown;
   recruitment_source?: unknown;
+  smsOptIn?: unknown;
+  sms_opt_in?: unknown;
   source?: unknown;
   sourceLabel?: unknown;
   state?: unknown;
@@ -59,6 +64,26 @@ function asNullableString(value: unknown) {
   const stringValue = asString(value);
 
   return stringValue ? stringValue : null;
+}
+
+function asBoolean(value: unknown, defaultValue = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalizedValue = value.trim().toLowerCase();
+
+    if (["1", "true", "yes", "on"].includes(normalizedValue)) {
+      return true;
+    }
+
+    if (["0", "false", "no", "off"].includes(normalizedValue)) {
+      return false;
+    }
+  }
+
+  return defaultValue;
 }
 
 function isValidEmail(value: string) {
@@ -122,6 +147,7 @@ export async function POST(request: Request) {
   const lastName = asString(payload.lastName) || asString(payload.last_name) || legacyNameParts.lastName;
   const name = displayNameFromParts(firstName, lastName) || legacyName;
   const email = asString(payload.email).toLowerCase();
+  const phone = asNullableString(payload.phone);
   const householdId = asString(payload.householdId);
   const profileSlug = asString(payload.profileSlug);
   const source = asString(payload.source)
@@ -130,6 +156,8 @@ export async function POST(request: Request) {
     || asString(payload.howDidYouHear)
     || asString(payload.how_did_you_hear);
   const sourceLabel = asString(payload.sourceLabel);
+  const emailOptIn = asBoolean(payload.emailOptIn ?? payload.email_opt_in, true);
+  const smsOptIn = Boolean(phone) && asBoolean(payload.smsOptIn ?? payload.sms_opt_in, false);
 
   if (!name || !email || !isValidEmail(email)) {
     return NextResponse.json({ error: "Please include your name and a valid email address." }, { status: 400 });
@@ -186,6 +214,7 @@ export async function POST(request: Request) {
     const linkedPerson = await resolveOrCreateWorkspacePersonForRole(supabase, {
       email,
       name,
+      phone,
       role: "prayer_partner",
       roleSource: "public_profile",
       workspaceId: household.id,
@@ -201,7 +230,7 @@ export async function POST(request: Request) {
   const prayerPartnerRecord = {
     assigned_coverage: {},
     email,
-    email_alerts: true,
+    email_alerts: emailOptIn,
     field_person_id: linkedPersonId,
     first_name: firstName || null,
     how_heard: source,
@@ -209,10 +238,11 @@ export async function POST(request: Request) {
     missionary_profile_id: household.id,
     missionary_profile_slug: household.slug,
     name,
+    phone,
     permissions: {
       prayer_admin: false,
-      receive_email_alerts: true,
-      receive_sms_alerts: false,
+      receive_email_alerts: emailOptIn,
+      receive_sms_alerts: smsOptIn,
       view_confidential_requests: false,
       view_general_requests: true,
       view_kitchen_table_alerts: true,
@@ -224,6 +254,7 @@ export async function POST(request: Request) {
     recruited_by_household_number: missionaryNumber,
     recruited_by_profile_slug: household.slug,
     region: asNullableString(payload.region),
+    sms_alerts: smsOptIn,
     source: "public_profile",
     state: asNullableString(payload.state),
     status: "pending",
@@ -289,10 +320,14 @@ export async function POST(request: Request) {
     ? await upsertWorkspacePersonRole(supabase, {
       fieldPersonId: linkedPersonId,
       metadata: {
+        display_name: name,
+        email_opt_in: emailOptIn,
         how_did_you_hear: source,
+        phone,
         recruitment_source: source,
         recruitment_source_label: sourceLabel || null,
         region: asNullableString(payload.region),
+        sms_opt_in: smsOptIn,
         source: "public_profile",
         state: asNullableString(payload.state),
       },
@@ -322,8 +357,12 @@ export async function POST(request: Request) {
     formType: "prayer_team_application",
     lastName,
     message: `Prayer team application for ${household.display_name}`,
+    phone,
     payload: {
+      display_name: name,
+      email_opt_in: emailOptIn,
       how_did_you_hear: source,
+      phone,
       recruited_by_household_id: household.id,
       recruited_by_household_name: household.display_name,
       recruited_by_household_number: missionaryNumber,
@@ -331,6 +370,7 @@ export async function POST(request: Request) {
       recruitment_source: source,
       recruitment_source_label: sourceLabel || null,
       region: asNullableString(payload.region),
+      sms_opt_in: smsOptIn,
       source,
       state: asNullableString(payload.state),
     },

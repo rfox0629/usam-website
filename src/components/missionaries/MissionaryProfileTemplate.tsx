@@ -303,7 +303,7 @@ function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
       action={(
         <div className="grid gap-2">
           <JoinPrayerTeamModal
-            buttonLabel="Join Prayer Team"
+            buttonLabel="Become a Prayer Partner"
             householdId={missionary.id}
             householdName={missionary.name}
             householdNumber={missionary.missionaryNumber}
@@ -527,7 +527,7 @@ export function MissionaryProfileTemplate({
   const showPrayer = features.showPrayer;
   const joinPrayerTeamAction = showPrayer ? (
     <JoinPrayerTeamModal
-      buttonLabel="Join Prayer Team"
+      buttonLabel="Become a Prayer Partner"
       householdId={missionary.id}
       householdName={missionary.name}
       householdNumber={missionary.missionaryNumber}

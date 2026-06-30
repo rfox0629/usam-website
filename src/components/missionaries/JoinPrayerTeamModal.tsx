@@ -9,9 +9,9 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 const sourceOptions = [
   { label: "Invited by this household", value: "invited_by_household" },
-  { label: "From a friend", value: "friend" },
-  { label: "Church / ministry partner", value: "church_ministry_partner" },
-  { label: "Social media", value: "social_media" },
+  { label: "Friend", value: "friend" },
+  { label: "Church / Ministry", value: "church_ministry_partner" },
+  { label: "Social Media", value: "social_media" },
   { label: "Other", value: "other" },
 ] as const;
 
@@ -262,7 +262,7 @@ export function PrayerRequestsModalButton({
 
 export function JoinPrayerTeamModal({
   buttonClassName: customButtonClassName,
-  buttonLabel = "Join The Prayer Team",
+  buttonLabel = "Become a Prayer Partner",
   householdId,
   householdName,
   householdNumber,
@@ -272,22 +272,27 @@ export function JoinPrayerTeamModal({
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("Thanks. Your prayer team application has been received.");
+  const [successMessage, setSuccessMessage] = useState("Thank you for partnering with us in prayer! We'll review your request and begin sending updates once you're approved.");
   const [formValues, setFormValues] = useState<{
     email: string;
+    emailOptIn: boolean;
     firstName: string;
     lastName: string;
-    region: string;
+    phone: string;
     source: PrayerTeamSource;
+    smsOptIn: boolean;
     state: string;
   }>({
     email: "",
+    emailOptIn: true,
     firstName: "",
     lastName: "",
-    region: "",
+    phone: "",
     source: sourceOptions[0].value,
+    smsOptIn: false,
     state: "",
   });
+  const hasPhone = formValues.phone.trim().length > 0;
   const sourceLabel = useMemo(
     () => sourceOptions.find((option) => option.value === formValues.source)?.label ?? sourceOptions[0].label,
     [formValues.source],
@@ -310,6 +315,7 @@ export function JoinPrayerTeamModal({
     const response = await fetch("/api/prayer-team/join", {
       body: JSON.stringify({
         email: formValues.email,
+        emailOptIn: formValues.emailOptIn,
         firstName: formValues.firstName,
         householdId,
         householdName,
@@ -317,9 +323,10 @@ export function JoinPrayerTeamModal({
         howDidYouHear: formValues.source,
         lastName: formValues.lastName,
         name: [formValues.firstName, formValues.lastName].filter(Boolean).join(" ").trim(),
+        phone: formValues.phone,
         profileSlug,
         recruitmentSource: formValues.source,
-        region: formValues.region,
+        smsOptIn: hasPhone && formValues.smsOptIn,
         source: formValues.source,
         sourceLabel,
         state: formValues.state,
@@ -338,8 +345,8 @@ export function JoinPrayerTeamModal({
     }
 
     setSuccessMessage(result.applicationStatus === "already_received"
-      ? "Your application has already been received."
-      : "Thanks. Your prayer team application has been received.");
+      ? "Your prayer partner request is already in review."
+      : "Thank you for partnering with us in prayer! We'll review your request and begin sending updates once you're approved.");
     setStatus("success");
   }
 
@@ -363,7 +370,7 @@ export function JoinPrayerTeamModal({
                   Prayer Team
                 </p>
                 <h3 className="mt-2 text-3xl font-bold uppercase leading-none text-stone-100" style={{ fontFamily: font.oswald }}>
-                  {status === "success" ? "Application Received" : "Join The Prayer Team"}
+                  {status === "success" ? "Request Received" : "Become a Prayer Partner"}
                 </h3>
               </div>
               <button
@@ -394,12 +401,13 @@ export function JoinPrayerTeamModal({
             ) : (
               <form className="mt-6 space-y-4" onSubmit={submitForm}>
                 <p className="text-sm leading-7 text-stone-300">
-                  Apply to join the prayer team for {householdName}. Approved prayer partners can receive current requests and future alerts.
+                  Stand with our family in prayer as we make disciples across America. Prayer Partners receive ministry updates, prayer requests, and answered prayers.
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       First Name
+                      <span className="ml-1 text-[#C2A14E]">*</span>
                     </span>
                     <input
                       autoComplete="given-name"
@@ -412,6 +420,7 @@ export function JoinPrayerTeamModal({
                   <label className="block">
                     <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       Last Name
+                      <span className="ml-1 text-[#C2A14E]">*</span>
                     </span>
                     <input
                       autoComplete="family-name"
@@ -425,6 +434,7 @@ export function JoinPrayerTeamModal({
                 <label className="block">
                   <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     Email
+                    <span className="ml-1 text-[#C2A14E]">*</span>
                   </span>
                   <input
                     autoComplete="email"
@@ -438,29 +448,41 @@ export function JoinPrayerTeamModal({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Phone Number
+                    </span>
+                    <input
+                      autoComplete="tel"
+                      className="mt-2 min-h-11 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#C2A14E]"
+                      inputMode="tel"
+                      onChange={(event) => {
+                        const nextPhone = event.target.value;
+
+                        setFormValues((current) => ({
+                          ...current,
+                          phone: nextPhone,
+                          smsOptIn: nextPhone.trim() ? current.smsOptIn : false,
+                        }));
+                      }}
+                      placeholder="Optional"
+                      type="tel"
+                      value={formValues.phone}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                       State
                     </span>
                     <input
                       autoComplete="address-level1"
                       className="mt-2 min-h-11 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#C2A14E]"
+                      placeholder="Optional"
                       onChange={(event) => setFormValues((current) => ({ ...current, state: event.target.value }))}
                       value={formValues.state}
                     />
                   </label>
-                  <label className="block">
-                    <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                      Region
-                    </span>
-                    <input
-                      className="mt-2 min-h-11 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#C2A14E]"
-                      onChange={(event) => setFormValues((current) => ({ ...current, region: event.target.value }))}
-                      placeholder="Optional"
-                      value={formValues.region}
-                    />
-                  </label>
                 </div>
                 <PublicSelect
-                  label="How did you hear about our prayer team?"
+                  label="How did you hear about us?"
                   name="source"
                   onChange={(value) => setFormValues((current) => ({ ...current, source: value as typeof sourceOptions[number]["value"] }))}
                   tone="dark"
@@ -472,9 +494,36 @@ export function JoinPrayerTeamModal({
                       </option>
                     ))}
                 </PublicSelect>
-                <p className="text-xs leading-5 text-stone-500">
-                  We use this information to review prayer team applications and understand how each household is building prayer coverage.
-                </p>
+                <section className="rounded-2xl border border-stone-800 bg-white/[0.03] p-4">
+                  <h4 className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Stay Connected
+                  </h4>
+                  <div className="mt-3 grid gap-2">
+                    <label className="flex min-h-11 items-start gap-3 rounded-xl border border-stone-800 bg-black/20 px-3 py-2.5 text-sm leading-6 text-stone-300 transition-colors hover:border-[#C2A14E]/55">
+                      <input
+                        checked={formValues.emailOptIn}
+                        className="mt-1 h-4 w-4 shrink-0 accent-[#C2A14E]"
+                        onChange={(event) => setFormValues((current) => ({ ...current, emailOptIn: event.target.checked }))}
+                        type="checkbox"
+                      />
+                      <span>Email me prayer updates and ministry news.</span>
+                    </label>
+                    <label className={`flex min-h-11 items-start gap-3 rounded-xl border px-3 py-2.5 text-sm leading-6 transition-colors ${
+                      hasPhone
+                        ? "border-stone-800 bg-black/20 text-stone-300 hover:border-[#C2A14E]/55"
+                        : "cursor-not-allowed border-stone-800/60 bg-black/10 text-stone-600"
+                    }`}>
+                      <input
+                        checked={hasPhone && formValues.smsOptIn}
+                        className="mt-1 h-4 w-4 shrink-0 accent-[#C2A14E] disabled:cursor-not-allowed"
+                        disabled={!hasPhone}
+                        onChange={(event) => setFormValues((current) => ({ ...current, smsOptIn: event.target.checked }))}
+                        type="checkbox"
+                      />
+                      <span>Text me important prayer updates.</span>
+                    </label>
+                  </div>
+                </section>
                 {error ? (
                   <p className="border border-red-500/30 bg-red-950/20 p-3 text-sm leading-6 text-red-100">
                     {error}
@@ -486,7 +535,7 @@ export function JoinPrayerTeamModal({
                   style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
                   type="submit"
                 >
-                  {status === "submitting" ? "Submitting" : "Submit Application"}
+                  {status === "submitting" ? "Submitting" : "Become a Prayer Partner"}
                 </button>
               </form>
             )}
