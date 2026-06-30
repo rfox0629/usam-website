@@ -6719,7 +6719,7 @@ const fruitFormCards: ReadonlyArray<{
 const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>> = [
   { label: "Praying For", value: "praying_for" },
   { label: "My Requests", value: "my_requests" },
-  { label: "Partners", value: "partners" },
+  { label: "Prayer Partners", value: "partners" },
 ];
 
 const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>> = [
@@ -14753,7 +14753,7 @@ function MobilePrayerWorkspace({
         <MobilePrayerPanel
           emptyText="Prayer partners will appear here after they are added."
           emptyTitle="No prayer partners yet."
-          eyebrow="Partners"
+          eyebrow="Prayer Team"
           hasRows={visiblePrayerPartners.length > 0}
         >
           <div className="mb-3">
@@ -15065,7 +15065,7 @@ function DesktopPrayerWorkspace({
       {tab === "partners" ? (
         <DesktopPanel
           compact
-          eyebrow="Prayer Partners"
+          eyebrow="Prayer Team"
         >
           <div className="mb-3 max-w-xl">
             <PrayerTeamCountVisibilityToggle checked={showPrayerTeamCount} onChange={onUpdatePrayerTeamCountVisibility} />
