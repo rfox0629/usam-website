@@ -13795,6 +13795,7 @@ function AddPrayerPartnerSheet({
     <Sheet onClose={onClose} showEyebrow={false} title="Add Prayer Partner">
       <form className="space-y-5" onSubmit={handleSubmit}>
         <DosFormSection icon="people" title="Prayer Partner">
+          <p className="text-xs font-medium leading-5 text-[#64748B]">Prayer-only contacts stay hidden from Field unless added there.</p>
           <DosFormGrid>
             <DosFormField label="First Name">
               <input className={FieldInputClass()} name="first_name" required type="text" />

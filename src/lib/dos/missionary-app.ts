@@ -278,6 +278,7 @@ export type DosAppPrayerLog = {
 export type DosAppPrayerPartner = {
   city: string | null;
   email: string | null;
+  fieldPersonId: string | null;
   howHeard: string | null;
   id: string;
   joinedAt: string | null;
@@ -591,6 +592,7 @@ type PrayerPartnerRow = {
   created_at: string | null;
   date_joined: string | null;
   email: string | null;
+  field_person_id?: string | null;
   first_name: string | null;
   how_heard: string | null;
   id: string;
@@ -1587,14 +1589,22 @@ async function loadPrayerLogsForWorkspace(supabase: SupabaseAdminClient, workspa
 async function loadPrayerPartnersForWorkspace(supabase: SupabaseAdminClient, workspace: Pick<HouseholdRow, "id" | "slug">) {
   const result = await supabase
     .from("prayer_partners")
-    .select("id, name, first_name, last_name, email, phone, city, state, region, how_heard, source, status, internal_notes, date_joined, approved_at, created_at, updated_at")
+    .select("id, field_person_id, name, first_name, last_name, email, phone, city, state, region, how_heard, source, status, internal_notes, date_joined, approved_at, created_at, updated_at")
     .or(prayerPartnerScopeFilter(workspace.id, workspace.slug))
     .order("created_at", { ascending: false })
     .limit(80);
-
-  return result.error && isMissingWorkflowTable(result.error, "prayer_partners")
-    ? { data: [], error: null }
+  const fallbackResult = result.error && isMissingColumnError(result.error)
+    ? await supabase
+      .from("prayer_partners")
+      .select("id, name, first_name, last_name, email, phone, city, state, region, how_heard, source, status, internal_notes, date_joined, approved_at, created_at, updated_at")
+      .or(prayerPartnerScopeFilter(workspace.id, workspace.slug))
+      .order("created_at", { ascending: false })
+      .limit(80)
     : result;
+
+  return fallbackResult.error && isMissingWorkflowTable(fallbackResult.error, "prayer_partners")
+    ? { data: [], error: null }
+    : fallbackResult;
 }
 
 async function loadPrayerRequestsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
@@ -2380,6 +2390,7 @@ export async function loadDosAppData(
     return {
       city: partner.city,
       email: partner.email,
+      fieldPersonId: partner.field_person_id ?? null,
       howHeard: partner.how_heard,
       id: partner.id,
       joinedAt: partner.date_joined ?? partner.created_at,

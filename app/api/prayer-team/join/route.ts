@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createFormSubmission } from "@/src/lib/forms/form-submissions";
+import { resolveOrCreateWorkspacePersonForRole, upsertWorkspacePersonRole, type WorkspacePersonRoleStatus } from "@/src/lib/dos/person-roles";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type JoinPrayerTeamPayload = {
@@ -26,6 +27,11 @@ type PersonRow = {
 type SupabaseWriteError = {
   code?: string;
   message?: string;
+};
+
+type PrayerPartnerWriteRow = {
+  id: string;
+  status?: string | null;
 };
 
 const sourceValues = [
@@ -72,6 +78,16 @@ function splitName(name: string) {
     firstName,
     lastName: rest.join(" "),
   };
+}
+
+function personRoleStatusForPrayerPartner(status: string | null | undefined): WorkspacePersonRoleStatus {
+  return status === "active"
+    || status === "archived"
+    || status === "declined"
+    || status === "inactive"
+    || status === "pending"
+    ? status
+    : "pending";
 }
 
 export async function POST(request: Request) {
@@ -139,10 +155,29 @@ export async function POST(request: Request) {
     ? null
     : ((peopleResult.data as PersonRow | null)?.missionary_number ?? null);
   const { firstName, lastName } = splitName(name);
+  let linkedPersonId: string;
+
+  try {
+    const linkedPerson = await resolveOrCreateWorkspacePersonForRole(supabase, {
+      email,
+      name,
+      role: "prayer_partner",
+      roleSource: "public_profile",
+      workspaceId: household.id,
+    });
+
+    linkedPersonId = linkedPerson.personId;
+  } catch (error) {
+    console.error("[Prayer Team Join API] Failed to link prayer partner to a person:", error);
+
+    return NextResponse.json({ error: "We could not submit your request. Please try again." }, { status: 500 });
+  }
+
   const prayerPartnerRecord = {
     assigned_coverage: {},
     email,
     email_alerts: true,
+    field_person_id: linkedPersonId,
     first_name: firstName || null,
     how_heard: source,
     last_name: lastName || null,
@@ -206,9 +241,13 @@ export async function POST(request: Request) {
       .from("prayer_partners")
       .update(nextPrayerPartnerRecord)
       .eq("id", existingPartner.id)
+      .select("id, status")
+      .single()
     : await supabase
       .from("prayer_partners")
-      .insert(nextPrayerPartnerRecord);
+      .insert(nextPrayerPartnerRecord)
+      .select("id, status")
+      .single();
 
   if (partnerWriteResult.error) {
     console.error("[Prayer Team Join API] Failed to save prayer partner:", partnerWriteResult.error);
@@ -218,6 +257,26 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: "We could not submit your request. Please try again." }, { status: 500 });
+  }
+
+  const writtenPartner = partnerWriteResult.data as PrayerPartnerWriteRow | null;
+  const roleWriteResult = writtenPartner
+    ? await upsertWorkspacePersonRole(supabase, {
+      fieldPersonId: linkedPersonId,
+      metadata: {
+        source: "public_profile",
+      },
+      role: "prayer_partner",
+      roleRecordId: writtenPartner.id,
+      roleRecordTable: "prayer_partners",
+      source: "public_profile",
+      status: personRoleStatusForPrayerPartner(writtenPartner.status),
+      workspaceId: household.id,
+    })
+    : null;
+
+  if (roleWriteResult?.error) {
+    console.error("[Prayer Team Join API] Failed to save prayer partner role:", roleWriteResult.error);
   }
 
   if (existingPartner) {

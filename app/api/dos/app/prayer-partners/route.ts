@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
+import { resolveOrCreateWorkspacePersonForRole, upsertWorkspacePersonRole, type WorkspacePersonRoleStatus } from "@/src/lib/dos/person-roles";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 const statuses = ["active", "archived", "declined", "inactive", "pending"] as const;
-const partnerSelect = "id, name, first_name, last_name, email, phone, city, state, region, how_heard, source, status, internal_notes, date_joined, approved_at, created_at, updated_at";
+const partnerSelect = "id, field_person_id, name, first_name, last_name, email, phone, city, state, region, how_heard, source, status, internal_notes, date_joined, approved_at, created_at, updated_at";
 
 type PrayerPartnerPayload = {
   email?: unknown;
@@ -59,6 +60,16 @@ function approvalPatch(status: string, approvedBy: string | null | undefined) {
     };
 }
 
+function personRoleStatusForPrayerPartner(status: string | null | undefined): WorkspacePersonRoleStatus {
+  return status === "active"
+    || status === "archived"
+    || status === "declined"
+    || status === "inactive"
+    || status === "pending"
+    ? status
+    : "pending";
+}
+
 async function authorizeWrite() {
   const authorization = await getDosAuthorization();
 
@@ -86,6 +97,7 @@ function mapPrayerPartner(row: {
   created_at?: string | null;
   date_joined?: string | null;
   email?: string | null;
+  field_person_id?: string | null;
   first_name?: string | null;
   how_heard?: string | null;
   id: string;
@@ -107,6 +119,7 @@ function mapPrayerPartner(row: {
   return {
     city: row.city ?? null,
     email: row.email ?? null,
+    fieldPersonId: row.field_person_id ?? null,
     howHeard: row.how_heard ?? null,
     id: row.id,
     joinedAt: row.date_joined ?? row.created_at ?? null,
@@ -152,11 +165,31 @@ export async function POST(request: Request) {
   }
 
   const { firstName, lastName } = splitName(name);
-  const { data, error } = await createSupabaseAdminClient()
+  const supabase = createSupabaseAdminClient();
+  let linkedPersonId: string;
+
+  try {
+    const linkedPerson = await resolveOrCreateWorkspacePersonForRole(supabase, {
+      createdBy: authResult.authorization.userId,
+      email,
+      name,
+      phone: asNullableString(payload.phone),
+      role: "prayer_partner",
+      roleSource: "dos",
+      workspaceId,
+    });
+
+    linkedPersonId = linkedPerson.personId;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to link prayer partner to a person." }, { status: 500 });
+  }
+
+  const { data, error } = await supabase
     .from("prayer_partners")
     .insert({
       ...approvalPatch(status, authResult.authorization.email),
       email,
+      field_person_id: linkedPersonId,
       first_name: firstName || null,
       how_heard: asNullableString(payload.relationship),
       internal_notes: asNullableString(payload.notes),
@@ -175,6 +208,23 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const roleWriteResult = await upsertWorkspacePersonRole(supabase, {
+    fieldPersonId: linkedPersonId,
+    metadata: {
+      source: "dos",
+    },
+    role: "prayer_partner",
+    roleRecordId: data.id,
+    roleRecordTable: "prayer_partners",
+    source: "dos",
+    status: personRoleStatusForPrayerPartner(data.status),
+    workspaceId,
+  });
+
+  if (roleWriteResult.error) {
+    console.error("[DOS Prayer Partners API] Failed to save person role:", roleWriteResult.error);
   }
 
   return NextResponse.json({ prayerPartner: mapPrayerPartner(data) });
@@ -209,6 +259,7 @@ export async function PATCH(request: Request) {
     return workspaceAccess.response;
   }
 
+  const supabase = createSupabaseAdminClient();
   const patch: Record<string, null | string> = {
     ...approvalPatch(status, authResult.authorization.email),
     status,
@@ -250,7 +301,42 @@ export async function PATCH(request: Request) {
     patch.internal_notes = asNullableString(payload.notes);
   }
 
-  const { data, error } = await createSupabaseAdminClient()
+  if (payload.name !== undefined || payload.email !== undefined || payload.phone !== undefined) {
+    const existingPartnerResult = await supabase
+      .from("prayer_partners")
+      .select("id, name, email, phone, field_person_id")
+      .eq("id", id)
+      .or(`recruited_by_household_id.eq.${workspaceId},workspace_id.eq.${workspaceId},missionary_profile_id.eq.${workspaceId}`)
+      .maybeSingle();
+
+    if (existingPartnerResult.error || !existingPartnerResult.data) {
+      return NextResponse.json({ error: existingPartnerResult.error?.message ?? "Prayer partner not found." }, { status: existingPartnerResult.error ? 500 : 404 });
+    }
+
+    const existingPartner = existingPartnerResult.data as {
+      email?: string | null;
+      name?: string | null;
+      phone?: string | null;
+    };
+
+    try {
+      const linkedPerson = await resolveOrCreateWorkspacePersonForRole(supabase, {
+        createdBy: authResult.authorization.userId,
+        email: typeof patch.email === "string" ? patch.email : existingPartner.email,
+        name: typeof patch.name === "string" ? patch.name : existingPartner.name,
+        phone: typeof patch.phone === "string" ? patch.phone : existingPartner.phone,
+        role: "prayer_partner",
+        roleSource: "dos",
+        workspaceId,
+      });
+
+      patch.field_person_id = linkedPerson.personId;
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to link prayer partner to a person." }, { status: 500 });
+    }
+  }
+
+  const { data, error } = await supabase
     .from("prayer_partners")
     .update(patch)
     .eq("id", id)
@@ -260,6 +346,25 @@ export async function PATCH(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (data.field_person_id) {
+    const roleWriteResult = await upsertWorkspacePersonRole(supabase, {
+      fieldPersonId: data.field_person_id,
+      metadata: {
+        source: data.source ?? "dos",
+      },
+      role: "prayer_partner",
+      roleRecordId: data.id,
+      roleRecordTable: "prayer_partners",
+      source: data.source ?? "dos",
+      status: personRoleStatusForPrayerPartner(data.status),
+      workspaceId,
+    });
+
+    if (roleWriteResult.error) {
+      console.error("[DOS Prayer Partners API] Failed to save person role:", roleWriteResult.error);
+    }
   }
 
   return NextResponse.json({ prayerPartner: mapPrayerPartner(data) });
@@ -293,7 +398,18 @@ export async function DELETE(request: Request) {
     return workspaceAccess.response;
   }
 
-  const { data, error } = await createSupabaseAdminClient()
+  const supabase = createSupabaseAdminClient();
+  const roleDeleteResult = await supabase
+    .from("person_roles")
+    .delete()
+    .eq("role_record_table", "prayer_partners")
+    .eq("role_record_id", id);
+
+  if (roleDeleteResult.error) {
+    console.error("[DOS Prayer Partners API] Failed to delete person role:", roleDeleteResult.error);
+  }
+
+  const { data, error } = await supabase
     .from("prayer_partners")
     .delete()
     .eq("id", id)

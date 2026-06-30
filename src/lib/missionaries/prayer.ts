@@ -43,6 +43,12 @@ type PublicPrayerRequestRow = {
   workspace_id?: string | null;
 };
 
+type PrayerPartnerCountRow = {
+  email?: string | null;
+  field_person_id?: string | null;
+  id: string;
+};
+
 export type PublicProfilePrayerData = {
   internalOpenRequestCount: number;
   prayerRequests: MissionaryPrayerRequest[];
@@ -56,6 +62,7 @@ function hasMissingPrayerBridgeColumn(error: { message?: string } | null | undef
 
   return [
     "answer_testimony",
+    "field_person_id",
     "person_tags",
     "related_missionary_profile_id",
     "schema cache",
@@ -69,6 +76,21 @@ function normalizeRequestText(value: string | null | undefined) {
 
 function uniqueStrings(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
+}
+
+function prayerPartnerCountKey(row: PrayerPartnerCountRow) {
+  const linkedPersonId = row.field_person_id?.trim();
+  const email = row.email?.trim().toLowerCase();
+
+  if (linkedPersonId) {
+    return `person:${linkedPersonId}`;
+  }
+
+  if (email) {
+    return `email:${email}`;
+  }
+
+  return `row:${row.id}`;
 }
 
 export function prayerRequestScopeFilter(profileId: string) {
@@ -170,15 +192,26 @@ async function loadPrayerTeamCount(client: SupabaseLike, profileId: string, prof
   for (const scopeFilter of prayerPartnerScopeFilters(profileId, profileSlugs)) {
     const result = await client
       .from("prayer_partners")
-      .select("id", { count: "exact", head: true })
+      .select("id, field_person_id, email")
       .or(scopeFilter)
-      .eq("status", "active");
+      .eq("status", "active")
+      .limit(10000);
 
     if (!result.error) {
-      return result.count ?? 0;
+      return new Set(((result.data ?? []) as PrayerPartnerCountRow[]).map(prayerPartnerCountKey)).size;
     }
 
-    if (!hasMissingPrayerBridgeColumn(result.error)) {
+    if (hasMissingPrayerBridgeColumn(result.error)) {
+      const fallbackResult = await client
+        .from("prayer_partners")
+        .select("id", { count: "exact", head: true })
+        .or(scopeFilter)
+        .eq("status", "active");
+
+      if (!fallbackResult.error) {
+        return fallbackResult.count ?? 0;
+      }
+    } else {
       return 0;
     }
   }

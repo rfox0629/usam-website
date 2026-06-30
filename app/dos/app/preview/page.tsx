@@ -552,6 +552,7 @@ function buildDosPreviewDemoData(): DosAppData {
       {
         city: "Tulsa",
         email: "brooke.fox@example.com",
+        fieldPersonId: "demo-person-brooke",
         howHeard: "invited_by_household",
         id: "demo-prayer-partner-brooke",
         joinedAt: demoTimestamp,
