@@ -264,3 +264,50 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ prayerPartner: mapPrayerPartner(data) });
 }
+
+export async function DELETE(request: Request) {
+  const authResult = await authorizeWrite();
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  let payload: PrayerPartnerPayload;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId) || asString(payload.workspace_id));
+  const id = asString(payload.id);
+
+  if (!workspaceId || !isUuid(id)) {
+    return NextResponse.json({ error: "Workspace and prayer partner ID are required." }, { status: 400 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
+  }
+
+  const { data, error } = await createSupabaseAdminClient()
+    .from("prayer_partners")
+    .delete()
+    .eq("id", id)
+    .or(`recruited_by_household_id.eq.${workspaceId},workspace_id.eq.${workspaceId},missionary_profile_id.eq.${workspaceId}`)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Prayer partner not found." }, { status: 404 });
+  }
+
+  return NextResponse.json({ deletedPrayerPartnerId: data.id });
+}

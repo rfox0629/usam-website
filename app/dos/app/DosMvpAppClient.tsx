@@ -13950,11 +13950,13 @@ function AddPrayerRequestSheet({
 function PrayerRequestDetailSheet({
   householdMembers,
   onClose,
+  onDelete,
   onSave,
   request,
 }: {
   householdMembers: DosAppHouseholdMember[];
   onClose: () => void;
+  onDelete?: (id: string) => Promise<unknown> | unknown;
   onSave: (id: string, patch: DosPrayerRequestPatch) => Promise<DosAppPrayerRequest>;
   request: DosAppPrayerRequest;
 }) {
@@ -13963,6 +13965,8 @@ function PrayerRequestDetailSheet({
   const [audienceValues, setAudienceValues] = useState<string[]>(() => prayerRequestAudienceValuesFromRequest(request, householdMembers));
   const [category, setCategory] = useState(request.category ?? "Other");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestText, setRequestText] = useState(request.request);
   const [status, setStatus] = useState<DosAppPrayerRequest["status"]>(request.status);
@@ -14005,6 +14009,24 @@ function PrayerRequestDetailSheet({
       setErrorMessage(error instanceof Error ? error.message : "Unable to save prayer request.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!onDelete) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setErrorMessage("");
+
+    try {
+      await onDelete(request.id);
+      onClose();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to delete prayer request.");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -14068,6 +14090,48 @@ function PrayerRequestDetailSheet({
           }} tone="white">Mark Answered</AppButton>
         )}
 
+        {onDelete ? (
+          <DosFormSection icon="settings" title="Cleanup">
+            {isConfirmingDelete ? (
+              <div className="grid gap-3 rounded-2xl border border-red-200 bg-red-50 p-3">
+                <p className="text-sm font-semibold leading-6 text-red-800">
+                  Permanently delete this prayer request? This should only be used for duplicates, spam, or test records. This cannot be undone.
+                </p>
+                <div className="grid gap-2 min-[420px]:grid-cols-2">
+                  <button
+                    className="min-h-11 rounded-2xl border border-red-700 bg-red-700 px-4 py-2 text-sm font-black text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isDeleting || isSubmitting}
+                    onClick={() => void handleDelete()}
+                    type="button"
+                  >
+                    {isDeleting ? "Deleting..." : "Confirm Delete"}
+                  </button>
+                  <button
+                    className="min-h-11 rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isDeleting}
+                    onClick={() => setIsConfirmingDelete(false)}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="min-h-11 w-full rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isDeleting || isSubmitting}
+                onClick={() => {
+                  setIsConfirmingDelete(true);
+                  setErrorMessage("");
+                }}
+                type="button"
+              >
+                Delete Request
+              </button>
+            )}
+          </DosFormSection>
+        ) : null}
+
         {errorMessage ? (
           <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
         ) : null}
@@ -14082,15 +14146,19 @@ function PrayerRequestDetailSheet({
 
 function PrayerPartnerDetailSheet({
   onClose,
+  onDeletePartner,
   onSavePartner,
   partner,
 }: {
   onClose: () => void;
+  onDeletePartner?: (partner: LocalPrayerPartner) => Promise<unknown> | unknown;
   onSavePartner: (partner: LocalPrayerPartner, patch: DosPrayerPartnerPatch) => Promise<LocalPrayerPartner> | LocalPrayerPartner;
   partner: LocalPrayerPartner;
 }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [isConfirmingArchive, setIsConfirmingArchive] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState(partner.name);
   const [email, setEmail] = useState(partner.email ?? "");
@@ -14149,6 +14217,25 @@ function PrayerPartnerDetailSheet({
     await savePartner("archived", true);
   }
 
+  async function deletePartner() {
+    if (!onDeletePartner) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      await onDeletePartner(partner);
+      onClose();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to delete prayer partner.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={partner.name}>
       <form className="space-y-5" onSubmit={(event) => {
@@ -14202,6 +14289,47 @@ function PrayerPartnerDetailSheet({
         <div className="grid gap-2">
           <AppButton disabled={!canSave || isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Partner"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={archivePartner} tone="white">{isConfirmingArchive ? "Confirm Archive" : "Archive Partner"}</AppButton>
+          {onDeletePartner ? (
+            isConfirmingDelete ? (
+              <div className="grid gap-3 rounded-2xl border border-red-200 bg-red-50 p-3">
+                <p className="text-sm font-semibold leading-6 text-red-800">
+                  Permanently delete this prayer partner? This should only be used for duplicates, spam, or test records. This cannot be undone.
+                </p>
+                <div className="grid gap-2 min-[420px]:grid-cols-2">
+                  <button
+                    className="min-h-11 rounded-2xl border border-red-700 bg-red-700 px-4 py-2 text-sm font-black text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isDeleting || isSubmitting}
+                    onClick={() => void deletePartner()}
+                    type="button"
+                  >
+                    {isDeleting ? "Deleting..." : "Confirm Delete"}
+                  </button>
+                  <button
+                    className="min-h-11 rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isDeleting}
+                    onClick={() => setIsConfirmingDelete(false)}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="min-h-11 w-full rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isDeleting || isSubmitting}
+                onClick={() => {
+                  setIsConfirmingDelete(true);
+                  setIsConfirmingArchive(false);
+                  setErrorMessage("");
+                  setSuccessMessage("");
+                }}
+                type="button"
+              >
+                Delete Partner
+              </button>
+            )
+          ) : null}
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Close</AppButton>
         </div>
       </form>
@@ -14661,6 +14789,8 @@ function DesktopPrayerWorkspace({
   meetings,
   onSearchChange,
   onCreatePrayerRequest,
+  onDeletePrayerPartner,
+  onDeletePrayerRequest,
   onMarkPrayerAnswered,
   onOpenMeeting,
   onOpenPerson,
@@ -14685,6 +14815,8 @@ function DesktopPrayerWorkspace({
   localPrayerNeeds: LocalPrayerNeed[];
   meetings: DosAppMeeting[];
   onCreatePrayerRequest: (draft: DosPrayerRequestDraft) => Promise<DosAppPrayerRequest>;
+  onDeletePrayerPartner: (partner: LocalPrayerPartner) => Promise<string>;
+  onDeletePrayerRequest: (id: string) => Promise<string>;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
@@ -14714,6 +14846,8 @@ function DesktopPrayerWorkspace({
   const [isAddPrayerPartnerOpen, setIsAddPrayerPartnerOpen] = useState(false);
   const [isLogPrayerOpen, setIsLogPrayerOpen] = useState(false);
   const [isPrayerActionMenuOpen, setIsPrayerActionMenuOpen] = useState(false);
+  const [deletedPrayerPartnerIds, setDeletedPrayerPartnerIds] = useState<string[]>([]);
+  const [deletedPrayerRequestIds, setDeletedPrayerRequestIds] = useState<string[]>([]);
   const [localPrayerLogs, setLocalPrayerLogs] = useState<LocalPrayerLogEntry[]>([]);
   const [localPrayerPartners, setLocalPrayerPartners] = useState<LocalPrayerPartner[]>([]);
   const [localPrayerRequests, setLocalPrayerRequests] = useState<DosAppPrayerRequest[]>([]);
@@ -14737,8 +14871,9 @@ function DesktopPrayerWorkspace({
   const prayerPartnerRows = mergeRowsById(
     localPrayerPartners,
     loadedPrayerPartnerRows.length || localPrayerPartners.length ? loadedPrayerPartnerRows : [...desktopPrayerPartnerSamples],
-  );
-  const mergedPrayerRequests = mergeRowsById(localPrayerRequests, prayerRequests ?? []);
+  ).filter((partner) => !deletedPrayerPartnerIds.includes(partner.id));
+  const mergedPrayerRequests = mergeRowsById(localPrayerRequests, prayerRequests ?? [])
+    .filter((request) => !deletedPrayerRequestIds.includes(request.id));
   const prayerRequestById = new Map(mergedPrayerRequests.map((request) => [request.id, request]));
   const prayerRequestRows = mergedPrayerRequests.map(mapDosPrayerRequestToLocal);
   const visiblePrayerPartners = prayerPartnerRows.filter((partner) => (
@@ -14881,6 +15016,16 @@ function DesktopPrayerWorkspace({
     return savedRequest;
   }
 
+  async function deletePrayerRequestFromWorkspace(id: string) {
+    const deletedId = await onDeletePrayerRequest(id);
+
+    setDeletedPrayerRequestIds((current) => current.includes(deletedId) ? current : [deletedId, ...current]);
+    setLocalPrayerRequests((current) => current.filter((request) => request.id !== deletedId));
+    setSelectedPrayerRequest(null);
+
+    return deletedId;
+  }
+
   async function savePrayerPartner(partner: LocalPrayerPartner, patch: DosPrayerPartnerPatch) {
     const savedPartner = await onUpdatePrayerPartner(partner, patch);
 
@@ -14888,6 +15033,16 @@ function DesktopPrayerWorkspace({
     setSelectedPrayerPartner((current) => current?.id === savedPartner.id ? savedPartner : current);
 
     return savedPartner;
+  }
+
+  async function deletePrayerPartnerFromWorkspace(partner: LocalPrayerPartner) {
+    const deletedId = await onDeletePrayerPartner(partner);
+
+    setDeletedPrayerPartnerIds((current) => current.includes(deletedId) ? current : [deletedId, ...current]);
+    setLocalPrayerPartners((current) => current.filter((row) => row.id !== deletedId));
+    setSelectedPrayerPartner(null);
+
+    return deletedId;
   }
 
   return (
@@ -15075,6 +15230,7 @@ function DesktopPrayerWorkspace({
         <PrayerRequestDetailSheet
           householdMembers={householdMembers}
           onClose={() => setSelectedPrayerRequest(null)}
+          onDelete={deletePrayerRequestFromWorkspace}
           onSave={savePrayerRequestUpdate}
           request={selectedPrayerRequest}
         />
@@ -15082,6 +15238,7 @@ function DesktopPrayerWorkspace({
       {selectedPrayerPartner ? (
         <PrayerPartnerDetailSheet
           onClose={() => setSelectedPrayerPartner(null)}
+          onDeletePartner={deletePrayerPartnerFromWorkspace}
           onSavePartner={savePrayerPartner}
           partner={selectedPrayerPartner}
         />
@@ -18181,6 +18338,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isMobileAddPrayerRequestOpen, setIsMobileAddPrayerRequestOpen] = useState(false);
   const [isMobileAddPrayerPartnerOpen, setIsMobileAddPrayerPartnerOpen] = useState(false);
   const [isMobileLogPrayerOpen, setIsMobileLogPrayerOpen] = useState(false);
+  const [deletedPrayerPartnerIds, setDeletedPrayerPartnerIds] = useState<string[]>([]);
+  const [deletedPrayerRequestIds, setDeletedPrayerRequestIds] = useState<string[]>([]);
   const [mobilePrayerLogs, setMobilePrayerLogs] = useState<LocalPrayerLogEntry[]>([]);
   const [mobilePrayerPartners, setMobilePrayerPartners] = useState<LocalPrayerPartner[]>([]);
   const [mobilePrayerRequests, setMobilePrayerRequests] = useState<DosAppPrayerRequest[]>([]);
@@ -19348,6 +19507,51 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  async function deletePrayerRequest(id: string) {
+    setErrorMessage("");
+
+    if (isPreview) {
+      throw new Error("Preview mode is read-only. Demo changes are not saved.");
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/prayer-requests", {
+        body: JSON.stringify({
+          id,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "DELETE",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        deletedPrayerRequestId?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !result.deletedPrayerRequestId) {
+        throw new Error(result.error ?? "Unable to delete prayer request.");
+      }
+
+      const deletedId = result.deletedPrayerRequestId;
+
+      setDeletedPrayerRequestIds((current) => current.includes(deletedId) ? current : [deletedId, ...current]);
+      router.refresh();
+
+      return deletedId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to delete prayer request.";
+
+      setErrorMessage(message);
+      throw new Error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function createPrayerPartner(patch: DosPrayerPartnerPatch) {
     const normalizedStatus = normalizePrayerPartnerStatus(patch.status ?? "pending");
 
@@ -19440,6 +19644,57 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return mapDosPrayerPartnerToLocal(result.prayerPartner);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to update prayer partner.";
+
+      setErrorMessage(message);
+      throw new Error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function deletePrayerPartner(partner: LocalPrayerPartner) {
+    if (!isPersistedUuid(partner.id)) {
+      setDeletedPrayerPartnerIds((current) => current.includes(partner.id) ? current : [partner.id, ...current]);
+
+      return partner.id;
+    }
+
+    setErrorMessage("");
+
+    if (isPreview) {
+      throw new Error("Preview mode is read-only. Demo changes are not saved.");
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/prayer-partners", {
+        body: JSON.stringify({
+          id: partner.id,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "DELETE",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        deletedPrayerPartnerId?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !result.deletedPrayerPartnerId) {
+        throw new Error(result.error ?? "Unable to delete prayer partner.");
+      }
+
+      const deletedId = result.deletedPrayerPartnerId;
+
+      setDeletedPrayerPartnerIds((current) => current.includes(deletedId) ? current : [deletedId, ...current]);
+      router.refresh();
+
+      return deletedId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to delete prayer partner.";
 
       setErrorMessage(message);
       throw new Error(message);
@@ -21019,9 +21274,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       }),
     ];
   }, [answeredPrayerByReminderId, data.leaderReflections, data.meetings, data.reminders, localPrayerNeeds, mobilePrayerLogs, people]);
+  const workspacePrayerPartners = useMemo(() => (
+    data.prayerPartners.filter((partner) => !deletedPrayerPartnerIds.includes(partner.id))
+  ), [data.prayerPartners, deletedPrayerPartnerIds]);
+  const workspacePrayerRequests = useMemo(() => (
+    data.prayerRequests.filter((request) => !deletedPrayerRequestIds.includes(request.id))
+  ), [data.prayerRequests, deletedPrayerRequestIds]);
+  const visibleMobilePrayerPartners = useMemo(() => (
+    mobilePrayerPartners.filter((partner) => !deletedPrayerPartnerIds.includes(partner.id))
+  ), [deletedPrayerPartnerIds, mobilePrayerPartners]);
   const mergedMobilePrayerRequests = useMemo(() => (
-    mergeRowsById(mobilePrayerRequests, data.prayerRequests)
-  ), [data.prayerRequests, mobilePrayerRequests]);
+    mergeRowsById(
+      mobilePrayerRequests.filter((request) => !deletedPrayerRequestIds.includes(request.id)),
+      workspacePrayerRequests,
+    )
+  ), [deletedPrayerRequestIds, mobilePrayerRequests, workspacePrayerRequests]);
 
   async function saveMobilePrayerRequestUpdate(id: string, patch: DosPrayerRequestPatch) {
     const savedRequest = await updatePrayerRequest(id, patch);
@@ -21032,6 +21299,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return savedRequest;
   }
 
+  async function deleteMobilePrayerRequest(id: string) {
+    const deletedId = await deletePrayerRequest(id);
+
+    setMobilePrayerRequests((current) => current.filter((request) => request.id !== deletedId));
+    setSelectedMobilePrayerRequest(null);
+
+    return deletedId;
+  }
+
   async function saveMobilePrayerPartner(partner: LocalPrayerPartner, patch: DosPrayerPartnerPatch) {
     const savedPartner = await updatePrayerPartner(partner, patch);
 
@@ -21039,6 +21315,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMobilePrayerPartner((current) => current?.id === savedPartner.id ? savedPartner : current);
 
     return savedPartner;
+  }
+
+  async function deleteMobilePrayerPartner(partner: LocalPrayerPartner) {
+    const deletedId = await deletePrayerPartner(partner);
+
+    setMobilePrayerPartners((current) => current.filter((row) => row.id !== deletedId));
+    setSelectedMobilePrayerPartner(null);
+
+    return deletedId;
   }
 
   function markMobilePrayerDetailPrayed(detail: PrayerDetail, note: string) {
@@ -21646,13 +21931,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       query={prayerQuery}
                     />
                     <MobilePrayerWorkspace
-                      localPrayerPartners={mobilePrayerPartners}
+                      localPrayerPartners={visibleMobilePrayerPartners}
                       onOpenPrayerDetail={setSelectedMobilePrayerDetail}
                       onOpenPrayerPartner={setSelectedMobilePrayerPartner}
                       onOpenPrayerRequest={setSelectedMobilePrayerRequest}
                       onTabChange={setPrayerWorkspaceTab}
                       onUpdatePrayerTeamCountVisibility={updatePrayerTeamCountVisibility}
-                      prayerPartners={data.prayerPartners}
+                      prayerPartners={workspacePrayerPartners}
                       prayerRows={mobilePrayerRows}
                       prayerRequests={mergedMobilePrayerRequests}
                       query={prayerQuery}
@@ -21672,14 +21957,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onOpenPerson={openPersonDetail}
                       onScheduleMeeting={() => openScheduleMeeting()}
                       onCreatePrayerPartner={createPrayerPartner}
+                      onDeletePrayerPartner={deletePrayerPartner}
+                      onDeletePrayerRequest={deletePrayerRequest}
                       onSearchChange={setPrayerQuery}
                       onTabChange={setPrayerWorkspaceTab}
                       onUpdatePrayerPartner={updatePrayerPartner}
                       onUpdatePrayerTeamCountVisibility={updatePrayerTeamCountVisibility}
                       onUpdatePrayerRequest={updatePrayerRequest}
                       people={people}
-                      prayerPartners={data.prayerPartners}
-                      prayerRequests={data.prayerRequests}
+                      prayerPartners={workspacePrayerPartners}
+                      prayerRequests={workspacePrayerRequests}
                       query={prayerQuery}
                       reminders={data.reminders}
                       showPrayerTeamCount={showPrayerTeamCount}
@@ -22289,6 +22576,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <PrayerRequestDetailSheet
             householdMembers={data.householdMembers}
             onClose={() => setSelectedMobilePrayerRequest(null)}
+            onDelete={deleteMobilePrayerRequest}
             onSave={saveMobilePrayerRequestUpdate}
             request={selectedMobilePrayerRequest}
           />
@@ -22297,6 +22585,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {selectedMobilePrayerPartner ? (
           <PrayerPartnerDetailSheet
             onClose={() => setSelectedMobilePrayerPartner(null)}
+            onDeletePartner={deleteMobilePrayerPartner}
             onSavePartner={saveMobilePrayerPartner}
             partner={selectedMobilePrayerPartner}
           />
