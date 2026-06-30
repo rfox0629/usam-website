@@ -6745,15 +6745,15 @@ const prayerPartnerRelationshipOptions = [
 
 const prayerPartnerStatusOptions = [
   { label: "Active", value: "Active" },
-  { label: "Pending", value: "Pending" },
+  { label: "Pending Review", value: "Pending" },
   { label: "Inactive", value: "Inactive" },
   { label: "Declined", value: "Declined" },
   { label: "Archived", value: "Archived" },
 ] as const;
 
 const prayerPartnerHowHeardOptions = [
-  { label: "Invited by me", value: "invited_by_household" },
-  { label: "Friend", value: "friend" },
+  { label: "Invited by this household", value: "invited_by_household" },
+  { label: "From a friend", value: "friend" },
   { label: "Church / ministry partner", value: "church_ministry_partner" },
   { label: "Social media", value: "social_media" },
   { label: "Other", value: "other" },
@@ -13382,6 +13382,12 @@ function prayerPartnerOptionLabel(options: ReadonlyArray<{ label: string; value:
   return options.find((option) => option.value === value)?.label ?? statusLabel(value);
 }
 
+function prayerPartnerStatusLabel(value: string | null | undefined) {
+  return normalizePrayerPartnerStatus(value ?? "") === "pending"
+    ? "Pending Review"
+    : statusLabel(value);
+}
+
 function prayerPartnerRelationshipLabel(partner: DosAppPrayerPartner) {
   if (partner.howHeard) {
     return prayerPartnerOptionLabel(prayerPartnerHowHeardOptions, partner.howHeard);
@@ -13411,7 +13417,7 @@ function mapDosPrayerPartnerToLocal(partner: DosAppPrayerPartner): LocalPrayerPa
     relationship: prayerPartnerRelationshipLabel(partner),
     source: partner.source,
     state: partner.state,
-    status: statusLabel(partner.status),
+    status: prayerPartnerStatusLabel(partner.status),
   };
 }
 
@@ -14164,14 +14170,14 @@ function PrayerPartnerDetailSheet({
   const [name, setName] = useState(partner.name);
   const [email, setEmail] = useState(partner.email ?? "");
   const [phone, setPhone] = useState(partner.phone ?? "");
-  const [relationship, setRelationship] = useState(partner.relationship || prayerPartnerRelationshipOptions[0].value);
+  const [relationship, setRelationship] = useState(partner.howHeard || partner.relationship || prayerPartnerHowHeardOptions[0].value);
   const [notes, setNotes] = useState(partner.notes ?? "");
   const [successMessage, setSuccessMessage] = useState("");
   const [status, setStatus] = useState(normalizePrayerPartnerStatus(partner.status));
   const canSave = name.trim() && email.trim();
-  const relationshipOptions = prayerPartnerRelationshipOptions.some((option) => option.value === relationship)
-    ? prayerPartnerRelationshipOptions
-    : [{ label: relationship, value: relationship }, ...prayerPartnerRelationshipOptions];
+  const relationshipOptions = prayerPartnerHowHeardOptions.some((option) => option.value === relationship)
+    ? prayerPartnerHowHeardOptions
+    : [{ label: relationship, value: relationship }, ...prayerPartnerHowHeardOptions];
 
   async function savePartner(nextStatus = status, closeAfterSave = false) {
     if (!canSave) {
@@ -14258,7 +14264,7 @@ function PrayerPartnerDetailSheet({
             </DosFormField>
             <PrayerPartnerSelectField
               defaultValue={relationship}
-              label="Relationship"
+              label="How They Joined"
               name="relationship"
               onChange={setRelationship}
               options={relationshipOptions}

@@ -10,7 +10,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 const sourceOptions = [
   { label: "Invited by this household", value: "invited_by_household" },
   { label: "From a friend", value: "friend" },
-  { label: "Church or ministry partner", value: "church_ministry_partner" },
+  { label: "Church / ministry partner", value: "church_ministry_partner" },
   { label: "Social media", value: "social_media" },
   { label: "Other", value: "other" },
 ] as const;
@@ -275,13 +275,15 @@ export function JoinPrayerTeamModal({
   const [successMessage, setSuccessMessage] = useState("Thanks. Your prayer team application has been received.");
   const [formValues, setFormValues] = useState<{
     email: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     region: string;
     source: PrayerTeamSource;
     state: string;
   }>({
     email: "",
-    name: "",
+    firstName: "",
+    lastName: "",
     region: "",
     source: sourceOptions[0].value,
     state: "",
@@ -308,11 +310,15 @@ export function JoinPrayerTeamModal({
     const response = await fetch("/api/prayer-team/join", {
       body: JSON.stringify({
         email: formValues.email,
+        firstName: formValues.firstName,
         householdId,
         householdName,
         householdNumber,
-        name: formValues.name,
+        howDidYouHear: formValues.source,
+        lastName: formValues.lastName,
+        name: [formValues.firstName, formValues.lastName].filter(Boolean).join(" ").trim(),
         profileSlug,
+        recruitmentSource: formValues.source,
         region: formValues.region,
         source: formValues.source,
         sourceLabel,
@@ -390,18 +396,32 @@ export function JoinPrayerTeamModal({
                 <p className="text-sm leading-7 text-stone-300">
                   Apply to join the prayer team for {householdName}. Approved prayer partners can receive current requests and future alerts.
                 </p>
-                <label className="block">
-                  <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                    Name
-                  </span>
-                  <input
-                    autoComplete="name"
-                    className="mt-2 min-h-11 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#C2A14E]"
-                    onChange={(event) => setFormValues((current) => ({ ...current, name: event.target.value }))}
-                    required
-                    value={formValues.name}
-                  />
-                </label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      First Name
+                    </span>
+                    <input
+                      autoComplete="given-name"
+                      className="mt-2 min-h-11 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#C2A14E]"
+                      onChange={(event) => setFormValues((current) => ({ ...current, firstName: event.target.value }))}
+                      required
+                      value={formValues.firstName}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                      Last Name
+                    </span>
+                    <input
+                      autoComplete="family-name"
+                      className="mt-2 min-h-11 w-full border border-stone-800 bg-[#0D0D0D] px-3 text-sm text-stone-100 outline-none transition-colors focus:border-[#C2A14E]"
+                      onChange={(event) => setFormValues((current) => ({ ...current, lastName: event.target.value }))}
+                      required
+                      value={formValues.lastName}
+                    />
+                  </label>
+                </div>
                 <label className="block">
                   <span className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
                     Email

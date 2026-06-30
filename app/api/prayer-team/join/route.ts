@@ -5,11 +5,20 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 
 type JoinPrayerTeamPayload = {
   email?: unknown;
+  firstName?: unknown;
+  first_name?: unknown;
   householdId?: unknown;
+  howDidYouHear?: unknown;
+  how_did_you_hear?: unknown;
+  lastName?: unknown;
+  last_name?: unknown;
   name?: unknown;
   profileSlug?: unknown;
   region?: unknown;
+  recruitmentSource?: unknown;
+  recruitment_source?: unknown;
   source?: unknown;
+  sourceLabel?: unknown;
   state?: unknown;
 };
 
@@ -80,6 +89,10 @@ function splitName(name: string) {
   };
 }
 
+function displayNameFromParts(firstName: string, lastName: string) {
+  return [firstName, lastName].filter(Boolean).join(" ").trim();
+}
+
 function personRoleStatusForPrayerPartner(status: string | null | undefined): WorkspacePersonRoleStatus {
   return status === "active"
     || status === "archived"
@@ -103,14 +116,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Prayer Team signup is not configured yet." }, { status: 503 });
   }
 
-  const name = asString(payload.name);
+  const legacyName = asString(payload.name);
+  const legacyNameParts = splitName(legacyName);
+  const firstName = asString(payload.firstName) || asString(payload.first_name) || legacyNameParts.firstName;
+  const lastName = asString(payload.lastName) || asString(payload.last_name) || legacyNameParts.lastName;
+  const name = displayNameFromParts(firstName, lastName) || legacyName;
   const email = asString(payload.email).toLowerCase();
   const householdId = asString(payload.householdId);
   const profileSlug = asString(payload.profileSlug);
-  const source = asString(payload.source);
+  const source = asString(payload.source)
+    || asString(payload.recruitmentSource)
+    || asString(payload.recruitment_source)
+    || asString(payload.howDidYouHear)
+    || asString(payload.how_did_you_hear);
+  const sourceLabel = asString(payload.sourceLabel);
 
   if (!name || !email || !isValidEmail(email)) {
     return NextResponse.json({ error: "Please include your name and a valid email address." }, { status: 400 });
+  }
+
+  if (!firstName || !lastName) {
+    return NextResponse.json({ error: "Please include your first and last name." }, { status: 400 });
   }
 
   if (!householdId && !profileSlug) {
@@ -154,7 +180,6 @@ export async function POST(request: Request) {
   const missionaryNumber = peopleResult.error
     ? null
     : ((peopleResult.data as PersonRow | null)?.missionary_number ?? null);
-  const { firstName, lastName } = splitName(name);
   let linkedPersonId: string;
 
   try {
@@ -264,7 +289,12 @@ export async function POST(request: Request) {
     ? await upsertWorkspacePersonRole(supabase, {
       fieldPersonId: linkedPersonId,
       metadata: {
+        how_did_you_hear: source,
+        recruitment_source: source,
+        recruitment_source_label: sourceLabel || null,
+        region: asNullableString(payload.region),
         source: "public_profile",
+        state: asNullableString(payload.state),
       },
       role: "prayer_partner",
       roleRecordId: writtenPartner.id,
@@ -293,10 +323,13 @@ export async function POST(request: Request) {
     lastName,
     message: `Prayer team application for ${household.display_name}`,
     payload: {
+      how_did_you_hear: source,
       recruited_by_household_id: household.id,
       recruited_by_household_name: household.display_name,
       recruited_by_household_number: missionaryNumber,
       recruited_by_profile_slug: household.slug,
+      recruitment_source: source,
+      recruitment_source_label: sourceLabel || null,
       region: asNullableString(payload.region),
       source,
       state: asNullableString(payload.state),
