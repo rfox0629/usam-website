@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+const editMeetingStart = source.indexOf('formMode === "editMeeting"');
+const meetingNotesStart = source.indexOf('formMode === "meetingNotes"', editMeetingStart);
+const editMeetingBlock = editMeetingStart >= 0 && meetingNotesStart > editMeetingStart
+  ? source.slice(editMeetingStart, meetingNotesStart)
+  : "";
 
 function assert(condition, message) {
   if (!condition) {
@@ -21,12 +26,24 @@ assert(
   "Scheduled-table log submit must convert the existing record to logged.",
 );
 assert(
-  source.includes('title={isLoggingSelectedScheduledMeeting ? "Log Table" : "Edit Table"}'),
+  editMeetingBlock.includes('title={isLoggingSelectedScheduledMeeting ? "Log Table" : "Edit Table"}'),
   "Scheduled-table log sheet should present itself as Log Table.",
 );
 assert(
-  source.includes("includeReflectionFields={isLoggingSelectedScheduledMeeting}"),
+  editMeetingBlock.includes('size={isLoggingSelectedScheduledMeeting ? "form" : "default"}'),
+  "Scheduled-table log sheet should use desktop form sizing while preserving normal edit sizing.",
+);
+assert(
+  editMeetingBlock.includes("includeReflectionFields={isLoggingSelectedScheduledMeeting}"),
   "Scheduled-table log sheet should include normal logging reflection fields.",
+);
+assert(
+  editMeetingBlock.includes("onToggleOutcomeTag={toggleOutcomeTag}"),
+  "Scheduled-table log sheet should wire observed fruit toggles.",
+);
+assert(
+  editMeetingBlock.includes("selectedOutcomeTags={selectedOutcomeTags}"),
+  "Scheduled-table log sheet should receive selected observed fruit state.",
 );
 assert(
   !source.includes("onLogTable(personIds, item.meeting?.type)"),

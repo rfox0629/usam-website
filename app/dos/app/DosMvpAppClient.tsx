@@ -6181,7 +6181,7 @@ function Sheet({
   onClose: () => void;
   showEyebrow?: boolean;
   showHeader?: boolean;
-  size?: "default" | "wide";
+  size?: "default" | "form" | "wide";
   title: string;
 }) {
   const [isMounted, setIsMounted] = useState(false);
@@ -6192,7 +6192,9 @@ function Sheet({
 
   const panelClassName = size === "wide"
     ? "max-w-[1060px] overflow-hidden rounded-t-[28px] rounded-b-[24px] md:rounded-[30px]"
-    : "max-w-lg overflow-y-auto rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:rounded-[30px]";
+    : size === "form"
+      ? "max-w-lg overflow-y-auto rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:max-w-[760px] md:rounded-[30px] md:p-5"
+      : "max-w-lg overflow-y-auto rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:rounded-[30px]";
 
   const content = (
     <div className="fixed inset-0 z-[1000] overflow-y-auto bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18" onMouseDown={onClose} role="presentation">
@@ -11293,6 +11295,8 @@ const meetingDurationOptions = [
   { label: "2h", value: "120" },
   { label: "Custom", value: "custom" },
 ] as const;
+const meetingDurationCustomHourOptions = ["0", "1", "2", "3", "4", "5", "6"];
+const meetingDurationCustomMinuteOptions = ["0", "15", "30", "45"];
 const scheduledTableDurationOptions = [
   { label: "30 min", value: "30" },
   { label: "45 min", value: "45" },
@@ -11305,8 +11309,21 @@ type MeetingDurationOptionValue = typeof meetingDurationOptions[number]["value"]
 
 function MeetingDurationSelector() {
   const [selectedDuration, setSelectedDuration] = useState<MeetingDurationOptionValue>("30");
+  const [customHours, setCustomHours] = useState("0");
   const [customMinutes, setCustomMinutes] = useState("45");
-  const durationMinutes = selectedDuration === "custom" ? customMinutes || "60" : selectedDuration;
+  const customDurationMinutes = Math.max(15, Number(customHours) * 60 + Number(customMinutes));
+  const customMinuteOptions = customHours === "0"
+    ? meetingDurationCustomMinuteOptions.filter((minutes) => minutes !== "0")
+    : meetingDurationCustomMinuteOptions;
+  const durationMinutes = selectedDuration === "custom" ? String(customDurationMinutes) : selectedDuration;
+
+  function handleCustomHoursChange(value: string) {
+    setCustomHours(value);
+
+    if (value === "0" && customMinutes === "0") {
+      setCustomMinutes("15");
+    }
+  }
 
   return (
     <fieldset className="grid gap-2">
@@ -11330,20 +11347,36 @@ function MeetingDurationSelector() {
         ))}
       </div>
       {selectedDuration === "custom" ? (
-        <label className="mt-1 grid gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Custom Minutes</span>
-          <input
-            autoFocus
-            className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-            inputMode="numeric"
-            max="600"
-            min="1"
-            onChange={(event) => setCustomMinutes(event.target.value.replace(/\D/g, "").slice(0, 3))}
-            placeholder="Minutes"
-            type="number"
-            value={customMinutes}
-          />
-        </label>
+        <div className="mt-1 grid gap-2 rounded-[18px] border border-[#EAF2FF] bg-[#F8FAFC] p-2.5">
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Custom Duration</span>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-bold text-[#64748B]">Hours</span>
+              <select
+                autoFocus
+                className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                onChange={(event) => handleCustomHoursChange(event.target.value)}
+                value={customHours}
+              >
+                {meetingDurationCustomHourOptions.map((hours) => (
+                  <option key={hours} value={hours}>{hours} hr</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-xs font-bold text-[#64748B]">Minutes</span>
+              <select
+                className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                onChange={(event) => setCustomMinutes(event.target.value)}
+                value={customMinutes}
+              >
+                {customMinuteOptions.map((minutes) => (
+                  <option key={minutes} value={minutes}>{minutes} min</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
       ) : null}
     </fieldset>
   );
@@ -22882,7 +22915,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "meeting" ? (
-        <Sheet onClose={closeForm} title="Log Table">
+        <Sheet onClose={closeForm} size="form" title="Log Table">
           <MeetingFormContent
             allPeople={people}
             allowConversationFlows={data.workspace.isUsamWorkspace}
@@ -22982,7 +23015,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         const logDateDefault = dateInputValueFromDateTime(selectedMeeting.scheduledStartAt ?? selectedMeeting.date, selectedMeeting.date ?? todayDateValue());
 
         return (
-        <Sheet onClose={closeForm} title={isLoggingSelectedScheduledMeeting ? "Log Table" : "Edit Table"}>
+        <Sheet onClose={closeForm} size={isLoggingSelectedScheduledMeeting ? "form" : "default"} title={isLoggingSelectedScheduledMeeting ? "Log Table" : "Edit Table"}>
           <div className="space-y-3">
             <MeetingFormContent
               allPeople={people}
@@ -23012,6 +23045,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onToggleFollowUpAction={handleConversationFollowUpAction}
               onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
               onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
+              onToggleOutcomeTag={toggleOutcomeTag}
               onTogglePerson={toggleMeetingPersonId}
               onToggleSupportingAttendee={toggleSupportingAttendeeId}
               recommendedResources={draftRecommendedResources}
@@ -23021,6 +23055,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               selectedMeetingContext={selectedMeetingContext}
               selectedMinistryTeamMemberIds={selectedMinistryTeamMemberIds}
               selectedMinistryTeamPersonIds={selectedMinistryTeamPersonIds}
+              selectedOutcomeTags={selectedOutcomeTags}
               selectedPersonIds={selectedMeetingPersonIds}
               selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
               showConversationFlow={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
