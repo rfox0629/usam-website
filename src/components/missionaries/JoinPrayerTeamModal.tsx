@@ -8,14 +8,14 @@ import type { MissionaryPrayerRequest } from "@/src/data/missionaries";
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 const sourceOptions = [
-  { label: "Invited by this household", value: "invited_by_household" },
-  { label: "Friend", value: "friend" },
-  { label: "Church / Ministry", value: "church_ministry_partner" },
+  { label: "Invited by this household", value: "invited_by_me" },
+  { label: "Friend", value: "friend_referral" },
+  { label: "Church / Ministry", value: "church_ministry" },
   { label: "Social Media", value: "social_media" },
   { label: "Other", value: "other" },
 ] as const;
 
-type PrayerTeamSource = typeof sourceOptions[number]["value"];
+type PrayerTeamSource = "" | typeof sourceOptions[number]["value"];
 
 type PrayerTeamSignupResponse = {
   applicationStatus?: string;
@@ -288,13 +288,13 @@ export function JoinPrayerTeamModal({
     firstName: "",
     lastName: "",
     phone: "",
-    source: sourceOptions[0].value,
+    source: "",
     smsOptIn: false,
     state: "",
   });
   const hasPhone = formValues.phone.trim().length > 0;
   const sourceLabel = useMemo(
-    () => sourceOptions.find((option) => option.value === formValues.source)?.label ?? sourceOptions[0].label,
+    () => sourceOptions.find((option) => option.value === formValues.source)?.label ?? "Joined from Public Profile",
     [formValues.source],
   );
 
@@ -488,11 +488,12 @@ export function JoinPrayerTeamModal({
                   tone="dark"
                   value={formValues.source}
                 >
-                    {sourceOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
+                  <option disabled value="">Select one</option>
+                  {sourceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </PublicSelect>
                 <section className="rounded-2xl border border-stone-800 bg-white/[0.03] p-4">
                   <h4 className="text-[11px] uppercase tracking-[0.2em] text-stone-300" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>

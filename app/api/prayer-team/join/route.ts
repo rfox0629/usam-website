@@ -48,11 +48,13 @@ type PrayerPartnerWriteRow = {
   status?: string | null;
 };
 
-const sourceValues = [
-  "invited_by_household",
-  "friend",
-  "church_ministry_partner",
+const howJoinedValues = [
+  "invited_by_me",
+  "public_profile",
+  "friend_referral",
+  "church_ministry",
   "social_media",
+  "website",
   "other",
 ] as const;
 
@@ -90,8 +92,30 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function isSourceValue(value: string): value is typeof sourceValues[number] {
-  return sourceValues.includes(value as typeof sourceValues[number]);
+function normalizeHowJoined(value: string | null | undefined, fallback: typeof howJoinedValues[number] = "other"): typeof howJoinedValues[number] {
+  const normalized = asString(value).toLowerCase().replace(/[\s-]+/g, "_");
+
+  if (howJoinedValues.includes(normalized as typeof howJoinedValues[number])) {
+    return normalized as typeof howJoinedValues[number];
+  }
+
+  if (["invited_by_household", "invited_by_this_household", "invited_by_us"].includes(normalized)) {
+    return "invited_by_me";
+  }
+
+  if (["friend", "from_a_friend"].includes(normalized)) {
+    return "friend_referral";
+  }
+
+  if (["church_ministry_partner", "church_or_ministry_partner", "church_/_ministry", "church_/_ministry_partner", "church/ministry"].includes(normalized)) {
+    return "church_ministry";
+  }
+
+  if (["public_profile", "joined_from_public_profile"].includes(normalized)) {
+    return "public_profile";
+  }
+
+  return fallback;
 }
 
 function isMissingTable(error: SupabaseWriteError | null | undefined, tableName: string) {
@@ -119,10 +143,14 @@ function displayNameFromParts(firstName: string, lastName: string) {
 }
 
 function personRoleStatusForPrayerPartner(status: string | null | undefined): WorkspacePersonRoleStatus {
+  if (status === "inactive") {
+    return "paused";
+  }
+
   return status === "active"
     || status === "archived"
     || status === "declined"
-    || status === "inactive"
+    || status === "paused"
     || status === "pending"
     ? status
     : "pending";
@@ -150,11 +178,11 @@ export async function POST(request: Request) {
   const phone = asNullableString(payload.phone);
   const householdId = asString(payload.householdId);
   const profileSlug = asString(payload.profileSlug);
-  const source = asString(payload.source)
+  const source = normalizeHowJoined(asString(payload.source)
     || asString(payload.recruitmentSource)
     || asString(payload.recruitment_source)
     || asString(payload.howDidYouHear)
-    || asString(payload.how_did_you_hear);
+    || asString(payload.how_did_you_hear), "public_profile");
   const sourceLabel = asString(payload.sourceLabel);
   const emailOptIn = asBoolean(payload.emailOptIn ?? payload.email_opt_in, true);
   const smsOptIn = Boolean(phone) && asBoolean(payload.smsOptIn ?? payload.sms_opt_in, false);
@@ -169,10 +197,6 @@ export async function POST(request: Request) {
 
   if (!householdId && !profileSlug) {
     return NextResponse.json({ error: "Missionary household could not be identified." }, { status: 400 });
-  }
-
-  if (!isSourceValue(source)) {
-    return NextResponse.json({ error: "Please choose how you heard about the prayer team." }, { status: 400 });
   }
 
   const supabase = createSupabaseAdminClient();
@@ -215,6 +239,7 @@ export async function POST(request: Request) {
       email,
       name,
       phone,
+      relationshipContext: "other",
       role: "prayer_partner",
       roleSource: "public_profile",
       workspaceId: household.id,
@@ -239,6 +264,7 @@ export async function POST(request: Request) {
     missionary_profile_slug: household.slug,
     name,
     phone,
+    prayer_team: "household_family",
     permissions: {
       prayer_admin: false,
       receive_email_alerts: emailOptIn,
@@ -281,14 +307,15 @@ export async function POST(request: Request) {
 
   const existingPartner = existingPartnerResult.data as { id: string; status?: string | null } | null;
   const existingStatus = existingPartner?.status;
+  const preservedStatus = existingStatus === "inactive" ? "paused" : existingStatus;
   const nextPrayerPartnerRecord = existingPartner
     ? {
       ...prayerPartnerRecord,
-      status: existingStatus === "active"
-        || existingStatus === "declined"
-        || existingStatus === "inactive"
-        || existingStatus === "archived"
-        ? existingStatus
+      status: preservedStatus === "active"
+        || preservedStatus === "declined"
+        || preservedStatus === "paused"
+        || preservedStatus === "archived"
+        ? preservedStatus
         : "pending",
     }
     : prayerPartnerRecord;
@@ -316,12 +343,16 @@ export async function POST(request: Request) {
   }
 
   const writtenPartner = partnerWriteResult.data as PrayerPartnerWriteRow | null;
+  const normalizedWrittenStatus = writtenPartner?.status === "inactive"
+    ? "paused"
+    : writtenPartner?.status;
   const roleWriteResult = writtenPartner
     ? await upsertWorkspacePersonRole(supabase, {
       fieldPersonId: linkedPersonId,
       metadata: {
         display_name: name,
         email_opt_in: emailOptIn,
+        how_joined: source,
         how_did_you_hear: source,
         phone,
         recruitment_source: source,
@@ -335,7 +366,7 @@ export async function POST(request: Request) {
       roleRecordId: writtenPartner.id,
       roleRecordTable: "prayer_partners",
       source: "public_profile",
-      status: personRoleStatusForPrayerPartner(writtenPartner.status),
+      status: personRoleStatusForPrayerPartner(normalizedWrittenStatus),
       workspaceId: household.id,
     })
     : null;
@@ -361,6 +392,7 @@ export async function POST(request: Request) {
     payload: {
       display_name: name,
       email_opt_in: emailOptIn,
+      how_joined: source,
       how_did_you_hear: source,
       phone,
       recruited_by_household_id: household.id,

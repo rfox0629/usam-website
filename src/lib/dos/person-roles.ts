@@ -6,7 +6,7 @@ type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 type SupabaseQueryError = { code?: string; message?: string } | null | undefined;
 
 export type WorkspacePersonRole = "field_contact" | "household_member" | "mentor" | "prayer_partner" | "support_partner";
-export type WorkspacePersonRoleStatus = "active" | "archived" | "declined" | "inactive" | "invited" | "pending";
+export type WorkspacePersonRoleStatus = "active" | "archived" | "declined" | "inactive" | "invited" | "paused" | "pending";
 
 type PersonMatchRow = {
   email?: string | null;
@@ -23,6 +23,7 @@ export type ResolveWorkspacePersonForRoleInput = {
   email?: string | null;
   name?: string | null;
   phone?: string | null;
+  relationshipContext?: string | null;
   role: WorkspacePersonRole;
   roleSource?: string | null;
   workspaceId: string;
@@ -65,6 +66,24 @@ function normalizePhone(value: string | null | undefined) {
   const digits = cleanText(value).replace(/\D/g, "");
 
   return digits.length >= 7 ? digits : null;
+}
+
+function normalizeRelationshipContext(value: string | null | undefined) {
+  const normalized = cleanText(value).toLowerCase().replace(/[\s-]+/g, "_");
+
+  return [
+    "family",
+    "friend",
+    "work",
+    "church",
+    "community",
+    "outreach",
+    "neighbor",
+    "ministry_partner",
+    "other",
+  ].includes(normalized)
+    ? normalized
+    : "other";
 }
 
 function isInactivePerson(row: PersonMatchRow) {
@@ -197,7 +216,7 @@ async function createHiddenWorkspacePerson(
     household_notes: hiddenPrayerPersonNotes(input.role),
     name: displayName,
     phone: cleanText(input.phone) || null,
-    relationship_context: "community",
+    relationship_context: normalizeRelationshipContext(input.relationshipContext),
     relationship_type: "new",
     role_in_my_life: "not_active",
     source: "field",

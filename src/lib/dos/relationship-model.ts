@@ -6,6 +6,7 @@ export const relationshipContextOptions = [
   { label: "Community", value: "community" },
   { label: "Outreach", value: "outreach" },
   { label: "Neighbor", value: "neighbor" },
+  { label: "Ministry Partner", value: "ministry_partner" },
   { label: "Other", value: "other" },
 ] as const;
 
@@ -249,6 +250,10 @@ export function normalizeRelationshipContext(value: string | null | undefined, l
     return "work";
   }
 
+  if (legacyText.includes("ministry partner")) {
+    return "ministry_partner";
+  }
+
   if (legacyText.includes("church") || legacyText.includes("ministry") || legacyText.includes("small group")) {
     return "church";
   }
@@ -261,7 +266,11 @@ export function normalizeRelationshipContext(value: string | null | undefined, l
     return "outreach";
   }
 
-  if (legacyText.includes("community") || legacyText.includes("neighbor") || legacyText.includes("neighbour")) {
+  if (legacyText.includes("neighbor") || legacyText.includes("neighbour")) {
+    return "neighbor";
+  }
+
+  if (legacyText.includes("community")) {
     return "community";
   }
 

@@ -44,6 +44,7 @@ import {
   relationshipTypeFromModel,
   relationshipTypeOptions,
   type DosRelationshipModel,
+  type RelationshipContextValue,
   type RelationshipScoreValue,
   type RelationshipTypeValue,
 } from "@/src/lib/dos/relationship-model";
@@ -87,13 +88,16 @@ type PrayerDetail = {
 type LocalPrayerPartner = {
   city?: string | null;
   email?: string | null;
+  fieldPersonId?: string | null;
   howHeard?: string | null;
   id: string;
   lastContacted: string;
   name: string;
   notes: string;
   phone?: string | null;
+  prayerTeam: string;
   relationship: string;
+  relationshipContext: RelationshipContextValue;
   source?: string | null;
   state?: string | null;
   status: string;
@@ -135,10 +139,13 @@ type DosPrayerRequestPatch = Partial<{
 }>;
 type DosPrayerPartnerPatch = Partial<{
   email: string;
+  howHeard: string;
   name: string;
   notes: string;
   phone: string;
+  prayerTeam: string;
   relationship: string;
+  relationshipContext: RelationshipContextValue;
   status: string;
 }>;
 type LocalPrayerLogEntry = {
@@ -6728,36 +6735,32 @@ const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>
 ];
 
 const desktopPrayerPartnerSamples = [
-  { id: "sample-brooke-fox", lastContacted: "2 days ago", name: "Brooke Fox", notes: "Prays over family and field rhythm.", relationship: "Spouse", status: "Active" },
-  { id: "sample-dirk-bond", lastContacted: "1 week ago", name: "Dirk Bond", notes: "Mentor covering table conversations.", relationship: "Mentor", status: "Active" },
-  { id: "sample-prayer-team-group", lastContacted: "3 days ago", name: "Prayer Team Group", notes: "Shared covering for upcoming meetings.", relationship: "Group", status: "Active" },
+  { id: "sample-brooke-fox", lastContacted: "2 days ago", name: "Brooke Fox", notes: "Prays over family and field rhythm.", prayerTeam: "household_family", relationship: "Family", relationshipContext: "family", status: "Active" },
+  { id: "sample-dirk-bond", lastContacted: "1 week ago", name: "Dirk Bond", notes: "Mentor covering table conversations.", prayerTeam: "household_family", relationship: "Ministry Partner", relationshipContext: "ministry_partner", status: "Active" },
+  { id: "sample-prayer-team-group", lastContacted: "3 days ago", name: "Prayer Team Group", notes: "Shared covering for upcoming meetings.", prayerTeam: "household_family", relationship: "Church", relationshipContext: "church", status: "Active" },
 ] as const;
 
-const prayerPartnerRelationshipOptions = [
-  { label: "Prayer Partner", value: "Prayer Partner" },
-  { label: "Mentor", value: "Mentor" },
-  { label: "Friend", value: "Friend" },
-  { label: "Family", value: "Family" },
-  { label: "Church / Ministry Partner", value: "Church / Ministry Partner" },
-  { label: "Group", value: "Group" },
-  { label: "Other", value: "Other" },
-] as const;
+const prayerPartnerRelationshipContextOptions = relationshipContextOptions;
 
 const prayerPartnerStatusOptions = [
-  { label: "Active", value: "Active" },
-  { label: "Pending Review", value: "Pending" },
-  { label: "Inactive", value: "Inactive" },
-  { label: "Declined", value: "Declined" },
-  { label: "Archived", value: "Archived" },
+  { label: "Pending Review", value: "pending" },
+  { label: "Active", value: "active" },
+  { label: "Paused", value: "paused" },
+  { label: "Declined", value: "declined" },
+  { label: "Archived", value: "archived" },
 ] as const;
 
 const prayerPartnerHowHeardOptions = [
-  { label: "Invited by this household", value: "invited_by_household" },
-  { label: "From a friend", value: "friend" },
-  { label: "Church / ministry partner", value: "church_ministry_partner" },
-  { label: "Social media", value: "social_media" },
+  { label: "Invited by me", value: "invited_by_me" },
+  { label: "Joined from Public Profile", value: "public_profile" },
+  { label: "Friend Referral", value: "friend_referral" },
+  { label: "Church / Ministry", value: "church_ministry" },
+  { label: "Social Media", value: "social_media" },
+  { label: "Website", value: "website" },
   { label: "Other", value: "other" },
 ] as const;
+
+const prayerPartnerDefaultTeamOption = { label: "Household / Family", value: "household_family" } as const;
 
 const prayerRequestCategoryOptions = [
   { label: "Family", value: "Family" },
@@ -13383,50 +13386,67 @@ function prayerPartnerOptionLabel(options: ReadonlyArray<{ label: string; value:
 }
 
 function prayerPartnerStatusLabel(value: string | null | undefined) {
-  return normalizePrayerPartnerStatus(value ?? "") === "pending"
-    ? "Pending Review"
-    : statusLabel(value);
+  const normalizedStatus = normalizePrayerPartnerStatus(value ?? "");
+  const option = prayerPartnerStatusOptions.find((item) => item.value === normalizedStatus);
+
+  return option?.label ?? "Pending Review";
 }
 
-function prayerPartnerRelationshipLabel(partner: DosAppPrayerPartner) {
-  if (partner.howHeard) {
-    return prayerPartnerOptionLabel(prayerPartnerHowHeardOptions, partner.howHeard);
-  }
+function normalizePrayerPartnerRelationshipContext(value: string | null | undefined): RelationshipContextValue {
+  const normalized = normalizeText(value).toLowerCase().replace(/[\s-]+/g, "_");
+  const option = prayerPartnerRelationshipContextOptions.find((item) => item.value === normalized);
 
-  if (partner.source === "admin_added") {
-    return "Admin Added";
-  }
+  return option?.value ?? "other";
+}
 
-  if (partner.source === "dos") {
-    return "Prayer Partner";
-  }
+function prayerPartnerHowJoinedLabel(value: string | null | undefined) {
+  return prayerPartnerOptionLabel(prayerPartnerHowHeardOptions, value || "other");
+}
 
-  return "Public Signup";
+function prayerPartnerTeamOptions(householdMembers: DosAppHouseholdMember[]) {
+  const memberOptions = householdMembers
+    .filter((member) => {
+      const relationship = normalizeText(member.relationship).toLowerCase();
+
+      return member.status !== "archived" && (relationship === "owner" || relationship === "spouse");
+    })
+    .sort((first, second) => {
+      const order = (member: DosAppHouseholdMember) => normalizeText(member.relationship).toLowerCase() === "owner" ? 0 : 1;
+
+      return order(first) - order(second) || first.displayName.localeCompare(second.displayName);
+    })
+    .map((member) => ({
+      label: member.displayName,
+      value: `member:${member.id}`,
+    }));
+
+  return [prayerPartnerDefaultTeamOption, ...memberOptions] as ReadonlyArray<{ label: string; value: string }>;
+}
+
+function prayerPartnerTeamLabel(value: string | null | undefined, householdMembers: DosAppHouseholdMember[]) {
+  return prayerPartnerOptionLabel(prayerPartnerTeamOptions(householdMembers), value || prayerPartnerDefaultTeamOption.value);
 }
 
 function mapDosPrayerPartnerToLocal(partner: DosAppPrayerPartner): LocalPrayerPartner {
+  const relationshipContext = normalizePrayerPartnerRelationshipContext(partner.relationshipContext);
+
   return {
     city: partner.city,
     email: partner.email,
-    howHeard: partner.howHeard,
+    fieldPersonId: partner.fieldPersonId,
+    howHeard: partner.howHeard ?? "other",
     id: partner.id,
     lastContacted: partner.updatedAt || partner.joinedAt ? formatRelativeDate(partner.updatedAt ?? partner.joinedAt) : "New",
     name: partner.name,
     notes: partner.notes ?? "",
     phone: partner.phone,
-    relationship: prayerPartnerRelationshipLabel(partner),
+    prayerTeam: partner.prayerTeam || prayerPartnerDefaultTeamOption.value,
+    relationship: relationshipContextLabel(relationshipContext),
+    relationshipContext,
     source: partner.source,
     state: partner.state,
     status: prayerPartnerStatusLabel(partner.status),
   };
-}
-
-function prayerPartnerRowNotes(partner: LocalPrayerPartner) {
-  return [
-    partner.email,
-    partner.phone,
-    partner.notes,
-  ].filter(Boolean).join(" · ") || "Prayer partner";
 }
 
 function isPersistedUuid(value: string) {
@@ -13436,7 +13456,11 @@ function isPersistedUuid(value: string) {
 function normalizePrayerPartnerStatus(value: string) {
   const normalizedValue = normalizeText(value).toLowerCase();
 
-  if (normalizedValue === "active" || normalizedValue === "archived" || normalizedValue === "declined" || normalizedValue === "inactive" || normalizedValue === "pending") {
+  if (normalizedValue === "inactive") {
+    return "paused";
+  }
+
+  if (normalizedValue === "active" || normalizedValue === "archived" || normalizedValue === "declined" || normalizedValue === "paused" || normalizedValue === "pending") {
     return normalizedValue;
   }
 
@@ -13733,14 +13757,17 @@ function PrayerRequestAudiencePicker({
 }
 
 function AddPrayerPartnerSheet({
+  householdMembers,
   onClose,
   onSubmit,
 }: {
+  householdMembers: DosAppHouseholdMember[];
   onClose: () => void;
   onSubmit: (partner: DosPrayerPartnerPatch) => Promise<LocalPrayerPartner> | LocalPrayerPartner;
 }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const teamOptions = prayerPartnerTeamOptions(householdMembers);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -13756,14 +13783,14 @@ function AddPrayerPartnerSheet({
     const zip = normalizeText(String(formData.get("zip") ?? ""));
     const church = normalizeText(String(formData.get("church") ?? ""));
     const notes = normalizeText(String(formData.get("notes") ?? ""));
-    const relationship = normalizeText(String(formData.get("relationship") ?? "")) || prayerPartnerRelationshipOptions[0].value;
-    const status = normalizeText(String(formData.get("status") ?? "")) || prayerPartnerStatusOptions[0].value;
-    const howHeard = normalizeText(String(formData.get("how_heard") ?? "")) || prayerPartnerHowHeardOptions[0].value;
+    const relationshipContext = normalizePrayerPartnerRelationshipContext(String(formData.get("relationship_context") ?? ""));
+    const prayerTeam = normalizeText(String(formData.get("prayer_team") ?? "")) || prayerPartnerDefaultTeamOption.value;
+    const status = normalizeText(String(formData.get("status") ?? "")) || "pending";
+    const howHeard = normalizeText(String(formData.get("how_heard") ?? "")) || "invited_by_me";
     const addressLine = [homeAddress, [city, state, zip].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
     const detailNotes = [
       notes,
       church ? `Church: ${church}` : "",
-      howHeard ? `How joined: ${prayerPartnerOptionLabel(prayerPartnerHowHeardOptions, howHeard)}` : "",
       addressLine ? `Address: ${addressLine}` : "",
     ].filter(Boolean).join(" · ");
 
@@ -13783,9 +13810,11 @@ function AddPrayerPartnerSheet({
     try {
       await onSubmit({
         email,
+        howHeard,
         notes: detailNotes,
         phone,
-        relationship,
+        prayerTeam,
+        relationshipContext,
         status,
         name,
       });
@@ -13800,7 +13829,7 @@ function AddPrayerPartnerSheet({
   return (
     <Sheet onClose={onClose} showEyebrow={false} title="Add Prayer Partner">
       <form className="space-y-5" onSubmit={handleSubmit}>
-        <DosFormSection icon="people" title="Prayer Partner">
+        <DosFormSection icon="people" title="Person">
           <p className="text-xs font-medium leading-5 text-[#64748B]">Prayer-only contacts stay hidden from Field unless added there.</p>
           <DosFormGrid>
             <DosFormField label="First Name">
@@ -13818,12 +13847,14 @@ function AddPrayerPartnerSheet({
               <input className={FieldInputClass()} name="email" placeholder="email@example.com" required type="email" />
             </DosFormField>
           </DosFormGrid>
-          <DosFormGrid>
-            <PrayerPartnerSelectField label="Relationship" name="relationship" options={prayerPartnerRelationshipOptions} />
-            <PrayerPartnerSelectField label="Status" name="status" options={prayerPartnerStatusOptions} />
-          </DosFormGrid>
+          <PrayerPartnerSelectField label="Relationship Context" name="relationship_context" options={prayerPartnerRelationshipContextOptions} />
         </DosFormSection>
-        <DosFormSection icon="home" title="Additional Information">
+        <DosFormSection icon="home" title="Prayer Partner">
+          <DosFormGrid>
+            <PrayerPartnerSelectField label="Prayer Team" name="prayer_team" options={teamOptions} />
+            <PrayerPartnerSelectField label="How They Joined" name="how_heard" options={prayerPartnerHowHeardOptions} />
+          </DosFormGrid>
+          <PrayerPartnerSelectField label="Status" name="status" options={prayerPartnerStatusOptions} />
           <details className="group overflow-hidden rounded-[20px] border border-[#D6E4F7] bg-white">
             <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF] [&::-webkit-details-marker]:hidden">
               <span className="text-sm font-bold text-[#0F172A]">Show additional information</span>
@@ -13847,7 +13878,6 @@ function AddPrayerPartnerSheet({
               <DosFormField label="Church">
                 <input className={FieldInputClass()} name="church" placeholder="Church / community" />
               </DosFormField>
-              <PrayerPartnerSelectField label="How They Joined" name="how_heard" options={prayerPartnerHowHeardOptions} />
               <DosFormField label="Notes">
                 <VoiceTextarea className={`${FieldTextareaClass()} min-h-24`} name="notes" placeholder="What do they help cover?" />
               </DosFormField>
@@ -14152,11 +14182,13 @@ function PrayerRequestDetailSheet({
 }
 
 function PrayerPartnerDetailSheet({
+  householdMembers,
   onClose,
   onDeletePartner,
   onSavePartner,
   partner,
 }: {
+  householdMembers: DosAppHouseholdMember[];
   onClose: () => void;
   onDeletePartner?: (partner: LocalPrayerPartner) => Promise<unknown> | unknown;
   onSavePartner: (partner: LocalPrayerPartner, patch: DosPrayerPartnerPatch) => Promise<LocalPrayerPartner> | LocalPrayerPartner;
@@ -14169,15 +14201,15 @@ function PrayerPartnerDetailSheet({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState(partner.name);
   const [email, setEmail] = useState(partner.email ?? "");
+  const [howHeard, setHowHeard] = useState(partner.howHeard || "other");
   const [phone, setPhone] = useState(partner.phone ?? "");
-  const [relationship, setRelationship] = useState(partner.howHeard || partner.relationship || prayerPartnerHowHeardOptions[0].value);
   const [notes, setNotes] = useState(partner.notes ?? "");
+  const [prayerTeam, setPrayerTeam] = useState(partner.prayerTeam || prayerPartnerDefaultTeamOption.value);
+  const [relationshipContext, setRelationshipContext] = useState<RelationshipContextValue>(partner.relationshipContext);
   const [successMessage, setSuccessMessage] = useState("");
   const [status, setStatus] = useState(normalizePrayerPartnerStatus(partner.status));
   const canSave = name.trim() && email.trim();
-  const relationshipOptions = prayerPartnerHowHeardOptions.some((option) => option.value === relationship)
-    ? prayerPartnerHowHeardOptions
-    : [{ label: relationship, value: relationship }, ...prayerPartnerHowHeardOptions];
+  const teamOptions = prayerPartnerTeamOptions(householdMembers);
 
   async function savePartner(nextStatus = status, closeAfterSave = false) {
     if (!canSave) {
@@ -14192,10 +14224,12 @@ function PrayerPartnerDetailSheet({
     try {
       const savedPartner = await onSavePartner(partner, {
         email: email.trim(),
+        howHeard,
         name: name.trim(),
         notes: notes.trim(),
         phone: phone.trim(),
-        relationship,
+        prayerTeam,
+        relationshipContext,
         status: nextStatus,
       });
 
@@ -14249,7 +14283,7 @@ function PrayerPartnerDetailSheet({
         event.preventDefault();
         void savePartner();
       }}>
-        <DosFormSection icon="people" title="Partner">
+        <DosFormSection icon="people" title="Person">
           <DosFormGrid>
             <DosFormField label="Name">
               <input className={FieldInputClass()} onChange={(event) => setName(event.target.value)} required type="text" value={name} />
@@ -14263,29 +14297,42 @@ function PrayerPartnerDetailSheet({
               <input className={FieldInputClass()} inputMode="tel" onChange={(event) => setPhone(event.target.value)} type="tel" value={phone} />
             </DosFormField>
             <PrayerPartnerSelectField
-              defaultValue={relationship}
-              label="How They Joined"
-              name="relationship"
-              onChange={setRelationship}
-              options={relationshipOptions}
+              defaultValue={relationshipContext}
+              label="Relationship Context"
+              name="relationship_context"
+              onChange={(value) => setRelationshipContext(normalizePrayerPartnerRelationshipContext(value))}
+              options={prayerPartnerRelationshipContextOptions}
             />
           </DosFormGrid>
+        </DosFormSection>
+        <DosFormSection icon="settings" title="Prayer Partner">
+          <DosFormGrid>
+            <PrayerPartnerSelectField
+              defaultValue={prayerTeam}
+              label="Prayer Team"
+              name="prayer_team"
+              onChange={setPrayerTeam}
+              options={teamOptions}
+            />
+            <PrayerPartnerSelectField
+              defaultValue={howHeard}
+              label="How They Joined"
+              name="how_heard"
+              onChange={setHowHeard}
+              options={prayerPartnerHowHeardOptions}
+            />
+          </DosFormGrid>
+          <PrayerPartnerSelectField
+            defaultValue={status}
+            label="Status"
+            name="status"
+            onChange={setStatus}
+            options={prayerPartnerStatusOptions}
+          />
           <DosFormField label="Notes">
             <VoiceTextarea className={`${FieldTextareaClass()} min-h-28`} onChange={(event) => setNotes(event.target.value)} value={notes} />
           </DosFormField>
           <p className="text-xs font-semibold text-[#64748B]">Last updated {partner.lastContacted}</p>
-        </DosFormSection>
-        <DosFormSection icon="settings" title="Status">
-          <PrayerPartnerSelectField
-            defaultValue={status}
-            label="Partner Status"
-            name="status"
-            onChange={setStatus}
-            options={prayerPartnerStatusOptions.map((option) => ({
-              label: option.label,
-              value: normalizePrayerPartnerStatus(option.value),
-            }))}
-          />
         </DosFormSection>
         {successMessage ? (
           <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>
@@ -14293,52 +14340,54 @@ function PrayerPartnerDetailSheet({
         {errorMessage ? (
           <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
         ) : null}
-        <div className="grid gap-2">
-          <AppButton disabled={!canSave || isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Partner"}</AppButton>
-          <AppButton disabled={isSubmitting} onClick={archivePartner} tone="white">{isConfirmingArchive ? "Confirm Archive" : "Archive Partner"}</AppButton>
-          {onDeletePartner ? (
-            isConfirmingDelete ? (
-              <div className="grid gap-3 rounded-2xl border border-red-200 bg-red-50 p-3">
-                <p className="text-sm font-semibold leading-6 text-red-800">
-                  Permanently delete this prayer partner? This should only be used for duplicates, spam, or test records. This cannot be undone.
-                </p>
-                <div className="grid gap-2 min-[420px]:grid-cols-2">
-                  <button
-                    className="min-h-11 rounded-2xl border border-red-700 bg-red-700 px-4 py-2 text-sm font-black text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isDeleting || isSubmitting}
-                    onClick={() => void deletePartner()}
-                    type="button"
-                  >
-                    {isDeleting ? "Deleting..." : "Confirm Delete"}
-                  </button>
-                  <button
-                    className="min-h-11 rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isDeleting}
-                    onClick={() => setIsConfirmingDelete(false)}
-                    type="button"
-                  >
-                    Cancel
-                  </button>
+        <DosFormSection icon="settings" title="Actions">
+          <div className="grid gap-2">
+            <AppButton disabled={!canSave || isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Partner"}</AppButton>
+            <AppButton disabled={isSubmitting} onClick={archivePartner} tone="white">{isConfirmingArchive ? "Confirm Archive" : "Archive Partner"}</AppButton>
+            {onDeletePartner ? (
+              isConfirmingDelete ? (
+                <div className="grid gap-3 rounded-2xl border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm font-semibold leading-6 text-red-800">
+                    Permanently delete this prayer partner? This should only be used for duplicates, spam, or test records. This cannot be undone.
+                  </p>
+                  <div className="grid gap-2 min-[420px]:grid-cols-2">
+                    <button
+                      className="min-h-11 rounded-2xl border border-red-700 bg-red-700 px-4 py-2 text-sm font-black text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isDeleting || isSubmitting}
+                      onClick={() => void deletePartner()}
+                      type="button"
+                    >
+                      {isDeleting ? "Deleting..." : "Confirm Delete"}
+                    </button>
+                    <button
+                      className="min-h-11 rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isDeleting}
+                      onClick={() => setIsConfirmingDelete(false)}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <button
-                className="min-h-11 w-full rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isDeleting || isSubmitting}
-                onClick={() => {
-                  setIsConfirmingDelete(true);
-                  setIsConfirmingArchive(false);
-                  setErrorMessage("");
-                  setSuccessMessage("");
-                }}
-                type="button"
-              >
-                Delete Partner
-              </button>
-            )
-          ) : null}
-          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Close</AppButton>
-        </div>
+              ) : (
+                <button
+                  className="min-h-11 w-full rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isDeleting || isSubmitting}
+                  onClick={() => {
+                    setIsConfirmingDelete(true);
+                    setIsConfirmingArchive(false);
+                    setErrorMessage("");
+                    setSuccessMessage("");
+                  }}
+                  type="button"
+                >
+                  Delete Partner
+                </button>
+              )
+            ) : null}
+            <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Close</AppButton>
+          </div>
+        </DosFormSection>
       </form>
     </Sheet>
   );
@@ -14599,6 +14648,7 @@ function MobilePrayerPanel({
 }
 
 function MobilePrayerWorkspace({
+  householdMembers,
   localPrayerPartners,
   onOpenPrayerPartner,
   onOpenPrayerDetail,
@@ -14612,6 +14662,7 @@ function MobilePrayerWorkspace({
   tab,
   onTabChange,
 }: {
+  householdMembers: DosAppHouseholdMember[];
   localPrayerPartners: LocalPrayerPartner[];
   onOpenPrayerDetail: (detail: PrayerDetail) => void;
   onOpenPrayerPartner: (partner: LocalPrayerPartner) => void;
@@ -14666,7 +14717,15 @@ function MobilePrayerWorkspace({
   ));
   const visiblePrayerPartners = prayerPartnerRows.filter((partner) => (
     normalizePrayerPartnerStatus(partner.status) !== "archived"
-    && matchesPrayerSearch(partner.name, partner.relationship, partner.status, partner.lastContacted, partner.notes)
+    && matchesPrayerSearch(
+      partner.name,
+      partner.relationship,
+      prayerPartnerTeamLabel(partner.prayerTeam, householdMembers),
+      prayerPartnerHowJoinedLabel(partner.howHeard),
+      partner.status,
+      partner.lastContacted,
+      partner.notes,
+    )
   ));
 
   return (
@@ -14772,10 +14831,10 @@ function MobilePrayerWorkspace({
                 onClick={() => onOpenPrayerPartner(partner)}
                 type="button"
               >
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-black text-[#0F172A]">{partner.name}</span>
-                  <span className="mt-0.5 block truncate text-xs text-[#64748B]">{partner.relationship}</span>
-                </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#0F172A]">{partner.name}</span>
+                    <span className="mt-0.5 block truncate text-xs text-[#64748B]">{partner.relationship} · {prayerPartnerTeamLabel(partner.prayerTeam, householdMembers)}</span>
+                  </span>
                 <DesktopPrayerStatusPill>{partner.status}</DesktopPrayerStatusPill>
                 <span className="truncate text-xs font-bold text-[#475569]">{partner.lastContacted}</span>
               </button>
@@ -14885,7 +14944,15 @@ function DesktopPrayerWorkspace({
   const prayerRequestRows = mergedPrayerRequests.map(mapDosPrayerRequestToLocal);
   const visiblePrayerPartners = prayerPartnerRows.filter((partner) => (
     normalizePrayerPartnerStatus(partner.status) !== "archived"
-    && matchesPrayerSearch(partner.name, partner.relationship, partner.status, partner.lastContacted, partner.notes)
+    && matchesPrayerSearch(
+      partner.name,
+      partner.relationship,
+      prayerPartnerTeamLabel(partner.prayerTeam, householdMembers),
+      prayerPartnerHowJoinedLabel(partner.howHeard),
+      partner.status,
+      partner.lastContacted,
+      partner.notes,
+    )
   ));
   const visiblePrayerRequests = prayerRequestRows.filter((request) => (
     request.view === prayerRequestView
@@ -15070,26 +15137,25 @@ function DesktopPrayerWorkspace({
           <div className="mb-3 max-w-xl">
             <PrayerTeamCountVisibilityToggle checked={showPrayerTeamCount} onChange={onUpdatePrayerTeamCountVisibility} />
           </div>
-          <DesktopPrayerTable
-            columns={["Name", "Relationship", "Status", "Last Contacted", "Notes", "Action"]}
-            gridTemplateColumns="minmax(190px,1.1fr) 150px 116px 150px minmax(260px,1fr) 110px"
-            minWidth={920}
-          >
-            {visiblePrayerPartners.map((partner) => (
-              <DesktopPrayerTableButtonRow
-                ariaLabel={`Open prayer partner ${partner.name}`}
-                gridTemplateColumns="minmax(190px,1.1fr) 150px 116px 150px minmax(260px,1fr) 110px"
-                key={`${partner.name}-${partner.relationship}`}
-                onClick={() => setSelectedPrayerPartner(partner)}
-              >
-                <span className="truncate text-sm font-black text-[#0F172A]">{partner.name}</span>
-                <span className="truncate font-semibold text-[#475569]">{partner.relationship}</span>
-                <DesktopPrayerStatusPill>{partner.status}</DesktopPrayerStatusPill>
-                <span className="truncate font-semibold text-[#475569]">{partner.lastContacted}</span>
-                <span className="truncate leading-5 text-[#64748B]">{prayerPartnerRowNotes(partner)}</span>
-                <span className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#1D4ED8]">View</span>
-              </DesktopPrayerTableButtonRow>
-            ))}
+            <DesktopPrayerTable
+              columns={["Name", "Relationship Context", "Prayer Team", "Status", "Last Contacted"]}
+              gridTemplateColumns="minmax(130px,1fr) minmax(120px,0.8fr) minmax(120px,0.8fr) 96px 110px"
+              minWidth={0}
+            >
+              {visiblePrayerPartners.map((partner) => (
+                <DesktopPrayerTableButtonRow
+                  ariaLabel={`Open prayer partner ${partner.name}`}
+                  gridTemplateColumns="minmax(130px,1fr) minmax(120px,0.8fr) minmax(120px,0.8fr) 96px 110px"
+                  key={partner.id}
+                  onClick={() => setSelectedPrayerPartner(partner)}
+                >
+                  <span className="truncate text-sm font-black text-[#0F172A]">{partner.name}</span>
+                  <span className="truncate font-semibold text-[#475569]">{partner.relationship}</span>
+                  <span className="truncate font-semibold text-[#475569]">{prayerPartnerTeamLabel(partner.prayerTeam, householdMembers)}</span>
+                  <DesktopPrayerStatusPill>{partner.status}</DesktopPrayerStatusPill>
+                  <span className="truncate font-semibold text-[#475569]">{partner.lastContacted}</span>
+                </DesktopPrayerTableButtonRow>
+              ))}
           </DesktopPrayerTable>
         </DesktopPanel>
       ) : null}
@@ -15203,9 +15269,10 @@ function DesktopPrayerWorkspace({
           }}
         />
       ) : null}
-      {isAddPrayerPartnerOpen ? (
-        <AddPrayerPartnerSheet
-          onClose={() => setIsAddPrayerPartnerOpen(false)}
+        {isAddPrayerPartnerOpen ? (
+          <AddPrayerPartnerSheet
+            householdMembers={householdMembers}
+            onClose={() => setIsAddPrayerPartnerOpen(false)}
           onSubmit={async (partnerPatch) => {
             const savedPartner = await onCreatePrayerPartner(partnerPatch);
             setLocalPrayerPartners((current) => upsertById(current, savedPartner));
@@ -15242,9 +15309,10 @@ function DesktopPrayerWorkspace({
           request={selectedPrayerRequest}
         />
       ) : null}
-      {selectedPrayerPartner ? (
-        <PrayerPartnerDetailSheet
-          onClose={() => setSelectedPrayerPartner(null)}
+        {selectedPrayerPartner ? (
+          <PrayerPartnerDetailSheet
+            householdMembers={householdMembers}
+            onClose={() => setSelectedPrayerPartner(null)}
           onDeletePartner={deletePrayerPartnerFromWorkspace}
           onSavePartner={savePrayerPartner}
           partner={selectedPrayerPartner}
@@ -21937,8 +22005,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       placeholder="Search by person, request, or meeting"
                       query={prayerQuery}
                     />
-                    <MobilePrayerWorkspace
-                      localPrayerPartners={visibleMobilePrayerPartners}
+                      <MobilePrayerWorkspace
+                        householdMembers={data.householdMembers}
+                        localPrayerPartners={visibleMobilePrayerPartners}
                       onOpenPrayerDetail={setSelectedMobilePrayerDetail}
                       onOpenPrayerPartner={setSelectedMobilePrayerPartner}
                       onOpenPrayerRequest={setSelectedMobilePrayerRequest}
@@ -22546,9 +22615,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
 
-        {isMobileAddPrayerPartnerOpen ? (
-          <AddPrayerPartnerSheet
-            onClose={() => setIsMobileAddPrayerPartnerOpen(false)}
+          {isMobileAddPrayerPartnerOpen ? (
+            <AddPrayerPartnerSheet
+              householdMembers={data.householdMembers}
+              onClose={() => setIsMobileAddPrayerPartnerOpen(false)}
             onSubmit={async (partnerPatch) => {
               const savedPartner = await createPrayerPartner(partnerPatch);
               setMobilePrayerPartners((current) => upsertById(current, savedPartner));
@@ -22589,9 +22659,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
 
-        {selectedMobilePrayerPartner ? (
-          <PrayerPartnerDetailSheet
-            onClose={() => setSelectedMobilePrayerPartner(null)}
+          {selectedMobilePrayerPartner ? (
+            <PrayerPartnerDetailSheet
+              householdMembers={data.householdMembers}
+              onClose={() => setSelectedMobilePrayerPartner(null)}
             onDeletePartner={deleteMobilePrayerPartner}
             onSavePartner={saveMobilePrayerPartner}
             partner={selectedMobilePrayerPartner}

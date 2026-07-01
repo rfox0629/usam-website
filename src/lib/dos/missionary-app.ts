@@ -285,7 +285,9 @@ export type DosAppPrayerPartner = {
   name: string;
   notes: string | null;
   phone: string | null;
+  prayerTeam: string;
   region: string | null;
+  relationshipContext: RelationshipContextValue;
   source: string;
   state: string | null;
   status: string;
@@ -600,6 +602,7 @@ type PrayerPartnerRow = {
   last_name: string | null;
   name: string | null;
   phone: string | null;
+  prayer_team?: string | null;
   region: string | null;
   source: string | null;
   state: string | null;
@@ -1589,7 +1592,7 @@ async function loadPrayerLogsForWorkspace(supabase: SupabaseAdminClient, workspa
 async function loadPrayerPartnersForWorkspace(supabase: SupabaseAdminClient, workspace: Pick<HouseholdRow, "id" | "slug">) {
   const result = await supabase
     .from("prayer_partners")
-    .select("id, field_person_id, name, first_name, last_name, email, phone, city, state, region, how_heard, source, status, internal_notes, date_joined, approved_at, created_at, updated_at")
+    .select("id, field_person_id, name, first_name, last_name, email, phone, city, state, region, how_heard, prayer_team, source, status, internal_notes, date_joined, approved_at, created_at, updated_at")
     .or(prayerPartnerScopeFilter(workspace.id, workspace.slug))
     .order("created_at", { ascending: false })
     .limit(80);
@@ -2382,25 +2385,36 @@ export async function loadDosAppData(
     workspaceId: log.workspace_id,
   }));
   const prayerPartners = prayerPartnerRows.map((partner) => {
-    const composedName = cleanOptionalText(partner.name)
+    const linkedPerson = partner.field_person_id ? rawPeopleById.get(partner.field_person_id) ?? null : null;
+    const composedName = cleanOptionalText(linkedPerson?.name)
+      ?? cleanOptionalText(partner.name)
       ?? cleanOptionalText([partner.first_name, partner.last_name].filter(Boolean).join(" "))
+      ?? linkedPerson?.email
       ?? partner.email
       ?? "Prayer Partner";
+    const linkedRelationshipModel = relationshipModelFromFields({
+      relationshipContext: linkedPerson?.relationship_context,
+      relationshipType: linkedPerson?.relationship_type,
+      roleInMyLife: linkedPerson?.role_in_my_life,
+      status: linkedPerson?.status,
+    });
 
     return {
       city: partner.city,
-      email: partner.email,
+      email: linkedPerson?.email ?? partner.email,
       fieldPersonId: partner.field_person_id ?? null,
       howHeard: partner.how_heard,
       id: partner.id,
       joinedAt: partner.date_joined ?? partner.created_at,
       name: composedName,
       notes: partner.internal_notes,
-      phone: partner.phone,
+      phone: linkedPerson?.phone ?? partner.phone,
+      prayerTeam: partner.prayer_team ?? "household_family",
       region: partner.region,
+      relationshipContext: linkedRelationshipModel.relationshipContext,
       source: partner.source ?? "public_profile",
       state: partner.state,
-      status: partner.status ?? "pending",
+      status: partner.status === "inactive" ? "paused" : partner.status ?? "pending",
       updatedAt: partner.updated_at,
     };
   });
