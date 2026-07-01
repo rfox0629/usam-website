@@ -18137,6 +18137,100 @@ function MeetingDetailOverlay({
     : storyRequestSent
       ? "Awaiting response."
       : "Invite them to share how God worked in their life through this conversation.";
+  const tableSummaryCard = (
+    <DetailCard title="Table Summary">
+      <DetailRow
+        icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+        label={isScheduledMeeting ? "Scheduled" : "Date"}
+        value={isScheduledMeeting ? formatMeetingTimeRange(meeting) : formatDate(meeting.date)}
+      />
+      <DetailRow
+        icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+        label="Type"
+        value={meetingActivityTitle(meeting)}
+      />
+      <DetailRow
+        icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+        label="Status"
+        value={isScheduledMeeting ? "Scheduled" : conversationFlowLabel(meeting.conversationFlowKey)}
+      />
+      {meeting.googleSyncEnabled ? (
+        <DetailRow
+          icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+          label="Google Calendar"
+          value={meeting.googleSyncStatus === "synced" ? "Synced" : meeting.googleSyncStatus === "failed" ? "Failed" : "Pending"}
+        />
+      ) : null}
+    </DetailCard>
+  );
+  const quickReviewCard = isLoggedTableMeeting ? (
+    <DetailCard title="Quick Review">
+      <div>
+        <p className="text-sm font-semibold text-[#0F172A]">{reviewDisplayTitle}</p>
+        <p className="mt-1 text-xs leading-5 text-[#64748B]">{reviewDisplayHelper}</p>
+      </div>
+      {meeting.review.status !== "not_sent" && meeting.review.sharePermission ? (
+        <span className="mt-3 inline-flex rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+          {reviewSharePermissionLabel(meeting.review.sharePermission)}
+        </span>
+      ) : null}
+      {meeting.review.stoodOut ? (
+        <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
+      ) : null}
+      {meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
+        <div className="mt-3">
+          <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
+            Send Quick Review
+          </ReviewActionButton>
+        </div>
+      ) : null}
+      {reviewShareMessage ? (
+        <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p>
+      ) : null}
+    </DetailCard>
+  ) : null;
+  const testimonyRequestCard = isLoggedTableMeeting && canSendTestimony ? (
+    <DetailCard title="Testimony Request">
+      <div>
+        <p className="text-sm font-semibold text-[#0F172A]">{storyDisplayTitle}</p>
+        <p className="mt-1 text-xs leading-5 text-[#64748B]">{storyDisplayHelper}</p>
+      </div>
+      {!storyIsCompleted && !hasTestimonyRequestLink ? (
+        <div className="mt-3">
+          <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
+            Send Testimony Request
+          </ReviewActionButton>
+        </div>
+      ) : null}
+      {testimonyShareMessage ? (
+        <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p>
+      ) : null}
+    </DetailCard>
+  ) : null;
+  const notesCard = (
+    <DetailCard title={isScheduledMeeting ? "Prep Notes" : "Table Notes"}>
+      {meeting.notes ? (
+        <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#0F172A]">
+          {meeting.notes}
+        </div>
+      ) : (
+        <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No table notes were added."}</p>
+      )}
+    </DetailCard>
+  );
+  const actionsCard = isTableMeeting ? (
+    <DetailCard title="Actions">
+      {isLoggedTableMeeting ? (
+        <ReviewActionButton icon={<Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onEdit}>
+          Edit Table
+        </ReviewActionButton>
+      ) : null}
+      <ReviewActionButton icon={<StickyNote className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onEditNotes}>
+        {meeting.notes ? "Edit Notes" : "Add Notes"}
+      </ReviewActionButton>
+    </DetailCard>
+  ) : null;
+  const hasSidebarContent = Boolean(quickReviewCard || testimonyRequestCard || actionsCard);
 
   if (showPostMeetingFollowUp && isLoggedTableMeeting) {
     return (
@@ -18218,179 +18312,129 @@ function MeetingDetailOverlay({
   }
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
-      <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-        </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-          {isScheduledMeeting ? "Scheduled" : "Table"}
-        </p>
-        {isLoggedTableMeeting ? (
-          <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-            Edit
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 sm:px-6 lg:px-8 [scrollbar-width:none]">
+      <div className="mx-auto w-full max-w-6xl">
+        <header className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
           </button>
-        ) : <span className="h-10 w-10" aria-hidden="true" />}
-      </header>
+          <p className="min-w-0 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            {isScheduledMeeting ? "Scheduled" : "Table"}
+          </p>
+          {isLoggedTableMeeting ? (
+            <button className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Edit
+            </button>
+          ) : <span className="h-10 w-10" aria-hidden="true" />}
+        </header>
 
-      <section className="mt-5 text-center">
-        {avatarNames.length ? (
-          <div className="mx-auto flex justify-center -space-x-2">
-            {avatarNames.map((name, index) => (
-              <span
-                className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-white text-sm font-bold ${avatarTone(index)}`}
-                key={`${meeting.id}-detail-${name}`}
-              >
-                {initials(name)}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
-            <CalendarDays className="h-6 w-6" aria-hidden="true" strokeWidth={1.6} />
-          </div>
-        )}
-        <h2 className="mx-auto mt-3 max-w-[320px] text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-          {title}
-        </h2>
-        <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
-        <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-            {isScheduledMeeting ? "Scheduled" : conversationFlowLabel(meeting.conversationFlowKey)}
-          </span>
-          {meeting.googleSyncEnabled ? (
-            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
-              {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
-            </span>
-          ) : null}
-          {temperature ? (
-            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
-              {temperature}
-            </span>
-          ) : null}
-        </div>
-      </section>
-
-      <div className="mt-5 grid gap-3">
-        <MeetingPeopleDetailCard meeting={meeting} people={people} />
-
-        {isLoggedTableMeeting ? (
-          <DetailCard title="Quick Review">
-            <div>
-              <p className="text-sm font-semibold text-[#0F172A]">{reviewDisplayTitle}</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">{reviewDisplayHelper}</p>
-            </div>
-            {meeting.review.status !== "not_sent" && meeting.review.sharePermission ? (
-              <span className="mt-3 inline-flex rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                {reviewSharePermissionLabel(meeting.review.sharePermission)}
-              </span>
-            ) : null}
-            {meeting.review.stoodOut ? (
-              <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
-            ) : null}
-            {meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
-              <div className="mt-3">
-                <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
-                  Send Quick Review
-                </ReviewActionButton>
-              </div>
-            ) : null}
-            {reviewShareMessage ? (
-              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p>
-            ) : null}
-          </DetailCard>
-        ) : null}
-
-        {isLoggedTableMeeting && canSendTestimony ? (
-          <DetailCard title="Testimony Request">
-            <div>
-              <p className="text-sm font-semibold text-[#0F172A]">{storyDisplayTitle}</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">{storyDisplayHelper}</p>
-            </div>
-            {!storyIsCompleted && !hasTestimonyRequestLink ? (
-              <div className="mt-3">
-              <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
-                Send Testimony Request
-              </ReviewActionButton>
-            </div>
-            ) : null}
-            {testimonyShareMessage ? (
-              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p>
-            ) : null}
-          </DetailCard>
-        ) : null}
-
-        <DetailCard title={isScheduledMeeting ? "Prep Notes" : "Table Notes"}>
-          {meeting.notes ? (
-            <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#0F172A]">
-              {meeting.notes}
+        <section className="mx-auto mt-6 max-w-xl text-center">
+          {avatarNames.length ? (
+            <div className="mx-auto flex justify-center -space-x-2">
+              {avatarNames.map((name, index) => (
+                <span
+                  className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-white text-sm font-bold ${avatarTone(index)}`}
+                  key={`${meeting.id}-detail-${name}`}
+                >
+                  {initials(name)}
+                </span>
+              ))}
             </div>
           ) : (
-            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No table notes were added."}</p>
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
+              <CalendarDays className="h-6 w-6" aria-hidden="true" strokeWidth={1.6} />
+            </div>
           )}
-          {isTableMeeting ? (
-            <button
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB]"
-              onClick={onEditNotes}
-              type="button"
-            >
-              <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-              {meeting.notes ? "Edit Notes" : "Add Notes"}
-            </button>
+          <h2 className="mx-auto mt-3 max-w-[420px] text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+            {title}
+          </h2>
+          <p className="mx-auto mt-2 max-w-[320px] text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
+              {isScheduledMeeting ? "Scheduled" : conversationFlowLabel(meeting.conversationFlowKey)}
+            </span>
+            {meeting.googleSyncEnabled ? (
+              <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+                {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
+              </span>
+            ) : null}
+            {temperature ? (
+              <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+                {temperature}
+              </span>
+            ) : null}
+          </div>
+        </section>
+
+        <div className={`mt-6 grid gap-4 ${hasSidebarContent ? "lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]" : ""} lg:items-start`}>
+          <div className="grid min-w-0 gap-3">
+            {tableSummaryCard}
+            <MeetingPeopleDetailCard meeting={meeting} people={people} />
+            {notesCard}
+          </div>
+
+          {hasSidebarContent ? (
+            <aside className="grid min-w-0 gap-3 lg:sticky lg:top-6">
+              {quickReviewCard}
+              {testimonyRequestCard}
+              {actionsCard}
+            </aside>
           ) : null}
-        </DetailCard>
 
-        {!isScheduledMeeting ? <ConversationFlowDetail meeting={meeting} /> : null}
+          <div className={`grid min-w-0 gap-3 ${hasSidebarContent ? "lg:col-start-1" : ""}`}>
+            {!isScheduledMeeting ? <ConversationFlowDetail meeting={meeting} /> : null}
 
-        {meetingReflections.length ? (
-        <DetailCard title="Leader Reflections">
-          {meetingReflections.length ? meetingReflections.map((reflection) => (
-            <LeaderReflectionRow key={reflection.id} reflection={reflection} />
-          )) : null}
-        </DetailCard>
-        ) : null}
+            {meetingReflections.length ? (
+              <DetailCard title="Leader Reflections">
+                {meetingReflections.map((reflection) => (
+                  <LeaderReflectionRow key={reflection.id} reflection={reflection} />
+                ))}
+              </DetailCard>
+            ) : null}
 
-        {meetingParticipantReviews.length ? (
-        <DetailCard title="Reviews">
-          {meetingParticipantReviews.length ? meetingParticipantReviews.map((review) => (
-            <ParticipantReviewRow key={review.id} review={review} />
-          )) : null}
-        </DetailCard>
-        ) : null}
+            {meetingParticipantReviews.length ? (
+              <DetailCard title="Reviews">
+                {meetingParticipantReviews.map((review) => (
+                  <ParticipantReviewRow key={review.id} review={review} />
+                ))}
+              </DetailCard>
+            ) : null}
 
-        {meetingTestimonies.length ? (
-        <DetailCard title="Testimonies">
-          {meetingTestimonies.length ? meetingTestimonies.map((testimony) => (
-            <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
-          )) : null}
-        </DetailCard>
-        ) : null}
+            {meetingTestimonies.length ? (
+              <DetailCard title="Testimonies">
+                {meetingTestimonies.map((testimony) => (
+                  <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
+                ))}
+              </DetailCard>
+            ) : null}
 
-        {meetingFruitEvents.length ? (
-        <DetailCard title="Fruit Feed">
-          {meetingFruitEvents.length ? meetingFruitEvents.map((event) => (
-            <FruitEventRow event={event} key={event.id} />
-          )) : null}
-        </DetailCard>
-        ) : null}
+            {meetingFruitEvents.length ? (
+              <DetailCard title="Fruit Feed">
+                {meetingFruitEvents.map((event) => (
+                  <FruitEventRow event={event} key={event.id} />
+                ))}
+              </DetailCard>
+            ) : null}
 
-        {meeting.recommendedResources.length ? (
-          <DetailCard title="Recommended Resources">
-            {/* TODO: Add SMS/email/share actions for queued resources after DOS messaging workflows exist. */}
-            {meeting.recommendedResources.map((resource) => (
-              <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={resource.id}>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#0F172A]">{resource.title}</p>
-                  {resource.reason ? <p className="mt-1 text-xs text-[#64748B]">{resource.reason}</p> : null}
-                </div>
-                <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                  Queued
-                </span>
-              </div>
-            ))}
-          </DetailCard>
-        ) : null}
+            {meeting.recommendedResources.length ? (
+              <DetailCard title="Recommended Resources">
+                {/* TODO: Add SMS/email/share actions for queued resources after DOS messaging workflows exist. */}
+                {meeting.recommendedResources.map((resource) => (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={resource.id}>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#0F172A]">{resource.title}</p>
+                      {resource.reason ? <p className="mt-1 text-xs text-[#64748B]">{resource.reason}</p> : null}
+                    </div>
+                    <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                      Queued
+                    </span>
+                  </div>
+                ))}
+              </DetailCard>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );
