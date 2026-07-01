@@ -20,6 +20,7 @@ type MeetingPayload = {
   conversationResponses?: unknown;
   fieldPersonIds?: unknown;
   id?: unknown;
+  location?: unknown;
   notes?: unknown;
   notesOnly?: unknown;
   googleSyncEnabled?: unknown;
@@ -38,13 +39,16 @@ type MeetingPayload = {
 };
 
 type ScopedPerson = {
+  email: string | null;
   id: string;
   name: string;
 };
 
 type ScopedTeamMember = {
   display_name: string;
+  dos_user_id?: string | null;
   id: string;
+  invite_email?: string | null;
 };
 
 type SupportingSubRole = "child_present" | "contributor" | "learning" | "observer" | "support";
@@ -89,6 +93,10 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function isEmailLike(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function asStringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
@@ -97,6 +105,14 @@ function asStringArray(value: unknown) {
 
 function uniqueStringArray(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function uniqueEmailArray(values: Array<string | null | undefined>) {
+  return uniqueStringArray(
+    values
+      .map((value) => value?.trim().toLowerCase() ?? "")
+      .filter((value) => value && isEmailLike(value)),
+  );
 }
 
 function asSupportingSubRole(value: unknown): SupportingSubRole | null {
@@ -169,6 +185,17 @@ function isMissingSchedulingColumn(error: { message?: string } | null | undefine
   return ["meeting_status", "scheduled_start_at", "scheduled_end_at", "timezone", "google_sync_enabled"].some((column) => message.includes(column));
 }
 
+function isMissingLocationColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return message.includes("location") && (
+    message.includes("does not exist")
+    || message.includes("schema cache")
+    || message.includes("could not find")
+    || message.includes("column")
+  );
+}
+
 function isMissingRecorderColumn(error: { message?: string } | null | undefined) {
   const message = error?.message?.toLowerCase() ?? "";
 
@@ -213,23 +240,36 @@ function calendarDeleteWarning(status: "deleted" | "failed" | "needs_reconnect" 
 function meetingRecordCandidates(record: Record<string, unknown>) {
   const schedulingKeys = ["meeting_status", "scheduled_start_at", "scheduled_end_at", "timezone", "google_sync_enabled"];
   const recorderKeys = ["recorded_by_user_id", "recorded_by_display_name"];
+  const locationKeys = ["location"];
   const { workspace_id: _workspaceId, ...legacyRecord } = record;
+  const withoutLocation = Object.fromEntries(Object.entries(record).filter(([key]) => !locationKeys.includes(key)));
   const withoutScheduling = Object.fromEntries(Object.entries(record).filter(([key]) => !schedulingKeys.includes(key)));
+  const withoutSchedulingAndLocation = Object.fromEntries(Object.entries(withoutScheduling).filter(([key]) => !locationKeys.includes(key)));
   const withoutRecorder = Object.fromEntries(Object.entries(record).filter(([key]) => !recorderKeys.includes(key)));
   const withoutSchedulingAndRecorder = Object.fromEntries(Object.entries(withoutScheduling).filter(([key]) => !recorderKeys.includes(key)));
+  const withoutSchedulingRecorderAndLocation = Object.fromEntries(Object.entries(withoutSchedulingAndRecorder).filter(([key]) => !locationKeys.includes(key)));
+  const legacyWithoutLocation = Object.fromEntries(Object.entries(legacyRecord).filter(([key]) => !locationKeys.includes(key)));
   const legacyWithoutScheduling = Object.fromEntries(Object.entries(legacyRecord).filter(([key]) => !schedulingKeys.includes(key)));
+  const legacyWithoutSchedulingAndLocation = Object.fromEntries(Object.entries(legacyWithoutScheduling).filter(([key]) => !locationKeys.includes(key)));
   const legacyWithoutRecorder = Object.fromEntries(Object.entries(legacyRecord).filter(([key]) => !recorderKeys.includes(key)));
   const legacyWithoutSchedulingAndRecorder = Object.fromEntries(Object.entries(legacyWithoutScheduling).filter(([key]) => !recorderKeys.includes(key)));
+  const legacyWithoutSchedulingRecorderAndLocation = Object.fromEntries(Object.entries(legacyWithoutSchedulingAndRecorder).filter(([key]) => !locationKeys.includes(key)));
 
   return [
     record,
+    withoutLocation,
     withoutScheduling,
+    withoutSchedulingAndLocation,
     withoutRecorder,
     withoutSchedulingAndRecorder,
+    withoutSchedulingRecorderAndLocation,
     legacyRecord,
+    legacyWithoutLocation,
     legacyWithoutScheduling,
+    legacyWithoutSchedulingAndLocation,
     legacyWithoutRecorder,
     legacyWithoutSchedulingAndRecorder,
+    legacyWithoutSchedulingRecorderAndLocation,
   ];
 }
 
@@ -274,13 +314,13 @@ async function loadScopedPeople(
 
   const scopedPeopleResult = await supabase
     .from("missionary_field_people")
-    .select("id, name")
+    .select("id, name, email")
     .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
     .in("id", ids);
   const result = scopedPeopleResult.error && isMissingWorkspaceScopeColumn(scopedPeopleResult.error)
     ? await supabase
       .from("missionary_field_people")
-      .select("id, name")
+      .select("id, name, email")
       .eq("household_id", workspaceId)
       .in("id", ids)
     : scopedPeopleResult;
@@ -302,16 +342,55 @@ async function loadScopedTeamMembers(
     return { data: [] as ScopedTeamMember[], error: null };
   }
 
-  const result = await supabase
+  const scopedTeamResult = await supabase
     .from("missionary_team_members")
-    .select("id, display_name")
+    .select("id, display_name, invite_email, dos_user_id")
     .eq("household_id", workspaceId)
     .in("id", ids);
+  const result = scopedTeamResult.error && ["invite_email", "dos_user_id"].some((column) => scopedTeamResult.error.message.toLowerCase().includes(column))
+    ? await supabase
+      .from("missionary_team_members")
+      .select("id, display_name")
+      .eq("household_id", workspaceId)
+      .in("id", ids)
+    : scopedTeamResult;
 
   return {
     data: (result.data ?? []) as ScopedTeamMember[],
     error: result.error,
   };
+}
+
+async function loadConnectedCalendarEmailsForUsers(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  workspaceId: string,
+  userIds: string[],
+) {
+  const ids = uniqueStringArray(userIds).filter(isUuid);
+
+  if (!ids.length) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("connected_calendars")
+    .select("google_account_email")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .is("disconnected_at", null)
+    .in("user_id", ids);
+
+  if (error) {
+    const message = error.message.toLowerCase();
+
+    if (message.includes("connected_calendars") || message.includes("schema cache")) {
+      return [];
+    }
+
+    throw new Error(error.message);
+  }
+
+  return uniqueEmailArray((data ?? []).map((row) => row.google_account_email as string | null | undefined));
 }
 
 function orderedPeople(ids: string[], peopleById: Map<string, ScopedPerson>) {
@@ -537,6 +616,8 @@ async function syncMinistryEvent(input: MinistryEventSyncInput) {
 }
 
 async function syncMeetingCalendarEvent({
+  attendeeEmails,
+  location,
   meetingId,
   notes,
   participantNames,
@@ -547,6 +628,8 @@ async function syncMeetingCalendarEvent({
   timezone,
   workspaceId,
 }: {
+  attendeeEmails: string[];
+  location: string | null;
   meetingId: string;
   notes: string | null;
   participantNames: string[];
@@ -572,8 +655,10 @@ async function syncMeetingCalendarEvent({
   const defaultEnd = new Date(start.getTime() + 60 * 60 * 1000).toISOString();
 
   await syncGoogleCalendarEvent({
+    attendeeEmails,
     description: meetingDescriptionForCalendar(notes),
     endAt: scheduledEndAt ?? defaultEnd,
+    location,
     reminderMinutes: [60],
     sourceId: meetingId,
     sourceType: "meeting",
@@ -722,6 +807,21 @@ export async function POST(request: Request) {
   const participantNames = validPeople.map((person) => person.name);
   const ministryTeamMembers = orderedTeamMembers(ministryTeamMemberIds, teamMembersById);
   const ministryTeamPeople = orderedPeople(ministryTeamPersonIds, peopleById);
+  const connectedTeamCalendarEmails = await loadConnectedCalendarEmailsForUsers(
+    supabase,
+    workspaceId,
+    ministryTeamMembers.map((member) => member.dos_user_id ?? ""),
+  ).catch((calendarEmailError) => {
+    console.warn("[DOS Calendar] Unable to load selected team calendar emails", calendarEmailError);
+
+    return [] as string[];
+  });
+  const attendeeEmails = uniqueEmailArray([
+    ...validPeople.map((person) => person.email),
+    ...ministryTeamPeople.map((person) => person.email),
+    ...ministryTeamMembers.map((member) => member.invite_email),
+    ...connectedTeamCalendarEmails,
+  ]);
   const supportingAttendees = supportingAttendeeInputs
     .map((attendee) => {
       const person = peopleById.get(attendee.personId);
@@ -737,6 +837,7 @@ export async function POST(request: Request) {
   const tableType = asMeetingType(payload.tableType);
   const timezone = asString(payload.timezone) || null;
   const googleSyncEnabled = payload.googleSyncEnabled === true;
+  const location = asString(payload.location) || null;
   const notes = asString(payload.notes) || null;
   const requiresSchedulingColumns = meetingStatus === "scheduled" || Boolean(scheduledStartAt || scheduledEndAt || timezone || googleSyncEnabled);
   const meetingInsert: Record<string, unknown> = {
@@ -745,6 +846,7 @@ export async function POST(request: Request) {
     field_person_ids: validPersonIds,
     google_sync_enabled: googleSyncEnabled,
     household_id: workspaceId,
+    location,
     meeting_status: meetingStatus,
     notes,
     participant_names: participantNames,
@@ -770,6 +872,10 @@ export async function POST(request: Request) {
 
     if (insertResult.error && requiresSchedulingColumns && isMissingSchedulingColumn(insertResult.error)) {
       break;
+    }
+
+    if (insertResult.error && isMissingLocationColumn(insertResult.error)) {
+      continue;
     }
 
     if (!insertResult.error || (!isMissingWorkspaceScopeColumn(insertResult.error) && !isMissingSchedulingColumn(insertResult.error) && !isMissingRecorderColumn(insertResult.error))) {
@@ -825,6 +931,8 @@ export async function POST(request: Request) {
   if (data?.id && googleSyncEnabled && meetingStatus === "scheduled") {
     await syncMeetingCalendarEvent({
       meetingId: String(data.id),
+      attendeeEmails,
+      location,
       notes,
       participantNames,
       scheduledEndAt,
@@ -950,6 +1058,21 @@ export async function PATCH(request: Request) {
   const participantNames = validPeople.map((person) => person.name);
   const ministryTeamMembers = orderedTeamMembers(ministryTeamMemberIds, teamMembersById);
   const ministryTeamPeople = orderedPeople(ministryTeamPersonIds, peopleById);
+  const connectedTeamCalendarEmails = await loadConnectedCalendarEmailsForUsers(
+    supabase,
+    workspaceId,
+    ministryTeamMembers.map((member) => member.dos_user_id ?? ""),
+  ).catch((calendarEmailError) => {
+    console.warn("[DOS Calendar] Unable to load selected team calendar emails", calendarEmailError);
+
+    return [] as string[];
+  });
+  const attendeeEmails = uniqueEmailArray([
+    ...validPeople.map((person) => person.email),
+    ...ministryTeamPeople.map((person) => person.email),
+    ...ministryTeamMembers.map((member) => member.invite_email),
+    ...connectedTeamCalendarEmails,
+  ]);
   const supportingAttendees = supportingAttendeeInputs
     .map((attendee) => {
       const person = peopleById.get(attendee.personId);
@@ -964,6 +1087,7 @@ export async function PATCH(request: Request) {
   const tableType = asMeetingType(payload.tableType);
   const timezone = asString(payload.timezone) || null;
   const googleSyncEnabled = payload.googleSyncEnabled === true;
+  const location = asString(payload.location) || null;
   const notes = asString(payload.notes) || null;
   const requiresSchedulingColumns = meetingStatus === "scheduled" || Boolean(scheduledStartAt || scheduledEndAt || timezone || googleSyncEnabled);
   const meetingUpdate: Record<string, unknown> = {
@@ -971,6 +1095,7 @@ export async function PATCH(request: Request) {
     conversation_responses: conversationResponses,
     field_person_ids: validPersonIds,
     google_sync_enabled: googleSyncEnabled,
+    location,
     meeting_status: meetingStatus,
     notes,
     participant_names: participantNames,
@@ -1004,6 +1129,10 @@ export async function PATCH(request: Request) {
 
     if (updateResult.error && requiresSchedulingColumns && isMissingSchedulingColumn(updateResult.error)) {
       break;
+    }
+
+    if (updateResult.error && isMissingLocationColumn(updateResult.error)) {
+      continue;
     }
 
     if (!updateResult.error || (!isMissingWorkspaceScopeColumn(updateResult.error) && !isMissingSchedulingColumn(updateResult.error))) {
@@ -1059,6 +1188,8 @@ export async function PATCH(request: Request) {
   if (data?.id && googleSyncEnabled && meetingStatus === "scheduled") {
     await syncMeetingCalendarEvent({
       meetingId: String(data.id),
+      attendeeEmails,
+      location,
       notes,
       participantNames,
       scheduledEndAt,

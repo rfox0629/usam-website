@@ -82,6 +82,8 @@ Required environment variables:
 
 Use `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.calendarlist.readonly` for the Calendar read/import scope set. `GOOGLE_REDIRECT_URI` should point to `/api/dos/app/calendar/google/callback` on the active local, preview, or production origin being tested.
 
+Schedule Table place lookup uses the Google Places API (New) from the server. Add `GOOGLE_PLACES_API_KEY` with Places API enabled. `GOOGLE_MAPS_API_KEY` is accepted as a fallback name. Without either key, the Schedule Table location field remains a safe manual text field.
+
 ## Active Route Boundary
 
 - Canonical DOS entry route: `/dos`.

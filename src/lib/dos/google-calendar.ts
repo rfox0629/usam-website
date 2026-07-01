@@ -82,8 +82,10 @@ export type CalendarSyncSourceType = "important_date" | "meeting" | "reminder";
 
 export type DosCalendarEventInput = {
   allDay?: boolean;
+  attendeeEmails?: string[];
   description?: string | null;
   endAt?: string | null;
+  location?: string | null;
   reminderMinutes?: number[];
   recurrence?: "monthly" | "none" | "weekly" | "yearly";
   sourceId: string;
@@ -456,6 +458,10 @@ function googleEventBody(input: DosCalendarEventInput) {
   const recurrence = input.recurrence && input.recurrence !== "none"
     ? [`RRULE:FREQ=${input.recurrence.toUpperCase()}`]
     : undefined;
+  const attendees = input.attendeeEmails?.length
+    ? input.attendeeEmails.map((email) => ({ email }))
+    : undefined;
+  const location = input.location?.trim() || undefined;
   const reminders = input.reminderMinutes?.length
     ? {
       overrides: input.reminderMinutes.map((minutes) => ({
@@ -475,8 +481,10 @@ function googleEventBody(input: DosCalendarEventInput) {
     const endDate = input.endAt?.slice(0, 10) || fallbackEnd.toISOString().slice(0, 10);
 
     return {
+      attendees,
       description: input.description ?? undefined,
       end: { date: endDate },
+      location,
       recurrence,
       reminders,
       start: { date: startDate },
@@ -485,8 +493,10 @@ function googleEventBody(input: DosCalendarEventInput) {
   }
 
   return {
+    attendees,
     description: input.description ?? undefined,
     end: { dateTime: input.endAt ?? input.startAt, timeZone: input.timezone ?? undefined },
+    location,
     recurrence,
     reminders,
     start: { dateTime: input.startAt, timeZone: input.timezone ?? undefined },
@@ -1071,9 +1081,10 @@ export async function syncGoogleCalendarEvent(input: DosCalendarEventInput, supa
   const calendarId = existingLink?.calendar_id || connectedCalendar.calendar_id || "primary";
   const eventBody = googleEventBody(input);
   const encodedCalendarId = encodeURIComponent(calendarId);
+  const requestParams = input.attendeeEmails?.length ? "?sendUpdates=all" : "";
   const requestUrl = existingLink?.external_event_id
-    ? `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events/${encodeURIComponent(existingLink.external_event_id)}`
-    : `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events`;
+    ? `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events/${encodeURIComponent(existingLink.external_event_id)}${requestParams}`
+    : `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events${requestParams}`;
   const response = await fetch(requestUrl, {
     body: JSON.stringify(eventBody),
     headers: {

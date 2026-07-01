@@ -162,6 +162,7 @@ export type DosAppMeeting = {
   googleSyncEnabled: boolean;
   googleSyncStatus?: "failed" | "pending" | "synced" | null;
   id: string;
+  location?: string | null;
   meetingStatus: "canceled" | "logged" | "scheduled";
   ministryEventId: string | null;
   ministryTeam: DosAppMinistryEventPerson[];
@@ -497,6 +498,7 @@ type MeetingRow = {
   field_person_ids: string[] | null;
   google_sync_enabled?: boolean | null;
   id: string;
+  location?: string | null;
   meeting_status?: string | null;
   ministry_event_id?: string | null;
   notes: string | null;
@@ -740,7 +742,7 @@ type FruitEventRow = {
   visibility: string | null;
 };
 
-const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
+const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, location, created_at, updated_at";
 const meetingSchedulingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
 const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
 
@@ -2254,6 +2256,7 @@ export async function loadDosAppData(
         googleSyncEnabled: meeting.google_sync_enabled === true,
         googleSyncStatus: calendarSyncStatusBySource.get(`meeting:${meeting.id}`) ?? null,
         id: meeting.id,
+        location: meeting.location ?? null,
         meetingStatus,
         ministryEventId: meeting.ministry_event_id ?? null,
         ministryTeam: eventPeople.filter((eventPerson) => eventPerson.role === "ministry_team"),

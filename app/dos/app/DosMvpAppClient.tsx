@@ -59,7 +59,7 @@ const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choos
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
 type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
-type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
+type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "location" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
 type LocalPrayerNeed = {
   createdAt: string;
   id: string;
@@ -666,6 +666,13 @@ type MeetingCalendarItem = {
   syncLabel?: string;
   title: string;
 };
+type SchedulePlaceSuggestion = {
+  address: string | null;
+  id: string;
+  label: string;
+  latitude: number | null;
+  longitude: number | null;
+};
 type CalendarCoreSource = "calendars" | "meetings" | "reminders";
 type CalendarDisplaySettings = {
   calendars: boolean;
@@ -974,6 +981,13 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
           <path d="M7 3v16" />
           <path d="M10 7h5.5" />
           <path d="M10 10h4" />
+        </svg>
+      );
+    case "location":
+      return (
+        <svg {...commonProps}>
+          <path d="M12 21s6-5.1 6-11a6 6 0 0 0-12 0c0 5.9 6 11 6 11Z" />
+          <circle cx="12" cy="10" r="2.5" />
         </svg>
       );
     case "people":
@@ -3411,6 +3425,7 @@ function DosDateInput({
   minYear = 1900,
   name,
   onChange,
+  openOnFocus = false,
   required = false,
   value,
 }: {
@@ -3422,6 +3437,7 @@ function DosDateInput({
   minYear?: number;
   name: string;
   onChange?: (value: string) => void;
+  openOnFocus?: boolean;
   required?: boolean;
   value?: string;
 }) {
@@ -3529,6 +3545,11 @@ function DosDateInput({
           inputMode="numeric"
           onBlur={handleDisplayBlur}
           onChange={handleDisplayChange}
+          onFocus={() => {
+            if (openOnFocus) {
+              setIsPickerOpen(true);
+            }
+          }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               setIsPickerOpen(false);
@@ -11011,7 +11032,10 @@ function MeetingPeopleSelector({
             <button
               className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
               key={person.id}
-              onClick={() => onToggle(person.id)}
+              onClick={() => {
+                onToggle(person.id);
+                onQueryChange("");
+              }}
               type="button"
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
@@ -11137,7 +11161,10 @@ function MinistryTeamSelector({
             <button
               className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
               key={member.id}
-              onClick={() => onToggleMember(member.id)}
+              onClick={() => {
+                onToggleMember(member.id);
+                onPersonQueryChange("");
+              }}
               type="button"
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
@@ -11151,7 +11178,10 @@ function MinistryTeamSelector({
             <button
               className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
               key={person.id}
-              onClick={() => onTogglePerson(person.id)}
+              onClick={() => {
+                onTogglePerson(person.id);
+                onPersonQueryChange("");
+              }}
               type="button"
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index + visibleMembers.length)}`}>
@@ -11297,6 +11327,19 @@ const scheduledTableDurationOptions = [
   { label: "90 min", value: "90" },
   { label: "2 hours", value: "120" },
 ] as const;
+const scheduledTableTimeOptions = Array.from({ length: 29 }, (_, index) => {
+  const totalMinutes = 7 * 60 + index * 30;
+  const hour24 = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  const value = `${String(hour24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  const hour12 = hour24 % 12 || 12;
+  const period = hour24 < 12 ? "AM" : "PM";
+
+  return {
+    label: `${hour12}:${String(minute).padStart(2, "0")} ${period}`,
+    value,
+  };
+});
 
 type MeetingDurationOptionValue = typeof meetingDurationOptions[number]["value"];
 
@@ -11352,6 +11395,63 @@ function scheduledTableDurationValue(minutes: number | string | null | undefined
   return scheduledTableDurationOptions.some((option) => option.value === value) ? value : "60";
 }
 
+function normalizeTimeInputValue(value: string | null | undefined, fallback = "09:00") {
+  const match = String(value ?? "").trim().match(/^(\d{1,2}):(\d{2})$/);
+
+  if (!match) {
+    return fallback;
+  }
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return fallback;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function ScheduledTableTimeSelect({
+  defaultValue,
+  name,
+}: {
+  defaultValue?: string | null;
+  name: string;
+}) {
+  const initialTime = normalizeTimeInputValue(defaultValue);
+  const initialKnownTime = scheduledTableTimeOptions.some((option) => option.value === initialTime);
+  const [selectedTime, setSelectedTime] = useState(initialKnownTime ? initialTime : "custom");
+  const [customTime, setCustomTime] = useState(initialKnownTime ? "09:00" : initialTime);
+  const timeValue = selectedTime === "custom" ? normalizeTimeInputValue(customTime) : selectedTime;
+
+  return (
+    <div className="mt-2 grid gap-2">
+      <input name={name} type="hidden" value={timeValue} />
+      <select
+        aria-label="Start Time"
+        className={FieldInputClass(false)}
+        onChange={(event) => setSelectedTime(event.target.value)}
+        value={selectedTime}
+      >
+        {scheduledTableTimeOptions.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+        <option value="custom">Custom time</option>
+      </select>
+      {selectedTime === "custom" ? (
+        <input
+          aria-label="Custom start time"
+          className={`${FieldInputClass(false)} min-h-10 rounded-2xl text-sm`}
+          onChange={(event) => setCustomTime(event.target.value)}
+          type="time"
+          value={customTime}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function ScheduledTableTimingFields({
   dateDefault,
   dateName,
@@ -11359,7 +11459,7 @@ function ScheduledTableTimingFields({
   durationDefault = "60",
   durationName,
   onDateChange,
-  timeDefault = "18:00",
+  timeDefault = "09:00",
   timeName,
 }: {
   dateDefault?: string;
@@ -11377,13 +11477,14 @@ function ScheduledTableTimingFields({
         label="Date"
         name={dateName}
         onChange={onDateChange}
+        openOnFocus
         required
         value={dateValue}
         defaultValue={dateDefault}
       />
       <DosFormGrid>
         <DosFormField label="Start Time">
-          <input className={FieldInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time" />
+          <ScheduledTableTimeSelect defaultValue={timeDefault} name={timeName} />
         </DosFormField>
         <DosFormField label="Duration">
           <select className={FieldInputClass()} defaultValue={scheduledTableDurationValue(durationDefault)} name={durationName}>
@@ -11394,6 +11495,159 @@ function ScheduledTableTimingFields({
         </DosFormField>
       </DosFormGrid>
     </>
+  );
+}
+
+function schedulePlaceDisplayText(place: SchedulePlaceSuggestion) {
+  return [place.label, place.address].filter(Boolean).join(", ");
+}
+
+function ScheduleLocationField({
+  defaultValue = "",
+}: {
+  defaultValue?: string | null;
+}) {
+  const [query, setQuery] = useState(defaultValue ?? "");
+  const [selectedPlace, setSelectedPlace] = useState<SchedulePlaceSuggestion | null>(null);
+  const [suggestions, setSuggestions] = useState<SchedulePlaceSuggestion[]>([]);
+  const [lookupMessage, setLookupMessage] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [browserLocation, setBrowserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
+  const trimmedQuery = query.trim();
+  const selectedText = selectedPlace ? schedulePlaceDisplayText(selectedPlace) : "";
+  const storedLocation = selectedPlace && trimmedQuery === selectedText ? selectedText : trimmedQuery;
+
+  function requestBrowserLocation() {
+    if (hasRequestedLocation || typeof navigator === "undefined" || !navigator.geolocation) {
+      return;
+    }
+
+    setHasRequestedLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setBrowserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      () => undefined,
+      { maximumAge: 10 * 60 * 1000, timeout: 6000 },
+    );
+  }
+
+  useEffect(() => {
+    if (trimmedQuery.length < 2 || trimmedQuery === selectedText) {
+      setSuggestions([]);
+      setIsSearching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams({ q: trimmedQuery });
+
+      if (browserLocation) {
+        params.set("lat", String(browserLocation.latitude));
+        params.set("lng", String(browserLocation.longitude));
+      }
+
+      setIsSearching(true);
+      fetch(`/api/dos/app/places/search?${params.toString()}`, { signal: controller.signal })
+        .then(async (response) => {
+          const result = await response.json().catch(() => ({})) as {
+            configured?: boolean;
+            error?: string;
+            places?: SchedulePlaceSuggestion[];
+          };
+
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          if (result.configured === false) {
+            setSuggestions([]);
+            setLookupMessage("Place lookup is not configured yet. Type a location manually.");
+            return;
+          }
+
+          if (!response.ok) {
+            throw new Error(result.error ?? "Unable to search places.");
+          }
+
+          const places = result.places ?? [];
+
+          setSuggestions(places);
+          setLookupMessage(places.length ? "" : "No matches nearby. Type a location manually.");
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted) {
+            setSuggestions([]);
+            setLookupMessage(error instanceof Error ? error.message : "Place search unavailable. Type a location manually.");
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setIsSearching(false);
+          }
+        });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [browserLocation, selectedText, trimmedQuery]);
+
+  return (
+    <div className="grid gap-2">
+      <input name="location" type="hidden" value={storedLocation} />
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
+          <MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <input
+          aria-label="Location"
+          autoComplete="off"
+          className="min-h-12 w-full rounded-[18px] border border-[#D6E4F7] bg-white pl-10 pr-4 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setSelectedPlace(null);
+            setLookupMessage("");
+          }}
+          onFocus={requestBrowserLocation}
+          placeholder="Search a place or type an address"
+          type="search"
+          value={query}
+        />
+      </div>
+      {isSearching ? (
+        <p className="text-xs font-semibold text-[#64748B]">Searching places...</p>
+      ) : null}
+      {suggestions.length ? (
+        <div className="grid gap-1 rounded-[18px] border border-[#DCEBFF] bg-white p-1.5 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+          {suggestions.map((place) => (
+            <button
+              className="grid min-h-12 gap-0.5 rounded-2xl px-3 py-2 text-left transition-colors hover:bg-[#F8FBFF]"
+              key={place.id}
+              onClick={() => {
+                const displayText = schedulePlaceDisplayText(place);
+
+                setSelectedPlace(place);
+                setQuery(displayText);
+                setSuggestions([]);
+                setLookupMessage("");
+              }}
+              type="button"
+            >
+              <span className="truncate text-sm font-bold text-[#0F172A]">{place.label}</span>
+              {place.address ? <span className="truncate text-xs text-[#64748B]">{place.address}</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {lookupMessage ? <p className="text-xs leading-5 text-[#64748B]">{lookupMessage}</p> : null}
+    </div>
   );
 }
 
@@ -11623,7 +11877,7 @@ function MeetingFormContent({
     />
   ) : null;
   const scheduledDateDefault = dateInputValueFromDateTime(scheduledStartAtDefault ?? dateDefault, dateDefault);
-  const scheduledTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault, "18:00");
+  const scheduledTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault, "09:00");
   const scheduledDurationDefault = durationMinutesFromDateRange(scheduledStartAtDefault, scheduledEndAtDefault);
 
   return (
@@ -11783,72 +12037,67 @@ function ScheduleMeetingForm({
   allPeople,
   calendarConnection,
   errorMessage,
-  isCalendarDisconnecting = false,
+  householdMembers,
   isCreatingPerson = false,
   isSubmitting,
   meetingPeopleOptions,
   meetingPeopleQuery,
+  ministryTeamPeopleOptions,
+  ministryTeamQuery,
   onContextChange,
   onCreatePerson,
-  onDisconnectCalendar,
+  onMinistryTeamQueryChange,
   onPeopleQueryChange,
   onStartLogMeeting,
   onSubmit,
+  onToggleMinistryTeamMember,
+  onToggleMinistryTeamPerson,
   onTogglePerson,
   selectedMeetingContext,
+  selectedMinistryTeamMemberIds,
+  selectedMinistryTeamPersonIds,
   selectedPersonIds,
-  workspaceId,
-  workspaceSlug,
 }: {
   allPeople: DosAppPerson[];
   calendarConnection: DosAppCalendarConnection;
   errorMessage?: string;
-  isCalendarDisconnecting?: boolean;
+  householdMembers: DosAppData["householdMembers"];
   isCreatingPerson?: boolean;
   isSubmitting: boolean;
   meetingPeopleOptions: DosAppPerson[];
   meetingPeopleQuery: string;
+  ministryTeamPeopleOptions: DosAppPerson[];
+  ministryTeamQuery: string;
   onContextChange: (value: DosAppMeetingType) => void;
   onCreatePerson?: (name: string) => Promise<void>;
-  onDisconnectCalendar?: () => void;
+  onMinistryTeamQueryChange: (value: string) => void;
   onPeopleQueryChange: (value: string) => void;
   onStartLogMeeting: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onToggleMinistryTeamMember: (memberId: string) => void;
+  onToggleMinistryTeamPerson: (personId: string) => void;
   onTogglePerson: (personId: string) => void;
   selectedMeetingContext: DosAppMeetingType;
+  selectedMinistryTeamMemberIds: string[];
+  selectedMinistryTeamPersonIds: string[];
   selectedPersonIds: string[];
-  workspaceId: string;
-  workspaceSlug: string;
 }) {
   const canSyncToGoogle = calendarConnectionIsHealthy(calendarConnection);
   const [scheduledDate, setScheduledDate] = useState(todayDateValue());
 
-  function applySchedulePreset(event: MouseEvent<HTMLButtonElement>, offsetDays: number | null) {
-    const form = event.currentTarget.form;
-    const dateInput = form?.querySelector<HTMLInputElement>('[data-dos-date-display="scheduled_date"]') ?? null;
-
-    if (!dateInput) {
-      return;
-    }
-
-    if (offsetDays === null) {
-      dateInput.focus();
-      return;
-    }
-
-    setScheduledDate(dateValueFromToday(offsetDays));
-    dateInput.focus();
-  }
-
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
-      <DosFormSection icon="calendar" title="Calendar">
-        <CalendarConnectionCard
-          calendarConnection={calendarConnection}
-          isDisconnecting={isCalendarDisconnecting}
-          onDisconnect={onDisconnectCalendar}
-          workspaceId={workspaceId}
-          workspaceSlug={workspaceSlug}
+      <DosFormSection icon="people" title="Ministry Team">
+        <MinistryTeamSelector
+          allPeople={allPeople}
+          householdMembers={householdMembers}
+          onPersonQueryChange={onMinistryTeamQueryChange}
+          onToggleMember={onToggleMinistryTeamMember}
+          onTogglePerson={onToggleMinistryTeamPerson}
+          people={ministryTeamPeopleOptions}
+          query={ministryTeamQuery}
+          selectedMemberIds={selectedMinistryTeamMemberIds}
+          selectedPersonIds={selectedMinistryTeamPersonIds}
         />
       </DosFormSection>
       <DosFormSection icon="people" title="People">
@@ -11867,38 +12116,13 @@ function ScheduleMeetingForm({
         <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
       </DosFormSection>
       <DosFormSection icon="calendar" title="Timing">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { label: "Tomorrow", offset: 1 },
-              { label: "This Week", offset: 2 },
-              { label: "Next Week", offset: 7 },
-            ].map((preset) => (
-              <button
-                className="min-h-8 rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-[11px] font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-                key={preset.label}
-                onClick={(event) => applySchedulePreset(event, preset.offset)}
-                type="button"
-              >
-                {preset.label}
-              </button>
-            ))}
-            <button
-              className="min-h-8 rounded-full border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#64748B] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
-              onClick={(event) => applySchedulePreset(event, null)}
-              type="button"
-            >
-              Custom
-            </button>
-          </div>
-        </div>
         <ScheduledTableTimingFields
           dateName="scheduled_date"
           dateValue={scheduledDate}
           durationDefault="60"
           durationName="duration_minutes"
           onDateChange={setScheduledDate}
-          timeDefault="18:00"
+          timeDefault="09:00"
           timeName="scheduled_time"
         />
         <div>
@@ -11910,6 +12134,9 @@ function ScheduleMeetingForm({
             title="Sync to Google"
           />
         </div>
+      </DosFormSection>
+      <DosFormSection icon="location" title="Location">
+        <ScheduleLocationField />
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
         <DosFormField>
@@ -20553,6 +20780,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         fieldPersonIds: selectedMeetingPersonIds,
         ...meetingRolePayload(),
         googleSyncEnabled: formData.get("google_sync_enabled") === "on",
+        location: String(formData.get("location") ?? ""),
         meetingStatus: "scheduled",
         notes: String(formData.get("notes") ?? ""),
         scheduledEndAt,
@@ -22867,22 +23095,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             allPeople={people}
             calendarConnection={calendarConnection}
             errorMessage={errorMessage}
-            isCalendarDisconnecting={isCalendarDisconnecting}
+            householdMembers={data.householdMembers}
             isCreatingPerson={isCreatingMeetingPerson}
             isSubmitting={isSubmitting}
             meetingPeopleOptions={meetingPeopleOptions}
             meetingPeopleQuery={meetingPeopleQuery}
+            ministryTeamPeopleOptions={ministryTeamPeopleOptions}
+            ministryTeamQuery={ministryTeamQuery}
             onContextChange={setSelectedMeetingContext}
             onCreatePerson={handleCreateMeetingPerson}
-            onDisconnectCalendar={handleDisconnectCalendar}
+            onMinistryTeamQueryChange={setMinistryTeamQuery}
             onPeopleQueryChange={setMeetingPeopleQuery}
             onStartLogMeeting={openScheduledDraftAsMeeting}
             onSubmit={handleScheduleMeetingSubmit}
+            onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
+            onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
             onTogglePerson={toggleMeetingPersonId}
             selectedMeetingContext={selectedMeetingContext}
+            selectedMinistryTeamMemberIds={selectedMinistryTeamMemberIds}
+            selectedMinistryTeamPersonIds={selectedMinistryTeamPersonIds}
             selectedPersonIds={selectedMeetingPersonIds}
-            workspaceId={data.workspace.id}
-            workspaceSlug={data.workspace.slug}
           />
         </Sheet>
       ) : null}
