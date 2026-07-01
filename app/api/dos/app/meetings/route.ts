@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization, type DosAuthorizedUser } from "@/src/lib/dos/auth";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
+import { createFruitEvent } from "@/src/lib/dos/fruit-intelligence";
 import {
   buildMeetingRecommendations,
   getConversationFlowDefinition,
@@ -12,7 +13,7 @@ import {
   type DosConversationResponses,
 } from "@/src/lib/dos/meeting-engine";
 import { deleteGoogleCalendarEventForSource, recordCalendarSyncFailure, syncGoogleCalendarEvent } from "@/src/lib/dos/google-calendar";
-import { dosAppMeetingTypes, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType } from "@/src/lib/dos/missionary-app";
+import { dosAppFruitTypeOptions, dosAppMeetingTypes, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type MeetingPayload = {
@@ -26,11 +27,13 @@ type MeetingPayload = {
   meetingStatus?: unknown;
   ministryTeamMemberIds?: unknown;
   ministryTeamPersonIds?: unknown;
+  observedFruit?: unknown;
   participantPersonIds?: unknown;
   scheduledEndAt?: unknown;
   scheduledStartAt?: unknown;
   supportingAttendeePersonIds?: unknown;
   supportingAttendees?: unknown;
+  syncObservedFruit?: unknown;
   tableDate?: unknown;
   tableType?: unknown;
   timezone?: unknown;
@@ -97,6 +100,11 @@ function asStringArray(value: unknown) {
 
 function uniqueStringArray(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function asObservedFruit(value: unknown) {
+  return uniqueStringArray(asStringArray(value))
+    .filter((item) => dosAppFruitTypeOptions.includes(item as typeof dosAppFruitTypeOptions[number]));
 }
 
 function asSupportingSubRole(value: unknown): SupportingSubRole | null {
@@ -243,6 +251,10 @@ function meetingTitleForCalendar(participantNames: string[], tableType: DosAppMe
 
 function meetingDescriptionForCalendar(notes: string | null) {
   return [notes?.trim() ?? "", "Created from DOS."].filter(Boolean).join("\n\n");
+}
+
+function selectedObservedFruitEventKey(reflectionId: string, fruitType: string, personId: string | null) {
+  return ["leader_reflection", reflectionId, personId ?? "none", fruitType.toLowerCase().replace(/[^a-z0-9]+/g, "-")].join(":");
 }
 
 function eventTypeFromTableType(tableType: DosAppMeetingType) {
@@ -590,6 +602,157 @@ async function syncMeetingCalendarEvent({
       workspaceId,
     }).catch(() => undefined);
   });
+}
+
+type MeetingReflectionFruitRow = {
+  created_at: string | null;
+  id: string;
+  observed_fruit: unknown;
+};
+
+type FruitEventSyncRow = {
+  debug_context: unknown;
+  fruit_type: string | null;
+  id: string;
+  source_id: string | null;
+};
+
+function observedFruitArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && dosAppFruitTypeOptions.includes(item as typeof dosAppFruitTypeOptions[number]))
+    : [];
+}
+
+function isSelectedObservedFruitEvent(event: FruitEventSyncRow, previousObservedFruit: Set<string>) {
+  const debugContext = event.debug_context && typeof event.debug_context === "object"
+    ? event.debug_context as Record<string, unknown>
+    : {};
+
+  return debugContext.matchedBy === "selected observed fruit"
+    || Boolean(event.fruit_type && previousObservedFruit.has(event.fruit_type));
+}
+
+async function syncObservedFruitForMeeting({
+  leaderId,
+  meetingId,
+  observedFruit,
+  personId,
+  supabase,
+}: {
+  leaderId: string;
+  meetingId: string;
+  observedFruit: string[];
+  personId: string | null;
+  supabase: ReturnType<typeof createSupabaseAdminClient>;
+}) {
+  const reflectionResult = await supabase
+    .from("meeting_reflections")
+    .select("id, observed_fruit, created_at")
+    .eq("meeting_id", meetingId)
+    .order("created_at", { ascending: true });
+
+  if (reflectionResult.error) {
+    throw new Error(reflectionResult.error.message);
+  }
+
+  const reflections = (reflectionResult.data ?? []) as MeetingReflectionFruitRow[];
+  let targetReflection = reflections.find((reflection) => observedFruitArray(reflection.observed_fruit).length) ?? reflections[0] ?? null;
+
+  if (!targetReflection && observedFruit.length) {
+    const insertResult = await supabase
+      .from("meeting_reflections")
+      .insert({
+        follow_up_needed: false,
+        leader_id: leaderId,
+        meeting_id: meetingId,
+        observed_fruit: observedFruit,
+        person_id: personId,
+      })
+      .select("id, observed_fruit, created_at")
+      .single();
+
+    if (insertResult.error || !insertResult.data) {
+      throw new Error(insertResult.error?.message ?? "Unable to save observed fruit.");
+    }
+
+    targetReflection = insertResult.data as MeetingReflectionFruitRow;
+    reflections.push(targetReflection);
+  } else if (targetReflection) {
+    const updateResult = await supabase
+      .from("meeting_reflections")
+      .update({
+        observed_fruit: observedFruit,
+        person_id: personId,
+      })
+      .eq("id", targetReflection.id);
+
+    if (updateResult.error) {
+      throw new Error(updateResult.error.message);
+    }
+  }
+
+  const previousObservedFruit = new Set(reflections.flatMap((reflection) => observedFruitArray(reflection.observed_fruit)));
+  const eventResult = await supabase
+    .from("fruit_events")
+    .select("id, fruit_type, source_id, debug_context")
+    .eq("meeting_id", meetingId)
+    .eq("source_type", "leader_reflection")
+    .eq("generated_by", "leader_review");
+
+  if (eventResult.error) {
+    throw new Error(eventResult.error.message);
+  }
+
+  const existingEvents = (eventResult.data ?? []) as FruitEventSyncRow[];
+  const selectedObservedFruitEventIds = existingEvents
+    .filter((event) => isSelectedObservedFruitEvent(event, previousObservedFruit))
+    .map((event) => event.id);
+
+  if (selectedObservedFruitEventIds.length) {
+    const deleteResult = await supabase
+      .from("fruit_events")
+      .delete()
+      .in("id", selectedObservedFruitEventIds);
+
+    if (deleteResult.error) {
+      throw new Error(deleteResult.error.message);
+    }
+  }
+
+  const staleReflectionIds = reflections
+    .filter((reflection) => reflection.id !== targetReflection?.id && observedFruitArray(reflection.observed_fruit).length)
+    .map((reflection) => reflection.id);
+
+  if (staleReflectionIds.length) {
+    const clearResult = await supabase
+      .from("meeting_reflections")
+      .update({ observed_fruit: [] })
+      .in("id", staleReflectionIds);
+
+    if (clearResult.error) {
+      throw new Error(clearResult.error.message);
+    }
+  }
+
+  if (!targetReflection || !observedFruit.length) {
+    return;
+  }
+
+  await Promise.all(observedFruit.map((fruitType) => createFruitEvent({
+    confidenceLevel: "observed",
+    debugContext: { matchedBy: "selected observed fruit", source: "Leader Reflection" },
+    description: `Leader observed ${fruitType}.`,
+    fruitType,
+    generatedBy: "leader_review",
+    generationKey: selectedObservedFruitEventKey(targetReflection.id, fruitType, personId),
+    leaderId,
+    meetingId,
+    personId,
+    sourceId: targetReflection.id,
+    sourceType: "leader_reflection",
+    title: fruitType,
+    visibility: "private",
+  }, supabase)));
 }
 
 async function readPayload(request: Request) {
@@ -1048,6 +1211,20 @@ export async function PATCH(request: Request) {
       .from("missionary_field_people")
       .update({ last_activity_at: new Date().toISOString() })
       .in("id", validPersonIds);
+  }
+
+  if (payload.syncObservedFruit === true && meetingStatus === "logged") {
+    try {
+      await syncObservedFruitForMeeting({
+        leaderId: authResult.authorization.userId,
+        meetingId: id,
+        observedFruit: asObservedFruit(payload.observedFruit),
+        personId: validPersonIds.length === 1 ? validPersonIds[0] : null,
+        supabase,
+      });
+    } catch (syncError) {
+      return NextResponse.json({ error: syncError instanceof Error ? syncError.message : "Unable to save observed fruit." }, { status: 500 });
+    }
   }
 
   if (meetingStatus === "logged") {

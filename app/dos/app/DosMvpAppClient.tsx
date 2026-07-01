@@ -11580,6 +11580,7 @@ function MeetingFormContent({
   selectedSupportingAttendeeIds,
   showConversationFlow = true,
   showDurationField = false,
+  showObservedFruitField = false,
   showScheduledTiming = false,
   submittingText,
   supportingAttendeeOptions,
@@ -11628,6 +11629,7 @@ function MeetingFormContent({
   selectedSupportingAttendeeIds: string[];
   showConversationFlow?: boolean;
   showDurationField?: boolean;
+  showObservedFruitField?: boolean;
   showScheduledTiming?: boolean;
   submittingText: string;
   supportingAttendeeOptions: DosAppPerson[];
@@ -11732,9 +11734,19 @@ function MeetingFormContent({
           selectedOutcomeTags={selectedOutcomeTags ?? []}
         />
       ) : (
-        <DosFormSection icon="log" title="Notes">
-          <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
-        </DosFormSection>
+        <>
+          {showObservedFruitField ? (
+            <DosFormSection icon="fruit" title="What fruit did you see?">
+              <ObservedFruitMultiSelect
+                onToggle={onToggleOutcomeTag ?? (() => undefined)}
+                selectedOutcomeTags={selectedOutcomeTags ?? []}
+              />
+            </DosFormSection>
+          ) : null}
+          <DosFormSection icon="log" title="Notes">
+            <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
+          </DosFormSection>
+        </>
       )}
       {showConversationFlow && selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
@@ -19065,6 +19077,34 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedOutcomeTags([]);
   }
 
+  function observedFruitTagsForMeeting(meetingId: string) {
+    const optionValues = new Set(meetingObservedFruitOptions.map((option) => option.value));
+    const selectedValues = new Set<string>();
+
+    data.leaderReflections
+      .filter((reflection) => reflection.meetingId === meetingId)
+      .flatMap((reflection) => reflection.observedFruit)
+      .forEach((tag) => {
+        if (optionValues.has(tag)) {
+          selectedValues.add(tag);
+        }
+      });
+
+    data.fruitEvents
+      .filter((event) => event.meetingId === meetingId && event.sourceType === "leader_reflection" && event.generatedBy === "leader_review")
+      .forEach((event) => {
+        const debugContext = event.debugContext && typeof event.debugContext === "object" ? event.debugContext : {};
+
+        if (debugContext.matchedBy === "selected observed fruit" && optionValues.has(event.fruitType)) {
+          selectedValues.add(event.fruitType);
+        }
+      });
+
+    return meetingObservedFruitOptions
+      .map((option) => option.value)
+      .filter((value) => selectedValues.has(value));
+  }
+
   function closeForm() {
     setErrorMessage("");
     setFormMode(null);
@@ -19470,6 +19510,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setMeetingPeopleQuery("");
     setSelectedConversationFlow("none");
     setSelectedMeetingContext(meeting.type);
+    setSelectedOutcomeTags([]);
     setSelectedMeetingId(meeting.id);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
     setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
@@ -19524,6 +19565,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setMeetingPeopleQuery("");
     setSelectedConversationFlow(data.workspace.isUsamWorkspace ? meeting.conversationFlowKey : "none");
     setSelectedMeetingContext(meeting.type);
+    setSelectedOutcomeTags(meeting.meetingStatus === "scheduled" ? [] : observedFruitTagsForMeeting(meeting.id));
     setSelectedMeetingId(meeting.id);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
     setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
@@ -20722,6 +20764,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const conversationFlowKey = data.workspace.isUsamWorkspace ? selectedConversationFlow : "none";
     const isScheduledMeeting = selectedMeeting.meetingStatus === "scheduled";
     const isLoggingScheduledMeeting = loggingScheduledMeetingId === selectedMeeting.id && isScheduledMeeting;
+    const isEditingLoggedMeeting = !isScheduledMeeting;
     const tableDate = String(formData.get(isScheduledMeeting && !isLoggingScheduledMeeting ? "scheduled_date" : "table_date") ?? selectedMeeting.date ?? todayDateValue());
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
     const loggedStartAt = localDateTimeIso(tableDate, "12:00");
@@ -20753,6 +20796,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       tableType: selectedMeetingContext,
       timezone: isScheduledMeeting ? Intl.DateTimeFormat().resolvedOptions().timeZone || selectedMeeting.timezone : selectedMeeting.timezone,
     };
+
+    if (isEditingLoggedMeeting) {
+      payload.observedFruit = observedFruit;
+      payload.syncObservedFruit = true;
+    }
 
     if (isLoggingScheduledMeeting) {
       payload.scheduledStartAt = loggedStartAt;
@@ -23104,6 +23152,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
               showConversationFlow={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
               showDurationField={isLoggingSelectedScheduledMeeting}
+              showObservedFruitField={selectedMeeting.meetingStatus !== "scheduled"}
               showScheduledTiming={selectedMeeting.meetingStatus === "scheduled" && !isLoggingSelectedScheduledMeeting}
               submittingText="Saving..."
               supportingAttendeeOptions={supportingAttendeeOptions}
