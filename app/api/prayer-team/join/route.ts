@@ -30,6 +30,8 @@ type JoinPrayerTeamPayload = {
 type HouseholdRow = {
   display_name: string;
   id: string;
+  public_slug?: string | null;
+  public_slug_aliases?: string[] | null;
   show_household?: boolean | null;
   slug: string;
 };
@@ -200,25 +202,41 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const householdQuery = supabase
+  const householdSelect = "id, display_name, slug, public_slug, public_slug_aliases, show_household";
+  const householdQuery = () => supabase
     .from("missionary_households")
-    .select("id, display_name, slug, show_household")
+    .select(householdSelect)
     .eq("public_visible", true)
     .limit(1);
   const householdResult = householdId
-    ? await householdQuery.eq("id", householdId).maybeSingle()
-    : await householdQuery.eq("slug", profileSlug).maybeSingle();
+    ? await householdQuery().eq("id", householdId).maybeSingle()
+    : await householdQuery().eq("slug", profileSlug).maybeSingle();
 
-  if (householdResult.error) {
+  const publicSlugHouseholdResult = !householdId && !householdResult.error && !householdResult.data && profileSlug
+    ? await householdQuery().eq("public_slug", profileSlug).maybeSingle()
+    : null;
+  const aliasHouseholdResult = !householdId
+    && !householdResult.error
+    && !householdResult.data
+    && !publicSlugHouseholdResult?.error
+    && !publicSlugHouseholdResult?.data
+    && profileSlug
+    ? await householdQuery().contains("public_slug_aliases", [profileSlug]).maybeSingle()
+    : null;
+  const resolvedHouseholdResult = aliasHouseholdResult ?? publicSlugHouseholdResult ?? householdResult;
+
+  if (resolvedHouseholdResult.error) {
     return NextResponse.json({ error: "Unable to load this missionary household." }, { status: 500 });
   }
 
-  const householdData = householdResult.data as HouseholdRow | null;
+  const householdData = resolvedHouseholdResult.data as HouseholdRow | null;
   const household = householdData?.show_household === false ? null : householdData;
 
   if (!household) {
     return NextResponse.json({ error: "This missionary household is not available." }, { status: 404 });
   }
+
+  const householdPublicSlug = household.public_slug?.trim() || household.slug;
 
   const peopleResult = await supabase
     .from("missionary_people")
@@ -261,7 +279,7 @@ export async function POST(request: Request) {
     how_heard: source,
     last_name: lastName || null,
     missionary_profile_id: household.id,
-    missionary_profile_slug: household.slug,
+    missionary_profile_slug: householdPublicSlug,
     name,
     phone,
     prayer_team: "household_family",
@@ -278,7 +296,7 @@ export async function POST(request: Request) {
     recruited_by_household_id: household.id,
     recruited_by_household_name: household.display_name,
     recruited_by_household_number: missionaryNumber,
-    recruited_by_profile_slug: household.slug,
+    recruited_by_profile_slug: householdPublicSlug,
     region: asNullableString(payload.region),
     sms_alerts: smsOptIn,
     source: "public_profile",
@@ -398,7 +416,7 @@ export async function POST(request: Request) {
       recruited_by_household_id: household.id,
       recruited_by_household_name: household.display_name,
       recruited_by_household_number: missionaryNumber,
-      recruited_by_profile_slug: household.slug,
+      recruited_by_profile_slug: householdPublicSlug,
       recruitment_source: source,
       recruitment_source_label: sourceLabel || null,
       region: asNullableString(payload.region),
@@ -406,7 +424,7 @@ export async function POST(request: Request) {
       source,
       state: asNullableString(payload.state),
     },
-    sourcePage: `/missionaries/${household.slug}`,
+    sourcePage: `/missionaries/${householdPublicSlug}`,
   });
 
   // TODO: Future email/SMS/DOS integration can notify admins when household
