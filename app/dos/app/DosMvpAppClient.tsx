@@ -98,6 +98,7 @@ type LocalPrayerPartner = {
   prayerTeam: string;
   relationship: string;
   relationshipContext: RelationshipContextValue;
+  notice?: string;
   source?: string | null;
   state?: string | null;
   status: string;
@@ -6761,6 +6762,8 @@ const prayerPartnerHowHeardOptions = [
 ] as const;
 
 const prayerPartnerDefaultTeamOption = { label: "Household / Family", value: "household_family" } as const;
+const prayerPartnerContactRequiredMessage = "Add either a phone number or email so this partner can be contacted.";
+const prayerPartnerDuplicateMessage = "This person is already on your prayer team. Open their record instead?";
 
 const prayerRequestCategoryOptions = [
   { label: "Family", value: "Family" },
@@ -13416,15 +13419,43 @@ function prayerPartnerTeamOptions(householdMembers: DosAppHouseholdMember[]) {
       return order(first) - order(second) || first.displayName.localeCompare(second.displayName);
     })
     .map((member) => ({
+      helper: "Personal",
       label: member.displayName,
       value: `member:${member.id}`,
     }));
 
-  return [prayerPartnerDefaultTeamOption, ...memberOptions] as ReadonlyArray<{ label: string; value: string }>;
+  return [{ ...prayerPartnerDefaultTeamOption, helper: "Shared" }, ...memberOptions] as ReadonlyArray<{ helper?: string; label: string; value: string }>;
 }
 
 function prayerPartnerTeamLabel(value: string | null | undefined, householdMembers: DosAppHouseholdMember[]) {
   return prayerPartnerOptionLabel(prayerPartnerTeamOptions(householdMembers), value || prayerPartnerDefaultTeamOption.value);
+}
+
+function prayerPartnerTeamHelper(value: string | null | undefined, householdMembers: DosAppHouseholdMember[]) {
+  const selectedValue = value || prayerPartnerDefaultTeamOption.value;
+
+  if (selectedValue === prayerPartnerDefaultTeamOption.value) {
+    return "Household / Family: shared prayer partner for this household. Ryan and Brooke can both see it. Counts once on the family public profile.";
+  }
+
+  const label = prayerPartnerTeamLabel(selectedValue, householdMembers);
+  const firstName = label.split(/\s+/).filter(Boolean)[0] || label;
+
+  return `${label}: personal prayer partner for ${firstName}.`;
+}
+
+function PrayerTeamHelperText({
+  householdMembers,
+  value,
+}: {
+  householdMembers: DosAppHouseholdMember[];
+  value: string | null | undefined;
+}) {
+  return (
+    <p className="mt-2 text-xs font-medium leading-5 text-[#64748B]">
+      {prayerPartnerTeamHelper(value, householdMembers)}
+    </p>
+  );
 }
 
 function mapDosPrayerPartnerToLocal(partner: DosAppPrayerPartner): LocalPrayerPartner {
@@ -13767,6 +13798,7 @@ function AddPrayerPartnerSheet({
 }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [prayerTeam, setPrayerTeam] = useState<string>(prayerPartnerDefaultTeamOption.value);
   const teamOptions = prayerPartnerTeamOptions(householdMembers);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -13794,13 +13826,13 @@ function AddPrayerPartnerSheet({
       addressLine ? `Address: ${addressLine}` : "",
     ].filter(Boolean).join(" · ");
 
-    if (!name) {
-      setErrorMessage("Name is required.");
+    if (!firstName || !lastName) {
+      setErrorMessage("First name and last name are required.");
       return;
     }
 
-    if (!email) {
-      setErrorMessage("Email is required to save a prayer partner.");
+    if (!email && !phone) {
+      setErrorMessage(prayerPartnerContactRequiredMessage);
       return;
     }
 
@@ -13836,7 +13868,7 @@ function AddPrayerPartnerSheet({
               <input className={FieldInputClass()} name="first_name" required type="text" />
             </DosFormField>
             <DosFormField label="Last Name">
-              <input className={FieldInputClass()} name="last_name" type="text" />
+              <input className={FieldInputClass()} name="last_name" required type="text" />
             </DosFormField>
           </DosFormGrid>
           <DosFormGrid>
@@ -13844,14 +13876,17 @@ function AddPrayerPartnerSheet({
               <input className={FieldInputClass()} inputMode="tel" name="phone" placeholder="(651) 456-8974" type="tel" />
             </DosFormField>
             <DosFormField label="Email">
-              <input className={FieldInputClass()} name="email" placeholder="email@example.com" required type="email" />
+              <input className={FieldInputClass()} name="email" placeholder="email@example.com" type="email" />
             </DosFormField>
           </DosFormGrid>
           <PrayerPartnerSelectField label="Relationship Context" name="relationship_context" options={prayerPartnerRelationshipContextOptions} />
         </DosFormSection>
         <DosFormSection icon="home" title="Prayer Partner">
           <DosFormGrid>
-            <PrayerPartnerSelectField label="Prayer Team" name="prayer_team" options={teamOptions} />
+            <div>
+              <PrayerPartnerSelectField defaultValue={prayerTeam} label="Prayer Team" name="prayer_team" onChange={setPrayerTeam} options={teamOptions} />
+              <PrayerTeamHelperText householdMembers={householdMembers} value={prayerTeam} />
+            </div>
             <PrayerPartnerSelectField label="How They Joined" name="how_heard" options={prayerPartnerHowHeardOptions} />
           </DosFormGrid>
           <PrayerPartnerSelectField label="Status" name="status" options={prayerPartnerStatusOptions} />
@@ -14206,14 +14241,23 @@ function PrayerPartnerDetailSheet({
   const [notes, setNotes] = useState(partner.notes ?? "");
   const [prayerTeam, setPrayerTeam] = useState(partner.prayerTeam || prayerPartnerDefaultTeamOption.value);
   const [relationshipContext, setRelationshipContext] = useState<RelationshipContextValue>(partner.relationshipContext);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState(partner.notice ?? "");
   const [status, setStatus] = useState(normalizePrayerPartnerStatus(partner.status));
-  const canSave = name.trim() && email.trim();
+  const canSave = name.trim() && (email.trim() || phone.trim());
   const teamOptions = prayerPartnerTeamOptions(householdMembers);
 
+  useEffect(() => {
+    setSuccessMessage(partner.notice ?? "");
+  }, [partner.id, partner.notice]);
+
   async function savePartner(nextStatus = status, closeAfterSave = false) {
-    if (!canSave) {
-      setErrorMessage("Name and email are required.");
+    if (!name.trim()) {
+      setErrorMessage("Name is required.");
+      return null;
+    }
+
+    if (!email.trim() && !phone.trim()) {
+      setErrorMessage(prayerPartnerContactRequiredMessage);
       return null;
     }
 
@@ -14289,7 +14333,7 @@ function PrayerPartnerDetailSheet({
               <input className={FieldInputClass()} onChange={(event) => setName(event.target.value)} required type="text" value={name} />
             </DosFormField>
             <DosFormField label="Email">
-              <input className={FieldInputClass()} onChange={(event) => setEmail(event.target.value)} required type="email" value={email} />
+              <input className={FieldInputClass()} onChange={(event) => setEmail(event.target.value)} type="email" value={email} />
             </DosFormField>
           </DosFormGrid>
           <DosFormGrid>
@@ -14307,13 +14351,16 @@ function PrayerPartnerDetailSheet({
         </DosFormSection>
         <DosFormSection icon="settings" title="Prayer Partner">
           <DosFormGrid>
-            <PrayerPartnerSelectField
-              defaultValue={prayerTeam}
-              label="Prayer Team"
-              name="prayer_team"
-              onChange={setPrayerTeam}
-              options={teamOptions}
-            />
+            <div>
+              <PrayerPartnerSelectField
+                defaultValue={prayerTeam}
+                label="Prayer Team"
+                name="prayer_team"
+                onChange={setPrayerTeam}
+                options={teamOptions}
+              />
+              <PrayerTeamHelperText householdMembers={householdMembers} value={prayerTeam} />
+            </div>
             <PrayerPartnerSelectField
               defaultValue={howHeard}
               label="How They Joined"
@@ -15276,6 +15323,11 @@ function DesktopPrayerWorkspace({
           onSubmit={async (partnerPatch) => {
             const savedPartner = await onCreatePrayerPartner(partnerPatch);
             setLocalPrayerPartners((current) => upsertById(current, savedPartner));
+
+            if (savedPartner.notice) {
+              setSelectedPrayerPartner(savedPartner);
+            }
+
             return savedPartner;
           }}
         />
@@ -19651,7 +19703,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         method: "POST",
       });
       const result = await response.json().catch(() => ({})) as {
+        duplicate?: boolean;
         error?: string;
+        message?: string;
         prayerPartner?: DosAppPrayerPartner;
       };
 
@@ -19661,9 +19715,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       router.refresh();
 
-      return mapDosPrayerPartnerToLocal(result.prayerPartner);
+      const savedPartner = mapDosPrayerPartnerToLocal(result.prayerPartner);
+
+      return result.duplicate
+        ? { ...savedPartner, notice: result.message ?? prayerPartnerDuplicateMessage }
+        : savedPartner;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to save prayer partner.";
+      const rawMessage = error instanceof Error ? error.message : "Unable to save prayer partner.";
+      const message = rawMessage.includes("duplicate key") || rawMessage.includes("unique constraint")
+        ? prayerPartnerDuplicateMessage
+        : rawMessage;
 
       setErrorMessage(message);
       throw new Error(message);
@@ -19718,7 +19779,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       return mapDosPrayerPartnerToLocal(result.prayerPartner);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to update prayer partner.";
+      const rawMessage = error instanceof Error ? error.message : "Unable to update prayer partner.";
+      const message = rawMessage.includes("duplicate key") || rawMessage.includes("unique constraint")
+        ? prayerPartnerDuplicateMessage
+        : rawMessage;
 
       setErrorMessage(message);
       throw new Error(message);
@@ -22622,6 +22686,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onSubmit={async (partnerPatch) => {
               const savedPartner = await createPrayerPartner(partnerPatch);
               setMobilePrayerPartners((current) => upsertById(current, savedPartner));
+
+              if (savedPartner.notice) {
+                setSelectedMobilePrayerPartner(savedPartner);
+              }
+
               return savedPartner;
             }}
           />

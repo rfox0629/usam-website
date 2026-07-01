@@ -9,12 +9,18 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 const statuses = ["active", "archived", "declined", "inactive", "paused", "pending"] as const;
 const howJoinedValues = ["invited_by_me", "public_profile", "friend_referral", "church_ministry", "social_media", "website", "other"] as const;
 const partnerSelect = "id, field_person_id, name, first_name, last_name, email, phone, city, state, region, how_heard, prayer_team, source, status, internal_notes, date_joined, approved_at, created_at, updated_at";
+const duplicatePrayerPartnerMessage = "This person is already on your prayer team. Open their record instead?";
+const contactRequiredMessage = "Add either a phone number or email so this partner can be contacted.";
 
 type PrayerPartnerPayload = {
   email?: unknown;
+  firstName?: unknown;
+  first_name?: unknown;
   howHeard?: unknown;
   how_heard?: unknown;
   id?: unknown;
+  lastName?: unknown;
+  last_name?: unknown;
   name?: unknown;
   notes?: unknown;
   phone?: unknown;
@@ -34,6 +40,27 @@ type LinkedPersonRow = {
   name?: string | null;
   phone?: string | null;
   relationship_context?: string | null;
+};
+
+type PrayerPartnerRow = {
+  city?: string | null;
+  created_at?: string | null;
+  date_joined?: string | null;
+  email?: string | null;
+  field_person_id?: string | null;
+  first_name?: string | null;
+  how_heard?: string | null;
+  id: string;
+  internal_notes?: string | null;
+  last_name?: string | null;
+  name?: string | null;
+  phone?: string | null;
+  prayer_team?: string | null;
+  region?: string | null;
+  source?: string | null;
+  state?: string | null;
+  status?: string | null;
+  updated_at?: string | null;
 };
 
 function asString(value: unknown) {
@@ -56,6 +83,22 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function normalizeEmail(value: unknown) {
+  const email = asString(value).toLowerCase();
+
+  return email || null;
+}
+
+function normalizePhoneDigits(value: unknown) {
+  const digits = asString(value).replace(/\D/g, "");
+
+  return digits.length >= 7 ? digits : "";
+}
+
+function normalizeNameKey(value: unknown) {
+  return asString(value).toLowerCase().replace(/\s+/g, " ");
+}
+
 function asStatus(value: unknown, fallback: typeof statuses[number] = "pending") {
   const status = asString(value).toLowerCase();
 
@@ -72,6 +115,27 @@ function splitName(name: string) {
   const lastName = parts.join(" ");
 
   return { firstName, lastName };
+}
+
+function nameFromPayload(payload: PrayerPartnerPayload) {
+  const explicitName = asString(payload.name);
+
+  if (explicitName) {
+    return explicitName;
+  }
+
+  return [
+    asString(payload.firstName) || asString(payload.first_name),
+    asString(payload.lastName) || asString(payload.last_name),
+  ].filter(Boolean).join(" ");
+}
+
+function prayerPartnerDisplayName(row: Pick<PrayerPartnerRow, "email" | "first_name" | "last_name" | "name" | "phone">) {
+  return row.name?.trim()
+    || [row.first_name, row.last_name].map((value) => value?.trim()).filter(Boolean).join(" ")
+    || row.email?.trim()
+    || row.phone?.trim()
+    || "Prayer Partner";
 }
 
 function approvalPatch(status: string, approvedBy: string | null | undefined) {
@@ -208,6 +272,103 @@ async function loadLinkedPerson(supabase: ReturnType<typeof createSupabaseAdminC
   return null;
 }
 
+function prayerPartnerScopeFilter(workspaceId: string) {
+  return [
+    `recruited_by_household_id.eq.${workspaceId}`,
+    `workspace_id.eq.${workspaceId}`,
+    `missionary_profile_id.eq.${workspaceId}`,
+  ].join(",");
+}
+
+async function loadScopedPrayerPartners(supabase: ReturnType<typeof createSupabaseAdminClient>, workspaceId: string) {
+  const result = await supabase
+    .from("prayer_partners")
+    .select(partnerSelect)
+    .or(prayerPartnerScopeFilter(workspaceId))
+    .limit(1000);
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  return (result.data ?? []) as PrayerPartnerRow[];
+}
+
+function findMatchingPrayerPartner(
+  rows: PrayerPartnerRow[],
+  {
+    email,
+    excludeId,
+    fieldPersonId,
+    name,
+    phone,
+  }: {
+    email?: string | null;
+    excludeId?: string | null;
+    fieldPersonId?: string | null;
+    name?: string | null;
+    phone?: string | null;
+  },
+) {
+  const candidates = rows.filter((row) => row.id !== excludeId);
+  const emailKey = normalizeEmail(email);
+  const phoneKey = normalizePhoneDigits(phone);
+  const nameKey = normalizeNameKey(name);
+
+  if (emailKey) {
+    const match = candidates.find((row) => normalizeEmail(row.email) === emailKey);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  if (phoneKey) {
+    const match = candidates.find((row) => normalizePhoneDigits(row.phone) === phoneKey);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  if (fieldPersonId) {
+    const match = candidates.find((row) => row.field_person_id === fieldPersonId);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  if (nameKey) {
+    return candidates.find((row) => normalizeNameKey(prayerPartnerDisplayName(row)) === nameKey) ?? null;
+  }
+
+  return null;
+}
+
+function friendlyPrayerPartnerError(error: { message?: string } | null | undefined, fallback = "Unable to save prayer partner.") {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  if (message.includes("duplicate key") || message.includes("unique constraint") || message.includes("prayer_partners_email_household_unique_idx")) {
+    return duplicatePrayerPartnerMessage;
+  }
+
+  return fallback;
+}
+
+async function duplicatePrayerPartnerResponse(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  partner: PrayerPartnerRow,
+) {
+  const linkedPerson = await loadLinkedPerson(supabase, partner.field_person_id);
+
+  return NextResponse.json({
+    duplicate: true,
+    message: duplicatePrayerPartnerMessage,
+    prayerPartner: mapPrayerPartner(partner, linkedPerson),
+  });
+}
+
 async function updateLinkedPerson(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   personId: string,
@@ -271,26 +432,7 @@ async function updateLinkedPerson(
   throw new Error(result.error.message);
 }
 
-function mapPrayerPartner(row: {
-  city?: string | null;
-  created_at?: string | null;
-  date_joined?: string | null;
-  email?: string | null;
-  field_person_id?: string | null;
-  first_name?: string | null;
-  how_heard?: string | null;
-  id: string;
-  internal_notes?: string | null;
-  last_name?: string | null;
-  name?: string | null;
-  phone?: string | null;
-  prayer_team?: string | null;
-  region?: string | null;
-  source?: string | null;
-  state?: string | null;
-  status?: string | null;
-  updated_at?: string | null;
-}, linkedPerson?: LinkedPersonRow | null) {
+function mapPrayerPartner(row: PrayerPartnerRow, linkedPerson?: LinkedPersonRow | null) {
   const relationshipContext = normalizeRelationshipContextValue(linkedPerson?.relationship_context);
   const name = linkedPerson?.name?.trim()
     || row.name?.trim()
@@ -336,15 +478,21 @@ export async function POST(request: Request) {
   }
 
   const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId) || asString(payload.workspace_id));
-  const name = asString(payload.name);
-  const email = asString(payload.email).toLowerCase();
+  const name = nameFromPayload(payload);
+  const email = normalizeEmail(payload.email);
+  const phone = asNullableString(payload.phone);
   const status = asStatus(payload.status);
   const howHeard = normalizeHowJoined(payload.howHeard ?? payload.how_heard, "invited_by_me");
   const prayerTeam = normalizePrayerTeam(payload.prayerTeam ?? payload.prayer_team);
   const relationshipContext = relationshipContextFromPayload(payload);
+  const { firstName, lastName } = splitName(name);
 
-  if (!workspaceId || !name || !email) {
-    return NextResponse.json({ error: "Workspace, name, and email are required." }, { status: 400 });
+  if (!workspaceId || !firstName || !lastName) {
+    return NextResponse.json({ error: "First name and last name are required." }, { status: 400 });
+  }
+
+  if (!email && !phone) {
+    return NextResponse.json({ error: contactRequiredMessage }, { status: 400 });
   }
 
   const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
@@ -353,8 +501,27 @@ export async function POST(request: Request) {
     return workspaceAccess.response;
   }
 
-  const { firstName, lastName } = splitName(name);
   const supabase = createSupabaseAdminClient();
+  let scopedPrayerPartners: PrayerPartnerRow[] = [];
+
+  try {
+    scopedPrayerPartners = await loadScopedPrayerPartners(supabase, workspaceId);
+  } catch (error) {
+    console.error("[DOS Prayer Partners API] Failed to load scoped partners:", error);
+
+    return NextResponse.json({ error: "Unable to check existing prayer partners." }, { status: 500 });
+  }
+
+  const existingPartner = findMatchingPrayerPartner(scopedPrayerPartners, {
+    email,
+    name,
+    phone,
+  });
+
+  if (existingPartner) {
+    return duplicatePrayerPartnerResponse(supabase, existingPartner);
+  }
+
   let linkedPersonId: string;
 
   try {
@@ -362,7 +529,7 @@ export async function POST(request: Request) {
       createdBy: authResult.authorization.userId,
       email,
       name,
-      phone: asNullableString(payload.phone),
+      phone,
       relationshipContext,
       role: "prayer_partner",
       roleSource: "dos",
@@ -371,20 +538,35 @@ export async function POST(request: Request) {
 
     linkedPersonId = linkedPerson.personId;
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to link prayer partner to a person." }, { status: 500 });
+    console.error("[DOS Prayer Partners API] Failed to link prayer partner to a person:", error);
+
+    return NextResponse.json({ error: "Unable to link prayer partner to a person." }, { status: 500 });
+  }
+
+  const existingPartnerForPerson = findMatchingPrayerPartner(scopedPrayerPartners, {
+    email,
+    fieldPersonId: linkedPersonId,
+    name,
+    phone,
+  });
+
+  if (existingPartnerForPerson) {
+    return duplicatePrayerPartnerResponse(supabase, existingPartnerForPerson);
   }
 
   let linkedPerson: LinkedPersonRow | null = null;
 
   try {
     linkedPerson = await updateLinkedPerson(supabase, linkedPersonId, {
-      email,
+      email: email ?? undefined,
       name,
-      phone: asNullableString(payload.phone),
+      phone: phone ?? undefined,
       relationshipContext,
     });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update the linked person." }, { status: 500 });
+    console.error("[DOS Prayer Partners API] Failed to update linked person:", error);
+
+    return NextResponse.json({ error: "Unable to update the linked person." }, { status: 500 });
   }
 
   const { data, error } = await supabase
@@ -399,7 +581,7 @@ export async function POST(request: Request) {
       last_name: lastName || null,
       missionary_profile_id: workspaceId,
       name,
-      phone: asNullableString(payload.phone),
+      phone,
       prayer_team: prayerTeam,
       recruited_by: "DOS",
       recruited_by_household_id: workspaceId,
@@ -411,7 +593,21 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const latestPartners = await loadScopedPrayerPartners(supabase, workspaceId).catch(() => scopedPrayerPartners);
+    const duplicatePartner = findMatchingPrayerPartner(latestPartners, {
+      email,
+      fieldPersonId: linkedPersonId,
+      name,
+      phone,
+    });
+
+    if (duplicatePartner) {
+      return duplicatePrayerPartnerResponse(supabase, duplicatePartner);
+    }
+
+    console.error("[DOS Prayer Partners API] Failed to save prayer partner:", error);
+
+    return NextResponse.json({ error: friendlyPrayerPartnerError(error) }, { status: 500 });
   }
 
   const roleWriteResult = await upsertWorkspacePersonRole(supabase, {
@@ -473,7 +669,11 @@ export async function PATCH(request: Request) {
     .maybeSingle();
 
   if (existingPartnerResult.error || !existingPartnerResult.data) {
-    return NextResponse.json({ error: existingPartnerResult.error?.message ?? "Prayer partner not found." }, { status: existingPartnerResult.error ? 500 : 404 });
+    if (existingPartnerResult.error) {
+      console.error("[DOS Prayer Partners API] Failed to load prayer partner for update:", existingPartnerResult.error);
+    }
+
+    return NextResponse.json({ error: existingPartnerResult.error ? "Unable to load prayer partner." : "Prayer partner not found." }, { status: existingPartnerResult.error ? 500 : 404 });
   }
 
   const existingPartner = existingPartnerResult.data as {
@@ -523,17 +723,18 @@ export async function PATCH(request: Request) {
   }
 
   if (payload.email !== undefined) {
-    const email = asString(payload.email).toLowerCase();
-
-    if (!email) {
-      return NextResponse.json({ error: "Email is required." }, { status: 400 });
-    }
-
-    patch.email = email;
+    patch.email = normalizeEmail(payload.email);
   }
 
   if (payload.phone !== undefined) {
     patch.phone = asNullableString(payload.phone);
+  }
+
+  const nextEmail = payload.email !== undefined ? patch.email : existingPartner.email ?? null;
+  const nextPhone = payload.phone !== undefined ? patch.phone : existingPartner.phone ?? null;
+
+  if (!nextEmail && !nextPhone) {
+    return NextResponse.json({ error: contactRequiredMessage }, { status: 400 });
   }
 
   if (hasHowHeard) {
@@ -550,6 +751,25 @@ export async function PATCH(request: Request) {
     patch.internal_notes = asNullableString(payload.notes);
   }
 
+  if (payload.email !== undefined || payload.phone !== undefined) {
+    try {
+      const duplicatePartner = findMatchingPrayerPartner(await loadScopedPrayerPartners(supabase, workspaceId), {
+        email: typeof nextEmail === "string" ? nextEmail : null,
+        excludeId: id,
+        name: typeof patch.name === "string" ? patch.name : existingPartner.name,
+        phone: typeof nextPhone === "string" ? nextPhone : null,
+      });
+
+      if (duplicatePartner) {
+        return NextResponse.json({ error: duplicatePrayerPartnerMessage }, { status: 409 });
+      }
+    } catch (error) {
+      console.error("[DOS Prayer Partners API] Failed to check duplicate partner during update:", error);
+
+      return NextResponse.json({ error: "Unable to check existing prayer partners." }, { status: 500 });
+    }
+  }
+
   let linkedPersonId = existingPartner.field_person_id ?? null;
   let linkedPerson: LinkedPersonRow | null = null;
   const shouldTouchLinkedPerson = !linkedPersonId
@@ -562,9 +782,9 @@ export async function PATCH(request: Request) {
     try {
       const resolvedPerson = await resolveOrCreateWorkspacePersonForRole(supabase, {
         createdBy: authResult.authorization.userId,
-        email: typeof patch.email === "string" ? patch.email : existingPartner.email,
+        email: payload.email !== undefined ? nextEmail : existingPartner.email,
         name: typeof patch.name === "string" ? patch.name : existingPartner.name,
-        phone: typeof patch.phone === "string" ? patch.phone : existingPartner.phone,
+        phone: payload.phone !== undefined ? nextPhone : existingPartner.phone,
         relationshipContext,
         role: "prayer_partner",
         roleSource: "dos",
@@ -572,15 +792,32 @@ export async function PATCH(request: Request) {
       });
 
       linkedPersonId = resolvedPerson.personId;
+
+      if (linkedPersonId !== existingPartner.field_person_id) {
+        const duplicatePartner = findMatchingPrayerPartner(await loadScopedPrayerPartners(supabase, workspaceId), {
+          email: payload.email !== undefined ? nextEmail : existingPartner.email,
+          excludeId: id,
+          fieldPersonId: linkedPersonId,
+          name: typeof patch.name === "string" ? patch.name : existingPartner.name,
+          phone: payload.phone !== undefined ? nextPhone : existingPartner.phone,
+        });
+
+        if (duplicatePartner) {
+          return NextResponse.json({ error: duplicatePrayerPartnerMessage }, { status: 409 });
+        }
+      }
+
       patch.field_person_id = resolvedPerson.personId;
       linkedPerson = await updateLinkedPerson(supabase, resolvedPerson.personId, {
-        email: payload.email !== undefined ? patch.email : undefined,
+        email: payload.email !== undefined ? nextEmail : undefined,
         name: payload.name !== undefined ? patch.name : undefined,
-        phone: payload.phone !== undefined ? patch.phone : undefined,
+        phone: payload.phone !== undefined ? nextPhone : undefined,
         relationshipContext,
       });
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to link prayer partner to a person." }, { status: 500 });
+      console.error("[DOS Prayer Partners API] Failed to link prayer partner to a person during update:", error);
+
+      return NextResponse.json({ error: "Unable to link prayer partner to a person." }, { status: 500 });
     }
   } else {
     linkedPerson = await loadLinkedPerson(supabase, linkedPersonId);
@@ -595,7 +832,9 @@ export async function PATCH(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[DOS Prayer Partners API] Failed to update prayer partner:", error);
+
+    return NextResponse.json({ error: friendlyPrayerPartnerError(error, "Unable to update prayer partner.") }, { status: 500 });
   }
 
   if (data.field_person_id) {
