@@ -588,6 +588,7 @@ const outcomeTagOptions = fruitOutcomeDefinitions
   .filter((outcome) => outcome.sources.includes("leader_review"))
   .map((outcome) => outcome.leaderLabel ?? outcome.label);
 const meetingObservedFruitOptions = outcomeTagOptions.map((label) => ({ label, value: label }));
+const meetingObservedFruitValues = new Set(meetingObservedFruitOptions.map((option) => option.value));
 
 const reminderTypeOptions = [
   { helper: "Yearly", label: "Birthday", value: "birthday" },
@@ -1411,6 +1412,12 @@ function formDurationMinutes(value: FormDataEntryValue | null) {
   const minutes = Number(value);
 
   return Number.isFinite(minutes) && minutes > 0 ? minutes : 60;
+}
+
+function formObservedFruit(formData: FormData) {
+  return formData
+    .getAll("observed_fruit")
+    .filter((value): value is string => typeof value === "string" && meetingObservedFruitValues.has(value));
 }
 
 function formatDurationLabel(minutes: number | null) {
@@ -11285,6 +11292,9 @@ function MeetingLeaderReflectionSection({
   return (
     <>
       <DosFormSection icon="fruit" title="What fruit did you see?">
+        {selectedOutcomeTags.map((tag) => (
+          <input key={tag} name="observed_fruit" type="hidden" value={tag} />
+        ))}
         <ObservedFruitMultiSelect
           onToggle={onToggleOutcomeTag}
           selectedOutcomeTags={selectedOutcomeTags}
@@ -20732,7 +20742,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
     const loggedStartAt = localDateTimeIso(tableDate, "12:00");
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
-    const observedFruit = [...selectedOutcomeTags];
+    const observedFruit = formObservedFruit(formData);
     const followUpNeeded = formData.get("follow_up_needed") === "on";
     const nextStep = String(formData.get("next_step") ?? "");
     const prayerNeeds = String(formData.get("prayer_needs") ?? "");
@@ -20861,7 +20871,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
     const loggedStartAt = localDateTimeIso(tableDate, "12:00");
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
-    const observedFruit = [...selectedOutcomeTags];
+    const observedFruit = formObservedFruit(formData);
     const followUpNeeded = includesReflectionFields ? formData.get("follow_up_needed") === "on" : latestReflection?.followUpNeeded ?? false;
     const nextStep = formData.has("next_step") ? String(formData.get("next_step") ?? "") : latestReflection?.nextStep ?? "";
     const prayerNeeds = includesReflectionFields ? String(formData.get("prayer_needs") ?? "") : latestReflection?.prayerNeeds ?? "";

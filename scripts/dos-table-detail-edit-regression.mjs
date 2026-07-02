@@ -40,6 +40,11 @@ assert(
 );
 
 assert(
+  appClient.includes('name="observed_fruit"') && appClient.includes("function formObservedFruit(formData: FormData)") && appClient.includes("const observedFruit = formObservedFruit(formData);"),
+  "Edit Table must submit observed fruit from the rendered form state so removed fruit is not saved from stale React state.",
+);
+
+assert(
   appClient.includes("replaceLatest: true"),
   "Logged Edit Table saves must replace the latest reflection instead of appending stale observed fruit.",
 );
