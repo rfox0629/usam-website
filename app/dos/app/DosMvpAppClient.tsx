@@ -11543,15 +11543,10 @@ function ObservedFruitMultiSelect({
                   <input
                     aria-label={option.label}
                     checked={selected}
-                    className="sr-only"
+                    className="h-5 w-5 shrink-0 accent-[#2563EB]"
                     onChange={() => onToggle(option.value)}
                     type="checkbox"
                   />
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                    selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#CBD5E1] bg-white text-transparent"
-                  }`}>
-                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.2} />
-                  </span>
                   <span className="min-w-0 flex-1">{option.label}</span>
                 </label>
               );

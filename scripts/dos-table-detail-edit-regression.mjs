@@ -52,8 +52,9 @@ assert(
   appClient.includes('aria-label={option.label}')
     && appClient.includes("type=\"checkbox\"")
     && appClient.includes("checked={selected}")
+    && appClient.includes("h-5 w-5 shrink-0 accent-[#2563EB]")
     && appClient.includes("onChange={() => onToggle(option.value)}"),
-  "Observed fruit options must be checkbox-backed controls so mobile taps reliably toggle selection.",
+  "Observed fruit options must use visible checkbox-backed controls so mobile taps reliably toggle selection.",
 );
 
 assert(
