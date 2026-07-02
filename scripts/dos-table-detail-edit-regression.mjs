@@ -49,6 +49,14 @@ assert(
 );
 
 assert(
+  appClient.includes('aria-label={option.label}')
+    && appClient.includes("type=\"checkbox\"")
+    && appClient.includes("checked={selected}")
+    && appClient.includes("onChange={() => onToggle(option.value)}"),
+  "Observed fruit options must be checkbox-backed controls so mobile taps reliably toggle selection.",
+);
+
+assert(
   appClient.includes("replaceLatest: true"),
   "Logged Edit Table saves must replace the latest reflection instead of appending stale observed fruit.",
 );
