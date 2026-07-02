@@ -3764,6 +3764,20 @@ type PersonOutcomeEntry =
     type: "testimony";
   };
 
+type PersonGrowthMilestone = {
+  date: string | null;
+  description: string;
+  id: string;
+  source: "Fruit" | "Quick Review" | "Table" | "Testimony";
+  title: string;
+};
+
+const personAssessmentResultPlaceholders: ReadonlyArray<{ href?: string; title: string }> = [
+  { href: "/dos/library/marriage-assessment", title: "Marriage Assessment" },
+  { title: "Friendship Assessment" },
+  { title: "Spiritual Assessment" },
+];
+
 function ActivityFilterCard({
   active,
   helper,
@@ -16235,6 +16249,69 @@ function SectionEmptyState({
   );
 }
 
+function AssessmentResultPlaceholderCard({
+  href,
+  title,
+}: {
+  href?: string;
+  title: string;
+}) {
+  const actionClassName = "mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]";
+
+  return (
+    <article className="min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      <div className="flex min-w-0 gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold leading-5 text-[#0F172A]">{title}</span>
+          <span className="mt-1 block text-sm leading-5 text-[#64748B]">No completed assessment yet</span>
+        </span>
+      </div>
+      {href ? (
+        <Link className={actionClassName} href={href}>
+          Open Assessment
+        </Link>
+      ) : (
+        <button className={`${actionClassName} cursor-not-allowed opacity-60 hover:border-[#BFDBFE] hover:bg-white`} disabled type="button">
+          Coming Soon
+        </button>
+      )}
+    </article>
+  );
+}
+
+function GrowthMilestoneRow({ milestone }: { milestone: PersonGrowthMilestone }) {
+  const icon = milestone.source === "Table"
+    ? <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+    : milestone.source === "Quick Review"
+      ? <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+      : milestone.source === "Testimony"
+        ? <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        : <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+
+  return (
+    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="min-w-0 flex-1 text-sm font-bold leading-5 text-[#0F172A]">{milestone.title}</span>
+          <span className="shrink-0 rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">
+            {formatDate(milestone.date)}
+          </span>
+        </span>
+        <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          {milestone.source}
+        </span>
+        <span className="mt-1 line-clamp-2 block text-sm leading-6 text-[#64748B]">{milestone.description}</span>
+      </span>
+    </article>
+  );
+}
+
 function FruitEventIcon({ event }: { event: DosAppFruitEvent }) {
   const iconClass = "h-4 w-4";
 
@@ -17722,6 +17799,40 @@ function PersonDetailOverlay({
     reflections: personReflections,
   });
   const lastMeetingDate = personLoggedMeetings[0]?.date ?? person.lastActivityAt;
+  const personGrowthMilestones: PersonGrowthMilestone[] = [
+    ...personOutcomeEntries.map((entry) => entry.type === "testimony"
+      ? {
+        date: entry.date,
+        description: entry.testimony.whatChanged?.trim() || entry.testimony.story?.trim() || "Shared story recorded.",
+        id: `milestone-${entry.id}`,
+        source: "Testimony" as const,
+        title: "Testimony Shared",
+      }
+      : {
+        date: entry.date,
+        description: fruitNarrative(entry.event),
+        id: `milestone-${entry.id}`,
+        source: "Fruit" as const,
+        title: fruitOutcomeLabel(entry.event),
+      }),
+    ...personParticipantReviews.map((review) => ({
+      date: review.submittedAt,
+      description: review.comments?.trim() || "Participant review submitted.",
+      id: `milestone-review-${review.id}`,
+      source: "Quick Review" as const,
+      title: "Quick Review",
+    })),
+    ...personLoggedMeetings.map((meeting) => ({
+      date: meeting.date,
+      description: meeting.notes?.trim() || "Table logged.",
+      id: `milestone-table-${meeting.id}`,
+      source: "Table" as const,
+      title: meetingActivityTitle(meeting),
+    })),
+  ]
+    .sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0))
+    .slice(0, 6);
+  const latestGrowthDate = personGrowthMilestones[0]?.date ?? lastMeetingDate;
   const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
   const overviewNotes = defaults.notes?.trim() ?? "";
   const completedGuidedMeetings = personLoggedMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
@@ -17783,7 +17894,7 @@ function PersonDetailOverlay({
             { label: "Overview", value: "overview" },
             { label: "Activity", value: "activity" },
             { label: "Prayer", value: "prayer" },
-            { label: "Fruit", value: "fruit" },
+            { label: "Growth", value: "fruit" },
           ].map((tab) => (
             <button
               aria-current={activeDetailTab === tab.value ? "page" : undefined}
@@ -18060,6 +18171,25 @@ function PersonDetailOverlay({
 
         {activeDetailTab === "fruit" ? (
           <>
+            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Growth Snapshot">
+              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
+                <FruitSummaryCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Assessments" value="None Yet" />
+                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Observable Fruit" value={String(personOutcomeEntries.length)} />
+                <FruitSummaryCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Growth" value={latestGrowthDate ? formatRelativeDate(latestGrowthDate) : "Not Yet"} />
+              </div>
+              <p className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2.5 text-sm leading-6 text-[#64748B]">
+                Assessments show where this person or relationship is today. Fruit records observable outcomes God has done.
+              </p>
+            </DetailCard>
+
+            <DetailCard icon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Assessment Results">
+              <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-3">
+                {personAssessmentResultPlaceholders.map((assessment) => (
+                  <AssessmentResultPlaceholderCard href={assessment.href} key={assessment.title} title={assessment.title} />
+                ))}
+              </div>
+            </DetailCard>
+
             <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Summary">
               <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
                 <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personOutcomeEntries.length)} />
@@ -18079,6 +18209,14 @@ function PersonDetailOverlay({
                   : <FruitEventRow event={entry.event} key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} />
               )) : (
                 <SectionEmptyState text="Observable outcomes and shared stories will appear here." title="No outcomes yet." />
+              )}
+            </DetailCard>
+
+            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Milestones / Timeline">
+              {personGrowthMilestones.length ? personGrowthMilestones.map((milestone) => (
+                <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
+              )) : (
+                <SectionEmptyState text="Tables, quick reviews, testimonies, and fruit will form the growth timeline here." title="No growth milestones yet." />
               )}
             </DetailCard>
           </>
