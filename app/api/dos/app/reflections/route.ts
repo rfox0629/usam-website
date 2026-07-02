@@ -13,6 +13,7 @@ type ReflectionPayload = {
   observedFruit?: unknown;
   prayerNeeds?: unknown;
   privateNotes?: unknown;
+  replaceLatest?: unknown;
   spiritualOpenness?: unknown;
   whatHappened?: unknown;
   workspaceId?: unknown;
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
 
   const observedFruit = asObservedFruit(payload.observedFruit);
   const personIds = Array.isArray(meeting.field_person_ids) ? meeting.field_person_ids.filter((id): id is string => typeof id === "string") : [];
-  const reflectionInsert = {
+  const reflectionValues = {
     follow_up_needed: payload.followUpNeeded === true,
     leader_id: authResult.authorization.userId,
     meeting_id: meetingId,
@@ -120,28 +121,51 @@ export async function POST(request: Request) {
     spiritual_openness: asString(payload.spiritualOpenness, 80) || null,
     what_happened: asString(payload.whatHappened) || null,
   };
-  const { data: reflection, error: reflectionError } = await supabase
-    .from("meeting_reflections")
-    .insert(reflectionInsert)
-    .select("id")
-    .single();
+  const replaceLatest = payload.replaceLatest === true;
+  const latestReflectionResult = replaceLatest
+    ? await supabase
+      .from("meeting_reflections")
+      .select("id")
+      .eq("meeting_id", meetingId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    : { data: null, error: null };
+
+  if (latestReflectionResult.error) {
+    return NextResponse.json({ error: latestReflectionResult.error.message }, { status: 500 });
+  }
+
+  const reflectionResult = latestReflectionResult.data?.id
+    ? await supabase
+      .from("meeting_reflections")
+      .update(reflectionValues)
+      .eq("id", latestReflectionResult.data.id)
+      .select("id")
+      .single()
+    : await supabase
+      .from("meeting_reflections")
+      .insert(reflectionValues)
+      .select("id")
+      .single();
+  const { data: reflection, error: reflectionError } = reflectionResult;
 
   if (reflectionError || !reflection) {
     return NextResponse.json({ error: reflectionError?.message ?? "Unable to save Leader Reflection." }, { status: 500 });
   }
 
   await inferFruitEventsFromReflection({
-    followUpNeeded: reflectionInsert.follow_up_needed,
+    followUpNeeded: reflectionValues.follow_up_needed,
     id: String(reflection.id),
     leaderId: authResult.authorization.userId,
     meetingId,
-    nextStep: reflectionInsert.next_step,
+    nextStep: reflectionValues.next_step,
     observedFruit,
-    personId: reflectionInsert.person_id,
-    prayerNeeds: reflectionInsert.prayer_needs,
-    privateNotes: reflectionInsert.private_notes,
-    spiritualOpenness: reflectionInsert.spiritual_openness,
-    whatHappened: reflectionInsert.what_happened,
+    personId: reflectionValues.person_id,
+    prayerNeeds: reflectionValues.prayer_needs,
+    privateNotes: reflectionValues.private_notes,
+    spiritualOpenness: reflectionValues.spiritual_openness,
+    whatHappened: reflectionValues.what_happened,
   }, supabase);
 
   await recalculateCircleScores(workspaceId).catch((scoreError) => {

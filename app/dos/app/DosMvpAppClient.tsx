@@ -588,6 +588,7 @@ const outcomeTagOptions = fruitOutcomeDefinitions
   .filter((outcome) => outcome.sources.includes("leader_review"))
   .map((outcome) => outcome.leaderLabel ?? outcome.label);
 const meetingObservedFruitOptions = outcomeTagOptions.map((label) => ({ label, value: label }));
+const meetingObservedFruitValues = new Set(meetingObservedFruitOptions.map((option) => option.value));
 
 const reminderTypeOptions = [
   { helper: "Yearly", label: "Birthday", value: "birthday" },
@@ -1385,18 +1386,53 @@ function timeInputValueFromDateTime(value: string | null | undefined, fallback =
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-function durationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined) {
+function durationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined, fallbackMinutes = 60) {
   const start = startValue ? new Date(startValue).getTime() : Number.NaN;
   const end = endValue ? new Date(endValue).getTime() : Number.NaN;
   const duration = Math.round((end - start) / 60_000);
 
-  return Number.isFinite(duration) && duration > 0 ? duration : 60;
+  return Number.isFinite(duration) && duration > 0 ? duration : fallbackMinutes;
+}
+
+function optionalDurationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined) {
+  const start = startValue ? new Date(startValue).getTime() : Number.NaN;
+  const end = endValue ? new Date(endValue).getTime() : Number.NaN;
+  const duration = Math.round((end - start) / 60_000);
+
+  return Number.isFinite(duration) && duration > 0 ? duration : null;
+}
+
+function normalizedDurationMinutes(value: number | string | null | undefined, fallbackMinutes = 60) {
+  const minutes = Number(value);
+
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : fallbackMinutes;
 }
 
 function formDurationMinutes(value: FormDataEntryValue | null) {
   const minutes = Number(value);
 
   return Number.isFinite(minutes) && minutes > 0 ? minutes : 60;
+}
+
+function formObservedFruit(formData: FormData) {
+  return formData
+    .getAll("observed_fruit")
+    .filter((value): value is string => typeof value === "string" && meetingObservedFruitValues.has(value));
+}
+
+function formatDurationLabel(minutes: number | null) {
+  if (!minutes) {
+    return "Not recorded";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  const parts = [
+    hours ? `${hours} ${hours === 1 ? "hr" : "hrs"}` : "",
+    remainingMinutes ? `${remainingMinutes} min` : "",
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(" ") : "0 min";
 }
 
 function meetingTypeLabel(value: string) {
@@ -1747,6 +1783,12 @@ function meetingMetadataLine(meeting: DosAppMeeting) {
   return formatDosMeetingSecondary(meetingActivityTitle(meeting), dateLine);
 }
 
+function latestLeaderReflectionForMeeting(reflections: DosAppLeaderReflection[], meetingId: string) {
+  return reflections
+    .filter((reflection) => reflection.meetingId === meetingId)
+    .sort((first, second) => (parseDisplayDate(second.createdAt)?.getTime() ?? 0) - (parseDisplayDate(first.createdAt)?.getTime() ?? 0))[0] ?? null;
+}
+
 function reviewStatusLabel(value: DosAppReviewStatus) {
   return {
     approved: "Approved",
@@ -1761,18 +1803,6 @@ function reviewStatusClass(value: DosAppReviewStatus) {
   return value === "not_sent"
     ? "border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]"
     : "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
-}
-
-function reviewSharePermissionLabel(value: string | null) {
-  if (value === "with_name") {
-    return "Name OK";
-  }
-
-  if (value === "anonymous") {
-    return "Anonymous OK";
-  }
-
-  return "Private";
 }
 
 function fruitNarrative(event: DosAppFruitEvent) {
@@ -11247,17 +11277,24 @@ function MeetingCaptureNotes({
 }
 
 function MeetingLeaderReflectionSection({
+  followUpNeededDefault = false,
   notesDefault,
   onToggleOutcomeTag,
+  prayerNeedsDefault,
   selectedOutcomeTags,
 }: {
+  followUpNeededDefault?: boolean;
   notesDefault?: string | null;
   onToggleOutcomeTag: (tag: string) => void;
+  prayerNeedsDefault?: string | null;
   selectedOutcomeTags: string[];
 }) {
   return (
     <>
       <DosFormSection icon="fruit" title="What fruit did you see?">
+        {selectedOutcomeTags.map((tag) => (
+          <input key={tag} name="observed_fruit" type="hidden" value={tag} />
+        ))}
         <ObservedFruitMultiSelect
           onToggle={onToggleOutcomeTag}
           selectedOutcomeTags={selectedOutcomeTags}
@@ -11265,11 +11302,12 @@ function MeetingLeaderReflectionSection({
       </DosFormSection>
       <DosFormSection icon="prayer" title="Prayer Needs">
         <DosFormField>
-          <VoiceTextarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} name="prayer_needs" />
+          <VoiceTextarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="arrow" title="What needs follow up?">
         <DosFormToggleRow
+          defaultChecked={followUpNeededDefault}
           description="Mark if this needs action soon."
           name="follow_up_needed"
           title="Follow Up Needed"
@@ -11290,6 +11328,7 @@ const meetingDurationOptions = [
   { label: "15m", value: "15" },
   { label: "30m", value: "30" },
   { label: "1h", value: "60" },
+  { label: "90m", value: "90" },
   { label: "2h", value: "120" },
   { label: "Custom", value: "custom" },
 ] as const;
@@ -11303,10 +11342,20 @@ const scheduledTableDurationOptions = [
 
 type MeetingDurationOptionValue = typeof meetingDurationOptions[number]["value"];
 
-function MeetingDurationSelector() {
-  const [selectedDuration, setSelectedDuration] = useState<MeetingDurationOptionValue>("30");
-  const [customMinutes, setCustomMinutes] = useState("45");
-  const durationMinutes = selectedDuration === "custom" ? customMinutes || "60" : selectedDuration;
+function MeetingDurationSelector({
+  defaultMinutes = 30,
+}: {
+  defaultMinutes?: number | string | null;
+}) {
+  const normalizedDefault = normalizedDurationMinutes(defaultMinutes, 30);
+  const defaultOption = meetingDurationOptions.some((option) => option.value === String(normalizedDefault))
+    ? String(normalizedDefault) as MeetingDurationOptionValue
+    : "custom";
+  const [selectedDuration, setSelectedDuration] = useState<MeetingDurationOptionValue>(defaultOption);
+  const [customHours, setCustomHours] = useState(String(Math.floor(normalizedDefault / 60)));
+  const [customMinutes, setCustomMinutes] = useState(String(normalizedDefault % 60));
+  const customTotalMinutes = (Number(customHours) || 0) * 60 + (Number(customMinutes) || 0);
+  const durationMinutes = selectedDuration === "custom" ? String(customTotalMinutes > 0 ? customTotalMinutes : normalizedDefault) : selectedDuration;
 
   return (
     <fieldset className="grid gap-2">
@@ -11330,20 +11379,35 @@ function MeetingDurationSelector() {
         ))}
       </div>
       {selectedDuration === "custom" ? (
-        <label className="mt-1 grid gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Custom Minutes</span>
-          <input
-            autoFocus
-            className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-            inputMode="numeric"
-            max="600"
-            min="1"
-            onChange={(event) => setCustomMinutes(event.target.value.replace(/\D/g, "").slice(0, 3))}
-            placeholder="Minutes"
-            type="number"
-            value={customMinutes}
-          />
-        </label>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <label className="grid gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Hours</span>
+            <input
+              autoFocus
+              className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+              inputMode="numeric"
+              max="10"
+              min="0"
+              onChange={(event) => setCustomHours(event.target.value.replace(/\D/g, "").slice(0, 2))}
+              placeholder="0"
+              type="number"
+              value={customHours}
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Minutes</span>
+            <input
+              className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+              inputMode="numeric"
+              max="59"
+              min="0"
+              onChange={(event) => setCustomMinutes(String(Math.min(59, Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0)))}
+              placeholder="30"
+              type="number"
+              value={customMinutes}
+            />
+          </label>
+        </div>
       ) : null}
     </fieldset>
   );
@@ -11510,6 +11574,7 @@ function MeetingFormContent({
   buttonText,
   conversationResponses,
   dateDefault,
+  durationDefault,
   errorMessage,
   householdMembers,
   includeReflectionFields = false,
@@ -11520,6 +11585,7 @@ function MeetingFormContent({
   ministryTeamPeopleOptions,
   ministryTeamQuery,
   notesDefault,
+  reflectionDefault,
   onContextChange,
   onCreatePerson,
   onConversationFlowChange,
@@ -11558,6 +11624,7 @@ function MeetingFormContent({
   buttonText: string;
   conversationResponses: DosConversationResponses;
   dateDefault: string;
+  durationDefault?: number | string | null;
   errorMessage?: string;
   householdMembers: DosAppData["householdMembers"];
   includeReflectionFields?: boolean;
@@ -11568,6 +11635,7 @@ function MeetingFormContent({
   ministryTeamPeopleOptions: DosAppPerson[];
   ministryTeamQuery: string;
   notesDefault?: string | null;
+  reflectionDefault?: DosAppLeaderReflection | null;
   onContextChange: (value: DosAppMeetingType) => void;
   onCreatePerson?: (name: string) => Promise<void>;
   onConversationFlowChange: (value: DosConversationFlowKey) => void;
@@ -11616,7 +11684,7 @@ function MeetingFormContent({
       selectedPersonIds={selectedPersonIds}
     />
   );
-  const durationSelector = showDurationField ? <MeetingDurationSelector /> : null;
+  const durationSelector = showDurationField ? <MeetingDurationSelector defaultMinutes={durationDefault} /> : null;
   const meetingContextPicker = <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />;
   const conversationFlowPicker = showConversationFlow ? (
     <ConversationFlowPicker
@@ -11694,8 +11762,10 @@ function MeetingFormContent({
       </DosFormSection>
       {includeReflectionFields ? (
         <MeetingLeaderReflectionSection
+          followUpNeededDefault={reflectionDefault?.followUpNeeded}
           notesDefault={notesDefault}
           onToggleOutcomeTag={onToggleOutcomeTag ?? (() => undefined)}
+          prayerNeedsDefault={reflectionDefault?.prayerNeeds}
           selectedOutcomeTags={selectedOutcomeTags ?? []}
         />
       ) : (
@@ -16559,6 +16629,203 @@ function DetailRow({
   );
 }
 
+function TableDetailSummaryCard({ meeting }: { meeting: DosAppMeeting }) {
+  const durationMinutes = optionalDurationMinutesFromDateRange(meeting.scheduledStartAt, meeting.scheduledEndAt);
+  const statusLabel = meeting.meetingStatus === "scheduled" ? "Scheduled" : meeting.meetingStatus === "canceled" ? "Canceled" : "Logged";
+  const flowLabel = meeting.meetingStatus === "scheduled" ? statusLabel : conversationFlowLabel(meeting.conversationFlowKey);
+
+  return (
+    <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Summary">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={meeting.meetingStatus === "scheduled" ? formatMeetingTimeRange(meeting) : formatDate(meeting.date)} />
+        <DetailRow icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Type" value={meetingActivityTitle(meeting)} />
+        <DetailRow icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Duration" value={formatDurationLabel(durationMinutes)} />
+        <DetailRow icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label={meeting.meetingStatus === "scheduled" ? "Status" : "Conversation Flow"} value={flowLabel} />
+      </div>
+    </DetailCard>
+  );
+}
+
+function ObservedFruitChipList({ fruit }: { fruit: string[] }) {
+  if (!fruit.length) {
+    return <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">No fruit recorded yet.</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {fruit.map((item) => (
+        <span className="inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-xs font-bold text-[#1D4ED8]" key={item}>
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function NotesReflectionDetailCard({
+  meeting,
+  reflection,
+}: {
+  meeting: DosAppMeeting;
+  reflection: DosAppLeaderReflection | null;
+}) {
+  const reflectionText = reflection?.whatHappened?.trim();
+  const tableNotes = meeting.notes?.trim();
+  const shouldShowReflection = Boolean(reflectionText && reflectionText !== tableNotes);
+
+  return (
+    <DetailCard icon={<StickyNote className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Notes & Reflection">
+      <div className="grid gap-2 md:grid-cols-2">
+        <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Table Notes</p>
+          <p className="mt-1 whitespace-pre-line text-sm leading-6 text-[#0F172A]">{tableNotes || "No table notes were added."}</p>
+        </div>
+        <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Leader Reflection</p>
+          <p className="mt-1 whitespace-pre-line text-sm leading-6 text-[#0F172A]">
+            {shouldShowReflection ? reflectionText : reflection?.prayerNeeds ? `Prayer: ${reflection.prayerNeeds}` : "No leader reflection added."}
+          </p>
+          {reflection?.followUpNeeded ? (
+            <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              Follow Up
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <div className="rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Observed Fruit</p>
+        <ObservedFruitChipList fruit={reflection?.observedFruit ?? []} />
+      </div>
+    </DetailCard>
+  );
+}
+
+function FollowUpStatusRow({
+  action,
+  helper,
+  title,
+}: {
+  action?: ReactNode;
+  helper: string;
+  title: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-[#0F172A]">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-[#64748B]">{helper}</p>
+      </div>
+      {action ? <div className="shrink-0 sm:w-48">{action}</div> : null}
+    </div>
+  );
+}
+
+function FollowUpDetailCard({
+  canSendTestimony,
+  hasReviewRequestLink,
+  hasTestimonyRequestLink,
+  isSendingReview,
+  isSendingTestimony,
+  meeting,
+  meetingTestimonies,
+  onSendReview,
+  onSendTestimony,
+  reviewDisplayHelper,
+  reviewDisplayTitle,
+  storyDisplayHelper,
+  storyDisplayTitle,
+  storyIsCompleted,
+}: {
+  canSendTestimony: boolean;
+  hasReviewRequestLink?: boolean;
+  hasTestimonyRequestLink?: boolean;
+  isSendingReview?: boolean;
+  isSendingTestimony?: boolean;
+  meeting: DosAppMeeting;
+  meetingTestimonies: DosAppParticipantTestimony[];
+  onSendReview: () => void;
+  onSendTestimony: () => void;
+  reviewDisplayHelper: string;
+  reviewDisplayTitle: string;
+  storyDisplayHelper: string;
+  storyDisplayTitle: string;
+  storyIsCompleted: boolean;
+}) {
+  return (
+    <DetailCard icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Follow-up">
+      <FollowUpStatusRow
+        action={meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
+          <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
+            Send
+          </ReviewActionButton>
+        ) : null}
+        helper={reviewDisplayHelper}
+        title={`Quick Review · ${reviewDisplayTitle}`}
+      />
+      {canSendTestimony ? (
+        <FollowUpStatusRow
+          action={!storyIsCompleted && !hasTestimonyRequestLink ? (
+            <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
+              Send
+            </ReviewActionButton>
+          ) : null}
+          helper={storyDisplayHelper}
+          title={`Testimony Request · ${storyDisplayTitle}`}
+        />
+      ) : null}
+      {meeting.review.stoodOut ? (
+        <p className="line-clamp-3 rounded-[18px] bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
+      ) : null}
+      {meetingTestimonies.length ? (
+        <div className="grid gap-2">
+          {meetingTestimonies.map((testimony) => (
+            <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
+          ))}
+        </div>
+      ) : null}
+    </DetailCard>
+  );
+}
+
+function FruitOutcomesDetailCard({ observedFruit }: { observedFruit: string[] }) {
+  return (
+    <DetailCard icon={<Flame className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit / Outcomes">
+      <ObservedFruitChipList fruit={observedFruit} />
+    </DetailCard>
+  );
+}
+
+function TableActionsDetailCard({
+  isSubmitting,
+  onDelete,
+  onEdit,
+  onEditNotes,
+}: {
+  isSubmitting?: boolean;
+  onDelete: () => void;
+  onEdit: () => void;
+  onEditNotes: () => void;
+}) {
+  return (
+    <DetailCard icon={<Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Actions">
+      <div className="grid gap-2 sm:grid-cols-3">
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#0F172A] px-4 text-sm font-bold text-white transition-colors hover:bg-[#1E293B]" onClick={onEdit} type="button">
+          <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+          Edit Table
+        </button>
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB]" onClick={onEditNotes} type="button">
+          <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+          Add Notes
+        </button>
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} onClick={onDelete} type="button">
+          <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+          Delete Table
+        </button>
+      </div>
+    </DetailCard>
+  );
+}
+
 function BottomNavigation({
   activeTab,
   onSelect,
@@ -18021,7 +18288,6 @@ function MeetingNotesEditorSheet({
 }
 
 function MeetingDetailOverlay({
-  fruitEvents,
   hasReviewRequestLink,
   hasTestimonyRequestLink,
   isSendingReview,
@@ -18030,6 +18296,7 @@ function MeetingDetailOverlay({
   leaderReflections,
   meeting,
   onBack,
+  onDelete,
   onEdit,
   onDone,
   onEditNotes,
@@ -18039,15 +18306,14 @@ function MeetingDetailOverlay({
   onScheduleNextMeeting,
   onSendReview,
   onSendTestimony,
-  participantReviews,
   participantTestimonies,
   people,
   reviewShareMessage,
   reviewOptionsShareMessage,
   showPostMeetingFollowUp,
+  isSubmitting,
   testimonyShareMessage,
 }: {
-  fruitEvents: DosAppFruitEvent[];
   hasReviewRequestLink?: boolean;
   hasTestimonyRequestLink?: boolean;
   isSendingReview?: boolean;
@@ -18056,6 +18322,7 @@ function MeetingDetailOverlay({
   leaderReflections: DosAppLeaderReflection[];
   meeting: DosAppMeeting;
   onBack: () => void;
+  onDelete: () => void;
   onDone: () => void;
   onEdit: () => void;
   onEditNotes: () => void;
@@ -18065,12 +18332,12 @@ function MeetingDetailOverlay({
   onScheduleNextMeeting: () => void;
   onSendReview: () => void;
   onSendTestimony: () => void;
-  participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
   reviewShareMessage?: string;
   reviewOptionsShareMessage?: string;
   showPostMeetingFollowUp?: boolean;
+  isSubmitting?: boolean;
   testimonyShareMessage?: string;
 }) {
   const isTableMeeting = meeting.source === "table";
@@ -18082,10 +18349,9 @@ function MeetingDetailOverlay({
   const avatarNames = meetingAvatarNames(meeting, people);
   const title = meetingDisplayTitle(meeting, people);
   const canSendTestimony = canSendMeetingTestimonyRequest(meeting, people);
-  const meetingReflections = leaderReflections.filter((reflection) => reflection.meetingId === meeting.id);
-  const meetingParticipantReviews = participantReviews.filter((review) => review.meetingId === meeting.id);
   const meetingTestimonies = participantTestimonies.filter((testimony) => testimony.meetingId === meeting.id);
-  const meetingFruitEvents = fruitEvents.filter((event) => event.meetingId === meeting.id);
+  const latestReflection = latestLeaderReflectionForMeeting(leaderReflections, meeting.id);
+  const observedFruit = latestReflection?.observedFruit ?? [];
   const reviewIsCompleted = meeting.review.status === "approved" || meeting.review.status === "private" || meeting.review.status === "submitted";
   const reviewRequestSent = meeting.review.status === "pending" || Boolean(hasReviewRequestLink);
   const reviewDisplayTitle = reviewIsCompleted ? "Completed" : reviewRequestSent ? "Sent" : "Not sent";
@@ -18185,179 +18451,131 @@ function MeetingDetailOverlay({
   }
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
-      <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-        </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-          {isScheduledMeeting ? "Scheduled" : "Table"}
-        </p>
-        {isLoggedTableMeeting ? (
-          <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-            Edit
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:bg-[#F8FBFF]">
+      <div className="mx-auto w-full max-w-5xl">
+        <header className="flex items-center justify-between gap-3">
+          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
           </button>
-        ) : <span className="h-10 w-10" aria-hidden="true" />}
-      </header>
-
-      <section className="mt-5 text-center">
-        {avatarNames.length ? (
-          <div className="mx-auto flex justify-center -space-x-2">
-            {avatarNames.map((name, index) => (
-              <span
-                className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-white text-sm font-bold ${avatarTone(index)}`}
-                key={`${meeting.id}-detail-${name}`}
-              >
-                {initials(name)}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
-            <CalendarDays className="h-6 w-6" aria-hidden="true" strokeWidth={1.6} />
-          </div>
-        )}
-        <h2 className="mx-auto mt-3 max-w-[320px] text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-          {title}
-        </h2>
-        <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
-        <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-            {isScheduledMeeting ? "Scheduled" : conversationFlowLabel(meeting.conversationFlowKey)}
-          </span>
-          {meeting.googleSyncEnabled ? (
-            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
-              {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
-            </span>
-          ) : null}
-          {temperature ? (
-            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
-              {temperature}
-            </span>
-          ) : null}
-        </div>
-      </section>
-
-      <div className="mt-5 grid gap-3">
-        <MeetingPeopleDetailCard meeting={meeting} people={people} />
-
-        {isLoggedTableMeeting ? (
-          <DetailCard title="Quick Review">
-            <div>
-              <p className="text-sm font-semibold text-[#0F172A]">{reviewDisplayTitle}</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">{reviewDisplayHelper}</p>
-            </div>
-            {meeting.review.status !== "not_sent" && meeting.review.sharePermission ? (
-              <span className="mt-3 inline-flex rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                {reviewSharePermissionLabel(meeting.review.sharePermission)}
-              </span>
-            ) : null}
-            {meeting.review.stoodOut ? (
-              <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
-            ) : null}
-            {meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
-              <div className="mt-3">
-                <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
-                  Send Quick Review
-                </ReviewActionButton>
-              </div>
-            ) : null}
-            {reviewShareMessage ? (
-              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p>
-            ) : null}
-          </DetailCard>
-        ) : null}
-
-        {isLoggedTableMeeting && canSendTestimony ? (
-          <DetailCard title="Testimony Request">
-            <div>
-              <p className="text-sm font-semibold text-[#0F172A]">{storyDisplayTitle}</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">{storyDisplayHelper}</p>
-            </div>
-            {!storyIsCompleted && !hasTestimonyRequestLink ? (
-              <div className="mt-3">
-              <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
-                Send Testimony Request
-              </ReviewActionButton>
-            </div>
-            ) : null}
-            {testimonyShareMessage ? (
-              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p>
-            ) : null}
-          </DetailCard>
-        ) : null}
-
-        <DetailCard title={isScheduledMeeting ? "Prep Notes" : "Table Notes"}>
-          {meeting.notes ? (
-            <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#0F172A]">
-              {meeting.notes}
-            </div>
-          ) : (
-            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No table notes were added."}</p>
-          )}
-          {isTableMeeting ? (
-            <button
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB]"
-              onClick={onEditNotes}
-              type="button"
-            >
-              <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-              {meeting.notes ? "Edit Notes" : "Add Notes"}
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            {isScheduledMeeting ? "Scheduled" : "Table"}
+          </p>
+          {isLoggedTableMeeting ? (
+            <button className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Edit
             </button>
-          ) : null}
-        </DetailCard>
+          ) : <span className="h-10 w-10" aria-hidden="true" />}
+        </header>
 
-        {!isScheduledMeeting ? <ConversationFlowDetail meeting={meeting} /> : null}
-
-        {meetingReflections.length ? (
-        <DetailCard title="Leader Reflections">
-          {meetingReflections.length ? meetingReflections.map((reflection) => (
-            <LeaderReflectionRow key={reflection.id} reflection={reflection} />
-          )) : null}
-        </DetailCard>
-        ) : null}
-
-        {meetingParticipantReviews.length ? (
-        <DetailCard title="Reviews">
-          {meetingParticipantReviews.length ? meetingParticipantReviews.map((review) => (
-            <ParticipantReviewRow key={review.id} review={review} />
-          )) : null}
-        </DetailCard>
-        ) : null}
-
-        {meetingTestimonies.length ? (
-        <DetailCard title="Testimonies">
-          {meetingTestimonies.length ? meetingTestimonies.map((testimony) => (
-            <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
-          )) : null}
-        </DetailCard>
-        ) : null}
-
-        {meetingFruitEvents.length ? (
-        <DetailCard title="Fruit Feed">
-          {meetingFruitEvents.length ? meetingFruitEvents.map((event) => (
-            <FruitEventRow event={event} key={event.id} />
-          )) : null}
-        </DetailCard>
-        ) : null}
-
-        {meeting.recommendedResources.length ? (
-          <DetailCard title="Recommended Resources">
-            {/* TODO: Add SMS/email/share actions for queued resources after DOS messaging workflows exist. */}
-            {meeting.recommendedResources.map((resource) => (
-              <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={resource.id}>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#0F172A]">{resource.title}</p>
-                  {resource.reason ? <p className="mt-1 text-xs text-[#64748B]">{resource.reason}</p> : null}
+        <section className="mt-5 rounded-[26px] border border-[#DCEBFF] bg-white p-4 shadow-[0_16px_38px_rgba(37,99,235,0.055)] md:p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              {avatarNames.length ? (
+                <div className="flex shrink-0 -space-x-2">
+                  {avatarNames.map((name, index) => (
+                    <span
+                      className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-white text-sm font-bold ${avatarTone(index)}`}
+                      key={`${meeting.id}-detail-${name}`}
+                    >
+                      {initials(name)}
+                    </span>
+                  ))}
                 </div>
-                <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                  Queued
-                </span>
+              ) : (
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
+                  <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.6} />
+                </div>
+              )}
+              <div className="min-w-0">
+                <h2 className="truncate text-[28px] font-bold leading-none tracking-tight text-[#0F172A] md:text-[34px]" style={{ fontFamily: font.oswald }}>
+                  {title}
+                </h2>
+                <p className="mt-1 text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
               </div>
-            ))}
-          </DetailCard>
-        ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2 md:justify-end">
+              <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
+                {isScheduledMeeting ? "Scheduled" : conversationFlowLabel(meeting.conversationFlowKey)}
+              </span>
+              {observedFruit.length ? (
+                <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+                  {observedFruit.length} fruit
+                </span>
+              ) : null}
+              {meeting.googleSyncEnabled ? (
+                <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+                  {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
+                </span>
+              ) : null}
+              {temperature ? (
+                <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+                  {temperature}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
+          <div className="grid min-w-0 gap-3">
+            <TableDetailSummaryCard meeting={meeting} />
+            <MeetingPeopleDetailCard meeting={meeting} people={people} />
+            <NotesReflectionDetailCard meeting={meeting} reflection={latestReflection} />
+          </div>
+
+          <div className="grid min-w-0 content-start gap-3">
+            {isLoggedTableMeeting ? (
+              <FollowUpDetailCard
+                canSendTestimony={canSendTestimony}
+                hasReviewRequestLink={hasReviewRequestLink}
+                hasTestimonyRequestLink={hasTestimonyRequestLink}
+                isSendingReview={isSendingReview}
+                isSendingTestimony={isSendingTestimony}
+                meeting={meeting}
+                meetingTestimonies={meetingTestimonies}
+                onSendReview={onSendReview}
+                onSendTestimony={onSendTestimony}
+                reviewDisplayHelper={reviewDisplayHelper}
+                reviewDisplayTitle={reviewDisplayTitle}
+                storyDisplayHelper={storyDisplayHelper}
+                storyDisplayTitle={storyDisplayTitle}
+                storyIsCompleted={storyIsCompleted}
+              />
+            ) : null}
+            {(reviewShareMessage || testimonyShareMessage || reviewOptionsShareMessage) ? (
+              <div className="grid gap-2 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+                {reviewShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p> : null}
+                {testimonyShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p> : null}
+                {reviewOptionsShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewOptionsShareMessage}</p> : null}
+              </div>
+            ) : null}
+            <FruitOutcomesDetailCard observedFruit={observedFruit} />
+            {isLoggedTableMeeting ? (
+              <TableActionsDetailCard
+                isSubmitting={isSubmitting}
+                onDelete={onDelete}
+                onEdit={onEdit}
+                onEditNotes={onEditNotes}
+              />
+            ) : null}
+            {meeting.recommendedResources.length ? (
+              <DetailCard title="Recommended Resources">
+                {meeting.recommendedResources.map((resource) => (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={resource.id}>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#0F172A]">{resource.title}</p>
+                      {resource.reason ? <p className="mt-1 text-xs text-[#64748B]">{resource.reason}</p> : null}
+                    </div>
+                    <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                      Queued
+                    </span>
+                  </div>
+                ))}
+              </DetailCard>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -19395,6 +19613,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingContext(meeting.type);
     setSelectedMeetingId(meeting.id);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
+    setSelectedOutcomeTags([]);
     setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
     setSelectedMinistryTeamPersonIds(meeting.ministryTeam.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
     setSelectedSupportingAttendeeIds(meeting.supportingAttendees.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
@@ -19449,6 +19668,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingContext(meeting.type);
     setSelectedMeetingId(meeting.id);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
+    setSelectedOutcomeTags(latestLeaderReflectionForMeeting(data.leaderReflections, meeting.id)?.observedFruit ?? []);
     setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
     setSelectedMinistryTeamPersonIds(meeting.ministryTeam.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
     setSelectedSupportingAttendeeIds(meeting.supportingAttendees.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
@@ -20522,7 +20742,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
     const loggedStartAt = localDateTimeIso(tableDate, "12:00");
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
-    const observedFruit = [...selectedOutcomeTags];
+    const observedFruit = formObservedFruit(formData);
     const followUpNeeded = formData.get("follow_up_needed") === "on";
     const nextStep = String(formData.get("next_step") ?? "");
     const prayerNeeds = String(formData.get("prayer_needs") ?? "");
@@ -20645,18 +20865,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const conversationFlowKey = data.workspace.isUsamWorkspace ? selectedConversationFlow : "none";
     const isScheduledMeeting = selectedMeeting.meetingStatus === "scheduled";
     const isLoggingScheduledMeeting = loggingScheduledMeetingId === selectedMeeting.id && isScheduledMeeting;
+    const includesReflectionFields = !isScheduledMeeting || isLoggingScheduledMeeting;
+    const latestReflection = latestLeaderReflectionForMeeting(data.leaderReflections, selectedMeeting.id);
     const tableDate = String(formData.get(isScheduledMeeting && !isLoggingScheduledMeeting ? "scheduled_date" : "table_date") ?? selectedMeeting.date ?? todayDateValue());
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
     const loggedStartAt = localDateTimeIso(tableDate, "12:00");
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
-    const observedFruit = [...selectedOutcomeTags];
-    const followUpNeeded = formData.get("follow_up_needed") === "on";
-    const nextStep = String(formData.get("next_step") ?? "");
-    const prayerNeeds = String(formData.get("prayer_needs") ?? "");
-    const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
+    const observedFruit = formObservedFruit(formData);
+    const followUpNeeded = includesReflectionFields ? formData.get("follow_up_needed") === "on" : latestReflection?.followUpNeeded ?? false;
+    const nextStep = formData.has("next_step") ? String(formData.get("next_step") ?? "") : latestReflection?.nextStep ?? "";
+    const prayerNeeds = includesReflectionFields ? String(formData.get("prayer_needs") ?? "") : latestReflection?.prayerNeeds ?? "";
+    const spiritualOpenness = formData.has("spiritual_openness") ? String(formData.get("spiritual_openness") ?? "") : latestReflection?.spiritualOpenness ?? "";
     const meetingNotes = String(formData.get("notes") ?? "");
-    const shouldSaveReflection = isLoggingScheduledMeeting && Boolean(
-      meetingNotes.trim()
+    const shouldSaveReflection = Boolean(
+      latestReflection
+      || isLoggingScheduledMeeting
+      || meetingNotes.trim()
       || observedFruit.length
       || followUpNeeded
       || nextStep.trim()
@@ -20691,10 +20915,41 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       payload.scheduledStartAt = scheduledStartAt;
       payload.scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + formDurationMinutes(formData.get("duration_minutes")) * 60_000).toISOString();
+    } else {
+      payload.scheduledStartAt = loggedStartAt;
+      payload.scheduledEndAt = loggedEndAt;
     }
 
     if (!isLoggingScheduledMeeting) {
-      void submitJson("/api/dos/app/meetings", payload, "PATCH");
+      void (async () => {
+        const result = await submitJson("/api/dos/app/meetings", payload, "PATCH", false);
+
+        if (!result) {
+          return;
+        }
+
+        if (!isScheduledMeeting && shouldSaveReflection) {
+          const reflectionResult = await submitJson("/api/dos/app/reflections", {
+            followUpNeeded,
+            meetingId: selectedMeeting.id,
+            nextStep,
+            observedFruit,
+            prayerNeeds,
+            privateNotes: latestReflection?.privateNotes ?? "",
+            replaceLatest: true,
+            spiritualOpenness,
+            whatHappened: latestReflection?.whatHappened ?? meetingNotes,
+          }, "POST", false);
+
+          if (!reflectionResult) {
+            return;
+          }
+        }
+
+        closeForm();
+        setSelectedMeetingId(selectedMeeting.id);
+        router.refresh();
+      })();
       return;
     }
 
@@ -20709,11 +20964,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         const reflectionResult = await submitJson("/api/dos/app/reflections", {
           followUpNeeded,
           meetingId: selectedMeeting.id,
-          nextStep,
-          observedFruit,
-          prayerNeeds,
-          privateNotes: "",
-          spiritualOpenness,
+            nextStep,
+            observedFruit,
+            prayerNeeds,
+            privateNotes: "",
+            spiritualOpenness,
           whatHappened: meetingNotes,
         }, "POST", false);
 
@@ -20744,6 +20999,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setActiveTab("meetings");
       setSelectedMeetingId(selectedMeeting.id);
       setPostMeetingFollowUpId(selectedMeeting.id);
+      router.refresh();
     })();
   }
 
@@ -22490,12 +22746,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {selectedMeetingWithReview ? (
           <MeetingDetailOverlay
-            fruitEvents={data.fruitEvents}
             hasReviewRequestLink={Boolean(existingReviewUrl(selectedMeetingWithReview)) || Object.keys(reviewLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             hasTestimonyRequestLink={Boolean(existingTestimonyUrl(selectedMeetingWithReview)) || Object.keys(testimonyLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             isSendingReview={reviewLinkMeetingId === selectedMeetingWithReview.id}
             isSendingReviewOptions={reviewOptionsLinkMeetingId === selectedMeetingWithReview.id}
             isSendingTestimony={testimonyLinkMeetingId === selectedMeetingWithReview.id}
+            isSubmitting={isSubmitting}
             leaderReflections={data.leaderReflections}
             meeting={selectedMeetingWithReview}
             onBack={() => {
@@ -22507,6 +22763,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setSelectedMeetingId(null);
               setActiveTab("meetings");
             }}
+            onDelete={handleDeleteMeeting}
             onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
             onEditNotes={() => openMeetingNotesEdit(selectedMeetingWithReview)}
             onPrepareQuickReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
@@ -22519,7 +22776,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onScheduleNextMeeting={() => openScheduleMeeting(selectedMeetingWithReview.fieldPersonIds)}
             onSendReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
             onSendTestimony={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "testimony_request" })}
-            participantReviews={data.participantReviews}
             participantTestimonies={data.participantTestimonies}
             people={people}
             reviewOptionsShareMessage={reviewOptionsShareMessage}
@@ -22980,6 +23236,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       {formMode === "editMeeting" && selectedMeeting ? (() => {
         const isLoggingSelectedScheduledMeeting = selectedMeeting.meetingStatus === "scheduled" && loggingScheduledMeetingId === selectedMeeting.id;
         const logDateDefault = dateInputValueFromDateTime(selectedMeeting.scheduledStartAt ?? selectedMeeting.date, selectedMeeting.date ?? todayDateValue());
+        const reflectionDefault = latestLeaderReflectionForMeeting(data.leaderReflections, selectedMeeting.id);
 
         return (
         <Sheet onClose={closeForm} title={isLoggingSelectedScheduledMeeting ? "Log Table" : "Edit Table"}>
@@ -22990,9 +23247,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               buttonText={isLoggingSelectedScheduledMeeting ? "Log Table" : "Save Table"}
               conversationResponses={conversationResponses}
               dateDefault={isLoggingSelectedScheduledMeeting ? logDateDefault : selectedMeeting.date ?? todayDateValue()}
+              durationDefault={durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt, selectedMeeting.meetingStatus === "scheduled" ? 60 : 30)}
               errorMessage={errorMessage}
               householdMembers={data.householdMembers}
-              includeReflectionFields={isLoggingSelectedScheduledMeeting}
+              includeReflectionFields={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
               isCreatingPerson={isCreatingMeetingPerson}
               isSubmitting={isSubmitting}
               meetingPeopleOptions={meetingPeopleOptions}
@@ -23015,6 +23273,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onTogglePerson={toggleMeetingPersonId}
               onToggleSupportingAttendee={toggleSupportingAttendeeId}
               recommendedResources={draftRecommendedResources}
+              reflectionDefault={reflectionDefault}
               scheduledEndAtDefault={selectedMeeting.scheduledEndAt}
               scheduledStartAtDefault={selectedMeeting.scheduledStartAt}
               selectedConversationFlow={selectedConversationFlow}
@@ -23024,7 +23283,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               selectedPersonIds={selectedMeetingPersonIds}
               selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
               showConversationFlow={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
-              showDurationField={isLoggingSelectedScheduledMeeting}
+              showDurationField={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
               showScheduledTiming={selectedMeeting.meetingStatus === "scheduled" && !isLoggingSelectedScheduledMeeting}
               submittingText="Saving..."
               supportingAttendeeOptions={supportingAttendeeOptions}
