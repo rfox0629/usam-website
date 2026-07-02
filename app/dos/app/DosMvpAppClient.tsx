@@ -20938,6 +20938,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         closeForm();
         setSelectedMeetingId(selectedMeeting.id);
+        router.refresh();
       })();
       return;
     }
@@ -20988,6 +20989,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setActiveTab("meetings");
       setSelectedMeetingId(selectedMeeting.id);
       setPostMeetingFollowUpId(selectedMeeting.id);
+      router.refresh();
     })();
   }
 
