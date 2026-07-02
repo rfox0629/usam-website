@@ -1789,6 +1789,25 @@ function latestLeaderReflectionForMeeting(reflections: DosAppLeaderReflection[],
     .sort((first, second) => (parseDisplayDate(second.createdAt)?.getTime() ?? 0) - (parseDisplayDate(first.createdAt)?.getTime() ?? 0))[0] ?? null;
 }
 
+function observedFruitForMeeting(reflections: DosAppLeaderReflection[], fruitEvents: DosAppFruitEvent[], meetingId: string) {
+  const latestReflection = latestLeaderReflectionForMeeting(reflections, meetingId);
+
+  if (latestReflection) {
+    return latestReflection.observedFruit.filter((fruit) => meetingObservedFruitValues.has(fruit));
+  }
+
+  return Array.from(new Set(
+    fruitEvents
+      .filter((event) =>
+        event.meetingId === meetingId
+        && event.status !== "hidden"
+        && (event.generatedBy === "leader_review" || event.sourceType === "leader_reflection")
+        && meetingObservedFruitValues.has(event.fruitType)
+      )
+      .map((event) => event.fruitType),
+  ));
+}
+
 function reviewStatusLabel(value: DosAppReviewStatus) {
   return {
     approved: "Approved",
@@ -18288,6 +18307,7 @@ function MeetingNotesEditorSheet({
 }
 
 function MeetingDetailOverlay({
+  fruitEvents,
   hasReviewRequestLink,
   hasTestimonyRequestLink,
   isSendingReview,
@@ -18314,6 +18334,7 @@ function MeetingDetailOverlay({
   isSubmitting,
   testimonyShareMessage,
 }: {
+  fruitEvents: DosAppFruitEvent[];
   hasReviewRequestLink?: boolean;
   hasTestimonyRequestLink?: boolean;
   isSendingReview?: boolean;
@@ -18351,7 +18372,7 @@ function MeetingDetailOverlay({
   const canSendTestimony = canSendMeetingTestimonyRequest(meeting, people);
   const meetingTestimonies = participantTestimonies.filter((testimony) => testimony.meetingId === meeting.id);
   const latestReflection = latestLeaderReflectionForMeeting(leaderReflections, meeting.id);
-  const observedFruit = latestReflection?.observedFruit ?? [];
+  const observedFruit = observedFruitForMeeting(leaderReflections, fruitEvents, meeting.id);
   const reviewIsCompleted = meeting.review.status === "approved" || meeting.review.status === "private" || meeting.review.status === "submitted";
   const reviewRequestSent = meeting.review.status === "pending" || Boolean(hasReviewRequestLink);
   const reviewDisplayTitle = reviewIsCompleted ? "Completed" : reviewRequestSent ? "Sent" : "Not sent";
@@ -19668,7 +19689,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingContext(meeting.type);
     setSelectedMeetingId(meeting.id);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
-    setSelectedOutcomeTags(latestLeaderReflectionForMeeting(data.leaderReflections, meeting.id)?.observedFruit ?? []);
+    setSelectedOutcomeTags(observedFruitForMeeting(data.leaderReflections, data.fruitEvents, meeting.id));
     setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
     setSelectedMinistryTeamPersonIds(meeting.ministryTeam.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
     setSelectedSupportingAttendeeIds(meeting.supportingAttendees.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
@@ -22752,6 +22773,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             isSendingReviewOptions={reviewOptionsLinkMeetingId === selectedMeetingWithReview.id}
             isSendingTestimony={testimonyLinkMeetingId === selectedMeetingWithReview.id}
             isSubmitting={isSubmitting}
+            fruitEvents={data.fruitEvents}
             leaderReflections={data.leaderReflections}
             meeting={selectedMeetingWithReview}
             onBack={() => {
