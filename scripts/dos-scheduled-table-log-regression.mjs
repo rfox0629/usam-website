@@ -25,8 +25,8 @@ assert(
   "Scheduled-table log sheet should present itself as Log Table.",
 );
 assert(
-  source.includes("includeReflectionFields={isLoggingSelectedScheduledMeeting}"),
-  "Scheduled-table log sheet should include normal logging reflection fields.",
+  source.includes('includeReflectionFields={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}'),
+  "Scheduled-table log sheet should include normal logging reflection fields while logged edit keeps reflection editing.",
 );
 assert(
   !source.includes("onLogTable(personIds, item.meeting?.type)"),

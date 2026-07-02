@@ -55,26 +55,14 @@ export type ReviewInferenceInput = {
 
 const explicitFruitSourceActions: readonly FruitSourceAction[] = ["leader_review", "quick_review", "record_fruit", "testimony_review"];
 
-function normalizeText(...values: Array<string | null | undefined>) {
-  return values.join(" ").toLowerCase();
-}
-
-function includesAny(text: string, keywords: string[]) {
-  return keywords.some((keyword) => text.includes(keyword));
-}
-
 function eventKey(sourceType: FruitSourceType, sourceId: string | null | undefined, fruitType: string, personId: string | null | undefined) {
   return [sourceType, sourceId ?? "none", personId ?? "none", fruitType.toLowerCase().replace(/[^a-z0-9]+/g, "-")].join(":");
 }
 
-export async function createFruitEvent(input: FruitEventInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {
-  if (!explicitFruitSourceActions.includes(input.generatedBy)) {
-    console.warn("[Fruit Intelligence] Refused fruit event without explicit source action", input.generatedBy);
-    return null;
-  }
-
+function fruitEventPayload(input: FruitEventInput) {
   const generationKey = input.generationKey ?? eventKey(input.sourceType, input.sourceId, input.fruitType, input.personId);
-  const payload = {
+
+  return {
     confidence_level: input.confidenceLevel,
     debug_context: input.debugContext ?? {},
     description: input.description ?? null,
@@ -91,22 +79,9 @@ export async function createFruitEvent(input: FruitEventInput, supabase: Supabas
     title: input.title ?? input.fruitType,
     visibility: input.visibility ?? "private",
   };
-
-  const { data, error } = await supabase
-    .from("fruit_events")
-    .upsert(payload, { onConflict: "generation_key", ignoreDuplicates: true })
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    console.warn("[Fruit Intelligence] Unable to create fruit event", error.message);
-  }
-
-  return data?.id ? String(data.id) : null;
 }
 
-export async function inferFruitEventsFromReflection(input: ReflectionInferenceInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {
-  const text = normalizeText(input.whatHappened, input.prayerNeeds, input.privateNotes, input.nextStep, input.spiritualOpenness);
+function reflectionFruitEvents(input: ReflectionInferenceInput) {
   const events: FruitEventInput[] = [];
   const add = (fruitType: string, description: string, matchedBy: string, title = fruitType) => {
     events.push({
@@ -126,25 +101,78 @@ export async function inferFruitEventsFromReflection(input: ReflectionInferenceI
     });
   };
 
-  if (input.prayerNeeds || includesAny(text, ["prayer", "pray for", "prayed", "needs prayer"])) {
-    add("Prayer Request", "Prayer needs were named in the Leader Reflection.", "prayer language", "Prayer Requested");
-  }
-
-  if (includesAny(text, ["gospel", "jesus", "salvation", "shared the gospel", "good news"])) {
-    add("Gospel Conversation", "The Leader Reflection indicates a gospel-centered conversation.", "gospel language");
-  }
-
-  if (includesAny(text, ["accountability", "check in", "follow up weekly", "confess", "obedience"])) {
-    add("Ongoing Accountability", "The Leader Reflection points to ongoing accountability.", "accountability language");
-  }
-
   (input.observedFruit ?? []).forEach((fruitType) => {
-    add(fruitType, `Leader observed ${fruitType}.`, "selected observed fruit");
+    add(fruitType, `${fruitType} was selected in the Leader Reflection.`, "selected observed fruit");
   });
 
-  await Promise.all(events.map((event) => createFruitEvent(event, supabase)));
+  return events;
+}
+
+export async function createFruitEvent(input: FruitEventInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {
+  if (!explicitFruitSourceActions.includes(input.generatedBy)) {
+    console.warn("[Fruit Intelligence] Refused fruit event without explicit source action", input.generatedBy);
+    return null;
+  }
+
+  const payload = fruitEventPayload(input);
+
+  const { data, error } = await supabase
+    .from("fruit_events")
+    .upsert(payload, { onConflict: "generation_key", ignoreDuplicates: true })
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[Fruit Intelligence] Unable to create fruit event", error.message);
+  }
+
+  return data?.id ? String(data.id) : null;
+}
+
+export async function syncFruitEventsForReflection(input: ReflectionInferenceInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {
+  const events = reflectionFruitEvents(input);
+  const generationKeys = new Set(events.map((event) => event.generationKey).filter((key): key is string => Boolean(key)));
+  const existingResult = await supabase
+    .from("fruit_events")
+    .select("id, generation_key")
+    .eq("source_type", "leader_reflection")
+    .eq("source_id", input.id)
+    .eq("generated_by", "leader_review");
+
+  if (existingResult.error) {
+    console.warn("[Fruit Intelligence] Unable to load existing reflection fruit events", existingResult.error.message);
+  } else {
+    const staleEventIds = (existingResult.data ?? [])
+      .filter((event) => !generationKeys.has(String(event.generation_key ?? "")))
+      .map((event) => String(event.id));
+
+    if (staleEventIds.length) {
+      const deleteResult = await supabase
+        .from("fruit_events")
+        .delete()
+        .in("id", staleEventIds);
+
+      if (deleteResult.error) {
+        console.warn("[Fruit Intelligence] Unable to delete stale reflection fruit events", deleteResult.error.message);
+      }
+    }
+  }
+
+  await Promise.all(events.map(async (event) => {
+    const { error } = await supabase
+      .from("fruit_events")
+      .upsert(fruitEventPayload(event), { onConflict: "generation_key" });
+
+    if (error) {
+      console.warn("[Fruit Intelligence] Unable to sync reflection fruit event", error.message);
+    }
+  }));
 
   return events.length;
+}
+
+export async function inferFruitEventsFromReflection(input: ReflectionInferenceInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {
+  return syncFruitEventsForReflection(input, supabase);
 }
 
 export async function inferFruitEventsFromReview(input: ReviewInferenceInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {
