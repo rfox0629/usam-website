@@ -23291,6 +23291,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onToggleFollowUpAction={handleConversationFollowUpAction}
               onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
               onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
+              onToggleOutcomeTag={toggleOutcomeTag}
               onTogglePerson={toggleMeetingPersonId}
               onToggleSupportingAttendee={toggleSupportingAttendeeId}
               recommendedResources={draftRecommendedResources}
@@ -23301,6 +23302,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               selectedMeetingContext={selectedMeetingContext}
               selectedMinistryTeamMemberIds={selectedMinistryTeamMemberIds}
               selectedMinistryTeamPersonIds={selectedMinistryTeamPersonIds}
+              selectedOutcomeTags={selectedOutcomeTags}
               selectedPersonIds={selectedMeetingPersonIds}
               selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
               showConversationFlow={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}

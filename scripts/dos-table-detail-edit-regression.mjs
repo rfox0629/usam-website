@@ -13,6 +13,9 @@ function assert(condition, message) {
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const reflectionsRoute = read("app/api/dos/app/reflections/route.ts");
 const fruitIntelligence = read("src/lib/dos/fruit-intelligence.ts");
+const editMeetingBlockStart = appClient.indexOf('{formMode === "editMeeting"');
+const editMeetingBlockEnd = appClient.indexOf('{formMode === "meetingNotes"', editMeetingBlockStart);
+const editMeetingBlock = appClient.slice(editMeetingBlockStart, editMeetingBlockEnd);
 
 assert(
   appClient.includes("function MeetingDurationSelector({") && appClient.includes("customTotalMinutes") && appClient.includes(">Hours</span>") && appClient.includes(">Minutes</span>"),
@@ -55,6 +58,14 @@ assert(
     && appClient.includes("h-5 w-5 shrink-0 accent-[#2563EB]")
     && appClient.includes("onChange={() => onToggle(option.value)}"),
   "Observed fruit options must use visible checkbox-backed controls so mobile taps reliably toggle selection.",
+);
+
+assert(
+  editMeetingBlockStart >= 0
+    && editMeetingBlockEnd > editMeetingBlockStart
+    && editMeetingBlock.includes("onToggleOutcomeTag={toggleOutcomeTag}")
+    && editMeetingBlock.includes("selectedOutcomeTags={selectedOutcomeTags}"),
+  "Edit Table must wire observed-fruit selected state and toggle handler into the form.",
 );
 
 assert(
