@@ -45,6 +45,11 @@ assert(
 );
 
 assert(
+  appClient.includes("setSelectedMeetingId(selectedMeeting.id);\n        router.refresh();"),
+  "Edit Table must refresh server-backed DOS data after saving so table detail does not show stale duration or fruit.",
+);
+
+assert(
   reflectionsRoute.includes("replaceLatest") && reflectionsRoute.includes(".update(reflectionValues)") && reflectionsRoute.includes(".from(\"meeting_reflections\")"),
   "Reflection route must support replacing the latest table reflection.",
 );
