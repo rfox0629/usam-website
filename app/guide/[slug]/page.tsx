@@ -166,6 +166,10 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
     redirect(resource.path);
   }
 
+  if (resource.path.startsWith("/dos/")) {
+    redirect(resource.path);
+  }
+
   if (!resource.path.startsWith("/guide/")) {
     notFound();
   }

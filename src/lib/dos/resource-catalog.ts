@@ -57,6 +57,7 @@ export type DosResource = {
 };
 
 export type DosAssessmentQuestion = {
+  group?: string;
   id: string;
   note?: string;
   participantPrompts?: Record<string, string>;
@@ -205,6 +206,7 @@ const commandResources = [
 
 const marriageAssessmentQuestions = [
   {
+    group: "Connection",
     id: "respect-love",
     participantPrompts: {
       Husband: "How respected do you feel in the relationship?",
@@ -213,58 +215,72 @@ const marriageAssessmentQuestions = [
     prompt: "How respected or loved do you feel in the relationship?",
   },
   {
+    group: "Connection",
     id: "connect-with-god",
     prompt: "How well do I help you connect with God?",
   },
   {
+    group: "Connection",
     id: "time-together",
     prompt: "How well do we spend our time together?",
   },
   {
+    group: "Trust & Communication",
     id: "trust",
     prompt: "How much do you trust me?",
   },
   {
+    group: "Trust & Communication",
     id: "understood",
     prompt: "How well do you feel understood?",
   },
   {
+    group: "Shared Life",
     id: "role",
     prompt: "How happy are you with your role?",
   },
   {
+    group: "Shared Life",
     id: "domestic-support",
     prompt: "How good am I at domestic support?",
   },
   {
+    group: "Trust & Communication",
     id: "conflict",
     prompt: "How well do we handle conflicts?",
   },
   {
+    group: "Trust & Communication",
     id: "crisis-support",
     prompt: "How supported do you feel in a crisis?",
   },
   {
+    group: "Shared Life",
     id: "money",
     prompt: "How well do we manage money?",
   },
   {
+    group: "Family & Community",
     id: "parenting",
     prompt: "How well do we agree on parenting / grandparenting?",
   },
   {
+    group: "Family & Community",
     id: "family-in-laws",
     prompt: "How well do I treat your family / in-laws?",
   },
   {
+    group: "Family & Community",
     id: "friends",
     prompt: "How well do I value our friends?",
   },
   {
+    group: "Affection & Intimacy",
     id: "affection",
     prompt: "How do you feel about our affectionate romantic interaction?",
   },
   {
+    group: "Affection & Intimacy",
     id: "sex-life",
     note: "This question is appropriate only within covenant marriage.",
     prompt: "How happy are you with our sex life?",
@@ -344,12 +360,12 @@ const relationshipResources = [
         questions: marriageAssessmentQuestions,
       },
       assessmentScale: "Uses a simple 0-10 scale to help surface strengths, strain, and next faithful steps.",
-      body: "A frontend-only assessment for a husband and wife to name strengths, pressure points, and growth areas.",
+      body: "A simple assessment for a husband and wife to name strengths, pressure points, and growth areas.",
     },
-    description: "A simple start screen for a 0-10 marriage health assessment.",
+    description: "A 0-10 marriage health assessment with husband and wife scoring.",
     icon: "heart",
     id: "relationship-marriage-assessment",
-    path: "/guide/marriage-assessment",
+    path: "/dos/library/marriage-assessment",
     sendable: true,
     slug: "marriage-assessment",
     title: "Marriage Assessment",
@@ -521,82 +537,6 @@ const relationshipResources = [
     sendable: true,
     slug: "covenants-of-relationship",
     title: "Covenants of Relationship",
-    type: "guide",
-  },
-  {
-    category: "Relationships",
-    content: {
-      attribution: "Used with permission from Ministry of Reconciliation and Andy Leenstra.",
-      sections: [
-        {
-          items: [
-            {
-              title: "Sins",
-            },
-            {
-              title: "Hurts",
-            },
-            {
-              title: "Ungodly Beliefs",
-            },
-            {
-              title: "Generational Sins",
-            },
-            {
-              title: "Demonic Influence",
-            },
-          ],
-          title: "Heart Issues",
-        },
-        {
-          items: [
-            {
-              body: "God says I have a problem.",
-              scriptureReferences: ["John 16:7-9"],
-              title: "1. Conviction.",
-            },
-            {
-              body: "I own my part of the problem as sin against God.",
-              scriptureReferences: ["2 Samuel 12:13", "Psalm 38:18"],
-              title: "2. Confession",
-            },
-            {
-              body: "I recognize the damage I have caused, the lies, and my ungodly responses. I am willing to change my ungodly beliefs, replace them with God's truth and make amends.",
-              scriptureReferences: ["2 Corinthians 7:9-10", "Luke 19:8", "John 8:31"],
-              title: "3. Repentance/restitution.",
-            },
-            {
-              body: "I choose to receive and apply Christ's payment for my sin.",
-              scriptureReferences: ["Psalm 103:3", "1 John 1:9", "Luke 6:37"],
-              title: "4. Forgiveness.",
-            },
-            {
-              body: "I renounce all ungodly behavior, lies and hurts that allow demonic influence. I embrace God's truth.",
-              scriptureReferences: ["Acts 10:38", "John 8:44"],
-              title: "5. Deliverance.",
-            },
-            {
-              body: "I want to be mentored into a loving, obedient relationship with Jesus Christ.",
-              scriptureReferences: ["Matthew 28:19-20", "John 15:15"],
-              title: "6. Discipleship.",
-            },
-            {
-              body: "Others experience my real change as I live out my relationship with God and others.",
-              scriptureReferences: ["John 17:21-23", "Mark 12:30"],
-              title: "7. Real Relationship",
-            },
-          ],
-          title: "The Power of Real and Permanent Change",
-        },
-      ],
-    },
-    description: "A simple framework for naming heart issues and walking toward real, lasting change with Jesus.",
-    icon: "sparkles",
-    id: "relationship-heart-freedom",
-    path: "/guide/heart-freedom",
-    sendable: true,
-    slug: "heart-freedom",
-    title: "Heart Freedom",
     type: "guide",
   },
 ] as const satisfies readonly DosResource[];
