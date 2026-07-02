@@ -273,6 +273,67 @@ const fieldVisibilityOptions: ReadonlyArray<{ label: string; value: DosAppFieldV
   { label: "Hidden from Field", value: "hidden" },
 ];
 
+const discoverFieldIntentOptions: ReadonlyArray<{ helper: string; label: string; value: DiscoverFieldIntent }> = [
+  { helper: "Keep the record without adding them to your active Field.", label: "Not yet / People only", value: "people_only" },
+  { helper: "Add them to the relationships you are intentionally stewarding.", label: "Yes, add to Field", value: "field" },
+  { helper: "Keep them nearby while you discern the next faithful step.", label: "Pray about it", value: "pray_about" },
+];
+
+const discoverFieldCircleOptions: ReadonlyArray<{ helper: string; label: string; value: DiscoverFieldCircle }> = [
+  { helper: "Deepest intentional investment.", label: "My 3", value: "three" },
+  { helper: "Core discipleship circle.", label: "My 12", value: "twelve" },
+  { helper: "Broader relational field.", label: "My 70", value: "seventy" },
+  { helper: "Extended field.", label: "My 120", value: "my_120" },
+  { helper: "Decide later.", label: "Unassigned", value: "unassigned" },
+];
+
+const discoverFieldNextStepOptions: ReadonlyArray<{ helper: string; label: string; value: DiscoverFieldNextStep }> = [
+  { helper: "Begin with prayer.", label: "Pray", value: "pray" },
+  { helper: "Reach out directly.", label: "Text/call", value: "text_call" },
+  { helper: "Put time on the calendar.", label: "Schedule Table", value: "schedule_table" },
+  { helper: "Record a conversation now.", label: "Log Table", value: "log_table" },
+  { helper: "Share something helpful.", label: "Send Resource", value: "send_resource" },
+  { helper: "Queue a follow-up.", label: "Add Reminder", value: "add_reminder" },
+];
+
+function discoverFieldVisibility(intent: DiscoverFieldIntent): DosAppFieldVisibility {
+  if (intent === "field") {
+    return "primary";
+  }
+
+  if (intent === "pray_about") {
+    return "secondary";
+  }
+
+  return "hidden";
+}
+
+function discoverFieldIntentLabel(value: DiscoverFieldIntent) {
+  return discoverFieldIntentOptions.find((option) => option.value === value)?.label ?? "People only";
+}
+
+function discoverFieldCircleLabel(value: DiscoverFieldCircle) {
+  return discoverFieldCircleOptions.find((option) => option.value === value)?.label ?? "Unassigned";
+}
+
+function discoverFieldNextStepLabel(value: DiscoverFieldNextStep) {
+  return discoverFieldNextStepOptions.find((option) => option.value === value)?.label ?? "Pray";
+}
+
+function blankDiscoverFieldDraft(): DiscoverFieldDraft {
+  return {
+    circle: "unassigned",
+    displayName: "",
+    email: "",
+    fieldIntent: "field",
+    firstName: "",
+    lastName: "",
+    nextStep: "pray",
+    phone: "",
+    relationshipContext: "friend",
+  };
+}
+
 function defaultMinistryTeamMemberIdsForWorkspace(data: Pick<DosAppData, "householdMembers" | "workspace">) {
   const activeMembers = data.householdMembers.filter((member) => !["archived", "inactive"].includes(member.status.toLowerCase()));
   const workspaceLabel = `${data.workspace.slug} ${data.workspace.displayName}`.toLowerCase();
@@ -651,7 +712,34 @@ type FruitFormStatus = "coming_soon" | "live";
 type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "my_requests" | "partners" | "praying_for";
-type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
+type FormMode = "discoverField" | "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
+type DiscoverFieldStep = "circle" | "complete" | "intent" | "nextStep" | "person" | "teaching";
+type DiscoverFieldIntent = "field" | "people_only" | "pray_about";
+type DiscoverFieldCircle = "my_120" | "seventy" | "three" | "twelve" | "unassigned";
+type DiscoverFieldNextStep = "add_reminder" | "log_table" | "pray" | "schedule_table" | "send_resource" | "text_call";
+type DiscoverFieldDraft = {
+  circle: DiscoverFieldCircle;
+  displayName: string;
+  email: string;
+  fieldIntent: DiscoverFieldIntent;
+  firstName: string;
+  lastName: string;
+  nextStep: DiscoverFieldNextStep;
+  phone: string;
+  relationshipContext: RelationshipContextValue;
+};
+type DiscoverFieldSavedPerson = {
+  circle: DiscoverFieldCircle;
+  displayName: string;
+  email: string;
+  fieldIntent: DiscoverFieldIntent;
+  firstName: string;
+  id: string;
+  lastName: string;
+  name: string;
+  nextStep: DiscoverFieldNextStep;
+  phone: string;
+};
 type MeetingReviewFollowUp = "none" | "quick_review" | "review_options" | "testimony_request";
 type MeetingCalendarItemKind = "anniversary" | "birthday" | "follow_up" | "google" | "meeting" | "prayer";
 type MeetingCalendarItem = {
@@ -16142,6 +16230,436 @@ function PersonFormContent({
   );
 }
 
+function DiscoverFieldPrompt({
+  onStart,
+  peopleCount,
+}: {
+  onStart: () => void;
+  peopleCount: number;
+}) {
+  return (
+    <section className="flex flex-col gap-3 rounded-[18px] border border-[#E2E8F0] bg-[#F8FBFF] p-3 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-black leading-5 text-[#0F172A]">Discover Your Field</p>
+        <p className="mt-1 text-xs leading-5 text-[#64748B]">God has already placed people in your life. Let’s discover your field and take one faithful next step.</p>
+      </div>
+      <button
+        className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-[#D6B43E] bg-[#F2C94C] px-4 text-xs font-black text-[#18130B] transition-transform active:scale-[0.99]"
+        onClick={onStart}
+        type="button"
+      >
+        <UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+        <span>{peopleCount ? "Add Name" : "Begin"}</span>
+      </button>
+    </section>
+  );
+}
+
+function DiscoverFieldChoiceGrid<T extends string>({
+  onChange,
+  options,
+  value,
+}: {
+  onChange: (value: T) => void;
+  options: ReadonlyArray<{ helper: string; label: string; value: T }>;
+  value: T;
+}) {
+  return (
+    <div className="grid gap-2">
+      {options.map((option) => {
+        const selected = option.value === value;
+
+        return (
+          <button
+            aria-pressed={selected}
+            className={`flex min-h-[58px] w-full items-start gap-3 rounded-[18px] border p-3 text-left transition-colors ${
+              selected
+                ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8] shadow-[0_10px_22px_rgba(37,99,235,0.08)]"
+                : "border-[#E2E8F0] bg-white text-[#0F172A] hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+            }`}
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            type="button"
+          >
+            <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+              selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#CBD5E1] bg-white text-transparent"
+            }`}>
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.4} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-black leading-5">{option.label}</span>
+              <span className={`mt-0.5 block text-xs leading-5 ${selected ? "text-[#1D4ED8]/75" : "text-[#64748B]"}`}>{option.helper}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function DiscoverFieldSummaryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[16px] border border-[#E2E8F0] bg-white px-3 py-2.5">
+      <span className="text-xs font-bold text-[#64748B]">{label}</span>
+      <span className="text-sm font-black text-[#0F172A]">{value}</span>
+    </div>
+  );
+}
+
+function DiscoverFieldSecondaryButton({
+  children,
+  disabled = false,
+  onClick,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A] transition-colors hover:border-[#BFDBFE] disabled:cursor-not-allowed disabled:opacity-60"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function DiscoverFieldSheet({
+  errorMessage,
+  isSubmitting,
+  onComplete,
+  onSave,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onComplete: (person: DiscoverFieldSavedPerson | null, nextStep: DiscoverFieldNextStep) => void;
+  onSave: (draft: DiscoverFieldDraft) => Promise<DiscoverFieldSavedPerson | null>;
+}) {
+  const [step, setStep] = useState<DiscoverFieldStep>("teaching");
+  const [draft, setDraft] = useState<DiscoverFieldDraft>(() => blankDiscoverFieldDraft());
+  const [savedPeople, setSavedPeople] = useState<DiscoverFieldSavedPerson[]>([]);
+  const [localError, setLocalError] = useState("");
+  const discoverFieldSteps: ReadonlyArray<DiscoverFieldStep> = ["teaching", "person", "intent", "circle", "nextStep", "complete"];
+  const name = draft.displayName.trim() || joinNameParts(draft.firstName, draft.lastName);
+  const latestSavedPerson = savedPeople[savedPeople.length - 1] ?? null;
+  const fieldCount = savedPeople.filter((person) => person.fieldIntent === "field").length;
+  const prayAboutCount = savedPeople.filter((person) => person.fieldIntent === "pray_about").length;
+  const my3Count = savedPeople.filter((person) => person.circle === "three").length;
+  const my12Count = savedPeople.filter((person) => person.circle === "twelve").length;
+  const my70Count = savedPeople.filter((person) => person.circle === "seventy").length;
+  const my120Count = savedPeople.filter((person) => person.circle === "my_120").length;
+  const currentStepNumber = Math.max(discoverFieldSteps.indexOf(step), 0) + 1;
+  const circleOptions = draft.fieldIntent === "people_only"
+    ? discoverFieldCircleOptions.filter((option) => option.value === "unassigned")
+    : discoverFieldCircleOptions;
+  const visibleError = localError || errorMessage;
+
+  function updateDraft<K extends keyof DiscoverFieldDraft>(key: K, value: DiscoverFieldDraft[K]) {
+    setDraft((current) => ({
+      ...current,
+      [key]: value,
+    }));
+    setLocalError("");
+  }
+
+  function updateIntent(value: DiscoverFieldIntent) {
+    setDraft((current) => ({
+      ...current,
+      circle: value === "people_only" ? "unassigned" : current.circle,
+      fieldIntent: value,
+    }));
+    setLocalError("");
+  }
+
+  function resetForNextPerson() {
+    setDraft(blankDiscoverFieldDraft());
+    setLocalError("");
+    setStep("person");
+  }
+
+  function continueToIntent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!name.trim()) {
+      setLocalError("Add a name before continuing.");
+      return;
+    }
+
+    setLocalError("");
+    setStep("intent");
+  }
+
+  async function savePerson(addAnother: boolean) {
+    if (!name.trim()) {
+      setLocalError("Add a name before saving.");
+      setStep("person");
+      return;
+    }
+
+    const savedPerson = await onSave({
+      ...draft,
+      displayName: name.trim(),
+    });
+
+    if (!savedPerson) {
+      return;
+    }
+
+    setSavedPeople((current) => [...current, savedPerson]);
+
+    if (addAnother) {
+      resetForNextPerson();
+      return;
+    }
+
+    setStep("complete");
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex gap-1.5" aria-label={`Step ${currentStepNumber} of ${discoverFieldSteps.length}`}>
+          {discoverFieldSteps.map((item) => (
+            <span
+              aria-hidden="true"
+              className={`h-2 rounded-full transition-all ${step === item ? "w-6 bg-[#2563EB]" : "w-2 bg-[#DCEBFF]"}`}
+              key={item}
+            />
+          ))}
+        </div>
+        <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+          {savedPeople.length} saved
+        </span>
+      </div>
+
+      {step === "teaching" ? (
+        <div className="space-y-5">
+          <section className="rounded-[26px] border border-[#DCEBFF] bg-[#F8FBFF] p-5">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
+              <Users className="h-6 w-6" aria-hidden="true" strokeWidth={1.9} />
+            </span>
+            <h3 className="mt-5 text-xl font-black leading-6 text-[#0F172A]">Discover Your Field</h3>
+            <p className="mt-3 text-sm leading-6 text-[#475569]">God has already placed people in your life. Let’s discover your field and take one faithful next step.</p>
+            <p className="mt-4 rounded-2xl border border-[#BFDBFE] bg-white px-3 py-2 text-center text-sm font-black text-[#0F172A]">People → Field → Tables → Fruit</p>
+          </section>
+          <div className="grid gap-2">
+            {[
+              ["People", "Everyone God has placed in your life."],
+              ["Field", "The people you are intentionally stewarding."],
+              ["Tables", "Intentional meetings, prayer, and follow-up."],
+              ["Fruit", "What God is doing through those relationships."],
+            ].map(([label, value]) => (
+              <DiscoverFieldSummaryRow key={label} label={label} value={value} />
+            ))}
+          </div>
+          <AppButton disabled={isSubmitting} icon="people" onClick={() => setStep("person")} tone="black">
+            Continue
+          </AppButton>
+        </div>
+      ) : null}
+
+      {step === "person" ? (
+        <form className="space-y-5" onSubmit={continueToIntent}>
+          <DosFormSection icon="people" title="Add Person">
+            <DosFormGrid>
+              <DosFormField label="First Name">
+                <input
+                  autoFocus
+                  className={FieldInputClass()}
+                  onChange={(event) => updateDraft("firstName", event.target.value)}
+                  value={draft.firstName}
+                />
+              </DosFormField>
+              <DosFormField label="Last Name">
+                <input
+                  className={FieldInputClass()}
+                  onChange={(event) => updateDraft("lastName", event.target.value)}
+                  value={draft.lastName}
+                />
+              </DosFormField>
+            </DosFormGrid>
+            <DosFormField helper="Optional. Use this when the name they go by is different." label="Display Name">
+              <input
+                className={FieldInputClass()}
+                onChange={(event) => updateDraft("displayName", event.target.value)}
+                placeholder={joinNameParts(draft.firstName, draft.lastName) || "Name shown in DOS"}
+                value={draft.displayName}
+              />
+            </DosFormField>
+            <DosFormGrid>
+              <DosFormField helper="Optional, but helpful for next steps." label="Phone">
+                <input
+                  className={FieldInputClass()}
+                  inputMode="tel"
+                  onChange={(event) => updateDraft("phone", phoneDigitsOnly(event.target.value))}
+                  placeholder="(651) 456-8974"
+                  type="tel"
+                  value={formatPhoneNumber(draft.phone)}
+                />
+              </DosFormField>
+              <DosFormField helper="Optional." label="Email">
+                <input
+                  className={FieldInputClass()}
+                  onChange={(event) => updateDraft("email", event.target.value)}
+                  placeholder="name@example.com"
+                  type="email"
+                  value={draft.email}
+                />
+              </DosFormField>
+            </DosFormGrid>
+          </DosFormSection>
+          <DosFormSection icon="people" title="Relationship Context">
+            <CompactOptionSelect
+              label="Context"
+              onChange={(value) => updateDraft("relationshipContext", value as RelationshipContextValue)}
+              options={relationshipContextOptions}
+              value={draft.relationshipContext}
+            />
+          </DosFormSection>
+          {visibleError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{visibleError}</p> : null}
+          <div className="grid gap-2">
+            <AppButton disabled={isSubmitting} tone="black" type="submit">
+              Continue
+            </AppButton>
+            <DiscoverFieldSecondaryButton disabled={isSubmitting} onClick={() => setStep("teaching")}>
+              Back
+            </DiscoverFieldSecondaryButton>
+          </div>
+        </form>
+      ) : null}
+
+      {step === "intent" ? (
+        <div className="space-y-5">
+          <div className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Person</p>
+            <p className="mt-1 text-lg font-black leading-6 text-[#0F172A]">{name}</p>
+            <p className="mt-1 text-sm text-[#64748B]">{relationshipContextLabel(draft.relationshipContext)}</p>
+          </div>
+
+          <DosFormSection icon="people" title="Field Intent">
+            <DiscoverFieldChoiceGrid onChange={updateIntent} options={discoverFieldIntentOptions} value={draft.fieldIntent} />
+          </DosFormSection>
+
+          {visibleError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{visibleError}</p> : null}
+
+          <div className="grid gap-2">
+            <AppButton disabled={isSubmitting} onClick={() => setStep("circle")} tone="black">
+              Continue
+            </AppButton>
+            <DiscoverFieldSecondaryButton disabled={isSubmitting} onClick={() => setStep("person")}>
+              Back
+            </DiscoverFieldSecondaryButton>
+          </div>
+        </div>
+      ) : null}
+
+      {step === "circle" ? (
+        <div className="space-y-5">
+          <div className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Field Intent</p>
+            <p className="mt-1 text-lg font-black leading-6 text-[#0F172A]">{discoverFieldIntentLabel(draft.fieldIntent)}</p>
+            <p className="mt-1 text-sm text-[#64748B]">{name}</p>
+          </div>
+
+          <DosFormSection icon="people" title="Circle">
+            <DiscoverFieldChoiceGrid
+              onChange={(value) => updateDraft("circle", value)}
+              options={circleOptions}
+              value={draft.fieldIntent === "people_only" ? "unassigned" : draft.circle}
+            />
+          </DosFormSection>
+
+          {visibleError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{visibleError}</p> : null}
+
+          <div className="grid gap-2">
+            <AppButton disabled={isSubmitting} onClick={() => setStep("nextStep")} tone="black">
+              Continue
+            </AppButton>
+            <DiscoverFieldSecondaryButton disabled={isSubmitting} onClick={() => setStep("intent")}>
+              Back
+            </DiscoverFieldSecondaryButton>
+          </div>
+        </div>
+      ) : null}
+
+      {step === "nextStep" ? (
+        <div className="space-y-5">
+          <div className="rounded-[22px] border border-[#E2E8F0] bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Circle</p>
+            <p className="mt-1 text-lg font-black leading-6 text-[#0F172A]">{discoverFieldCircleLabel(draft.fieldIntent === "people_only" ? "unassigned" : draft.circle)}</p>
+            <p className="mt-1 text-sm text-[#64748B]">{name}</p>
+          </div>
+
+          <DosFormSection icon="calendar" title="Next Step">
+            <DiscoverFieldChoiceGrid onChange={(value) => updateDraft("nextStep", value)} options={discoverFieldNextStepOptions} value={draft.nextStep} />
+          </DosFormSection>
+
+          {visibleError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{visibleError}</p> : null}
+
+          <div className="grid gap-2">
+            <AppButton disabled={isSubmitting} onClick={() => void savePerson(false)} tone="black">
+              {isSubmitting ? "Saving..." : "Save Person"}
+            </AppButton>
+            <DiscoverFieldSecondaryButton disabled={isSubmitting} onClick={() => void savePerson(true)}>
+              Save + Add Another
+            </DiscoverFieldSecondaryButton>
+            <DiscoverFieldSecondaryButton disabled={isSubmitting} onClick={() => setStep("circle")}>
+              Back
+            </DiscoverFieldSecondaryButton>
+          </div>
+        </div>
+      ) : null}
+
+      {step === "complete" ? (
+        <div className="space-y-5">
+          <section className="rounded-[26px] border border-[#DCEBFF] bg-[#F8FBFF] p-5 text-center">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
+              <CheckCircle2 className="h-6 w-6" aria-hidden="true" strokeWidth={2} />
+            </span>
+            <h3 className="mt-4 text-xl font-black leading-6 text-[#0F172A]">Field started.</h3>
+            <p className="mt-2 text-sm leading-6 text-[#64748B]">You identified {savedPeople.length} {savedPeople.length === 1 ? "person" : "people"}.</p>
+          </section>
+          <div className="grid gap-2">
+            <DiscoverFieldSummaryRow label="Identified" value={savedPeople.length} />
+            <DiscoverFieldSummaryRow label="Added to Field" value={fieldCount} />
+            <DiscoverFieldSummaryRow label="Pray About" value={prayAboutCount} />
+            <DiscoverFieldSummaryRow label="My 3" value={my3Count} />
+            <DiscoverFieldSummaryRow label="My 12" value={my12Count} />
+            <DiscoverFieldSummaryRow label="My 70" value={my70Count} />
+            <DiscoverFieldSummaryRow label="My 120" value={my120Count} />
+            {latestSavedPerson ? (
+              <DiscoverFieldSummaryRow label="Next Step" value={discoverFieldNextStepLabel(latestSavedPerson.nextStep)} />
+            ) : null}
+          </div>
+          {latestSavedPerson ? (
+            <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-3">
+              <p className="text-sm font-black text-[#0F172A]">{latestSavedPerson.name}</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">{discoverFieldIntentLabel(latestSavedPerson.fieldIntent)} · {discoverFieldCircleLabel(latestSavedPerson.circle)}</p>
+            </div>
+          ) : null}
+          <div className="grid gap-2">
+            <AppButton disabled={isSubmitting} onClick={() => onComplete(latestSavedPerson, latestSavedPerson?.nextStep ?? "pray")} tone="black">
+              Take Your First Step
+            </AppButton>
+            <DiscoverFieldSecondaryButton onClick={resetForNextPerson}>
+              Add Another Person
+            </DiscoverFieldSecondaryButton>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DetailCard({
   children,
   icon,
@@ -18457,6 +18975,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const searchParams = useSearchParams();
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const appScrollRef = useRef<HTMLDivElement | null>(null);
+  const discoverFieldDeepLinkOpenedRef = useRef(false);
   const isPreview = data.workspace.isPreview === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [isTabSettling, setIsTabSettling] = useState(false);
@@ -18949,6 +19468,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     setFirstLaunchWalkthroughStep(0);
     setIsFirstLaunchWalkthroughOpen(true);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const shouldOpenDiscoverField = searchParams.get("discover") === "field";
+
+    if (!shouldOpenDiscoverField || discoverFieldDeepLinkOpenedRef.current) {
+      return;
+    }
+
+    discoverFieldDeepLinkOpenedRef.current = true;
+    setActiveTab("people");
+    setMoreAppView(null);
+    setFormMode("discoverField");
+    setErrorMessage("");
+    setSelectedPersonId(null);
+    setSelectedMeetingId(null);
+    setSelectedReminderId(null);
   }, [searchParams]);
 
   useEffect(() => {
@@ -19488,6 +20024,54 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setFormMode("reminder");
     setNewReminderType("follow_up");
+  }
+
+  function completeDiscoverFieldStep(person: DiscoverFieldSavedPerson | null, nextStep: DiscoverFieldNextStep) {
+    closeForm();
+
+    if (!person) {
+      openPeopleCircle("all");
+      return;
+    }
+
+    if (nextStep === "schedule_table") {
+      openScheduleMeeting(person.id);
+      return;
+    }
+
+    if (nextStep === "log_table") {
+      openMeetingForPerson(person.id);
+      return;
+    }
+
+    if (nextStep === "send_resource") {
+      openResourcePicker();
+      return;
+    }
+
+    if (nextStep === "add_reminder") {
+      openReminderForm(person.id);
+      return;
+    }
+
+    if (nextStep === "pray") {
+      openReminderForm(person.id, "prayer");
+      return;
+    }
+
+    if (nextStep === "text_call") {
+      if (person.phone) {
+        window.location.href = `tel:${person.phone}`;
+        return;
+      }
+
+      if (person.email) {
+        window.location.href = `mailto:${person.email}`;
+        return;
+      }
+    }
+
+    openPersonDetail(person.id);
   }
 
   function openScheduledDraftAsMeeting() {
@@ -20464,6 +21048,126 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     router.refresh();
 
     return importResult;
+  }
+
+  async function handleDiscoverFieldSave(draft: DiscoverFieldDraft): Promise<DiscoverFieldSavedPerson | null> {
+    const firstName = draft.firstName.trim();
+    const lastName = draft.lastName.trim();
+    const name = draft.displayName.trim() || joinNameParts(firstName, lastName);
+    const phone = phoneDigitsOnly(draft.phone);
+    const email = draft.email.trim();
+    const fieldVisibility = discoverFieldVisibility(draft.fieldIntent);
+    const circle = draft.fieldIntent === "people_only" ? "unassigned" : draft.circle;
+    const createdAt = new Date().toISOString();
+
+    if (!name) {
+      setErrorMessage("Name is required.");
+      return null;
+    }
+
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    try {
+      let personId = "";
+
+      if (isPreview) {
+        personId = `preview-discover-field-${Date.now()}`;
+      } else {
+        const response = await fetch("/api/dos/app/people", {
+          body: JSON.stringify({
+            discipleshipStage: "not_started",
+            displayName: name,
+            email,
+            engagementScore: 0,
+            fieldVisibility,
+            firstName,
+            lastName,
+            name,
+            phone,
+            relationshipContext: draft.relationshipContext,
+            relationshipType: draft.fieldIntent === "field" ? "walking_with" : "new",
+            roleInMyLife: draft.fieldIntent === "field" ? "walking_with_them" : "not_active",
+            workspaceId: data.workspace.id,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+        });
+        const result = await response.json().catch(() => ({})) as { error?: string; id?: string };
+
+        if (!response.ok || !result.id) {
+          throw new Error(result.error ?? "Unable to add person.");
+        }
+
+        personId = result.id;
+
+        if (circle !== "unassigned") {
+          const circleResponse = await fetch("/api/dos/circles/override", {
+            body: JSON.stringify({
+              circle,
+              locked: true,
+              personId,
+              reason: "Discover Your Field onboarding",
+              workspaceId: data.workspace.id,
+            }),
+            headers: {
+              "Content-Type": "application/json",
+            },
+            method: "PATCH",
+          });
+          const circleResult = await circleResponse.json().catch(() => ({})) as { error?: string };
+
+          if (!circleResponse.ok) {
+            console.warn("[DOS Discover Your Field] Person saved, but circle pin failed", circleResult.error);
+          }
+        }
+      }
+
+      const savedPerson: DiscoverFieldSavedPerson = {
+        circle,
+        displayName: name,
+        email,
+        fieldIntent: draft.fieldIntent,
+        firstName,
+        id: personId,
+        lastName,
+        name,
+        nextStep: draft.nextStep,
+        phone,
+      };
+
+      setQuickAddedPeople((current) => [
+        ...current,
+        {
+          church: null,
+          createdAt,
+          discipleshipStage: "not_started",
+          email: email || null,
+          engagementLevel: "0",
+          fieldVisibility,
+          id: personId,
+          lastActivityAt: null,
+          name,
+          notes: null,
+          phone,
+          relationshipContext: draft.relationshipContext,
+          relationshipType: draft.fieldIntent === "field" ? "walking_with" : "new",
+          roleInMyLife: draft.fieldIntent === "field" ? "walking_with_them" : "not_active",
+          status: "new",
+          updatedAt: createdAt,
+        },
+      ]);
+      router.refresh();
+
+      return savedPerson;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to add person.");
+      return null;
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function handleCreateMeetingPerson(rawName: string) {
@@ -21757,6 +22461,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ]
     : activeTab === "people"
       ? [
+          { icon: "people", label: "Discover Field", onClick: runMobileAction(() => openForm("discoverField")) },
           { icon: "people", label: "Add Person", onClick: runMobileAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runMobileAction(() => setIsPeopleImportOpen(true)) },
         ]
@@ -21791,6 +22496,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ]
     : activeTab === "people"
       ? [
+          { icon: "people", label: "Discover Field", onClick: runDesktopAction(() => openForm("discoverField")) },
           { icon: "people", label: "Add Person", onClick: runDesktopAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runDesktopAction(() => setIsPeopleImportOpen(true)) },
         ]
@@ -21949,6 +22655,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   placeholder="Search by name, phone, or relationship"
                   query={peopleQuery}
                 />
+                <DiscoverFieldPrompt onStart={() => openForm("discoverField")} peopleCount={people.length} />
                 <div className="grid gap-2 min-[560px]:grid-cols-[minmax(0,1fr)_auto] min-[560px]:items-center">
                   <PeopleCircleTabs onChange={setPeopleCircleView} value={peopleCircleView} />
                   {secondaryFieldPeopleCount ? (
@@ -22004,7 +22711,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   ) : people.length ? (
                     <EmptyState text={secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use Show Secondary / Household to include household participants." : peopleCircleContent.empty} title="No primary field contacts." />
                   ) : (
-                    <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No field added yet." />
+                    <EmptyState action={<CompactButton icon="people" onClick={() => openForm("discoverField")}>Discover Your Field</CompactButton>} text="Start by identifying someone already in your life." title="No field added yet." />
                   )}
                 </div>
               </div>
@@ -22962,6 +23669,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               )}
             </div>
           </div>
+        </Sheet>
+      ) : null}
+
+      {formMode === "discoverField" ? (
+        <Sheet onClose={closeForm} showEyebrow={false} size="form" title="Discover Your Field">
+          <DiscoverFieldSheet
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onComplete={completeDiscoverFieldStep}
+            onSave={handleDiscoverFieldSave}
+          />
         </Sheet>
       ) : null}
 
