@@ -11680,6 +11680,9 @@ function MeetingFormContent({
           <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
         )}
       </DosFormSection>
+      <DosFormSection icon="people" title="Participants">
+        {peopleSelector}
+      </DosFormSection>
       <DosFormSection icon="people" title="Ministry Team">
         <MinistryTeamSelector
           allPeople={allPeople}
@@ -11692,9 +11695,6 @@ function MeetingFormContent({
           selectedMemberIds={selectedMinistryTeamMemberIds}
           selectedPersonIds={selectedMinistryTeamPersonIds}
         />
-      </DosFormSection>
-      <DosFormSection icon="people" title="Participants">
-        {peopleSelector}
       </DosFormSection>
       <DosFormSection icon="people" title="Supporting Attendees">
         <SupportingAttendeeSelector

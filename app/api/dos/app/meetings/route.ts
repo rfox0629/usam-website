@@ -102,6 +102,34 @@ function uniqueStringArray(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function meetingPersonRoleIds(payload: MeetingPayload) {
+  const legacyFieldPersonIds = asStringArray(payload.fieldPersonIds);
+  const requestedParticipantPersonIds = asStringArray(payload.participantPersonIds);
+  const ministryTeamMemberIds = uniqueStringArray(asStringArray(payload.ministryTeamMemberIds));
+  const requestedMinistryTeamPersonIds = uniqueStringArray(asStringArray(payload.ministryTeamPersonIds));
+  const participantPersonIds = uniqueStringArray(
+    requestedParticipantPersonIds.length
+      ? requestedParticipantPersonIds
+      : legacyFieldPersonIds,
+  );
+
+  if (!participantPersonIds.length && requestedMinistryTeamPersonIds.length === 1) {
+    return {
+      ministryTeamMemberIds,
+      ministryTeamPersonIds: [],
+      participantPersonIds: requestedMinistryTeamPersonIds,
+    };
+  }
+
+  const participantPersonIdSet = new Set(participantPersonIds);
+
+  return {
+    ministryTeamMemberIds,
+    ministryTeamPersonIds: requestedMinistryTeamPersonIds.filter((personId) => !participantPersonIdSet.has(personId)),
+    participantPersonIds,
+  };
+}
+
 function asObservedFruit(value: unknown) {
   return uniqueStringArray(asStringArray(value))
     .filter((item) => dosAppFruitTypeOptions.includes(item as typeof dosAppFruitTypeOptions[number]));
@@ -849,14 +877,7 @@ export async function POST(request: Request) {
   }
 
   const { conversationFlowKey, conversationResponses } = meetingEngineData(payload, allowGatedConversationFlows);
-  const legacyFieldPersonIds = asStringArray(payload.fieldPersonIds);
-  const participantPersonIds = uniqueStringArray(
-    asStringArray(payload.participantPersonIds).length
-      ? asStringArray(payload.participantPersonIds)
-      : legacyFieldPersonIds,
-  );
-  const ministryTeamMemberIds = uniqueStringArray(asStringArray(payload.ministryTeamMemberIds));
-  const ministryTeamPersonIds = uniqueStringArray(asStringArray(payload.ministryTeamPersonIds));
+  const { ministryTeamMemberIds, ministryTeamPersonIds, participantPersonIds } = meetingPersonRoleIds(payload);
   const supportingAttendeeInputs = asSupportingAttendees(payload);
   const supportingPersonIds = supportingAttendeeInputs.map((attendee) => attendee.personId);
   const supabase = createSupabaseAdminClient();
@@ -1079,14 +1100,7 @@ export async function PATCH(request: Request) {
   }
 
   const { conversationFlowKey, conversationResponses } = meetingEngineData(payload, allowGatedConversationFlows);
-  const legacyFieldPersonIds = asStringArray(payload.fieldPersonIds);
-  const participantPersonIds = uniqueStringArray(
-    asStringArray(payload.participantPersonIds).length
-      ? asStringArray(payload.participantPersonIds)
-      : legacyFieldPersonIds,
-  );
-  const ministryTeamMemberIds = uniqueStringArray(asStringArray(payload.ministryTeamMemberIds));
-  const ministryTeamPersonIds = uniqueStringArray(asStringArray(payload.ministryTeamPersonIds));
+  const { ministryTeamMemberIds, ministryTeamPersonIds, participantPersonIds } = meetingPersonRoleIds(payload);
   const supportingAttendeeInputs = asSupportingAttendees(payload);
   const supportingPersonIds = supportingAttendeeInputs.map((attendee) => attendee.personId);
   const [peopleResult, teamMembersResult] = await Promise.all([
