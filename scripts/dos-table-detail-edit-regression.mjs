@@ -35,8 +35,12 @@ assert(
 );
 
 assert(
-  appClient.includes("setSelectedOutcomeTags(latestLeaderReflectionForMeeting(data.leaderReflections, meeting.id)?.observedFruit ?? [])"),
-  "Edit Table must open with the current saved observed fruit selected.",
+  appClient.includes("function observedFruitForMeeting(reflections: DosAppLeaderReflection[], fruitEvents: DosAppFruitEvent[], meetingId: string)")
+    && appClient.includes("event.generatedBy === \"leader_review\" || event.sourceType === \"leader_reflection\"")
+    && appClient.includes("setSelectedOutcomeTags(observedFruitForMeeting(data.leaderReflections, data.fruitEvents, meeting.id))")
+    && appClient.includes("const observedFruit = observedFruitForMeeting(leaderReflections, fruitEvents, meeting.id)")
+    && appClient.includes("fruitEvents={data.fruitEvents}"),
+  "Edit Table and Table detail must fall back to saved leader-review fruit_events when no reflection row exists.",
 );
 
 assert(
