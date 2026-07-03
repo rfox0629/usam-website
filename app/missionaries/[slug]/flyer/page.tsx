@@ -30,8 +30,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   return {
+    alternates: {
+      canonical: `/missionaries/${missionary.slug}/flyer`,
+    },
     title: `${missionary.name} Support Flyer | USA Missionaries`,
     description: `Support flyer for ${missionary.name}.`,
+    openGraph: {
+      description: `Support flyer for ${missionary.name}.`,
+      title: `${missionary.name} Support Flyer | USA Missionaries`,
+      type: "article",
+      url: `/missionaries/${missionary.slug}/flyer`,
+    },
   };
 }
 

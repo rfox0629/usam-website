@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { slugify } from "@/src/lib/admin/organization-shared";
 import { submitUsamApplicationForSetup, type UsamApplicationSubmitPayload } from "@/src/lib/dos/usam-application";
 import { sendAdminNewApplicationNotificationEmail, sendApplicantApplicationSubmittedEmail } from "@/src/lib/email/resend";
+import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -855,7 +856,7 @@ export async function POST(request: Request) {
     });
     const submittedAt = new Date().toISOString();
     const emailInput = {
-      adminUrl: "https://new.usamissionaries.org/admin/organizations/usam",
+      adminUrl: `${getConfiguredSiteUrl()}/admin/organizations/usam`,
       applicantEmail: email,
       applicantName,
       applicationId: applicationResult.applicationId,

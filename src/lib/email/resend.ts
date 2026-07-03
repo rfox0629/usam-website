@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getConfiguredSiteUrl } from "@/src/lib/site-url";
+
 type EmailTemplate = {
   html: string;
   subject: string;
@@ -44,22 +46,6 @@ function adminApplicationEmail() {
   return process.env.ADMIN_APPLICATION_EMAIL
     || process.env.USAM_APPLICATION_ADMIN_EMAIL
     || "ryan@usamissionaries.org";
-}
-
-function siteBaseUrl() {
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
-  }
-
-  if (process.env.NEXT_PUBLIC_BASE_URL) {
-    return process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "");
-  }
-
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.replace(/\/$/, "")}`;
-  }
-
-  return "https://new.usamissionaries.org";
 }
 
 function formatDate(value: string) {
@@ -173,7 +159,7 @@ export function buildApplicantApplicationSubmittedEmail(input: JoinApplicationEm
 }
 
 export function buildAdminNewApplicationEmail(input: JoinApplicationEmailInput): EmailTemplate {
-  const adminUrl = input.adminUrl || `${siteBaseUrl()}/admin/organizations/usam`;
+  const adminUrl = input.adminUrl || `${getConfiguredSiteUrl()}/admin/organizations/usam`;
   const submittedAt = formatDate(input.submittedAt);
   const body = emailShell("New USA Missionaries application", `
     <p style="margin:0 0 16px;">A new application was submitted through the DOS onboarding flow.</p>

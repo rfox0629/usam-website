@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { MissionaryPrayerRequest } from "@/src/data/missionaries";
+import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 
 type SendPrayerTeamWelcomeEmailInput = {
   householdName: string;
@@ -16,9 +17,7 @@ type EmailResult = {
 };
 
 function siteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || "https://new.usamissionaries.org")
-    .replace(/\/$/, "")
-    .replace(/^([^h])/, "https://$1");
+  return getConfiguredSiteUrl();
 }
 
 function escapeHtml(value: string) {
