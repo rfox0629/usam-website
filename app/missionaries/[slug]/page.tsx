@@ -17,8 +17,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   return {
+    alternates: {
+      canonical: `/missionaries/${missionary.slug}`,
+    },
     title: `${missionary.name} | USA Missionaries`,
     description: `${missionary.role} profile for USA Missionaries.`,
+    openGraph: {
+      description: `${missionary.role} profile for USA Missionaries.`,
+      title: `${missionary.name} | USA Missionaries`,
+      type: "profile",
+      url: `/missionaries/${missionary.slug}`,
+    },
   };
 }
 

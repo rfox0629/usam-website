@@ -3,10 +3,28 @@ import { Suspense } from "react";
 import "./globals.css";
 import { AnalyticsScripts } from "../components/AnalyticsScripts";
 import { RouteAwareSiteFooter } from "../components/RouteAwareSiteFooter";
+import { getCanonicalSiteUrl } from "@/src/lib/site-url";
+
+const siteName = "USA Missionaries";
+const siteDescription = "The Mission Is Active";
+const canonicalSiteUrl = getCanonicalSiteUrl();
 
 export const metadata: Metadata = {
-  title: "USA Missionaries",
-  description: "The Mission Is Active",
+  metadataBase: new URL(canonicalSiteUrl),
+  title: siteName,
+  description: siteDescription,
+  openGraph: {
+    description: siteDescription,
+    siteName,
+    title: siteName,
+    type: "website",
+    url: canonicalSiteUrl,
+  },
+  twitter: {
+    card: "summary",
+    description: siteDescription,
+    title: siteName,
+  },
 };
 
 export default function RootLayout({
