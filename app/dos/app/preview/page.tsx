@@ -31,6 +31,10 @@ export const metadata: Metadata = {
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
+const isDemoPreviewRouteEnabled =
+  process.env.VERCEL_ENV === "preview"
+  || process.env.NODE_ENV !== "production"
+  || process.env.DOS_ENABLE_DEMO_PREVIEW === "true";
 type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "timezone">
   & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "timezone">>;
 
@@ -620,7 +624,9 @@ export default async function DosAppPreviewPage({
 }: {
   searchParams: Promise<{ demo?: string; workspace?: string }>;
 }) {
-  redirect("/dos");
+  if (!isDemoPreviewRouteEnabled) {
+    redirect("/dos");
+  }
 
   const params = await searchParams;
 
