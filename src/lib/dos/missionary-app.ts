@@ -265,6 +265,33 @@ export type DosAppFruit = {
   updatedAt: string | null;
 };
 
+export type DosAppAssessmentCategoryScore = {
+  husbandScore?: number | null;
+  maxScore: number;
+  name: string;
+  percentage: number;
+  score: number;
+  wifeScore?: number | null;
+};
+
+export type DosAppAssessmentResult = {
+  answers: Record<string, unknown>;
+  assessmentTitle: string;
+  assessmentType: string;
+  categoryScores: DosAppAssessmentCategoryScore[];
+  completedAt: string | null;
+  completedByEmail: string | null;
+  completedByName: string | null;
+  id: string;
+  maxScore: number;
+  overallScore: number;
+  percentage: number;
+  personId: string | null;
+  secondaryPersonId: string | null;
+  source: "missionary" | "self" | "sent_link";
+  workspaceId: string;
+};
+
 export type DosAppPrayerLog = {
   createdAt: string | null;
   fieldPersonId: string | null;
@@ -368,6 +395,7 @@ export type DosAppRelationshipReminder = {
 };
 
 export type DosAppData = {
+  assessmentResults: DosAppAssessmentResult[];
   calendarConnection: DosAppCalendarConnection;
   circles: DosCircleData | null;
   externalCalendarEvents: DosAppExternalCalendarEvent[];
@@ -560,6 +588,24 @@ type FruitRow = {
   table_id?: string | null;
   testimony_date: string | null;
   updated_at: string | null;
+};
+
+type AssessmentResultRow = {
+  answers: unknown;
+  assessment_title: string;
+  assessment_type: string;
+  category_scores: unknown;
+  completed_at: string | null;
+  completed_by_email: string | null;
+  completed_by_name: string | null;
+  id: string;
+  max_score: number;
+  overall_score: number;
+  percentage: number;
+  person_id: string | null;
+  secondary_person_id: string | null;
+  source: string | null;
+  workspace_id: string;
 };
 
 type ReviewLinkRow = {
@@ -847,6 +893,45 @@ function mapModerationStatus(value: string | null | undefined): "draft" | "submi
 
 function mapDebugContext(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function mapAssessmentSource(value: string | null): DosAppAssessmentResult["source"] {
+  return value === "missionary" || value === "sent_link" ? value : "self";
+}
+
+function mapAssessmentCategoryScores(value: unknown): DosAppAssessmentCategoryScore[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const scores: DosAppAssessmentCategoryScore[] = [];
+
+  value.forEach((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return;
+    }
+
+    const record = item as Record<string, unknown>;
+    const name = typeof record.name === "string" && record.name.trim() ? record.name.trim() : null;
+    const score = typeof record.score === "number" ? record.score : null;
+    const maxScore = typeof record.maxScore === "number" ? record.maxScore : typeof record.max_score === "number" ? record.max_score : null;
+    const scorePercentage = typeof record.percentage === "number" ? record.percentage : null;
+
+    if (!name || score === null || maxScore === null || scorePercentage === null) {
+      return;
+    }
+
+    scores.push({
+      husbandScore: typeof record.husbandScore === "number" ? record.husbandScore : null,
+      maxScore,
+      name,
+      percentage: scorePercentage,
+      score,
+      wifeScore: typeof record.wifeScore === "number" ? record.wifeScore : null,
+    });
+  });
+
+  return scores;
 }
 
 function mapPrayerRequestStatus(value: string | null | undefined): DosAppPrayerRequest["status"] {
@@ -1552,6 +1637,18 @@ async function loadFruitForWorkspace(supabase: SupabaseAdminClient, workspaceId:
     : scopedResult;
 }
 
+async function loadAssessmentResultsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("dos_assessment_results")
+    .select("id, workspace_id, person_id, secondary_person_id, assessment_type, assessment_title, completed_at, completed_by_name, completed_by_email, overall_score, max_score, percentage, category_scores, answers, source")
+    .eq("workspace_id", workspaceId)
+    .order("completed_at", { ascending: false });
+
+  return result.error && isMissingWorkflowTable(result.error, "dos_assessment_results")
+    ? { data: [] as AssessmentResultRow[], error: null }
+    : result;
+}
+
 async function loadReviewLinksForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("dos_review_links")
@@ -2010,11 +2107,12 @@ export async function loadDosAppData(
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
     loadFruitForWorkspace(supabase, workspace.id),
+    loadAssessmentResultsForWorkspace(supabase, workspace.id),
     loadReviewLinksForWorkspace(supabase, workspace.id),
     loadMeetingReviewsForWorkspace(supabase, workspace.id),
     loadPrayerLogsForWorkspace(supabase, workspace.id),
@@ -2031,12 +2129,13 @@ export async function loadDosAppData(
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
         ?? connectionLogsResult.error?.message
         ?? fruitResult.error?.message
+        ?? assessmentResultsResult.error?.message
         ?? reviewLinksResult.error?.message
         ?? meetingReviewsResult.error?.message
         ?? prayerLogsResult.error?.message
@@ -2065,6 +2164,7 @@ export async function loadDosAppData(
 
   const ministryEventPeopleRows = (ministryEventPeopleResult.data ?? []) as MinistryEventPersonRow[];
   const connectionRows = (connectionLogsResult.data ?? []) as ConnectionLogRow[];
+  const assessmentResultRows = (assessmentResultsResult.data ?? []) as AssessmentResultRow[];
   const reviewLinkRows = (reviewLinksResult.data ?? []) as ReviewLinkRow[];
   const meetingReviewRows = (meetingReviewsResult.data ?? []) as MeetingReviewRow[];
   const prayerLogRows = (prayerLogsResult.data ?? []) as PrayerLogRow[];
@@ -2318,6 +2418,23 @@ export async function loadDosAppData(
     testimonyDate: item.testimony_date,
     updatedAt: item.updated_at,
   }));
+  const assessmentResults = assessmentResultRows.map((result) => ({
+    answers: mapDebugContext(result.answers),
+    assessmentTitle: result.assessment_title,
+    assessmentType: result.assessment_type,
+    categoryScores: mapAssessmentCategoryScores(result.category_scores),
+    completedAt: result.completed_at,
+    completedByEmail: result.completed_by_email,
+    completedByName: result.completed_by_name,
+    id: result.id,
+    maxScore: result.max_score,
+    overallScore: result.overall_score,
+    percentage: result.percentage,
+    personId: result.person_id,
+    secondaryPersonId: result.secondary_person_id,
+    source: mapAssessmentSource(result.source),
+    workspaceId: result.workspace_id,
+  })).sort((first, second) => activityDateValue(second.completedAt) - activityDateValue(first.completedAt));
   const leaderReflections = reviewsFruitResult.leaderReflections.map((reflection) => ({
     createdAt: reflection.created_at,
     followUpNeeded: reflection.follow_up_needed === true,
@@ -2514,6 +2631,7 @@ export async function loadDosAppData(
 
   return {
     data: {
+      assessmentResults,
       calendarConnection,
       circles: await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
       externalCalendarEvents,

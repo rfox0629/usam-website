@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -3768,7 +3768,7 @@ type PersonGrowthMilestone = {
   date: string | null;
   description: string;
   id: string;
-  source: "Fruit" | "Quick Review" | "Table" | "Testimony";
+  source: "Assessment" | "Fruit" | "Quick Review" | "Table" | "Testimony";
   title: string;
 };
 
@@ -16282,9 +16282,89 @@ function AssessmentResultPlaceholderCard({
   );
 }
 
+function AssessmentResultSummaryCard({
+  href,
+  results,
+  title,
+}: {
+  href?: string;
+  results: DosAppAssessmentResult[];
+  title: string;
+}) {
+  const latestResult = results[0];
+  const priorResults = results.slice(1, 4);
+  const actionLabel = latestResult ? "Retake Assessment" : "Open Assessment";
+  const actionClassName = "mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]";
+
+  if (!latestResult) {
+    return <AssessmentResultPlaceholderCard href={href} title={title} />;
+  }
+
+  return (
+    <article className="min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)] md:col-span-3">
+      <div className="flex min-w-0 gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1 text-sm font-bold leading-5 text-[#0F172A]">{title}</span>
+            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
+              {latestResult.percentage}%
+            </span>
+          </span>
+          <span className="mt-1 block text-sm leading-5 text-[#64748B]">
+            {latestResult.overallScore}/{latestResult.maxScore} · {formatDate(latestResult.completedAt)}
+          </span>
+        </span>
+      </div>
+
+      {latestResult.categoryScores.length ? (
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          {latestResult.categoryScores.slice(0, 6).map((category) => (
+            <div className="rounded-[16px] border border-[#E2E8F0] bg-white px-3 py-2" key={category.name}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-xs font-bold text-[#0F172A]">{category.name}</p>
+                <span className="shrink-0 text-[10px] font-bold text-[#1D4ED8]">{category.percentage}%</span>
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-[#64748B]">
+                {category.score}/{category.maxScore}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {priorResults.length ? (
+        <div className="mt-3 rounded-[18px] border border-[#E2E8F0] bg-white p-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            History
+          </p>
+          <div className="mt-2 grid gap-1.5">
+            {priorResults.map((result) => (
+              <div className="flex items-center justify-between gap-3 text-xs font-semibold text-[#64748B]" key={result.id}>
+                <span>{formatDate(result.completedAt)}</span>
+                <span className="text-[#0F172A]">{result.overallScore}/{result.maxScore} · {result.percentage}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {href ? (
+        <Link className={actionClassName} href={href}>
+          {actionLabel}
+        </Link>
+      ) : null}
+    </article>
+  );
+}
+
 function GrowthMilestoneRow({ milestone }: { milestone: PersonGrowthMilestone }) {
   const icon = milestone.source === "Table"
     ? <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+    : milestone.source === "Assessment"
+      ? <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
     : milestone.source === "Quick Review"
       ? <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
       : milestone.source === "Testimony"
@@ -17678,9 +17758,11 @@ function ResourcePickerSheet({
 
 function PersonDetailOverlay({
   answeredPrayerByReminderId,
+  assessmentResults,
   circleScore,
   fruitEvents,
   fruitItems,
+  initialDetailTab,
   index,
   leaderReflections,
   meetings,
@@ -17698,11 +17780,14 @@ function PersonDetailOverlay({
   participantReviews,
   participantTestimonies,
   person,
+  workspace,
 }: {
   answeredPrayerByReminderId: Record<string, string>;
+  assessmentResults: DosAppAssessmentResult[];
   circleScore?: DosRelationshipScore | null;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
+  initialDetailTab?: PersonDetailTab | null;
   index: number;
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
@@ -17720,9 +17805,10 @@ function PersonDetailOverlay({
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
+  workspace: DosAppWorkspace;
 }) {
   const detailScrollRef = useRef<HTMLDivElement | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>("overview");
+  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>(initialDetailTab ?? "overview");
   const [prayedPrayerReminderIds, setPrayedPrayerReminderIds] = useState<Record<string, boolean>>({});
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
@@ -17758,6 +17844,14 @@ function PersonDetailOverlay({
   const upcomingTimelineGroups = groupedUpcomingTimelineItems(upcomingTimelineItems);
   const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || personMeetings.some((meeting) => meeting.id === review.meetingId));
   const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || personMeetings.some((meeting) => meeting.id === testimony.meetingId));
+  const personAssessmentResults = assessmentResults
+    .filter((result) => result.personId === person.id || result.secondaryPersonId === person.id)
+    .sort((first, second) => (parseDisplayDate(second.completedAt)?.getTime() ?? 0) - (parseDisplayDate(first.completedAt)?.getTime() ?? 0));
+  const marriageAssessmentResults = personAssessmentResults.filter((result) => result.assessmentType === "marriage-assessment");
+  const latestMarriageAssessment = marriageAssessmentResults[0] ?? null;
+  const marriageAssessmentHref = workspace.isPreview
+    ? "/dos/library/marriage-assessment"
+    : `/dos/library/marriage-assessment?workspace=${encodeURIComponent(workspace.slug)}&person=${encodeURIComponent(person.id)}`;
   const personFruitSummary = selectPersonDetailFruitSummary({
     fruitEvents,
     fruitItems,
@@ -17800,6 +17894,13 @@ function PersonDetailOverlay({
   });
   const lastMeetingDate = personLoggedMeetings[0]?.date ?? person.lastActivityAt;
   const personGrowthMilestones: PersonGrowthMilestone[] = [
+    ...personAssessmentResults.map((result) => ({
+      date: result.completedAt,
+      description: `${result.assessmentTitle} completed with ${result.overallScore}/${result.maxScore} (${result.percentage}%).`,
+      id: `milestone-assessment-${result.id}`,
+      source: "Assessment" as const,
+      title: result.assessmentTitle,
+    })),
     ...personOutcomeEntries.map((entry) => entry.type === "testimony"
       ? {
         date: entry.date,
@@ -17856,11 +17957,11 @@ function PersonDetailOverlay({
   }
 
   useEffect(() => {
-    setActiveDetailTab("overview");
+    setActiveDetailTab(initialDetailTab ?? "overview");
     setIsSnapshotOpen(false);
     setSelectedOutcomeEntry(null);
     scrollDetailToTop();
-  }, [person.id]);
+  }, [initialDetailTab, person.id]);
 
   return (
     <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:bg-[#F8FBFF] md:px-6 md:pb-10 md:pt-6 xl:left-[260px]">
@@ -18173,7 +18274,11 @@ function PersonDetailOverlay({
           <>
             <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Growth Snapshot">
               <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
-                <FruitSummaryCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Assessments" value="None Yet" />
+                <FruitSummaryCard
+                  icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Assessments"
+                  value={latestMarriageAssessment ? `${latestMarriageAssessment.percentage}%` : "None Yet"}
+                />
                 <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Observable Fruit" value={String(personOutcomeEntries.length)} />
                 <FruitSummaryCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Growth" value={latestGrowthDate ? formatRelativeDate(latestGrowthDate) : "Not Yet"} />
               </div>
@@ -18184,7 +18289,8 @@ function PersonDetailOverlay({
 
             <DetailCard icon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Assessment Results">
               <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-3">
-                {personAssessmentResultPlaceholders.map((assessment) => (
+                <AssessmentResultSummaryCard href={marriageAssessmentHref} results={marriageAssessmentResults} title="Marriage Assessment" />
+                {personAssessmentResultPlaceholders.slice(1).map((assessment) => (
                   <AssessmentResultPlaceholderCard href={assessment.href} key={assessment.title} title={assessment.title} />
                 ))}
               </div>
@@ -18867,6 +18973,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
+  const requestedPersonId = searchParams.get("person");
+  const requestedDetailTab = searchParams.get("tab") === "growth" ? "fruit" : null;
   const people = useMemo(() => {
     const loadedPersonIds = new Set(data.people.map((person) => person.id));
 
@@ -18962,6 +19070,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const selectedExternalCalendarEvent = useMemo(() => (
     data.externalCalendarEvents.find((event) => event.id === selectedExternalCalendarEventId) ?? null
   ), [data.externalCalendarEvents, selectedExternalCalendarEventId]);
+
+  useEffect(() => {
+    if (!requestedPersonId || !people.some((person) => person.id === requestedPersonId)) {
+      return;
+    }
+
+    setActiveTab("people");
+    setMoreAppView(null);
+    setSelectedMeetingId(null);
+    setSelectedReminderId(null);
+    setPostMeetingFollowUpId(null);
+    setSelectedPersonId(requestedPersonId);
+  }, [people, requestedPersonId]);
+
   const circlePeopleByLayer = useMemo<CircleLayerGroups>(() => {
     const peopleById = new Map(fieldListPeople.map((person) => [person.id, person]));
     const mapScores = (scores: DosRelationshipScore[]) => uniqueCircleMembers(scores
@@ -22880,8 +23002,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {selectedPerson ? (
             <PersonDetailOverlay
               answeredPrayerByReminderId={answeredPrayerByReminderId}
+              assessmentResults={data.assessmentResults}
               fruitEvents={data.fruitEvents}
               fruitItems={data.fruit}
+              initialDetailTab={requestedDetailTab}
               index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
               leaderReflections={data.leaderReflections}
               meetings={data.meetings}
@@ -22900,6 +23024,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               participantTestimonies={data.participantTestimonies}
               person={selectedPerson}
               circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
+              workspace={data.workspace}
             />
         ) : null}
 

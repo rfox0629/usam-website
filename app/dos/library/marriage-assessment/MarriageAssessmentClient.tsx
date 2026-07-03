@@ -29,6 +29,18 @@ type CategoryScore = {
 
 type AnswerMap = Record<string, Record<Participant, number | undefined>>;
 
+type SaveContext = {
+  personId: string;
+  profileHref: string;
+  workspaceId: string;
+};
+
+type SaveState = {
+  error?: string;
+  resultId: string | null;
+  status: "error" | "idle" | "saved" | "saving";
+};
+
 type HealthRange = {
   detail: string;
   label: string;
@@ -139,6 +151,24 @@ function scoreCategory(answers: AnswerMap, group: AssessmentGroup, participants:
 
 function scrollToTop() {
   window.scrollTo({ behavior: "smooth", top: 0 });
+}
+
+function buildAnswerPayload(
+  answers: AnswerMap,
+  questions: readonly DosAssessmentQuestion[],
+  participants: readonly Participant[],
+) {
+  return {
+    participants,
+    questions: questions.map((question) => ({
+      group: question.group ?? "Marriage Health",
+      id: question.id,
+      note: question.note ?? null,
+      participantPrompts: question.participantPrompts ?? {},
+      prompt: question.prompt,
+      scores: Object.fromEntries(participants.map((participant) => [participant, getAnswer(answers, question.id, participant) ?? null])),
+    })),
+  };
 }
 
 function ScorePicker({
@@ -261,17 +291,20 @@ export function MarriageAssessmentClient({
   maxScore,
   participants: providedParticipants,
   questions,
+  saveContext,
 }: {
   description: string;
   maxScore: number;
   participants: readonly string[];
   questions: readonly DosAssessmentQuestion[];
+  saveContext?: SaveContext;
 }) {
   const participants = providedParticipants.length ? providedParticipants : fallbackParticipants;
   const groups = useMemo(() => buildGroups(questions), [questions]);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [showResults, setShowResults] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>({ resultId: null, status: "idle" });
 
   const activeGroup = groups[activeGroupIndex] ?? groups[0];
   const answeredCount = countAnswered(answers, questions, participants);
@@ -305,6 +338,49 @@ export function MarriageAssessmentClient({
     scrollToTop();
   }
 
+  async function saveResult(resultId: string | null) {
+    if (!saveContext) {
+      return;
+    }
+
+    setSaveState({ resultId, status: "saving" });
+
+    try {
+      const response = await fetch("/api/dos/app/assessment-results", {
+        body: JSON.stringify({
+          answers: buildAnswerPayload(answers, questions, participants),
+          assessmentTitle: "Marriage Assessment",
+          assessmentType: "marriage-assessment",
+          categoryScores,
+          maxScore,
+          overallScore: totalScore,
+          percentage: totalPercentage,
+          personId: saveContext.personId,
+          resultId,
+          source: "self",
+          workspaceId: saveContext.workspaceId,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; id?: string };
+
+      if (!response.ok || !result.id) {
+        throw new Error(result.error ?? "Unable to save assessment.");
+      }
+
+      setSaveState({ resultId: result.id, status: "saved" });
+    } catch (error) {
+      setSaveState({
+        error: error instanceof Error ? error.message : "Unable to save assessment.",
+        resultId,
+        status: "error",
+      });
+    }
+  }
+
   function goNext() {
     if (!canContinue) {
       return;
@@ -312,6 +388,7 @@ export function MarriageAssessmentClient({
 
     if (isLastGroup) {
       setShowResults(true);
+      void saveResult(saveState.resultId);
       scrollToTop();
       return;
     }
@@ -329,6 +406,7 @@ export function MarriageAssessmentClient({
   function retake() {
     setAnswers({});
     setActiveGroupIndex(0);
+    setSaveState({ resultId: null, status: "idle" });
     setShowResults(false);
     scrollToTop();
   }
@@ -361,6 +439,18 @@ export function MarriageAssessmentClient({
               </span>
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#475569]">{range.detail}</p>
+            {saveContext ? (
+              <div className="mt-4 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-3 text-sm font-bold leading-6 text-[#1D4ED8]">
+                {saveState.status === "saving" ? "Saving to profile..." : null}
+                {saveState.status === "saved" ? "Saved to profile." : null}
+                {saveState.status === "error" ? `Results shown here. ${saveState.error ?? "Unable to save to profile."}` : null}
+                {saveState.status === "idle" ? "Ready to save to profile." : null}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-3 text-sm font-bold leading-6 text-[#64748B]">
+                Standalone result. Not saved to a profile.
+              </div>
+            )}
           </header>
 
           <section className="grid gap-3 md:grid-cols-2">
@@ -388,6 +478,14 @@ export function MarriageAssessmentClient({
               <RefreshCw className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
               Retake
             </button>
+            {saveContext ? (
+              <Link
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-4 text-sm font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] sm:col-span-2"
+                href={saveContext.profileHref}
+              >
+                Back to Profile
+              </Link>
+            ) : null}
           </div>
         </div>
       </main>

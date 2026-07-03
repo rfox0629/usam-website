@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { buildFallbackCircleDataFromActivity } from "@/src/lib/dos/circle-scoring";
 import {
   type DosAppData,
+  type DosAppAssessmentResult,
   type DosAppFruit,
   type DosAppFruitEvent,
   type DosAppLeaderReflection,
@@ -436,6 +437,28 @@ function buildDosPreviewDemoData(): DosAppData {
       wouldMeetAgainResponse: "yes",
     },
   ];
+  const assessmentResults: DosAppAssessmentResult[] = [
+    {
+      answers: {},
+      assessmentTitle: "Marriage Assessment",
+      assessmentType: "marriage-assessment",
+      categoryScores: [
+        { husbandScore: 42, maxScore: 50, name: "Connection", percentage: 82, score: 41, wifeScore: 40 },
+        { husbandScore: 37, maxScore: 50, name: "Communication", percentage: 76, score: 38, wifeScore: 39 },
+      ],
+      completedAt: "2026-05-26T19:00:00-05:00",
+      completedByEmail: null,
+      completedByName: null,
+      id: "demo-assessment-george-marriage",
+      maxScore: 150,
+      overallScore: 119,
+      percentage: 79,
+      personId: "demo-person-george-jenko",
+      secondaryPersonId: null,
+      source: "self",
+      workspaceId: demoWorkspaceId,
+    },
+  ];
   const reminders: DosAppRelationshipReminder[] = [
     {
       googleSyncEnabled: true,
@@ -480,6 +503,7 @@ function buildDosPreviewDemoData(): DosAppData {
   });
 
   return {
+    assessmentResults,
     calendarConnection: {
       calendarId: "primary",
       connected: true,

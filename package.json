@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test:dos-assessment-results": "node scripts/dos-assessment-results-regression.mjs",
     "test:dos-ministry-events": "node scripts/dos-ministry-event-visibility-regression.mjs",
     "test:dos-fruit-guard": "node scripts/dos-fruit-guard-regression.mjs",
     "test:dos-quick-review": "node scripts/dos-quick-review-regression.mjs",
