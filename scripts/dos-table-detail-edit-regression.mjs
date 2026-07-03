@@ -13,6 +13,9 @@ function assert(condition, message) {
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const reflectionsRoute = read("app/api/dos/app/reflections/route.ts");
 const fruitIntelligence = read("src/lib/dos/fruit-intelligence.ts");
+const observedFruitBlockStart = appClient.indexOf("function ObservedFruitMultiSelect");
+const observedFruitBlockEnd = appClient.indexOf("function MeetingRecommendationsPreview", observedFruitBlockStart);
+const observedFruitBlock = appClient.slice(observedFruitBlockStart, observedFruitBlockEnd);
 const editMeetingBlockStart = appClient.indexOf('{formMode === "editMeeting"');
 const editMeetingBlockEnd = appClient.indexOf('{formMode === "meetingNotes"', editMeetingBlockStart);
 const editMeetingBlock = appClient.slice(editMeetingBlockStart, editMeetingBlockEnd);
@@ -52,12 +55,13 @@ assert(
 );
 
 assert(
-  appClient.includes('aria-label={option.label}')
-    && appClient.includes("type=\"checkbox\"")
-    && appClient.includes("checked={selected}")
-    && appClient.includes("h-5 w-5 shrink-0 accent-[#2563EB]")
-    && appClient.includes("onChange={() => onToggle(option.value)}"),
-  "Observed fruit options must use visible checkbox-backed controls so mobile taps reliably toggle selection.",
+  observedFruitBlockStart >= 0
+    && observedFruitBlockEnd > observedFruitBlockStart
+    && observedFruitBlock.includes("aria-pressed={selected}")
+    && observedFruitBlock.includes("onClick={() => onToggle(option.value)}")
+    && observedFruitBlock.includes("type=\"button\"")
+    && observedFruitBlock.includes("selected ? \"border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]\""),
+  "Observed fruit options must make the whole row a toggle control so mobile taps reliably select or deselect fruit.",
 );
 
 assert(

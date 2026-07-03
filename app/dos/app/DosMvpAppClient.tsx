@@ -11534,21 +11534,22 @@ function ObservedFruitMultiSelect({
               const selected = selectedOutcomeTags.includes(option.value);
 
               return (
-                <label
+                <button
+                  aria-pressed={selected}
                   className={`flex min-h-10 w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition-colors ${
                     selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#EAF2FF] bg-[#F8FAFC] text-[#475569] hover:border-[#BFDBFE] hover:bg-white"
                   }`}
                   key={option.value}
+                  onClick={() => onToggle(option.value)}
+                  type="button"
                 >
-                  <input
-                    aria-label={option.label}
-                    checked={selected}
-                    className="h-5 w-5 shrink-0 accent-[#2563EB]"
-                    onChange={() => onToggle(option.value)}
-                    type="checkbox"
-                  />
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                    selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#CBD5E1] bg-white text-transparent"
+                  }`}>
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.2} />
+                  </span>
                   <span className="min-w-0 flex-1">{option.label}</span>
-                </label>
+                </button>
               );
             })}
           </div>
