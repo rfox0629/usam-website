@@ -17655,7 +17655,7 @@ function PersonDetailOverlay({
   onEdit: () => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenPrayerResources: () => void;
-  onOpenMeeting: (meetingId: string) => void;
+  onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
   onLogMeeting: () => void;
   onScheduleMeeting: () => void;
   participantReviews: DosAppParticipantReview[];
@@ -17984,7 +17984,7 @@ function PersonDetailOverlay({
 
             <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Recent Activity">
               {recentMeetings.length ? recentMeetings.map((meeting) => (
-                <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
+                <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id, person.id)}>
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
                     <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
                   </span>
@@ -18420,9 +18420,11 @@ function MeetingDetailOverlay({
   leaderReflections,
   meeting,
   onBack,
+  onCopyReviewLink,
   onEdit,
   onDone,
   onEditNotes,
+  onOpenReviewLink,
   onPrepareQuickReview,
   onPrepareReviewOptions,
   onPrepareTestimonyRequest,
@@ -18432,6 +18434,7 @@ function MeetingDetailOverlay({
   participantReviews,
   participantTestimonies,
   people,
+  reviewRequestUrl,
   reviewShareMessage,
   reviewOptionsShareMessage,
   showPostMeetingFollowUp,
@@ -18446,9 +18449,11 @@ function MeetingDetailOverlay({
   leaderReflections: DosAppLeaderReflection[];
   meeting: DosAppMeeting;
   onBack: () => void;
+  onCopyReviewLink: () => void;
   onDone: () => void;
   onEdit: () => void;
   onEditNotes: () => void;
+  onOpenReviewLink: () => void;
   onPrepareQuickReview: () => void;
   onPrepareReviewOptions: () => void;
   onPrepareTestimonyRequest: () => void;
@@ -18458,6 +18463,7 @@ function MeetingDetailOverlay({
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
+  reviewRequestUrl?: string | null;
   reviewShareMessage?: string;
   reviewOptionsShareMessage?: string;
   showPostMeetingFollowUp?: boolean;
@@ -18479,11 +18485,11 @@ function MeetingDetailOverlay({
   const meetingFruitEvents = fruitEvents.filter((event) => event.meetingId === meeting.id);
   const reviewIsCompleted = meeting.review.status === "approved" || meeting.review.status === "private" || meeting.review.status === "submitted";
   const reviewRequestSent = meeting.review.status === "pending" || Boolean(hasReviewRequestLink);
-  const reviewDisplayTitle = reviewIsCompleted ? "Completed" : reviewRequestSent ? "Sent" : "Not sent";
+  const reviewDisplayTitle = reviewIsCompleted ? "Submitted" : reviewRequestSent ? "Sent" : "Not sent";
   const reviewDisplayHelper = reviewIsCompleted
     ? meeting.review.submittedAt
-      ? `Received ${formatDate(meeting.review.submittedAt)}.`
-      : "Review received."
+      ? `Submitted ${formatDate(meeting.review.submittedAt)}.`
+      : "Review submitted."
     : reviewRequestSent
       ? "Awaiting response."
       : "Send a quick review request when you are ready.";
@@ -18654,7 +18660,21 @@ function MeetingDetailOverlay({
             {meeting.review.stoodOut ? (
               <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
             ) : null}
-            {meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
+            {reviewRequestUrl ? (
+              <div className="mt-3 grid gap-2">
+                <ReviewActionButton icon={<Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyReviewLink}>
+                  Copy Review Link
+                </ReviewActionButton>
+                <ReviewActionButton icon={<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onOpenReviewLink}>
+                  Open Review Link
+                </ReviewActionButton>
+                {!reviewIsCompleted ? (
+                  <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
+                    Send Again
+                  </ReviewActionButton>
+                ) : null}
+              </div>
+            ) : meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
               <div className="mt-3">
                 <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
                   Send Quick Review
@@ -18854,6 +18874,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
   const [selectedTableRole, setSelectedTableRole] = useState<DosAppTableRole>("ministering");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
+  const [selectedMeetingReviewRecipientId, setSelectedMeetingReviewRecipientId] = useState<string | null>(null);
   const [loggingScheduledMeetingId, setLoggingScheduledMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
   const [selectedMinistryTeamMemberIds, setSelectedMinistryTeamMemberIds] = useState<string[]>(() => defaultMinistryTeamMemberIdsForWorkspace(data));
@@ -18964,8 +18985,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return null;
     }
 
-    const token = Object.entries(reviewLinksByMeetingId)
-      .find(([key]) => key.startsWith(`${selectedMeeting.id}:`))?.[1];
+    const token = reviewLinkTokenForMeeting(selectedMeeting, selectedMeetingReviewRecipientId)
+      ?? Object.entries(reviewLinksByMeetingId)
+        .find(([key]) => key.startsWith(`${selectedMeeting.id}:`))?.[1];
 
     if (!token || selectedMeeting.review.status !== "not_sent") {
       return selectedMeeting;
@@ -18979,7 +19001,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         token,
       },
     };
-  }, [reviewLinksByMeetingId, selectedMeeting]);
+  }, [reviewLinksByMeetingId, selectedMeeting, selectedMeetingReviewRecipientId]);
+  const selectedMeetingReviewUrl = useMemo(() => (
+    selectedMeetingWithReview ? existingReviewUrl(selectedMeetingWithReview, selectedMeetingReviewRecipientId) : null
+  ), [reviewLinksByMeetingId, selectedMeetingReviewRecipientId, selectedMeetingWithReview]);
   const selectedPerson = useMemo(() => people.find((person) => person.id === selectedPersonId) ?? null, [people, selectedPersonId]);
   const selectedPrayerResource = useMemo(() => (
     selectedPrayerResourceSlug ? getDosPrayerResourceBySlug(selectedPrayerResourceSlug) : null
@@ -19420,6 +19445,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsAdditionalPersonInfoOpen(false);
     if (mode === "meeting") {
       setSelectedMeetingId(null);
+      setSelectedMeetingReviewRecipientId(null);
       setLoggingScheduledMeetingId(null);
       resetMeetingDraft();
     }
@@ -19480,6 +19506,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
@@ -19507,6 +19534,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
@@ -19547,6 +19575,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
@@ -19707,6 +19736,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setSelectedReminderId(null);
     setPostMeetingFollowUpId(null);
     setSelectedPersonId(personId);
@@ -19724,6 +19754,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setErrorMessage("");
     setFormMode("meeting");
     setIsAdditionalPersonInfoOpen(false);
@@ -19734,6 +19765,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedExternalCalendarEventId(null);
@@ -19748,6 +19780,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setErrorMessage("");
     setFormMode("scheduleMeeting");
@@ -19780,6 +19813,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openScheduledDraftAsMeeting() {
     setErrorMessage("");
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setFormMode("meeting");
   }
@@ -19799,6 +19833,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingContext(meeting.type);
     setSelectedTableRole(meeting.tableRole);
     setSelectedMeetingId(meeting.id);
+    setSelectedMeetingReviewRecipientId(null);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
     setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
     setSelectedMinistryTeamPersonIds(meeting.ministryTeam.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
@@ -19810,7 +19845,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ));
   }
 
-  function openMeetingDetail(meetingId: string) {
+  function openMeetingDetail(meetingId: string, recipientPersonId?: string | null) {
     setActiveTab("meetings");
     setMoreAppView(null);
     setErrorMessage("");
@@ -19824,6 +19859,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedExternalCalendarEventId(null);
     setSelectedReminderId(null);
     setLoggingScheduledMeetingId(null);
+    setSelectedMeetingReviewRecipientId(recipientPersonId ?? null);
     setSelectedMeetingId(meetingId);
   }
 
@@ -21305,8 +21341,28 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return `${meeting.id}:${recipientPersonId ?? meeting.fieldPersonIds[0] ?? "default"}`;
   }
 
+  function reviewLinkTokenForMeeting(meeting: DosAppMeeting, recipientPersonId?: string | null) {
+    const keyedToken = reviewLinksByMeetingId[reviewRequestKey(meeting, recipientPersonId)];
+
+    if (keyedToken) {
+      return keyedToken;
+    }
+
+    if (recipientPersonId) {
+      const recipientLink = meeting.reviewLinks.find((link) => link.recipientPersonId === recipientPersonId);
+
+      if (recipientLink?.token) {
+        return recipientLink.token;
+      }
+
+      return recipientPersonId === meeting.fieldPersonIds[0] ? meeting.review.token : null;
+    }
+
+    return meeting.review.token ?? meeting.reviewLinks[0]?.token ?? null;
+  }
+
   function existingReviewUrl(meeting: DosAppMeeting, recipientPersonId?: string | null) {
-    const token = reviewLinksByMeetingId[reviewRequestKey(meeting, recipientPersonId)] ?? (!recipientPersonId ? meeting.review.token : null);
+    const token = reviewLinkTokenForMeeting(meeting, recipientPersonId);
 
     return token ? reviewUrlFromToken(token) : null;
   }
@@ -21465,6 +21521,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     return false;
+  }
+
+  async function handleCopyExistingReviewLink(url: string) {
+    setReviewShareMessage("");
+    const copied = await copyReviewUrl(url);
+
+    setReviewShareMessage(copied ? "Review link copied." : url);
+  }
+
+  function handleOpenExistingReviewLink(url: string) {
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+      setReviewShareMessage("Review link opened.");
+      return;
+    }
+
+    setReviewShareMessage(url);
   }
 
   async function handleShareReview(meeting: DosAppMeeting, recipientPersonId?: string | null) {
@@ -22908,7 +22981,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {selectedMeetingWithReview ? (
           <MeetingDetailOverlay
             fruitEvents={data.fruitEvents}
-            hasReviewRequestLink={Boolean(existingReviewUrl(selectedMeetingWithReview)) || Object.keys(reviewLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
+            hasReviewRequestLink={Boolean(selectedMeetingReviewUrl) || Object.keys(reviewLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             hasTestimonyRequestLink={Boolean(existingTestimonyUrl(selectedMeetingWithReview)) || Object.keys(testimonyLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             isSendingReview={reviewLinkMeetingId === selectedMeetingWithReview.id}
             isSendingReviewOptions={reviewOptionsLinkMeetingId === selectedMeetingWithReview.id}
@@ -22917,15 +22990,27 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             meeting={selectedMeetingWithReview}
             onBack={() => {
               setPostMeetingFollowUpId(null);
+              setSelectedMeetingReviewRecipientId(null);
               setSelectedMeetingId(null);
+            }}
+            onCopyReviewLink={() => {
+              if (selectedMeetingReviewUrl) {
+                void handleCopyExistingReviewLink(selectedMeetingReviewUrl);
+              }
             }}
             onDone={() => {
               setPostMeetingFollowUpId(null);
+              setSelectedMeetingReviewRecipientId(null);
               setSelectedMeetingId(null);
               setActiveTab("meetings");
             }}
             onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
             onEditNotes={() => openMeetingNotesEdit(selectedMeetingWithReview)}
+            onOpenReviewLink={() => {
+              if (selectedMeetingReviewUrl) {
+                handleOpenExistingReviewLink(selectedMeetingReviewUrl);
+              }
+            }}
             onPrepareQuickReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
             onPrepareReviewOptions={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "review_options" })}
             onPrepareTestimonyRequest={() => {
@@ -22934,11 +23019,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               }
             }}
             onScheduleNextMeeting={() => openScheduleMeeting(selectedMeetingWithReview.fieldPersonIds)}
-            onSendReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
+            onSendReview={() => {
+              if (selectedMeetingReviewRecipientId) {
+                void handleShareReview(selectedMeetingWithReview, selectedMeetingReviewRecipientId);
+                return;
+              }
+
+              setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" });
+            }}
             onSendTestimony={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "testimony_request" })}
             participantReviews={data.participantReviews}
             participantTestimonies={data.participantTestimonies}
             people={people}
+            reviewRequestUrl={selectedMeetingReviewUrl}
             reviewOptionsShareMessage={reviewOptionsShareMessage}
             reviewShareMessage={reviewShareMessage}
             showPostMeetingFollowUp={postMeetingFollowUpId === selectedMeetingWithReview.id}

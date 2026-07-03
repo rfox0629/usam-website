@@ -9,6 +9,7 @@ import {
   dosExperienceReviewTypes,
   dosReviewOptionsType,
   dosReviewFollowUpAnswers,
+  dosQuickReviewOverallRatings,
   dosReviewSharePermissions,
   dosReviewStepAnswers,
   type DosQuickReviewAnswer,
@@ -109,6 +110,23 @@ function answerForParticipantReview(value: DosQuickReviewAnswer | null | undefin
   return value ?? "skipped";
 }
 
+function splitSubmittedName(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+
+  if (!parts.length) {
+    return { firstName: "", lastName: "" };
+  }
+
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: "" };
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 export function normalizeQuickReviewSubmission(value: unknown): DosQuickReviewSubmission | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -116,6 +134,23 @@ export function normalizeQuickReviewSubmission(value: unknown): DosQuickReviewSu
 
   const payload = value as Record<string, unknown>;
   const sharePermission = normalizedChoice(payload.sharePermission, dosReviewSharePermissions) ?? "private";
+  const submittedNameInput = asString(payload.submittedName).slice(0, 120);
+  const submittedFirstNameInput = (
+    asString(payload.submittedFirstName)
+    || asString(payload.firstName)
+    || asString(payload.first_name)
+  ).slice(0, 80);
+  const submittedLastNameInput = (
+    asString(payload.submittedLastName)
+    || asString(payload.lastName)
+    || asString(payload.last_name)
+  ).slice(0, 80);
+  const splitName = !submittedFirstNameInput && !submittedLastNameInput && submittedNameInput
+    ? splitSubmittedName(submittedNameInput)
+    : { firstName: submittedFirstNameInput, lastName: submittedLastNameInput };
+  const submittedFirstName = splitName.firstName.slice(0, 80);
+  const submittedLastName = splitName.lastName.slice(0, 80);
+  const submittedName = submittedNameInput || [submittedFirstName, submittedLastName].filter(Boolean).join(" ");
   const conversationHelpful = normalizedQuickReviewAnswer(payload.conversationHelpful)
     ?? normalizedQuickReviewAnswer(payload.stepTowardJesus)
     ?? normalizedQuickReviewAnswer(payload.encouraged);
@@ -127,12 +162,15 @@ export function normalizeQuickReviewSubmission(value: unknown): DosQuickReviewSu
     encouraged: answerToBoolean(conversationHelpful) ?? asBoolean(payload.encouraged),
     feltCaredFor: normalizedQuickReviewAnswer(payload.feltCaredFor),
     feltHeard: normalizedQuickReviewAnswer(payload.feltHeard),
+    overallRating: normalizedChoice(payload.overallRating, dosQuickReviewOverallRatings),
     outcomeTags: normalizeDosQuickReviewOutcomeTags(payload.outcomeTags),
     sharePermission,
     stepTowardJesus: normalizedChoice(payload.stepTowardJesus, dosReviewStepAnswers) ?? answerToLegacyUnsure(conversationHelpful),
     submittedEmail: asString(payload.submittedEmail).slice(0, 160) || null,
+    submittedFirstName: submittedFirstName || null,
+    submittedLastName: submittedLastName || null,
     stoodOut: asString(payload.stoodOut).slice(0, 1200) || null,
-    submittedName: asString(payload.submittedName).slice(0, 120) || null,
+    submittedName: submittedName.slice(0, 120) || null,
     wantsFollowUp: normalizedChoice(payload.wantsFollowUp, dosReviewFollowUpAnswers) ?? answerToLegacyMaybe(wouldMeetAgain),
     wouldMeetAgain,
   };
@@ -363,8 +401,11 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
       wouldMeetAgain: submission.wouldMeetAgain ?? null,
     },
     comments: submission.stoodOut ?? null,
+    overallRating: submission.overallRating ?? null,
     outcomeTags: submission.outcomeTags ?? [],
     submittedEmail: submission.submittedEmail ?? null,
+    submittedFirstName: submission.submittedFirstName ?? null,
+    submittedLastName: submission.submittedLastName ?? null,
     submittedName: submission.submittedName ?? null,
   };
   const reviewInsert = {
@@ -375,6 +416,7 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     felt_heard_response: answerForParticipantReview(submission.feltHeard),
     meeting_id: typedLink.meeting_id,
     missionary_user_id: typedLink.created_by_user_id,
+    overall_rating: submission.overallRating,
     outcome_tags: submission.outcomeTags ?? [],
     response_details: responseDetails,
     review_link_id: typedLink.id,
@@ -384,6 +426,8 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     status: "submitted",
     step_toward_jesus: answerToLegacyUnsure(submission.conversationHelpful),
     submitted_email: submission.submittedEmail,
+    submitted_first_name: submission.submittedFirstName,
+    submitted_last_name: submission.submittedLastName,
     stood_out: submission.stoodOut,
     submitted_name: submission.submittedName,
     wants_follow_up: submission.outcomeTags?.includes("Follow Up Requested") ? "yes" : answerToLegacyMaybe(submission.wouldMeetAgain),
@@ -409,10 +453,13 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
       felt_heard: answerForParticipantReview(submission.feltHeard),
       leader_id: typedLink.created_by_user_id,
       meeting_id: typedLink.meeting_id,
+      overall_rating: submission.overallRating,
       outcome_tags: submission.outcomeTags ?? [],
       person_id: recipientPersonId,
       status: "submitted",
       submitted_email: submission.submittedEmail,
+      submitted_first_name: submission.submittedFirstName,
+      submitted_last_name: submission.submittedLastName,
       submitted_name: submission.submittedName,
       submitted_at: submittedAt,
       would_meet_again: answerToBoolean(submission.wouldMeetAgain),

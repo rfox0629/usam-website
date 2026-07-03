@@ -31,8 +31,8 @@ export const metadata: Metadata = {
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
-type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">
-  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">>;
+type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">
+  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">>;
 const emptyGrowthReflection: DosAppMeeting["growthReflection"] = {
   actionStep: null,
   followUpNeeded: false,
@@ -93,6 +93,7 @@ function buildDemoMeeting(meeting: DemoMeetingInput): DosAppMeeting {
     participants: [],
     planningReflection: emptyPlanningReflection,
     recorder: null,
+    reviewLinks: [],
     scheduledEndAt: null,
     scheduledStartAt: null,
     supportingAttendees: [],

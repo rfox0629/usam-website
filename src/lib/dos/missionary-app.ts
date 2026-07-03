@@ -191,6 +191,13 @@ export type DosAppMeeting = {
     submittedName: string | null;
     token: string | null;
   };
+  reviewLinks: Array<{
+    recipientPersonId: string | null;
+    status: string | null;
+    submittedAt: string | null;
+    token: string;
+    usedAt: string | null;
+  }>;
   source: "connection" | "table";
   scheduledEndAt: string | null;
   scheduledStartAt: string | null;
@@ -592,6 +599,9 @@ type FruitRow = {
 type ReviewLinkRow = {
   created_at: string | null;
   meeting_id: string;
+  recipient_person_id?: string | null;
+  status?: string | null;
+  submitted_at?: string | null;
   token: string;
   used_at: string | null;
 };
@@ -948,14 +958,15 @@ function meetingReviewSummary(
       stoodOut: review.stood_out,
       submittedAt: review.created_at,
       submittedName: review.submitted_name,
-      token: null,
+      token: link?.token ?? null,
     };
   }
 
-  if (link && !link.used_at) {
+  if (link) {
     return {
       ...emptyReviewSummary(),
-      status: "pending",
+      status: link.used_at || link.status === "submitted" ? "submitted" : "pending",
+      submittedAt: link.submitted_at ?? link.used_at,
       token: link.token,
     };
   }
@@ -1592,7 +1603,7 @@ async function loadFruitForWorkspace(supabase: SupabaseAdminClient, workspaceId:
 async function loadReviewLinksForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("dos_review_links")
-    .select("meeting_id, token, used_at, created_at")
+    .select("meeting_id, recipient_person_id, status, submitted_at, token, used_at, created_at")
     .eq("workspace_id", workspaceId)
     .in("review_type", [...dosExperienceReviewTypes])
     .order("created_at", { ascending: false });
@@ -2117,6 +2128,7 @@ export async function loadDosAppData(
   const householdMemberById = new Map(householdMemberRows.map((member) => [member.id, member]));
   const ministryPeopleByEventId = new Map<string, MinistryEventPersonRow[]>();
   const reviewLinkByMeetingId = new Map<string, ReviewLinkRow>();
+  const reviewLinksByMeetingId = new Map<string, ReviewLinkRow[]>();
   const meetingReviewByMeetingId = new Map<string, MeetingReviewRow>();
   const calendarSyncStatusBySource = new Map<string, "failed" | "pending" | "synced" | null>();
   const latestActivityByPersonId = new Map<string, string>();
@@ -2168,6 +2180,11 @@ export async function loadDosAppData(
   });
 
   reviewLinkRows.forEach((link) => {
+    const links = reviewLinksByMeetingId.get(link.meeting_id) ?? [];
+
+    links.push(link);
+    reviewLinksByMeetingId.set(link.meeting_id, links);
+
     if (!reviewLinkByMeetingId.has(link.meeting_id)) {
       reviewLinkByMeetingId.set(link.meeting_id, link);
     }
@@ -2309,6 +2326,13 @@ export async function loadDosAppData(
         recommendedResources: normalizeRecommendedResources(meeting.recommended_resources),
         recorder,
         review: meetingReviewSummary(meeting.id, reviewLinkByMeetingId, meetingReviewByMeetingId),
+        reviewLinks: (reviewLinksByMeetingId.get(meeting.id) ?? []).map((link) => ({
+          recipientPersonId: link.recipient_person_id ?? null,
+          status: link.status ?? null,
+          submittedAt: link.submitted_at ?? null,
+          token: link.token,
+          usedAt: link.used_at,
+        })),
         source: "table" as const,
         scheduledEndAt: meeting.scheduled_end_at ?? null,
         scheduledStartAt: meeting.scheduled_start_at ?? null,
@@ -2353,6 +2377,7 @@ export async function loadDosAppData(
       recommendedResources: [],
       recorder: null,
       review: emptyReviewSummary(),
+      reviewLinks: [],
       scheduledEndAt: null,
       scheduledStartAt: null,
       source: "connection" as const,
