@@ -13,6 +13,7 @@ function assert(condition, message) {
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const reflectionsRoute = read("app/api/dos/app/reflections/route.ts");
 const fruitIntelligence = read("src/lib/dos/fruit-intelligence.ts");
+const missionaryApp = read("src/lib/dos/missionary-app.ts");
 const observedFruitBlockStart = appClient.indexOf("function ObservedFruitMultiSelect");
 const observedFruitBlockEnd = appClient.indexOf("function MeetingRecommendationsPreview", observedFruitBlockStart);
 const observedFruitBlock = appClient.slice(observedFruitBlockStart, observedFruitBlockEnd);
@@ -70,6 +71,12 @@ assert(
     && editMeetingBlock.includes("onToggleOutcomeTag={toggleOutcomeTag}")
     && editMeetingBlock.includes("selectedOutcomeTags={selectedOutcomeTags}"),
   "Edit Table must wire observed-fruit selected state and toggle handler into the form.",
+);
+
+assert(
+  missionaryApp.includes('"Felt encouraged"')
+    && missionaryApp.includes("export const dosAppFruitTypeOptions = dosAppOutcomeTags;"),
+  "Every Edit Table observed-fruit option must be accepted by the DOS fruit persistence allowlist.",
 );
 
 assert(

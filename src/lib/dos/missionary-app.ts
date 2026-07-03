@@ -59,6 +59,7 @@ export const dosAppOutcomeTags = [
   "Discipling",
   "Started Discipling Others",
   "Answered Prayer",
+  "Felt encouraged",
   "Gospel Conversation",
   "Prayer Received",
   "Church Connection",
