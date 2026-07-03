@@ -12,13 +12,18 @@ import {
   type DosConversationResponses,
 } from "@/src/lib/dos/meeting-engine";
 import { deleteGoogleCalendarEventForSource, recordCalendarSyncFailure, syncGoogleCalendarEvent } from "@/src/lib/dos/google-calendar";
-import { dosAppMeetingTypes, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType } from "@/src/lib/dos/missionary-app";
+import { dosAppMeetingTypes, dosAppTableRoles, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType, type DosAppTableRole } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type MeetingPayload = {
   conversationFlowKey?: unknown;
   conversationResponses?: unknown;
   fieldPersonIds?: unknown;
+  growthActionStep?: unknown;
+  growthFollowUpNeeded?: unknown;
+  growthMentorAssignment?: unknown;
+  growthScriptures?: unknown;
+  growthWhatGodTaught?: unknown;
   id?: unknown;
   notes?: unknown;
   notesOnly?: unknown;
@@ -27,11 +32,15 @@ type MeetingPayload = {
   ministryTeamMemberIds?: unknown;
   ministryTeamPersonIds?: unknown;
   participantPersonIds?: unknown;
+  planningActionItems?: unknown;
+  planningDecisions?: unknown;
+  planningFollowUp?: unknown;
   scheduledEndAt?: unknown;
   scheduledStartAt?: unknown;
   supportingAttendeePersonIds?: unknown;
   supportingAttendees?: unknown;
   tableDate?: unknown;
+  tableRole?: unknown;
   tableType?: unknown;
   timezone?: unknown;
   workspaceId?: unknown;
@@ -80,9 +89,26 @@ type MinistryEventSyncInput = {
 };
 
 const supportingSubRoleSet = new Set<string>(["observer", "contributor", "learning", "support", "child_present"]);
+const tableRoleColumnKeys = [
+  "table_role",
+  "growth_what_god_taught",
+  "growth_scriptures",
+  "growth_action_step",
+  "growth_mentor_assignment",
+  "growth_follow_up_needed",
+  "planning_decisions",
+  "planning_action_items",
+  "planning_follow_up",
+];
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function asNullableText(value: unknown, maxLength = 2000) {
+  const text = asString(value).slice(0, maxLength);
+
+  return text ? text : null;
 }
 
 function isUuid(value: string) {
@@ -163,10 +189,39 @@ function asMeetingType(value: unknown): DosAppMeetingType {
   return dosAppMeetingTypes.includes(nextValue as DosAppMeetingType) ? nextValue as DosAppMeetingType : "kitchen_table";
 }
 
+function asTableRole(value: unknown): DosAppTableRole {
+  const nextValue = asString(value);
+
+  return dosAppTableRoles.includes(nextValue as DosAppTableRole) ? nextValue as DosAppTableRole : "ministering";
+}
+
+function tableRoleReflectionFields(payload: MeetingPayload, tableRole: DosAppTableRole) {
+  const includesGrowthReflection = tableRole === "being_mentored" || tableRole === "mutual_discipleship";
+  const includesPlanningReflection = tableRole === "leadership_planning";
+
+  return {
+    growth_action_step: includesGrowthReflection ? asNullableText(payload.growthActionStep) : null,
+    growth_follow_up_needed: includesGrowthReflection && payload.growthFollowUpNeeded === true,
+    growth_mentor_assignment: includesGrowthReflection ? asNullableText(payload.growthMentorAssignment) : null,
+    growth_scriptures: includesGrowthReflection ? asNullableText(payload.growthScriptures, 1000) : null,
+    growth_what_god_taught: includesGrowthReflection ? asNullableText(payload.growthWhatGodTaught) : null,
+    planning_action_items: includesPlanningReflection ? asNullableText(payload.planningActionItems) : null,
+    planning_decisions: includesPlanningReflection ? asNullableText(payload.planningDecisions) : null,
+    planning_follow_up: includesPlanningReflection ? asNullableText(payload.planningFollowUp) : null,
+    table_role: tableRole,
+  };
+}
+
 function isMissingSchedulingColumn(error: { message?: string } | null | undefined) {
   const message = error?.message?.toLowerCase() ?? "";
 
   return ["meeting_status", "scheduled_start_at", "scheduled_end_at", "timezone", "google_sync_enabled"].some((column) => message.includes(column));
+}
+
+function isMissingTableRoleColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return tableRoleColumnKeys.some((column) => message.includes(column));
 }
 
 function isMissingRecorderColumn(error: { message?: string } | null | undefined) {
@@ -214,23 +269,23 @@ function meetingRecordCandidates(record: Record<string, unknown>) {
   const schedulingKeys = ["meeting_status", "scheduled_start_at", "scheduled_end_at", "timezone", "google_sync_enabled"];
   const recorderKeys = ["recorded_by_user_id", "recorded_by_display_name"];
   const { workspace_id: _workspaceId, ...legacyRecord } = record;
-  const withoutScheduling = Object.fromEntries(Object.entries(record).filter(([key]) => !schedulingKeys.includes(key)));
-  const withoutRecorder = Object.fromEntries(Object.entries(record).filter(([key]) => !recorderKeys.includes(key)));
-  const withoutSchedulingAndRecorder = Object.fromEntries(Object.entries(withoutScheduling).filter(([key]) => !recorderKeys.includes(key)));
-  const legacyWithoutScheduling = Object.fromEntries(Object.entries(legacyRecord).filter(([key]) => !schedulingKeys.includes(key)));
-  const legacyWithoutRecorder = Object.fromEntries(Object.entries(legacyRecord).filter(([key]) => !recorderKeys.includes(key)));
-  const legacyWithoutSchedulingAndRecorder = Object.fromEntries(Object.entries(legacyWithoutScheduling).filter(([key]) => !recorderKeys.includes(key)));
-
-  return [
-    record,
-    withoutScheduling,
-    withoutRecorder,
-    withoutSchedulingAndRecorder,
-    legacyRecord,
-    legacyWithoutScheduling,
-    legacyWithoutRecorder,
-    legacyWithoutSchedulingAndRecorder,
+  const dropKeySets = [
+    [],
+    tableRoleColumnKeys,
+    schedulingKeys,
+    recorderKeys,
+    [...schedulingKeys, ...recorderKeys],
+    [...tableRoleColumnKeys, ...schedulingKeys],
+    [...tableRoleColumnKeys, ...recorderKeys],
+    [...tableRoleColumnKeys, ...schedulingKeys, ...recorderKeys],
   ];
+  const omitKeys = (candidate: Record<string, unknown>, keys: string[]) => (
+    keys.length
+      ? Object.fromEntries(Object.entries(candidate).filter(([key]) => !keys.includes(key)))
+      : candidate
+  );
+
+  return [record, legacyRecord].flatMap((candidate) => dropKeySets.map((keys) => omitKeys(candidate, keys)));
 }
 
 function meetingTitleForCalendar(participantNames: string[], tableType: DosAppMeetingType) {
@@ -734,6 +789,7 @@ export async function POST(request: Request) {
   const meetingStatus = asMeetingStatus(payload.meetingStatus);
   const scheduledStartAt = asIsoString(payload.scheduledStartAt);
   const scheduledEndAt = asIsoString(payload.scheduledEndAt);
+  const tableRole = asTableRole(payload.tableRole);
   const tableType = asMeetingType(payload.tableType);
   const timezone = asString(payload.timezone) || null;
   const googleSyncEnabled = payload.googleSyncEnabled === true;
@@ -755,6 +811,7 @@ export async function POST(request: Request) {
     scheduled_start_at: scheduledStartAt,
     source: "field",
     table_date: asDateString(payload.tableDate),
+    ...tableRoleReflectionFields(payload, tableRole),
     table_type: tableType,
     timezone,
     workspace_id: workspaceId,
@@ -772,7 +829,7 @@ export async function POST(request: Request) {
       break;
     }
 
-    if (!insertResult.error || (!isMissingWorkspaceScopeColumn(insertResult.error) && !isMissingSchedulingColumn(insertResult.error) && !isMissingRecorderColumn(insertResult.error))) {
+    if (!insertResult.error || (!isMissingWorkspaceScopeColumn(insertResult.error) && !isMissingSchedulingColumn(insertResult.error) && !isMissingRecorderColumn(insertResult.error) && !isMissingTableRoleColumn(insertResult.error))) {
       break;
     }
   }
@@ -961,6 +1018,7 @@ export async function PATCH(request: Request) {
   const meetingStatus = asMeetingStatus(payload.meetingStatus);
   const scheduledStartAt = asIsoString(payload.scheduledStartAt);
   const scheduledEndAt = asIsoString(payload.scheduledEndAt);
+  const tableRole = asTableRole(payload.tableRole);
   const tableType = asMeetingType(payload.tableType);
   const timezone = asString(payload.timezone) || null;
   const googleSyncEnabled = payload.googleSyncEnabled === true;
@@ -978,6 +1036,7 @@ export async function PATCH(request: Request) {
     scheduled_end_at: scheduledEndAt,
     scheduled_start_at: scheduledStartAt,
     table_date: asDateString(payload.tableDate),
+    ...tableRoleReflectionFields(payload, tableRole),
     table_type: tableType,
     timezone,
   };
@@ -1006,7 +1065,7 @@ export async function PATCH(request: Request) {
       break;
     }
 
-    if (!updateResult.error || (!isMissingWorkspaceScopeColumn(updateResult.error) && !isMissingSchedulingColumn(updateResult.error))) {
+    if (!updateResult.error || (!isMissingWorkspaceScopeColumn(updateResult.error) && !isMissingSchedulingColumn(updateResult.error) && !isMissingTableRoleColumn(updateResult.error))) {
       break;
     }
   }

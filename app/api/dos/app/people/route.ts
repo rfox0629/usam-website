@@ -27,6 +27,7 @@ type PersonPayload = {
   notes?: unknown;
   occupation?: unknown;
   phone?: unknown;
+  discipleshipRelationship?: unknown;
   discipleshipStage?: unknown;
   relationshipContext?: unknown;
   relationshipType?: unknown;
@@ -40,7 +41,9 @@ type PersonPayload = {
 
 const householdMvpKeys = ["spouse_name", "children_names", "household_notes"];
 const fieldVisibilityKeys = ["field_visibility"];
+const discipleshipRelationshipKeys = ["discipleship_relationship"];
 const fieldVisibilityValues = ["primary", "secondary", "hidden"] as const;
+const discipleshipRelationshipValues = ["mentor", "mentee", "peer", "pastor", "coach", "spiritual_parent", "family", "friend", "other"] as const;
 
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -74,8 +77,14 @@ function isMissingFieldVisibilityColumn(error: { message?: string } | null | und
   return fieldVisibilityKeys.some((column) => message.includes(column));
 }
 
+function isMissingDiscipleshipRelationshipColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return discipleshipRelationshipKeys.some((column) => message.includes(column));
+}
+
 function isRecoverablePersonSchemaError(error: { message?: string } | null | undefined) {
-  return isMissingWorkspaceScopeColumn(error) || isMissingRelationshipModelColumn(error) || isMissingHouseholdMvpColumn(error) || isMissingFieldVisibilityColumn(error);
+  return isMissingWorkspaceScopeColumn(error) || isMissingRelationshipModelColumn(error) || isMissingHouseholdMvpColumn(error) || isMissingFieldVisibilityColumn(error) || isMissingDiscipleshipRelationshipColumn(error);
 }
 
 function omitKeys(record: Record<string, unknown>, keys: string[]) {
@@ -87,25 +96,42 @@ function personRecordCandidates(record: Record<string, unknown>) {
   const noRelationshipModel = omitKeys(record, relationshipKeys);
   const noHouseholdMvp = omitKeys(record, householdMvpKeys);
   const noFieldVisibility = omitKeys(record, fieldVisibilityKeys);
+  const noDiscipleshipRelationship = omitKeys(record, discipleshipRelationshipKeys);
   const noWorkspaceScope = omitKeys(record, ["workspace_id"]);
 
   return [
     record,
+    noDiscipleshipRelationship,
     noFieldVisibility,
+    omitKeys(noFieldVisibility, discipleshipRelationshipKeys),
     noHouseholdMvp,
+    omitKeys(noHouseholdMvp, discipleshipRelationshipKeys),
     omitKeys(noHouseholdMvp, fieldVisibilityKeys),
+    omitKeys(omitKeys(noHouseholdMvp, fieldVisibilityKeys), discipleshipRelationshipKeys),
     noRelationshipModel,
+    omitKeys(noRelationshipModel, discipleshipRelationshipKeys),
     omitKeys(noRelationshipModel, fieldVisibilityKeys),
+    omitKeys(omitKeys(noRelationshipModel, fieldVisibilityKeys), discipleshipRelationshipKeys),
     omitKeys(noRelationshipModel, householdMvpKeys),
+    omitKeys(omitKeys(noRelationshipModel, householdMvpKeys), discipleshipRelationshipKeys),
     omitKeys(omitKeys(noRelationshipModel, householdMvpKeys), fieldVisibilityKeys),
+    omitKeys(omitKeys(omitKeys(noRelationshipModel, householdMvpKeys), fieldVisibilityKeys), discipleshipRelationshipKeys),
     noWorkspaceScope,
+    omitKeys(noWorkspaceScope, discipleshipRelationshipKeys),
     omitKeys(noWorkspaceScope, fieldVisibilityKeys),
+    omitKeys(omitKeys(noWorkspaceScope, fieldVisibilityKeys), discipleshipRelationshipKeys),
     omitKeys(noWorkspaceScope, householdMvpKeys),
+    omitKeys(omitKeys(noWorkspaceScope, householdMvpKeys), discipleshipRelationshipKeys),
     omitKeys(omitKeys(noWorkspaceScope, householdMvpKeys), fieldVisibilityKeys),
+    omitKeys(omitKeys(omitKeys(noWorkspaceScope, householdMvpKeys), fieldVisibilityKeys), discipleshipRelationshipKeys),
     omitKeys(noWorkspaceScope, relationshipKeys),
+    omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), discipleshipRelationshipKeys),
     omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), fieldVisibilityKeys),
+    omitKeys(omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), fieldVisibilityKeys), discipleshipRelationshipKeys),
     omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), householdMvpKeys),
+    omitKeys(omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), householdMvpKeys), discipleshipRelationshipKeys),
     omitKeys(omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), householdMvpKeys), fieldVisibilityKeys),
+    omitKeys(omitKeys(omitKeys(omitKeys(noWorkspaceScope, relationshipKeys), householdMvpKeys), fieldVisibilityKeys), discipleshipRelationshipKeys),
   ];
 }
 
@@ -136,6 +162,14 @@ function fieldVisibilityFromPayload(payload: PersonPayload) {
   return fieldVisibilityValues.includes(value as typeof fieldVisibilityValues[number])
     ? value
     : "primary";
+}
+
+function discipleshipRelationshipFromPayload(payload: PersonPayload) {
+  const value = asString(payload.discipleshipRelationship);
+
+  return discipleshipRelationshipValues.includes(value as typeof discipleshipRelationshipValues[number])
+    ? value
+    : null;
 }
 
 function buildPersonNotes(payload: PersonPayload) {
@@ -224,6 +258,7 @@ export async function POST(request: Request) {
     children_names: childrenNames,
     church: asNullableString(payload.church),
     created_by: authResult.authorization.userId,
+    discipleship_relationship: discipleshipRelationshipFromPayload(payload),
     email: asNullableString(payload.email),
     field_visibility: fieldVisibilityFromPayload(payload),
     household_id: workspaceId,
@@ -320,6 +355,7 @@ export async function PATCH(request: Request) {
   const personUpdate: Record<string, unknown> = {
     children_names: childrenNames,
     church: asNullableString(payload.church),
+    discipleship_relationship: discipleshipRelationshipFromPayload(payload),
     email: asNullableString(payload.email),
     field_visibility: fieldVisibilityFromPayload(payload),
     household_notes: householdNotes,

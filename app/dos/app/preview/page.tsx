@@ -31,8 +31,20 @@ export const metadata: Metadata = {
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
-type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "timezone">
-  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "timezone">>;
+type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">
+  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">>;
+const emptyGrowthReflection: DosAppMeeting["growthReflection"] = {
+  actionStep: null,
+  followUpNeeded: false,
+  mentorAssignment: null,
+  scriptures: null,
+  whatGodTaught: null,
+};
+const emptyPlanningReflection: DosAppMeeting["planningReflection"] = {
+  actionItems: null,
+  decisions: null,
+  followUp: null,
+};
 
 function LockedPreviewScreen() {
   return (
@@ -74,14 +86,17 @@ function buildDemoMeeting(meeting: DemoMeetingInput): DosAppMeeting {
   return {
     googleSyncEnabled: false,
     googleSyncStatus: null,
+    growthReflection: emptyGrowthReflection,
     meetingStatus: "logged",
     ministryEventId: null,
     ministryTeam: [],
     participants: [],
+    planningReflection: emptyPlanningReflection,
     recorder: null,
     scheduledEndAt: null,
     scheduledStartAt: null,
     supportingAttendees: [],
+    tableRole: "ministering",
     timezone: "America/Chicago",
     ...meeting,
   };
@@ -93,6 +108,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: "City Chapel",
       createdAt: "2026-05-06T09:15:00-05:00",
       email: "george.jenko@example.com",
+      discipleshipRelationship: "mentee",
       discipleshipStage: "disciple_maker",
       engagementLevel: "High",
       fieldVisibility: "primary",
@@ -114,6 +130,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: "Redemption Church",
       createdAt: "2026-05-08T11:00:00-05:00",
       email: "brooke.fox@example.com",
+      discipleshipRelationship: "peer",
       discipleshipStage: "walking_with",
       engagementLevel: "High",
       fieldVisibility: "primary",
@@ -132,6 +149,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: null,
       createdAt: "2026-05-10T14:45:00-05:00",
       email: "tim.tran@example.com",
+      discipleshipRelationship: null,
       discipleshipStage: "exploring",
       engagementLevel: "Medium",
       fieldVisibility: "primary",
@@ -150,6 +168,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: null,
       createdAt: "2026-05-12T10:10:00-05:00",
       email: "naomi.lee@example.com",
+      discipleshipRelationship: null,
       discipleshipStage: "exploring",
       engagementLevel: "Medium",
       fieldVisibility: "primary",
@@ -168,6 +187,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: "Grace Fellowship",
       createdAt: "2026-05-23T15:20:00-05:00",
       email: "caleb.rivera@example.com",
+      discipleshipRelationship: null,
       discipleshipStage: "not_started",
       engagementLevel: "Low",
       fieldVisibility: "primary",
@@ -329,6 +349,14 @@ function buildDosPreviewDemoData(): DosAppData {
       recommendedResources: [],
       review: buildDemoReview("approved", "George is growing in confidence and Brooke is actively investing."),
       source: "table",
+      growthReflection: {
+        actionStep: "Practice the gospel outline once this week.",
+        followUpNeeded: false,
+        mentorAssignment: null,
+        scriptures: "Luke 10",
+        whatGodTaught: "Mutual practice made the next conversation feel simple and repeatable.",
+      },
+      tableRole: "mutual_discipleship",
       title: "Discipleship Practice",
       type: "discipleship",
       updatedAt: "2026-05-19T20:10:00-05:00",

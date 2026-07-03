@@ -51,6 +51,8 @@ function isMissingColumnError(error: SupabaseQueryError) {
 }
 
 export const dosAppMeetingTypes = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "discipleship", "other"] as const;
+export const dosAppTableRoles = ["ministering", "being_mentored", "mutual_discipleship", "leadership_planning"] as const;
+export const dosAppDiscipleshipRelationships = ["mentor", "mentee", "peer", "pastor", "coach", "spiritual_parent", "family", "friend", "other"] as const;
 export const dosAppOutcomeTags = [
   "Reconciliation",
   "New Believers",
@@ -85,6 +87,8 @@ export const dosAppLegacyOutcomeTags = ["Healing", "Deliverance", "Church Connec
 export const dosAppFruitTypeOptions = dosAppOutcomeTags;
 
 export type DosAppMeetingType = typeof dosAppMeetingTypes[number];
+export type DosAppTableRole = typeof dosAppTableRoles[number];
+export type DosAppDiscipleshipRelationship = typeof dosAppDiscipleshipRelationships[number];
 export type DosAppOutcomeTag = typeof dosAppOutcomeTags[number] | typeof dosAppLegacyOutcomeTags[number];
 export type DosAppFieldVisibility = "hidden" | "primary" | "secondary";
 export type DosAppReviewStatus = "approved" | "not_sent" | "pending" | "private" | "submitted";
@@ -124,6 +128,7 @@ export type DosAppPerson = {
   childrenNames?: string | null;
   church: string | null;
   createdAt: string | null;
+  discipleshipRelationship: DosAppDiscipleshipRelationship | null;
   discipleshipStage: DiscipleshipStageValue;
   rawDiscipleshipStage?: string | null;
   email: string | null;
@@ -161,6 +166,13 @@ export type DosAppMeeting = {
   followUpNeeded?: boolean | string | null;
   googleSyncEnabled: boolean;
   googleSyncStatus?: "failed" | "pending" | "synced" | null;
+  growthReflection: {
+    actionStep: string | null;
+    followUpNeeded: boolean;
+    mentorAssignment: string | null;
+    scriptures: string | null;
+    whatGodTaught: string | null;
+  };
   id: string;
   meetingStatus: "canceled" | "logged" | "scheduled";
   ministryEventId: string | null;
@@ -183,6 +195,12 @@ export type DosAppMeeting = {
   scheduledEndAt: string | null;
   scheduledStartAt: string | null;
   supportingAttendees: DosAppMinistryEventPerson[];
+  planningReflection: {
+    actionItems: string | null;
+    decisions: string | null;
+    followUp: string | null;
+  };
+  tableRole: DosAppTableRole;
   timezone: string | null;
   title: string;
   type: DosAppMeetingType;
@@ -472,6 +490,7 @@ type FieldPersonRow = {
   children_names?: string | null;
   church: string | null;
   created_at: string | null;
+  discipleship_relationship?: string | null;
   discipleship_stage?: string | null;
   email: string | null;
   engagement_level: string | null;
@@ -496,16 +515,25 @@ type MeetingRow = {
   created_at?: string | null;
   field_person_ids: string[] | null;
   google_sync_enabled?: boolean | null;
+  growth_action_step?: string | null;
+  growth_follow_up_needed?: boolean | null;
+  growth_mentor_assignment?: string | null;
+  growth_scriptures?: string | null;
+  growth_what_god_taught?: string | null;
   id: string;
   meeting_status?: string | null;
   ministry_event_id?: string | null;
   notes: string | null;
   participant_names: string[] | null;
+  planning_action_items?: string | null;
+  planning_decisions?: string | null;
+  planning_follow_up?: string | null;
   recommended_resources?: unknown;
   recorded_by_display_name?: string | null;
   recorded_by_user_id?: string | null;
   scheduled_end_at?: string | null;
   scheduled_start_at?: string | null;
+  table_role?: string | null;
   table_date: string | null;
   table_type: string | null;
   timezone?: string | null;
@@ -740,12 +768,22 @@ type FruitEventRow = {
   visibility: string | null;
 };
 
-const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
+const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_role, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, growth_what_god_taught, growth_scriptures, growth_action_step, growth_mentor_assignment, growth_follow_up_needed, planning_decisions, planning_action_items, planning_follow_up, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
 const meetingSchedulingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
 const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
 
 function mapMeetingType(value: string | null): DosAppMeetingType {
   return dosAppMeetingTypes.includes(value as DosAppMeetingType) ? value as DosAppMeetingType : "other";
+}
+
+function mapTableRole(value: string | null | undefined): DosAppTableRole {
+  return dosAppTableRoles.includes(value as DosAppTableRole) ? value as DosAppTableRole : "ministering";
+}
+
+function mapDiscipleshipRelationship(value: string | null | undefined): DosAppDiscipleshipRelationship | null {
+  return dosAppDiscipleshipRelationships.includes(value as DosAppDiscipleshipRelationship)
+    ? value as DosAppDiscipleshipRelationship
+    : null;
 }
 
 function mapConnectionType(value: string | null): DosAppMeetingType {
@@ -1231,7 +1269,7 @@ function sortMeetingRows(rows: MeetingRow[]) {
 }
 
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
-  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
+  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, discipleship_relationship, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
   const relationshipCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
   const householdCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, last_activity_at, created_at, updated_at";
   const legacyPersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at";
@@ -2200,6 +2238,7 @@ export async function loadDosAppData(
       childrenNames: person.children_names ?? null,
       church: person.church,
       createdAt: person.created_at,
+      discipleshipRelationship: mapDiscipleshipRelationship(person.discipleship_relationship),
       discipleshipStage: relationshipModel.discipleshipStage,
       email: person.email,
       engagementLevel: person.engagement_level,
@@ -2253,6 +2292,13 @@ export async function loadDosAppData(
         fieldPersonIds: participantIds,
         googleSyncEnabled: meeting.google_sync_enabled === true,
         googleSyncStatus: calendarSyncStatusBySource.get(`meeting:${meeting.id}`) ?? null,
+        growthReflection: {
+          actionStep: meeting.growth_action_step ?? null,
+          followUpNeeded: meeting.growth_follow_up_needed === true,
+          mentorAssignment: meeting.growth_mentor_assignment ?? null,
+          scriptures: meeting.growth_scriptures ?? null,
+          whatGodTaught: meeting.growth_what_god_taught ?? null,
+        },
         id: meeting.id,
         meetingStatus,
         ministryEventId: meeting.ministry_event_id ?? null,
@@ -2267,6 +2313,12 @@ export async function loadDosAppData(
         scheduledEndAt: meeting.scheduled_end_at ?? null,
         scheduledStartAt: meeting.scheduled_start_at ?? null,
         supportingAttendees: eventPeople.filter((eventPerson) => eventPerson.role === "supporting_attendee"),
+        planningReflection: {
+          actionItems: meeting.planning_action_items ?? null,
+          decisions: meeting.planning_decisions ?? null,
+          followUp: meeting.planning_follow_up ?? null,
+        },
+        tableRole: mapTableRole(meeting.table_role),
         timezone: meeting.timezone ?? null,
         title: "Meeting",
         type: mapMeetingType(meeting.table_type),
@@ -2281,6 +2333,13 @@ export async function loadDosAppData(
       followUpNeeded: connection.follow_up_needed,
       googleSyncEnabled: false,
       googleSyncStatus: null,
+      growthReflection: {
+        actionStep: null,
+        followUpNeeded: false,
+        mentorAssignment: null,
+        scriptures: null,
+        whatGodTaught: null,
+      },
       id: `connection-${connection.id}`,
       meetingStatus: "logged" as const,
       ministryEventId: null,
@@ -2298,6 +2357,12 @@ export async function loadDosAppData(
       scheduledStartAt: null,
       source: "connection" as const,
       supportingAttendees: [],
+      planningReflection: {
+        actionItems: null,
+        decisions: null,
+        followUp: null,
+      },
+      tableRole: "ministering" as const,
       timezone: null,
       title: connection.interaction_type ?? "Connection",
       type: mapConnectionType(connection.interaction_type),
