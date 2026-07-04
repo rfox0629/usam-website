@@ -184,6 +184,7 @@ export type DosAppMeeting = {
   recommendedResources: DosRecommendedResource[];
   recorder: DosAppMinistryEventPerson | null;
   review: {
+    overallRating: string | null;
     sharePermission: string | null;
     status: DosAppReviewStatus;
     stoodOut: string | null;
@@ -235,6 +236,7 @@ export type DosAppParticipantReview = {
   feltHeard: string | null;
   id: string;
   meetingId: string;
+  overallRating: string | null;
   outcomeTags: string[];
   personId: string | null;
   status: "draft" | "submitted" | "reviewed" | "approved" | "hidden";
@@ -609,6 +611,7 @@ type ReviewLinkRow = {
 type MeetingReviewRow = {
   created_at: string | null;
   meeting_id: string;
+  overall_rating?: string | null;
   share_permission: string | null;
   status: string | null;
   stood_out: string | null;
@@ -738,6 +741,7 @@ type ParticipantReviewRow = {
   felt_heard: string | null;
   id: string;
   meeting_id: string;
+  overall_rating?: string | null;
   outcome_tags?: string[] | null;
   person_id: string | null;
   status?: string | null;
@@ -934,6 +938,7 @@ function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
 
 function emptyReviewSummary(): DosAppMeeting["review"] {
   return {
+    overallRating: null,
     sharePermission: null,
     status: "not_sent",
     stoodOut: null,
@@ -953,6 +958,7 @@ function meetingReviewSummary(
 
   if (review) {
     return {
+      overallRating: review.overall_rating ?? null,
       sharePermission: review.share_permission,
       status: mapReviewStatus(review.status),
       stoodOut: review.stood_out,
@@ -1616,7 +1622,7 @@ async function loadReviewLinksForWorkspace(supabase: SupabaseAdminClient, worksp
 async function loadMeetingReviewsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("dos_meeting_reviews")
-    .select("meeting_id, share_permission, status, stood_out, submitted_name, created_at")
+    .select("meeting_id, overall_rating, share_permission, status, stood_out, submitted_name, created_at")
     .eq("workspace_id", workspaceId)
     .in("review_type", [...dosExperienceReviewTypes])
     .order("created_at", { ascending: false });
@@ -1797,7 +1803,7 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     meetingIds.length
       ? supabase
         .from("participant_reviews")
-        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, would_meet_again_response, outcome_tags, comments, status, submitted_at")
+        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, would_meet_again_response, overall_rating, outcome_tags, comments, status, submitted_at")
         .in("meeting_id", meetingIds)
         .order("submitted_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
@@ -2427,6 +2433,7 @@ export async function loadDosAppData(
     feltHeard: review.felt_heard,
     id: review.id,
     meetingId: review.meeting_id,
+    overallRating: review.overall_rating ?? null,
     outcomeTags: Array.isArray(review.outcome_tags) ? review.outcome_tags.filter((tag): tag is string => typeof tag === "string" && Boolean(tag.trim())) : [],
     personId: review.person_id,
     status: mapModerationStatus(review.status),

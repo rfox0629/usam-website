@@ -107,6 +107,11 @@ for (const column of ["submitted_first_name", "submitted_last_name", "overall_ra
   assert(reviews.includes(column), `Quick Review submit path must write ${column}.`);
   assert(migration.includes(column), `Quick Review migration must add ${column}.`);
 }
+assert(missionaryApp.includes("overall_rating"), "DOS app loader must hydrate Quick Review overall_rating.");
+assert(appClient.includes("quickReviewOverallRatingLabel"), "DOS app must format Quick Review overall ratings.");
+assert(appClient.includes("Overall: {overallRating}") || appClient.includes("Overall: {reviewOverallRating}"), "DOS Quick Review cards must display Overall rating.");
+assert(appClient.includes("\"Review received\""), "Submitted Quick Reviews must be labeled Review received.");
+assert(!appClient.includes("No table notes were added."), "Table detail empty notes copy must be concise.");
 
 assert(reviews.includes("splitSubmittedName"), "Quick Review must preserve backward compatibility with submitted_name.");
 assert(reviews.includes("submitted_name"), "Quick Review must continue writing submitted_name.");
@@ -150,6 +155,11 @@ assert(
 for (const action of ["Copy Review Link", "Open Review Link", "Send Again"]) {
   assert(appClient.includes(action), `Person profile table detail must expose ${action}.`);
 }
+assert(
+  appClient.includes("<ReviewActionButton disabled={isSendingReview} icon={<Send")
+    && !appClient.includes("!reviewIsCompleted ? (\n                  <ReviewActionButton disabled={isSendingReview}"),
+  "Send Again must remain available even after a review is submitted.",
+);
 assert(
   appClient.includes("handleCopyExistingReviewLink") && appClient.includes("handleOpenExistingReviewLink"),
   "Existing Quick Review links must be copyable and openable after generation.",

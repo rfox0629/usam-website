@@ -73,6 +73,7 @@ function LockedPreviewScreen() {
 
 function buildDemoReview(status: DosAppMeeting["review"]["status"] = "not_sent", stoodOut: string | null = null): DosAppMeeting["review"] {
   return {
+    overallRating: status === "not_sent" ? null : "very_meaningful",
     sharePermission: status === "approved" ? "internal" : null,
     status,
     stoodOut,
@@ -453,6 +454,7 @@ function buildDosPreviewDemoData(): DosAppData {
       feltHeard: "yes",
       id: "demo-participant-review-tim",
       meetingId: "demo-meeting-table-george-brooke-tim",
+      overallRating: "very_meaningful",
       outcomeTags: ["Encouragement", "Discipling"],
       personId: "demo-person-tim-tran",
       status: "approved",

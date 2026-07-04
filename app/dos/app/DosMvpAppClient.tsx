@@ -21,7 +21,7 @@ import {
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
-import { dosQuickReviewFormDefinition, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
+import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { dosPrayerResourceAttribution, dosPrayerResourceCategories, dosPrayerResources, getDosPrayerResourceBySlug, type DosPrayerResource, type DosPrayerResourceCategory } from "@/src/lib/dos/prayer-resources";
@@ -250,10 +250,10 @@ const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: 
 ];
 
 const tableRoleOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppTableRole }> = [
-  { helper: "I am pouring into others.", label: "🍞 Ministering", value: "ministering" },
-  { helper: "Someone is pouring into me.", label: "📖 Being Mentored", value: "being_mentored" },
-  { helper: "We are sharpening each other.", label: "🤝 Mutual Discipleship", value: "mutual_discipleship" },
-  { helper: "We are aligning next steps.", label: "📅 Leadership / Planning", value: "leadership_planning" },
+  { helper: "I am pouring into others.", label: "Ministering", value: "ministering" },
+  { helper: "Someone is pouring into me.", label: "Being Mentored", value: "being_mentored" },
+  { helper: "We are sharpening each other.", label: "Mutual Discipleship", value: "mutual_discipleship" },
+  { helper: "We are aligning next steps.", label: "Leadership / Planning", value: "leadership_planning" },
 ];
 
 const conversationFlowOptions: ReadonlyArray<{ helper?: string; label: string; value: DosConversationFlowKey }> = [
@@ -1431,7 +1431,7 @@ function normalizeTableRole(value: FormDataEntryValue | string | null | undefine
 }
 
 function tableRoleDisplayLabel(value: DosAppTableRole) {
-  return tableRoleOptions.find((option) => option.value === value)?.label ?? "🍞 Ministering";
+  return tableRoleOptions.find((option) => option.value === value)?.label ?? "Ministering";
 }
 
 function tableRoleIncludesMinistering(value: DosAppTableRole) {
@@ -1455,14 +1455,14 @@ function tableRoleActivityLabel(meeting: DosAppMeeting) {
 
   switch (meeting.tableRole) {
     case "being_mentored":
-      return participantLabel ? `📖 Mentored by ${participantLabel}` : "📖 Being Mentored";
+      return participantLabel ? `Mentored by ${participantLabel}` : "Being Mentored";
     case "mutual_discipleship":
-      return participantLabel ? `🤝 Mutual Discipleship with ${participantLabel}` : "🤝 Mutual Discipleship";
+      return participantLabel ? `Mutual Discipleship with ${participantLabel}` : "Mutual Discipleship";
     case "leadership_planning":
-      return `📅 Leadership Planning with ${participantLabel || "Team"}`;
+      return `Leadership Planning with ${participantLabel || "Team"}`;
     case "ministering":
     default:
-      return participantLabel ? `🍞 Ministered to ${participantLabel}` : "🍞 Ministering";
+      return participantLabel ? `Ministered to ${participantLabel}` : "Ministering";
   }
 }
 
@@ -1865,7 +1865,7 @@ function reviewStatusLabel(value: DosAppReviewStatus) {
     not_sent: "Not Sent",
     pending: "Pending",
     private: "Private",
-    submitted: "Submitted",
+    submitted: "Review received",
   }[value];
 }
 
@@ -16562,7 +16562,25 @@ function quickReviewMeetAgainLabel(review: DosAppParticipantReview) {
   return review.wouldMeetAgain ? "Yes" : "No";
 }
 
+function quickReviewOverallRatingLabel(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const configuredLabel = dosQuickReviewOverallRatingOptions.find((option) => option.value === value)?.label;
+
+  if (configuredLabel) {
+    return configuredLabel;
+  }
+
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
+  const overallRating = quickReviewOverallRatingLabel(review.overallRating);
+
   return (
     <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
@@ -16575,6 +16593,9 @@ function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
         </div>
         <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{review.comments || "Participant review submitted."}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
+          {overallRating ? (
+            <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-semibold text-[#1D4ED8]">Overall: {overallRating}</span>
+          ) : null}
           <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Heard: {quickReviewAnswerLabel(review.feltHeard)}</span>
           <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Cared For: {quickReviewAnswerLabel(review.feltCaredFor)}</span>
           <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Helpful: {quickReviewAnswerLabel(review.conversationHelpful)}</span>
@@ -18485,14 +18506,20 @@ function MeetingDetailOverlay({
   const meetingFruitEvents = fruitEvents.filter((event) => event.meetingId === meeting.id);
   const reviewIsCompleted = meeting.review.status === "approved" || meeting.review.status === "private" || meeting.review.status === "submitted";
   const reviewRequestSent = meeting.review.status === "pending" || Boolean(hasReviewRequestLink);
-  const reviewDisplayTitle = reviewIsCompleted ? "Submitted" : reviewRequestSent ? "Sent" : "Not sent";
+  const reviewDisplayTitle = reviewIsCompleted ? "Review received" : reviewRequestSent ? "Sent" : "Not sent";
   const reviewDisplayHelper = reviewIsCompleted
     ? meeting.review.submittedAt
       ? `Submitted ${formatDate(meeting.review.submittedAt)}.`
-      : "Review submitted."
+      : "Review received."
     : reviewRequestSent
       ? "Awaiting response."
       : "Send a quick review request when you are ready.";
+  const reviewOverallRating = quickReviewOverallRatingLabel(meeting.review.overallRating);
+  const conversationBadgeLabel = isScheduledMeeting
+    ? "Scheduled"
+    : meeting.conversationFlowKey !== "none"
+      ? conversationFlowLabel(meeting.conversationFlowKey)
+      : null;
   const storyIsCompleted = meetingTestimonies.length > 0;
   const storyRequestSent = Boolean(hasTestimonyRequestLink);
   const storyDisplayTitle = storyIsCompleted ? "Completed" : storyRequestSent ? "Sent" : "Not sent";
@@ -18625,9 +18652,11 @@ function MeetingDetailOverlay({
               {tableRoleDisplayLabel(meeting.tableRole)}
             </span>
           ) : null}
-          <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-            {isScheduledMeeting ? "Scheduled" : conversationFlowLabel(meeting.conversationFlowKey)}
-          </span>
+          {conversationBadgeLabel ? (
+            <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
+              {conversationBadgeLabel}
+            </span>
+          ) : null}
           {meeting.googleSyncEnabled ? (
             <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
               {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
@@ -18660,19 +18689,20 @@ function MeetingDetailOverlay({
             {meeting.review.stoodOut ? (
               <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
             ) : null}
+            {reviewOverallRating ? (
+              <p className="mt-3 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">Overall: {reviewOverallRating}</p>
+            ) : null}
             {reviewRequestUrl ? (
               <div className="mt-3 grid gap-2">
-                <ReviewActionButton icon={<Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyReviewLink}>
-                  Copy Review Link
-                </ReviewActionButton>
                 <ReviewActionButton icon={<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onOpenReviewLink}>
                   Open Review Link
                 </ReviewActionButton>
-                {!reviewIsCompleted ? (
-                  <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
-                    Send Again
-                  </ReviewActionButton>
-                ) : null}
+                <ReviewActionButton icon={<Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyReviewLink}>
+                  Copy Review Link
+                </ReviewActionButton>
+                <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
+                  Send Again
+                </ReviewActionButton>
               </div>
             ) : meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
               <div className="mt-3">
@@ -18712,7 +18742,7 @@ function MeetingDetailOverlay({
               {meeting.notes}
             </div>
           ) : (
-            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No table notes were added."}</p>
+            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No notes yet."}</p>
           )}
           {isTableMeeting ? (
             <button

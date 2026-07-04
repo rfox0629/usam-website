@@ -62,10 +62,10 @@ assert(
 
 for (const copy of [
   "What best describes your role at this table?",
-  "🍞 Ministering",
-  "📖 Being Mentored",
-  "🤝 Mutual Discipleship",
-  "📅 Leadership / Planning",
+  "Ministering",
+  "Being Mentored",
+  "Mutual Discipleship",
+  "Leadership / Planning",
   "Growth Reflection",
   "What did God teach you?",
   "What Scriptures were discussed?",
@@ -76,6 +76,10 @@ for (const copy of [
   "Action items",
 ]) {
   assert(appClient.includes(copy), `DOS table role UI missing: ${copy}.`);
+}
+
+for (const emojiCopy of ["🍞 Ministering", "📖 Being Mentored", "🤝 Mutual Discipleship", "📅 Leadership / Planning"]) {
+  assert(!appClient.includes(emojiCopy), `DOS table role UI must not include emoji label: ${emojiCopy}.`);
 }
 
 assert(
