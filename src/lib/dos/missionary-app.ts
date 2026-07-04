@@ -393,6 +393,100 @@ export type DosAppRelationshipReminder = {
   updatedAt: string | null;
 };
 
+export type DosAppUserJournalEntry = {
+  biblePassage: string | null;
+  createdAt: string | null;
+  date: string;
+  id: string;
+  lordHighlight: string | null;
+  minutesSpent: number;
+  notes: string | null;
+  prayerResponse: string | null;
+  startedAt: string | null;
+  stoppedAt: string | null;
+  tags: string[];
+  updatedAt: string | null;
+};
+
+export type DosAppUserPrayerLog = {
+  answeredAt: string | null;
+  answeredStatus: "answered" | "open" | "watching";
+  createdAt: string | null;
+  fieldPersonId: string | null;
+  id: string;
+  minutesSpent: number;
+  notes: string | null;
+  prayedAt: string | null;
+  prayerFocus: string | null;
+  updatedAt: string | null;
+};
+
+export type DosAppUserMentorRelationship = {
+  createdAt: string | null;
+  fieldPersonId: string | null;
+  id: string;
+  mentorName: string;
+  notes: string | null;
+  relationshipLabel: string | null;
+  status: "active" | "archived";
+  updatedAt: string | null;
+};
+
+export type DosAppUserMentorMeeting = {
+  actionSteps: string | null;
+  counselReceived: string | null;
+  createdAt: string | null;
+  discussed: string | null;
+  durationMinutes: number;
+  fieldPersonId: string | null;
+  followUpDate: string | null;
+  id: string;
+  meetingDate: string;
+  mentorName: string;
+  notes: string | null;
+  relationshipId: string | null;
+  updatedAt: string | null;
+};
+
+export type DosAppUserAssessmentCategoryScore = {
+  id: string;
+  maxScore: number;
+  percentage: number;
+  score: number;
+  title: string;
+};
+
+export type DosAppUserAssessmentResult = {
+  answers: Record<string, number>;
+  assessmentName: string;
+  assessmentResourceId: string | null;
+  assessmentSlug: string;
+  categoryScores: DosAppUserAssessmentCategoryScore[];
+  completedAt: string | null;
+  createdAt: string | null;
+  id: string;
+  maxScore: number;
+  overallScore: number;
+  percentage: number;
+  updatedAt: string | null;
+  visibility: "private";
+};
+
+export type DosAppUserRecord = {
+  assessmentResults: DosAppUserAssessmentResult[];
+  createdAt: string | null;
+  currentSeasonFocus: string | null;
+  displayName: string | null;
+  id: string | null;
+  journalEntries: DosAppUserJournalEntry[];
+  mentorMeetings: DosAppUserMentorMeeting[];
+  mentorRelationships: DosAppUserMentorRelationship[];
+  prayerLogs: DosAppUserPrayerLog[];
+  updatedAt: string | null;
+  userId: string | null;
+  workspaceId: string;
+};
+
 export type DosAppData = {
   calendarConnection: DosAppCalendarConnection;
   circles: DosCircleData | null;
@@ -409,6 +503,7 @@ export type DosAppData = {
   prayerLogs: DosAppPrayerLog[];
   prayerPartners: DosAppPrayerPartner[];
   prayerRequests: DosAppPrayerRequest[];
+  myRecord: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
   usamApplication: DosUsamOrganizationApplication;
   stats: {
@@ -702,6 +797,87 @@ type RelationshipReminderRow = {
   updated_at: string | null;
 };
 
+type DosUserRecordRow = {
+  created_at: string | null;
+  current_season_focus: string | null;
+  display_name: string | null;
+  id: string;
+  updated_at: string | null;
+  user_id: string;
+  workspace_id: string;
+};
+
+type DosUserJournalEntryRow = {
+  bible_passage: string | null;
+  created_at: string | null;
+  entry_date: string;
+  id: string;
+  lord_highlight: string | null;
+  minutes_spent: number | null;
+  notes: string | null;
+  prayer_response: string | null;
+  started_at: string | null;
+  stopped_at: string | null;
+  tags: string[] | null;
+  updated_at: string | null;
+};
+
+type DosUserPrayerLogRow = {
+  answered_at: string | null;
+  answered_status: string | null;
+  created_at: string | null;
+  field_person_id: string | null;
+  id: string;
+  minutes_spent: number | null;
+  notes: string | null;
+  prayed_at: string | null;
+  prayer_focus: string | null;
+  updated_at: string | null;
+};
+
+type DosUserMentorRelationshipRow = {
+  created_at: string | null;
+  field_person_id: string | null;
+  id: string;
+  mentor_name: string;
+  notes: string | null;
+  relationship_label: string | null;
+  status: string | null;
+  updated_at: string | null;
+};
+
+type DosUserMentorMeetingRow = {
+  action_steps: string | null;
+  counsel_received: string | null;
+  created_at: string | null;
+  discussed: string | null;
+  duration_minutes: number | null;
+  field_person_id: string | null;
+  follow_up_date: string | null;
+  id: string;
+  meeting_date: string;
+  mentor_name: string;
+  notes: string | null;
+  relationship_id: string | null;
+  updated_at: string | null;
+};
+
+type DosUserAssessmentResultRow = {
+  answers: unknown;
+  assessment_name: string;
+  assessment_resource_id: string | null;
+  assessment_slug: string;
+  category_scores: unknown;
+  completed_at: string | null;
+  created_at: string | null;
+  id: string;
+  max_score: number | null;
+  overall_score: number | null;
+  percentage: number | string | null;
+  updated_at: string | null;
+  visibility: string | null;
+};
+
 type ExternalCalendarEventRow = {
   all_day: boolean | null;
   calendar_source_id: string | null;
@@ -922,6 +1098,77 @@ function mapPrayerRequestVisibility(value: string | null | undefined): DosAppPra
   }
 
   return "private";
+}
+
+function mapMyRecordPrayerStatus(value: string | null | undefined): DosAppUserPrayerLog["answeredStatus"] {
+  return value === "answered" || value === "watching" ? value : "open";
+}
+
+function mapMyRecordMentorStatus(value: string | null | undefined): DosAppUserMentorRelationship["status"] {
+  return value === "archived" ? value : "active";
+}
+
+function mapMyRecordAssessmentAnswers(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([key, score]) => [key, typeof score === "number" && Number.isFinite(score) ? score : Number.parseInt(String(score), 10)] as const)
+      .filter((entry): entry is readonly [string, number] => Boolean(entry[0]) && Number.isFinite(entry[1])),
+  );
+}
+
+function mapMyRecordAssessmentCategoryScores(value: unknown): DosAppUserAssessmentCategoryScore[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const score = item && typeof item === "object" ? item as Record<string, unknown> : null;
+
+      if (!score) {
+        return null;
+      }
+
+      return {
+        id: typeof score.id === "string" ? score.id : "",
+        maxScore: typeof score.maxScore === "number" ? score.maxScore : 10,
+        percentage: typeof score.percentage === "number" ? score.percentage : 0,
+        score: typeof score.score === "number" ? score.score : 0,
+        title: typeof score.title === "string" ? score.title : "Assessment area",
+      } satisfies DosAppUserAssessmentCategoryScore;
+    })
+    .filter((score): score is DosAppUserAssessmentCategoryScore => Boolean(score?.id));
+}
+
+function safePercentage(value: number | string | null | undefined) {
+  const numericValue = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
+
+  return Number.isFinite(numericValue) ? Math.round(numericValue) : 0;
+}
+
+function safeDurationMinutes(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function emptyMyRecord(workspaceId: string, viewer?: DosAuthorizedUser | null): DosAppUserRecord {
+  return {
+    assessmentResults: [],
+    createdAt: null,
+    currentSeasonFocus: null,
+    displayName: viewer?.email ?? null,
+    id: null,
+    journalEntries: [],
+    mentorMeetings: [],
+    mentorRelationships: [],
+    prayerLogs: [],
+    updatedAt: null,
+    userId: viewer?.userId ?? null,
+    workspaceId,
+  };
 }
 
 function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
@@ -1644,6 +1891,174 @@ async function loadPrayerLogsForWorkspace(supabase: SupabaseAdminClient, workspa
     : result;
 }
 
+async function loadMyRecordForWorkspace(
+  supabase: SupabaseAdminClient,
+  workspaceId: string,
+  viewer?: DosAuthorizedUser | null,
+) {
+  const emptyRecord = emptyMyRecord(workspaceId, viewer);
+
+  if (!viewer?.userId) {
+    return { data: emptyRecord, error: null };
+  }
+
+  const recordResult = await supabase
+    .from("dos_user_records")
+    .select("id, workspace_id, user_id, display_name, current_season_focus, created_at, updated_at")
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", viewer.userId)
+    .maybeSingle();
+
+  if (recordResult.error) {
+    return isMissingWorkflowTable(recordResult.error, "dos_user_records")
+      ? { data: emptyRecord, error: null }
+      : { data: emptyRecord, error: recordResult.error };
+  }
+
+  const recordRow = recordResult.data as DosUserRecordRow | null;
+
+  if (!recordRow) {
+    return { data: emptyRecord, error: null };
+  }
+
+  const [journalResult, prayerResult, mentorRelationshipsResult, mentorMeetingsResult, assessmentResultsResult] = await Promise.all([
+    supabase
+      .from("dos_user_journal_entries")
+      .select("id, entry_date, minutes_spent, started_at, stopped_at, bible_passage, notes, lord_highlight, prayer_response, tags, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("entry_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_prayer_logs")
+      .select("id, field_person_id, prayed_at, minutes_spent, prayer_focus, notes, answered_status, answered_at, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("prayed_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_mentor_relationships")
+      .select("id, field_person_id, mentor_name, relationship_label, notes, status, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("updated_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_mentor_meetings")
+      .select("id, relationship_id, field_person_id, mentor_name, meeting_date, duration_minutes, notes, discussed, counsel_received, action_steps, follow_up_date, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("meeting_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_assessment_results")
+      .select("id, assessment_resource_id, assessment_slug, assessment_name, completed_at, overall_score, max_score, percentage, category_scores, answers, visibility, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("completed_at", { ascending: false })
+      .limit(80),
+  ]);
+  const error = journalResult.error ?? prayerResult.error ?? mentorRelationshipsResult.error ?? mentorMeetingsResult.error ?? assessmentResultsResult.error;
+
+  if (error) {
+    return isMissingWorkflowTable(error, "dos_user_")
+      ? { data: emptyRecord, error: null }
+      : { data: emptyRecord, error };
+  }
+
+  const journalEntries = ((journalResult.data ?? []) as DosUserJournalEntryRow[]).map((entry) => ({
+    biblePassage: entry.bible_passage,
+    createdAt: entry.created_at,
+    date: entry.entry_date,
+    id: entry.id,
+    lordHighlight: entry.lord_highlight,
+    minutesSpent: safeDurationMinutes(entry.minutes_spent),
+    notes: entry.notes,
+    prayerResponse: entry.prayer_response,
+    startedAt: entry.started_at,
+    stoppedAt: entry.stopped_at,
+    tags: Array.isArray(entry.tags) ? entry.tags.filter((tag): tag is string => typeof tag === "string" && Boolean(tag.trim())) : [],
+    updatedAt: entry.updated_at,
+  }));
+  const prayerLogs = ((prayerResult.data ?? []) as DosUserPrayerLogRow[]).map((log) => ({
+    answeredAt: log.answered_at,
+    answeredStatus: mapMyRecordPrayerStatus(log.answered_status),
+    createdAt: log.created_at,
+    fieldPersonId: log.field_person_id,
+    id: log.id,
+    minutesSpent: safeDurationMinutes(log.minutes_spent),
+    notes: log.notes,
+    prayedAt: log.prayed_at,
+    prayerFocus: log.prayer_focus,
+    updatedAt: log.updated_at,
+  }));
+  const mentorRelationships = ((mentorRelationshipsResult.data ?? []) as DosUserMentorRelationshipRow[]).map((mentor) => ({
+    createdAt: mentor.created_at,
+    fieldPersonId: mentor.field_person_id,
+    id: mentor.id,
+    mentorName: mentor.mentor_name,
+    notes: mentor.notes,
+    relationshipLabel: mentor.relationship_label,
+    status: mapMyRecordMentorStatus(mentor.status),
+    updatedAt: mentor.updated_at,
+  }));
+  const mentorMeetings = ((mentorMeetingsResult.data ?? []) as DosUserMentorMeetingRow[]).map((meeting) => ({
+    actionSteps: meeting.action_steps,
+    counselReceived: meeting.counsel_received,
+    createdAt: meeting.created_at,
+    discussed: meeting.discussed,
+    durationMinutes: safeDurationMinutes(meeting.duration_minutes),
+    fieldPersonId: meeting.field_person_id,
+    followUpDate: meeting.follow_up_date,
+    id: meeting.id,
+    meetingDate: meeting.meeting_date,
+    mentorName: meeting.mentor_name,
+    notes: meeting.notes,
+    relationshipId: meeting.relationship_id,
+    updatedAt: meeting.updated_at,
+  }));
+  const assessmentResults = ((assessmentResultsResult.data ?? []) as DosUserAssessmentResultRow[]).map((result) => ({
+    answers: mapMyRecordAssessmentAnswers(result.answers),
+    assessmentName: result.assessment_name,
+    assessmentResourceId: result.assessment_resource_id,
+    assessmentSlug: result.assessment_slug,
+    categoryScores: mapMyRecordAssessmentCategoryScores(result.category_scores),
+    completedAt: result.completed_at,
+    createdAt: result.created_at,
+    id: result.id,
+    maxScore: safeDurationMinutes(result.max_score),
+    overallScore: safeDurationMinutes(result.overall_score),
+    percentage: safePercentage(result.percentage),
+    updatedAt: result.updated_at,
+    visibility: "private" as const,
+  }));
+
+  return {
+    data: {
+      assessmentResults,
+      createdAt: recordRow.created_at,
+      currentSeasonFocus: recordRow.current_season_focus,
+      displayName: recordRow.display_name,
+      id: recordRow.id,
+      journalEntries,
+      mentorMeetings,
+      mentorRelationships,
+      prayerLogs,
+      updatedAt: recordRow.updated_at,
+      userId: recordRow.user_id,
+      workspaceId: recordRow.workspace_id,
+    } satisfies DosAppUserRecord,
+    error: null,
+  };
+}
+
 async function loadPrayerPartnersForWorkspace(supabase: SupabaseAdminClient, workspace: Pick<HouseholdRow, "id" | "slug">) {
   const result = await supabase
     .from("prayer_partners")
@@ -2064,7 +2479,7 @@ export async function loadDosAppData(
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -2081,11 +2496,12 @@ export async function loadDosAppData(
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
+    loadMyRecordForWorkspace(supabase, workspace.id, viewer),
     loadOrganizationForWorkspace(supabase, workspace.slug),
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -2102,6 +2518,7 @@ export async function loadDosAppData(
         ?? remindersResult.error?.message
         ?? externalCalendarEventsResult.error?.message
         ?? reviewsFruitResult.error?.message
+        ?? myRecordResult.error?.message
         ?? "Unable to load DOS app data.",
       status: "error",
     };
@@ -2125,6 +2542,7 @@ export async function loadDosAppData(
   const prayerPartnerRows = (prayerPartnersResult.data ?? []) as PrayerPartnerRow[];
   const prayerRequestRows = (prayerRequestsResult.data ?? []) as PrayerRequestRow[];
   const householdMemberRows = (householdMembersResult.data ?? []) as HouseholdMemberRow[];
+  const myRecord = myRecordResult.data;
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
   const calendarWorkspaceSyncStateRow = calendarWorkspaceSyncStateResult.data as CalendarWorkspaceSyncStateRow | null;
@@ -2625,6 +3043,7 @@ export async function loadDosAppData(
       prayerLogs,
       prayerPartners,
       prayerRequests,
+      myRecord,
       reminders,
       usamApplication,
       stats: {

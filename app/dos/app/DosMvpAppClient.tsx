@@ -20,13 +20,14 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserJournalEntry, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { dosPrayerResourceAttribution, dosPrayerResourceCategories, dosPrayerResources, getDosPrayerResourceBySlug, type DosPrayerResource, type DosPrayerResourceCategory } from "@/src/lib/dos/prayer-resources";
 import {
   dosSendableResourceCategories,
+  getDosAssessmentResources,
   getDosResourcesByCategory,
   getSendableDosResources,
   type DosResource,
@@ -58,8 +59,9 @@ const googleCalendarReconnectCopy = "Calendar permissions need to be updated.";
 const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choose calendars to import or refresh your connection.";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
-type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
+type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
 type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
+type MyRecordTab = "assessments" | "journal" | "mentors" | "overview" | "prayer" | "timeline";
 type LocalPrayerNeed = {
   createdAt: string;
   id: string;
@@ -211,6 +213,7 @@ type DesktopNavItem =
   | { icon: IconName; label: string; type: "tab"; value: ActiveTab };
 
 const desktopDashboardNavItem: DesktopNavItem = { icon: "apps", label: "Dashboard", type: "tab", value: "home" };
+const desktopMyRecordNavItem: DesktopNavItem = { icon: "people", label: "My Record", type: "moreApp", value: "my_record" };
 
 const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }> = [
   {
@@ -234,6 +237,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
 ];
 
 const dosCommandResourceItems = getDosResourcesByCategory("Commands of Jesus");
+const dosAssessmentResourceItems = getDosAssessmentResources();
 const dosRelationshipResourceItems = getDosResourcesByCategory("Relationships");
 const dosSendableResourceItems = getSendableDosResources();
 
@@ -6851,6 +6855,15 @@ const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>>
   { label: "Praying For", value: "praying_for" },
   { label: "My Requests", value: "my_requests" },
   { label: "Prayer Partners", value: "partners" },
+];
+
+const myRecordTabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
+  { label: "Overview", value: "overview" },
+  { label: "Journal", value: "journal" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Mentors", value: "mentors" },
+  { label: "Assessments", value: "assessments" },
+  { label: "Timeline", value: "timeline" },
 ];
 
 const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>> = [
@@ -16450,6 +16463,1219 @@ function SectionEmptyState({
   );
 }
 
+const myRecordJournalTags = ["Prayer", "Scripture", "Worship", "Repentance", "Direction", "Thanksgiving"] as const;
+
+type MyRecordSavePayload = Record<string, unknown>;
+
+function formatRecordDuration(minutes: number) {
+  if (minutes <= 0) {
+    return "0m";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (!hours) {
+    return `${remainingMinutes}m`;
+  }
+
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+function myRecordDateValue(value: string | null | undefined) {
+  return dateSortValue(value);
+}
+
+function latestMyRecordDate(...values: Array<string | null | undefined>) {
+  return values
+    .filter((value): value is string => Boolean(value))
+    .sort((first, second) => myRecordDateValue(second) - myRecordDateValue(first))[0] ?? null;
+}
+
+function personNameById(people: DosAppPerson[]) {
+  return new Map(people.map((person) => [person.id, person.name]));
+}
+
+function MyRecordTabBar({
+  onChange,
+  value,
+}: {
+  onChange: (tab: MyRecordTab) => void;
+  value: MyRecordTab;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-[22px] bg-[#E2E8F0] p-1 shadow-inner shadow-white/60 min-[520px]:grid-cols-3 xl:grid-cols-6">
+      {myRecordTabs.map((tab) => (
+        <button
+          aria-pressed={value === tab.value}
+          className={`min-h-9 rounded-[18px] px-2 text-xs font-bold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 ${
+            value === tab.value
+              ? "bg-white text-[#0F172A] shadow-[0_8px_18px_rgba(42,37,29,0.08)]"
+              : "text-[#64748B] hover:text-[#0F172A]"
+          }`}
+          key={tab.value}
+          onClick={() => onChange(tab.value)}
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MyRecordMetricCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-[20px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          {icon}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+          <span className="mt-1 block truncate text-sm font-black text-[#0F172A]">{value}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MyRecordActivityRow({
+  body,
+  date,
+  icon,
+  title,
+}: {
+  body?: string | null;
+  date: string | null;
+  icon: ReactNode;
+  title: string;
+}) {
+  return (
+    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.035)]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold leading-5 text-[#0F172A]">{title}</span>
+        {body ? <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{body}</span> : null}
+        <span className="mt-2 inline-flex rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+          {formatDate(date)}
+        </span>
+      </span>
+    </article>
+  );
+}
+
+function MyRecordTimerControls({
+  elapsedMinutes,
+  isRunning,
+  onReset,
+  onStart,
+  onStop,
+}: {
+  elapsedMinutes: number | null;
+  isRunning: boolean;
+  onReset: () => void;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  return (
+    <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block text-xs font-bold text-[#0F172A]">Timer</span>
+          <span className="mt-0.5 block text-xs leading-5 text-[#64748B]">
+            {isRunning ? "Timer running" : elapsedMinutes ? `${elapsedMinutes} minutes ready` : "Optional helper for this entry"}
+          </span>
+        </span>
+        <span className="flex shrink-0 gap-2">
+          {isRunning ? (
+            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-[#0F172A] px-3 text-xs font-bold text-white" onClick={onStop} type="button">
+              <Square className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+              Stop
+            </button>
+          ) : (
+            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={onStart} type="button">
+              <Clock className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={2} />
+              Start
+            </button>
+          )}
+          {elapsedMinutes ? (
+            <button className="inline-flex min-h-9 items-center rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" onClick={onReset} type="button">
+              Reset
+            </button>
+          ) : null}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MyRecordJournalForm({
+  errorMessage,
+  isSubmitting,
+  onSave,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+}) {
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
+  const [timerMinutes, setTimerMinutes] = useState<number | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const isRunning = timerStartedAt !== null;
+
+  function toggleTag(tag: string) {
+    setSelectedTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]);
+  }
+
+  function stopTimer() {
+    if (!timerStartedAt) {
+      return;
+    }
+
+    setTimerMinutes(Math.max(1, Math.round((Date.now() - timerStartedAt) / 60_000)));
+    setTimerStartedAt(null);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const minutes = Number.parseInt(String(formData.get("minutes_spent") ?? ""), 10);
+
+    void (async () => {
+      const saved = await onSave({
+        biblePassage: String(formData.get("bible_passage") ?? ""),
+        date: String(formData.get("date") ?? todayDateValue()),
+        kind: "journal",
+        lordHighlight: String(formData.get("lord_highlight") ?? ""),
+        minutesSpent: Number.isFinite(minutes) ? minutes : timerMinutes ?? 0,
+        notes: String(formData.get("notes") ?? ""),
+        prayerResponse: String(formData.get("prayer_response") ?? ""),
+        tags: selectedTags,
+      }, "journal");
+
+      if (saved) {
+        formRef.current?.reset();
+        setSelectedTags([]);
+        setTimerStartedAt(null);
+        setTimerMinutes(null);
+      }
+    })();
+  }
+
+  return (
+    <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="library" title="Quiet Time">
+        <DosFormGrid>
+          <DosDateInput defaultValue={todayDateValue()} label="Date" name="date" />
+          <DosFormField label="Time Spent">
+            <input className={FieldInputClass()} defaultValue={timerMinutes ?? ""} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
+          </DosFormField>
+        </DosFormGrid>
+        <MyRecordTimerControls
+          elapsedMinutes={timerMinutes}
+          isRunning={isRunning}
+          onReset={() => {
+            setTimerStartedAt(null);
+            setTimerMinutes(null);
+          }}
+          onStart={() => setTimerStartedAt(Date.now())}
+          onStop={stopTimer}
+        />
+        <DosFormField label="Bible Passage">
+          <input className={FieldInputClass()} name="bible_passage" placeholder="John 15, Psalm 23, Romans 8" />
+        </DosFormField>
+        <DosFormField label="Notes / Reflection">
+          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="Write what you noticed." />
+        </DosFormField>
+        <DosFormField label="What did the Lord highlight?">
+          <VoiceTextarea className={FieldTextareaClass()} name="lord_highlight" placeholder="Capture the main highlight." />
+        </DosFormField>
+        <DosFormField label="Prayer Response / Next Step">
+          <VoiceTextarea className={FieldTextareaClass()} name="prayer_response" placeholder="How will you respond?" />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="fruit" title="Tags">
+        <div className="grid grid-cols-2 gap-2 min-[520px]:grid-cols-3">
+          {myRecordJournalTags.map((tag) => {
+            const selected = selectedTags.includes(tag);
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={`min-h-10 rounded-2xl border px-3 text-left text-xs font-bold ${
+                  selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#DCEBFF] bg-white text-[#475569]"
+                }`}
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                type="button"
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Journal Entry"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordPrayerForm({
+  errorMessage,
+  isSubmitting,
+  onSave,
+  people,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  people: DosAppPerson[];
+}) {
+  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
+  const [timerMinutes, setTimerMinutes] = useState<number | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const isRunning = timerStartedAt !== null;
+
+  function stopTimer() {
+    if (!timerStartedAt) {
+      return;
+    }
+
+    setTimerMinutes(Math.max(1, Math.round((Date.now() - timerStartedAt) / 60_000)));
+    setTimerStartedAt(null);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const minutes = Number.parseInt(String(formData.get("minutes_spent") ?? ""), 10);
+
+    void (async () => {
+      const saved = await onSave({
+        answeredStatus: String(formData.get("answered_status") ?? "open"),
+        date: String(formData.get("date") ?? todayDateValue()),
+        fieldPersonId: String(formData.get("field_person_id") ?? ""),
+        kind: "prayer",
+        minutesSpent: Number.isFinite(minutes) ? minutes : timerMinutes ?? 0,
+        notes: String(formData.get("notes") ?? ""),
+        prayerFocus: String(formData.get("prayer_focus") ?? ""),
+      }, "prayer");
+
+      if (saved) {
+        formRef.current?.reset();
+        setTimerStartedAt(null);
+        setTimerMinutes(null);
+      }
+    })();
+  }
+
+  return (
+    <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="prayer" title="Prayer Time">
+        <DosFormGrid>
+          <DosDateInput defaultValue={todayDateValue()} label="Date" name="date" />
+          <DosFormField label="Time Spent">
+            <input className={FieldInputClass()} defaultValue={timerMinutes ?? ""} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
+          </DosFormField>
+        </DosFormGrid>
+        <MyRecordTimerControls
+          elapsedMinutes={timerMinutes}
+          isRunning={isRunning}
+          onReset={() => {
+            setTimerStartedAt(null);
+            setTimerMinutes(null);
+          }}
+          onStart={() => setTimerStartedAt(Date.now())}
+          onStop={stopTimer}
+        />
+        <DosFormField label="Prayer Focus">
+          <input className={FieldInputClass()} name="prayer_focus" placeholder="Family, direction, healing, a person, a team" />
+        </DosFormField>
+        <FormOptionSelect
+          label="Answered Status"
+          name="answered_status"
+          options={[
+            { label: "Open", value: "open" },
+            { label: "Watching", value: "watching" },
+            { label: "Answered", value: "answered" },
+          ]}
+        />
+        <FormOptionSelect
+          label="Person Prayed For"
+          name="field_person_id"
+          options={[
+            { label: "Not linked", value: "" },
+            ...people.map((person) => ({
+              helper: relationshipLine(person),
+              label: person.name,
+              value: person.id,
+            })),
+          ]}
+        />
+        <DosFormField label="Notes">
+          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="What did you pray through?" />
+        </DosFormField>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Log Prayer Time"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordMentorRelationshipForm({
+  errorMessage,
+  isSubmitting,
+  onSave,
+  people,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  people: DosAppPerson[];
+}) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    void (async () => {
+      const saved = await onSave({
+        fieldPersonId: String(formData.get("field_person_id") ?? ""),
+        kind: "mentor_relationship",
+        mentorName: String(formData.get("mentor_name") ?? ""),
+        notes: String(formData.get("notes") ?? ""),
+        relationshipLabel: String(formData.get("relationship_label") ?? ""),
+      }, "mentors");
+
+      if (saved) {
+        formRef.current?.reset();
+      }
+    })();
+  }
+
+  return (
+    <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="people" title="Add Mentor">
+        <FormOptionSelect
+          label="Existing Field Contact"
+          name="field_person_id"
+          options={[
+            { label: "Manual mentor", value: "" },
+            ...people.map((person) => ({
+              helper: relationshipLine(person),
+              label: person.name,
+              value: person.id,
+            })),
+          ]}
+        />
+        <DosFormField helper="Use this when the mentor is not in Field yet." label="Manual Name">
+          <input className={FieldInputClass()} name="mentor_name" placeholder="Mentor name" />
+        </DosFormField>
+        <DosFormField label="Relationship">
+          <input className={FieldInputClass()} name="relationship_label" placeholder="Pastor, coach, spiritual father, peer" />
+        </DosFormField>
+        <DosFormField label="Notes">
+          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="What role do they play in your walk?" />
+        </DosFormField>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="white" type="submit">{isSubmitting ? "Saving..." : "Add Mentor"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordMentorMeetingForm({
+  errorMessage,
+  isSubmitting,
+  mentors,
+  onSave,
+  people,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  mentors: DosAppUserMentorRelationship[];
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  people: DosAppPerson[];
+}) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const minutes = Number.parseInt(String(formData.get("minutes_spent") ?? ""), 10);
+
+    void (async () => {
+      const saved = await onSave({
+        actionSteps: String(formData.get("action_steps") ?? ""),
+        counselReceived: String(formData.get("counsel_received") ?? ""),
+        date: String(formData.get("date") ?? todayDateValue()),
+        discussed: String(formData.get("discussed") ?? ""),
+        fieldPersonId: String(formData.get("field_person_id") ?? ""),
+        followUpDate: String(formData.get("follow_up_date") ?? ""),
+        kind: "mentor_meeting",
+        mentorName: String(formData.get("mentor_name") ?? ""),
+        minutesSpent: Number.isFinite(minutes) ? minutes : 0,
+        notes: String(formData.get("notes") ?? ""),
+        relationshipId: String(formData.get("relationship_id") ?? ""),
+      }, "mentors");
+
+      if (saved) {
+        formRef.current?.reset();
+      }
+    })();
+  }
+
+  return (
+    <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="people" title="Mentor Meeting">
+        <DosFormGrid>
+          <DosDateInput defaultValue={todayDateValue()} label="Date" name="date" />
+          <DosFormField label="Duration">
+            <input className={FieldInputClass()} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
+          </DosFormField>
+        </DosFormGrid>
+        <FormOptionSelect
+          label="Saved Mentor"
+          name="relationship_id"
+          options={[
+            { label: "Choose or add below", value: "" },
+            ...mentors.filter((mentor) => mentor.status === "active").map((mentor) => ({
+              helper: mentor.relationshipLabel ?? undefined,
+              label: mentor.mentorName,
+              value: mentor.id,
+            })),
+          ]}
+        />
+        <FormOptionSelect
+          label="Field Contact"
+          name="field_person_id"
+          options={[
+            { label: "Not linked", value: "" },
+            ...people.map((person) => ({
+              helper: relationshipLine(person),
+              label: person.name,
+              value: person.id,
+            })),
+          ]}
+        />
+        <DosFormField helper="Use this if you did not select a saved mentor." label="Manual Mentor Name">
+          <input className={FieldInputClass()} name="mentor_name" placeholder="Mentor name" />
+        </DosFormField>
+        <DosFormField label="What was discussed?">
+          <VoiceTextarea className={FieldTextareaClass()} name="discussed" placeholder="Topics, Scripture, life context, or questions." />
+        </DosFormField>
+        <DosFormField label="Counsel Received">
+          <VoiceTextarea className={FieldTextareaClass()} name="counsel_received" placeholder="What counsel or correction was given?" />
+        </DosFormField>
+        <DosFormField label="Action Steps">
+          <VoiceTextarea className={FieldTextareaClass()} name="action_steps" placeholder="What will you obey or follow up on?" />
+        </DosFormField>
+        <DosDateInput label="Follow-up Date" name="follow_up_date" />
+        <DosFormField label="Notes">
+          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="Private notes." />
+        </DosFormField>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Log Mentor Meeting"}</AppButton>
+    </form>
+  );
+}
+
+const myRecordReportRanges = [
+  { label: "7 Days", value: "7d" },
+  { label: "30 Days", value: "30d" },
+  { label: "Quarter", value: "quarter" },
+  { label: "YTD", value: "ytd" },
+] as const;
+
+const myRecordFutureSharingRoles = ["Mentor", "Spouse", "Board Member", "Accountability Partner", "Pastor", "Custom Viewer"] as const;
+const myRecordFutureShareableSections = [
+  "Quiet Time",
+  "Prayer",
+  "Journal",
+  "Mentor Meetings",
+  "Assessments",
+  "Ministry Activity",
+  "Fruit",
+  "Answered Prayers",
+  "Goals",
+  "Next Steps",
+] as const;
+
+type MyRecordReportRange = typeof myRecordReportRanges[number]["value"];
+
+function myRecordRangeStart(range: MyRecordReportRange) {
+  const date = new Date();
+
+  if (range === "7d") {
+    date.setDate(date.getDate() - 6);
+  } else if (range === "30d") {
+    date.setDate(date.getDate() - 29);
+  } else if (range === "quarter") {
+    const currentMonth = date.getMonth();
+    date.setMonth(currentMonth - 2, 1);
+  } else {
+    date.setMonth(0, 1);
+  }
+
+  date.setHours(0, 0, 0, 0);
+
+  return date;
+}
+
+function isMyRecordDateInRange(value: string | null | undefined, range: MyRecordReportRange) {
+  if (!value) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+
+  return Number.isFinite(parsed.getTime()) && parsed >= myRecordRangeStart(range);
+}
+
+function latestMyRecordAssessmentResult(results: DosAppUserAssessmentResult[]) {
+  return [...results].sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt))[0] ?? null;
+}
+
+function myRecordAssessmentTrend(result: DosAppUserAssessmentResult, results: DosAppUserAssessmentResult[]) {
+  const sameAssessment = results
+    .filter((item) => item.assessmentSlug === result.assessmentSlug)
+    .sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt));
+  const currentIndex = sameAssessment.findIndex((item) => item.id === result.id);
+  const previous = currentIndex >= 0 ? sameAssessment[currentIndex + 1] : null;
+
+  if (!previous) {
+    return "First result";
+  }
+
+  const delta = Math.round(result.percentage - previous.percentage);
+
+  if (delta === 0) {
+    return "No change";
+  }
+
+  return delta > 0 ? `+${delta}% from last time` : `${delta}% from last time`;
+}
+
+function MyRecordAssessmentResultCard({
+  result,
+  trend,
+  onRetake,
+}: {
+  result: DosAppUserAssessmentResult;
+  trend: string;
+  onRetake?: () => void;
+}) {
+  return (
+    <article className="rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-[#0F172A]">{result.assessmentName}</p>
+          <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            {formatDate(result.completedAt)} · Private
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#ECFDF5] px-3 py-1 text-xs font-black text-[#047857]">
+          {Math.round(result.percentage)}%
+        </span>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {[
+          ["Score", `${result.overallScore}/${result.maxScore}`],
+          ["Trend", trend],
+          ["Visibility", "Private"],
+        ].map(([label, value]) => (
+          <span className="rounded-full bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#475569]" key={label}>
+            <span className="font-black text-[#0F172A]">{label}:</span> {value}
+          </span>
+        ))}
+      </div>
+      {result.categoryScores.length ? (
+        <div className="mt-4 grid gap-2">
+          {result.categoryScores.map((category) => (
+            <div className="min-w-0 rounded-2xl border border-[#F1F5F9] bg-[#F8FAFC] p-3" key={category.id}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate text-xs font-bold text-[#0F172A]">{category.title}</span>
+                <span className="shrink-0 text-xs font-black text-[#2563EB]">{category.score}/{category.maxScore}</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E2E8F0]">
+                <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.min(100, Math.max(0, category.percentage))}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {onRetake ? (
+        <button className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={onRetake} type="button">
+          <RefreshCw className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          Retake
+        </button>
+      ) : null}
+    </article>
+  );
+}
+
+function MyRecordAssessmentForm({
+  assessment,
+  errorMessage,
+  isSubmitting,
+  onSave,
+}: {
+  assessment: DosResource;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+}) {
+  const definition = assessment.content?.assessment;
+  const questions = definition?.questions ?? [];
+  const maxScore = Math.max(definition?.maxScore ?? 0, questions.length * 10);
+  const initialAnswers = useMemo(() => Object.fromEntries(questions.map((question) => [question.id, 5])), [questions]);
+  const [answers, setAnswers] = useState<Record<string, number>>(initialAnswers);
+  const overallScore = Object.values(answers).reduce((sum, score) => sum + score, 0);
+  const percentage = maxScore ? Math.round((overallScore / maxScore) * 100) : 0;
+
+  useEffect(() => {
+    setAnswers(initialAnswers);
+  }, [initialAnswers]);
+
+  function setAnswer(questionId: string, value: string) {
+    const numericValue = Number.parseInt(value, 10);
+
+    setAnswers((current) => ({
+      ...current,
+      [questionId]: Math.min(10, Math.max(0, Number.isFinite(numericValue) ? numericValue : 0)),
+    }));
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    void onSave({
+      answers,
+      assessmentSlug: assessment.slug,
+      kind: "assessment_result",
+    }, "assessments");
+  }
+
+  return (
+    <form className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black text-[#0F172A]">{assessment.title}</p>
+          <p className="mt-1 text-sm leading-6 text-[#64748B]">{assessment.description}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#EBF2FF] px-3 py-1 text-xs font-black text-[#2563EB]">{percentage}%</span>
+      </div>
+      <div className="grid gap-3">
+        {questions.map((question, index) => (
+          <label className="grid gap-2 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={question.id}>
+            <span className="flex min-w-0 items-start justify-between gap-3">
+              <span className="min-w-0 text-sm font-bold leading-5 text-[#0F172A]">{index + 1}. {question.prompt}</span>
+              <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-[#2563EB]">{answers[question.id] ?? 0}/10</span>
+            </span>
+            {question.note ? <span className="text-xs leading-5 text-[#64748B]">{question.note}</span> : null}
+            <input
+              className="h-2 w-full accent-[#2563EB]"
+              max={10}
+              min={0}
+              onChange={(event) => setAnswer(question.id, event.target.value)}
+              type="range"
+              value={answers[question.id] ?? 0}
+            />
+          </label>
+        ))}
+      </div>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Assessment"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordAssessmentsPanel({
+  errorMessage,
+  isSubmitting,
+  onSave,
+  record,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  record: DosAppUserRecord;
+}) {
+  const [selectedSlug, setSelectedSlug] = useState(dosAssessmentResourceItems[0]?.slug ?? "");
+  const selectedAssessment = dosAssessmentResourceItems.find((assessment) => assessment.slug === selectedSlug) ?? dosAssessmentResourceItems[0] ?? null;
+  const latestResultsBySlug = useMemo(() => {
+    const map = new Map<string, DosAppUserAssessmentResult>();
+
+    for (const result of [...record.assessmentResults].sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt))) {
+      if (!map.has(result.assessmentSlug)) {
+        map.set(result.assessmentSlug, result);
+      }
+    }
+
+    return map;
+  }, [record.assessmentResults]);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+      <section className="grid gap-4 self-start">
+        <div className="grid gap-2">
+          <SectionHeading title="Available Assessments" />
+          {dosAssessmentResourceItems.length ? (
+            <div className="grid gap-2">
+              {dosAssessmentResourceItems.map((assessment) => {
+                const latest = latestResultsBySlug.get(assessment.slug);
+
+                return (
+                  <button
+                    className={`min-w-0 rounded-[22px] border p-4 text-left transition-all ${
+                      selectedAssessment?.slug === assessment.slug
+                        ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_14px_34px_rgba(37,99,235,0.08)]"
+                        : "border-[#EAF2FF] bg-white shadow-[0_10px_24px_rgba(37,99,235,0.035)]"
+                    }`}
+                    key={assessment.id}
+                    onClick={() => setSelectedSlug(assessment.slug)}
+                    type="button"
+                  >
+                    <span className="flex min-w-0 items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black text-[#0F172A]">{assessment.title}</span>
+                        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{assessment.description}</span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-[#2563EB]">
+                        {latest ? `${Math.round(latest.percentage)}%` : "Start"}
+                      </span>
+                    </span>
+                    {latest ? <span className="mt-3 block text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Last taken {formatDate(latest.completedAt)}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <SectionEmptyState text="Assessment resources added to the DOS Library will appear here." title="No assessments available yet." />
+          )}
+        </div>
+        {selectedAssessment ? <MyRecordAssessmentForm assessment={selectedAssessment} errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} /> : null}
+      </section>
+      <section className="grid gap-4 self-start">
+        <div className="grid gap-2">
+          <SectionHeading title="Historical Results" />
+          {record.assessmentResults.length ? (
+            <div className="grid gap-3">
+              {record.assessmentResults.map((result) => (
+                <MyRecordAssessmentResultCard
+                  key={result.id}
+                  onRetake={() => setSelectedSlug(result.assessmentSlug)}
+                  result={result}
+                  trend={myRecordAssessmentTrend(result, record.assessmentResults)}
+                />
+              ))}
+            </div>
+          ) : (
+            <SectionEmptyState text="Completed assessments will save privately to My Record with score, percentage, breakdown, and trend." title="No assessment history yet." />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MyRecordReportPanel({
+  fruit,
+  meetings,
+  people,
+  record,
+}: {
+  fruit: DosAppFruit[];
+  meetings: DosAppMeeting[];
+  people: DosAppPerson[];
+  record: DosAppUserRecord;
+}) {
+  const [range, setRange] = useState<MyRecordReportRange>("30d");
+  const quietMinutes = record.journalEntries.filter((entry) => isMyRecordDateInRange(entry.date, range)).reduce((sum, entry) => sum + entry.minutesSpent, 0);
+  const prayerMinutes = record.prayerLogs.filter((log) => isMyRecordDateInRange(log.prayedAt, range)).reduce((sum, log) => sum + log.minutesSpent, 0);
+  const mentorMeetings = record.mentorMeetings.filter((meeting) => isMyRecordDateInRange(meeting.meetingDate, range)).length;
+  const assessmentsCompleted = record.assessmentResults.filter((result) => isMyRecordDateInRange(result.completedAt, range)).length;
+  const ministryTables = meetings.filter((meeting) => meeting.source === "table" && isMyRecordDateInRange(meeting.date, range));
+  const peopleMinisteredTo = new Set(ministryTables.flatMap((meeting) => meeting.fieldPersonIds)).size || people.filter((person) => isMyRecordDateInRange(person.lastActivityAt, range)).length;
+  const fruitObserved = fruit.filter((item) => isMyRecordDateInRange(item.testimonyDate ?? item.updatedAt, range)).length;
+
+  return (
+    <section className="grid gap-3">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <SectionHeading title="Personal Report" />
+          <p className="mt-1 text-sm leading-6 text-[#64748B]">A private date-range snapshot. PDF exports and share links stay future work.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-1 rounded-[18px] bg-[#E2E8F0] p-1 min-[520px]:grid-cols-4">
+        {myRecordReportRanges.map((option) => (
+          <button
+            aria-pressed={range === option.value}
+            className={`min-h-9 rounded-[14px] px-2 text-xs font-bold ${range === option.value ? "bg-white text-[#0F172A] shadow-sm" : "text-[#64748B]"}`}
+            key={option.value}
+            onClick={() => setRange(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="grid gap-3 min-[560px]:grid-cols-2 xl:grid-cols-3">
+        <MyRecordMetricCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time" value={formatRecordDuration(quietMinutes)} />
+        <MyRecordMetricCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Time" value={formatRecordDuration(prayerMinutes)} />
+        <MyRecordMetricCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Mentor Meetings" value={`${mentorMeetings}`} />
+        <MyRecordMetricCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Assessments" value={`${assessmentsCompleted}`} />
+        <MyRecordMetricCard icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Ministry Tables" value={`${ministryTables.length}`} />
+        <MyRecordMetricCard icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Observed" value={`${fruitObserved}`} />
+        <MyRecordMetricCard icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="People Ministered" value={`${peopleMinisteredTo}`} />
+      </div>
+    </section>
+  );
+}
+
+type MyRecordTimelineItem = {
+  body: string | null;
+  date: string | null;
+  icon: ReactNode;
+  id: string;
+  title: string;
+};
+
+function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordTimelineItem[] {
+  const namesById = personNameById(people);
+  const journalItems = record.journalEntries.map((entry) => ({
+    body: entry.lordHighlight ?? entry.notes ?? entry.prayerResponse,
+    date: entry.date,
+    icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `journal-${entry.id}`,
+    title: entry.biblePassage ? `Quiet Time · ${entry.biblePassage}` : "Quiet Time",
+  }));
+  const prayerItems = record.prayerLogs.map((log) => {
+    const personName = log.fieldPersonId ? namesById.get(log.fieldPersonId) : null;
+
+    return {
+      body: log.notes ?? (personName ? `Prayed for ${personName}` : null),
+      date: log.prayedAt,
+      icon: log.answeredStatus === "answered"
+        ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      id: `prayer-${log.id}`,
+      title: log.answeredStatus === "answered" ? `Answered Prayer · ${log.prayerFocus || "Prayer"}` : `Prayer Time · ${log.prayerFocus || "Prayer"}`,
+    };
+  });
+  const mentorItems = record.mentorMeetings.map((meeting) => ({
+    body: meeting.counselReceived ?? meeting.discussed ?? meeting.notes,
+    date: meeting.meetingDate,
+    icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `mentor-${meeting.id}`,
+    title: `Mentor Meeting · ${meeting.mentorName}`,
+  }));
+  const assessmentItems = record.assessmentResults.map((result) => ({
+    body: `${result.overallScore}/${result.maxScore} · ${Math.round(result.percentage)}%`,
+    date: result.completedAt,
+    icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `assessment-${result.id}`,
+    title: `Assessment · ${result.assessmentName}`,
+  }));
+
+  return [...journalItems, ...prayerItems, ...mentorItems, ...assessmentItems]
+    .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
+}
+
+function MyRecordWorkspace({
+  errorMessage,
+  fruit,
+  isSubmitting,
+  meetings,
+  onBack,
+  onQuickTab,
+  onSave,
+  onTabChange,
+  people,
+  profileName,
+  record,
+  tab,
+}: {
+  errorMessage: string;
+  fruit: DosAppFruit[];
+  isSubmitting: boolean;
+  meetings: DosAppMeeting[];
+  onBack: () => void;
+  onQuickTab: (tab: MyRecordTab) => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  onTabChange: (tab: MyRecordTab) => void;
+  people: DosAppPerson[];
+  profileName: string;
+  record: DosAppUserRecord;
+  tab: MyRecordTab;
+}) {
+  const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
+  const latestJournal = record.journalEntries[0] ?? null;
+  const latestPrayer = record.prayerLogs[0] ?? null;
+  const latestMentorMeeting = record.mentorMeetings[0] ?? null;
+  const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
+  const totalQuietMinutes = record.journalEntries.reduce((sum, entry) => sum + entry.minutesSpent, 0);
+  const totalPrayerMinutes = record.prayerLogs.reduce((sum, log) => sum + log.minutesSpent, 0);
+  const namesById = useMemo(() => personNameById(people), [people]);
+
+  function handleRecordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    void onSave({
+      currentSeasonFocus: String(formData.get("current_season_focus") ?? ""),
+      displayName: profileName,
+      kind: "record",
+    }, "overview");
+  }
+
+  // TODO: Future: Permission-based My Record sharing for mentor, spouse, board member, accountability partner, pastor, and custom viewer roles.
+  // TODO: Future: Mentor-request workflow for assessments, reflections, Scripture reading, accountability questions, and prayer updates.
+  // TODO: Future: PDF exports and shareable report links for user-selected date ranges and sections.
+  // TODO: Future: Smart prompts and check-in drafts based on Field records, prior meetings, reminders, and accountability cadence.
+  // TODO: Future: AI accountability summaries, mentor summaries, board reports, growth insights, assessment trend analysis, prayer reminders, and personal discipleship coaching.
+
+  return (
+    <div className="space-y-5">
+      <div className="flex min-h-9 items-center md:hidden">
+        <MoreBackButton onClick={onBack} />
+      </div>
+      <TabHero
+        icon={<User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+        onScriptureClick={() => undefined}
+        subtitle="Your walk with the Lord, prayer, and personal discipleship history."
+        title="My Record"
+      />
+      <MyRecordTabBar onChange={onTabChange} value={tab} />
+
+      {tab === "overview" ? (
+        <div className="space-y-4">
+          <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                <User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-black text-[#0F172A]">{record.displayName || profileName}</p>
+                <p className="mt-1 text-sm leading-6 text-[#64748B]">{record.currentSeasonFocus || "No current season focus set yet."}</p>
+              </div>
+            </div>
+            <form className="mt-4 grid gap-3" onSubmit={handleRecordSubmit}>
+              <DosFormField label="Current Season / Focus">
+                <input className={FieldInputClass()} defaultValue={record.currentSeasonFocus ?? ""} name="current_season_focus" placeholder="Abiding, obedience, prayer, Scripture, sabbath" />
+              </DosFormField>
+              {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+              <AppButton disabled={isSubmitting} tone="white" type="submit">{isSubmitting ? "Saving..." : "Save Focus"}</AppButton>
+            </form>
+          </section>
+          <section className="grid gap-3 min-[560px]:grid-cols-2 xl:grid-cols-3">
+            <MyRecordMetricCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Quiet Time" value={latestJournal ? formatDate(latestJournal.date) : "Not logged"} />
+            <MyRecordMetricCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Prayer Time" value={latestPrayer ? formatDate(latestPrayer.prayedAt) : "Not logged"} />
+            <MyRecordMetricCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Mentor Meeting" value={latestMentorMeeting ? formatDate(latestMentorMeeting.meetingDate) : "Not logged"} />
+            <MyRecordMetricCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time Logged" value={formatRecordDuration(totalQuietMinutes)} />
+            <MyRecordMetricCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Time Logged" value={formatRecordDuration(totalPrayerMinutes)} />
+            <MyRecordMetricCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Assessment" value={latestAssessment ? `${latestAssessment.assessmentName} · ${Math.round(latestAssessment.percentage)}%` : "Not taken"} />
+          </section>
+          <section className="grid gap-2">
+            <SectionHeading title="Quick Actions" />
+            <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-5">
+              <CompactButton icon="log" onClick={() => onQuickTab("journal")}>Start Quiet Time</CompactButton>
+              <CompactButton icon="prayer" onClick={() => onQuickTab("prayer")}>Log Prayer Time</CompactButton>
+              <CompactButton icon="add" onClick={() => onQuickTab("journal")}>Add Journal Entry</CompactButton>
+              <CompactButton icon="people" onClick={() => onQuickTab("mentors")}>Log Mentor Meeting</CompactButton>
+              <CompactButton icon="library" onClick={() => onQuickTab("assessments")}>Take Assessment</CompactButton>
+            </div>
+          </section>
+          {latestAssessment ? (
+            <section className="grid gap-2">
+              <SectionHeading title="Latest Assessment" />
+              <MyRecordAssessmentResultCard
+                onRetake={() => onQuickTab("assessments")}
+                result={latestAssessment}
+                trend={myRecordAssessmentTrend(latestAssessment, record.assessmentResults)}
+              />
+            </section>
+          ) : null}
+          <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-[#047857] ring-1 ring-[#BBF7D0]">
+                <Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              </span>
+              <div className="min-w-0">
+                <SectionHeading title="Sharing" />
+                <p className="mt-1 text-sm leading-6 text-[#64748B]">My Record is private. Future sharing will be section-by-section and controlled by the user.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {myRecordFutureSharingRoles.slice(0, 6).map((role) => (
+                    <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" key={role} style={{ fontFamily: font.rajdhani }}>
+                      {role}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs leading-5 text-[#94A3B8]">Sections planned: {myRecordFutureShareableSections.slice(0, 5).join(", ")}.</p>
+              </div>
+            </div>
+          </section>
+          <MyRecordReportPanel fruit={fruit} meetings={meetings} people={people} record={record} />
+          <section className="grid gap-2">
+            <SectionHeading title="Recent Spiritual Activity" />
+            {timeline.length ? (
+              <div className="grid gap-2">
+                {timeline.slice(0, 5).map((item) => (
+                  <MyRecordActivityRow body={item.body} date={item.date} icon={item.icon} key={item.id} title={item.title} />
+                ))}
+              </div>
+            ) : (
+              <SectionEmptyState
+                action={<CompactButton icon="log" onClick={() => onQuickTab("journal")}>Add Journal Entry</CompactButton>}
+                text="Quiet time, prayer time, and mentor meetings will collect here."
+                title="No personal activity yet."
+              />
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "journal" ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <MyRecordJournalForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} />
+          <section className="grid gap-2 self-start">
+            <SectionHeading title="Journal Entries" />
+            {record.journalEntries.length ? (
+              <div className="grid gap-2">
+                {record.journalEntries.map((entry) => (
+                  <MyRecordActivityRow
+                    body={entry.lordHighlight ?? entry.notes ?? entry.prayerResponse}
+                    date={entry.date}
+                    icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                    key={entry.id}
+                    title={entry.biblePassage ? `${entry.biblePassage} · ${formatRecordDuration(entry.minutesSpent)}` : `Quiet Time · ${formatRecordDuration(entry.minutesSpent)}`}
+                  />
+                ))}
+              </div>
+            ) : (
+              <SectionEmptyState text="Use this to record Scripture, reflection, highlights, and next steps from time with the Lord." title="No journal entries yet." />
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "prayer" ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <MyRecordPrayerForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} people={people} />
+          <section className="grid gap-2 self-start">
+            <SectionHeading title="Prayer Logs" />
+            {record.prayerLogs.length ? (
+              <div className="grid gap-2">
+                {record.prayerLogs.map((log) => {
+                  const personName = log.fieldPersonId ? namesById.get(log.fieldPersonId) : null;
+                  const title = log.prayerFocus || (personName ? `Prayed for ${personName}` : "Prayer Time");
+
+                  return (
+                    <MyRecordActivityRow
+                      body={log.notes}
+                      date={log.prayedAt}
+                      icon={log.answeredStatus === "answered" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                      key={log.id}
+                      title={`${title} · ${formatRecordDuration(log.minutesSpent)}`}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <SectionEmptyState text="Use this to log personal prayer time and answered prayers without changing ministry metrics." title="No prayer time logged yet." />
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "mentors" ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="grid gap-4 self-start">
+            <MyRecordMentorMeetingForm errorMessage={errorMessage} isSubmitting={isSubmitting} mentors={record.mentorRelationships} onSave={onSave} people={people} />
+            <MyRecordMentorRelationshipForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} people={people} />
+          </div>
+          <section className="grid gap-4 self-start">
+            <div className="grid gap-2">
+              <SectionHeading title="Mentors" />
+              {record.mentorRelationships.length ? (
+                <div className="grid gap-2">
+                  {record.mentorRelationships.map((mentor) => (
+                    <MyRecordActivityRow
+                      body={mentor.notes}
+                      date={latestMyRecordDate(mentor.updatedAt, mentor.createdAt)}
+                      icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                      key={mentor.id}
+                      title={mentor.relationshipLabel ? `${mentor.mentorName} · ${mentor.relationshipLabel}` : mentor.mentorName}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <SectionEmptyState text="Track pastors, mentors, coaches, peers, or spiritual parents who are pouring into you." title="No mentors added yet." />
+              )}
+            </div>
+            <div className="grid gap-2">
+              <SectionHeading title="Mentor Meetings" />
+              {record.mentorMeetings.length ? (
+                <div className="grid gap-2">
+                  {record.mentorMeetings.map((meeting) => (
+                    <MyRecordActivityRow
+                      body={meeting.counselReceived ?? meeting.discussed ?? meeting.actionSteps ?? meeting.notes}
+                      date={meeting.meetingDate}
+                      icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                      key={meeting.id}
+                      title={`${meeting.mentorName} · ${formatRecordDuration(meeting.durationMinutes)}`}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <SectionEmptyState text="Log what was discussed, counsel received, action steps, and follow-up dates." title="No mentor meetings yet." />
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "assessments" ? (
+        <MyRecordAssessmentsPanel errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} record={record} />
+      ) : null}
+
+      {tab === "timeline" ? (
+        <section className="grid gap-2">
+          <SectionHeading title="Personal Timeline" />
+          {timeline.length ? (
+            <div className="grid gap-2">
+              {timeline.map((item) => (
+                <MyRecordActivityRow body={item.body} date={item.date} icon={item.icon} key={item.id} title={item.title} />
+              ))}
+            </div>
+          ) : (
+            <SectionEmptyState
+              action={<CompactButton icon="prayer" onClick={() => onQuickTab("prayer")}>Log Prayer Time</CompactButton>}
+              text="Quiet time entries, prayer logs, answered prayers, mentor meetings, notes, and milestones will appear here."
+              title="No timeline activity yet."
+            />
+          )}
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
 function FruitEventIcon({ event }: { event: DosAppFruitEvent }) {
   const iconClass = "h-4 w-4";
 
@@ -17090,6 +18316,7 @@ function DesktopNavigation({
       <nav className="mt-5 grid gap-5" aria-label="DOS sections">
         <div className="grid gap-1.5">
           {renderNavButton(desktopDashboardNavItem, "dashboard")}
+          {renderNavButton(desktopMyRecordNavItem, "my-record")}
         </div>
         {desktopNavGroups.map((group) => (
           <div key={group.label}>
@@ -18832,6 +20059,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [savingCalendarSourceId, setSavingCalendarSourceId] = useState<string | null>(null);
   const [fruitView, setFruitView] = useState<FruitView>("activity");
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("praying_for");
+  const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
@@ -19570,6 +20798,50 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
     setIsUsamApplicationOpen(false);
+  }
+
+  function openMyRecordTab(tab: MyRecordTab) {
+    openMoreApp("my_record");
+    setMyRecordTab(tab);
+  }
+
+  async function submitMyRecord(payload: Record<string, unknown>, nextTab: MyRecordTab = myRecordTab) {
+    setErrorMessage("");
+
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. My Record changes are not saved.");
+      return false;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/my-record", {
+        body: JSON.stringify({
+          ...payload,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; id?: string };
+
+      if (!response.ok || !result.id) {
+        throw new Error(result.error ?? "Unable to save My Record.");
+      }
+
+      setMyRecordTab(nextTab);
+      router.refresh();
+
+      return true;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to save My Record.");
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function viewUsamApplicationStatus() {
@@ -22007,11 +23279,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       : isUsamApplicationPending
         ? "Pending"
         : "Optional";
+  const myRecordActivityCount = data.myRecord.journalEntries.length + data.myRecord.prayerLogs.length + data.myRecord.mentorMeetings.length + data.myRecord.assessmentResults.length;
   const appCatalogSections: DosAppCatalogSection[] = [
     {
       description: "Core DOS rhythms that are already available in this workspace.",
       label: "Installed",
       items: [
+        {
+          description: "Your quiet time, prayer, mentors, assessments, and personal discipleship history.",
+          icon: <User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "My Record",
+          onClick: () => openMoreApp("my_record"),
+          section: "installed",
+          status: myRecordActivityCount ? `${myRecordActivityCount} entries` : "Private",
+        },
         {
           description: "Field relationships you are stewarding.",
           icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
@@ -22160,6 +23441,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "prayer", label: "Add Prayer Request", onClick: runMobileAction(() => setIsMobileAddPrayerRequestOpen(true)) },
           { icon: "people", label: "Add Prayer Partner", onClick: runMobileAction(() => setIsMobileAddPrayerPartnerOpen(true)) },
         ]
+    : activeTab === "more" && moreAppView === "my_record"
+      ? [
+          { icon: "log", label: "Start Quiet Time", onClick: runMobileAction(() => setMyRecordTab("journal")) },
+          { icon: "prayer", label: "Log Prayer Time", onClick: runMobileAction(() => setMyRecordTab("prayer")) },
+          { icon: "people", label: "Log Mentor Meeting", onClick: runMobileAction(() => setMyRecordTab("mentors")) },
+          { icon: "library", label: "Take Assessment", onClick: runMobileAction(() => setMyRecordTab("assessments")) },
+        ]
     : activeTab === "more" && moreAppView === "fruit"
       ? fruitFormCards.map((form) => ({
           icon: form.icon,
@@ -22189,6 +23477,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "people", label: "Add Person", onClick: runDesktopAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runDesktopAction(() => setIsPeopleImportOpen(true)) },
         ]
+      : activeTab === "more" && moreAppView === "my_record"
+        ? [
+            { icon: "log", label: "Start Quiet Time", onClick: runDesktopAction(() => setMyRecordTab("journal")) },
+            { icon: "prayer", label: "Log Prayer Time", onClick: runDesktopAction(() => setMyRecordTab("prayer")) },
+            { icon: "people", label: "Log Mentor Meeting", onClick: runDesktopAction(() => setMyRecordTab("mentors")) },
+            { icon: "library", label: "Take Assessment", onClick: runDesktopAction(() => setMyRecordTab("assessments")) },
+          ]
       : [];
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
     && !formMode
@@ -22558,6 +23853,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     publicProfileHref={data.workspace.publicProfileHref}
                     stateName={data.workspace.stateName}
                     workspaceName={workspaceName}
+                  />
+                ) : null}
+
+                {moreAppView === "my_record" ? (
+                  <MyRecordWorkspace
+                    errorMessage={errorMessage}
+                    fruit={data.fruit}
+                    isSubmitting={isSubmitting}
+                    meetings={data.meetings}
+                    onBack={() => setMoreAppView(null)}
+                    onQuickTab={setMyRecordTab}
+                    onSave={submitMyRecord}
+                    onTabChange={setMyRecordTab}
+                    people={people}
+                    profileName={profileName}
+                    record={data.myRecord}
+                    tab={myRecordTab}
                   />
                 ) : null}
 
