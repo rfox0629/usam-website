@@ -497,9 +497,6 @@ function GlobalUrgencySection() {
             <p className="mx-auto max-w-[620px] text-center text-[clamp(1rem,1.8vw,1.2rem)] font-semibold leading-relaxed text-stone-200">
               We don&apos;t need every Christian to become a pastor. We need every Christian to become a disciple-maker.
             </p>
-            <p className="mx-auto mt-2 max-w-[620px] text-center text-[clamp(0.95rem,1.6vw,1.0625rem)] leading-relaxed text-stone-500">
-              There are approximately 214 million Christians in America today. If every Christian intentionally discipled one person, the impact would exceed the population of the United States.
-            </p>
           </Reveal>
 
           <Reveal delay={240}>
@@ -510,6 +507,9 @@ function GlobalUrgencySection() {
               <FieldMathOperator>=</FieldMathOperator>
               <FieldMathCard emphasized label="Total Impact" value="428,000,000" last />
             </div>
+            <p className="mt-4 w-full text-center text-[13px] leading-6 text-stone-500 md:text-left md:text-sm">
+              There are approximately 214 million Christians in America today. If every Christian intentionally discipled one person, the impact would exceed the population of the United States.
+            </p>
           </Reveal>
         </FieldBeat>
 
