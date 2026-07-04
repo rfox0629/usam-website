@@ -38,6 +38,24 @@ function uniqueStrings(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
 
+const dosMyRecordV2WorkspaceSlugs = new Set(["fox-family", "ryan-brooke-fox", "ryan-fox"]);
+const dosMyRecordV2UserEmails = new Set(["ryan@usamissionaries.org", "ryan@foxfamily.org"]);
+
+export function isDosMyRecordV2Enabled({
+  userEmail,
+  workspaceSlug,
+}: {
+  userEmail?: string | null;
+  workspaceSlug?: string | null;
+}) {
+  const normalizedSlug = workspaceSlug?.trim().toLowerCase() ?? "";
+  const normalizedEmail = userEmail?.trim().toLowerCase() ?? "";
+  const isRyanWorkspace = dosMyRecordV2WorkspaceSlugs.has(normalizedSlug);
+  const isRyanUser = dosMyRecordV2UserEmails.has(normalizedEmail);
+
+  return isRyanUser && isRyanWorkspace;
+}
+
 function normalizedPhone(value: string | null | undefined) {
   const digits = value?.replace(/\D/g, "") ?? "";
 
@@ -472,16 +490,52 @@ export type DosAppUserAssessmentResult = {
   visibility: "private";
 };
 
+export type DosAppUserExternalAssessmentResult = {
+  assessmentName: string;
+  attachmentUrl: string | null;
+  category: string | null;
+  createdAt: string | null;
+  dateTaken: string;
+  id: string;
+  notes: string | null;
+  officialAssessmentUrl: string | null;
+  resultType: string | null;
+  retakeReminderDate: string | null;
+  scoresDetails: string | null;
+  topStrengths: string[];
+  updatedAt: string | null;
+  visibility: "private";
+};
+
+export type DosAppUserPropheticWordStatus = "archived" | "confirmed" | "fulfilled" | "received" | "testing";
+
+export type DosAppUserPropheticWord = {
+  confirmations: string | null;
+  context: string | null;
+  createdAt: string | null;
+  dateReceived: string;
+  givenBy: string | null;
+  id: string;
+  notes: string | null;
+  scriptureReferences: string[];
+  status: DosAppUserPropheticWordStatus;
+  tags: string[];
+  updatedAt: string | null;
+  wordText: string;
+};
+
 export type DosAppUserRecord = {
   assessmentResults: DosAppUserAssessmentResult[];
   createdAt: string | null;
   currentSeasonFocus: string | null;
   displayName: string | null;
+  externalAssessmentResults: DosAppUserExternalAssessmentResult[];
   id: string | null;
   journalEntries: DosAppUserJournalEntry[];
   mentorMeetings: DosAppUserMentorMeeting[];
   mentorRelationships: DosAppUserMentorRelationship[];
   prayerLogs: DosAppUserPrayerLog[];
+  propheticWords: DosAppUserPropheticWord[];
   updatedAt: string | null;
   userId: string | null;
   workspaceId: string;
@@ -506,6 +560,9 @@ export type DosAppData = {
   myRecord: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
   usamApplication: DosUsamOrganizationApplication;
+  features: {
+    myRecordV2Enabled: boolean;
+  };
   stats: {
     approvedFruit: number;
     connectionsCount: number;
@@ -878,6 +935,38 @@ type DosUserAssessmentResultRow = {
   visibility: string | null;
 };
 
+type DosUserExternalAssessmentResultRow = {
+  assessment_name: string;
+  attachment_url: string | null;
+  category: string | null;
+  created_at: string | null;
+  date_taken: string;
+  id: string;
+  notes: string | null;
+  official_assessment_url: string | null;
+  result_type: string | null;
+  retake_reminder_date: string | null;
+  scores_details: string | null;
+  top_strengths: string[] | null;
+  updated_at: string | null;
+  visibility: string | null;
+};
+
+type DosUserPropheticWordRow = {
+  confirmations: string | null;
+  context: string | null;
+  created_at: string | null;
+  date_received: string;
+  given_by: string | null;
+  id: string;
+  notes: string | null;
+  scripture_references: string[] | null;
+  status: string | null;
+  tags: string[] | null;
+  updated_at: string | null;
+  word_text: string;
+};
+
 type ExternalCalendarEventRow = {
   all_day: boolean | null;
   calendar_source_id: string | null;
@@ -1108,6 +1197,14 @@ function mapMyRecordMentorStatus(value: string | null | undefined): DosAppUserMe
   return value === "archived" ? value : "active";
 }
 
+function mapMyRecordPropheticWordStatus(value: string | null | undefined): DosAppUserPropheticWordStatus {
+  if (value === "archived" || value === "confirmed" || value === "fulfilled" || value === "testing") {
+    return value;
+  }
+
+  return "received";
+}
+
 function mapMyRecordAssessmentAnswers(value: unknown): Record<string, number> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -1160,11 +1257,13 @@ function emptyMyRecord(workspaceId: string, viewer?: DosAuthorizedUser | null): 
     createdAt: null,
     currentSeasonFocus: null,
     displayName: viewer?.email ?? null,
+    externalAssessmentResults: [],
     id: null,
     journalEntries: [],
     mentorMeetings: [],
     mentorRelationships: [],
     prayerLogs: [],
+    propheticWords: [],
     updatedAt: null,
     userId: viewer?.userId ?? null,
     workspaceId,
@@ -1895,6 +1994,7 @@ async function loadMyRecordForWorkspace(
   supabase: SupabaseAdminClient,
   workspaceId: string,
   viewer?: DosAuthorizedUser | null,
+  options: { includeExternalAssessments?: boolean; includePropheticWords?: boolean } = {},
 ) {
   const emptyRecord = emptyMyRecord(workspaceId, viewer);
 
@@ -1921,7 +2021,7 @@ async function loadMyRecordForWorkspace(
     return { data: emptyRecord, error: null };
   }
 
-  const [journalResult, prayerResult, mentorRelationshipsResult, mentorMeetingsResult, assessmentResultsResult] = await Promise.all([
+  const [journalResult, prayerResult, mentorRelationshipsResult, mentorMeetingsResult, assessmentResultsResult, externalAssessmentResultsResult, propheticWordsResult] = await Promise.all([
     supabase
       .from("dos_user_journal_entries")
       .select("id, entry_date, minutes_spent, started_at, stopped_at, bible_passage, notes, lord_highlight, prayer_response, tags, created_at, updated_at")
@@ -1964,8 +2064,38 @@ async function loadMyRecordForWorkspace(
       .eq("user_id", viewer.userId)
       .order("completed_at", { ascending: false })
       .limit(80),
+    options.includeExternalAssessments
+      ? supabase
+        .from("dos_user_external_assessment_results")
+        .select("id, assessment_name, category, official_assessment_url, date_taken, result_type, top_strengths, scores_details, notes, attachment_url, retake_reminder_date, visibility, created_at, updated_at")
+        .eq("record_id", recordRow.id)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", viewer.userId)
+        .order("date_taken", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(80)
+      : Promise.resolve({ data: [], error: null }),
+    options.includePropheticWords
+      ? supabase
+        .from("dos_user_prophetic_words")
+        .select("id, date_received, given_by, context, word_text, scripture_references, tags, status, confirmations, notes, created_at, updated_at")
+        .eq("record_id", recordRow.id)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", viewer.userId)
+        .order("date_received", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(80)
+      : Promise.resolve({ data: [], error: null }),
   ]);
-  const error = journalResult.error ?? prayerResult.error ?? mentorRelationshipsResult.error ?? mentorMeetingsResult.error ?? assessmentResultsResult.error;
+  const externalAssessmentResultsTableMissing = externalAssessmentResultsResult.error && isMissingWorkflowTable(externalAssessmentResultsResult.error, "dos_user_external_assessment_results");
+  const propheticWordsTableMissing = propheticWordsResult.error && isMissingWorkflowTable(propheticWordsResult.error, "dos_user_prophetic_words");
+  const error = journalResult.error
+    ?? prayerResult.error
+    ?? mentorRelationshipsResult.error
+    ?? mentorMeetingsResult.error
+    ?? assessmentResultsResult.error
+    ?? (externalAssessmentResultsTableMissing ? null : externalAssessmentResultsResult.error)
+    ?? (propheticWordsTableMissing ? null : propheticWordsResult.error);
 
   if (error) {
     return isMissingWorkflowTable(error, "dos_user_")
@@ -2039,6 +2169,36 @@ async function loadMyRecordForWorkspace(
     updatedAt: result.updated_at,
     visibility: "private" as const,
   }));
+  const externalAssessmentResults = ((externalAssessmentResultsTableMissing ? [] : externalAssessmentResultsResult.data ?? []) as DosUserExternalAssessmentResultRow[]).map((result) => ({
+    assessmentName: result.assessment_name,
+    attachmentUrl: result.attachment_url,
+    category: result.category,
+    createdAt: result.created_at,
+    dateTaken: result.date_taken,
+    id: result.id,
+    notes: result.notes,
+    officialAssessmentUrl: result.official_assessment_url,
+    resultType: result.result_type,
+    retakeReminderDate: result.retake_reminder_date,
+    scoresDetails: result.scores_details,
+    topStrengths: Array.isArray(result.top_strengths) ? result.top_strengths.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [],
+    updatedAt: result.updated_at,
+    visibility: "private" as const,
+  }));
+  const propheticWords = ((propheticWordsTableMissing ? [] : propheticWordsResult.data ?? []) as DosUserPropheticWordRow[]).map((word) => ({
+    confirmations: word.confirmations,
+    context: word.context,
+    createdAt: word.created_at,
+    dateReceived: word.date_received,
+    givenBy: word.given_by,
+    id: word.id,
+    notes: word.notes,
+    scriptureReferences: Array.isArray(word.scripture_references) ? word.scripture_references.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [],
+    status: mapMyRecordPropheticWordStatus(word.status),
+    tags: Array.isArray(word.tags) ? word.tags.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [],
+    updatedAt: word.updated_at,
+    wordText: word.word_text,
+  }));
 
   return {
     data: {
@@ -2046,11 +2206,13 @@ async function loadMyRecordForWorkspace(
       createdAt: recordRow.created_at,
       currentSeasonFocus: recordRow.current_season_focus,
       displayName: recordRow.display_name,
+      externalAssessmentResults,
       id: recordRow.id,
       journalEntries,
       mentorMeetings,
       mentorRelationships,
       prayerLogs,
+      propheticWords,
       updatedAt: recordRow.updated_at,
       userId: recordRow.user_id,
       workspaceId: recordRow.workspace_id,
@@ -2479,6 +2641,12 @@ export async function loadDosAppData(
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
+  const features = {
+    myRecordV2Enabled: isDosMyRecordV2Enabled({
+      userEmail: viewer?.email,
+      workspaceSlug: workspace.slug,
+    }),
+  };
   const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
@@ -2496,7 +2664,10 @@ export async function loadDosAppData(
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
-    loadMyRecordForWorkspace(supabase, workspace.id, viewer),
+    loadMyRecordForWorkspace(supabase, workspace.id, viewer, {
+      includeExternalAssessments: features.myRecordV2Enabled,
+      includePropheticWords: features.myRecordV2Enabled,
+    }),
     loadOrganizationForWorkspace(supabase, workspace.slug),
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
@@ -3046,6 +3217,7 @@ export async function loadDosAppData(
       myRecord,
       reminders,
       usamApplication,
+      features,
       stats: {
         approvedFruit: fruit.filter((item) => item.status === "approved").length,
         connectionsCount: connectionRows.length,

@@ -1,36 +1,53 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization, type DosAuthorizedUser } from "@/src/lib/dos/auth";
-import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
+import { isDosMyRecordV2Enabled, resolveDosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 const journalTags = ["Prayer", "Scripture", "Worship", "Repentance", "Direction", "Thanksgiving"] as const;
 const prayerStatuses = ["answered", "open", "watching"] as const;
+const propheticWordStatuses = ["archived", "confirmed", "fulfilled", "received", "testing"] as const;
 
 type MyRecordPayload = {
   actionSteps?: unknown;
   answers?: unknown;
   answeredStatus?: unknown;
+  assessmentName?: unknown;
   assessmentSlug?: unknown;
+  attachmentUrl?: unknown;
   biblePassage?: unknown;
+  category?: unknown;
+  confirmations?: unknown;
   counselReceived?: unknown;
+  context?: unknown;
   currentSeasonFocus?: unknown;
   date?: unknown;
+  dateReceived?: unknown;
+  dateTaken?: unknown;
   discussed?: unknown;
   displayName?: unknown;
   fieldPersonId?: unknown;
   followUpDate?: unknown;
+  givenBy?: unknown;
   kind?: unknown;
   lordHighlight?: unknown;
   mentorName?: unknown;
   minutesSpent?: unknown;
   notes?: unknown;
+  officialAssessmentUrl?: unknown;
   prayerFocus?: unknown;
   prayerResponse?: unknown;
   relationshipId?: unknown;
   relationshipLabel?: unknown;
+  resultType?: unknown;
+  retakeReminderDate?: unknown;
+  scriptureReferences?: unknown;
+  scoresDetails?: unknown;
+  status?: unknown;
   tags?: unknown;
+  topStrengths?: unknown;
+  wordText?: unknown;
   workspaceId?: unknown;
   workspace_id?: unknown;
 };
@@ -76,6 +93,26 @@ function asOptionalDateString(value: unknown) {
   return /^\d{4}-\d{2}-\d{2}$/.test(nextValue) ? nextValue : null;
 }
 
+function asOptionalHttpUrl(value: unknown, label: string, maxLength = 1000) {
+  const text = asNullableText(value, maxLength);
+
+  if (!text) {
+    return { value: null };
+  }
+
+  try {
+    const url = new URL(text);
+
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return { value: url.toString() };
+    }
+  } catch {
+    // Fall through to the validation response below.
+  }
+
+  return { response: NextResponse.json({ error: `${label} must be a valid http or https URL.` }, { status: 400 }) };
+}
+
 function asMinutes(value: unknown) {
   const numericValue = typeof value === "number" ? value : Number.parseInt(asString(value), 10);
 
@@ -100,6 +137,22 @@ function asPrayerStatus(value: unknown) {
   const status = asString(value);
 
   return prayerStatuses.includes(status as typeof prayerStatuses[number]) ? status : "open";
+}
+
+function asPropheticWordStatus(value: unknown) {
+  const status = asString(value).toLowerCase();
+
+  return propheticWordStatuses.includes(status as typeof propheticWordStatuses[number]) ? status : "received";
+}
+
+function asStringList(value: unknown, maxItems = 12) {
+  const values = Array.isArray(value)
+    ? value
+    : asString(value)
+      .split(/[\n,]/)
+      .map((item) => item.trim());
+
+  return Array.from(new Set(values.map((item) => asString(item)).filter(Boolean))).slice(0, maxItems);
 }
 
 function asAssessmentScore(value: unknown) {
@@ -362,19 +415,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId) || asString(payload.workspace_id));
+  const workspace = await resolveDosAppWorkspace(asString(payload.workspaceId) || asString(payload.workspace_id));
   const kind = asString(payload.kind);
 
-  if (!workspaceId || !kind) {
+  if (!workspace || !kind) {
     return NextResponse.json({ error: "Workspace and My Record action are required." }, { status: 400 });
   }
 
+  const workspaceId = workspace.id;
   const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
 
   if ("response" in workspaceAccess) {
     return workspaceAccess.response;
   }
 
+  const myRecordV2Enabled = isDosMyRecordV2Enabled({
+    userEmail: authResult.authorization.email,
+    workspaceSlug: workspace.slug,
+  });
   const supabase = createSupabaseAdminClient();
   const displayName = asNullableText(payload.displayName, 160);
   const recordResult = await ensureMyRecord(supabase, workspaceId, authResult.authorization, displayName);
@@ -553,6 +611,94 @@ export async function POST(request: Request) {
         record_id: recordId,
         relationship_id: relationship.id,
         user_id: authResult.authorization.userId,
+        workspace_id: workspaceId,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ id: data.id });
+  }
+
+  if (kind === "prophetic_word") {
+    if (!myRecordV2Enabled) {
+      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
+    }
+
+    const wordText = asNullableText(payload.wordText, 12000);
+
+    if (!wordText) {
+      return NextResponse.json({ error: "Prophetic word text is required." }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from("dos_user_prophetic_words")
+      .insert({
+        confirmations: asNullableText(payload.confirmations, 4000),
+        context: asNullableText(payload.context, 1000),
+        date_received: asDateString(payload.dateReceived || payload.date),
+        given_by: asNullableText(payload.givenBy, 240),
+        notes: asNullableText(payload.notes, 4000),
+        record_id: recordId,
+        scripture_references: asStringList(payload.scriptureReferences, 20),
+        status: asPropheticWordStatus(payload.status),
+        tags: asStringList(payload.tags, 20),
+        user_id: authResult.authorization.userId,
+        word_text: wordText,
+        workspace_id: workspaceId,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ id: data.id });
+  }
+
+  if (kind === "external_assessment_result") {
+    if (!myRecordV2Enabled) {
+      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
+    }
+
+    const assessmentName = asNullableText(payload.assessmentName, 240);
+
+    if (!assessmentName) {
+      return NextResponse.json({ error: "Assessment name is required." }, { status: 400 });
+    }
+
+    const officialAssessmentUrl = asOptionalHttpUrl(payload.officialAssessmentUrl, "Official assessment link");
+
+    if ("response" in officialAssessmentUrl) {
+      return officialAssessmentUrl.response;
+    }
+
+    const attachmentUrl = asOptionalHttpUrl(payload.attachmentUrl, "Attachment link");
+
+    if ("response" in attachmentUrl) {
+      return attachmentUrl.response;
+    }
+
+    const { data, error } = await supabase
+      .from("dos_user_external_assessment_results")
+      .insert({
+        assessment_name: assessmentName,
+        attachment_url: attachmentUrl.value,
+        category: asNullableText(payload.category, 160),
+        date_taken: asDateString(payload.dateTaken || payload.date),
+        notes: asNullableText(payload.notes, 4000),
+        official_assessment_url: officialAssessmentUrl.value,
+        record_id: recordId,
+        result_type: asNullableText(payload.resultType, 500),
+        retake_reminder_date: asOptionalDateString(payload.retakeReminderDate),
+        scores_details: asNullableText(payload.scoresDetails, 4000),
+        top_strengths: asStringList(payload.topStrengths, 20),
+        user_id: authResult.authorization.userId,
+        visibility: "private",
         workspace_id: workspaceId,
       })
       .select("id")
