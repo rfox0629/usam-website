@@ -532,33 +532,56 @@ function DOSPanel() {
     { op: "OPR-0203", city: "Portland, OR", status: "Deploying", tables: 1 },
     { op: "OPR-0089", city: "Nashville, TN", status: "Active", tables: 4 },
   ];
+  const headers = [
+    { label: "OPERATOR" },
+    { label: "CITY" },
+    { label: "STATUS" },
+    { label: "TABLES", mobileLabel: "TBL", align: "right" },
+  ];
   return (
     <div className="relative border border-stone-800/60 rounded-sm overflow-hidden" style={{background:"rgba(13,13,13,0.8)"}}>
       <div className="absolute inset-0 pointer-events-none" style={{background:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.01) 2px,rgba(255,255,255,0.01) 4px)"}}/>
-      <div className="border-b border-stone-800/60 px-5 py-3 flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 border-b border-stone-800/60 px-4 py-3 sm:px-5">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 animate-pulse rounded-full bg-usam-success shadow-[0_0_14px_rgba(15,157,118,0.38)]"/>
           <span className="tactical-label" style={{fontFamily:font.rajdhani}}>SYSTEM // OPERATOR DASHBOARD</span>
         </div>
-        <span className="text-xs text-stone-600" style={{fontFamily:font.rajdhani}}>v0.1.0-alpha</span>
+        <span className="shrink-0 text-right text-[10px] leading-tight text-stone-600 sm:text-xs" style={{fontFamily:font.rajdhani}}>v0.1.0-alpha</span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+      <div className="min-w-0 overflow-hidden">
+        <table className="w-full table-fixed text-left text-sm sm:table-auto">
+          <colgroup>
+            <col className="w-[30%] sm:w-auto" />
+            <col className="w-[27%] sm:w-auto" />
+            <col className="w-[29%] sm:w-auto" />
+            <col className="w-[14%] sm:w-auto" />
+          </colgroup>
           <thead>
             <tr className="border-b border-stone-800/40">
-              {["OPERATOR","CITY","STATUS","TABLES"].map(h=>(
-                <th key={h} className="px-5 py-3 text-xs tracking-[0.2em] text-stone-600 font-normal" style={{fontFamily:font.rajdhani}}>{h}</th>
+              {headers.map((h)=>(
+                <th
+                  key={h.label}
+                  className={`px-2 py-3 text-[10px] font-normal tracking-[0.12em] text-stone-600 sm:px-5 sm:text-xs sm:tracking-[0.2em] ${h.align === "right" ? "text-right" : ""}`}
+                  style={{fontFamily:font.rajdhani}}
+                >
+                  {h.mobileLabel ? (
+                    <>
+                      <span className="sm:hidden">{h.mobileLabel}</span>
+                      <span className="hidden sm:inline">{h.label}</span>
+                    </>
+                  ) : h.label}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((r,i)=>(
               <tr key={i} className="border-b border-stone-800/20 hover:bg-stone-800/10 transition-colors">
-                <td className="px-5 py-3 text-stone-300 font-mono text-xs">{r.op}</td>
-                <td className="px-5 py-3 text-stone-400 text-xs">{r.city}</td>
-                <td className="px-5 py-3">
+                <td className="px-2 py-3 font-mono text-[11px] text-stone-300 sm:px-5 sm:text-xs">{r.op}</td>
+                <td className="px-2 py-3 text-[11px] leading-snug text-stone-400 sm:px-5 sm:text-xs">{r.city}</td>
+                <td className="px-2 py-3 sm:px-5">
                   <span
-                    className={`inline-flex rounded-sm border px-2 py-1 text-xs ${
+                    className={`inline-flex max-w-full rounded-sm border px-1.5 py-1 text-[11px] sm:px-2 sm:text-xs ${
                       r.status === "Active"
                         ? "border-[rgba(15,157,118,0.24)] bg-[rgba(15,157,118,0.16)] text-usam-success"
                         : "border-[rgba(194,161,78,0.24)] bg-[rgba(194,161,78,0.16)] text-usam-gold"
@@ -568,7 +591,7 @@ function DOSPanel() {
                     {r.status}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-stone-400 font-mono text-xs">{r.tables}</td>
+                <td className="px-2 py-3 text-right font-mono text-[11px] text-stone-400 sm:px-5 sm:text-xs">{r.tables}</td>
               </tr>
             ))}
           </tbody>
