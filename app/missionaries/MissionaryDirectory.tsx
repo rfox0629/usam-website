@@ -25,16 +25,27 @@ const filters = [
 
 type DirectoryFilter = (typeof filters)[number];
 
-const publicRoleTags = new Set([
-  "MISSIONARY",
-  "MISSIONARIES",
-  "MISSIONARY COUPLE",
-  "MISSIONARY COUPLE / MISSIONARIES",
-  "STATE LEADER",
+const publicRoleTagLabels = new Map([
+  ["MISSIONARY", "MISSIONARIES"],
+  ["MISSIONARIES", "MISSIONARIES"],
+  ["MISSIONARY COUPLE", "MISSIONARIES"],
+  ["MISSIONARY COUPLE / MISSIONARIES", "MISSIONARIES"],
+  ["STATE LEADER", "STATE LEADERS"],
+  ["STATE LEADERS", "STATE LEADERS"],
 ]);
 
 function visibleRoleTags(tags: readonly string[]) {
-  return tags.filter((tag) => publicRoleTags.has(tag.toUpperCase()));
+  const visibleTags: string[] = [];
+
+  tags.forEach((tag) => {
+    const publicLabel = publicRoleTagLabels.get(tag.toUpperCase());
+
+    if (publicLabel && !visibleTags.includes(publicLabel)) {
+      visibleTags.push(publicLabel);
+    }
+  });
+
+  return visibleTags;
 }
 
 function isExternalImage(src: string) {
@@ -42,17 +53,13 @@ function isExternalImage(src: string) {
 }
 
 function matchesFilter(missionary: MissionaryDirectoryProfile, filter: DirectoryFilter) {
-  const roleTags = visibleRoleTags(missionary.roleTags).map((tag) => tag.toUpperCase());
+  const roleTags = visibleRoleTags(missionary.roleTags);
 
   if (filter === "ALL") {
     return true;
   }
 
-  if (filter === "MISSIONARIES") {
-    return roleTags.some((tag) => tag === "MISSIONARY" || tag === "MISSIONARIES" || tag.includes("MISSIONARY COUPLE"));
-  }
-
-  return roleTags.includes("STATE LEADER");
+  return roleTags.includes(filter);
 }
 
 function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile }) {

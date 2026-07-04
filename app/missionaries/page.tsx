@@ -22,7 +22,7 @@ const comingSoonMissionary: MissionaryDirectoryProfile = {
   isComingSoon: true,
   location: "Illinois",
   name: "Coming Soon",
-  roleTags: ["Missionary Couple / Missionaries", "State Leader"],
+  roleTags: ["MISSIONARIES", "STATE LEADERS"],
   slug: "coming-soon-illinois",
 };
 
