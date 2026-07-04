@@ -134,7 +134,7 @@ function ExpansionMap() {
 
   return (
     <div className="relative">
-      <svg viewBox="0 0 960 460" className="w-full h-auto">
+      <svg viewBox="0 0 960 460" className="w-full h-auto overflow-visible sm:overflow-hidden">
         <defs>
           <radialGradient id="tableGlow" cx="50%" cy="52%" r="35%">
             <stop offset="0%" stopColor={gold} stopOpacity={0.16} />
@@ -178,6 +178,17 @@ function ExpansionMap() {
 
         <image
           href="/usa-outline-clean.png"
+          x="-126"
+          y="-58"
+          width="1212"
+          height="674"
+          preserveAspectRatio="xMidYMid meet"
+          opacity="0.7"
+          filter="url(#usaBackdrop)"
+          className="sm:hidden"
+        />
+        <image
+          href="/usa-outline-clean.png"
           x="54"
           y="20"
           width="852"
@@ -185,6 +196,7 @@ function ExpansionMap() {
           preserveAspectRatio="xMidYMid meet"
           opacity="0.68"
           filter="url(#usaBackdrop)"
+          className="hidden sm:block"
         />
 
         <ellipse cx={tableCenter.x} cy={tableCenter.y} rx={212} ry={132} fill="url(#originExpansion)">
