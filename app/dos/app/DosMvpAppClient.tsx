@@ -669,10 +669,10 @@ type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = "all" | CircleFocusView;
 type MeetingsView = "calendar" | "invite";
 type MeetingCalendarViewMode = "month" | "week";
-type FruitView = "activity" | "forms" | "impact";
+type FruitView = "activity" | "forms" | "impact" | "reviews";
 type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
 type FruitFormStatus = "coming_soon" | "live";
-type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
+type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer" | "reviews";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "my_requests" | "partners" | "praying_for";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
@@ -2533,6 +2533,111 @@ function meetingPeopleTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
 
 function meetingParticipantTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
   return formatDosParticipantTitle(meetingParticipantNames(meeting, people), "");
+}
+
+type SubmittedReviewListItem = {
+  date: string | null;
+  id: string;
+  kind: "quick_review" | "testimony_review";
+  meetingId: string;
+  overallRating: string | null;
+  personId: string | null;
+  personName: string;
+  review?: DosAppParticipantReview;
+  reviewType: "Quick Review" | "Testimony Review";
+  submittedBy: string;
+  summary: string;
+  testimony?: DosAppParticipantTestimony;
+};
+
+function submittedReviewPersonName(
+  personId: string | null,
+  meetingId: string,
+  people: DosAppPerson[],
+  meetingsById: Map<string, DosAppMeeting>,
+) {
+  if (personId) {
+    return personName(people, personId);
+  }
+
+  const meeting = meetingsById.get(meetingId);
+
+  return meeting ? meetingParticipantTitle(meeting, people) || "Linked Table" : "Unlinked person";
+}
+
+function submittedQuickReviewName(review: DosAppParticipantReview, fallback: string) {
+  const splitName = [
+    cleanIdentitySegment(review.submittedFirstName),
+    cleanIdentitySegment(review.submittedLastName),
+  ].filter(Boolean).join(" ").trim();
+
+  return splitName
+    || cleanIdentitySegment(review.submittedName)
+    || cleanIdentitySegment(review.submittedEmail)
+    || fallback;
+}
+
+function submittedTestimonyName(testimony: DosAppParticipantTestimony, fallback: string) {
+  return cleanIdentitySegment(testimony.submittedName)
+    || cleanIdentitySegment(testimony.publicDisplayName)
+    || cleanIdentitySegment(testimony.submittedEmail)
+    || fallback;
+}
+
+function buildSubmittedReviewItems({
+  meetings,
+  participantReviews,
+  participantTestimonies,
+  people,
+}: {
+  meetings: DosAppMeeting[];
+  participantReviews: DosAppParticipantReview[];
+  participantTestimonies: DosAppParticipantTestimony[];
+  people: DosAppPerson[];
+}) {
+  const meetingsById = new Map(meetings.map((meeting) => [meeting.id, meeting]));
+  const quickReviews: SubmittedReviewListItem[] = participantReviews
+    .filter((review) => isSubmittedStatus(review.status))
+    .map((review) => {
+      const person = submittedReviewPersonName(review.personId, review.meetingId, people, meetingsById);
+      const overallRating = quickReviewOverallRatingLabel(review.overallRating);
+
+      return {
+        date: review.submittedAt,
+        id: `quick-review-${review.id}`,
+        kind: "quick_review",
+        meetingId: review.meetingId,
+        overallRating,
+        personId: review.personId,
+        personName: person,
+        review,
+        reviewType: "Quick Review",
+        submittedBy: submittedQuickReviewName(review, person),
+        summary: review.comments?.trim() || (overallRating ? `Overall: ${overallRating}` : "Quick Review submitted."),
+      };
+    });
+  const testimonyReviews: SubmittedReviewListItem[] = participantTestimonies
+    .filter((testimony) => isSubmittedStatus(testimony.status))
+    .map((testimony) => {
+      const person = submittedReviewPersonName(testimony.personId, testimony.meetingId, people, meetingsById);
+
+      return {
+        date: testimony.submittedAt,
+        id: `testimony-review-${testimony.id}`,
+        kind: "testimony_review",
+        meetingId: testimony.meetingId,
+        overallRating: null,
+        personId: testimony.personId,
+        personName: person,
+        reviewType: "Testimony Review",
+        submittedBy: submittedTestimonyName(testimony, person),
+        summary: testimony.whatChanged?.trim() || testimony.story?.trim() || "Testimony Review submitted.",
+        testimony,
+      };
+    });
+
+  return [...quickReviews, ...testimonyReviews]
+    .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date));
 }
 
 function meetingFallbackTitle(meeting: DosAppMeeting) {
@@ -5455,14 +5560,18 @@ function DesktopHomeDashboard({
   fruitEvents,
   fruitItems,
   loggedMeetings,
+  meetings,
   onOpenFruit,
   onOpenMeeting,
   onOpenPerson,
   onOpenReports,
+  onOpenReview,
+  onOpenReviews,
   onOpenTable,
   onOpenTableCalendar,
   onViewField,
   participantReviews = [],
+  participantTestimonies = [],
   people,
   personTableStatsByPersonId,
   upcomingItems,
@@ -5471,21 +5580,33 @@ function DesktopHomeDashboard({
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   loggedMeetings: DosAppMeeting[];
+  meetings: DosAppMeeting[];
   onOpenFruit: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
   onOpenReports: () => void;
+  onOpenReview: (item: SubmittedReviewListItem) => void;
+  onOpenReviews: () => void;
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
   onViewField: () => void;
   participantReviews?: DosAppParticipantReview[];
+  participantTestimonies?: DosAppParticipantTestimony[];
   people: DosAppPerson[];
   personTableStatsByPersonId: Map<string, PersonTableStats>;
   upcomingItems: UpcomingTimelineItem[];
 }) {
   const totalDurationMinutes = loggedMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
   const totalPeopleMet = new Set(loggedMeetings.flatMap((meeting) => meeting.fieldPersonIds)).size;
-  const totalReviews = participantReviews.filter((review) => isSubmittedStatus(review.status)).length;
+  const submittedReviewItems = buildSubmittedReviewItems({
+    meetings,
+    participantReviews,
+    participantTestimonies,
+    people,
+  });
+  const totalReviews = submittedReviewItems.length;
+  const newestReview = submittedReviewItems[0] ?? null;
+  const recentReviewItems = submittedReviewItems.slice(0, 3);
   const circleCounts = {
     my3: circleGroups.three.length,
     my12: circleGroups.twelve.length,
@@ -5569,7 +5690,7 @@ function DesktopHomeDashboard({
     { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total tables", value: loggedMeetings.length },
     { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total hours logged", value: formatDashboardDuration(totalDurationMinutes) },
     { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "People met with", value: totalPeopleMet },
-    { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total reviews", value: totalReviews },
+    { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total reviews", onClick: onOpenReviews, value: totalReviews },
   ];
   const realUpcomingRows: DashboardUpcomingRow[] = upcomingItems.slice(0, 6).map((item, index) => {
     const previewDate = !item.meeting && item.icon === "birthday" ? upcomingDashboardPreviewDate(index) : null;
@@ -5694,7 +5815,7 @@ function DesktopHomeDashboard({
         </DesktopPanel>
       </div>
 
-      <div className="grid gap-3 min-[1180px]:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+      <div className="grid gap-3 min-[1180px]:grid-cols-3">
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Upcoming">
           <div className="grid">
             {dashboardUpcomingRows.length ? dashboardUpcomingRows.map((item) => (
@@ -5738,21 +5859,75 @@ function DesktopHomeDashboard({
             )}
           </div>
         </DesktopPanel>
+
+        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReviews}>View all</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Recent Reviews">
+          <div className="grid gap-1">
+            {recentReviewItems.length ? recentReviewItems.map((item) => (
+              <article className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2.5 last:border-b-0" key={item.id}>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                  {item.kind === "testimony_review" ? <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-[#0F172A]">{item.personName}</span>
+                  <span className="mt-1 block truncate text-xs text-[#475569]">{item.reviewType} · {formatDate(item.date)}</span>
+                </span>
+                <SubmittedReviewViewButton onClick={() => onOpenReview(item)} />
+              </article>
+            )) : (
+              <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">No reviews submitted yet.</p>
+            )}
+          </div>
+        </DesktopPanel>
       </div>
 
       <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Table</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Table Activity">
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {tableActivityMetrics.map((metric) => (
-            <div className="flex min-h-[96px] min-w-0 flex-col justify-between rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={metric.label}>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                {metric.icon}
-              </span>
-              <span className="mt-3 min-w-0">
-                <span className="block truncate text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
-                <span className="mt-1.5 block text-[10px] font-black uppercase leading-tight tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
-              </span>
-            </div>
-          ))}
+          {tableActivityMetrics.map((metric) => {
+            const metricContent = (
+              <>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                  {metric.icon}
+                </span>
+                <span className="mt-3 min-w-0">
+                  <span className="block truncate text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
+                  <span className="mt-1.5 block text-[10px] font-black uppercase leading-tight tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
+                </span>
+              </>
+            );
+
+            return (
+              <article className="min-h-[96px] min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={metric.label}>
+                {metric.onClick ? (
+                  <button
+                    aria-label="Open reviews"
+                    className="flex w-full min-w-0 flex-col items-start justify-between text-left"
+                    onClick={metric.onClick}
+                    type="button"
+                  >
+                    {metricContent}
+                  </button>
+                ) : (
+                  <div className="flex min-w-0 flex-col justify-between">
+                    {metricContent}
+                  </div>
+                )}
+                {metric.label === "Total reviews" && newestReview ? (
+                  <div className="mt-3 rounded-[14px] border border-[#DCEBFF] bg-white px-2.5 py-2">
+                    <p className="truncate text-[11px] font-semibold leading-4 text-[#475569]">
+                      Newest: <span className="font-bold text-[#0F172A]">{newestReview.personName}</span>
+                    </p>
+                    <button
+                      className="mt-1 inline-flex text-xs font-bold text-[#2563EB] hover:text-[#1D4ED8]"
+                      onClick={() => onOpenReview(newestReview)}
+                      type="button"
+                    >
+                      View
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       </DesktopPanel>
 
@@ -6817,6 +6992,7 @@ const defaultAvailabilitySettings: AvailabilitySettings = {
 
 const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
   { label: "Activity", value: "activity" },
+  { label: "Reviews", value: "reviews" },
   { label: "Impact", value: "impact" },
   { label: "Forms", value: "forms" },
 ];
@@ -17839,6 +18015,112 @@ function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
   );
 }
 
+function SubmittedReviewViewButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]"
+      onClick={onClick}
+      type="button"
+    >
+      View
+    </button>
+  );
+}
+
+function SubmittedReviewsList({
+  items,
+  onOpenReview,
+}: {
+  items: SubmittedReviewListItem[];
+  onOpenReview: (item: SubmittedReviewListItem) => void;
+}) {
+  if (!items.length) {
+    return <SectionEmptyState text="Submitted Quick Reviews and Testimony Reviews will appear here." title="No reviews yet." />;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)]">
+      <div className="hidden grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_96px_120px_96px_68px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8] md:grid" style={{ fontFamily: font.rajdhani }}>
+        <span>Person</span>
+        <span>Submitted By</span>
+        <span>Date</span>
+        <span>Type</span>
+        <span>Overall</span>
+        <span className="text-right">View</span>
+      </div>
+      <div className="divide-y divide-[#EFF6FF]">
+        {items.map((item) => (
+          <article className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_96px_120px_96px_68px] md:items-center" key={item.id}>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Person</p>
+              <p className="truncate text-sm font-black text-[#0F172A]">{item.personName}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Submitted By</p>
+              <p className="truncate text-sm font-semibold text-[#334155]">{item.submittedBy}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Date</p>
+              <p className="truncate text-xs font-semibold text-[#475569]">{formatDate(item.date)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Type</p>
+              <span className="inline-flex rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
+                {item.reviewType}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Overall</p>
+              <p className="truncate text-xs font-semibold text-[#475569]">{item.overallRating ?? "-"}</p>
+            </div>
+            <div className="flex justify-start md:justify-end">
+              <SubmittedReviewViewButton onClick={() => onOpenReview(item)} />
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReviewDetailSheet({
+  item,
+  onClose,
+  onOpenMeeting,
+}: {
+  item: SubmittedReviewListItem;
+  onClose: () => void;
+  onOpenMeeting: (meetingId: string) => void;
+}) {
+  return (
+    <Sheet description={`${item.personName} - ${formatDate(item.date)}`} onClose={onClose} showEyebrow={false} title={item.reviewType}>
+      <div className="grid gap-3">
+        <DetailCard title="Summary">
+          <p className="whitespace-pre-line rounded-[18px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-sm leading-6 text-[#0F172A]">{item.summary}</p>
+        </DetailCard>
+        <DetailCard title="Details">
+          <DetailRow icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Person" value={item.personName} />
+          <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Submitted By" value={item.submittedBy} />
+          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={formatDate(item.date)} />
+          <DetailRow icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Review Type" value={item.reviewType} />
+          {item.overallRating ? <DetailRow icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Overall" value={item.overallRating} /> : null}
+        </DetailCard>
+        {item.review ? <ParticipantReviewRow review={item.review} /> : null}
+        {item.testimony ? <ParticipantTestimonyRow testimony={item.testimony} /> : null}
+        <ReviewActionButton
+          icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />}
+          onClick={() => {
+            onClose();
+            onOpenMeeting(item.meetingId);
+          }}
+        >
+          Open Table
+        </ReviewActionButton>
+      </div>
+    </Sheet>
+  );
+}
+
 function ParticipantTestimonyRow({ onClick, testimony }: { onClick?: () => void; testimony: DosAppParticipantTestimony }) {
   const content = (
     <>
@@ -18881,6 +19163,7 @@ function PersonDetailOverlay({
   onEdit,
   onMarkPrayerAnswered,
   onOpenPrayerResources,
+  onOpenReview,
   onOpenMeeting,
   onLogMeeting,
   onScheduleMeeting,
@@ -18903,6 +19186,7 @@ function PersonDetailOverlay({
   onEdit: () => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenPrayerResources: () => void;
+  onOpenReview: (item: SubmittedReviewListItem) => void;
   onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
   onLogMeeting: () => void;
   onScheduleMeeting: () => void;
@@ -18945,8 +19229,14 @@ function PersonDetailOverlay({
     reminders,
   });
   const upcomingTimelineGroups = groupedUpcomingTimelineItems(upcomingTimelineItems);
-  const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || personMeetings.some((meeting) => meeting.id === review.meetingId));
-  const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || personMeetings.some((meeting) => meeting.id === testimony.meetingId));
+  const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || (!review.personId && personMeetings.some((meeting) => meeting.id === review.meetingId)));
+  const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || (!testimony.personId && personMeetings.some((meeting) => meeting.id === testimony.meetingId)));
+  const personReviewItems = buildSubmittedReviewItems({
+    meetings: personMeetings,
+    participantReviews: personParticipantReviews,
+    participantTestimonies: personTestimonies,
+    people: [person],
+  });
   const personFruitSummary = selectPersonDetailFruitSummary({
     fruitEvents,
     fruitItems,
@@ -19044,16 +19334,17 @@ function PersonDetailOverlay({
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-4 bg-white/95 px-4 py-2 backdrop-blur md:mx-0 md:px-0">
-        <div className="grid grid-cols-4 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
+        <div className="grid grid-cols-5 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
           {[
             { label: "Overview", value: "overview" },
             { label: "Activity", value: "activity" },
+            { label: "Reviews", value: "reviews" },
             { label: "Prayer", value: "prayer" },
             { label: "Fruit", value: "fruit" },
           ].map((tab) => (
             <button
               aria-current={activeDetailTab === tab.value ? "page" : undefined}
-              className={`min-h-9 rounded-full px-2 text-[11px] font-bold transition-colors ${
+              className={`min-h-9 rounded-full px-1.5 text-[10px] font-bold transition-colors sm:px-2 sm:text-[11px] ${
                 activeDetailTab === tab.value ? "bg-[#EAF2FF] text-[#1D4ED8] shadow-[0_6px_14px_rgba(37,99,235,0.10)] ring-1 ring-[#CFE0FF]" : "text-[#64748B] hover:bg-[#F8FAFC]"
               }`}
               key={tab.value}
@@ -19263,6 +19554,13 @@ function PersonDetailOverlay({
               />
             </DetailCard>
           </>
+        ) : null}
+
+        {activeDetailTab === "reviews" ? (
+          <section className="grid min-w-0 gap-3">
+            <SectionHeading title="Reviews" />
+            <SubmittedReviewsList items={personReviewItems} onOpenReview={onOpenReview} />
+          </section>
         ) : null}
 
         {activeDetailTab === "prayer" ? (
@@ -20128,6 +20426,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedExternalCalendarEventId, setSelectedExternalCalendarEventId] = useState<string | null>(null);
   const [selectedFruitActivity, setSelectedFruitActivity] = useState<FruitDashboardStory | null>(null);
   const [selectedFruitFormPreviewKey, setSelectedFruitFormPreviewKey] = useState<Extract<FruitFormKey, "quick_review" | "testimony_review"> | null>(null);
+  const [selectedReviewItem, setSelectedReviewItem] = useState<SubmittedReviewListItem | null>(null);
   const [fruitFormsNotice, setFruitFormsNotice] = useState("");
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
   const [selectedTableRole, setSelectedTableRole] = useState<DosAppTableRole>("ministering");
@@ -20189,6 +20488,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     people,
   }), [data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, people]);
   const visibleFruitStories = useMemo(() => fruitStoryEntries.filter((story) => !isQaFruitStory(story)), [fruitStoryEntries]);
+  const submittedReviewItems = useMemo(() => buildSubmittedReviewItems({
+    meetings: data.meetings,
+    participantReviews: data.participantReviews,
+    participantTestimonies: data.participantTestimonies,
+    people,
+  }), [data.meetings, data.participantReviews, data.participantTestimonies, people]);
   const fruitImpactOutcomeGroups = useMemo(() => fruitImpactGroups(visibleFruitStories), [visibleFruitStories]);
   const fruitSnapshotGroups = useMemo(() => fruitImpactSnapshotGroups(visibleFruitStories), [visibleFruitStories]);
   const latestMeeting = loggedMeetings[0];
@@ -20803,6 +21108,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openMyRecordTab(tab: MyRecordTab) {
     openMoreApp("my_record");
     setMyRecordTab(tab);
+  }
+
+  function openReviewsList() {
+    openMoreApp("fruit");
+    setFruitView("reviews");
+  }
+
+  function openSubmittedReview(item: SubmittedReviewListItem) {
+    setSelectedReviewItem(item);
   }
 
   async function submitMyRecord(payload: Record<string, unknown>, nextTab: MyRecordTab = myRecordTab) {
@@ -23503,6 +23817,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedExternalCalendarEventId
     && !selectedFruitActivity
     && !selectedFruitFormPreviewKey
+    && !selectedReviewItem
     && !selectedMeetingId
     && !selectedMobilePrayerDetail
     && !selectedMobilePrayerPartner
@@ -23526,6 +23841,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedExternalCalendarEventId
     && !selectedFruitActivity
     && !selectedFruitFormPreviewKey
+    && !selectedReviewItem
     && !selectedMeetingId
     && !selectedPersonId
     && !selectedPrayerResourceSlug
@@ -23590,10 +23906,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 fruitEvents={data.fruitEvents}
                 fruitItems={data.fruit}
                 loggedMeetings={ministryLoggedMeetings}
+                meetings={data.meetings}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenMeeting={openMeetingDetail}
                 onOpenPerson={openPersonDetail}
                 onOpenReports={() => openMoreApp("reports")}
+                onOpenReview={openSubmittedReview}
+                onOpenReviews={openReviewsList}
                 onOpenTable={() => setActiveTab("meetings")}
                 onOpenTableCalendar={() => {
                   setActiveTab("meetings");
@@ -23601,6 +23920,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 }}
                 onViewField={() => setActiveTab("people")}
                 participantReviews={data.participantReviews}
+                participantTestimonies={data.participantTestimonies}
                 people={people}
                 personTableStatsByPersonId={personTableStatsByPersonId}
                 upcomingItems={upcomingTimelineItems}
@@ -23985,6 +24305,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       </section>
                     ) : null}
 
+                    {fruitView === "reviews" ? (
+                      <section>
+                        <SectionHeading title="Reviews" />
+                        <SubmittedReviewsList items={submittedReviewItems} onOpenReview={openSubmittedReview} />
+                      </section>
+                    ) : null}
+
                     {fruitView === "impact" ? (
                       <div className="space-y-4">
                         <section>
@@ -24312,6 +24639,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onMarkPrayerAnswered={markPrayerReminderAnswered}
             onOpenMeeting={openMeetingDetail}
             onOpenPrayerResources={openPrayerResourceLibrary}
+            onOpenReview={openSubmittedReview}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -24499,6 +24827,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               openPersonDetail(personId);
             }}
             story={selectedFruitActivity}
+          />
+        ) : null}
+
+        {selectedReviewItem ? (
+          <ReviewDetailSheet
+            item={selectedReviewItem}
+            onClose={() => setSelectedReviewItem(null)}
+            onOpenMeeting={openMeetingDetail}
           />
         ) : null}
 

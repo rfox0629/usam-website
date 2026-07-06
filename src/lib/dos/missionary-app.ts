@@ -242,6 +242,10 @@ export type DosAppParticipantReview = {
   personId: string | null;
   status: "draft" | "submitted" | "reviewed" | "approved" | "hidden";
   submittedAt: string | null;
+  submittedEmail: string | null;
+  submittedFirstName: string | null;
+  submittedLastName: string | null;
+  submittedName: string | null;
   wouldMeetAgain: boolean | null;
   wouldMeetAgainResponse: string | null;
 };
@@ -257,6 +261,8 @@ export type DosAppParticipantTestimony = {
   story: string;
   status: "draft" | "submitted" | "reviewed" | "approved" | "hidden";
   submittedAt: string | null;
+  submittedEmail: string | null;
+  submittedName: string | null;
   whatChanged: string | null;
 };
 
@@ -923,6 +929,10 @@ type ParticipantReviewRow = {
   person_id: string | null;
   status?: string | null;
   submitted_at: string | null;
+  submitted_email?: string | null;
+  submitted_first_name?: string | null;
+  submitted_last_name?: string | null;
+  submitted_name?: string | null;
   would_meet_again: boolean | null;
   would_meet_again_response?: string | null;
 };
@@ -938,6 +948,8 @@ type ParticipantTestimonyRow = {
   story: string;
   status?: string | null;
   submitted_at: string | null;
+  submitted_email?: string | null;
+  submitted_name?: string | null;
   what_changed: string | null;
 };
 
@@ -2219,14 +2231,14 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     meetingIds.length
       ? supabase
         .from("participant_reviews")
-        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, would_meet_again_response, overall_rating, outcome_tags, comments, status, submitted_at")
+        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, would_meet_again_response, overall_rating, outcome_tags, comments, status, submitted_at, submitted_name, submitted_first_name, submitted_last_name, submitted_email")
         .in("meeting_id", meetingIds)
         .order("submitted_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     meetingIds.length
       ? supabase
         .from("participant_testimonies")
-        .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, status, submitted_at")
+        .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, status, submitted_at, submitted_name, submitted_email")
         .in("meeting_id", meetingIds)
         .order("submitted_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
@@ -2866,6 +2878,10 @@ export async function loadDosAppData(
     personId: review.person_id,
     status: mapModerationStatus(review.status),
     submittedAt: review.submitted_at,
+    submittedEmail: review.submitted_email ?? null,
+    submittedFirstName: review.submitted_first_name ?? null,
+    submittedLastName: review.submitted_last_name ?? null,
+    submittedName: review.submitted_name ?? null,
     wouldMeetAgain: review.would_meet_again,
     wouldMeetAgainResponse: review.would_meet_again_response ?? null,
   }));
@@ -2880,6 +2896,8 @@ export async function loadDosAppData(
     story: testimony.story,
     status: mapModerationStatus(testimony.status),
     submittedAt: testimony.submitted_at,
+    submittedEmail: testimony.submitted_email ?? null,
+    submittedName: testimony.submitted_name ?? null,
     whatChanged: testimony.what_changed,
   }));
   const fruitEvents = reviewsFruitResult.fruitEvents.map((fruitEvent) => ({
