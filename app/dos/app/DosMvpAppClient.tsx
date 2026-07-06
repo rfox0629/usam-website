@@ -1981,11 +1981,11 @@ function normalizeFieldVisibility(value: FormDataEntryValue | string | null | un
 }
 
 function showPersonInFieldList(person: DosAppPerson, showSecondary: boolean) {
-  if (person.fieldVisibility === "hidden") {
-    return false;
+  if (person.fieldVisibility === "primary") {
+    return true;
   }
 
-  return person.fieldVisibility === "primary" || (showSecondary && person.fieldVisibility === "secondary");
+  return showSecondary;
 }
 
 function phoneDigitsOnly(value: string | null | undefined) {
@@ -20217,7 +20217,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return new Map(scores.map((score) => [score.person.id, score]));
   }, [data.circles]);
   const fieldListPeople = useMemo(() => people.filter((person) => showPersonInFieldList(person, showSecondaryFieldPeople)), [people, showSecondaryFieldPeople]);
-  const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility === "secondary").length, [people]);
+  const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility !== "primary").length, [people]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
   const ministryTeamPeopleOptions = useMemo(() => filteredPeople(people, ministryTeamQuery), [people, ministryTeamQuery]);
   const supportingAttendeeOptions = useMemo(() => filteredPeople(people, supportingAttendeeQuery), [people, supportingAttendeeQuery]);

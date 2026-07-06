@@ -7,6 +7,7 @@
     "build": "next build",
     "test:dos-ministry-events": "node scripts/dos-ministry-event-visibility-regression.mjs",
     "test:dos-fruit-guard": "node scripts/dos-fruit-guard-regression.mjs",
+    "test:dos-household-people": "node scripts/dos-household-people-regression.mjs",
     "test:dos-my-record": "node scripts/dos-my-record-regression.mjs",
     "test:dos-quick-review": "node scripts/dos-quick-review-regression.mjs",
     "test:dos-scheduled-table-log": "node scripts/dos-scheduled-table-log-regression.mjs",

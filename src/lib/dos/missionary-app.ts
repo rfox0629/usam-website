@@ -21,6 +21,7 @@ import {
 } from "@/src/lib/dos/relationship-model";
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
+import { syncHouseholdTeamMembersAsPeople } from "@/src/lib/dos/household-member-people";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
 import type { DosAuthorizedUser } from "@/src/lib/dos/auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -2479,6 +2480,15 @@ export async function loadDosAppData(
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
+  const householdPeopleSync = await syncHouseholdTeamMembersAsPeople(supabase, { workspaceId: workspace.id });
+
+  if (householdPeopleSync.error) {
+    return {
+      message: householdPeopleSync.error.message ?? "Unable to prepare household people.",
+      status: "error",
+    };
+  }
+
   const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
