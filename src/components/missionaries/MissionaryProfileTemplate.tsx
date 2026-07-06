@@ -6,12 +6,10 @@ import { HeroProfile } from "@/components/missionaries/HeroProfile";
 import { ProfileSupportSectionActions } from "@/components/missionaries/SupportMissionButtons";
 import { StoryReadMoreButton } from "@/components/missionaries/StoryReadMoreButton";
 import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromTheFieldModal";
-import { JoinPrayerTeamModal, PrayerRequestPreviewList, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
 import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
 import { MissionaryProfileViewTracker } from "@/src/components/missionaries/MissionaryProfileViewTracker";
-import { SubmitPrayerRequestModal } from "@/src/components/missionaries/SubmitPrayerRequestModal";
 import { ExpandableTeamMemberList } from "@/src/components/missionaries/ExpandableTeamMemberList";
-import type { Missionary, MissionaryFruitItem } from "@/src/data/missionaries";
+import type { Missionary, MissionaryFruitItem, MissionaryPrayerRequest } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -291,62 +289,53 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
   );
 }
 
-function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
-  const prayerRequests = missionary.prayerRequests ?? [];
-  const prayerTeamCount = missionary.prayerSettings?.prayerTeamCount ?? 0;
-  const showPrayerTeamCount = missionary.prayerSettings?.showPrayerTeamCount !== false;
-  const prayerDescription = missionary.prayerSettings?.description || "Pray with this household as they reach, disciple, and serve.";
-  const prayerTeamLabel = prayerTeamCount === 1 ? "1 partner" : `${prayerTeamCount} partners`;
+function PrayerProfileCard({ requests }: { requests: readonly MissionaryPrayerRequest[] }) {
+  const publicPrayerRequests = requests.filter((request) => request.visibility === "public");
+  const previewPrayerRequests = publicPrayerRequests.slice(0, 2);
+
+  if (publicPrayerRequests.length === 0) {
+    return null;
+  }
 
   return (
     <MissionProfileCard
       action={(
-        <div className="grid gap-2">
-          <JoinPrayerTeamModal
-            buttonLabel="Become a Prayer Partner"
-            householdId={missionary.id}
-            householdName={missionary.name}
-            householdNumber={missionary.missionaryNumber}
-            initialPrayerRequests={prayerRequests}
-            profileSlug={missionary.slug}
-            variant="compact"
-          />
-          <SubmitPrayerRequestModal
-            householdId={missionary.id}
-            householdName={missionary.name}
-            profileSlug={missionary.slug}
-          />
-          <PrayerRequestsModalButton buttonLabel="View All Requests" requests={prayerRequests} />
-        </div>
+        <Link
+          className="inline-flex min-h-9 w-full items-center justify-center rounded-lg border border-white/[0.14] bg-white/[0.03] px-3 py-2 text-center text-[9px] uppercase leading-5 tracking-[0.17em] text-stone-300 transition-all duration-300 hover:border-[#C2A14E]/50 hover:text-[#C2A14E]"
+          href="/prayer"
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+        >
+          Pray With Us
+        </Link>
       )}
       icon={<Heart aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />}
-      label={prayerRequests.length > 0 ? "Current" : "Prayer"}
-      title={missionary.prayerSettings?.headline || "Prayer"}
+      id="prayer-requests"
+      label={`${publicPrayerRequests.length} Active`}
+      title="Prayer Requests"
     >
-      <div className="space-y-3">
-        {showPrayerTeamCount ? (
-          <div className="rounded-xl border border-[#C2A14E]/20 bg-[#C2A14E]/10 px-3 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Prayer Team
-              </p>
-              <p className="text-sm font-semibold leading-none text-stone-100">
-                {prayerTeamLabel}
-              </p>
+      <div className="space-y-2.5">
+        {previewPrayerRequests.map((request) => (
+          <article key={request.id} className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {request.category ? (
+                <span className="border border-[#C2A14E]/35 bg-[#C2A14E]/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.16em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {request.category}
+                </span>
+              ) : null}
+              {request.date ? (
+                <span className="text-[9px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                  {formatPrayerDate(request.date)}
+                </span>
+              ) : null}
             </div>
-          </div>
-        ) : null}
-        <p className="max-h-[5.5rem] overflow-hidden">
-          {prayerDescription}
-        </p>
-        <div>
-          <h3 className="text-[10px] uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Prayer Requests
-          </h3>
-          <div className="mt-2">
-            <PrayerRequestPreviewList requests={prayerRequests} />
-          </div>
-        </div>
+            <h3 className="mt-2 text-sm font-semibold leading-tight text-stone-100">
+              {request.title}
+            </h3>
+            <p className="mt-1.5 max-h-[3.4rem] overflow-hidden text-xs leading-5 text-stone-400">
+              {request.description}
+            </p>
+          </article>
+        ))}
       </div>
     </MissionProfileCard>
   );
@@ -435,7 +424,7 @@ function FruitSection({
 
 function MissionProfileSection({
   missionary,
-  showPrayer,
+  prayerRequests,
   showStory,
   showSupport,
   showTeam,
@@ -444,7 +433,7 @@ function MissionProfileSection({
   storyPreview,
 }: {
   missionary: Missionary;
-  showPrayer: boolean;
+  prayerRequests: readonly MissionaryPrayerRequest[];
   showStory: boolean;
   showSupport: boolean;
   showTeam: boolean;
@@ -452,10 +441,11 @@ function MissionProfileSection({
   storyParagraphs?: readonly string[];
   storyPreview: string;
 }) {
+  const showPrayerRequests = prayerRequests.some((request) => request.visibility === "public");
   const hasCards = (showStory && storyParagraphs)
-    || showPrayer
     || showTeam
-    || showSupport;
+    || showSupport
+    || showPrayerRequests;
 
   if (!hasCards) {
     return null;
@@ -477,14 +467,14 @@ function MissionProfileSection({
           {showStory && storyParagraphs ? (
             <StoryProfileCard storyParagraphs={storyParagraphs} storyPreview={storyPreview} />
           ) : null}
-          {showPrayer ? (
-            <PrayerProfileCard missionary={missionary} />
-          ) : null}
           {showTeam ? (
             <TeamProfileCard missionary={missionary} />
           ) : null}
           {showSupport ? (
             <SupportProfileCard actions={supportActions} missionary={missionary} />
+          ) : null}
+          {showPrayerRequests ? (
+            <PrayerProfileCard requests={prayerRequests} />
           ) : null}
         </div>
       </div>
@@ -523,24 +513,12 @@ export function MissionaryProfileTemplate({
   const showFruit = features.showFruit && (fruitItems.length > 0 || shouldPreviewProfileReview);
   const supportDefaults = getSupportDefaults(missionary);
   const showSupport = features.showSupport && supportDefaults.mode !== "hidden";
-  const prayerRequests = missionary.prayerRequests ?? [];
-  const showPrayer = features.showPrayer;
-  const joinPrayerTeamAction = showPrayer ? (
-    <JoinPrayerTeamModal
-      buttonLabel="Become a Prayer Partner"
-      householdId={missionary.id}
-      householdName={missionary.name}
-      householdNumber={missionary.missionaryNumber}
-      initialPrayerRequests={prayerRequests}
-      profileSlug={missionary.slug}
-      variant={showSupport ? "outline" : "gold"}
-    />
-  ) : null;
+  const prayerRequests = features.showPrayer ? missionary.prayerRequests ?? [] : [];
   const supportModalProps = {
     enableMajorGiftInquiry: supportDefaults.enableMajorGiftInquiry,
     enableMonthlyPartnership: supportDefaults.enableMonthlyPartnership,
     enableOneTimeGift: supportDefaults.enableOneTimeGift,
-    extraAction: joinPrayerTeamAction,
+    extraAction: null,
     initialMajorGiftOpen: previewForm === "major_gift",
     majorGiftButtonLabel: supportDefaults.majorGiftButtonLabel,
     majorGiftPublicDescription: supportDefaults.majorGiftPublicDescription,
@@ -570,7 +548,7 @@ export function MissionaryProfileTemplate({
         location={missionary.locationLine}
         description={missionary.statement}
         image={showPhotos ? missionary.heroImage : undefined}
-        actions={joinPrayerTeamAction}
+        actions={null}
         backLink={(
           <Link
             href="/missionaries"
@@ -584,7 +562,7 @@ export function MissionaryProfileTemplate({
 
       <MissionProfileSection
         missionary={missionary}
-        showPrayer={showPrayer}
+        prayerRequests={prayerRequests}
         showStory={showStory}
         showSupport={showSupport}
         showTeam={showTeam}
