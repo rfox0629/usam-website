@@ -82,13 +82,21 @@ export type MissionaryPrayerSettings = {
   showPrayerTeamCount?: boolean | null;
 };
 
+export type MissionaryPrayerRequestVisibility =
+  | "private"
+  | "team"
+  | "public"
+  | "profile"
+  | "public_profile"
+  | "mission_profile";
+
 export type MissionaryPrayerRequest = {
   id: string;
   title: string;
   description: string;
   category?: string | null;
   date: string;
-  visibility: "public" | "team";
+  visibility?: MissionaryPrayerRequestVisibility | null;
 };
 
 // Profiles (PF) consume only approved Fruit records. Raw Encounters stay in

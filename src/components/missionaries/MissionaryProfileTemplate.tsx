@@ -13,6 +13,7 @@ import type { Missionary, MissionaryFruitItem, MissionaryPrayerRequest } from "@
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const publicProfilePrayerRequestVisibilities = new Set(["public", "profile", "public_profile", "mission_profile"]);
 
 const ryanBrookeStory = [
   "When the Lord gave us the vision for this organization, He did not begin with a name. He began with a calling.",
@@ -121,6 +122,12 @@ function getTopFruitItems(items: readonly MissionaryFruitItem[]) {
     .sort((first, second) => fruitDateValue(second) - fruitDateValue(first));
 
   return [...featured, ...newest].slice(0, 3);
+}
+
+function isPublicProfilePrayerRequest(request: MissionaryPrayerRequest) {
+  const visibility = request.visibility?.trim().toLowerCase();
+
+  return !visibility || publicProfilePrayerRequestVisibilities.has(visibility);
 }
 
 function getSupportDefaults(missionary: Missionary) {
@@ -290,7 +297,7 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
 }
 
 function PrayerProfileCard({ requests }: { requests: readonly MissionaryPrayerRequest[] }) {
-  const publicPrayerRequests = requests.filter((request) => request.visibility === "public");
+  const publicPrayerRequests = requests.filter(isPublicProfilePrayerRequest);
   const previewPrayerRequests = publicPrayerRequests.slice(0, 2);
 
   if (publicPrayerRequests.length === 0) {
@@ -441,7 +448,7 @@ function MissionProfileSection({
   storyParagraphs?: readonly string[];
   storyPreview: string;
 }) {
-  const showPrayerRequests = prayerRequests.some((request) => request.visibility === "public");
+  const showPrayerRequests = prayerRequests.some(isPublicProfilePrayerRequest);
   const hasCards = (showStory && storyParagraphs)
     || showTeam
     || showSupport
@@ -463,7 +470,7 @@ function MissionProfileSection({
           </h2>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {showStory && storyParagraphs ? (
             <StoryProfileCard storyParagraphs={storyParagraphs} storyPreview={storyPreview} />
           ) : null}

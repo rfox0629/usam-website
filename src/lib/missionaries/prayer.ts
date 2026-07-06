@@ -2,12 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MissionaryPrayerRequest } from "@/src/data/missionaries";
 
 const publicPrayerStatuses = ["active", "open"] as const;
+const publicProfilePrayerVisibilities = ["public", "profile", "public_profile", "mission_profile"] as const;
 const publicPrayerRequestSelect = [
   "id",
   "title",
   "request",
   "description",
   "category",
+  "confidentiality_level",
   "visibility",
   "status",
   "created_at",
@@ -20,7 +22,7 @@ const publicPrayerRequestSelect = [
   "related_missionary_profile_id",
   "source",
 ].join(", ");
-const legacyPrayerRequestSelect = "id, title, description, category, visibility, status, created_at, household_id, related_household_id";
+const legacyPrayerRequestSelect = "id, title, description, category, confidentiality_level, visibility, status, created_at, household_id, related_household_id";
 
 type SupabaseLike = SupabaseClient<any, "public", any>;
 
@@ -28,6 +30,7 @@ type PublicPrayerRequestRow = {
   answer_testimony?: string | null;
   answered_at?: string | null;
   category: string | null;
+  confidentiality_level?: string | null;
   created_at: string;
   description?: string | null;
   household_id?: string | null;
@@ -72,6 +75,10 @@ function hasMissingPrayerBridgeColumn(error: { message?: string } | null | undef
 
 function normalizeRequestText(value: string | null | undefined) {
   return value?.trim() ?? "";
+}
+
+function normalizeRequestScopeValue(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
 }
 
 function uniqueStrings(values: Array<string | null | undefined>) {
@@ -131,7 +138,7 @@ function prayerPartnerScopeFilters(profileId: string, profileSlugs: readonly str
 }
 
 function mapPublicPrayerRequest(row: PublicPrayerRequestRow): MissionaryPrayerRequest | null {
-  if (row.visibility !== "public" || !publicPrayerStatuses.includes(row.status as typeof publicPrayerStatuses[number])) {
+  if (!isPublicProfilePrayerRequestRow(row)) {
     return null;
   }
 
@@ -148,8 +155,34 @@ function mapPublicPrayerRequest(row: PublicPrayerRequestRow): MissionaryPrayerRe
     description,
     id: row.id,
     title,
-    visibility: "public",
+    visibility: normalizePublicProfilePrayerVisibility(row.visibility),
   };
+}
+
+function normalizePublicProfilePrayerVisibility(value: string | null | undefined): MissionaryPrayerRequest["visibility"] {
+  const visibility = normalizeRequestScopeValue(value);
+
+  if (publicProfilePrayerVisibilities.includes(visibility as typeof publicProfilePrayerVisibilities[number])) {
+    return visibility as typeof publicProfilePrayerVisibilities[number];
+  }
+
+  return "public";
+}
+
+function isPublicProfilePrayerRequestRow(row: Pick<PublicPrayerRequestRow, "confidentiality_level" | "status" | "visibility">) {
+  const status = normalizeRequestScopeValue(row.status);
+
+  if (!publicPrayerStatuses.includes(status as typeof publicPrayerStatuses[number])) {
+    return false;
+  }
+
+  const visibility = normalizeRequestScopeValue(row.visibility);
+
+  if (visibility) {
+    return publicProfilePrayerVisibilities.includes(visibility as typeof publicProfilePrayerVisibilities[number]);
+  }
+
+  return normalizeRequestScopeValue(row.confidentiality_level) === "general";
 }
 
 async function loadPublicPrayerRequests(client: SupabaseLike, profileId: string) {
@@ -158,7 +191,6 @@ async function loadPublicPrayerRequests(client: SupabaseLike, profileId: string)
     .select(publicPrayerRequestSelect)
     .or(prayerRequestScopeFilter(profileId))
     .in("status", [...publicPrayerStatuses])
-    .eq("visibility", "public")
     .order("created_at", { ascending: false });
 
   const result = scopedResult.error && hasMissingPrayerBridgeColumn(scopedResult.error)
@@ -167,7 +199,6 @@ async function loadPublicPrayerRequests(client: SupabaseLike, profileId: string)
       .select(legacyPrayerRequestSelect)
       .or(legacyPrayerRequestScopeFilter(profileId))
       .in("status", [...publicPrayerStatuses])
-      .eq("visibility", "public")
       .order("created_at", { ascending: false })
     : scopedResult;
 
@@ -222,14 +253,14 @@ async function loadPrayerTeamCount(client: SupabaseLike, profileId: string, prof
 async function loadPrayerRequestCounts(client: SupabaseLike, profileId: string) {
   const scopedResult = await client
     .from("prayer_requests")
-    .select("id, status, visibility", { count: "exact" })
+    .select("id, confidentiality_level, status, visibility", { count: "exact" })
     .or(prayerRequestScopeFilter(profileId))
     .in("status", [...publicPrayerStatuses]);
 
   const result = scopedResult.error && hasMissingPrayerBridgeColumn(scopedResult.error)
     ? await client
       .from("prayer_requests")
-      .select("id, status, visibility", { count: "exact" })
+      .select("id, confidentiality_level, status, visibility", { count: "exact" })
       .or(legacyPrayerRequestScopeFilter(profileId))
       .in("status", [...publicPrayerStatuses])
     : scopedResult;
@@ -238,11 +269,11 @@ async function loadPrayerRequestCounts(client: SupabaseLike, profileId: string) 
     return { internalOpenRequestCount: 0, publicOpenRequestCount: 0 };
   }
 
-  const rows = (result.data ?? []) as Array<{ visibility: string | null }>;
+  const rows = (result.data ?? []) as PublicPrayerRequestRow[];
 
   return {
-    internalOpenRequestCount: rows.filter((row) => row.visibility !== "public").length,
-    publicOpenRequestCount: rows.filter((row) => row.visibility === "public").length,
+    internalOpenRequestCount: rows.filter((row) => !isPublicProfilePrayerRequestRow(row)).length,
+    publicOpenRequestCount: rows.filter(isPublicProfilePrayerRequestRow).length,
   };
 }
 

@@ -17,10 +17,20 @@ function assert(condition, message) {
   }
 }
 
+function extractStringSet(source, declarationName) {
+  const match = source.match(new RegExp(`${declarationName}[^=]*= (?:new Set\\()?\\[(.*?)\\]`, "s"));
+
+  assert(match, `${declarationName} must declare a string list.`);
+
+  return new Set([...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]));
+}
+
 const migration = read(files.migration);
 const prayerLoader = read(files.prayerLoader);
 const queries = read(files.queries);
 const template = read(files.template);
+const loaderProfileVisibilities = extractStringSet(prayerLoader, "publicProfilePrayerVisibilities");
+const templateProfileVisibilities = extractStringSet(template, "publicProfilePrayerRequestVisibilities");
 
 assert(
   prayerLoader.includes("loadPublicProfilePrayerData"),
@@ -39,9 +49,19 @@ assert(
   "Public profile prayer loader must include active/open prayer requests.",
 );
 assert(
-  prayerLoader.includes('.eq("visibility", "public")')
-    && prayerLoader.includes('row.visibility !== "public"'),
-  "Public profile prayer loader must only expose public prayer requests.",
+  prayerLoader.includes("publicProfilePrayerVisibilities")
+    && prayerLoader.includes("isPublicProfilePrayerRequestRow")
+    && !prayerLoader.includes('.eq("visibility", "public")')
+    && prayerLoader.includes('normalizeRequestScopeValue(row.confidentiality_level) === "general"'),
+  "Public profile prayer loader must use the public-safe visibility helper instead of requiring only visibility=public at query time.",
+);
+assert(
+  loaderProfileVisibilities.has("public")
+    && loaderProfileVisibilities.has("public_profile")
+    && loaderProfileVisibilities.has("mission_profile")
+    && !loaderProfileVisibilities.has("private")
+    && !loaderProfileVisibilities.has("team"),
+  "Prayer loader public-safe visibility set must include profile-facing values and exclude private/team values.",
 );
 assert(
   prayerLoader.includes("normalizeRequestText(row.request) || normalizeRequestText(row.description)")
@@ -63,10 +83,19 @@ assert(
   "Missionary profile template must render a Prayer Requests card.",
 );
 assert(
-  template.includes('request.visibility === "public"')
+  template.includes("function isPublicProfilePrayerRequest")
+    && template.includes("const publicProfilePrayerRequestVisibilities = new Set")
     && template.includes("features.showPrayer ? missionary.prayerRequests ?? [] : []")
     && template.includes("<PrayerProfileCard requests={prayerRequests} />"),
-  "Missionary profile template must render only public, feature-enabled prayer requests in the card grid.",
+  "Missionary profile template must render public-safe, feature-enabled prayer requests in the card grid.",
+);
+assert(
+  templateProfileVisibilities.has("public")
+    && templateProfileVisibilities.has("public_profile")
+    && templateProfileVisibilities.has("mission_profile")
+    && !templateProfileVisibilities.has("private")
+    && !templateProfileVisibilities.has("team"),
+  "Prayer card visibility set must include profile-facing values and exclude private/team values.",
 );
 assert(
   template.includes("request.title")
@@ -88,7 +117,7 @@ assert(
   "Prayer Requests must reuse the same MissionProfileCard shell as the other profile cards.",
 );
 
-const gridStart = template.indexOf('<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">');
+const gridStart = template.indexOf('<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">');
 const storyCard = template.indexOf("<StoryProfileCard", gridStart);
 const teamCard = template.indexOf("<TeamProfileCard", gridStart);
 const supportCard = template.indexOf("<SupportProfileCard", gridStart);
@@ -101,6 +130,10 @@ assert(
     && supportCard > teamCard
     && prayerCard > supportCard,
   "Prayer Requests must render as the fourth Connect With The Mission grid card.",
+);
+assert(
+  template.includes("md:grid-cols-2 lg:grid-cols-4") && !template.includes("xl:grid-cols-4"),
+  "Connect With The Mission grid must support four desktop columns at the large breakpoint.",
 );
 assert(
   !template.includes("function PrayerRequestsSection")
@@ -117,6 +150,27 @@ assert(
   !template.includes("SubmitPrayerRequestModal")
     && !template.includes("JoinPrayerTeamModal"),
   "Public Prayer Requests restore must not reintroduce public prayer action modals.",
+);
+
+const liveLikeFoxFamilyRequests = [
+  { title: "Expansion", visibility: "public" },
+  { title: "Partnerships", visibility: "private" },
+  { title: "Prayer Team Covering", visibility: "team" },
+  { title: "Public Profile Alias", visibility: "public_profile" },
+];
+const visibleFixtureTitles = liveLikeFoxFamilyRequests
+  .filter((request) => templateProfileVisibilities.has(request.visibility))
+  .map((request) => request.title);
+
+assert(
+  visibleFixtureTitles.includes("Expansion")
+    && visibleFixtureTitles.includes("Public Profile Alias"),
+  "Live-like fox-family public/profile prayer requests must render.",
+);
+assert(
+  !visibleFixtureTitles.includes("Partnerships")
+    && !visibleFixtureTitles.includes("Prayer Team Covering"),
+  "Live-like fox-family private and prayer-team-only requests must not render.",
 );
 
 console.log("Public profile prayer section regression passed.");
