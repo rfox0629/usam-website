@@ -5895,22 +5895,30 @@ function DesktopHomeDashboard({
               </>
             );
 
+            const isInteractiveMetric = Boolean(metric.onClick);
+
             return (
-              <article className="min-h-[96px] min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={metric.label}>
-                {metric.onClick ? (
-                  <button
-                    aria-label="Open reviews"
-                    className="flex w-full min-w-0 flex-col items-start justify-between text-left"
-                    onClick={metric.onClick}
-                    type="button"
-                  >
-                    {metricContent}
-                  </button>
-                ) : (
-                  <div className="flex min-w-0 flex-col justify-between">
-                    {metricContent}
-                  </div>
-                )}
+              <article
+                aria-label={isInteractiveMetric ? "Open reviews" : undefined}
+                className={`min-h-[96px] min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 ${
+                  isInteractiveMetric
+                    ? "cursor-pointer transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30"
+                    : ""
+                }`}
+                key={metric.label}
+                onClick={metric.onClick}
+                onKeyDown={isInteractiveMetric ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    metric.onClick?.();
+                  }
+                } : undefined}
+                role={isInteractiveMetric ? "button" : undefined}
+                tabIndex={isInteractiveMetric ? 0 : undefined}
+              >
+                <div className="flex min-w-0 flex-col justify-between">
+                  {metricContent}
+                </div>
                 {metric.label === "Total reviews" && newestReview ? (
                   <div className="mt-3 rounded-[14px] border border-[#DCEBFF] bg-white px-2.5 py-2">
                     <p className="truncate text-[11px] font-semibold leading-4 text-[#475569]">
@@ -5918,7 +5926,11 @@ function DesktopHomeDashboard({
                     </p>
                     <button
                       className="mt-1 inline-flex text-xs font-bold text-[#2563EB] hover:text-[#1D4ED8]"
-                      onClick={() => onOpenReview(newestReview)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenReview(newestReview);
+                      }}
+                      onKeyDown={(event) => event.stopPropagation()}
                       type="button"
                     >
                       View
