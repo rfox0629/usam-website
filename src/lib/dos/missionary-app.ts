@@ -492,6 +492,11 @@ export type DosAppUserAssessmentResult = {
 
 export type DosAppUserExternalAssessmentResult = {
   assessmentName: string;
+  attachmentBucket: string | null;
+  attachmentContentType: string | null;
+  attachmentFileName: string | null;
+  attachmentPath: string | null;
+  attachmentUploadedAt: string | null;
   attachmentUrl: string | null;
   category: string | null;
   createdAt: string | null;
@@ -502,6 +507,9 @@ export type DosAppUserExternalAssessmentResult = {
   resultType: string | null;
   retakeReminderDate: string | null;
   scoresDetails: string | null;
+  shareEligible: boolean;
+  shortSummary: string | null;
+  status: "completed" | "draft" | "not_started";
   topStrengths: string[];
   updatedAt: string | null;
   visibility: "private";
@@ -524,6 +532,41 @@ export type DosAppUserPropheticWord = {
   wordText: string;
 };
 
+export type DosAppUserLearningBookStatus = "archived" | "finished" | "paused" | "planned" | "reading";
+
+export type DosAppUserLearningChapterNote = {
+  chapterLabel: string;
+  chapterNumber: number | null;
+  createdAt: string | null;
+  highlightImageBucket: string | null;
+  highlightImageContentType: string | null;
+  highlightImageFileName: string | null;
+  highlightImagePath: string | null;
+  highlightImageUploadedAt: string | null;
+  highlightImageUrl: string | null;
+  highlights: string | null;
+  id: string;
+  notes: string | null;
+  personalApplication: string | null;
+  updatedAt: string | null;
+};
+
+export type DosAppUserLearningBook = {
+  author: string | null;
+  chapterNotes: DosAppUserLearningChapterNote[];
+  createdAt: string | null;
+  finalSummary: string | null;
+  finishedOn: string | null;
+  id: string;
+  personalApplication: string | null;
+  shareEligible: boolean;
+  startedOn: string | null;
+  status: DosAppUserLearningBookStatus;
+  title: string;
+  updatedAt: string | null;
+  visibility: "private";
+};
+
 export type DosAppUserRecord = {
   assessmentResults: DosAppUserAssessmentResult[];
   createdAt: string | null;
@@ -532,6 +575,7 @@ export type DosAppUserRecord = {
   externalAssessmentResults: DosAppUserExternalAssessmentResult[];
   id: string | null;
   journalEntries: DosAppUserJournalEntry[];
+  learningBooks: DosAppUserLearningBook[];
   mentorMeetings: DosAppUserMentorMeeting[];
   mentorRelationships: DosAppUserMentorRelationship[];
   prayerLogs: DosAppUserPrayerLog[];
@@ -937,6 +981,11 @@ type DosUserAssessmentResultRow = {
 
 type DosUserExternalAssessmentResultRow = {
   assessment_name: string;
+  attachment_bucket?: string | null;
+  attachment_content_type?: string | null;
+  attachment_file_name?: string | null;
+  attachment_path?: string | null;
+  attachment_uploaded_at?: string | null;
   attachment_url: string | null;
   category: string | null;
   created_at: string | null;
@@ -947,6 +996,9 @@ type DosUserExternalAssessmentResultRow = {
   result_type: string | null;
   retake_reminder_date: string | null;
   scores_details: string | null;
+  share_eligible?: boolean | null;
+  short_summary?: string | null;
+  status?: string | null;
   top_strengths: string[] | null;
   updated_at: string | null;
   visibility: string | null;
@@ -965,6 +1017,38 @@ type DosUserPropheticWordRow = {
   tags: string[] | null;
   updated_at: string | null;
   word_text: string;
+};
+
+type DosUserLearningBookRow = {
+  author: string | null;
+  created_at: string | null;
+  final_summary: string | null;
+  finished_on: string | null;
+  id: string;
+  personal_application: string | null;
+  share_eligible: boolean | null;
+  started_on: string | null;
+  status: string | null;
+  title: string;
+  updated_at: string | null;
+  visibility: string | null;
+};
+
+type DosUserLearningChapterNoteRow = {
+  book_id: string;
+  chapter_label: string;
+  chapter_number: number | null;
+  created_at: string | null;
+  highlight_image_bucket: string | null;
+  highlight_image_content_type: string | null;
+  highlight_image_file_name: string | null;
+  highlight_image_path: string | null;
+  highlight_image_uploaded_at: string | null;
+  highlights: string | null;
+  id: string;
+  notes: string | null;
+  personal_application: string | null;
+  updated_at: string | null;
 };
 
 type ExternalCalendarEventRow = {
@@ -1205,6 +1289,22 @@ function mapMyRecordPropheticWordStatus(value: string | null | undefined): DosAp
   return "received";
 }
 
+function mapMyRecordExternalAssessmentStatus(value: string | null | undefined): DosAppUserExternalAssessmentResult["status"] {
+  if (value === "draft" || value === "not_started") {
+    return value;
+  }
+
+  return "completed";
+}
+
+function mapMyRecordLearningBookStatus(value: string | null | undefined): DosAppUserLearningBookStatus {
+  if (value === "archived" || value === "finished" || value === "paused" || value === "planned") {
+    return value;
+  }
+
+  return "reading";
+}
+
 function mapMyRecordAssessmentAnswers(value: unknown): Record<string, number> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -1260,6 +1360,7 @@ function emptyMyRecord(workspaceId: string, viewer?: DosAuthorizedUser | null): 
     externalAssessmentResults: [],
     id: null,
     journalEntries: [],
+    learningBooks: [],
     mentorMeetings: [],
     mentorRelationships: [],
     prayerLogs: [],
@@ -1994,7 +2095,7 @@ async function loadMyRecordForWorkspace(
   supabase: SupabaseAdminClient,
   workspaceId: string,
   viewer?: DosAuthorizedUser | null,
-  options: { includeExternalAssessments?: boolean; includePropheticWords?: boolean } = {},
+  options: { includeExternalAssessments?: boolean; includeLearning?: boolean; includePropheticWords?: boolean } = {},
 ) {
   const emptyRecord = emptyMyRecord(workspaceId, viewer);
 
@@ -2021,7 +2122,7 @@ async function loadMyRecordForWorkspace(
     return { data: emptyRecord, error: null };
   }
 
-  const [journalResult, prayerResult, mentorRelationshipsResult, mentorMeetingsResult, assessmentResultsResult, externalAssessmentResultsResult, propheticWordsResult] = await Promise.all([
+  const [journalResult, prayerResult, mentorRelationshipsResult, mentorMeetingsResult, assessmentResultsResult, initialExternalAssessmentResultsResult, propheticWordsResult, learningBooksResult, learningChapterNotesResult] = await Promise.all([
     supabase
       .from("dos_user_journal_entries")
       .select("id, entry_date, minutes_spent, started_at, stopped_at, bible_passage, notes, lord_highlight, prayer_response, tags, created_at, updated_at")
@@ -2067,7 +2168,7 @@ async function loadMyRecordForWorkspace(
     options.includeExternalAssessments
       ? supabase
         .from("dos_user_external_assessment_results")
-        .select("id, assessment_name, category, official_assessment_url, date_taken, result_type, top_strengths, scores_details, notes, attachment_url, retake_reminder_date, visibility, created_at, updated_at")
+        .select("id, assessment_name, category, official_assessment_url, date_taken, result_type, top_strengths, scores_details, notes, short_summary, status, share_eligible, attachment_url, attachment_bucket, attachment_path, attachment_file_name, attachment_content_type, attachment_uploaded_at, retake_reminder_date, visibility, created_at, updated_at")
         .eq("record_id", recordRow.id)
         .eq("workspace_id", workspaceId)
         .eq("user_id", viewer.userId)
@@ -2086,16 +2187,55 @@ async function loadMyRecordForWorkspace(
         .order("created_at", { ascending: false })
         .limit(80)
       : Promise.resolve({ data: [], error: null }),
+    options.includeLearning
+      ? supabase
+        .from("dos_user_learning_books")
+        .select("id, title, author, status, started_on, finished_on, personal_application, final_summary, share_eligible, visibility, created_at, updated_at")
+        .eq("record_id", recordRow.id)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", viewer.userId)
+        .order("updated_at", { ascending: false })
+        .limit(80)
+      : Promise.resolve({ data: [], error: null }),
+    options.includeLearning
+      ? supabase
+        .from("dos_user_learning_chapter_notes")
+        .select("id, book_id, chapter_label, chapter_number, highlights, notes, personal_application, highlight_image_bucket, highlight_image_path, highlight_image_file_name, highlight_image_content_type, highlight_image_uploaded_at, created_at, updated_at")
+        .eq("record_id", recordRow.id)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", viewer.userId)
+        .order("chapter_number", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true })
+        .limit(400)
+      : Promise.resolve({ data: [], error: null }),
   ]);
+  let externalAssessmentResultsResult = initialExternalAssessmentResultsResult;
+
+  if (options.includeExternalAssessments && externalAssessmentResultsResult.error && isMissingColumnError(externalAssessmentResultsResult.error)) {
+    externalAssessmentResultsResult = await supabase
+      .from("dos_user_external_assessment_results")
+      .select("id, assessment_name, category, official_assessment_url, date_taken, result_type, top_strengths, scores_details, notes, attachment_url, retake_reminder_date, visibility, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("date_taken", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(80) as typeof initialExternalAssessmentResultsResult;
+  }
+
   const externalAssessmentResultsTableMissing = externalAssessmentResultsResult.error && isMissingWorkflowTable(externalAssessmentResultsResult.error, "dos_user_external_assessment_results");
   const propheticWordsTableMissing = propheticWordsResult.error && isMissingWorkflowTable(propheticWordsResult.error, "dos_user_prophetic_words");
+  const learningBooksTableMissing = learningBooksResult.error && isMissingWorkflowTable(learningBooksResult.error, "dos_user_learning_books");
+  const learningChapterNotesTableMissing = learningChapterNotesResult.error && isMissingWorkflowTable(learningChapterNotesResult.error, "dos_user_learning_chapter_notes");
   const error = journalResult.error
     ?? prayerResult.error
     ?? mentorRelationshipsResult.error
     ?? mentorMeetingsResult.error
     ?? assessmentResultsResult.error
     ?? (externalAssessmentResultsTableMissing ? null : externalAssessmentResultsResult.error)
-    ?? (propheticWordsTableMissing ? null : propheticWordsResult.error);
+    ?? (propheticWordsTableMissing ? null : propheticWordsResult.error)
+    ?? (learningBooksTableMissing ? null : learningBooksResult.error)
+    ?? (learningChapterNotesTableMissing ? null : learningChapterNotesResult.error);
 
   if (error) {
     return isMissingWorkflowTable(error, "dos_user_")
@@ -2169,21 +2309,42 @@ async function loadMyRecordForWorkspace(
     updatedAt: result.updated_at,
     visibility: "private" as const,
   }));
-  const externalAssessmentResults = ((externalAssessmentResultsTableMissing ? [] : externalAssessmentResultsResult.data ?? []) as DosUserExternalAssessmentResultRow[]).map((result) => ({
-    assessmentName: result.assessment_name,
-    attachmentUrl: result.attachment_url,
-    category: result.category,
-    createdAt: result.created_at,
-    dateTaken: result.date_taken,
-    id: result.id,
-    notes: result.notes,
-    officialAssessmentUrl: result.official_assessment_url,
-    resultType: result.result_type,
-    retakeReminderDate: result.retake_reminder_date,
-    scoresDetails: result.scores_details,
-    topStrengths: Array.isArray(result.top_strengths) ? result.top_strengths.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [],
-    updatedAt: result.updated_at,
-    visibility: "private" as const,
+  const externalAssessmentRows = (externalAssessmentResultsTableMissing ? [] : externalAssessmentResultsResult.data ?? []) as DosUserExternalAssessmentResultRow[];
+  const externalAssessmentResults = await Promise.all(externalAssessmentRows.map(async (result) => {
+    let attachmentUrl = result.attachment_url;
+
+    if (result.attachment_bucket && result.attachment_path) {
+      const signedUrlResult = await supabase.storage
+        .from(result.attachment_bucket)
+        .createSignedUrl(result.attachment_path, 60 * 60);
+
+      attachmentUrl = signedUrlResult.data?.signedUrl ?? attachmentUrl;
+    }
+
+    return {
+      assessmentName: result.assessment_name,
+      attachmentBucket: result.attachment_bucket ?? null,
+      attachmentContentType: result.attachment_content_type ?? null,
+      attachmentFileName: result.attachment_file_name ?? null,
+      attachmentPath: result.attachment_path ?? null,
+      attachmentUploadedAt: result.attachment_uploaded_at ?? null,
+      attachmentUrl,
+      category: result.category,
+      createdAt: result.created_at,
+      dateTaken: result.date_taken,
+      id: result.id,
+      notes: result.notes,
+      officialAssessmentUrl: result.official_assessment_url,
+      resultType: result.result_type,
+      retakeReminderDate: result.retake_reminder_date,
+      scoresDetails: result.scores_details,
+      shareEligible: result.share_eligible === true,
+      shortSummary: result.short_summary ?? null,
+      status: mapMyRecordExternalAssessmentStatus(result.status),
+      topStrengths: Array.isArray(result.top_strengths) ? result.top_strengths.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [],
+      updatedAt: result.updated_at,
+      visibility: "private" as const,
+    };
   }));
   const propheticWords = ((propheticWordsTableMissing ? [] : propheticWordsResult.data ?? []) as DosUserPropheticWordRow[]).map((word) => ({
     confirmations: word.confirmations,
@@ -2199,6 +2360,61 @@ async function loadMyRecordForWorkspace(
     updatedAt: word.updated_at,
     wordText: word.word_text,
   }));
+  const learningChapterRows = (learningChapterNotesTableMissing ? [] : learningChapterNotesResult.data ?? []) as DosUserLearningChapterNoteRow[];
+  const learningChapterNotes = await Promise.all(learningChapterRows.map(async (note) => {
+    let highlightImageUrl: string | null = null;
+
+    if (note.highlight_image_bucket && note.highlight_image_path) {
+      const signedUrlResult = await supabase.storage
+        .from(note.highlight_image_bucket)
+        .createSignedUrl(note.highlight_image_path, 60 * 60);
+
+      highlightImageUrl = signedUrlResult.data?.signedUrl ?? null;
+    }
+
+    return {
+      bookId: note.book_id,
+      chapterNote: {
+        chapterLabel: note.chapter_label,
+        chapterNumber: note.chapter_number,
+        createdAt: note.created_at,
+        highlightImageBucket: note.highlight_image_bucket,
+        highlightImageContentType: note.highlight_image_content_type,
+        highlightImageFileName: note.highlight_image_file_name,
+        highlightImagePath: note.highlight_image_path,
+        highlightImageUploadedAt: note.highlight_image_uploaded_at,
+        highlightImageUrl,
+        highlights: note.highlights,
+        id: note.id,
+        notes: note.notes,
+        personalApplication: note.personal_application,
+        updatedAt: note.updated_at,
+      } satisfies DosAppUserLearningChapterNote,
+    };
+  }));
+  const learningChapterNotesByBookId = new Map<string, DosAppUserLearningChapterNote[]>();
+
+  for (const item of learningChapterNotes) {
+    const notes = learningChapterNotesByBookId.get(item.bookId) ?? [];
+    notes.push(item.chapterNote);
+    learningChapterNotesByBookId.set(item.bookId, notes);
+  }
+
+  const learningBooks = ((learningBooksTableMissing ? [] : learningBooksResult.data ?? []) as DosUserLearningBookRow[]).map((book) => ({
+    author: book.author,
+    chapterNotes: learningChapterNotesByBookId.get(book.id) ?? [],
+    createdAt: book.created_at,
+    finalSummary: book.final_summary,
+    finishedOn: book.finished_on,
+    id: book.id,
+    personalApplication: book.personal_application,
+    shareEligible: book.share_eligible === true,
+    startedOn: book.started_on,
+    status: mapMyRecordLearningBookStatus(book.status),
+    title: book.title,
+    updatedAt: book.updated_at,
+    visibility: "private" as const,
+  }));
 
   return {
     data: {
@@ -2209,6 +2425,7 @@ async function loadMyRecordForWorkspace(
       externalAssessmentResults,
       id: recordRow.id,
       journalEntries,
+      learningBooks,
       mentorMeetings,
       mentorRelationships,
       prayerLogs,
@@ -2666,6 +2883,7 @@ export async function loadDosAppData(
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
     loadMyRecordForWorkspace(supabase, workspace.id, viewer, {
       includeExternalAssessments: features.myRecordV2Enabled,
+      includeLearning: features.myRecordV2Enabled,
       includePropheticWords: features.myRecordV2Enabled,
     }),
     loadOrganizationForWorkspace(supabase, workspace.slug),

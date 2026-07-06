@@ -8,16 +8,29 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 const journalTags = ["Prayer", "Scripture", "Worship", "Repentance", "Direction", "Thanksgiving"] as const;
 const prayerStatuses = ["answered", "open", "watching"] as const;
 const propheticWordStatuses = ["archived", "confirmed", "fulfilled", "received", "testing"] as const;
+const externalAssessmentStatuses = ["completed", "draft", "not_started"] as const;
+const assessmentReportBucket = "dos-my-record-assessments";
+const learningStatuses = ["planned", "reading", "finished", "paused", "archived"] as const;
+const learningHighlightBucket = "dos-my-record-learning";
 
 type MyRecordPayload = {
   actionSteps?: unknown;
   answers?: unknown;
   answeredStatus?: unknown;
   assessmentName?: unknown;
+  attachmentBucket?: unknown;
+  attachmentContentType?: unknown;
+  attachmentFileName?: unknown;
+  attachmentPath?: unknown;
+  attachmentUploadedAt?: unknown;
   assessmentSlug?: unknown;
   attachmentUrl?: unknown;
+  author?: unknown;
   biblePassage?: unknown;
+  bookId?: unknown;
   category?: unknown;
+  chapterLabel?: unknown;
+  chapterNumber?: unknown;
   confirmations?: unknown;
   counselReceived?: unknown;
   context?: unknown;
@@ -29,7 +42,15 @@ type MyRecordPayload = {
   displayName?: unknown;
   fieldPersonId?: unknown;
   followUpDate?: unknown;
+  finalSummary?: unknown;
+  finishedOn?: unknown;
   givenBy?: unknown;
+  highlightImageBucket?: unknown;
+  highlightImageContentType?: unknown;
+  highlightImageFileName?: unknown;
+  highlightImagePath?: unknown;
+  highlightImageUploadedAt?: unknown;
+  highlights?: unknown;
   kind?: unknown;
   lordHighlight?: unknown;
   mentorName?: unknown;
@@ -38,14 +59,19 @@ type MyRecordPayload = {
   officialAssessmentUrl?: unknown;
   prayerFocus?: unknown;
   prayerResponse?: unknown;
+  personalApplication?: unknown;
   relationshipId?: unknown;
   relationshipLabel?: unknown;
   resultType?: unknown;
   retakeReminderDate?: unknown;
+  shareEligible?: unknown;
+  shortSummary?: unknown;
   scriptureReferences?: unknown;
   scoresDetails?: unknown;
   status?: unknown;
+  startedOn?: unknown;
   tags?: unknown;
+  title?: unknown;
   topStrengths?: unknown;
   wordText?: unknown;
   workspaceId?: unknown;
@@ -145,6 +171,86 @@ function asPropheticWordStatus(value: unknown) {
   return propheticWordStatuses.includes(status as typeof propheticWordStatuses[number]) ? status : "received";
 }
 
+function asExternalAssessmentStatus(value: unknown) {
+  const status = asString(value).toLowerCase();
+
+  return externalAssessmentStatuses.includes(status as typeof externalAssessmentStatuses[number]) ? status : "completed";
+}
+
+function asLearningStatus(value: unknown) {
+  const status = asString(value).toLowerCase();
+
+  return learningStatuses.includes(status as typeof learningStatuses[number]) ? status : "reading";
+}
+
+function asBoolean(value: unknown) {
+  return value === true || asString(value).toLowerCase() === "true" || asString(value) === "on";
+}
+
+function asAssessmentAttachment(payload: MyRecordPayload, workspaceId: string, userId: string) {
+  const bucket = asString(payload.attachmentBucket);
+  const path = asString(payload.attachmentPath);
+
+  if (!bucket && !path) {
+    return {
+      attachmentBucket: null,
+      attachmentContentType: null,
+      attachmentFileName: null,
+      attachmentPath: null,
+      attachmentUploadedAt: null,
+    };
+  }
+
+  const expectedPrefix = `workspaces/${workspaceId}/users/${userId}/assessments/`;
+
+  if (bucket !== assessmentReportBucket || !path.startsWith(expectedPrefix)) {
+    return { response: NextResponse.json({ error: "Invalid assessment report attachment." }, { status: 400 }) };
+  }
+
+  const uploadedAt = asString(payload.attachmentUploadedAt);
+  const uploadedAtDate = uploadedAt ? new Date(uploadedAt) : null;
+
+  return {
+    attachmentBucket: bucket,
+    attachmentContentType: asNullableText(payload.attachmentContentType, 160),
+    attachmentFileName: asNullableText(payload.attachmentFileName, 240),
+    attachmentPath: path,
+    attachmentUploadedAt: uploadedAtDate && Number.isFinite(uploadedAtDate.getTime()) ? uploadedAtDate.toISOString() : new Date().toISOString(),
+  };
+}
+
+function asLearningHighlightImage(payload: MyRecordPayload, workspaceId: string, userId: string) {
+  const bucket = asString(payload.highlightImageBucket);
+  const path = asString(payload.highlightImagePath);
+
+  if (!bucket && !path) {
+    return {
+      highlightImageBucket: null,
+      highlightImageContentType: null,
+      highlightImageFileName: null,
+      highlightImagePath: null,
+      highlightImageUploadedAt: null,
+    };
+  }
+
+  const expectedPrefix = `workspaces/${workspaceId}/users/${userId}/learning/`;
+
+  if (bucket !== learningHighlightBucket || !path.startsWith(expectedPrefix)) {
+    return { response: NextResponse.json({ error: "Invalid learning highlight image." }, { status: 400 }) };
+  }
+
+  const uploadedAt = asString(payload.highlightImageUploadedAt);
+  const uploadedAtDate = uploadedAt ? new Date(uploadedAt) : null;
+
+  return {
+    highlightImageBucket: bucket,
+    highlightImageContentType: asNullableText(payload.highlightImageContentType, 160),
+    highlightImageFileName: asNullableText(payload.highlightImageFileName, 240),
+    highlightImagePath: path,
+    highlightImageUploadedAt: uploadedAtDate && Number.isFinite(uploadedAtDate.getTime()) ? uploadedAtDate.toISOString() : new Date().toISOString(),
+  };
+}
+
 function asStringList(value: unknown, maxItems = 12) {
   const values = Array.isArray(value)
     ? value
@@ -153,6 +259,22 @@ function asStringList(value: unknown, maxItems = 12) {
       .map((item) => item.trim());
 
   return Array.from(new Set(values.map((item) => asString(item)).filter(Boolean))).slice(0, maxItems);
+}
+
+function asOptionalInteger(value: unknown, min = 0, max = 9999) {
+  const rawValue = asString(value);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const numericValue = Number.parseInt(rawValue, 10);
+
+  if (!Number.isFinite(numericValue)) {
+    return null;
+  }
+
+  return Math.min(max, Math.max(min, Math.round(numericValue)));
 }
 
 function asAssessmentScore(value: unknown) {
@@ -683,10 +805,21 @@ export async function POST(request: Request) {
       return attachmentUrl.response;
     }
 
+    const attachment = asAssessmentAttachment(payload, workspaceId, authResult.authorization.userId);
+
+    if ("response" in attachment) {
+      return attachment.response;
+    }
+
     const { data, error } = await supabase
       .from("dos_user_external_assessment_results")
       .insert({
         assessment_name: assessmentName,
+        attachment_bucket: attachment.attachmentBucket,
+        attachment_content_type: attachment.attachmentContentType,
+        attachment_file_name: attachment.attachmentFileName,
+        attachment_path: attachment.attachmentPath,
+        attachment_uploaded_at: attachment.attachmentUploadedAt,
         attachment_url: attachmentUrl.value,
         category: asNullableText(payload.category, 160),
         date_taken: asDateString(payload.dateTaken || payload.date),
@@ -696,9 +829,135 @@ export async function POST(request: Request) {
         result_type: asNullableText(payload.resultType, 500),
         retake_reminder_date: asOptionalDateString(payload.retakeReminderDate),
         scores_details: asNullableText(payload.scoresDetails, 4000),
+        share_eligible: asBoolean(payload.shareEligible),
+        short_summary: asNullableText(payload.shortSummary, 1200),
+        status: asExternalAssessmentStatus(payload.status),
         top_strengths: asStringList(payload.topStrengths, 20),
         user_id: authResult.authorization.userId,
         visibility: "private",
+        workspace_id: workspaceId,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ id: data.id });
+  }
+
+  if (kind === "learning_book") {
+    if (!myRecordV2Enabled) {
+      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
+    }
+
+    const bookId = asString(payload.bookId);
+    const title = asNullableText(payload.title, 240);
+
+    if (bookId && !isUuid(bookId)) {
+      return NextResponse.json({ error: "Selected book is invalid." }, { status: 400 });
+    }
+
+    if (!title) {
+      return NextResponse.json({ error: "Book title is required." }, { status: 400 });
+    }
+
+    const bookPayload = {
+      author: asNullableText(payload.author, 240),
+      final_summary: asNullableText(payload.finalSummary, 5000),
+      finished_on: asOptionalDateString(payload.finishedOn),
+      personal_application: asNullableText(payload.personalApplication, 5000),
+      share_eligible: asBoolean(payload.shareEligible),
+      started_on: asOptionalDateString(payload.startedOn),
+      status: asLearningStatus(payload.status),
+      title,
+      visibility: "private",
+    };
+    const result = bookId
+      ? await supabase
+        .from("dos_user_learning_books")
+        .update(bookPayload)
+        .eq("id", bookId)
+        .eq("record_id", recordId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", authResult.authorization.userId)
+        .select("id")
+        .single()
+      : await supabase
+        .from("dos_user_learning_books")
+        .insert({
+          ...bookPayload,
+          record_id: recordId,
+          user_id: authResult.authorization.userId,
+          workspace_id: workspaceId,
+        })
+        .select("id")
+        .single();
+    const { data, error } = result;
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ id: data.id });
+  }
+
+  if (kind === "learning_chapter_note") {
+    if (!myRecordV2Enabled) {
+      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
+    }
+
+    const bookId = asString(payload.bookId);
+    const chapterLabel = asNullableText(payload.chapterLabel, 240);
+
+    if (!isUuid(bookId)) {
+      return NextResponse.json({ error: "Selected book is invalid." }, { status: 400 });
+    }
+
+    if (!chapterLabel) {
+      return NextResponse.json({ error: "Chapter label is required." }, { status: 400 });
+    }
+
+    const { data: book, error: bookError } = await supabase
+      .from("dos_user_learning_books")
+      .select("id")
+      .eq("id", bookId)
+      .eq("record_id", recordId)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", authResult.authorization.userId)
+      .maybeSingle();
+
+    if (bookError) {
+      return NextResponse.json({ error: bookError.message }, { status: 500 });
+    }
+
+    if (!book) {
+      return NextResponse.json({ error: "Learning book not found." }, { status: 404 });
+    }
+
+    const highlightImage = asLearningHighlightImage(payload, workspaceId, authResult.authorization.userId);
+
+    if ("response" in highlightImage) {
+      return highlightImage.response;
+    }
+
+    const { data, error } = await supabase
+      .from("dos_user_learning_chapter_notes")
+      .insert({
+        book_id: bookId,
+        chapter_label: chapterLabel,
+        chapter_number: asOptionalInteger(payload.chapterNumber, 0, 9999),
+        highlight_image_bucket: highlightImage.highlightImageBucket,
+        highlight_image_content_type: highlightImage.highlightImageContentType,
+        highlight_image_file_name: highlightImage.highlightImageFileName,
+        highlight_image_path: highlightImage.highlightImagePath,
+        highlight_image_uploaded_at: highlightImage.highlightImageUploadedAt,
+        highlights: asNullableText(payload.highlights, 5000),
+        notes: asNullableText(payload.notes, 5000),
+        personal_application: asNullableText(payload.personalApplication, 5000),
+        record_id: recordId,
+        user_id: authResult.authorization.userId,
         workspace_id: workspaceId,
       })
       .select("id")
