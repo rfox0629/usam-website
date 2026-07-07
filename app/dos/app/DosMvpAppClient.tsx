@@ -5751,7 +5751,11 @@ function GroupLogoMark({
   group: DosAppGroup;
   large?: boolean;
 }) {
-  const sizeClassName = large ? "h-32 w-full min-[560px]:h-40" : "h-24 w-full min-[560px]:h-28 min-[560px]:w-44";
+  const sizeClassName = large ? "h-36 w-full min-[560px]:h-44" : "h-28 w-full min-[640px]:h-32 min-[640px]:w-56";
+  const isLongName = group.name.length > 12;
+  const headlineClassName = large
+    ? isLongName ? "text-[32px] min-[560px]:text-[38px]" : "text-[42px] min-[560px]:text-[48px]"
+    : isLongName ? "text-[23px] min-[640px]:text-[26px]" : "text-[32px]";
 
   if (group.imageUrl) {
     return (
@@ -5765,17 +5769,87 @@ function GroupLogoMark({
 
   return (
     <div className={`${sizeClassName} relative isolate shrink-0 overflow-hidden rounded-[18px] bg-[#0B1120] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]`}>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(37,99,235,0.42),transparent_32%),linear-gradient(135deg,#0B1120_0%,#111827_58%,#1E293B_100%)]" />
-      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#F59E0B]/18 blur-2xl" />
-      <div className="relative flex h-full flex-col justify-end p-3">
-        <span className={`${large ? "text-[40px]" : "text-[28px]"} block font-black leading-none tracking-[-0.04em] text-[#F8C56A]`} style={{ fontFamily: font.oswald }}>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_76%_18%,rgba(37,99,235,0.3),transparent_30%),linear-gradient(135deg,#060B16_0%,#0B1120_54%,#1E293B_100%)]" />
+      <div className="absolute inset-x-6 bottom-0 h-px bg-[#F8C56A]/45" />
+      <div className="absolute right-4 top-4 rounded-full border border-[#F8C56A]/25 bg-white/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#F8C56A]" style={{ fontFamily: font.rajdhani }}>
+        {groupTypeLabel(group)}
+      </div>
+      <div className="relative flex h-full flex-col justify-end p-4">
+        <span className={`${headlineClassName} block max-w-[88%] font-black leading-none tracking-[-0.035em] text-[#F8C56A]`} style={{ fontFamily: font.oswald }}>
           {group.name}
         </span>
-        <span className="mt-1 text-[9px] font-black uppercase tracking-[0.17em] text-white/72" style={{ fontFamily: font.rajdhani }}>
+        <span className="mt-2 text-[9px] font-black uppercase tracking-[0.17em] text-white/72" style={{ fontFamily: font.rajdhani }}>
           {group.tagline ?? "Pursue together"}
         </span>
       </div>
     </div>
+  );
+}
+
+function groupTypeLabel(group: DosAppGroup) {
+  const name = group.name.toLowerCase();
+
+  if (group.type === "running") {
+    return "Running";
+  }
+
+  if (name.includes("men")) {
+    return "Men's Group";
+  }
+
+  if (group.type === "prayer") {
+    return "Prayer";
+  }
+
+  if (group.type === "study") {
+    return "Bible Study";
+  }
+
+  if (group.type === "table") {
+    return "Table";
+  }
+
+  return "Discipleship";
+}
+
+function groupTypeIcon(group: DosAppGroup) {
+  const label = groupTypeLabel(group);
+
+  if (label === "Running") {
+    return <Flame className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />;
+  }
+
+  if (label === "Prayer") {
+    return <Heart className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />;
+  }
+
+  if (label === "Bible Study") {
+    return <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />;
+  }
+
+  return <Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />;
+}
+
+function groupCadenceLabel(group: DosAppGroup) {
+  const rhythm = group.rhythmLabel?.trim();
+
+  if (!rhythm) {
+    return "Rhythm TBD";
+  }
+
+  if (rhythm.toLowerCase().startsWith("weekly")) {
+    return "Weekly";
+  }
+
+  return rhythm.split(" at ")[0]?.split(" · ")[0]?.trim() || rhythm;
+}
+
+function GroupTypeBadge({ group }: { group: DosAppGroup }) {
+  return (
+    <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-[#F8FAFC] px-2.5 text-[10px] font-black uppercase tracking-[0.11em] text-[#475569] ring-1 ring-[#E2E8F0]" style={{ fontFamily: font.rajdhani }}>
+      {groupTypeIcon(group)}
+      {groupTypeLabel(group)}
+    </span>
   );
 }
 
@@ -5819,12 +5893,12 @@ function GroupIntroCard({ featuredGroup }: { featuredGroup: DosAppGroup | null }
     <section className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_16px_38px_rgba(37,99,235,0.055)]">
       <div className="grid gap-0 md:grid-cols-[minmax(0,1fr)_260px]">
         <div className="p-5">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Featured rhythm</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Featured Group</p>
           <h2 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-            Run. Pray. Pursue.
+            Discipleship happens in rhythms.
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#475569]">
-            Groups are recurring discipleship rhythms for gathering, prayer, attendance, fruit, and Table logs.
+            Build consistent rhythms of discipleship through weekly gatherings, prayer, accountability, and community.
           </p>
         </div>
         <div className="hidden p-3 md:block">
@@ -5848,7 +5922,7 @@ function GroupCard({
 
   return (
     <button
-      className="grid min-w-0 gap-3 rounded-[22px] border border-[#DCEBFF] bg-white p-3 text-left shadow-[0_12px_30px_rgba(37,99,235,0.05)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF] min-[560px]:grid-cols-[176px_minmax(0,1fr)_auto] min-[560px]:items-center"
+      className="grid min-w-0 gap-4 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 text-left shadow-[0_12px_30px_rgba(37,99,235,0.05)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF] min-[640px]:grid-cols-[224px_minmax(0,1fr)_auto] min-[640px]:items-center"
       onClick={onOpen}
       type="button"
     >
@@ -5856,7 +5930,8 @@ function GroupCard({
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-base font-black leading-tight text-[#0F172A]">{group.name}</span>
-          <GroupPill>{group.rhythmLabel?.split(" at ")[0] ?? "Group"}</GroupPill>
+          <GroupTypeBadge group={group} />
+          <GroupPill tone="gray">{groupCadenceLabel(group)}</GroupPill>
         </span>
         <span className="mt-1 line-clamp-2 block text-sm leading-5 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</span>
         <span className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold text-[#64748B]">
@@ -6127,17 +6202,14 @@ function GroupOverviewTab({
   nextGathering: DosAppGroupGathering | null;
 }) {
   const upcoming = groupUpcomingGatherings(group).slice(0, 3);
+  const rhythmCards = groupOverviewRhythms(group);
 
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
       <DesktopPanel eyebrow="About" title={`About ${group.name}`}>
         <p className="text-sm leading-6 text-[#475569]">{group.description ?? "No description yet."}</p>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {[
-            ["Run Together", "Build endurance in body and spirit."],
-            ["Pray Together", "Lift one another up in every mile."],
-            ["Pursue Together", "Pursue righteousness, faith, love, and peace."],
-          ].map(([title, body]) => (
+          {rhythmCards.map(({ body, title }) => (
             <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={title}>
               <p className="text-sm font-black text-[#0F172A]">{title}</p>
               <p className="mt-1 text-xs leading-5 text-[#64748B]">{body}</p>
@@ -6161,6 +6233,22 @@ function GroupOverviewTab({
       </div>
     </div>
   );
+}
+
+function groupOverviewRhythms(group: DosAppGroup) {
+  if (group.type === "running") {
+    return [
+      { body: "Build endurance in body and spirit.", title: "Run Together" },
+      { body: "Lift one another up in every mile.", title: "Pray Together" },
+      { body: "Pursue righteousness, faith, love, and peace.", title: "Pursue Together" },
+    ];
+  }
+
+  return [
+    { body: "Keep a steady weekly rhythm of Scripture and accountability.", title: "Gather Together" },
+    { body: "Carry one another's needs before the Lord.", title: "Pray Together" },
+    { body: "Encourage obedience, community, and Christlike growth.", title: "Pursue Together" },
+  ];
 }
 
 function GroupMembersTab({ group }: { group: DosAppGroup }) {
@@ -6244,7 +6332,7 @@ function GroupAttendanceTab({ group }: { group: DosAppGroup }) {
           ))}
         </div>
       ) : (
-        <SectionEmptyState text={gathering ? "Mark who was present after this gathering." : "Schedule a gathering before attendance is tracked."} title={gathering ? "No attendance recorded." : "No gathering selected."} />
+        <SectionEmptyState text={gathering ? "Record attendance after your next gathering." : "Schedule a gathering before attendance is tracked."} title={gathering ? "No attendance has been recorded yet." : "No gathering selected."} />
       )}
     </DesktopPanel>
   );
@@ -6297,8 +6385,8 @@ function GroupPrayerTab({ group, onAddPrayer }: { group: DosAppGroup; onAddPraye
       ) : (
         <SectionEmptyState
           action={<CompactButton icon="prayer" onClick={onAddPrayer}>Add Prayer</CompactButton>}
-          text={view === "answered" ? "Answered group prayers will appear here." : "Add requests for the group or for a specific member."}
-          title={view === "answered" ? "No answered group prayers." : "No active group prayers."}
+          text={view === "answered" ? "Answered group prayers will appear here." : "Prayer requests added during gatherings will automatically appear here."}
+          title={view === "answered" ? "No answered group prayers." : "No active prayer requests."}
         />
       )}
     </DesktopPanel>
@@ -6309,12 +6397,12 @@ function GroupResourcesTab({ group }: { group: DosAppGroup }) {
   return (
     <DesktopPanel eyebrow="Resources" title="Group Resources">
       {group.resources.length ? (
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           {group.resources.map((resource) => (
-            <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={resource.id}>
+            <div className="flex min-w-0 items-start justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-4" key={resource.id}>
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-[#0F172A]">{resource.title}</p>
-                {resource.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{resource.description}</p> : null}
+                {resource.description ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{resource.description}</p> : null}
               </div>
               {resource.url ? (
                 <a className="shrink-0 rounded-full border border-[#BFDBFE] bg-white p-2 text-[#2563EB] transition-colors hover:bg-[#EBF2FF]" href={resource.url} rel="noreferrer" target="_blank">
@@ -25537,7 +25625,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {
           description: "Recurring discipleship rhythms, gatherings, attendance, and prayer.",
           icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "Groups - My Record",
+          label: "Groups",
           onClick: () => openMoreApp("groups"),
           section: "installed",
           status: `${data.groups.length} groups`,
@@ -25631,10 +25719,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ];
   const mobileAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => ["Groups - My Record", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
+    .filter((item) => ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
   const desktopAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => ["Groups - My Record", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
+    .filter((item) => ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 
@@ -25689,7 +25777,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }))
     : activeTab === "more"
       ? [
-          { icon: "people", label: "Groups - My Record", onClick: runMobileAction(() => openMoreApp("groups")) },
+          { icon: "people", label: "Groups", onClick: runMobileAction(() => openMoreApp("groups")) },
           { icon: "fruit", label: "Fruit", onClick: runMobileAction(() => openMoreApp("fruit")) },
           { icon: "library", label: "Library", onClick: runMobileAction(() => openMoreApp("library")) },
           { icon: "log", label: "Reports", onClick: runMobileAction(() => openMoreApp("reports")) },
