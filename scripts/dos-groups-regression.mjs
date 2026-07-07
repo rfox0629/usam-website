@@ -279,6 +279,8 @@ assertIncludes(
 );
 
 assertIncludes(preview, 'const groups: DosAppData["groups"]', "DOS preview data must include groups.");
+assertIncludes(preview, 'process.env.DOS_DISABLE_DEMO_PREVIEW !== "true"', "DOS preview must stay token-available for production smoke checks unless explicitly disabled.");
+assert(!preview.includes('process.env.VERCEL_ENV === "preview"'), "DOS preview must not disappear in production when the valid demo token is supplied.");
 assertIncludes(preview, 'name: "2three2"', "DOS preview must render the featured 2three2 group.");
 assertIncludes(preview, 'tagline: "Run. Pray. Pursue."', "DOS preview must seed the 2three2 tagline.");
 assertIncludes(preview, "name: \"Tuesday Men's Group\"", "DOS preview must seed Tuesday Men's Group.");
