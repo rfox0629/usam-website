@@ -22,6 +22,7 @@ import {
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
 import { syncHouseholdTeamMembersAsPeople } from "@/src/lib/dos/household-member-people";
+import { ensureRyanDosWorkspaceGroups } from "@/src/lib/dos/group-seeds";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
 import { loadTableInvitationsForWorkspace } from "@/src/lib/dos/table-invitation-data";
 import type { DosTableInvitation } from "@/src/lib/dos/table-invitations";
@@ -2919,6 +2920,12 @@ export async function loadDosAppData(
       message: householdPeopleSync.error.message ?? "Unable to prepare household people.",
       status: "error",
     };
+  }
+
+  const groupsSeedResult = await ensureRyanDosWorkspaceGroups(supabase, workspace);
+
+  if (groupsSeedResult.error) {
+    console.warn("Unable to seed Ryan DOS groups.", groupsSeedResult.error.message);
   }
 
   const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
