@@ -21,7 +21,9 @@ function assertIncludes(source, needle, message) {
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const preview = read("app/dos/app/preview/page.tsx");
 const missionaryApp = read("src/lib/dos/missionary-app.ts");
+const groupSeeds = read("src/lib/dos/group-seeds.ts");
 const migration = read("supabase/migrations/20260707034007_dos_private_groups.sql");
+const realWorkspaceSeedMigration = read("supabase/migrations/20260707171021_seed_ryan_dos_groups.sql");
 const prayerMigration = read("supabase/migrations/20260707132434_dos_unified_prayer_context.sql");
 const prayerRoute = read("app/api/dos/app/prayer-requests/route.ts");
 const publicGroupPage = read("app/groups/[slug]/page.tsx");
@@ -78,9 +80,19 @@ assertIncludes(
   "public.missionary_field_people",
   "Group membership must link to existing Field person records.",
 );
+assertIncludes(realWorkspaceSeedMigration, "on conflict (workspace_id, slug)", "Ryan workspace seed must upsert groups idempotently.");
+assertIncludes(realWorkspaceSeedMigration, "where slug in ('ryan-fox', 'ryan-brooke-fox')", "Ryan workspace seed must target the real DOS workspace slugs.");
+assertIncludes(realWorkspaceSeedMigration, "public_slug = 'fox-family'", "Ryan workspace seed must tolerate the Fox public profile slug.");
+assertIncludes(realWorkspaceSeedMigration, "'2three2'", "Ryan workspace seed must include 2three2.");
+assertIncludes(realWorkspaceSeedMigration, "'tuesday-mens-group'", "Ryan workspace seed must include Tuesday Men's Group.");
+assertIncludes(realWorkspaceSeedMigration, "'wednesday-mens-group'", "Ryan workspace seed must include Wednesday Men's Group.");
+assertIncludes(realWorkspaceSeedMigration, "'private'", "Ryan workspace seed must keep groups private.");
+assertIncludes(realWorkspaceSeedMigration, "ryan_leader_person_id", "Ryan workspace seed must resolve an existing Ryan person before assigning leadership.");
+assertIncludes(realWorkspaceSeedMigration, "on conflict (group_id, person_id)", "Ryan workspace seed must not duplicate leader membership rows.");
 
 assertIncludes(missionaryApp, "export type DosAppGroup", "DOS data model must export group data.");
 assertIncludes(missionaryApp, "groups: DosAppGroup[]", "DOS app data must include groups.");
+assertIncludes(missionaryApp, "ensureRyanDosWorkspaceGroups", "Real DOS workspace loader must run the Ryan groups seed path.");
 assertIncludes(
   missionaryApp,
   "async function loadGroupsForWorkspace",
@@ -109,6 +121,15 @@ assertIncludes(
   "linkedTableEventId",
   "DOS group gatherings must expose future Table log linkage.",
 );
+assertIncludes(groupSeeds, "export const ryanDosGroupSeeds", "Ryan DOS group seeds must live outside preview fixtures.");
+assertIncludes(groupSeeds, "ensureRyanDosWorkspaceGroups", "Ryan DOS group seeds must expose a real workspace bootstrap helper.");
+assertIncludes(groupSeeds, 'workspace.slug', "Ryan DOS group seed helper must inspect the real workspace slug.");
+assertIncludes(groupSeeds, '"ryan-fox"', "Ryan DOS group seed helper must target /dos/ryan-fox.");
+assertIncludes(groupSeeds, '"tuesday-mens-group"', "Ryan DOS group seed helper must include Tuesday Men's Group.");
+assertIncludes(groupSeeds, '"wednesday-mens-group"', "Ryan DOS group seed helper must include Wednesday Men's Group.");
+assertIncludes(groupSeeds, 'onConflict: "workspace_id,slug"', "Ryan DOS group seed helper must upsert by workspace and slug.");
+assertIncludes(groupSeeds, 'onConflict: "group_id,person_id"', "Ryan DOS group seed helper must upsert leader membership.");
+assertIncludes(groupSeeds, 'visibility: "private"', "Ryan DOS group seed helper must keep default visibility private.");
 
 assertIncludes(appClient, '"groups"', "Groups must be available as a DOS app view.");
 assertIncludes(appClient, 'label: "My Record"', "My Record must remain a separate desktop navigation item.");
