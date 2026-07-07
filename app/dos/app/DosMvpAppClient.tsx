@@ -136,9 +136,16 @@ type LocalPrayerRequest = {
 };
 type DosPrayerRequestDraft = {
   category: string;
+  createdByPersonId?: string | null;
   fieldPersonId?: string | null;
+  followUpAt?: string | null;
+  gatheringId?: string | null;
+  groupId?: string | null;
   linkedPersonIds?: string[];
+  meetingId?: string | null;
+  organizationId?: string | null;
   personTags: string[];
+  priority?: DosAppPrayerRequest["priority"];
   request: string;
   title: string;
   visibility: DosAppPrayerRequest["visibility"];
@@ -147,9 +154,16 @@ type DosPrayerRequestPatch = Partial<{
   answerTestimony: string | null;
   answeredAt: string | null;
   category: string;
+  createdByPersonId: string | null;
   fieldPersonId: string | null;
+  followUpAt: string | null;
+  gatheringId: string | null;
+  groupId: string | null;
   linkedPersonIds: string[];
+  meetingId: string | null;
+  organizationId: string | null;
   personTags: string[];
+  priority: DosAppPrayerRequest["priority"];
   request: string;
   status: DosAppPrayerRequest["status"];
   title: string;
@@ -236,7 +250,6 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
     items: [
       { icon: "people", label: "Field", type: "tab", value: "people" },
       { icon: "meetings", label: "Table", type: "tab", value: "meetings" },
-      { icon: "people", label: "Groups", type: "moreApp", value: "groups" },
       { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
     ],
   },
@@ -777,7 +790,7 @@ type GroupsListView = "all" | "mine";
 type GroupDetailTab = "attendance" | "gatherings" | "members" | "overview" | "prayer" | "resources" | "settings";
 type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer" | "reviews";
 type PrayerRequestView = "answered" | "praying";
-type PrayerWorkspaceTab = "my_requests" | "partners" | "praying_for";
+type PrayerWorkspaceTab = "answered_recently" | "group_prayers" | "high_priority" | "needs_follow_up" | "person_prayers" | "pray_today";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
 type MeetingReviewFollowUp = "none" | "quick_review" | "review_options" | "testimony_request";
 type MeetingCalendarItemKind = "anniversary" | "birthday" | "follow_up" | "google" | "meeting" | "prayer";
@@ -5738,7 +5751,7 @@ function GroupLogoMark({
   group: DosAppGroup;
   large?: boolean;
 }) {
-  const sizeClassName = large ? "h-28 w-full min-[560px]:h-36" : "h-20 w-24";
+  const sizeClassName = large ? "h-32 w-full min-[560px]:h-40" : "h-24 w-full min-[560px]:h-28 min-[560px]:w-44";
 
   if (group.imageUrl) {
     return (
@@ -5755,7 +5768,7 @@ function GroupLogoMark({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(37,99,235,0.42),transparent_32%),linear-gradient(135deg,#0B1120_0%,#111827_58%,#1E293B_100%)]" />
       <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#F59E0B]/18 blur-2xl" />
       <div className="relative flex h-full flex-col justify-end p-3">
-        <span className={`${large ? "text-[36px]" : "text-[24px]"} block font-black leading-none tracking-[-0.04em] text-[#F8C56A]`} style={{ fontFamily: font.oswald }}>
+        <span className={`${large ? "text-[40px]" : "text-[28px]"} block font-black leading-none tracking-[-0.04em] text-[#F8C56A]`} style={{ fontFamily: font.oswald }}>
           {group.name}
         </span>
         <span className="mt-1 text-[9px] font-black uppercase tracking-[0.17em] text-white/72" style={{ fontFamily: font.rajdhani }}>
@@ -5835,7 +5848,7 @@ function GroupCard({
 
   return (
     <button
-      className="grid min-w-0 gap-3 rounded-[22px] border border-[#DCEBFF] bg-white p-3 text-left shadow-[0_12px_30px_rgba(37,99,235,0.05)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF] min-[560px]:grid-cols-[auto_minmax(0,1fr)_auto] min-[560px]:items-center"
+      className="grid min-w-0 gap-3 rounded-[22px] border border-[#DCEBFF] bg-white p-3 text-left shadow-[0_12px_30px_rgba(37,99,235,0.05)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF] min-[560px]:grid-cols-[176px_minmax(0,1fr)_auto] min-[560px]:items-center"
       onClick={onOpen}
       type="button"
     >
@@ -5861,6 +5874,7 @@ function GroupCard({
 function GroupsWorkspace({
   groups,
   groupsNotice,
+  onAddPrayer,
   onCreateGroup,
   onDetailTabChange,
   onInvite,
@@ -5877,6 +5891,7 @@ function GroupsWorkspace({
 }: {
   groups: DosAppGroup[];
   groupsNotice: string;
+  onAddPrayer: () => void;
   onCreateGroup: () => void;
   onDetailTabChange: (tab: GroupDetailTab) => void;
   onInvite: () => void;
@@ -5896,6 +5911,7 @@ function GroupsWorkspace({
       <GroupDetailWorkspace
         group={selectedGroup}
         notice={groupsNotice}
+        onAddPrayer={onAddPrayer}
         onBack={() => onOpenGroup("")}
         onInvite={onInvite}
         onLogAsTable={onLogAsTable}
@@ -5956,6 +5972,7 @@ function GroupsWorkspace({
 function GroupDetailWorkspace({
   group,
   notice,
+  onAddPrayer,
   onBack,
   onInvite,
   onLogAsTable,
@@ -5966,6 +5983,7 @@ function GroupDetailWorkspace({
 }: {
   group: DosAppGroup;
   notice: string;
+  onAddPrayer: () => void;
   onBack: () => void;
   onInvite: () => void;
   onLogAsTable: () => void;
@@ -6001,7 +6019,7 @@ function GroupDetailWorkspace({
             <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Invite" onClick={onInvite} />
             <GroupQuickAction icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Schedule" onClick={onSchedule} />
             <GroupQuickAction icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Log as Table" onClick={onLogAsTable} />
-            <GroupQuickAction icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Take Attendance" onClick={onTakeAttendance} />
+            <GroupQuickAction icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Take Attendance" onClick={onTakeAttendance} tone="primary" />
           </div>
         </div>
         <div className="grid border-t border-[#EAF2FF] md:grid-cols-4">
@@ -6017,7 +6035,7 @@ function GroupDetailWorkspace({
       {tab === "members" ? <GroupMembersTab group={group} /> : null}
       {tab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
       {tab === "attendance" ? <GroupAttendanceTab group={group} /> : null}
-      {tab === "prayer" ? <GroupPrayerTab group={group} /> : null}
+      {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={onAddPrayer} /> : null}
       {tab === "resources" ? <GroupResourcesTab group={group} /> : null}
       {tab === "settings" ? <GroupSettingsTab group={group} /> : null}
     </div>
@@ -6028,14 +6046,20 @@ function GroupQuickAction({
   icon,
   label,
   onClick,
+  tone = "secondary",
 }: {
   icon: ReactNode;
   label: string;
   onClick: () => void;
+  tone?: "primary" | "secondary";
 }) {
+  const className = tone === "primary"
+    ? "border-[#2563EB] bg-[#2563EB] text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] hover:bg-[#1D4ED8]"
+    : "border-[#BFDBFE] bg-white text-[#1D4ED8] hover:bg-[#EBF2FF]";
+
   return (
     <button
-      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE]"
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border px-3.5 text-xs font-black transition-colors ${className}`}
       onClick={onClick}
       type="button"
     >
@@ -6220,32 +6244,62 @@ function GroupAttendanceTab({ group }: { group: DosAppGroup }) {
           ))}
         </div>
       ) : (
-        <p className="text-sm text-[#64748B]">Attendance has not been recorded yet.</p>
+        <SectionEmptyState text={gathering ? "Mark who was present after this gathering." : "Schedule a gathering before attendance is tracked."} title={gathering ? "No attendance recorded." : "No gathering selected."} />
       )}
     </DesktopPanel>
   );
 }
 
-function GroupPrayerTab({ group }: { group: DosAppGroup }) {
+function GroupPrayerTab({ group, onAddPrayer }: { group: DosAppGroup; onAddPrayer: () => void }) {
+  const [view, setView] = useState<PrayerRequestView>("praying");
+  const memberNameByPersonId = new Map(group.members.map((member) => [member.personId, member.personName]));
+  const visibleRequests = group.prayerRequests.filter((request) => (
+    view === "answered" ? request.status === "answered" : request.status !== "answered" && request.status !== "archived"
+  ));
+  const personNameForRequest = (request: DosAppPrayerRequest) => {
+    const directName = request.fieldPersonId ? memberNameByPersonId.get(request.fieldPersonId) : null;
+
+    if (directName) {
+      return directName;
+    }
+
+    return request.linkedPersonIds.map((personId) => memberNameByPersonId.get(personId)).find(Boolean) ?? null;
+  };
+
   return (
-    <DesktopPanel eyebrow="Prayer" title="Requests">
-      {group.prayerRequests.length ? (
+    <DesktopPanel
+      action={<button className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onAddPrayer} type="button"><Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />Add Prayer</button>}
+      eyebrow="Prayer"
+      title="Requests"
+    >
+      <div className="mb-3 max-w-[16rem]">
+        <SegmentedTabs onChange={setView} options={prayerRequestViewTabs} value={view} />
+      </div>
+      {visibleRequests.length ? (
         <div className="grid gap-2">
-          {group.prayerRequests.map((request) => (
+          {visibleRequests.map((request) => {
+            const personName = personNameForRequest(request);
+
+            return (
             <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={request.id}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-black text-[#0F172A]">{request.title}</p>
-                  {request.personName ? <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{request.personName}</p> : null}
+                  {personName ? <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{personName}</p> : null}
                 </div>
-                <GroupPill tone={request.status === "answered" ? "green" : request.status === "archived" ? "gray" : "blue"}>{request.status}</GroupPill>
+                <GroupPill tone={request.status === "answered" ? "green" : request.status === "archived" ? "gray" : request.priority === "urgent" || request.priority === "high" ? "blue" : "gray"}>{prayerRequestStatusDisplay(request.status)}</GroupPill>
               </div>
-              {request.description ? <p className="mt-2 text-sm leading-6 text-[#475569]">{request.description}</p> : null}
+              {request.request ? <p className="mt-2 text-sm leading-6 text-[#475569]">{request.request}</p> : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
-        <p className="text-sm text-[#64748B]">No group prayer requests yet.</p>
+        <SectionEmptyState
+          action={<CompactButton icon="prayer" onClick={onAddPrayer}>Add Prayer</CompactButton>}
+          text={view === "answered" ? "Answered group prayers will appear here." : "Add requests for the group or for a specific member."}
+          title={view === "answered" ? "No answered group prayers." : "No active group prayers."}
+        />
       )}
     </DesktopPanel>
   );
@@ -7872,9 +7926,12 @@ const fruitFormCards: ReadonlyArray<{
 ];
 
 const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>> = [
-  { label: "Praying For", value: "praying_for" },
-  { label: "My Requests", value: "my_requests" },
-  { label: "Prayer Partners", value: "partners" },
+  { label: "Pray Today", value: "pray_today" },
+  { label: "High Priority", value: "high_priority" },
+  { label: "Needs Follow-Up", value: "needs_follow_up" },
+  { label: "Group Prayers", value: "group_prayers" },
+  { label: "Person Prayers", value: "person_prayers" },
+  { label: "Answered Recently", value: "answered_recently" },
 ];
 
 const myRecordTabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
@@ -7931,14 +7988,15 @@ const prayerRequestCategoryOptions = [
 ] as const;
 
 const prayerRequestVisibilityOptions: ReadonlyArray<{ label: string; value: DosAppPrayerRequest["visibility"] }> = [
-  { label: "Private / Internal", value: "private" },
-  { label: "Prayer Team Only", value: "team" },
-  { label: "Public Profile", value: "public" },
+  { label: "Private", value: "private" },
+  { label: "Group Members", value: "group_members" },
+  { label: "Group Leaders", value: "group_leaders" },
+  { label: "Organization", value: "organization" },
+  { label: "Public Profile", value: "public_profile" },
 ];
 
 const prayerRequestStatusOptions: ReadonlyArray<{ label: string; value: DosAppPrayerRequest["status"] }> = [
-  { label: "Open", value: "open" },
-  { label: "Covered", value: "covered" },
+  { label: "Active", value: "active" },
   { label: "Answered", value: "answered" },
   { label: "Archived", value: "archived" },
 ];
@@ -15254,12 +15312,20 @@ function mergeRowsById<T extends { id: string }>(preferredRows: T[], fallbackRow
 }
 
 function prayerRequestVisibilityDisplay(visibility: DosAppPrayerRequest["visibility"]) {
-  if (visibility === "public") {
+  if (visibility === "public_profile") {
     return "Public Profile";
   }
 
-  if (visibility === "team") {
-    return "Prayer Team";
+  if (visibility === "organization") {
+    return "Organization";
+  }
+
+  if (visibility === "group_leaders") {
+    return "Group Leaders";
+  }
+
+  if (visibility === "group_members") {
+    return "Group Members";
   }
 
   return "Private";
@@ -15274,11 +15340,7 @@ function prayerRequestStatusDisplay(status: DosAppPrayerRequest["status"]) {
     return "Archived";
   }
 
-  if (status === "covered") {
-    return "Covered";
-  }
-
-  return "Praying";
+  return "Active";
 }
 
 function prayerRequestSharedWith(request: Pick<DosAppPrayerRequest, "personTags" | "visibility">) {
@@ -15307,6 +15369,122 @@ function mapDosPrayerRequestToLocal(request: DosAppPrayerRequest): LocalPrayerRe
     view: request.status === "answered" ? "answered" : "praying",
     visibility: request.visibility,
   };
+}
+
+function isPrayerRequestActive(request: DosAppPrayerRequest) {
+  return request.status !== "answered" && request.status !== "archived";
+}
+
+function isPrayerRequestHighPriority(request: DosAppPrayerRequest) {
+  return request.priority === "high" || request.priority === "urgent";
+}
+
+function isPrayerRequestFollowUpDue(request: DosAppPrayerRequest) {
+  if (!request.followUpAt || !isPrayerRequestActive(request)) {
+    return false;
+  }
+
+  return dateSortValue(request.followUpAt) <= Date.now();
+}
+
+function prayerRequestPersonName(request: DosAppPrayerRequest, personById: Map<string, DosAppPerson>) {
+  const directPerson = request.fieldPersonId ? personById.get(request.fieldPersonId) : null;
+
+  if (directPerson) {
+    return directPerson.name;
+  }
+
+  const linkedPerson = request.linkedPersonIds.map((personId) => personById.get(personId)).find(Boolean);
+
+  return linkedPerson?.name ?? null;
+}
+
+function prayerRequestContextLabel({
+  groupById,
+  meetingById,
+  personById,
+  request,
+}: {
+  groupById: Map<string, DosAppGroup>;
+  meetingById: Map<string, DosAppMeeting>;
+  personById: Map<string, DosAppPerson>;
+  request: DosAppPrayerRequest;
+}) {
+  if (request.groupId) {
+    const group = groupById.get(request.groupId);
+
+    return group ? `Group · ${group.name}` : "Group prayer";
+  }
+
+  const personName = prayerRequestPersonName(request, personById);
+
+  if (personName) {
+    return `Person · ${personName}`;
+  }
+
+  if (request.meetingId) {
+    const meeting = meetingById.get(request.meetingId);
+
+    return meeting ? `Table · ${meetingActivityTitle(meeting)}` : "Table prayer";
+  }
+
+  return "Manual";
+}
+
+function prayerRequestTabMatches(request: DosAppPrayerRequest, tab: PrayerWorkspaceTab) {
+  if (tab === "answered_recently") {
+    return request.status === "answered";
+  }
+
+  if (!isPrayerRequestActive(request)) {
+    return false;
+  }
+
+  if (tab === "high_priority") {
+    return isPrayerRequestHighPriority(request);
+  }
+
+  if (tab === "needs_follow_up") {
+    return Boolean(request.followUpAt);
+  }
+
+  if (tab === "group_prayers") {
+    return Boolean(request.groupId);
+  }
+
+  if (tab === "person_prayers") {
+    return Boolean(request.fieldPersonId || request.linkedPersonIds.length);
+  }
+
+  return true;
+}
+
+function prayerRequestHubEmptyCopy(tab: PrayerWorkspaceTab) {
+  if (tab === "answered_recently") {
+    return { text: "Answered prayer will appear here.", title: "No answered prayer yet." };
+  }
+
+  if (tab === "high_priority") {
+    return { text: "Requests marked high or urgent will appear here.", title: "No high priority requests." };
+  }
+
+  if (tab === "needs_follow_up") {
+    return { text: "Requests with a follow-up date will appear here.", title: "No follow-up requests." };
+  }
+
+  if (tab === "group_prayers") {
+    return { text: "Group prayer requests will appear after they are added from a group.", title: "No group prayers yet." };
+  }
+
+  if (tab === "person_prayers") {
+    return { text: "Person-linked prayer requests will appear here.", title: "No person prayers yet." };
+  }
+
+  return { text: "Add a prayer request or log prayer from a Table to begin.", title: "No prayer requests yet." };
+}
+
+function prayerRequestTabLabel(tab: PrayerWorkspaceTab) {
+  return prayerWorkspaceTabs.find((item) => item.value === tab)?.label ?? "Prayer";
 }
 
 function answerDateInputValue(value: string | null | undefined) {
@@ -16428,36 +16606,28 @@ function MobilePrayerPanel({
 }
 
 function MobilePrayerWorkspace({
-  householdMembers,
-  localPrayerPartners,
-  onOpenPrayerPartner,
+  groups,
   onOpenPrayerDetail,
   onOpenPrayerRequest,
-  onUpdatePrayerTeamCountVisibility,
-  prayerPartners,
+  people,
   prayerRows,
   prayerRequests,
+  meetings,
   query,
-  showPrayerTeamCount,
   tab,
   onTabChange,
 }: {
-  householdMembers: DosAppHouseholdMember[];
-  localPrayerPartners: LocalPrayerPartner[];
+  groups: DosAppGroup[];
   onOpenPrayerDetail: (detail: PrayerDetail) => void;
-  onOpenPrayerPartner: (partner: LocalPrayerPartner) => void;
   onOpenPrayerRequest: (request: DosAppPrayerRequest) => void;
   onTabChange: (value: PrayerWorkspaceTab) => void;
-  onUpdatePrayerTeamCountVisibility: (value: boolean) => Promise<void>;
-  prayerPartners: DosAppPrayerPartner[];
+  people: DosAppPerson[];
   prayerRows: PrayerDetail[];
   prayerRequests: DosAppPrayerRequest[];
+  meetings: DosAppMeeting[];
   query: string;
-  showPrayerTeamCount: boolean;
   tab: PrayerWorkspaceTab;
 }) {
-  const [prayingForView, setPrayingForView] = useState<PrayerRequestView>("praying");
-  const [prayerRequestView, setPrayerRequestView] = useState<PrayerRequestView>("praying");
   const prayerSearch = query.trim().toLowerCase();
   const matchesPrayerSearch = (...values: Array<null | string | undefined>) => {
     if (!prayerSearch) {
@@ -16470,158 +16640,99 @@ function MobilePrayerWorkspace({
       .toLowerCase()
       .includes(prayerSearch);
   };
-  const loadedPrayerPartnerRows = (prayerPartners ?? []).map(mapDosPrayerPartnerToLocal);
-  const prayerPartnerRows = mergeRowsById(
-    localPrayerPartners,
-    loadedPrayerPartnerRows.length || localPrayerPartners.length ? loadedPrayerPartnerRows : [...desktopPrayerPartnerSamples],
-  );
-  const prayerRequestById = new Map(prayerRequests.map((request) => [request.id, request]));
-  const prayerRequestRows = (prayerRequests ?? []).map(mapDosPrayerRequestToLocal);
-  const visiblePrayerRows = prayerRows.filter((row) => (
-    row.status === prayingForView
-    && matchesPrayerSearch(
-      row.personName,
-      row.request,
-      row.notes,
-      row.source,
-      row.frequency,
-      row.status === "answered" ? "Answered" : "Praying",
-      row.lastPrayedAt ? formatRelativeDate(row.lastPrayedAt) : undefined,
-      row.answeredAt ? formatRelativeDate(row.answeredAt) : undefined,
-      row.createdAt ? formatRelativeDate(row.createdAt) : undefined,
-    )
-  ));
-  const visiblePrayerRequests = prayerRequestRows.filter((request) => (
-    request.view === prayerRequestView
-    && matchesPrayerSearch(request.request, request.category, request.sharedWith, request.status, request.created, request.answered)
-  ));
-  const visiblePrayerPartners = prayerPartnerRows.filter((partner) => (
-    normalizePrayerPartnerStatus(partner.status) !== "archived"
-    && matchesPrayerSearch(
-      partner.name,
-      partner.relationship,
-      prayerPartnerTeamLabel(partner.prayerTeam, householdMembers),
-      prayerPartnerHowJoinedLabel(partner.howHeard),
-      partner.status,
-      partner.lastContacted,
-      partner.notes,
-    )
-  ));
+  const personById = new Map(people.map((person) => [person.id, person]));
+  const meetingById = new Map(meetings.map((meeting) => [meeting.id, meeting]));
+  const groupById = new Map(groups.map((group) => [group.id, group]));
+  const visibleHubPrayerRequests = (prayerRequests ?? [])
+    .filter((request) => (
+      prayerRequestTabMatches(request, tab)
+      && matchesPrayerSearch(
+        request.title,
+        request.request,
+        request.category,
+        request.priority,
+        prayerRequestStatusDisplay(request.status),
+        prayerRequestVisibilityDisplay(request.visibility),
+        prayerRequestPersonName(request, personById),
+        prayerRequestContextLabel({ groupById, meetingById, personById, request }),
+      )
+    ))
+    .sort((first, second) => {
+      if (tab === "answered_recently") {
+        return dateSortValue(second.answeredAt ?? second.updatedAt ?? second.createdAt) - dateSortValue(first.answeredAt ?? first.updatedAt ?? first.createdAt);
+      }
+
+      if (tab === "needs_follow_up") {
+        return dateSortValue(first.followUpAt) - dateSortValue(second.followUpAt);
+      }
+
+      return dateSortValue(second.createdAt) - dateSortValue(first.createdAt);
+    });
+  const visibleLegacyPrayTodayRows = tab === "pray_today"
+    ? prayerRows
+      .filter((row) => (
+        row.status === "praying"
+        && matchesPrayerSearch(
+          row.personName,
+          row.request,
+          row.notes,
+          row.source,
+          row.frequency,
+        )
+      ))
+      .slice(0, 8)
+    : [];
+  const hubEmptyCopy = prayerRequestHubEmptyCopy(tab);
+  const hasHubRows = visibleHubPrayerRequests.length > 0 || visibleLegacyPrayTodayRows.length > 0;
 
   return (
     <div className="space-y-3 md:hidden">
       <SegmentedTabs onChange={onTabChange} options={prayerWorkspaceTabs} value={tab} />
 
-      {tab === "praying_for" ? (
-        <MobilePrayerPanel
-          emptyText={prayingForView === "answered" ? "Answered prayer will appear here after a request is marked answered." : "Prayer needs from logged tables and prayer reminders will appear here."}
-          emptyTitle={prayingForView === "answered" ? "No answered prayer yet." : "No prayer requests yet."}
-          eyebrow="Praying For"
-          hasRows={visiblePrayerRows.length > 0}
-        >
-          <div className="mb-3 max-w-[18rem]">
-            <SegmentedTabs onChange={setPrayingForView} options={prayerRequestViewTabs} value={prayingForView} />
+      <MobilePrayerPanel
+        emptyText={hubEmptyCopy.text}
+        emptyTitle={hubEmptyCopy.title}
+        eyebrow={prayerRequestTabLabel(tab)}
+        hasRows={hasHubRows}
+      >
+        <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF]">
+          <div className="grid grid-cols-[minmax(0,1fr)_88px_72px] gap-2 bg-[#F8FBFF] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            <span>Request</span>
+            <span>Context</span>
+            <span>Status</span>
           </div>
-          <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF]">
-            <div className="grid grid-cols-[76px_minmax(0,1fr)_72px] gap-2 bg-[#F8FBFF] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-              <span>Person</span>
-              <span>Request</span>
-              <span>Status</span>
-            </div>
-            {visiblePrayerRows.map((row) => (
-              <button
-                className="grid min-h-[64px] w-full grid-cols-[76px_minmax(0,1fr)_72px] items-center gap-2 border-t border-[#EAF2FF] px-3 py-2 text-left"
-                key={row.id}
-                onClick={() => onOpenPrayerDetail(row)}
-                type="button"
-              >
-                <span className="truncate text-xs font-bold text-[#0F172A]">{row.personName}</span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-black text-[#0F172A]">{row.request}</span>
-                  <span className="mt-0.5 block truncate text-xs text-[#64748B]">{row.frequency}</span>
-                </span>
-                <DesktopPrayerStatusPill>{row.status === "answered" ? "Answered" : "Praying"}</DesktopPrayerStatusPill>
-              </button>
-            ))}
-          </div>
-        </MobilePrayerPanel>
-      ) : null}
-
-      {tab === "my_requests" ? (
-        <MobilePrayerPanel
-          emptyText={prayerRequestView === "answered" ? "Answered requests will appear here." : "Add a prayer request to begin tracking it."}
-          emptyTitle={prayerRequestView === "answered" ? "No answered requests." : "No prayer requests."}
-          eyebrow="My Requests"
-          hasRows={visiblePrayerRequests.length > 0}
-        >
-          <div className="mb-3 max-w-[18rem]">
-            <SegmentedTabs onChange={setPrayerRequestView} options={prayerRequestViewTabs} value={prayerRequestView} />
-          </div>
-          <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF]">
-            <div className="grid grid-cols-[minmax(0,1fr)_78px_58px] gap-2 bg-[#F8FBFF] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-              <span>Request</span>
-              <span>Status</span>
-              <span>Date</span>
-            </div>
-            {visiblePrayerRequests.map((request) => (
-              <button
-                className="grid min-h-[62px] w-full grid-cols-[minmax(0,1fr)_78px_58px] items-center gap-2 border-t border-[#EAF2FF] px-3 py-2 text-left transition-colors hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF]"
-                key={request.id}
-                onClick={() => {
-                  const selectedRequest = prayerRequestById.get(request.id);
-
-                  if (selectedRequest) {
-                    onOpenPrayerRequest(selectedRequest);
-                  }
-                }}
-                type="button"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-black text-[#0F172A]">{request.request}</span>
-                  <span className="mt-0.5 block truncate text-xs text-[#64748B]">{request.category}</span>
-                </span>
-                <DesktopPrayerStatusPill>{request.status}</DesktopPrayerStatusPill>
-                <span className="truncate text-xs font-bold text-[#475569]">{prayerRequestView === "answered" ? request.answered : request.created}</span>
-              </button>
-            ))}
-          </div>
-        </MobilePrayerPanel>
-      ) : null}
-
-      {tab === "partners" ? (
-        <MobilePrayerPanel
-          emptyText="Prayer partners will appear here after they are added."
-          emptyTitle="No prayer partners yet."
-          eyebrow="Prayer Team"
-          hasRows={visiblePrayerPartners.length > 0}
-        >
-          <div className="mb-3">
-            <PrayerTeamCountVisibilityToggle checked={showPrayerTeamCount} onChange={onUpdatePrayerTeamCountVisibility} />
-          </div>
-          <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF]">
-            <div className="grid grid-cols-[minmax(0,1fr)_82px_72px] gap-2 bg-[#F8FBFF] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-              <span>Name</span>
-              <span>Status</span>
-              <span>Last</span>
-            </div>
-            {visiblePrayerPartners.map((partner) => (
-              <button
-                className="grid min-h-[62px] w-full grid-cols-[minmax(0,1fr)_82px_72px] items-center gap-2 border-t border-[#EAF2FF] px-3 py-2 text-left transition-colors hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF]"
-                key={`${partner.id}-${partner.name}`}
-                onClick={() => onOpenPrayerPartner(partner)}
-                type="button"
-              >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-black text-[#0F172A]">{partner.name}</span>
-                    <span className="mt-0.5 block truncate text-xs text-[#64748B]">{partner.relationship} · {prayerPartnerTeamLabel(partner.prayerTeam, householdMembers)}</span>
-                  </span>
-                <DesktopPrayerStatusPill>{partner.status}</DesktopPrayerStatusPill>
-                <span className="truncate text-xs font-bold text-[#475569]">{partner.lastContacted}</span>
-              </button>
-            ))}
-          </div>
-        </MobilePrayerPanel>
-      ) : null}
+          {visibleHubPrayerRequests.map((request) => (
+            <button
+              className="grid min-h-[68px] w-full grid-cols-[minmax(0,1fr)_88px_72px] items-center gap-2 border-t border-[#EAF2FF] px-3 py-2 text-left transition-colors hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF]"
+              key={request.id}
+              onClick={() => onOpenPrayerRequest(request)}
+              type="button"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-black text-[#0F172A]">{request.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-[#64748B]">{request.request}</span>
+              </span>
+              <span className="truncate text-xs font-bold text-[#475569]">{prayerRequestContextLabel({ groupById, meetingById, personById, request })}</span>
+              <DesktopPrayerStatusPill>{prayerRequestStatusDisplay(request.status)}</DesktopPrayerStatusPill>
+            </button>
+          ))}
+          {visibleLegacyPrayTodayRows.map((row) => (
+            <button
+              className="grid min-h-[68px] w-full grid-cols-[minmax(0,1fr)_88px_72px] items-center gap-2 border-t border-[#EAF2FF] px-3 py-2 text-left transition-colors hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF]"
+              key={row.id}
+              onClick={() => onOpenPrayerDetail(row)}
+              type="button"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-black text-[#0F172A]">{row.request}</span>
+                <span className="mt-0.5 block truncate text-xs text-[#64748B]">{row.source}</span>
+              </span>
+              <span className="truncate text-xs font-bold text-[#475569]">{row.personName}</span>
+              <DesktopPrayerStatusPill>Active</DesktopPrayerStatusPill>
+            </button>
+          ))}
+        </div>
+      </MobilePrayerPanel>
     </div>
   );
 }
@@ -16629,6 +16740,7 @@ function MobilePrayerWorkspace({
 function DesktopPrayerWorkspace({
   actionsHidden = false,
   answeredPrayerByReminderId,
+  groups,
   householdMembers,
   leaderReflections,
   localPrayerNeeds,
@@ -16656,6 +16768,7 @@ function DesktopPrayerWorkspace({
 }: {
   actionsHidden?: boolean;
   answeredPrayerByReminderId: Record<string, string>;
+  groups: DosAppGroup[];
   householdMembers: DosAppHouseholdMember[];
   leaderReflections: DosAppLeaderReflection[];
   localPrayerNeeds: LocalPrayerNeed[];
@@ -16686,6 +16799,7 @@ function DesktopPrayerWorkspace({
     .sort((first, second) => dateSortValue(nextReminderDate(first)) - dateSortValue(nextReminderDate(second)));
   const personById = new Map(people.map((person) => [person.id, person]));
   const meetingById = new Map(meetings.map((meeting) => [meeting.id, meeting]));
+  const groupById = new Map(groups.map((group) => [group.id, group]));
   const [prayingForView, setPrayingForView] = useState<PrayerRequestView>("praying");
   const [prayerRequestView, setPrayerRequestView] = useState<PrayerRequestView>("praying");
   const [isAddPrayerRequestOpen, setIsAddPrayerRequestOpen] = useState(false);
@@ -16722,6 +16836,31 @@ function DesktopPrayerWorkspace({
     .filter((request) => !deletedPrayerRequestIds.includes(request.id));
   const prayerRequestById = new Map(mergedPrayerRequests.map((request) => [request.id, request]));
   const prayerRequestRows = mergedPrayerRequests.map(mapDosPrayerRequestToLocal);
+  const visibleHubPrayerRequests = mergedPrayerRequests
+    .filter((request) => (
+      prayerRequestTabMatches(request, tab)
+      && matchesPrayerSearch(
+        request.title,
+        request.request,
+        request.category,
+        request.priority,
+        prayerRequestStatusDisplay(request.status),
+        prayerRequestVisibilityDisplay(request.visibility),
+        prayerRequestPersonName(request, personById),
+        prayerRequestContextLabel({ groupById, meetingById, personById, request }),
+      )
+    ))
+    .sort((first, second) => {
+      if (tab === "answered_recently") {
+        return dateSortValue(second.answeredAt ?? second.updatedAt ?? second.createdAt) - dateSortValue(first.answeredAt ?? first.updatedAt ?? first.createdAt);
+      }
+
+      if (tab === "needs_follow_up") {
+        return dateSortValue(first.followUpAt) - dateSortValue(second.followUpAt);
+      }
+
+      return dateSortValue(second.createdAt) - dateSortValue(first.createdAt);
+    });
   const visiblePrayerPartners = prayerPartnerRows.filter((partner) => (
     normalizePrayerPartnerStatus(partner.status) !== "archived"
     && matchesPrayerSearch(
@@ -16826,6 +16965,22 @@ function DesktopPrayerWorkspace({
       row.createdAt ? formatRelativeDate(row.createdAt) : undefined,
     )
   ));
+  const visibleLegacyPrayTodayRows = tab === "pray_today"
+    ? prayingForRows
+      .filter((row) => (
+        row.status === "praying"
+        && matchesPrayerSearch(
+          row.personName,
+          row.request,
+          row.notes,
+          row.source,
+          row.frequency,
+          row.lastPrayedAt ? formatRelativeDate(row.lastPrayedAt) : undefined,
+          row.createdAt ? formatRelativeDate(row.createdAt) : undefined,
+        )
+      ))
+      .slice(0, 12)
+    : [];
   const markPrayerDetailPrayed = (detail: PrayerDetail, note: string) => {
     const prayedAt = new Date().toISOString();
     const entry: LocalPrayerLogEntry = {
@@ -16898,6 +17053,8 @@ function DesktopPrayerWorkspace({
 
     return deletedId;
   }
+  const hubEmptyCopy = prayerRequestHubEmptyCopy(tab);
+  const hasHubRows = visibleHubPrayerRequests.length > 0 || visibleLegacyPrayTodayRows.length > 0;
 
   return (
     <div className="hidden space-y-4 md:block">
@@ -16909,125 +17066,62 @@ function DesktopPrayerWorkspace({
       />
       <SegmentedTabs onChange={onTabChange} options={prayerWorkspaceTabs} value={tab} />
 
-      {tab === "partners" ? (
-        <DesktopPanel
-          compact
-          eyebrow="Prayer Team"
+      <DesktopPanel compact eyebrow={prayerRequestTabLabel(tab)}>
+        <DesktopPrayerTable
+          columns={["Request", "Context", "Priority", "Status", tab === "answered_recently" ? "Answered" : "Follow-Up", "Action"]}
+          gridTemplateColumns="minmax(260px,1.3fr) minmax(150px,0.8fr) 96px 104px 116px 96px"
+          minWidth={0}
         >
-          <div className="mb-3 max-w-xl">
-            <PrayerTeamCountVisibilityToggle checked={showPrayerTeamCount} onChange={onUpdatePrayerTeamCountVisibility} />
-          </div>
-            <DesktopPrayerTable
-              columns={["Name", "Relationship Context", "Prayer Team", "Status", "Last Contacted"]}
-              gridTemplateColumns="minmax(130px,1fr) minmax(120px,0.8fr) minmax(120px,0.8fr) 96px 110px"
-              minWidth={0}
-            >
-              {visiblePrayerPartners.map((partner) => (
+          {hasHubRows ? (
+            <>
+              {visibleHubPrayerRequests.map((request) => (
                 <DesktopPrayerTableButtonRow
-                  ariaLabel={`Open prayer partner ${partner.name}`}
-                  gridTemplateColumns="minmax(130px,1fr) minmax(120px,0.8fr) minmax(120px,0.8fr) 96px 110px"
-                  key={partner.id}
-                  onClick={() => setSelectedPrayerPartner(partner)}
+                  ariaLabel={`Open prayer request ${request.title}`}
+                  gridTemplateColumns="minmax(260px,1.3fr) minmax(150px,0.8fr) 96px 104px 116px 96px"
+                  key={request.id}
+                  onClick={() => setSelectedPrayerRequest(request)}
                 >
-                  <span className="truncate text-sm font-black text-[#0F172A]">{partner.name}</span>
-                  <span className="truncate font-semibold text-[#475569]">{partner.relationship}</span>
-                  <span className="truncate font-semibold text-[#475569]">{prayerPartnerTeamLabel(partner.prayerTeam, householdMembers)}</span>
-                  <DesktopPrayerStatusPill>{partner.status}</DesktopPrayerStatusPill>
-                  <span className="truncate font-semibold text-[#475569]">{partner.lastContacted}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#0F172A]">{request.title}</span>
+                    <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">{request.request}</span>
+                  </span>
+                  <span className="truncate font-semibold text-[#475569]">{prayerRequestContextLabel({ groupById, meetingById, personById, request })}</span>
+                  <span className="truncate font-semibold capitalize text-[#475569]">{request.priority}</span>
+                  <DesktopPrayerStatusPill>{prayerRequestStatusDisplay(request.status)}</DesktopPrayerStatusPill>
+                  <span className="truncate font-semibold text-[#475569]">
+                    {tab === "answered_recently" ? request.answeredAt ? formatDate(request.answeredAt) : "—" : request.followUpAt ? formatDate(request.followUpAt) : "—"}
+                  </span>
+                  <span className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#1D4ED8]">View</span>
                 </DesktopPrayerTableButtonRow>
               ))}
-          </DesktopPrayerTable>
-        </DesktopPanel>
-      ) : null}
-
-      {tab === "my_requests" ? (
-        <DesktopPanel
-          compact
-          eyebrow="My Requests"
-        >
-          <div className="mb-3 max-w-xs">
-            <SegmentedTabs onChange={setPrayerRequestView} options={prayerRequestViewTabs} value={prayerRequestView} />
-          </div>
-          <DesktopPrayerTable
-            columns={["Request", "Category", "Shared With", "Status", "Created", "Answered", "Action"]}
-            gridTemplateColumns="minmax(280px,1fr) 126px 150px 116px 104px 104px 110px"
-            minWidth={990}
-          >
-            {visiblePrayerRequests.length ? visiblePrayerRequests.map((request) => (
-              <DesktopPrayerTableButtonRow
-                ariaLabel={`Open prayer request ${request.title}`}
-                gridTemplateColumns="minmax(280px,1fr) 126px 150px 116px 104px 104px 110px"
-                key={request.id}
-                onClick={() => {
-                  const selectedRequest = prayerRequestById.get(request.id);
-
-                  if (selectedRequest) {
-                    setSelectedPrayerRequest(selectedRequest);
-                  }
-                }}
-              >
-                <span className="truncate text-sm font-black text-[#0F172A]">{request.request}</span>
-                <span className="truncate font-semibold text-[#475569]">{request.category}</span>
-                <span className="truncate font-semibold text-[#475569]">{request.sharedWith}</span>
-                <DesktopPrayerStatusPill>{request.status}</DesktopPrayerStatusPill>
-                <span className="truncate font-semibold text-[#475569]">{request.created}</span>
-                <span className="truncate font-semibold text-[#475569]">{request.answered}</span>
-                <span className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#1D4ED8]">{request.action}</span>
-              </DesktopPrayerTableButtonRow>
-            )) : (
-              <DesktopPrayerEmptyTableState
-                action={<DesktopPrayerActionButton onClick={() => setIsAddPrayerRequestOpen(true)}>Add Request</DesktopPrayerActionButton>}
-                text={prayerRequestView === "answered" ? "Answered requests will appear here." : "Add a prayer request to begin tracking it."}
-                title={prayerRequestView === "answered" ? "No answered requests." : "No prayer requests."}
-              />
-            )}
-          </DesktopPrayerTable>
-        </DesktopPanel>
-      ) : null}
-
-      {tab === "praying_for" ? (
-        <DesktopPanel
-          compact
-          eyebrow="Praying For"
-        >
-          <div className="mb-3 max-w-xs">
-            <SegmentedTabs onChange={setPrayingForView} options={prayerRequestViewTabs} value={prayingForView} />
-          </div>
-          <DesktopPrayerTable
-            columns={["Person", "Request", "Status", "Frequency", "Last Prayed", "Action"]}
-            gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 110px"
-            minWidth={920}
-          >
-            {visiblePrayingForRows.length ? (
-              visiblePrayingForRows.map((row) => (
+              {visibleLegacyPrayTodayRows.map((row) => (
                 <DesktopPrayerTableButtonRow
                   ariaLabel={`Open prayer detail for ${row.request}`}
+                  gridTemplateColumns="minmax(260px,1.3fr) minmax(150px,0.8fr) 96px 104px 116px 96px"
                   key={row.id}
-                  gridTemplateColumns="180px minmax(300px,1fr) 116px 126px 132px 110px"
                   onClick={() => setSelectedPrayerDetail(row)}
                 >
-                  <span className="truncate font-bold text-[#0F172A]">{row.personName}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[#0F172A]">{row.request}</span>
                     <span className="mt-0.5 block truncate text-xs leading-5 text-[#64748B]">{row.source}</span>
                   </span>
-                  <DesktopPrayerStatusPill>{row.status === "answered" ? "Answered" : "Praying"}</DesktopPrayerStatusPill>
-                  <span className="truncate font-semibold text-[#475569]">{row.frequency}</span>
-                  <span className="truncate font-semibold text-[#475569]">
-                    {row.lastPrayedAt ? formatRelativeDate(row.lastPrayedAt) : row.answeredAt ? formatRelativeDate(row.answeredAt) : row.createdAt ? formatRelativeDate(row.createdAt) : "—"}
-                  </span>
+                  <span className="truncate font-semibold text-[#475569]">{row.personName}</span>
+                  <span className="truncate font-semibold text-[#475569]">normal</span>
+                  <DesktopPrayerStatusPill>Active</DesktopPrayerStatusPill>
+                  <span className="truncate font-semibold text-[#475569]">{row.createdAt ? formatDate(row.createdAt) : "—"}</span>
                   <span className="justify-self-end rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#1D4ED8]">View</span>
                 </DesktopPrayerTableButtonRow>
-              ))
-            ) : (
-              <DesktopPrayerEmptyTableState
-                text={prayingForView === "answered" ? "Answered prayer will appear here after a request is marked answered." : "Prayer needs from logged tables and prayer reminders will appear here."}
-                title={prayingForView === "answered" ? "No answered prayer yet." : "No prayer requests yet."}
-              />
-            )}
-          </DesktopPrayerTable>
-        </DesktopPanel>
-      ) : null}
+              ))}
+            </>
+          ) : (
+            <DesktopPrayerEmptyTableState
+              action={tab === "pray_today" ? <DesktopPrayerActionButton onClick={() => setIsAddPrayerRequestOpen(true)}>Add Request</DesktopPrayerActionButton> : undefined}
+              text={hubEmptyCopy.text}
+              title={hubEmptyCopy.title}
+            />
+          )}
+        </DesktopPrayerTable>
+      </DesktopPanel>
 
       {showPrayerFloatingActions ? (
         <MobileFloatingActions
@@ -20760,6 +20854,7 @@ function PersonDetailOverlay({
   participantReviews,
   participantTestimonies,
   person,
+  prayerRequests,
   workspace,
 }: {
   answeredPrayerByReminderId: Record<string, string>;
@@ -20786,6 +20881,7 @@ function PersonDetailOverlay({
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
+  prayerRequests: DosAppPrayerRequest[];
   workspace: DosAppWorkspace;
 }) {
   const detailScrollRef = useRef<HTMLDivElement | null>(null);
@@ -20814,6 +20910,13 @@ function PersonDetailOverlay({
   const answeredPrayerReminders = personPrayerReminders
     .filter((reminder) => Boolean(answeredPrayerByReminderId[reminder.id]))
     .sort((first, second) => dateSortValue(answeredPrayerByReminderId[second.id]) - dateSortValue(answeredPrayerByReminderId[first.id]));
+  const personLinkedPrayerRequests = prayerRequests
+    .filter((request) => request.fieldPersonId === person.id || request.linkedPersonIds.includes(person.id))
+    .sort((first, second) => dateSortValue(second.createdAt) - dateSortValue(first.createdAt));
+  const activePersonPrayerRequests = personLinkedPrayerRequests.filter((request) => isPrayerRequestActive(request));
+  const answeredPersonPrayerRequests = personLinkedPrayerRequests
+    .filter((request) => request.status === "answered")
+    .sort((first, second) => dateSortValue(second.answeredAt ?? second.updatedAt ?? second.createdAt) - dateSortValue(first.answeredAt ?? first.updatedAt ?? first.createdAt));
   const upcomingReminders = personReminders.filter((reminder) => isUpcomingDate(nextReminderDate(reminder)));
   const upcomingTimelineItems = buildUpcomingTimelineItems({
     includeDashboardHiddenReminders: true,
@@ -21209,8 +21312,21 @@ function PersonDetailOverlay({
         {activeDetailTab === "prayer" ? (
           <>
             <DetailCard icon={<Heart className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Prayer Requests">
-              {activePrayerReminders.length ? (
+              {activePersonPrayerRequests.length || activePrayerReminders.length ? (
                 <div className="grid gap-2.5">
+                  {activePersonPrayerRequests.map((request) => (
+                    <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={request.id}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-[#0F172A]">{request.title}</p>
+                          <p className="mt-1 text-xs font-semibold text-[#64748B]">{request.category ?? "Prayer"} · {prayerRequestVisibilityDisplay(request.visibility)}</p>
+                        </div>
+                        <DesktopPrayerStatusPill>{prayerRequestStatusDisplay(request.status)}</DesktopPrayerStatusPill>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-[#475569]">{request.request}</p>
+                      {request.followUpAt ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Follow up {formatDate(request.followUpAt)}</p> : null}
+                    </div>
+                  ))}
                   {activePrayerReminders.map((reminder) => (
                     <PrayerRequestCard
                       key={reminder.id}
@@ -21240,8 +21356,20 @@ function PersonDetailOverlay({
             </DetailCard>
 
             <DetailCard icon={<CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Answered Prayer">
-              {answeredPrayerReminders.length ? (
+              {answeredPersonPrayerRequests.length || answeredPrayerReminders.length ? (
                 <div className="grid gap-2.5">
+                  {answeredPersonPrayerRequests.map((request) => (
+                    <div className="rounded-[20px] border border-[#D7F3DD] bg-[#F7FEFA] p-3" key={request.id}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-[#0F172A]">{request.title}</p>
+                          <p className="mt-1 text-xs font-semibold text-[#64748B]">{request.answeredAt ? formatDate(request.answeredAt) : "Answered"}</p>
+                        </div>
+                        <DesktopPrayerStatusPill>Answered</DesktopPrayerStatusPill>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-[#475569]">{request.answerTestimony ?? request.request}</p>
+                    </div>
+                  ))}
                   {answeredPrayerReminders.map((reminder) => (
                     <AnsweredPrayerCard answeredAt={answeredPrayerByReminderId[reminder.id]} key={reminder.id} reminder={reminder} />
                   ))}
@@ -21969,7 +22097,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [groupQuery, setGroupQuery] = useState("");
   const [groupsNotice, setGroupsNotice] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("praying_for");
+  const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("pray_today");
   const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
@@ -23268,9 +23396,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       const response = await fetch("/api/dos/app/prayer-requests", {
         body: JSON.stringify({
           category: draft.category,
+          createdByPersonId: draft.createdByPersonId,
           fieldPersonId: draft.fieldPersonId,
+          followUpAt: draft.followUpAt,
+          gatheringId: draft.gatheringId,
+          groupId: draft.groupId,
           linkedPersonIds: draft.linkedPersonIds,
+          meetingId: draft.meetingId,
+          organizationId: draft.organizationId,
           personTags: draft.personTags,
+          priority: draft.priority,
           request: draft.request,
           title: draft.title,
           visibility: draft.visibility,
@@ -23300,6 +23435,43 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       throw new Error(message);
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function createPrayerRequestFromMeeting({
+    meetingId,
+    personIds,
+    prayerNeeds,
+  }: {
+    meetingId: string;
+    personIds: string[];
+    prayerNeeds: string;
+  }) {
+    const requestText = prayerNeeds.trim();
+
+    if (!requestText) {
+      return null;
+    }
+
+    const primaryPersonId = personIds.length === 1 ? personIds[0] : null;
+    const linkedPeople = personIds
+      .map((personId) => people.find((person) => person.id === personId))
+      .filter((person): person is DosAppPerson => Boolean(person));
+
+    try {
+      return await createPrayerRequest({
+        category: "Ministry",
+        fieldPersonId: primaryPersonId,
+        linkedPersonIds: personIds,
+        meetingId,
+        personTags: linkedPeople.map((person) => person.name),
+        priority: "normal",
+        request: requestText,
+        title: primaryPersonId ? `Prayer for ${linkedPeople[0]?.name ?? "Table participant"}` : "Prayer from Table",
+        visibility: "private",
+      });
+    } catch {
+      return null;
     }
   }
 
@@ -24346,6 +24518,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               },
               ...current.filter((item) => item.id !== newPrayerNeedId),
             ]);
+            void createPrayerRequestFromMeeting({
+              meetingId: String(result.id),
+              personIds: selectedMeetingPersonIds,
+              prayerNeeds,
+            });
           }
         }
 
@@ -24537,6 +24714,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             },
             ...current.filter((item) => item.id !== newPrayerNeedId),
           ]);
+          void createPrayerRequestFromMeeting({
+            meetingId: selectedMeeting.id,
+            personIds: selectedMeetingPersonIds,
+            prayerNeeds,
+          });
         }
       }
 
@@ -25355,7 +25537,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {
           description: "Recurring discipleship rhythms, gatherings, attendance, and prayer.",
           icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "Groups",
+          label: "Groups - My Record",
           onClick: () => openMoreApp("groups"),
           section: "installed",
           status: `${data.groups.length} groups`,
@@ -25449,10 +25631,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ];
   const mobileAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => !["Missionary Profile", "Prayer Team", "Support Team", "Table Flow"].includes(item.label));
+    .filter((item) => ["Groups - My Record", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
   const desktopAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
+    .filter((item) => ["Groups - My Record", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 
@@ -25507,12 +25689,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }))
     : activeTab === "more"
       ? [
-          { icon: "people", label: "Groups", onClick: runMobileAction(() => openMoreApp("groups")) },
-          { icon: "people", label: "USA Missionaries", onClick: runMobileAction(openUsamAppsLayer) },
-          { icon: "people", label: "Missionary Profile", onClick: runMobileAction(() => openMoreApp("missionary_profile")) },
-          { icon: "prayer", label: "Prayer Team", onClick: runMobileAction(() => openMoreApp("prayer_team")) },
-          { icon: "people", label: "Support Team", onClick: runMobileAction(() => openMoreApp("support_team")) },
+          { icon: "people", label: "Groups - My Record", onClick: runMobileAction(() => openMoreApp("groups")) },
+          { icon: "fruit", label: "Fruit", onClick: runMobileAction(() => openMoreApp("fruit")) },
+          { icon: "library", label: "Library", onClick: runMobileAction(() => openMoreApp("library")) },
           { icon: "log", label: "Reports", onClick: runMobileAction(() => openMoreApp("reports")) },
+          { icon: "upload", label: "Stewardship", onClick: runMobileAction(() => openMoreApp("stewardship")) },
+          { icon: "prayer", label: "Testimony Practice", onClick: runMobileAction(() => openMoreApp("in_season")) },
           { icon: "search", label: "Search More", onClick: runMobileAction(openAppsSearch) },
         ]
     : activeTab === "home"
@@ -25938,6 +26120,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <GroupsWorkspace
                     groups={data.groups}
                     groupsNotice={groupsNotice}
+                    onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
                     onCreateGroup={() => showGroupsPlaceholder("New Group")}
                     onDetailTabChange={setGroupDetailTab}
                     onInvite={() => showGroupsPlaceholder("Invite")}
@@ -25990,24 +26173,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       placeholder="Search by person, request, or meeting"
                       query={prayerQuery}
                     />
-                      <MobilePrayerWorkspace
-                        householdMembers={data.householdMembers}
-                        localPrayerPartners={visibleMobilePrayerPartners}
+                    <MobilePrayerWorkspace
+                      groups={data.groups}
+                      meetings={data.meetings}
                       onOpenPrayerDetail={setSelectedMobilePrayerDetail}
-                      onOpenPrayerPartner={setSelectedMobilePrayerPartner}
                       onOpenPrayerRequest={setSelectedMobilePrayerRequest}
                       onTabChange={setPrayerWorkspaceTab}
-                      onUpdatePrayerTeamCountVisibility={updatePrayerTeamCountVisibility}
-                      prayerPartners={workspacePrayerPartners}
+                      people={people}
                       prayerRows={mobilePrayerRows}
                       prayerRequests={mergedMobilePrayerRequests}
                       query={prayerQuery}
-                      showPrayerTeamCount={showPrayerTeamCount}
                       tab={prayerWorkspaceTab}
                     />
                     <DesktopPrayerWorkspace
                       actionsHidden={Boolean(formMode) || Boolean(selectedMeetingId) || Boolean(selectedReminderId) || isPrayerResourceLibraryOpen || Boolean(selectedPrayerResourceSlug)}
                       answeredPrayerByReminderId={answeredPrayerByReminderId}
+                      groups={data.groups}
                       householdMembers={data.householdMembers}
                       leaderReflections={data.leaderReflections}
                       localPrayerNeeds={localPrayerNeeds}
@@ -26415,6 +26596,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
               person={selectedPerson}
+              prayerRequests={workspacePrayerRequests}
               circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
               workspace={data.workspace}
             />

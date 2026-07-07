@@ -7,8 +7,8 @@ type PublicGroup = {
   description: string;
   location: string;
   name: string;
-  nextGathering: string;
   nextGatheringLocation: string;
+  nextGathering: string;
   rhythm: string;
   scriptureReference: string;
   scriptureText: string;
@@ -23,8 +23,8 @@ const fallbackPublicGroups: Record<string, PublicGroup> = {
     description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     location: "Lebanon Hills Trailhead, Eagan, MN",
     name: "2three2",
-    nextGathering: "Saturday Run & Prayer · Saturdays at 7:00 AM",
     nextGatheringLocation: "Lebanon Hills Trailhead, Eagan, MN",
+    nextGathering: "Saturday Run & Prayer · Saturdays at 7:00 AM",
     rhythm: "Weekly · Saturday · 7:00 AM",
     scriptureReference: "2 Timothy 2:22",
     scriptureText: "Flee also youthful lusts; but pursue righteousness, faith, love, peace with those who call on the Lord out of a pure heart.",
@@ -92,8 +92,8 @@ async function loadPublicGroup(slug: string): Promise<PublicGroup | null> {
     description: group.description ?? "A recurring discipleship rhythm.",
     location: group.default_location ?? nextGathering?.location ?? "Location TBD",
     name: group.name,
-    nextGathering: nextGathering ? `${nextGathering.title} · ${formatPublicGroupDate(nextGathering.starts_at)}` : "Upcoming gathering TBD",
     nextGatheringLocation: nextGathering?.location ?? group.default_location ?? "Location TBD",
+    nextGathering: nextGathering ? `${nextGathering.title} · ${formatPublicGroupDate(nextGathering.starts_at)}` : "Upcoming gathering TBD",
     rhythm: group.rhythm_label ?? "Recurring",
     scriptureReference: group.scripture_reference ?? "",
     scriptureText: group.scripture_text ?? "",

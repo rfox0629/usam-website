@@ -494,6 +494,34 @@ function buildDosPreviewDemoData(): DosAppData {
       workspaceId: demoWorkspaceId,
     },
   ];
+  const prayerRequests: DosAppData["prayerRequests"] = [
+    {
+      answerTestimony: null,
+      answeredAt: null,
+      category: "Ministry",
+      createdAt: demoTimestamp,
+      createdByPersonId: "demo-person-george-jenko",
+      createdByUserId: null,
+      fieldPersonId: "demo-person-tim-tran",
+      followUpAt: "2026-07-12T09:00:00-05:00",
+      gatheringId: "demo-group-2three2-gathering-1",
+      groupId: "demo-group-2three2",
+      id: "demo-prayer-2three2-tim",
+      linkedPersonIds: ["demo-person-tim-tran"],
+      meetingId: null,
+      organizationId: null,
+      personTags: ["Tim Tran", "2three2"],
+      priority: "high",
+      request: "Pray for strength and steady pursuit as Tim builds a weekly rhythm of Scripture, running, and prayer.",
+      source: "dos_group",
+      status: "active",
+      title: "Strength and endurance",
+      updatedAt: demoTimestamp,
+      urgency: "important",
+      visibility: "group_members",
+      workspaceId: demoWorkspaceId,
+    },
+  ];
   const groups: DosAppData["groups"] = [
     {
       active: true,
@@ -549,7 +577,7 @@ function buildDosPreviewDemoData(): DosAppData {
         },
       ],
       name: "2three2",
-      prayerRequests: [],
+      prayerRequests: prayerRequests.filter((request) => request.groupId === "demo-group-2three2"),
       resources: [
         {
           active: true,
@@ -708,7 +736,7 @@ function buildDosPreviewDemoData(): DosAppData {
         updatedAt: demoTimestamp,
       },
     ],
-    prayerRequests: [],
+    prayerRequests,
     myRecord: {
       assessmentResults: [
         {
