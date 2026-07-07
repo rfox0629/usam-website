@@ -5392,6 +5392,8 @@ function DesktopCirclePanel({
 }
 
 type DosAppCatalogSectionKey = "coming_soon" | "installed" | "missionary";
+const dosMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
+const dosMoreLauncherAppLabelSet = new Set<string>(dosMoreLauncherAppLabels);
 
 type DesktopMoreAppItem = {
   description: string;
@@ -5412,6 +5414,7 @@ function DesktopMoreAppCard({ item }: { item: DesktopMoreAppItem }) {
   return (
     <button
       className="flex min-h-[112px] min-w-0 flex-col justify-between rounded-[22px] border border-[#EAF2FF] bg-white p-3.5 text-left shadow-[0_10px_28px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF]"
+      data-dos-app-card={item.label}
       onClick={item.onClick}
       type="button"
     >
@@ -24745,10 +24748,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ];
   const mobileAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
+    .filter((item) => dosMoreLauncherAppLabelSet.has(item.label));
   const desktopAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
+    .filter((item) => dosMoreLauncherAppLabelSet.has(item.label));
+  const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Groups");
+  const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Groups");
+
+  if (!groupsLauncherCard || !mobileGroupsLauncherCard) {
+    console.warn("DOS Groups launcher card is not registered.", {
+      desktop: Boolean(groupsLauncherCard),
+      mobile: Boolean(mobileGroupsLauncherCard),
+    });
+  }
+
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 

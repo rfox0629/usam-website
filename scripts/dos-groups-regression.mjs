@@ -198,6 +198,13 @@ assertIncludes(
 assertIncludes(appClient, '"groups"', "Groups must be available as a DOS app view.");
 assertIncludes(appClient, 'label: "My Record"', "My Record must remain a separate desktop navigation item.");
 assertIncludes(appClient, 'label: "Groups"', "Groups must appear under More as its own item.");
+assertIncludes(appClient, 'const dosMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Groups must be registered in the shared DOS Apps/More launcher manifest.");
+assertIncludes(appClient, "dosMoreLauncherAppLabelSet.has(item.label)", "Desktop and mobile Apps launchers must filter through the shared manifest instead of an ad hoc label list.");
+assertIncludes(appClient, 'data-dos-app-card={item.label}', "Apps launcher cards must expose a stable marker for production verification.");
+assertIncludes(appClient, 'label: "Groups"', "Groups launcher card must be registered with the Groups label.");
+assertIncludes(appClient, 'onClick: () => openMoreApp("groups")', "Groups launcher card must open the Groups workspace.");
+assertIncludes(appClient, 'const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Groups")', "Desktop launcher must explicitly verify the Groups card registration.");
+assertIncludes(appClient, 'const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Groups")', "Mobile launcher must explicitly verify the Groups card registration.");
 assert(
   !appClient.includes("Groups - My Record"),
   "Groups and My Record must not be combined into one navigation item.",
