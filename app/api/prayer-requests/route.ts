@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       related_household_id: household.id,
       request: requestText,
       source: "public_form",
-      status: "open",
+      status: "active",
       title,
       urgency,
       visibility: "private",

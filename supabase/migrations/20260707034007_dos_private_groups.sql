@@ -105,29 +105,6 @@ create table if not exists public.dos_group_attendance (
 create index if not exists dos_group_attendance_person_idx
   on public.dos_group_attendance(person_id, created_at desc);
 
-create table if not exists public.dos_group_prayer_requests (
-  id uuid primary key default gen_random_uuid(),
-  group_id uuid not null references public.dos_groups(id) on delete cascade,
-  person_id uuid references public.missionary_field_people(id) on delete set null,
-  title text not null,
-  description text,
-  status text not null default 'active',
-  answered_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint dos_group_prayer_requests_title_not_empty check (length(btrim(title)) > 0),
-  constraint dos_group_prayer_requests_status_check check (
-    status in ('active', 'answered', 'archived')
-  )
-);
-
-create index if not exists dos_group_prayer_requests_group_status_idx
-  on public.dos_group_prayer_requests(group_id, status, created_at desc);
-
-create index if not exists dos_group_prayer_requests_person_idx
-  on public.dos_group_prayer_requests(person_id, status)
-  where person_id is not null;
-
 create table if not exists public.dos_group_resources (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.dos_groups(id) on delete cascade,
@@ -172,12 +149,6 @@ create trigger set_dos_group_attendance_updated_at
   for each row
   execute function public.set_dos_updated_at();
 
-drop trigger if exists set_dos_group_prayer_requests_updated_at on public.dos_group_prayer_requests;
-create trigger set_dos_group_prayer_requests_updated_at
-  before update on public.dos_group_prayer_requests
-  for each row
-  execute function public.set_dos_updated_at();
-
 drop trigger if exists set_dos_group_resources_updated_at on public.dos_group_resources;
 create trigger set_dos_group_resources_updated_at
   before update on public.dos_group_resources
@@ -188,35 +159,30 @@ alter table public.dos_groups enable row level security;
 alter table public.dos_group_members enable row level security;
 alter table public.dos_group_gatherings enable row level security;
 alter table public.dos_group_attendance enable row level security;
-alter table public.dos_group_prayer_requests enable row level security;
 alter table public.dos_group_resources enable row level security;
 
 revoke all on table public.dos_groups from anon;
 revoke all on table public.dos_group_members from anon;
 revoke all on table public.dos_group_gatherings from anon;
 revoke all on table public.dos_group_attendance from anon;
-revoke all on table public.dos_group_prayer_requests from anon;
 revoke all on table public.dos_group_resources from anon;
 
 revoke all on table public.dos_groups from authenticated;
 revoke all on table public.dos_group_members from authenticated;
 revoke all on table public.dos_group_gatherings from authenticated;
 revoke all on table public.dos_group_attendance from authenticated;
-revoke all on table public.dos_group_prayer_requests from authenticated;
 revoke all on table public.dos_group_resources from authenticated;
 
 grant select, insert, update, delete on table public.dos_groups to authenticated;
 grant select, insert, update, delete on table public.dos_group_members to authenticated;
 grant select, insert, update, delete on table public.dos_group_gatherings to authenticated;
 grant select, insert, update, delete on table public.dos_group_attendance to authenticated;
-grant select, insert, update, delete on table public.dos_group_prayer_requests to authenticated;
 grant select, insert, update, delete on table public.dos_group_resources to authenticated;
 
 grant select, insert, update, delete on table public.dos_groups to service_role;
 grant select, insert, update, delete on table public.dos_group_members to service_role;
 grant select, insert, update, delete on table public.dos_group_gatherings to service_role;
 grant select, insert, update, delete on table public.dos_group_attendance to service_role;
-grant select, insert, update, delete on table public.dos_group_prayer_requests to service_role;
 grant select, insert, update, delete on table public.dos_group_resources to service_role;
 
 drop policy if exists "DOS admins can read groups" on public.dos_groups;
@@ -274,21 +240,6 @@ create policy "DOS admins can read group attendance"
 drop policy if exists "DOS editors can manage group attendance" on public.dos_group_attendance;
 create policy "DOS editors can manage group attendance"
   on public.dos_group_attendance
-  for all
-  to authenticated
-  using (public.is_dos_admin(array['admin', 'editor']))
-  with check (public.is_dos_admin(array['admin', 'editor']));
-
-drop policy if exists "DOS admins can read group prayer requests" on public.dos_group_prayer_requests;
-create policy "DOS admins can read group prayer requests"
-  on public.dos_group_prayer_requests
-  for select
-  to authenticated
-  using (public.is_dos_admin(array['admin', 'editor', 'viewer']));
-
-drop policy if exists "DOS editors can manage group prayer requests" on public.dos_group_prayer_requests;
-create policy "DOS editors can manage group prayer requests"
-  on public.dos_group_prayer_requests
   for all
   to authenticated
   using (public.is_dos_admin(array['admin', 'editor']))
