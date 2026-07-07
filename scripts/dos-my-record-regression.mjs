@@ -162,7 +162,7 @@ assert(client.includes("const myRecordLegacyTabs"), "Client should preserve the 
 assert(client.includes("const myRecordV2Tabs"), "Client should define the Ryan-only V2 internal tab list.");
 const v2TabsSource = client.slice(client.indexOf("const myRecordV2Tabs"), client.indexOf("const prayerRequestViewTabs"));
 assert(v2TabsSource.includes("{ label: \"Overview\", value: \"overview\" }"), "V2 should keep Overview as the first My Record tab.");
-assert(v2TabsSource.includes("{ label: \"Walk With God\", value: \"walk_with_god\" }"), "V2 should expose Walk With God as a primary tab.");
+assert(v2TabsSource.includes("{ label: \"Walk\", value: \"walk_with_god\" }"), "V2 should expose Walk as a primary tab.");
 assert(v2TabsSource.includes("{ label: \"Growth\", value: \"growth\" }"), "V2 should expose Growth as a primary tab.");
 assert(v2TabsSource.includes("{ label: \"Calling\", value: \"calling\" }"), "V2 should expose Calling as a primary tab.");
 assert(v2TabsSource.includes("{ label: \"Legacy\", value: \"legacy\" }"), "V2 should expose Legacy as a primary tab.");
@@ -176,6 +176,8 @@ assert(client.includes("Log Prayer Time"), "Client should expose Log Prayer Time
 assert(client.includes("Add Journal Entry"), "Client should expose Add Journal Entry quick action.");
 assert(client.includes("Log Mentor Meeting"), "Client should expose Log Mentor Meeting quick action.");
 assert(client.includes("Take Assessment"), "Client should expose Take Assessment quick action.");
+assert(client.includes("MyRecordSheetFrame"), "V2 should use drawers/sheets for My Record editing.");
+assert(client.includes("MyRecordContextualFloatingActions"), "V2 should expose contextual My Record floating actions.");
 assert(client.includes("Share Settings"), "My Record overview should expose Share Settings from the header.");
 assert(client.includes("My Record is private."), "Share Settings should preserve the private-by-default sharing language.");
 assert(client.includes("myRecordFutureSharingRoles.map"), "Share Settings should preserve future sharing roles.");
@@ -185,11 +187,11 @@ assert(client.includes("מוּסָר") && client.includes("שְׁלִיחוּת"
 assert(client.includes("God's Faithfulness"), "V2 overview should include God's Faithfulness.");
 assert(client.includes("This Month Snapshot"), "V2 overview should include the grouped monthly snapshot.");
 assert(client.includes("kind: \"prophetic_word\""), "Client should save prophetic words through the private My Record API.");
-assert(client.includes("function MyRecordWalkWithGodPanel"), "V2 should group Journal, Prayer, Quiet Time, Scripture, and Timeline under Walk With God.");
+assert(client.includes("function MyRecordWalkWithGodPanel"), "V2 should group Journal, Prayer, Quiet Time, Scripture, and Timeline under Walk.");
 assert(client.includes("function MyRecordGrowthPanel"), "V2 should group Assessments, Learning, and Mentors under Growth.");
 assert(client.includes("function MyRecordCallingPanel"), "V2 should group Words, Calling, Prophetic Words, Dreams & Visions, and Milestones under Calling.");
 assert(client.includes("function MyRecordLegacyPanel"), "V2 should group God's Faithfulness, Family, and Ministry Impact under Legacy.");
-assert(client.includes("Master Timeline"), "Walk With God should include the unified My Record timeline.");
+assert(client.includes("Timeline"), "Walk should include the unified My Record timeline.");
 assert(client.includes("Dreams & Visions · Coming Soon"), "Calling should reserve Dreams & Visions for future work.");
 assert(client.includes("Milestones · Coming Soon"), "Calling should reserve Milestones for future work.");
 assert(client.includes("Ministry Impact"), "Legacy should include the private ministry impact summary.");

@@ -52,14 +52,20 @@ type MyRecordPayload = {
   highlightImageUploadedAt?: unknown;
   highlights?: unknown;
   kind?: unknown;
+  entryId?: unknown;
+  externalAssessmentResultId?: unknown;
+  chapterNoteId?: unknown;
   lordHighlight?: unknown;
   mentorName?: unknown;
+  mentorMeetingId?: unknown;
   minutesSpent?: unknown;
   notes?: unknown;
   officialAssessmentUrl?: unknown;
   prayerFocus?: unknown;
   prayerResponse?: unknown;
+  prayerLogId?: unknown;
   personalApplication?: unknown;
+  propheticWordId?: unknown;
   relationshipId?: unknown;
   relationshipLabel?: unknown;
   resultType?: unknown;
@@ -73,6 +79,8 @@ type MyRecordPayload = {
   tags?: unknown;
   title?: unknown;
   topStrengths?: unknown;
+  targetId?: unknown;
+  targetKind?: unknown;
   wordText?: unknown;
   workspaceId?: unknown;
   workspace_id?: unknown;
@@ -357,6 +365,18 @@ function dateAtNoonUtc(date: string) {
   return `${date}T12:00:00.000Z`;
 }
 
+function validateOptionalUuid(value: unknown, label: string) {
+  const id = asString(value);
+
+  if (!id) {
+    return { id: "" };
+  }
+
+  return isUuid(id)
+    ? { id }
+    : { response: NextResponse.json({ error: `${label} is invalid.` }, { status: 400 }) };
+}
+
 async function authorizeWrite() {
   const authorization = await getDosAuthorization();
 
@@ -586,22 +606,42 @@ export async function POST(request: Request) {
   }
 
   if (kind === "journal") {
-    const { data, error } = await supabase
-      .from("dos_user_journal_entries")
-      .insert({
-        bible_passage: asNullableText(payload.biblePassage, 500),
-        entry_date: asDateString(payload.date),
-        lord_highlight: asNullableText(payload.lordHighlight),
-        minutes_spent: asMinutes(payload.minutesSpent),
-        notes: asNullableText(payload.notes),
-        prayer_response: asNullableText(payload.prayerResponse),
-        record_id: recordId,
-        tags: asJournalTags(payload.tags),
-        user_id: authResult.authorization.userId,
-        workspace_id: workspaceId,
-      })
-      .select("id")
-      .single();
+    const entryId = validateOptionalUuid(payload.entryId, "Journal entry");
+
+    if ("response" in entryId) {
+      return entryId.response;
+    }
+
+    const journalPayload = {
+      bible_passage: asNullableText(payload.biblePassage, 500),
+      entry_date: asDateString(payload.date),
+      lord_highlight: asNullableText(payload.lordHighlight),
+      minutes_spent: asMinutes(payload.minutesSpent),
+      notes: asNullableText(payload.notes),
+      prayer_response: asNullableText(payload.prayerResponse),
+      tags: asJournalTags(payload.tags),
+    };
+    const result = entryId.id
+      ? await supabase
+        .from("dos_user_journal_entries")
+        .update(journalPayload)
+        .eq("id", entryId.id)
+        .eq("record_id", recordId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", authResult.authorization.userId)
+        .select("id")
+        .single()
+      : await supabase
+        .from("dos_user_journal_entries")
+        .insert({
+          ...journalPayload,
+          record_id: recordId,
+          user_id: authResult.authorization.userId,
+          workspace_id: workspaceId,
+        })
+        .select("id")
+        .single();
+    const { data, error } = result;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -611,6 +651,12 @@ export async function POST(request: Request) {
   }
 
   if (kind === "prayer") {
+    const prayerLogId = validateOptionalUuid(payload.prayerLogId, "Prayer log");
+
+    if ("response" in prayerLogId) {
+      return prayerLogId.response;
+    }
+
     const fieldPersonId = asString(payload.fieldPersonId);
     const personValidation = await validateFieldPerson(supabase, workspaceId, fieldPersonId);
 
@@ -620,22 +666,36 @@ export async function POST(request: Request) {
 
     const date = asDateString(payload.date);
     const answeredStatus = asPrayerStatus(payload.answeredStatus);
-    const { data, error } = await supabase
-      .from("dos_user_prayer_logs")
-      .insert({
-        answered_at: answeredStatus === "answered" ? new Date().toISOString() : null,
-        answered_status: answeredStatus,
-        field_person_id: personValidation.person?.id ?? null,
-        minutes_spent: asMinutes(payload.minutesSpent),
-        notes: asNullableText(payload.notes),
-        prayed_at: dateAtNoonUtc(date),
-        prayer_focus: asNullableText(payload.prayerFocus, 500),
-        record_id: recordId,
-        user_id: authResult.authorization.userId,
-        workspace_id: workspaceId,
-      })
-      .select("id")
-      .single();
+    const prayerPayload = {
+      answered_at: answeredStatus === "answered" ? new Date().toISOString() : null,
+      answered_status: answeredStatus,
+      field_person_id: personValidation.person?.id ?? null,
+      minutes_spent: asMinutes(payload.minutesSpent),
+      notes: asNullableText(payload.notes),
+      prayed_at: dateAtNoonUtc(date),
+      prayer_focus: asNullableText(payload.prayerFocus, 500),
+    };
+    const result = prayerLogId.id
+      ? await supabase
+        .from("dos_user_prayer_logs")
+        .update(prayerPayload)
+        .eq("id", prayerLogId.id)
+        .eq("record_id", recordId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", authResult.authorization.userId)
+        .select("id")
+        .single()
+      : await supabase
+        .from("dos_user_prayer_logs")
+        .insert({
+          ...prayerPayload,
+          record_id: recordId,
+          user_id: authResult.authorization.userId,
+          workspace_id: workspaceId,
+        })
+        .select("id")
+        .single();
+    const { data, error } = result;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -645,6 +705,12 @@ export async function POST(request: Request) {
   }
 
   if (kind === "mentor_relationship") {
+    const relationshipId = validateOptionalUuid(payload.relationshipId, "Mentor relationship");
+
+    if ("response" in relationshipId) {
+      return relationshipId.response;
+    }
+
     const fieldPersonId = asString(payload.fieldPersonId);
     const personValidation = await validateFieldPerson(supabase, workspaceId, fieldPersonId);
 
@@ -658,6 +724,29 @@ export async function POST(request: Request) {
 
     if (!mentorName) {
       return NextResponse.json({ error: "Mentor name is required." }, { status: 400 });
+    }
+
+    if (relationshipId.id) {
+      const { data, error } = await supabase
+        .from("dos_user_mentor_relationships")
+        .update({
+          field_person_id: personValidation.person?.id ?? null,
+          mentor_name: mentorName,
+          notes,
+          relationship_label: relationshipLabel,
+        })
+        .eq("id", relationshipId.id)
+        .eq("record_id", recordId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", authResult.authorization.userId)
+        .select("id")
+        .single();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ id: data.id });
     }
 
     const relationshipResult = await findOrCreateMentorRelationship({
@@ -695,6 +784,12 @@ export async function POST(request: Request) {
   }
 
   if (kind === "mentor_meeting") {
+    const mentorMeetingId = validateOptionalUuid(payload.mentorMeetingId, "Mentor meeting");
+
+    if ("response" in mentorMeetingId) {
+      return mentorMeetingId.response;
+    }
+
     const fieldPersonId = asString(payload.fieldPersonId);
     const personValidation = await validateFieldPerson(supabase, workspaceId, fieldPersonId);
 
@@ -718,25 +813,39 @@ export async function POST(request: Request) {
     }
 
     const relationship = relationshipResult.relationship;
-    const { data, error } = await supabase
-      .from("dos_user_mentor_meetings")
-      .insert({
-        action_steps: asNullableText(payload.actionSteps),
-        counsel_received: asNullableText(payload.counselReceived),
-        discussed: asNullableText(payload.discussed),
-        duration_minutes: asMinutes(payload.minutesSpent),
-        field_person_id: relationship.field_person_id ?? personValidation.person?.id ?? null,
-        follow_up_date: asOptionalDateString(payload.followUpDate),
-        meeting_date: asDateString(payload.date),
-        mentor_name: relationship.mentor_name,
-        notes: asNullableText(payload.notes),
-        record_id: recordId,
-        relationship_id: relationship.id,
-        user_id: authResult.authorization.userId,
-        workspace_id: workspaceId,
-      })
-      .select("id")
-      .single();
+    const mentorMeetingPayload = {
+      action_steps: asNullableText(payload.actionSteps),
+      counsel_received: asNullableText(payload.counselReceived),
+      discussed: asNullableText(payload.discussed),
+      duration_minutes: asMinutes(payload.minutesSpent),
+      field_person_id: relationship.field_person_id ?? personValidation.person?.id ?? null,
+      follow_up_date: asOptionalDateString(payload.followUpDate),
+      meeting_date: asDateString(payload.date),
+      mentor_name: relationship.mentor_name,
+      notes: asNullableText(payload.notes),
+      relationship_id: relationship.id,
+    };
+    const result = mentorMeetingId.id
+      ? await supabase
+        .from("dos_user_mentor_meetings")
+        .update(mentorMeetingPayload)
+        .eq("id", mentorMeetingId.id)
+        .eq("record_id", recordId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", authResult.authorization.userId)
+        .select("id")
+        .single()
+      : await supabase
+        .from("dos_user_mentor_meetings")
+        .insert({
+          ...mentorMeetingPayload,
+          record_id: recordId,
+          user_id: authResult.authorization.userId,
+          workspace_id: workspaceId,
+        })
+        .select("id")
+        .single();
+    const { data, error } = result;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -750,30 +859,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
     }
 
+    const propheticWordId = validateOptionalUuid(payload.propheticWordId, "Prophetic word");
+
+    if ("response" in propheticWordId) {
+      return propheticWordId.response;
+    }
+
     const wordText = asNullableText(payload.wordText, 12000);
 
     if (!wordText) {
       return NextResponse.json({ error: "Prophetic word text is required." }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from("dos_user_prophetic_words")
-      .insert({
-        confirmations: asNullableText(payload.confirmations, 4000),
-        context: asNullableText(payload.context, 1000),
-        date_received: asDateString(payload.dateReceived || payload.date),
-        given_by: asNullableText(payload.givenBy, 240),
-        notes: asNullableText(payload.notes, 4000),
-        record_id: recordId,
-        scripture_references: asStringList(payload.scriptureReferences, 20),
-        status: asPropheticWordStatus(payload.status),
-        tags: asStringList(payload.tags, 20),
-        user_id: authResult.authorization.userId,
-        word_text: wordText,
-        workspace_id: workspaceId,
-      })
-      .select("id")
-      .single();
+    const propheticWordPayload = {
+      confirmations: asNullableText(payload.confirmations, 4000),
+      context: asNullableText(payload.context, 1000),
+      date_received: asDateString(payload.dateReceived || payload.date),
+      given_by: asNullableText(payload.givenBy, 240),
+      notes: asNullableText(payload.notes, 4000),
+      scripture_references: asStringList(payload.scriptureReferences, 20),
+      status: asPropheticWordStatus(payload.status),
+      tags: asStringList(payload.tags, 20),
+      word_text: wordText,
+    };
+    const result = propheticWordId.id
+      ? await supabase
+        .from("dos_user_prophetic_words")
+        .update(propheticWordPayload)
+        .eq("id", propheticWordId.id)
+        .eq("record_id", recordId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", authResult.authorization.userId)
+        .select("id")
+        .single()
+      : await supabase
+        .from("dos_user_prophetic_words")
+        .insert({
+          ...propheticWordPayload,
+          record_id: recordId,
+          user_id: authResult.authorization.userId,
+          workspace_id: workspaceId,
+        })
+        .select("id")
+        .single();
+    const { data, error } = result;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -785,6 +914,12 @@ export async function POST(request: Request) {
   if (kind === "external_assessment_result") {
     if (!myRecordV2Enabled) {
       return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
+    }
+
+    const externalAssessmentResultId = validateOptionalUuid(payload.externalAssessmentResultId, "External assessment result");
+
+    if ("response" in externalAssessmentResultId) {
+      return externalAssessmentResultId.response;
     }
 
     const assessmentName = asNullableText(payload.assessmentName, 240);
@@ -811,34 +946,52 @@ export async function POST(request: Request) {
       return attachment.response;
     }
 
-    const { data, error } = await supabase
-      .from("dos_user_external_assessment_results")
-      .insert({
-        assessment_name: assessmentName,
-        attachment_bucket: attachment.attachmentBucket,
-        attachment_content_type: attachment.attachmentContentType,
-        attachment_file_name: attachment.attachmentFileName,
-        attachment_path: attachment.attachmentPath,
-        attachment_uploaded_at: attachment.attachmentUploadedAt,
-        attachment_url: attachmentUrl.value,
-        category: asNullableText(payload.category, 160),
-        date_taken: asDateString(payload.dateTaken || payload.date),
-        notes: asNullableText(payload.notes, 4000),
-        official_assessment_url: officialAssessmentUrl.value,
-        record_id: recordId,
-        result_type: asNullableText(payload.resultType, 500),
-        retake_reminder_date: asOptionalDateString(payload.retakeReminderDate),
-        scores_details: asNullableText(payload.scoresDetails, 4000),
-        share_eligible: asBoolean(payload.shareEligible),
-        short_summary: asNullableText(payload.shortSummary, 1200),
-        status: asExternalAssessmentStatus(payload.status),
-        top_strengths: asStringList(payload.topStrengths, 20),
-        user_id: authResult.authorization.userId,
-        visibility: "private",
-        workspace_id: workspaceId,
-      })
-      .select("id")
-      .single();
+    const externalAssessmentPayload: Record<string, unknown> = {
+      assessment_name: assessmentName,
+      attachment_url: attachmentUrl.value,
+      category: asNullableText(payload.category, 160),
+      date_taken: asDateString(payload.dateTaken || payload.date),
+      notes: asNullableText(payload.notes, 4000),
+      official_assessment_url: officialAssessmentUrl.value,
+      result_type: asNullableText(payload.resultType, 500),
+      retake_reminder_date: asOptionalDateString(payload.retakeReminderDate),
+      scores_details: asNullableText(payload.scoresDetails, 4000),
+      share_eligible: asBoolean(payload.shareEligible),
+      short_summary: asNullableText(payload.shortSummary, 1200),
+      status: asExternalAssessmentStatus(payload.status),
+      top_strengths: asStringList(payload.topStrengths, 20),
+      visibility: "private",
+    };
+
+    if (!externalAssessmentResultId.id || attachment.attachmentPath) {
+      externalAssessmentPayload.attachment_bucket = attachment.attachmentBucket;
+      externalAssessmentPayload.attachment_content_type = attachment.attachmentContentType;
+      externalAssessmentPayload.attachment_file_name = attachment.attachmentFileName;
+      externalAssessmentPayload.attachment_path = attachment.attachmentPath;
+      externalAssessmentPayload.attachment_uploaded_at = attachment.attachmentUploadedAt;
+    }
+
+    const result = externalAssessmentResultId.id
+      ? await supabase
+        .from("dos_user_external_assessment_results")
+        .update(externalAssessmentPayload)
+        .eq("id", externalAssessmentResultId.id)
+        .eq("record_id", recordId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", authResult.authorization.userId)
+        .select("id")
+        .single()
+      : await supabase
+        .from("dos_user_external_assessment_results")
+        .insert({
+          ...externalAssessmentPayload,
+          record_id: recordId,
+          user_id: authResult.authorization.userId,
+          workspace_id: workspaceId,
+        })
+        .select("id")
+        .single();
+    const { data, error } = result;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -908,6 +1061,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
     }
 
+    const chapterNoteId = validateOptionalUuid(payload.chapterNoteId, "Chapter note");
+
+    if ("response" in chapterNoteId) {
+      return chapterNoteId.response;
+    }
+
     const bookId = asString(payload.bookId);
     const chapterLabel = asNullableText(payload.chapterLabel, 240);
 
@@ -942,26 +1101,44 @@ export async function POST(request: Request) {
       return highlightImage.response;
     }
 
-    const { data, error } = await supabase
-      .from("dos_user_learning_chapter_notes")
-      .insert({
-        book_id: bookId,
-        chapter_label: chapterLabel,
-        chapter_number: asOptionalInteger(payload.chapterNumber, 0, 9999),
-        highlight_image_bucket: highlightImage.highlightImageBucket,
-        highlight_image_content_type: highlightImage.highlightImageContentType,
-        highlight_image_file_name: highlightImage.highlightImageFileName,
-        highlight_image_path: highlightImage.highlightImagePath,
-        highlight_image_uploaded_at: highlightImage.highlightImageUploadedAt,
-        highlights: asNullableText(payload.highlights, 5000),
-        notes: asNullableText(payload.notes, 5000),
-        personal_application: asNullableText(payload.personalApplication, 5000),
-        record_id: recordId,
-        user_id: authResult.authorization.userId,
-        workspace_id: workspaceId,
-      })
-      .select("id")
-      .single();
+    const chapterPayload: Record<string, unknown> = {
+      book_id: bookId,
+      chapter_label: chapterLabel,
+      chapter_number: asOptionalInteger(payload.chapterNumber, 0, 9999),
+      highlights: asNullableText(payload.highlights, 5000),
+      notes: asNullableText(payload.notes, 5000),
+      personal_application: asNullableText(payload.personalApplication, 5000),
+    };
+
+    if (!chapterNoteId.id || highlightImage.highlightImagePath) {
+      chapterPayload.highlight_image_bucket = highlightImage.highlightImageBucket;
+      chapterPayload.highlight_image_content_type = highlightImage.highlightImageContentType;
+      chapterPayload.highlight_image_file_name = highlightImage.highlightImageFileName;
+      chapterPayload.highlight_image_path = highlightImage.highlightImagePath;
+      chapterPayload.highlight_image_uploaded_at = highlightImage.highlightImageUploadedAt;
+    }
+
+    const result = chapterNoteId.id
+      ? await supabase
+        .from("dos_user_learning_chapter_notes")
+        .update(chapterPayload)
+        .eq("id", chapterNoteId.id)
+        .eq("record_id", recordId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", authResult.authorization.userId)
+        .select("id")
+        .single()
+      : await supabase
+        .from("dos_user_learning_chapter_notes")
+        .insert({
+          ...chapterPayload,
+          record_id: recordId,
+          user_id: authResult.authorization.userId,
+          workspace_id: workspaceId,
+        })
+        .select("id")
+        .single();
+    const { data, error } = result;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -1000,6 +1177,60 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ id: data.id });
+  }
+
+  if (kind === "delete") {
+    const targetId = validateOptionalUuid(payload.targetId, "My Record item");
+
+    if ("response" in targetId) {
+      return targetId.response;
+    }
+
+    if (!targetId.id) {
+      return NextResponse.json({ error: "My Record item is required." }, { status: 400 });
+    }
+
+    const targetKind = asString(payload.targetKind);
+    const deleteTargets = {
+      assessment_result: { table: "dos_user_assessment_results", v2Only: false },
+      external_assessment_result: { table: "dos_user_external_assessment_results", v2Only: true },
+      journal: { table: "dos_user_journal_entries", v2Only: false },
+      learning_book: { table: "dos_user_learning_books", v2Only: true },
+      learning_chapter_note: { table: "dos_user_learning_chapter_notes", v2Only: true },
+      mentor_meeting: { table: "dos_user_mentor_meetings", v2Only: false },
+      mentor_relationship: { table: "dos_user_mentor_relationships", v2Only: false },
+      prayer: { table: "dos_user_prayer_logs", v2Only: false },
+      prophetic_word: { table: "dos_user_prophetic_words", v2Only: true },
+    } as const;
+    const target = deleteTargets[targetKind as keyof typeof deleteTargets];
+
+    if (!target) {
+      return NextResponse.json({ error: "Unsupported My Record delete target." }, { status: 400 });
+    }
+
+    if (target.v2Only && !myRecordV2Enabled) {
+      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
+    }
+
+    const { data, error } = await supabase
+      .from(target.table)
+      .delete()
+      .eq("id", targetId.id)
+      .eq("record_id", recordId)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", authResult.authorization.userId)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: "My Record item not found." }, { status: 404 });
     }
 
     return NextResponse.json({ id: data.id });
