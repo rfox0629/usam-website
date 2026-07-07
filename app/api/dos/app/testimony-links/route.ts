@@ -67,7 +67,6 @@ export async function POST(request: Request) {
     formType: dosTestimonyReviewType,
     meetingId,
     recipientPersonId: asString(payload.recipientPersonId) || null,
-    requestUrl: request.url,
     workspaceId,
   });
 

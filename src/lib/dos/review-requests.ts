@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import type { DosAuthorizedUser } from "@/src/lib/dos/auth";
 import { isMissingWorkspaceScopeColumn } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewType, dosReviewOptionsType, dosTestimonyReviewType } from "@/src/lib/dos/review-types";
+import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -21,7 +22,6 @@ type CreateReviewRequestLinkInput = {
   formType: typeof dosQuickReviewType | typeof dosTestimonyReviewType | typeof dosReviewOptionsType;
   meetingId: string;
   recipientPersonId?: string | null;
-  requestUrl: string;
   workspaceId: string;
 };
 
@@ -74,8 +74,8 @@ function isMissingMeetingMinistryEventColumn(error: { message?: string } | null 
     && (message.includes("column") || message.includes("schema cache") || message.includes("could not find"));
 }
 
-function tokenUrl(requestUrl: string, formType: keyof typeof formTypeRoutes, token: string) {
-  return new URL(`${formTypeRoutes[formType]}/${token}`, requestUrl).toString();
+function tokenUrl(formType: keyof typeof formTypeRoutes, token: string) {
+  return new URL(`${formTypeRoutes[formType]}/${token}`, getCanonicalSiteUrl()).toString();
 }
 
 async function loadMeeting(
@@ -246,7 +246,7 @@ export async function createDosReviewRequestLink(input: CreateReviewRequestLinkI
     return {
       ok: true,
       token: existingResult.data.token,
-      url: tokenUrl(input.requestUrl, input.formType, existingResult.data.token),
+      url: tokenUrl(input.formType, existingResult.data.token),
     };
   }
 
@@ -276,6 +276,6 @@ export async function createDosReviewRequestLink(input: CreateReviewRequestLinkI
   return {
     ok: true,
     token: insertedLink.token,
-    url: tokenUrl(input.requestUrl, input.formType, insertedLink.token),
+    url: tokenUrl(input.formType, insertedLink.token),
   };
 }
