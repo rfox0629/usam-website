@@ -56,8 +56,11 @@ type MyRecordPayload = {
   externalAssessmentResultId?: unknown;
   chapterNoteId?: unknown;
   lordHighlight?: unknown;
+  meetingRhythm?: unknown;
+  mentorEmail?: unknown;
   mentorName?: unknown;
   mentorMeetingId?: unknown;
+  mentorPhone?: unknown;
   minutesSpent?: unknown;
   notes?: unknown;
   officialAssessmentUrl?: unknown;
@@ -719,6 +722,9 @@ export async function POST(request: Request) {
     }
 
     const mentorName = asNullableText(payload.mentorName, 160) || personValidation.person?.name || "";
+    const mentorEmail = asNullableText(payload.mentorEmail, 160);
+    const mentorPhone = asNullableText(payload.mentorPhone, 80);
+    const meetingRhythm = asNullableText(payload.meetingRhythm, 80);
     const relationshipLabel = asNullableText(payload.relationshipLabel, 160);
     const notes = asNullableText(payload.notes);
 
@@ -731,7 +737,10 @@ export async function POST(request: Request) {
         .from("dos_user_mentor_relationships")
         .update({
           field_person_id: personValidation.person?.id ?? null,
+          meeting_rhythm: meetingRhythm,
+          mentor_email: mentorEmail,
           mentor_name: mentorName,
+          mentor_phone: mentorPhone,
           notes,
           relationship_label: relationshipLabel,
         })
@@ -764,10 +773,13 @@ export async function POST(request: Request) {
       return relationshipResult.response;
     }
 
-    if (notes || relationshipLabel) {
+    if (notes || relationshipLabel || mentorEmail || mentorPhone || meetingRhythm) {
       const { error } = await supabase
         .from("dos_user_mentor_relationships")
         .update({
+          meeting_rhythm: meetingRhythm,
+          mentor_email: mentorEmail,
+          mentor_phone: mentorPhone,
           notes,
           relationship_label: relationshipLabel,
         })

@@ -17203,11 +17203,11 @@ function MyRecordContextualFloatingActions({
         <button
           aria-expanded={isOpen}
           aria-label={isOpen ? "Close My Record actions" : "Open My Record actions"}
-          className={`flex h-16 w-16 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_20px_44px_rgba(37,99,235,0.34)] transition-transform active:scale-[0.97] ${isOpen ? "rotate-45" : ""}`}
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_20px_44px_rgba(37,99,235,0.34)] transition-transform active:scale-[0.97]"
           onClick={onToggle}
           type="button"
         >
-          <Icon name="add" size={28} />
+          {isOpen ? <X className="h-6 w-6" aria-hidden="true" strokeWidth={2.2} /> : <Icon name="add" size={28} />}
         </button>
       </div>
     </div>
@@ -17516,6 +17516,23 @@ function MyRecordPrayerForm({
   );
 }
 
+const myRecordMentorRoleOptions = [
+  "Mentor",
+  "Pastor",
+  "Coach",
+  "Spiritual Father/Mother",
+  "Accountability Partner",
+  "Other",
+].map((label) => ({ label, value: label }));
+
+const myRecordMentorRhythmOptions = [
+  { label: "Weekly", value: "Weekly" },
+  { label: "2x/week", value: "2x/week" },
+  { label: "Monthly", value: "Monthly" },
+  { label: "As Needed", value: "As Needed" },
+  { label: "Custom", value: "Custom" },
+];
+
 function MyRecordMentorRelationshipForm({
   errorMessage,
   isSubmitting,
@@ -17535,6 +17552,12 @@ function MyRecordMentorRelationshipForm({
 }) {
   const isEditing = Boolean(mentor);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const mentorRoleOptions = mentor?.relationshipLabel && !myRecordMentorRoleOptions.some((option) => option.value === mentor.relationshipLabel)
+    ? [{ label: mentor.relationshipLabel, value: mentor.relationshipLabel }, ...myRecordMentorRoleOptions]
+    : myRecordMentorRoleOptions;
+  const mentorRhythmOptions = mentor?.meetingRhythm && !myRecordMentorRhythmOptions.some((option) => option.value === mentor.meetingRhythm)
+    ? [{ label: mentor.meetingRhythm, value: mentor.meetingRhythm }, ...myRecordMentorRhythmOptions]
+    : myRecordMentorRhythmOptions;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -17542,9 +17565,12 @@ function MyRecordMentorRelationshipForm({
 
     void (async () => {
       const saved = await onSave({
+        meetingRhythm: String(formData.get("meeting_rhythm") ?? ""),
+        mentorEmail: String(formData.get("mentor_email") ?? ""),
         fieldPersonId: String(formData.get("field_person_id") ?? ""),
         kind: "mentor_relationship",
         mentorName: String(formData.get("mentor_name") ?? ""),
+        mentorPhone: String(formData.get("mentor_phone") ?? ""),
         notes: String(formData.get("notes") ?? ""),
         relationshipId: mentor?.id,
         relationshipLabel: String(formData.get("relationship_label") ?? ""),
@@ -17562,13 +17588,13 @@ function MyRecordMentorRelationshipForm({
 
   return (
     <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
-      <DosFormSection icon="people" title="Add Mentor">
+      <DosFormSection icon="people" title={isEditing ? "Edit Mentor" : "Add Mentor"}>
         <FormOptionSelect
-          label="Existing Field Contact"
+          label="Linked Field Contact"
           name="field_person_id"
           defaultValue={mentor?.fieldPersonId ?? ""}
           options={[
-            { label: "Manual mentor", value: "" },
+            { label: "Not linked", value: "" },
             ...people.map((person) => ({
               helper: relationshipLine(person),
               label: person.name,
@@ -17576,19 +17602,36 @@ function MyRecordMentorRelationshipForm({
             })),
           ]}
         />
-        <DosFormField helper="Use this when the mentor is not in Field yet." label="Manual Name">
+        <DosFormField helper="Use a name even when they are not in Field yet." label="Name">
           <input className={FieldInputClass()} defaultValue={mentor?.fieldPersonId ? "" : mentor?.mentorName ?? ""} name="mentor_name" placeholder="Mentor name" />
         </DosFormField>
-        <DosFormField label="Relationship">
-          <input className={FieldInputClass()} defaultValue={mentor?.relationshipLabel ?? ""} name="relationship_label" placeholder="Pastor, coach, spiritual father, peer" />
-        </DosFormField>
+        <FormOptionSelect
+          label="Role / Type"
+          name="relationship_label"
+          defaultValue={mentor?.relationshipLabel ?? "Mentor"}
+          options={mentorRoleOptions}
+        />
+        <DosFormGrid>
+          <DosFormField label="Email">
+            <input className={FieldInputClass()} defaultValue={mentor?.email ?? ""} name="mentor_email" placeholder="Optional" type="email" />
+          </DosFormField>
+          <DosFormField label="Phone">
+            <input className={FieldInputClass()} defaultValue={mentor?.phone ?? ""} name="mentor_phone" placeholder="Optional" type="tel" />
+          </DosFormField>
+        </DosFormGrid>
+        <FormOptionSelect
+          label="Meeting Rhythm"
+          name="meeting_rhythm"
+          defaultValue={mentor?.meetingRhythm ?? "2x/week"}
+          options={mentorRhythmOptions}
+        />
         <DosFormField label="Notes">
           <VoiceTextarea className={FieldTextareaClass()} defaultValue={mentor?.notes ?? ""} name="notes" placeholder="What role do they play in your walk?" />
         </DosFormField>
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <div className="flex flex-wrap gap-2">
-        <AppButton disabled={isSubmitting} tone="white" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Mentor" : "Add Mentor"}</AppButton>
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Mentor" : "Add Mentor"}</AppButton>
         {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
       </div>
     </form>
@@ -17616,6 +17659,7 @@ function MyRecordMentorMeetingForm({
 }) {
   const isEditing = Boolean(meeting);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const activeMentors = mentors.filter((mentor) => mentor.status === "active");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -17657,19 +17701,31 @@ function MyRecordMentorMeetingForm({
             <input className={FieldInputClass()} defaultValue={meeting?.durationMinutes ?? ""} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
           </DosFormField>
         </DosFormGrid>
-        <FormOptionSelect
-          label="Saved Mentor"
-          name="relationship_id"
-          defaultValue={meeting?.relationshipId ?? ""}
-          options={[
-            { label: "Choose or add below", value: "" },
-            ...mentors.filter((mentor) => mentor.status === "active").map((mentor) => ({
-              helper: mentor.relationshipLabel ?? undefined,
-              label: mentor.mentorName,
-              value: mentor.id,
-            })),
-          ]}
-        />
+        {activeMentors.length ? (
+          <FormOptionSelect
+            label="Saved Mentor"
+            name="relationship_id"
+            defaultValue={meeting?.relationshipId ?? ""}
+            options={[
+              { label: "Manual mentor", value: "" },
+              ...activeMentors.map((mentor) => ({
+                helper: [mentor.relationshipLabel, mentor.meetingRhythm].filter(Boolean).join(" · ") || undefined,
+                label: mentor.mentorName,
+                value: mentor.id,
+              })),
+            ]}
+          />
+        ) : (
+          <>
+            <input name="relationship_id" type="hidden" value="" />
+            <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#475569]">
+              No mentors saved yet. Add a mentor first or enter a manual name.
+            </div>
+          </>
+        )}
+        <DosFormField helper={activeMentors.length ? "Use this only if you did not select a saved mentor." : "Enter the mentor name for this meeting."} label="Manual Mentor Name">
+          <input className={FieldInputClass()} defaultValue={meeting?.relationshipId ? "" : meeting?.mentorName ?? ""} name="mentor_name" placeholder="Mentor name" />
+        </DosFormField>
         <FormOptionSelect
           label="Field Contact"
           name="field_person_id"
@@ -17683,9 +17739,6 @@ function MyRecordMentorMeetingForm({
             })),
           ]}
         />
-        <DosFormField helper="Use this if you did not select a saved mentor." label="Manual Mentor Name">
-          <input className={FieldInputClass()} defaultValue={meeting?.relationshipId ? "" : meeting?.mentorName ?? ""} name="mentor_name" placeholder="Mentor name" />
-        </DosFormField>
         <DosFormField label="What was discussed?">
           <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.discussed ?? ""} name="discussed" placeholder="Topics, Scripture, life context, or questions." />
         </DosFormField>
@@ -19781,6 +19834,78 @@ function MyRecordWalkWithGodPanel({
   );
 }
 
+function myRecordMentorMeetingsForRelationship(record: DosAppUserRecord, mentor: DosAppUserMentorRelationship) {
+  return record.mentorMeetings
+    .filter((meeting) => meeting.relationshipId === mentor.id || (!meeting.relationshipId && meeting.mentorName === mentor.mentorName))
+    .sort((first, second) => myRecordDateValue(second.meetingDate) - myRecordDateValue(first.meetingDate));
+}
+
+function myRecordMentorNextFollowUpLabel(meetings: DosAppUserMentorMeeting[]) {
+  const today = todayDateValue();
+  const nextFollowUp = meetings
+    .map((meeting) => meeting.followUpDate)
+    .filter((date): date is string => Boolean(date))
+    .filter((date) => date >= today)
+    .sort()[0];
+
+  return nextFollowUp ? formatDate(nextFollowUp) : "—";
+}
+
+function MyRecordMentorCard({
+  mentor,
+  meetings,
+  onEdit,
+  onLogMeeting,
+  onView,
+}: {
+  mentor: DosAppUserMentorRelationship;
+  meetings: DosAppUserMentorMeeting[];
+  onEdit: () => void;
+  onLogMeeting: () => void;
+  onView: () => void;
+}) {
+  const lastMeeting = meetings[0] ?? null;
+
+  return (
+    <article className="min-w-0 rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black leading-5 text-[#0F172A]">{mentor.mentorName}</p>
+              <p className="mt-1 truncate text-xs font-bold text-[#2563EB]">{mentor.relationshipLabel || "Mentor"}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#ECFDF5] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#047857]" style={{ fontFamily: font.rajdhani }}>
+              Active
+            </span>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            {[
+              ["Last meeting", lastMeeting ? formatDate(lastMeeting.meetingDate) : "—"],
+              ["Next meeting", myRecordMentorNextFollowUpLabel(meetings)],
+              ["Rhythm", mentor.meetingRhythm || "—"],
+            ].map(([label, value]) => (
+              <div className="rounded-2xl border border-[#EAF2FF] bg-white px-3 py-2" key={label}>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+                <p className="mt-1 truncate text-xs font-bold text-[#0F172A]">{value}</p>
+              </div>
+            ))}
+          </div>
+          {mentor.notes ? <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#475569]">{mentor.notes}</p> : null}
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <MyRecordActionButton onClick={onView}>View</MyRecordActionButton>
+            <MyRecordActionButton onClick={onEdit}>Edit</MyRecordActionButton>
+            <MyRecordActionButton onClick={onLogMeeting} tone="blue">Log Meeting</MyRecordActionButton>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function MyRecordGrowthPanel({
   myRecordV2Enabled,
   onOpenSheet,
@@ -19804,6 +19929,8 @@ function MyRecordGrowthPanel({
     return [...priority, ...rest].slice(0, 4);
   }, [libraryItems]);
   const visibleBooks = record.learningBooks.filter((book) => book.status !== "archived").slice(0, 4);
+  const activeMentors = record.mentorRelationships.filter((mentor) => mentor.status === "active");
+  const recentMentorMeetings = record.mentorMeetings.slice(0, 3);
   const recommendedStep = !priorityAssessmentItems.some((item) => myRecordAssessmentMatchesName(item.name, "MCode"))
     ? "Add your MCode result so mentors can quickly understand your wiring."
     : visibleBooks.length === 0
@@ -19815,6 +19942,57 @@ function MyRecordGrowthPanel({
   return (
     <div className="grid gap-4">
       <p className="text-sm font-semibold text-[#64748B]">How is God shaping me?</p>
+      <section className="grid gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <SectionHeading title="Mentors" />
+            <p className="mt-1 text-sm leading-6 text-[#64748B]">People helping shape your walk, calling, and obedience.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <MyRecordActionButton onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })} tone="blue">+ Add Mentor</MyRecordActionButton>
+            <MyRecordActionButton onClick={() => onOpenSheet({ kind: "mentor_meeting", mode: "new" })}>Log Meeting</MyRecordActionButton>
+          </div>
+        </div>
+        {activeMentors.length ? (
+          <div className="grid gap-3">
+            {activeMentors.map((mentor) => {
+              const meetings = myRecordMentorMeetingsForRelationship(record, mentor);
+
+              return (
+                <MyRecordMentorCard
+                  key={mentor.id}
+                  meetings={meetings}
+                  mentor={mentor}
+                  onEdit={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "edit" })}
+                  onLogMeeting={() => onOpenSheet({ kind: "mentor_meeting", mode: "new" })}
+                  onView={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <SectionEmptyState action={<CompactButton icon="people" onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })}>Add Mentor</CompactButton>} text="Save the people pouring into you, then log meetings against them." title="No mentors saved yet." />
+        )}
+        {recentMentorMeetings.length ? (
+          <div className="grid gap-2 border-t border-[#EAF2FF] pt-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Recent Meetings</p>
+            <div className="grid gap-2">
+              {recentMentorMeetings.map((meeting) => (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={meeting.id}>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#0F172A]">{meeting.mentorName}</span>
+                    <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{formatDate(meeting.meetingDate)} · {formatRecordDuration(meeting.durationMinutes)}</span>
+                  </span>
+                  <span className="flex shrink-0 gap-2">
+                    <MyRecordActionButton onClick={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "view" })}>View</MyRecordActionButton>
+                    <MyRecordActionButton onClick={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "edit" })}>Edit</MyRecordActionButton>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
       <MyRecordRecommendedNextStep
         action={<MyRecordActionButton onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })}>Add Result</MyRecordActionButton>}
         text={recommendedStep}
@@ -19879,36 +20057,6 @@ function MyRecordGrowthPanel({
         ) : (
           <SectionEmptyState action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "book", mode: "new" })}>Add Book</CompactButton>} text="Capture books, chapter notes, highlights, and application." title="No book notes yet." />
         )}
-      </section>
-      <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-        <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "mentor_meeting", mode: "new" })} type="button">+ New</button>} title="Mentors" />
-        <div className="grid gap-3 md:grid-cols-2">
-          {record.mentorRelationships.slice(0, 2).map((mentor) => (
-            <MyRecordPreviewCard
-              body={mentor.notes}
-              icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-              key={mentor.id}
-              meta={mentor.relationshipLabel || "Mentor"}
-              onEdit={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "edit" })}
-              onView={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })}
-              title={mentor.mentorName}
-            />
-          ))}
-          {record.mentorMeetings.slice(0, 2).map((meeting) => (
-            <MyRecordPreviewCard
-              body={meeting.counselReceived ?? meeting.discussed ?? meeting.actionSteps ?? meeting.notes}
-              icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-              key={meeting.id}
-              meta={`${formatDate(meeting.meetingDate)} · ${formatRecordDuration(meeting.durationMinutes)}`}
-              onEdit={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "edit" })}
-              onView={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "view" })}
-              title={meeting.mentorName}
-            />
-          ))}
-        </div>
-        {!record.mentorRelationships.length && !record.mentorMeetings.length ? (
-          <SectionEmptyState action={<CompactButton icon="people" onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })}>Add Mentor</CompactButton>} text="Track who is pouring into you." title="No mentors added yet." />
-        ) : null}
       </section>
     </div>
   );
@@ -20321,6 +20469,9 @@ function MyRecordSheetContent({
       <div className="grid gap-3">
         <MyRecordDetailBlock label="Mentor" value={mentor.mentorName} />
         <MyRecordDetailBlock label="Relationship" value={mentor.relationshipLabel} />
+        <MyRecordDetailBlock label="Meeting Rhythm" value={mentor.meetingRhythm} />
+        <MyRecordDetailBlock label="Email" value={mentor.email} />
+        <MyRecordDetailBlock label="Phone" value={mentor.phone} />
         <MyRecordDetailBlock label="Field Contact" value={mentor.fieldPersonId ? namesById.get(mentor.fieldPersonId) : null} />
         <MyRecordDetailBlock label="Notes" value={mentor.notes} />
         <MyRecordEntryActions canDelete onDelete={() => onDelete("mentor_relationship", mentor.id)} onEdit={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "edit" })} />
@@ -20704,7 +20855,8 @@ function MyRecordWorkspace({
     const encounter = () => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" });
     const prayerEncounter = () => openMyRecordSheet({ defaultTags: ["Prayer"], kind: "encounter", mode: "new", title: "Prayer Encounter" });
     const reflection = () => openMyRecordSheet({ defaultTags: ["Journal"], kind: "encounter", mode: "new", title: "Reflection" });
-    const mentor = () => openMyRecordSheet({ kind: "mentor_meeting", mode: "new" });
+    const addMentor = () => openMyRecordSheet({ kind: "mentor_relationship", mode: "new" });
+    const mentorMeeting = () => openMyRecordSheet({ kind: "mentor_meeting", mode: "new" });
     const assessment = () => openMyRecordSheet({ kind: "external_assessment", mode: "new" });
     const propheticWord = () => openMyRecordSheet({ kind: "prophetic_word", mode: "new" });
     const book = () => openMyRecordSheet({ kind: "book", mode: "new" });
@@ -20721,6 +20873,8 @@ function MyRecordWorkspace({
 
     if (activeMyRecordTab === "growth") {
       return [
+        { icon: "people", label: "Add Mentor", onClick: addMentor },
+        { icon: "people", label: "Log Mentor Meeting", onClick: mentorMeeting },
         { icon: "library", label: "Assessment", onClick: assessment },
         { icon: "library", label: "Book", onClick: book },
         { disabled: true, icon: "library", label: "Course", onClick: () => undefined },
@@ -20757,7 +20911,7 @@ function MyRecordWorkspace({
       { icon: "library", label: "Time With God", onClick: encounter },
       { icon: "prayer", label: "Prayer Encounter", onClick: prayerEncounter },
       { icon: "log", label: "Reflection", onClick: reflection },
-      { icon: "people", label: "Mentor", onClick: mentor },
+      { icon: "people", label: "Mentor", onClick: mentorMeeting },
       { icon: "library", label: "Assessment", onClick: assessment },
     ];
   })() : [];
@@ -27007,7 +27161,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "prayer", label: "Add Prayer Request", onClick: runMobileAction(() => setIsMobileAddPrayerRequestOpen(true)) },
           { icon: "people", label: "Add Prayer Partner", onClick: runMobileAction(() => setIsMobileAddPrayerPartnerOpen(true)) },
         ]
-    : activeTab === "more" && activeMoreAppView === "my_record"
+    : activeTab === "more" && activeMoreAppView === "my_record" && !myRecordV2Enabled
       ? [
           { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
           { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
@@ -27044,7 +27198,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "people", label: "Add Person", onClick: runDesktopAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runDesktopAction(() => setIsPeopleImportOpen(true)) },
         ]
-      : activeTab === "more" && activeMoreAppView === "my_record"
+      : activeTab === "more" && activeMoreAppView === "my_record" && !myRecordV2Enabled
         ? [
             { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
             { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },

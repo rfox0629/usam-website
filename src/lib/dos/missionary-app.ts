@@ -441,10 +441,13 @@ export type DosAppUserPrayerLog = {
 
 export type DosAppUserMentorRelationship = {
   createdAt: string | null;
+  email: string | null;
   fieldPersonId: string | null;
   id: string;
+  meetingRhythm: string | null;
   mentorName: string;
   notes: string | null;
+  phone: string | null;
   relationshipLabel: string | null;
   status: "active" | "archived";
   updatedAt: string | null;
@@ -938,10 +941,13 @@ type DosUserPrayerLogRow = {
 
 type DosUserMentorRelationshipRow = {
   created_at: string | null;
+  mentor_email: string | null;
   field_person_id: string | null;
   id: string;
+  meeting_rhythm: string | null;
   mentor_name: string;
   notes: string | null;
+  mentor_phone: string | null;
   relationship_label: string | null;
   status: string | null;
   updated_at: string | null;
@@ -2142,7 +2148,7 @@ async function loadMyRecordForWorkspace(
       .limit(80),
     supabase
       .from("dos_user_mentor_relationships")
-      .select("id, field_person_id, mentor_name, relationship_label, notes, status, created_at, updated_at")
+      .select("id, field_person_id, mentor_name, relationship_label, mentor_email, mentor_phone, meeting_rhythm, notes, status, created_at, updated_at")
       .eq("record_id", recordRow.id)
       .eq("workspace_id", workspaceId)
       .eq("user_id", viewer.userId)
@@ -2271,10 +2277,13 @@ async function loadMyRecordForWorkspace(
   }));
   const mentorRelationships = ((mentorRelationshipsResult.data ?? []) as DosUserMentorRelationshipRow[]).map((mentor) => ({
     createdAt: mentor.created_at,
+    email: mentor.mentor_email,
     fieldPersonId: mentor.field_person_id,
     id: mentor.id,
+    meetingRhythm: mentor.meeting_rhythm,
     mentorName: mentor.mentor_name,
     notes: mentor.notes,
+    phone: mentor.mentor_phone,
     relationshipLabel: mentor.relationship_label,
     status: mapMyRecordMentorStatus(mentor.status),
     updatedAt: mentor.updated_at,
