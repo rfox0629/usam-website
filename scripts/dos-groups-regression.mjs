@@ -111,7 +111,12 @@ assertIncludes(
 );
 
 assertIncludes(appClient, '"groups"', "Groups must be available as a DOS app view.");
-assertIncludes(appClient, 'label: "Groups - My Record"', "Groups must appear under More as Groups - My Record.");
+assertIncludes(appClient, 'label: "My Record"', "My Record must remain a separate desktop navigation item.");
+assertIncludes(appClient, 'label: "Groups"', "Groups must appear under More as its own item.");
+assert(
+  !appClient.includes("Groups - My Record"),
+  "Groups and My Record must not be combined into one navigation item.",
+);
 assertIncludes(appClient, "function GroupsWorkspace", "Groups list workspace must render.");
 assertIncludes(appClient, "function GroupDetailWorkspace", "Groups detail workspace must render.");
 assertIncludes(appClient, "My Groups", "Groups list must include My Groups tab.");
@@ -127,8 +132,14 @@ for (const tab of [
 ]) {
   assertIncludes(appClient, `label: "${tab}"`, `Group detail must include ${tab} tab.`);
 }
-assertIncludes(appClient, "Run. Pray. Pursue.", "Groups intro/detail must include the 2three2 tagline.");
+assertIncludes(appClient, "Discipleship happens in rhythms.", "Groups intro must use the cross-group hero title.");
+assertIncludes(appClient, "Build consistent rhythms of discipleship through weekly gatherings, prayer, accountability, and community.", "Groups intro must use the cross-group hero description.");
+assertIncludes(appClient, "Featured Group", "Groups intro must label the featured group section.");
 assertIncludes(appClient, "Log as Table", "Group detail must expose Log as Table.");
+assertIncludes(appClient, "No attendance has been recorded yet.", "Attendance empty state must use the polished title.");
+assertIncludes(appClient, "Record attendance after your next gathering.", "Attendance empty state must use the polished body.");
+assertIncludes(appClient, "No active prayer requests.", "Prayer empty state must use the polished title.");
+assertIncludes(appClient, "Prayer requests added during gatherings will automatically appear here.", "Prayer empty state must use the polished body.");
 assertIncludes(appClient, "Pray Today", "Prayer app must include the Pray Today hub section.");
 assertIncludes(appClient, "High Priority", "Prayer app must include the High Priority hub section.");
 assertIncludes(appClient, "Needs Follow-Up", "Prayer app must include the Needs Follow-Up hub section.");
@@ -143,6 +154,11 @@ assertIncludes(
 
 assertIncludes(preview, 'const groups: DosAppData["groups"]', "DOS preview data must include groups.");
 assertIncludes(preview, 'name: "2three2"', "DOS preview must render the featured 2three2 group.");
+assertIncludes(preview, 'tagline: "Run. Pray. Pursue."', "DOS preview must seed the 2three2 tagline.");
+assertIncludes(preview, "name: \"Tuesday Men's Group\"", "DOS preview must seed Tuesday Men's Group.");
+assertIncludes(preview, "name: \"Wednesday Men's Group\"", "DOS preview must seed Wednesday Men's Group.");
+assertIncludes(preview, 'tagline: "Grow together."', "DOS preview must seed Tuesday Men's Group tagline.");
+assertIncludes(preview, 'tagline: "Brotherhood. Prayer. Discipleship."', "DOS preview must seed Wednesday Men's Group tagline.");
 assertIncludes(preview, 'const prayerRequests: DosAppData["prayerRequests"]', "DOS preview must seed central prayer requests.");
 assertIncludes(preview, 'groupId: "demo-group-2three2"', "DOS preview group prayer must use central groupId context.");
 
