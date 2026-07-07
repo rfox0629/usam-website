@@ -211,6 +211,17 @@ assert(
 );
 assertIncludes(appClient, "function GroupsWorkspace", "Groups list workspace must render.");
 assertIncludes(appClient, "function GroupDetailWorkspace", "Groups detail workspace must render.");
+assertIncludes(appClient, "xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)]", "Desktop group detail header must preserve a sensible text column width.");
+assertIncludes(appClient, "max-w-4xl", "Group detail title and scripture column must use the available width instead of collapsing.");
+assertIncludes(appClient, "whitespace-normal text-sm leading-6", "Group scripture text must render as normal paragraph copy.");
+assertIncludes(appClient, "flex min-w-0 flex-wrap gap-2 xl:justify-end", "Group detail actions must wrap without squeezing the title column.");
+assertIncludes(appClient, "inline-flex min-h-10 shrink-0", "Group detail action buttons must wrap as whole buttons instead of shrinking text.");
+assertIncludes(appClient, "md:grid-cols-4", "Group metadata row must use four equal desktop columns.");
+assertIncludes(appClient, "title={value}", "Group metadata chips must truncate with a readable title fallback.");
+assertIncludes(appClient, "overflow-x-auto px-1 pb-1", "Group detail tabs must stay horizontally scrollable on narrow screens.");
+assertIncludes(appClient, "grid grid-cols-2 gap-2 md:mt-4 md:grid-cols-3", "Today's Gathering workflow metrics must be compact on mobile.");
+assertIncludes(appClient, "pb-28 md:space-y-4 md:pb-4", "Group detail must keep mobile bottom navigation from covering content.");
+assertIncludes(appClient, "xl:grid-cols-2 xl:items-start", "Group overview must use a two-column desktop dashboard layout.");
 assertIncludes(appClient, "My Groups", "Groups list must include My Groups tab.");
 assertIncludes(appClient, "All Groups", "Groups list must include All Groups tab.");
 for (const tab of [

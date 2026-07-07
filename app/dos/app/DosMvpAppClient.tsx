@@ -5734,7 +5734,7 @@ function GroupsWorkspace({
   const featuredGroup = groups.find((group) => group.slug === "2three2") ?? groups[0] ?? null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 pb-28 md:space-y-4 md:pb-4">
       <TabPageHeader
         action={(
           <button
@@ -5967,27 +5967,27 @@ function GroupDetailWorkspace({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 pb-28 md:space-y-4 md:pb-4">
       <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
-      <section className="overflow-hidden rounded-[26px] border border-[#DCEBFF] bg-white shadow-[0_18px_44px_rgba(37,99,235,0.06)]">
+      <section className="w-full min-w-0 overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_18px_44px_rgba(37,99,235,0.06)] md:rounded-[26px]">
         <GroupLogoMark group={group} large />
-        <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div className="min-w-0">
+        <div className="grid min-w-0 gap-3 p-4 md:gap-4 md:p-5 xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)] xl:items-end">
+          <div className="min-w-0 max-w-4xl">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-[32px] font-black leading-none tracking-[-0.04em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+              <h1 className="min-w-[min(16rem,100%)] text-[30px] font-black leading-none tracking-[-0.04em] text-[#0F172A] md:text-[36px]" style={{ fontFamily: font.oswald }}>
                 {group.name}
               </h1>
               <GroupPill>{group.rhythmLabel ?? "Private"}</GroupPill>
             </div>
             <p className="mt-2 text-sm font-bold text-[#2563EB]">{group.tagline ?? "Recurring discipleship rhythm"}</p>
             {group.scriptureReference || group.scriptureText ? (
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#475569]">
+              <p className="mt-3 max-w-3xl whitespace-normal text-sm leading-6 text-[#475569]">
                 {group.scriptureText ? `"${group.scriptureText}"` : null}
                 {group.scriptureReference ? <span className="font-bold text-[#0F172A]"> {group.scriptureReference}</span> : null}
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2 xl:justify-end">
             {activeGathering ? null : <GroupQuickAction icon={<Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Start Gathering" onClick={startGathering} tone="primary" />}
             <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add to Group" onClick={onInvite} />
             <GroupQuickAction icon={<Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Copy Link" onClick={onCopyPublicLink} />
@@ -6090,20 +6090,20 @@ function GroupGatheringWorkflowBanner({
   const isActive = Boolean(activeGathering);
 
   return (
-    <section className={`rounded-[24px] border p-4 shadow-[0_14px_34px_rgba(37,99,235,0.06)] ${isActive ? "border-[#93C5FD] bg-[#EFF6FF]" : "border-[#DCEBFF] bg-white"}`}>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+    <section className={`rounded-[22px] border p-3 shadow-[0_14px_34px_rgba(37,99,235,0.06)] md:rounded-[24px] md:p-4 ${isActive ? "border-[#93C5FD] bg-[#EFF6FF]" : "border-[#DCEBFF] bg-white"}`}>
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,auto)] lg:items-center">
         <div className="min-w-0">
           <p className={`text-[11px] font-black uppercase tracking-[0.16em] ${isActive ? "text-[#1D4ED8]" : "text-[#64748B]"}`} style={{ fontFamily: font.rajdhani }}>
             {isActive ? "● Gathering In Progress" : "Today’s Gathering Workflow"}
           </p>
-          <h2 className="mt-1 text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+          <h2 className="mt-1 text-lg font-black leading-tight text-[#0F172A] md:text-xl" style={{ fontFamily: font.oswald }}>
             {gathering?.title ?? "No gathering scheduled"}
           </h2>
-          <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">
+          <p className="mt-1 text-sm font-semibold leading-5 text-[#64748B] md:leading-6">
             {gathering ? `${formatGroupGatheringTime(gathering)} · ${gathering.location ?? "Location TBD"}` : "Schedule the next discipleship rhythm before starting."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex min-w-0 flex-wrap gap-2 lg:justify-end">
           {isActive ? (
             <>
               <GroupQuickAction icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Attendance" onClick={onOpenAttendance} tone="primary" />
@@ -6116,16 +6116,18 @@ function GroupGatheringWorkflowBanner({
           )}
         </div>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="mt-3 grid grid-cols-2 gap-2 md:mt-4 md:grid-cols-3 md:gap-3">
         <GroupWorkflowMetric label="Elapsed" value={elapsedLabel ?? "Not started"} />
         <GroupWorkflowMetric label="Location" value={gathering?.location ?? "Location TBD"} />
-        <GroupWorkflowMetric label="Attendance Progress" value={`${attendanceSummary.marked}/${attendanceSummary.total} marked`} />
+        <div className="col-span-2 md:col-span-1">
+          <GroupWorkflowMetric label="Attendance Progress" value={`${attendanceSummary.marked}/${attendanceSummary.total} marked`} />
+        </div>
       </div>
       {workflowPanel === "notes" ? (
         <label className="mt-4 block">
           <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Notes</span>
           <textarea
-            className="mt-2 min-h-[120px] w-full rounded-[18px] border border-[#BFDBFE] bg-white p-3 text-sm leading-6 text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+            className="mt-2 min-h-24 w-full rounded-[18px] border border-[#BFDBFE] bg-white p-3 text-sm leading-6 text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
             onChange={(event) => onNotesChange(event.target.value)}
             placeholder="Capture what happened, what needs follow-up, and anything to carry into the Table log."
             value={notes}
@@ -6138,7 +6140,7 @@ function GroupGatheringWorkflowBanner({
 
 function GroupWorkflowMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-white/75 bg-white/82 px-3 py-3">
+    <div className="min-w-0 rounded-[16px] border border-white/75 bg-white/82 px-3 py-2.5 md:rounded-[18px] md:py-3">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p>
       <p className="mt-1 truncate text-sm font-black text-[#0F172A]">{value}</p>
     </div>
@@ -6630,7 +6632,7 @@ function GroupQuickAction({
 
   return (
     <button
-      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border px-3.5 text-xs font-black transition-colors ${className}`}
+      className={`inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full border px-3.5 text-xs font-black transition-colors ${className}`}
       onClick={onClick}
       type="button"
     >
@@ -6650,11 +6652,11 @@ function GroupFact({
   value: string;
 }) {
   return (
-    <div className="flex min-w-0 gap-3 border-b border-[#EAF2FF] px-4 py-3 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0">
+    <div className="flex min-w-0 gap-3 border-b border-[#EAF2FF] px-4 py-2.5 last:border-b-0 md:border-b-0 md:border-r md:py-3 md:last:border-r-0">
       <span className="mt-0.5 text-[#2563EB]">{icon}</span>
       <span className="min-w-0">
         <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
-        <span className="mt-0.5 block truncate text-sm font-bold text-[#0F172A]">{value}</span>
+        <span className="mt-0.5 block truncate text-sm font-bold text-[#0F172A]" title={value}>{value}</span>
       </span>
     </div>
   );
@@ -6668,14 +6670,14 @@ function GroupDetailTabBar({
   tab: GroupDetailTab;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-1">
       {groupDetailTabs.map((option) => {
         const selected = tab === option.value;
 
         return (
           <button
             aria-pressed={selected}
-            className={`min-h-9 rounded-full px-3 text-xs font-black transition-colors ${
+            className={`min-h-9 shrink-0 rounded-full px-3 text-xs font-black transition-colors ${
               selected ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]" : "border border-[#DCEBFF] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:text-[#0F172A]"
             }`}
             key={option.value}
@@ -6717,8 +6719,8 @@ function GroupOverviewTab({
   const followUpItems = Object.entries(followUpDrafts).slice(0, 4);
 
   return (
-    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="grid gap-3">
+    <div className="grid min-w-0 gap-3 xl:grid-cols-2 xl:items-start">
+      <div className="grid min-w-0 gap-3">
         <DesktopPanel
           action={nextGathering ? <button className="rounded-full bg-[#2563EB] px-3 py-2 text-xs font-black text-white" onClick={onStartGathering} type="button">Start Gathering</button> : null}
           eyebrow="Next"
@@ -6726,7 +6728,7 @@ function GroupOverviewTab({
         >
           {nextGathering ? <GroupGatheringRow gathering={nextGathering} /> : <p className="text-sm text-[#64748B]">No gathering scheduled.</p>}
         </DesktopPanel>
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid min-w-0 gap-3 lg:grid-cols-2">
           <DesktopPanel eyebrow="Attendance" title="Attendance Trend">
             <div className="grid gap-3 sm:grid-cols-3">
               <GroupWorkflowMetric label="Present" value={`${attendanceSummary.present}`} />
@@ -6773,7 +6775,7 @@ function GroupOverviewTab({
           </DesktopPanel>
         </div>
       </div>
-      <div className="grid content-start gap-3">
+      <div className="grid min-w-0 content-start gap-3">
         <DesktopPanel eyebrow="Health" title="Group Health">
           <GroupHealthSnapshot attendanceSummary={attendanceSummary} followUpCount={followUpItems.length} group={group} prayerCount={recentPrayerTitles.length} />
         </DesktopPanel>
