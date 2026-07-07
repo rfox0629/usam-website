@@ -5672,14 +5672,14 @@ function DesktopHomeDashboard({
     .filter((item) => item.label === "Now" || item.label.startsWith("Now ·") || item.label === "Today" || item.label.startsWith("Today ·"))
     .slice(0, 3);
   const latestJournal = myRecord.journalEntries[0] ?? null;
-  const quietTimeStatus = latestJournal
+  const timeWithGodStatus = latestJournal
     ? `Last logged ${formatRelativeDate(latestJournal.date)}`
     : "Not logged";
   const followUpsDue = upcomingItems.filter((item) => item.icon === "reminder" && item.label.toLowerCase().includes("today")).length;
   const nextMeeting = dashboardUpcomingRows.find((item) => item.meeting) ?? null;
   const alignmentItems = [
     { label: "Current focus", value: myRecord.currentSeasonFocus || "Not set" },
-    { label: "Quiet time", value: quietTimeStatus },
+    { label: "Time with God", value: timeWithGodStatus },
     { label: "Follow-ups due", value: `${followUpsDue}` },
     { label: "Next table", value: nextMeeting ? `${nextMeeting.title} · ${nextMeeting.label}` : "No table scheduled" },
   ];
@@ -16975,6 +16975,7 @@ function MyRecordActivityRow({
 
 type MyRecordSheetMode = "edit" | "new" | "view";
 type MyRecordSheetState =
+  | { defaultTags?: string[]; entry?: DosAppUserJournalEntry | null; kind: "encounter"; mode: MyRecordSheetMode; prayerLog?: DosAppUserPrayerLog | null; title?: string }
   | { defaultTags?: string[]; entry?: DosAppUserJournalEntry | null; kind: "journal"; mode: MyRecordSheetMode; title?: string }
   | { kind: "prayer"; log?: DosAppUserPrayerLog | null; mode: MyRecordSheetMode }
   | { kind: "mentor_meeting"; meeting?: DosAppUserMentorMeeting | null; mode: MyRecordSheetMode }
@@ -17241,6 +17242,8 @@ function MyRecordJournalForm({
   nextTab = "journal",
   onCancel,
   onSave,
+  payloadKind = "journal",
+  saveLabel,
   title = "Quiet Time",
 }: {
   defaultTags?: string[];
@@ -17250,6 +17253,8 @@ function MyRecordJournalForm({
   nextTab?: MyRecordTab;
   onCancel?: () => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  payloadKind?: "encounter" | "journal";
+  saveLabel?: { edit: string; new: string };
   title?: string;
 }) {
   const isEditing = Boolean(entry);
@@ -17282,7 +17287,7 @@ function MyRecordJournalForm({
         biblePassage: String(formData.get("bible_passage") ?? ""),
         date: String(formData.get("date") ?? todayDateValue()),
         entryId: entry?.id,
-        kind: "journal",
+        kind: payloadKind,
         lordHighlight: String(formData.get("lord_highlight") ?? ""),
         minutesSpent: Number.isFinite(minutes) ? minutes : timerMinutes ?? 0,
         notes: String(formData.get("notes") ?? ""),
@@ -17358,7 +17363,7 @@ function MyRecordJournalForm({
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <div className="flex flex-wrap gap-2">
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Entry" : "Add Entry"}</AppButton>
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? saveLabel?.edit ?? "Save Entry" : saveLabel?.new ?? "Add Entry"}</AppButton>
         {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
       </div>
     </form>
@@ -19444,28 +19449,166 @@ type MyRecordTimelineItem = {
   title: string;
 };
 
-function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordTimelineItem[] {
+type MyRecordEncounter = {
+  biblePassage: string | null;
+  body: string | null;
+  date: string | null;
+  entry: DosAppUserJournalEntry | null;
+  id: string;
+  minutesSpent: number;
+  prayerLog: DosAppUserPrayerLog | null;
+  sourceKind: "journal" | "prayer";
+  sourceLabel: string;
+  sourceId: string;
+  tags: string[];
+  title: string;
+};
+
+type MyRecordEncounterFilter = "all" | "highlights" | "journal" | "prayer" | "scripture";
+
+const myRecordEncounterFilters: ReadonlyArray<{ label: string; value: MyRecordEncounterFilter }> = [
+  { label: "All", value: "all" },
+  { label: "Scripture", value: "scripture" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Journal", value: "journal" },
+  { label: "Highlights", value: "highlights" },
+];
+
+function myRecordTagEquals(tag: string, expected: string) {
+  return tag.trim().toLowerCase() === expected.trim().toLowerCase();
+}
+
+function myRecordJournalHasPrayerTag(entry: DosAppUserJournalEntry) {
+  return entry.tags.some((tag) => myRecordTagEquals(tag, "Prayer"));
+}
+
+function myRecordJournalReflectionCount(entries: DosAppUserJournalEntry[]) {
+  return entries.filter((entry) => Boolean(entry.notes?.trim() || entry.lordHighlight?.trim() || entry.prayerResponse?.trim())).length;
+}
+
+function buildMyRecordEncounterTags(entry: DosAppUserJournalEntry) {
+  const tagSet = new Set(entry.tags.filter((tag) => Boolean(tag.trim())));
+
+  if (entry.biblePassage) tagSet.add("Scripture");
+  if (entry.notes) tagSet.add("Journal");
+  if (entry.lordHighlight) tagSet.add("Highlights");
+  if (entry.prayerResponse || myRecordJournalHasPrayerTag(entry)) tagSet.add("Prayer");
+
+  return Array.from(tagSet);
+}
+
+function myRecordEncounterTitleForEntry(entry: DosAppUserJournalEntry) {
+  if (entry.biblePassage) return entry.biblePassage;
+  if (myRecordJournalHasPrayerTag(entry)) return "Prayer Encounter";
+  if (entry.notes || entry.lordHighlight || entry.prayerResponse) return "Reflection";
+
+  return "Time With God";
+}
+
+function buildMyRecordEncounters(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordEncounter[] {
   const namesById = personNameById(people);
-  const journalItems = record.journalEntries.map((entry) => ({
-    body: entry.lordHighlight ?? entry.notes ?? entry.prayerResponse,
+  const journalEncounters = record.journalEntries.map((entry) => ({
+    biblePassage: entry.biblePassage,
+    body: myRecordCompactPreview(entry.lordHighlight, entry.notes, entry.prayerResponse),
     date: entry.date,
-    icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-    id: `journal-${entry.id}`,
-    title: entry.biblePassage ? `Quiet Time · ${entry.biblePassage}` : "Quiet Time",
+    entry,
+    id: `encounter-journal-${entry.id}`,
+    minutesSpent: entry.minutesSpent,
+    prayerLog: null,
+    sourceId: entry.id,
+    sourceKind: "journal" as const,
+    sourceLabel: "Time With God",
+    tags: buildMyRecordEncounterTags(entry),
+    title: myRecordEncounterTitleForEntry(entry),
   }));
-  const prayerItems = record.prayerLogs.map((log) => {
+  const prayerEncounters = record.prayerLogs.map((log) => {
     const personName = log.fieldPersonId ? namesById.get(log.fieldPersonId) : null;
+    const title = log.answeredStatus === "answered"
+      ? `Answered Prayer${log.prayerFocus ? ` - ${log.prayerFocus}` : ""}`
+      : log.prayerFocus || "Prayer Encounter";
 
     return {
-      body: log.notes ?? (personName ? `Prayed for ${personName}` : null),
+      biblePassage: null,
+      body: log.notes ?? (personName ? `Prayed for ${personName}` : "Prayer time"),
       date: log.prayedAt,
-      icon: log.answeredStatus === "answered"
-        ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-        : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-      id: `prayer-${log.id}`,
-      title: log.answeredStatus === "answered" ? `Answered Prayer · ${log.prayerFocus || "Prayer"}` : `Prayer Time · ${log.prayerFocus || "Prayer"}`,
+      entry: null,
+      id: `encounter-prayer-${log.id}`,
+      minutesSpent: log.minutesSpent,
+      prayerLog: log,
+      sourceId: log.id,
+      sourceKind: "prayer" as const,
+      sourceLabel: "Prayer Encounter",
+      tags: log.answeredStatus === "answered" ? ["Prayer", "Answered Prayer"] : ["Prayer"],
+      title,
     };
   });
+
+  return [...journalEncounters, ...prayerEncounters]
+    .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
+}
+
+function myRecordEncounterMatchesFilter(encounter: MyRecordEncounter, filter: MyRecordEncounterFilter) {
+  if (filter === "all") return true;
+  if (filter === "scripture") return Boolean(encounter.biblePassage);
+  if (filter === "prayer") return encounter.tags.some((tag) => myRecordTagEquals(tag, "Prayer"));
+  if (filter === "journal") return encounter.tags.some((tag) => myRecordTagEquals(tag, "Journal"));
+  if (filter === "highlights") return encounter.tags.some((tag) => myRecordTagEquals(tag, "Highlights"));
+
+  return true;
+}
+
+function MyRecordEncounterCard({
+  encounter,
+  onEdit,
+  onNew,
+  onView,
+  titlePrefix,
+}: {
+  encounter: MyRecordEncounter;
+  onEdit?: () => void;
+  onNew?: () => void;
+  onView: () => void;
+  titlePrefix?: string;
+}) {
+  const icon = encounter.sourceKind === "prayer"
+    ? <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+    : <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+  const meta = [formatDate(encounter.date), formatRecordDuration(encounter.minutesSpent)].filter(Boolean).join(" - ");
+
+  return (
+    <MyRecordPreviewCard
+      badge={encounter.sourceLabel}
+      body={encounter.body}
+      icon={icon}
+      meta={meta}
+      onEdit={onEdit}
+      onNew={onNew}
+      onView={onView}
+      title={titlePrefix ? `${titlePrefix}: ${encounter.title}` : encounter.title}
+    >
+      {encounter.tags.length ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {encounter.tags.slice(0, 5).map((tag) => (
+            <span className="rounded-full bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" key={`${encounter.id}-${tag}`} style={{ fontFamily: font.rajdhani }}>
+              {tag}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </MyRecordPreviewCard>
+  );
+}
+
+function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordTimelineItem[] {
+  const encounterItems = buildMyRecordEncounters(record, people).map((encounter) => ({
+    body: encounter.body,
+    date: encounter.date,
+    icon: encounter.sourceKind === "prayer"
+      ? <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+      : <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: encounter.id,
+    title: encounter.sourceKind === "prayer" ? `Prayer Encounter - ${encounter.title}` : `Time With God - ${encounter.title}`,
+  }));
   const mentorItems = record.mentorMeetings.map((meeting) => ({
     body: meeting.counselReceived ?? meeting.discussed ?? meeting.notes,
     date: meeting.meetingDate,
@@ -19509,68 +19652,102 @@ function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[])
     title: `${book.title} · ${note.chapterLabel}`,
   })));
 
-  return [...journalItems, ...prayerItems, ...mentorItems, ...assessmentItems, ...externalAssessmentItems, ...propheticWordItems, ...learningBookItems, ...learningChapterItems]
+  return [...encounterItems, ...mentorItems, ...assessmentItems, ...externalAssessmentItems, ...propheticWordItems, ...learningBookItems, ...learningChapterItems]
     .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
 }
 
 function MyRecordWalkWithGodPanel({
+  encounters,
   onOpenSheet,
-  record,
   timeline,
 }: {
+  encounters: MyRecordEncounter[];
   onOpenSheet: (sheet: MyRecordSheetState) => void;
-  record: DosAppUserRecord;
   timeline: MyRecordTimelineItem[];
 }) {
-  const scriptureEntries = record.journalEntries.filter((entry) => Boolean(entry.biblePassage));
-  const latestQuietTime = scriptureEntries[0] ?? record.journalEntries[0] ?? null;
-  const latestJournal = record.journalEntries[0] ?? null;
-  const latestPrayer = record.prayerLogs[0] ?? null;
-  const latestTimeline = timeline[0] ?? null;
+  const [filter, setFilter] = useState<MyRecordEncounterFilter>("all");
+  const todaysEncounter = encounters.find((encounter) => isTodayDate(encounter.date));
+  const latestEncounter = todaysEncounter ?? encounters[0] ?? null;
+  const filteredEncounters = encounters.filter((encounter) => myRecordEncounterMatchesFilter(encounter, filter));
+
+  function openEncounter(encounter: MyRecordEncounter, mode: MyRecordSheetMode) {
+    if (encounter.entry) {
+      onOpenSheet({ entry: encounter.entry, kind: "encounter", mode, title: mode === "new" ? "Time With God" : "Time With God" });
+      return;
+    }
+
+    if (encounter.prayerLog) {
+      onOpenSheet({ kind: "encounter", mode, prayerLog: encounter.prayerLog, title: "Prayer Encounter" });
+    }
+  }
 
   return (
     <div className="grid gap-4">
       <p className="text-sm font-semibold text-[#64748B]">How am I abiding?</p>
-      <section className="grid gap-3">
-        <MyRecordSummaryCard
-          date={latestQuietTime?.date}
-          icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-          onEdit={latestQuietTime ? () => onOpenSheet({ entry: latestQuietTime, kind: "journal", mode: "edit", title: "Edit Quiet Time" }) : undefined}
-          onNew={() => onOpenSheet({ kind: "journal", mode: "new", title: "Start Quiet Time" })}
-          onView={latestQuietTime ? () => onOpenSheet({ entry: latestQuietTime, kind: "journal", mode: "view", title: "Quiet Time" }) : undefined}
-          preview={myRecordCompactPreview(latestQuietTime?.lordHighlight, latestQuietTime?.notes, latestQuietTime?.prayerResponse)}
-          title="Quiet Time"
-          value={latestQuietTime?.biblePassage || (latestQuietTime ? "Quiet Time" : null)}
-        />
-        <MyRecordSummaryCard
-          date={latestPrayer?.prayedAt}
-          icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-          onEdit={latestPrayer ? () => onOpenSheet({ kind: "prayer", log: latestPrayer, mode: "edit" }) : undefined}
-          onNew={() => onOpenSheet({ kind: "prayer", mode: "new" })}
-          onView={latestPrayer ? () => onOpenSheet({ kind: "prayer", log: latestPrayer, mode: "view" }) : undefined}
-          preview={myRecordCompactPreview(latestPrayer?.notes)}
-          title="Prayer"
-          value={latestPrayer?.prayerFocus || (latestPrayer ? "Prayer Time" : null)}
-        />
-        <MyRecordSummaryCard
-          date={latestJournal?.date}
-          icon={<Pencil className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-          onEdit={latestJournal ? () => onOpenSheet({ entry: latestJournal, kind: "journal", mode: "edit", title: "Edit Journal Entry" }) : undefined}
-          onNew={() => onOpenSheet({ kind: "journal", mode: "new", title: "Add Journal Entry" })}
-          onView={latestJournal ? () => onOpenSheet({ entry: latestJournal, kind: "journal", mode: "view", title: "Journal Entry" }) : undefined}
-          preview={myRecordCompactPreview(latestJournal?.notes, latestJournal?.lordHighlight, latestJournal?.prayerResponse)}
-          title="Journal"
-          value={latestJournal?.biblePassage || (latestJournal ? "Journal Entry" : null)}
-        />
-        <MyRecordSummaryCard
-          date={latestTimeline?.date}
-          emptyText="No activity yet."
-          icon={<Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-          onNew={() => onOpenSheet({ kind: "journal", mode: "new", title: "Add Journal Entry" })}
-          onView={timeline.length ? () => onOpenSheet({ items: timeline, kind: "timeline", mode: "view" }) : undefined}
-          preview={latestTimeline?.body}
-          title="Timeline"
-          value={latestTimeline?.title}
+      <section className="grid gap-2">
+        <SectionHeading title={todaysEncounter ? "Today's Encounter" : "Latest Encounter"} />
+        {latestEncounter ? (
+          <MyRecordEncounterCard
+            encounter={latestEncounter}
+            onEdit={() => openEncounter(latestEncounter, "edit")}
+            onNew={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}
+            onView={() => openEncounter(latestEncounter, "view")}
+          />
+        ) : (
+          <SectionEmptyState
+            action={<CompactButton icon="log" onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>New Encounter</CompactButton>}
+            text="Capture Scripture, reflection, what the Lord highlighted, prayer response, and next steps in one place."
+            title="No encounters yet."
+          />
+        )}
+      </section>
+      <section className="grid gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <SectionHeading title="Encounter History" />
+          <button className="shrink-0 text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })} type="button">
+            + New
+          </button>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {myRecordEncounterFilters.map((item) => (
+            <button
+              aria-pressed={filter === item.value}
+              className={`min-h-8 shrink-0 rounded-full border px-3 text-xs font-bold ${
+                filter === item.value
+                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                  : "border-[#EAF2FF] bg-white text-[#64748B]"
+              }`}
+              key={item.value}
+              onClick={() => setFilter(item.value)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {filteredEncounters.length ? (
+          <div className="grid gap-3">
+            {filteredEncounters.slice(0, 6).map((encounter) => (
+              <MyRecordEncounterCard
+                encounter={encounter}
+                key={encounter.id}
+                onEdit={() => openEncounter(encounter, "edit")}
+                onView={() => openEncounter(encounter, "view")}
+              />
+            ))}
+          </div>
+        ) : (
+          <SectionEmptyState text="Try another filter or add a new encounter." title="No matching encounters." />
+        )}
+      </section>
+      <section className="grid gap-2">
+        <MyRecordPreviewCard
+          body="See your full walk history in chronological order."
+          icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+          meta={`${timeline.length} items`}
+          onNew={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}
+          onView={() => onOpenSheet({ items: timeline, kind: "timeline", mode: "view" })}
+          title="Master Timeline"
         />
       </section>
     </div>
@@ -19817,7 +19994,7 @@ function MyRecordLegacyPanel({
       <p className="text-sm font-semibold text-[#64748B]">What has God done?</p>
       <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
         <SectionHeading
-          action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ defaultTags: ["Thanksgiving"], kind: "journal", mode: "new", title: "God's Faithfulness" })} type="button">+ New</button>}
+          action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ defaultTags: ["Thanksgiving"], kind: "encounter", mode: "new", title: "God's Faithfulness" })} type="button">+ New</button>}
           title="God's Faithfulness"
         />
         {ebenezers.length ? (
@@ -19884,6 +20061,7 @@ function myRecordSheetTitle(sheet: MyRecordSheetState) {
   if (sheet.kind === "placeholder") return sheet.title;
   if (sheet.kind === "timeline") return "Timeline";
   if (sheet.kind === "faithfulness") return "God's Faithfulness";
+  if (sheet.kind === "encounter") return sheet.title ?? (sheet.mode === "new" ? "Time With God" : "Encounter");
   if (sheet.kind === "journal") return sheet.title ?? (sheet.mode === "new" ? "Add Journal Entry" : "Journal Entry");
   if (sheet.kind === "prayer") return sheet.mode === "new" ? "Log Prayer Time" : "Prayer Time";
   if (sheet.kind === "mentor_meeting") return sheet.mode === "new" ? "Log Mentor Meeting" : "Mentor Meeting";
@@ -19956,6 +20134,80 @@ function MyRecordSheetContent({
         ))}
       </div>
     ) : <SectionEmptyState title="No faithfulness markers yet." />;
+  }
+
+  if (sheet.kind === "encounter") {
+    const entry = sheet.entry ?? null;
+    const prayerLog = sheet.prayerLog ?? null;
+    const personName = prayerLog?.fieldPersonId ? namesById.get(prayerLog.fieldPersonId) : null;
+
+    if (prayerLog && sheet.mode !== "view") {
+      return (
+        <MyRecordPrayerForm
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          log={prayerLog}
+          nextTab={activeTab}
+          onCancel={onClose}
+          onSave={onSave}
+          people={people}
+        />
+      );
+    }
+
+    if (sheet.mode !== "view") {
+      return (
+        <MyRecordJournalForm
+          defaultTags={sheet.defaultTags}
+          entry={entry}
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          nextTab={activeTab}
+          onCancel={onClose}
+          onSave={onSave}
+          payloadKind="encounter"
+          saveLabel={{ edit: "Save Encounter", new: "Save Encounter" }}
+          title={sheet.title ?? "Time With God"}
+        />
+      );
+    }
+
+    if (entry) {
+      return (
+        <div className="grid gap-3">
+          <MyRecordDetailBlock label="Date" value={formatDate(entry.date)} />
+          <MyRecordDetailBlock label="Time Spent" value={formatRecordDuration(entry.minutesSpent)} />
+          <MyRecordDetailBlock label="Bible Passage" value={entry.biblePassage} />
+          <MyRecordDetailBlock label="Notes / Reflection" value={entry.notes} />
+          <MyRecordDetailBlock label="What the Lord Highlighted" value={entry.lordHighlight} />
+          <MyRecordDetailBlock label="Prayer Response / Next Step" value={entry.prayerResponse} />
+          {entry.tags.length ? (
+            <div className="flex flex-wrap gap-2">
+              {entry.tags.map((tag) => (
+                <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-black text-[#1D4ED8]" key={tag}>{tag}</span>
+              ))}
+            </div>
+          ) : null}
+          <MyRecordEntryActions
+            canDelete
+            onDelete={() => onDelete("encounter", entry.id)}
+            onEdit={() => onOpenSheet({ entry, kind: "encounter", mode: "edit", title: "Time With God" })}
+          />
+        </div>
+      );
+    }
+
+    return prayerLog ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Date" value={formatDate(prayerLog.prayedAt)} />
+        <MyRecordDetailBlock label="Time Spent" value={formatRecordDuration(prayerLog.minutesSpent)} />
+        <MyRecordDetailBlock label="Prayer Focus" value={prayerLog.prayerFocus} />
+        <MyRecordDetailBlock label="Person Prayed For" value={personName} />
+        <MyRecordDetailBlock label="Status" value={prayerLog.answeredStatus === "answered" ? "Answered" : prayerLog.answeredStatus === "watching" ? "Watching" : "Open"} />
+        <MyRecordDetailBlock label="Notes" value={prayerLog.notes} />
+        <MyRecordEntryActions canDelete onDelete={() => onDelete("prayer", prayerLog.id)} onEdit={() => onOpenSheet({ kind: "encounter", mode: "edit", prayerLog, title: "Prayer Encounter" })} />
+      </div>
+    ) : <SectionEmptyState title="Encounter not found." />;
   }
 
   if (sheet.kind === "journal") {
@@ -20268,6 +20520,7 @@ function MyRecordWorkspace({
   reminders: DosAppRelationshipReminder[];
   tab: MyRecordTab;
 }) {
+  const encounters = useMemo(() => buildMyRecordEncounters(record, people), [people, record]);
   const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
   const myRecordTabs = myRecordV2Enabled ? myRecordV2Tabs : myRecordLegacyTabs;
   const activeMyRecordTab = myRecordTabs.some((item) => item.value === tab) ? tab : "overview";
@@ -20277,6 +20530,7 @@ function MyRecordWorkspace({
   const [myRecordSheet, setMyRecordSheet] = useState<MyRecordSheetState | null>(null);
   const latestJournal = record.journalEntries[0] ?? null;
   const latestPrayer = record.prayerLogs[0] ?? null;
+  const latestEncounter = encounters[0] ?? null;
   const latestMentorMeeting = record.mentorMeetings[0] ?? null;
   const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
   const latestExternalAssessment = useMemo(() => latestMyRecordExternalAssessmentResult(record.externalAssessmentResults), [record.externalAssessmentResults]);
@@ -20287,16 +20541,20 @@ function MyRecordWorkspace({
   const namesById = useMemo(() => personNameById(people), [people]);
   const todayKey = todayDateValue();
   const { end: weekEnd, start: weekStart } = currentWeekRange();
-  const quietEntriesToday = record.journalEntries.filter((entry) => Boolean(entry.biblePassage) && isTodayDate(entry.date)).length;
-  const journalEntriesToday = record.journalEntries.filter((entry) => isTodayDate(entry.date)).length;
-  const prayerLogsToday = record.prayerLogs.filter((log) => isTodayDate(log.prayedAt)).length;
-  const quietMinutesThisWeek = record.journalEntries
+  const encountersToday = encounters.filter((encounter) => isTodayDate(encounter.date)).length;
+  const reflectionEntriesToday = myRecordJournalReflectionCount(record.journalEntries.filter((entry) => isTodayDate(entry.date)));
+  const prayerEncountersToday = record.prayerLogs.filter((log) => isTodayDate(log.prayedAt)).length
+    + record.journalEntries.filter((entry) => isTodayDate(entry.date) && myRecordJournalHasPrayerTag(entry)).length;
+  const encounterMinutesThisWeek = record.journalEntries
     .filter((entry) => isDateWithinRange(entry.date, weekStart, weekEnd))
+    .reduce((sum, entry) => sum + entry.minutesSpent, 0);
+  const prayerEncounterMinutesThisWeek = record.journalEntries
+    .filter((entry) => myRecordJournalHasPrayerTag(entry) && isDateWithinRange(entry.date, weekStart, weekEnd))
     .reduce((sum, entry) => sum + entry.minutesSpent, 0);
   const prayerMinutesThisWeek = record.prayerLogs
     .filter((log) => isDateWithinRange(log.prayedAt, weekStart, weekEnd))
     .reduce((sum, log) => sum + log.minutesSpent, 0);
-  const timeWithGodThisWeek = quietMinutesThisWeek + prayerMinutesThisWeek;
+  const timeWithGodThisWeek = encounterMinutesThisWeek + prayerMinutesThisWeek;
 
   useEffect(() => {
     setIsMyRecordFabOpen(false);
@@ -20311,18 +20569,18 @@ function MyRecordWorkspace({
   }
 
   function openMyRecordTimelineItem(item: MyRecordTimelineItem) {
-    if (item.id.startsWith("journal-")) {
-      const entry = record.journalEntries.find((journalEntry) => journalEntry.id === item.id.replace("journal-", ""));
+    if (item.id.startsWith("encounter-journal-")) {
+      const entry = record.journalEntries.find((journalEntry) => journalEntry.id === item.id.replace("encounter-journal-", ""));
       if (entry) {
-        openMyRecordSheet({ entry, kind: "journal", mode: "view", title: entry.biblePassage ? "Quiet Time" : "Journal Entry" });
+        openMyRecordSheet({ entry, kind: "encounter", mode: "view", title: "Time With God" });
         return;
       }
     }
 
-    if (item.id.startsWith("prayer-")) {
-      const log = record.prayerLogs.find((prayerLog) => prayerLog.id === item.id.replace("prayer-", ""));
+    if (item.id.startsWith("encounter-prayer-")) {
+      const log = record.prayerLogs.find((prayerLog) => prayerLog.id === item.id.replace("encounter-prayer-", ""));
       if (log) {
-        openMyRecordSheet({ kind: "prayer", log, mode: "view" });
+        openMyRecordSheet({ kind: "encounter", mode: "view", prayerLog: log, title: "Prayer Encounter" });
         return;
       }
     }
@@ -20410,21 +20668,21 @@ function MyRecordWorkspace({
   }
 
   const myRecordFabItems: MyRecordContextualAction[] = myRecordV2Enabled ? (() => {
-    const quietTime = () => openMyRecordSheet({ kind: "journal", mode: "new", title: "Start Quiet Time" });
-    const prayer = () => openMyRecordSheet({ kind: "prayer", mode: "new" });
-    const journal = () => openMyRecordSheet({ kind: "journal", mode: "new", title: "Add Journal Entry" });
+    const encounter = () => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" });
+    const prayerEncounter = () => openMyRecordSheet({ defaultTags: ["Prayer"], kind: "encounter", mode: "new", title: "Prayer Encounter" });
+    const reflection = () => openMyRecordSheet({ defaultTags: ["Journal"], kind: "encounter", mode: "new", title: "Reflection" });
     const mentor = () => openMyRecordSheet({ kind: "mentor_meeting", mode: "new" });
     const assessment = () => openMyRecordSheet({ kind: "external_assessment", mode: "new" });
     const propheticWord = () => openMyRecordSheet({ kind: "prophetic_word", mode: "new" });
     const book = () => openMyRecordSheet({ kind: "book", mode: "new" });
-    const faithfulness = () => openMyRecordSheet({ defaultTags: ["Thanksgiving"], kind: "journal", mode: "new", title: "God's Faithfulness" });
-    const answeredPrayer = () => openMyRecordSheet({ kind: "prayer", mode: "new" });
+    const faithfulness = () => openMyRecordSheet({ defaultTags: ["Thanksgiving"], kind: "encounter", mode: "new", title: "God's Faithfulness" });
+    const answeredPrayer = () => openMyRecordSheet({ defaultTags: ["Prayer", "Thanksgiving"], kind: "encounter", mode: "new", title: "Answered Prayer" });
 
     if (activeMyRecordTab === "walk_with_god") {
       return [
-        { icon: "library", label: "Quiet Time", onClick: quietTime },
-        { icon: "prayer", label: "Prayer", onClick: prayer },
-        { icon: "log", label: "Journal", onClick: journal },
+        { icon: "library", label: "Time With God", onClick: encounter },
+        { icon: "prayer", label: "Prayer Encounter", onClick: prayerEncounter },
+        { icon: "log", label: "Reflection", onClick: reflection },
       ];
     }
 
@@ -20463,9 +20721,9 @@ function MyRecordWorkspace({
     }
 
     return [
-      { icon: "library", label: "Quiet Time", onClick: quietTime },
-      { icon: "prayer", label: "Prayer", onClick: prayer },
-      { icon: "log", label: "Journal", onClick: journal },
+      { icon: "library", label: "Time With God", onClick: encounter },
+      { icon: "prayer", label: "Prayer Encounter", onClick: prayerEncounter },
+      { icon: "log", label: "Reflection", onClick: reflection },
       { icon: "people", label: "Mentor", onClick: mentor },
       { icon: "library", label: "Assessment", onClick: assessment },
     ];
@@ -20530,9 +20788,9 @@ function MyRecordWorkspace({
               <span className="shrink-0 text-xs font-bold text-[#64748B]">{formatDate(todayKey)}</span>
             </div>
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-              <MyRecordAtAGlanceCard detail="Entries today" icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Walk" value={`${quietEntriesToday}`} />
-              <MyRecordAtAGlanceCard detail="Today" icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" value={`${prayerLogsToday}`} />
-              <MyRecordAtAGlanceCard detail={latestJournal ? formatRelativeDate(latestJournal.date) : "No entry"} icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Journal" value={`${journalEntriesToday}`} />
+              <MyRecordAtAGlanceCard detail={latestEncounter ? formatRelativeDate(latestEncounter.date) : "No encounter"} icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Encounters" value={`${encountersToday}`} />
+              <MyRecordAtAGlanceCard detail={prayerEncounterMinutesThisWeek ? "Tagged or dedicated" : "Dedicated today"} icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" value={`${prayerEncountersToday}`} />
+              <MyRecordAtAGlanceCard detail={latestJournal ? formatRelativeDate(latestJournal.date) : "No reflection"} icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Reflection" value={`${reflectionEntriesToday}`} />
               <MyRecordAtAGlanceCard detail="This week" icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Time with God" value={formatRecordDuration(timeWithGodThisWeek)} />
             </div>
           </section>
@@ -20553,8 +20811,8 @@ function MyRecordWorkspace({
               </div>
             ) : (
               <SectionEmptyState
-                action={<CompactButton icon="log" onClick={() => openMyRecordSheet({ kind: "journal", mode: "new", title: "Add Journal Entry" })}>Add Journal Entry</CompactButton>}
-                text="Quiet time, prayer, Scripture, mentor meetings, assessments, and prophetic words will collect here."
+                action={<CompactButton icon="log" onClick={() => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>New Encounter</CompactButton>}
+                text="Time with God, mentor meetings, assessments, and prophetic words will collect here."
                 title="No personal activity yet."
               />
             )}
@@ -20562,9 +20820,9 @@ function MyRecordWorkspace({
           <section className="grid gap-2">
             <SectionHeading title="Quick Actions" />
             <div className="grid grid-cols-2 gap-2 min-[620px]:grid-cols-3 xl:grid-cols-5">
-              <MyRecordQuickActionCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time" onClick={() => openMyRecordSheet({ kind: "journal", mode: "new", title: "Start Quiet Time" })} />
-              <MyRecordQuickActionCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" onClick={() => openMyRecordSheet({ kind: "prayer", mode: "new" })} />
-              <MyRecordQuickActionCard icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Journal" onClick={() => openMyRecordSheet({ kind: "journal", mode: "new", title: "Add Journal Entry" })} />
+              <MyRecordQuickActionCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Time With God" onClick={() => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" })} />
+              <MyRecordQuickActionCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Encounter" onClick={() => openMyRecordSheet({ defaultTags: ["Prayer"], kind: "encounter", mode: "new", title: "Prayer Encounter" })} />
+              <MyRecordQuickActionCard icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Reflection" onClick={() => openMyRecordSheet({ defaultTags: ["Journal"], kind: "encounter", mode: "new", title: "Reflection" })} />
               <MyRecordQuickActionCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Mentor Meeting" onClick={() => openMyRecordSheet({ kind: "mentor_meeting", mode: "new" })} />
               <MyRecordQuickActionCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Assessment" onClick={() => openMyRecordSheet({ kind: "external_assessment", mode: "new" })} />
             </div>
@@ -20574,8 +20832,8 @@ function MyRecordWorkspace({
 
       {activeMyRecordTab === "walk_with_god" && myRecordV2Enabled ? (
         <MyRecordWalkWithGodPanel
+          encounters={encounters}
           onOpenSheet={openMyRecordSheet}
-          record={record}
           timeline={timeline}
         />
       ) : null}
@@ -26706,8 +26964,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         ]
     : activeTab === "more" && moreAppView === "my_record"
       ? [
-          { icon: "log", label: "Start Quiet Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
-          { icon: "prayer", label: "Log Prayer Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
+          { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
+          { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
           { icon: "people", label: "Log Mentor Meeting", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.mentor)) },
           { icon: "library", label: "Take Assessment", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.assessment)) },
           ...(myRecordV2Enabled ? [{ icon: "fruit" as const, label: "Add Prophetic Word", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prophetic)) }] : []),
@@ -26743,8 +27001,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         ]
       : activeTab === "more" && moreAppView === "my_record"
         ? [
-            { icon: "log", label: "Start Quiet Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
-            { icon: "prayer", label: "Log Prayer Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
+            { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
+            { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
             { icon: "people", label: "Log Mentor Meeting", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.mentor)) },
             { icon: "library", label: "Take Assessment", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.assessment)) },
             ...(myRecordV2Enabled ? [{ icon: "fruit" as const, label: "Add Prophetic Word", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prophetic)) }] : []),

@@ -605,7 +605,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ id: data.id });
   }
 
-  if (kind === "journal") {
+  if (kind === "journal" || kind === "encounter") {
     const entryId = validateOptionalUuid(payload.entryId, "Journal entry");
 
     if ("response" in entryId) {
@@ -1197,6 +1197,7 @@ export async function POST(request: Request) {
     const deleteTargets = {
       assessment_result: { table: "dos_user_assessment_results", v2Only: false },
       external_assessment_result: { table: "dos_user_external_assessment_results", v2Only: true },
+      encounter: { table: "dos_user_journal_entries", v2Only: false },
       journal: { table: "dos_user_journal_entries", v2Only: false },
       learning_book: { table: "dos_user_learning_books", v2Only: true },
       learning_chapter_note: { table: "dos_user_learning_chapter_notes", v2Only: true },
