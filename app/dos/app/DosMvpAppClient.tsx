@@ -61,6 +61,28 @@ const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choos
 type ActiveTab = "home" | "meetings" | "more" | "people";
 type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
 type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
+
+const moreAppViewValues = new Set<MoreAppView>([
+  "apps",
+  "fruit",
+  "in_season",
+  "library",
+  "missionary_profile",
+  "my_record",
+  "organizations",
+  "prayer",
+  "prayer_team",
+  "reports",
+  "settings",
+  "stewardship",
+  "support_team",
+  "table_flow",
+]);
+
+function normalizeMoreAppView(view: MoreAppView | null | undefined): MoreAppView | null {
+  return view && moreAppViewValues.has(view) ? view : null;
+}
+
 type MyRecordTab = "assessments" | "calling" | "growth" | "journal" | "learning" | "legacy" | "mentors" | "overview" | "prayer" | "prophetic_words" | "scripture" | "timeline" | "walk_with_god";
 type LocalPrayerNeed = {
   createdAt: string;
@@ -6980,6 +7002,11 @@ const myRecordV2Tabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
   { label: "Calling", value: "calling" },
   { label: "Legacy", value: "legacy" },
 ];
+
+function normalizeMyRecordTab(tab: MyRecordTab, myRecordV2Enabled: boolean): MyRecordTab {
+  const tabs = myRecordV2Enabled ? myRecordV2Tabs : myRecordLegacyTabs;
+  return tabs.some((item) => item.value === tab) ? tab : "overview";
+}
 
 const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>> = [
   { label: "Praying", value: "praying" },
@@ -20523,7 +20550,7 @@ function MyRecordWorkspace({
   const encounters = useMemo(() => buildMyRecordEncounters(record, people), [people, record]);
   const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
   const myRecordTabs = myRecordV2Enabled ? myRecordV2Tabs : myRecordLegacyTabs;
-  const activeMyRecordTab = myRecordTabs.some((item) => item.value === tab) ? tab : "overview";
+  const activeMyRecordTab = normalizeMyRecordTab(tab, myRecordV2Enabled);
   const [isShareSettingsOpen, setIsShareSettingsOpen] = useState(false);
   const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
@@ -20559,6 +20586,12 @@ function MyRecordWorkspace({
   useEffect(() => {
     setIsMyRecordFabOpen(false);
   }, [activeMyRecordTab]);
+
+  useEffect(() => {
+    if (tab !== activeMyRecordTab) {
+      onTabChange(activeMyRecordTab);
+    }
+  }, [activeMyRecordTab, onTabChange, tab]);
 
   function openMyRecordSheet(sheet: MyRecordSheetState) {
     setMyRecordSheet(sheet);
@@ -23543,10 +23576,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const appScrollRef = useRef<HTMLDivElement | null>(null);
   const isPreview = data.workspace.isPreview === true;
+  const myRecordV2Enabled = data.features.myRecordV2Enabled;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
+  const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("calendar");
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
   const [calendarDisplaySettings, setCalendarDisplaySettings] = useState<CalendarDisplaySettings>(() => syncCalendarDisplaySettingsWithSources(
@@ -24225,6 +24260,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeTab === "more" && moreAppView !== activeMoreAppView) {
+      setMoreAppView(activeMoreAppView);
+    }
+  }, [activeMoreAppView, activeTab, moreAppView]);
+
   function pulseTabTransition() {
     if (tabTransitionTimeoutRef.current !== null) {
       window.clearTimeout(tabTransitionTimeoutRef.current);
@@ -24238,7 +24279,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function selectTab(tab: ActiveTab) {
-    if (tab !== activeTab || moreAppView !== null) {
+    if (tab !== activeTab || activeMoreAppView !== null) {
       pulseTabTransition();
     }
 
@@ -24273,12 +24314,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function openMoreApp(view: MoreAppView) {
-    if (activeTab !== "more" || moreAppView !== view) {
+    const nextView = normalizeMoreAppView(view) ?? "apps";
+
+    if (activeTab !== "more" || activeMoreAppView !== nextView) {
       pulseTabTransition();
     }
 
     setActiveTab("more");
-    setMoreAppView(view);
+    setMoreAppView(nextView);
+    if (nextView === "my_record") {
+      setMyRecordTab((current) => normalizeMyRecordTab(current, myRecordV2Enabled));
+    }
     setIsAppsSearchOpen(false);
     setIsTableSearchOpen(false);
     setIsPrayerSearchOpen(false);
@@ -24301,7 +24347,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openMyRecordTab(tab: MyRecordTab) {
     openMoreApp("my_record");
-    setMyRecordTab(tab);
+    setMyRecordTab(normalizeMyRecordTab(tab, myRecordV2Enabled));
   }
 
   async function submitMyRecord(payload: Record<string, unknown>, nextTab: MyRecordTab = myRecordTab) {
@@ -24331,7 +24377,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         throw new Error(result.error ?? "Unable to save My Record.");
       }
 
-      setMyRecordTab(nextTab);
+      setMyRecordTab(normalizeMyRecordTab(nextTab, myRecordV2Enabled));
       router.refresh();
 
       return true;
@@ -26778,7 +26824,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       : isUsamApplicationPending
         ? "Pending"
         : "Optional";
-  const myRecordV2Enabled = data.features.myRecordV2Enabled;
   const myRecordActivityCount = data.myRecord.journalEntries.length
     + data.myRecord.prayerLogs.length
     + data.myRecord.mentorMeetings.length
@@ -26957,12 +27002,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "people", label: "Add Person", onClick: runMobileAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runMobileAction(() => setIsPeopleImportOpen(true)) },
         ]
-    : activeTab === "more" && moreAppView === "prayer"
+    : activeTab === "more" && activeMoreAppView === "prayer"
       ? [
           { icon: "prayer", label: "Add Prayer Request", onClick: runMobileAction(() => setIsMobileAddPrayerRequestOpen(true)) },
           { icon: "people", label: "Add Prayer Partner", onClick: runMobileAction(() => setIsMobileAddPrayerPartnerOpen(true)) },
         ]
-    : activeTab === "more" && moreAppView === "my_record"
+    : activeTab === "more" && activeMoreAppView === "my_record"
       ? [
           { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
           { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
@@ -26970,7 +27015,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "library", label: "Take Assessment", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.assessment)) },
           ...(myRecordV2Enabled ? [{ icon: "fruit" as const, label: "Add Prophetic Word", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prophetic)) }] : []),
         ]
-    : activeTab === "more" && moreAppView === "fruit"
+    : activeTab === "more" && activeMoreAppView === "fruit"
       ? fruitFormCards.map((form) => ({
           icon: form.icon,
           label: form.title,
@@ -26999,7 +27044,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "people", label: "Add Person", onClick: runDesktopAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runDesktopAction(() => setIsPeopleImportOpen(true)) },
         ]
-      : activeTab === "more" && moreAppView === "my_record"
+      : activeTab === "more" && activeMoreAppView === "my_record"
         ? [
             { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
             { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
@@ -27062,7 +27107,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       <div ref={appShellRef} className={`${dosPhoneShellClassName} ${dosDawnShellClassName}`}>
         <DesktopNavigation
           activeTab={activeTab}
-          moreAppView={moreAppView}
+          moreAppView={activeMoreAppView}
           onOpenMoreApp={openMoreApp}
           onOpenProfile={() => openMoreApp("settings")}
           onSelect={selectTab}
@@ -27319,8 +27364,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             ) : null}
 
             {activeTab === "more" ? (
-              <div className="space-y-5">
-                {moreAppView === null || moreAppView === "apps" ? (
+              <div className="space-y-5" key={`more-${activeMoreAppView ?? "apps"}`}>
+                {activeMoreAppView === null || activeMoreAppView === "apps" ? (
                   <>
                     <div className="space-y-4 md:hidden">
                       {isAppsSearchOpen ? (
@@ -27360,7 +27405,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "settings" ? (
+                {activeMoreAppView === "settings" ? (
                   <DesktopSettingsProfileView
                     application={usamApplication}
                     email={profileEmail}
@@ -27382,7 +27427,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   />
                 ) : null}
 
-                {moreAppView === "my_record" ? (
+                {activeMoreAppView === "my_record" ? (
                   <MyRecordWorkspace
                     errorMessage={errorMessage}
                     fruit={data.fruit}
@@ -27401,7 +27446,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   />
                 ) : null}
 
-                {moreAppView === "prayer" ? (
+                {activeMoreAppView === "prayer" ? (
                   <>
                     <div className="flex min-h-9 items-center md:hidden">
                       <MoreBackButton onClick={() => setMoreAppView(null)} />
@@ -27475,7 +27520,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "fruit" ? (
+                {activeMoreAppView === "fruit" ? (
                   <>
                     <div className="flex min-h-9 items-center">
                       <MoreBackButton onClick={() => setMoreAppView(null)} />
@@ -27544,7 +27589,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "library" ? (
+                {activeMoreAppView === "library" ? (
                   <>
                     <div className="flex min-h-9 items-center">
                       <MoreBackButton onClick={() => setMoreAppView(null)} />
@@ -27605,7 +27650,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "in_season" ? (
+                {activeMoreAppView === "in_season" ? (
                   <>
                     {/* TODO: Later rename the internal in_season app key after migration/route plan. */}
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Testimony Practice" />
@@ -27624,7 +27669,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "missionary_profile" ? (
+                {activeMoreAppView === "missionary_profile" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Missionary Profile" />
                     <TabHero
@@ -27653,7 +27698,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "prayer_team" ? (
+                {activeMoreAppView === "prayer_team" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Prayer Team" />
                     <TabHero
@@ -27671,7 +27716,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "support_team" ? (
+                {activeMoreAppView === "support_team" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Support Team" />
                     <TabHero
@@ -27689,7 +27734,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "stewardship" ? (
+                {activeMoreAppView === "stewardship" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Stewardship" />
                     <TabHero
@@ -27704,7 +27749,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 ) : null}
 
                 {/* TODO: Fold Table Flow into Table later as Guided Flow templates. */}
-                {moreAppView === "table_flow" ? (
+                {activeMoreAppView === "table_flow" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Table Flow" />
                     <TabHero
@@ -27718,7 +27763,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "reports" ? (
+                {activeMoreAppView === "reports" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Reports" />
                     <TabHero
@@ -27735,7 +27780,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "organizations" ? (
+                {activeMoreAppView === "organizations" ? (
                   <>
                     <div className="space-y-5 md:hidden">
                       <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Organizations" />
