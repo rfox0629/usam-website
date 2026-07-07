@@ -788,6 +788,40 @@ type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
 type FruitFormStatus = "coming_soon" | "live";
 type GroupsListView = "all" | "mine";
 type GroupDetailTab = "attendance" | "gatherings" | "members" | "overview" | "prayer" | "resources" | "settings";
+type GroupAttendanceChoice = "absent" | "guest" | "present";
+type GroupWorkflowPanel = "attendance" | "notes" | "prayer" | null;
+type GroupGatheringWizardStep = 1 | 2 | 3 | 4 | 5;
+type GroupPrayerDraftTargetType = "group" | "guest" | "person";
+type GroupPrayerDraft = {
+  description: string;
+  id: string;
+  targetId: string;
+  targetType: GroupPrayerDraftTargetType;
+  title: string;
+};
+type GroupGuestDraft = {
+  createPerson: boolean;
+  id: string;
+  name: string;
+};
+type GroupAttendanceRow = {
+  createPerson?: boolean;
+  id: string;
+  isGuest: boolean;
+  name: string;
+  role?: string;
+  status: GroupAttendanceChoice;
+};
+type GroupFollowUpDraft = {
+  dueDate: string;
+  nextStep: string;
+};
+type GroupActivityItem = {
+  body: string;
+  id: string;
+  meta: string;
+  title: string;
+};
 type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer" | "reviews";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "answered_recently" | "group_prayers" | "high_priority" | "needs_follow_up" | "person_prayers" | "pray_today";
@@ -6068,6 +6102,168 @@ function GroupDetailWorkspace({
   tab: GroupDetailTab;
 }) {
   const nextGathering = nextGroupGathering(group);
+  const [activeGatheringRun, setActiveGatheringRun] = useState<{ gatheringId: string; startedAt: number } | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const [workflowPanel, setWorkflowPanel] = useState<GroupWorkflowPanel>(null);
+  const [isEndWizardOpen, setIsEndWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState<GroupGatheringWizardStep>(1);
+  const [gatheringCompleted, setGatheringCompleted] = useState(false);
+  const [attendanceDraft, setAttendanceDraft] = useState<Record<string, GroupAttendanceChoice>>({});
+  const [guestDrafts, setGuestDrafts] = useState<GroupGuestDraft[]>([]);
+  const [prayerDrafts, setPrayerDrafts] = useState<GroupPrayerDraft[]>([]);
+  const [fruitDrafts, setFruitDrafts] = useState<string[]>([]);
+  const [followUpDrafts, setFollowUpDrafts] = useState<Record<string, GroupFollowUpDraft>>({});
+  const [gatheringNotes, setGatheringNotes] = useState("");
+  const [activityItems, setActivityItems] = useState<GroupActivityItem[]>(() => defaultGroupActivityItems(group));
+  const activeGathering = activeGatheringRun
+    ? group.gatherings.find((gathering) => gathering.id === activeGatheringRun.gatheringId) ?? null
+    : null;
+  const workflowGathering = activeGathering ?? nextGathering;
+  const attendanceRows = groupAttendanceRows(group, attendanceDraft, guestDrafts);
+  const attendanceSummary = groupAttendanceSummary(group, attendanceDraft, guestDrafts);
+  const elapsedLabel = activeGatheringRun ? formatElapsedDuration(clockNow - activeGatheringRun.startedAt) : null;
+
+  useEffect(() => {
+    setActiveGatheringRun(null);
+    setWorkflowPanel(null);
+    setIsEndWizardOpen(false);
+    setWizardStep(1);
+    setGatheringCompleted(false);
+    setAttendanceDraft({});
+    setGuestDrafts([]);
+    setPrayerDrafts([]);
+    setFruitDrafts([]);
+    setFollowUpDrafts({});
+    setGatheringNotes("");
+    setActivityItems(defaultGroupActivityItems(group));
+  }, [group]);
+
+  useEffect(() => {
+    if (!activeGatheringRun) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => setClockNow(Date.now()), 30000);
+
+    return () => window.clearInterval(timer);
+  }, [activeGatheringRun]);
+
+  function startGathering() {
+    const gathering = nextGroupGathering(group);
+
+    if (!gathering) {
+      onSchedule();
+      return;
+    }
+
+    const defaults = Object.fromEntries(group.members.map((member) => [member.id, "present" as GroupAttendanceChoice]));
+    setAttendanceDraft(defaults);
+    setActiveGatheringRun({ gatheringId: gathering.id, startedAt: Date.now() });
+    setClockNow(Date.now());
+    setWorkflowPanel("attendance");
+    setIsEndWizardOpen(false);
+    setGatheringCompleted(false);
+    setActivityItems((current) => [
+      {
+        body: `${gathering.title} is active.`,
+        id: `activity-start-${gathering.id}`,
+        meta: "Now",
+        title: `${group.leaderName ?? "Leader"} started the gathering`,
+      },
+      ...current,
+    ]);
+    onTabChange("attendance");
+  }
+
+  function updateMemberAttendance(memberId: string, status: GroupAttendanceChoice) {
+    setAttendanceDraft((current) => ({
+      ...current,
+      [memberId]: status,
+    }));
+  }
+
+  function addGuestDraft() {
+    setGuestDrafts((current) => [
+      ...current,
+      {
+        createPerson: false,
+        id: `guest-${Date.now()}-${current.length}`,
+        name: `Guest ${current.length + 1}`,
+      },
+    ]);
+  }
+
+  function updateGuestDraft(guestId: string, updates: Partial<GroupGuestDraft>) {
+    setGuestDrafts((current) => current.map((guest) => guest.id === guestId ? { ...guest, ...updates } : guest));
+  }
+
+  function addPrayerDraft() {
+    setPrayerDrafts((current) => [
+      ...current,
+      {
+        description: "",
+        id: `group-prayer-${Date.now()}-${current.length}`,
+        targetId: "",
+        targetType: "group",
+        title: "",
+      },
+    ]);
+  }
+
+  function updatePrayerDraft(prayerId: string, updates: Partial<GroupPrayerDraft>) {
+    setPrayerDrafts((current) => current.map((prayer) => prayer.id === prayerId ? { ...prayer, ...updates } : prayer));
+  }
+
+  function toggleFruitDraft(label: string) {
+    setFruitDrafts((current) => current.includes(label)
+      ? current.filter((item) => item !== label)
+      : [...current, label]);
+  }
+
+  function updateFollowUpDraft(attendeeId: string, updates: Partial<GroupFollowUpDraft>) {
+    setFollowUpDrafts((current) => ({
+      ...current,
+      [attendeeId]: {
+        dueDate: current[attendeeId]?.dueDate ?? "",
+        nextStep: current[attendeeId]?.nextStep ?? "Invite Back",
+        ...updates,
+      },
+    }));
+  }
+
+  function openEndWizard() {
+    setIsEndWizardOpen(true);
+    setGatheringCompleted(false);
+    setWizardStep(1);
+    setWorkflowPanel(null);
+  }
+
+  function completeGathering() {
+    setGatheringCompleted(true);
+    setActiveGatheringRun(null);
+    setWorkflowPanel(null);
+    setActivityItems((current) => [
+      {
+        body: `${attendanceSummary.present} present, ${attendanceSummary.absent} absent, ${attendanceSummary.guests} guests.`,
+        id: `activity-complete-${Date.now()}`,
+        meta: "Just now",
+        title: "Attendance recorded",
+      },
+      {
+        body: `${prayerDrafts.length || group.prayerRequests.length} requests connected to this discipleship rhythm.`,
+        id: `activity-prayer-${Date.now()}`,
+        meta: "Just now",
+        title: "Prayer updated",
+      },
+      {
+        body: fruitDrafts.length ? fruitDrafts.join(", ") : "No fruit tags selected.",
+        id: `activity-fruit-${Date.now()}`,
+        meta: "Just now",
+        title: "Table logged",
+      },
+      ...current,
+    ]);
+  }
 
   return (
     <div className="space-y-4">
@@ -6091,10 +6287,10 @@ function GroupDetailWorkspace({
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
+            {activeGathering ? null : <GroupQuickAction icon={<Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Start Gathering" onClick={startGathering} tone="primary" />}
             <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Invite" onClick={onInvite} />
             <GroupQuickAction icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Schedule" onClick={onSchedule} />
             <GroupQuickAction icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Log as Table" onClick={onLogAsTable} />
-            <GroupQuickAction icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Take Attendance" onClick={onTakeAttendance} tone="primary" />
           </div>
         </div>
         <div className="grid border-t border-[#EAF2FF] md:grid-cols-4">
@@ -6105,16 +6301,613 @@ function GroupDetailWorkspace({
         </div>
       </section>
       {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
+      <GroupGatheringWorkflowBanner
+        activeGathering={activeGathering}
+        attendanceSummary={attendanceSummary}
+        elapsedLabel={elapsedLabel}
+        gathering={workflowGathering}
+        notes={gatheringNotes}
+        onEnd={openEndWizard}
+        onNotesChange={setGatheringNotes}
+        onOpenAttendance={() => {
+          setWorkflowPanel("attendance");
+          onTabChange("attendance");
+        }}
+        onOpenNotes={() => setWorkflowPanel((current) => current === "notes" ? null : "notes")}
+        onOpenPrayer={() => {
+          setWorkflowPanel("prayer");
+          onTabChange("prayer");
+        }}
+        onStart={startGathering}
+        workflowPanel={workflowPanel}
+      />
+      {isEndWizardOpen && workflowGathering ? (
+        <GroupEndGatheringWizard
+          attendanceRows={attendanceRows}
+          attendanceSummary={attendanceSummary}
+          fruitDrafts={fruitDrafts}
+          gathering={workflowGathering}
+          gatheringCompleted={gatheringCompleted}
+          guestDrafts={guestDrafts}
+          group={group}
+          notes={gatheringNotes}
+          onAddGuest={addGuestDraft}
+          onAddPrayer={addPrayerDraft}
+          onComplete={completeGathering}
+          onStepChange={setWizardStep}
+          onToggleFruit={toggleFruitDraft}
+          onUpdateFollowUp={updateFollowUpDraft}
+          onUpdateGuest={updateGuestDraft}
+          onUpdateMemberAttendance={updateMemberAttendance}
+          onUpdatePrayer={updatePrayerDraft}
+          prayerDrafts={prayerDrafts}
+          step={wizardStep}
+          followUpDrafts={followUpDrafts}
+        />
+      ) : null}
       <GroupDetailTabBar onChange={onTabChange} tab={tab} />
-      {tab === "overview" ? <GroupOverviewTab group={group} nextGathering={nextGathering} /> : null}
+      {tab === "overview" ? <GroupOverviewTab activityItems={activityItems} attendanceSummary={attendanceSummary} followUpDrafts={followUpDrafts} fruitDrafts={fruitDrafts} group={group} nextGathering={nextGathering} onStartGathering={startGathering} prayerDrafts={prayerDrafts} /> : null}
       {tab === "members" ? <GroupMembersTab group={group} /> : null}
       {tab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
-      {tab === "attendance" ? <GroupAttendanceTab group={group} /> : null}
-      {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={onAddPrayer} /> : null}
+      {tab === "attendance" ? <GroupAttendanceTab attendanceRows={attendanceRows} attendanceSummary={attendanceSummary} guestDrafts={guestDrafts} group={group} isGatheringActive={Boolean(activeGathering)} onAddGuest={addGuestDraft} onTakeAttendance={onTakeAttendance} onUpdateGuest={updateGuestDraft} onUpdateMemberAttendance={updateMemberAttendance} /> : null}
+      {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
       {tab === "resources" ? <GroupResourcesTab group={group} /> : null}
       {tab === "settings" ? <GroupSettingsTab group={group} /> : null}
     </div>
   );
+}
+
+function GroupGatheringWorkflowBanner({
+  activeGathering,
+  attendanceSummary,
+  elapsedLabel,
+  gathering,
+  notes,
+  onEnd,
+  onNotesChange,
+  onOpenAttendance,
+  onOpenNotes,
+  onOpenPrayer,
+  onStart,
+  workflowPanel,
+}: {
+  activeGathering: DosAppGroupGathering | null;
+  attendanceSummary: ReturnType<typeof groupAttendanceSummary>;
+  elapsedLabel: string | null;
+  gathering: DosAppGroupGathering | null;
+  notes: string;
+  onEnd: () => void;
+  onNotesChange: (value: string) => void;
+  onOpenAttendance: () => void;
+  onOpenNotes: () => void;
+  onOpenPrayer: () => void;
+  onStart: () => void;
+  workflowPanel: GroupWorkflowPanel;
+}) {
+  const isActive = Boolean(activeGathering);
+
+  return (
+    <section className={`rounded-[24px] border p-4 shadow-[0_14px_34px_rgba(37,99,235,0.06)] ${isActive ? "border-[#93C5FD] bg-[#EFF6FF]" : "border-[#DCEBFF] bg-white"}`}>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="min-w-0">
+          <p className={`text-[11px] font-black uppercase tracking-[0.16em] ${isActive ? "text-[#1D4ED8]" : "text-[#64748B]"}`} style={{ fontFamily: font.rajdhani }}>
+            {isActive ? "● Gathering In Progress" : "Today’s Gathering Workflow"}
+          </p>
+          <h2 className="mt-1 text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+            {gathering?.title ?? "No gathering scheduled"}
+          </h2>
+          <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">
+            {gathering ? `${formatGroupGatheringTime(gathering)} · ${gathering.location ?? "Location TBD"}` : "Schedule the next discipleship rhythm before starting."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {isActive ? (
+            <>
+              <GroupQuickAction icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Attendance" onClick={onOpenAttendance} tone="primary" />
+              <GroupQuickAction icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" onClick={onOpenPrayer} />
+              <GroupQuickAction icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Notes" onClick={onOpenNotes} />
+              <GroupQuickAction icon={<Square className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="End Gathering" onClick={onEnd} />
+            </>
+          ) : (
+            <GroupQuickAction icon={<Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Start Gathering" onClick={onStart} tone="primary" />
+          )}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <GroupWorkflowMetric label="Elapsed" value={elapsedLabel ?? "Not started"} />
+        <GroupWorkflowMetric label="Location" value={gathering?.location ?? "Location TBD"} />
+        <GroupWorkflowMetric label="Attendance Progress" value={`${attendanceSummary.marked}/${attendanceSummary.total} marked`} />
+      </div>
+      {workflowPanel === "notes" ? (
+        <label className="mt-4 block">
+          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Notes</span>
+          <textarea
+            className="mt-2 min-h-[120px] w-full rounded-[18px] border border-[#BFDBFE] bg-white p-3 text-sm leading-6 text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+            onChange={(event) => onNotesChange(event.target.value)}
+            placeholder="Capture what happened, what needs follow-up, and anything to carry into the Table log."
+            value={notes}
+          />
+        </label>
+      ) : null}
+    </section>
+  );
+}
+
+function GroupWorkflowMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[18px] border border-white/75 bg-white/82 px-3 py-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+      <p className="mt-1 truncate text-sm font-black text-[#0F172A]">{value}</p>
+    </div>
+  );
+}
+
+function GroupEndGatheringWizard({
+  attendanceRows,
+  attendanceSummary,
+  followUpDrafts,
+  fruitDrafts,
+  gathering,
+  gatheringCompleted,
+  guestDrafts,
+  group,
+  notes,
+  onAddGuest,
+  onAddPrayer,
+  onComplete,
+  onStepChange,
+  onToggleFruit,
+  onUpdateFollowUp,
+  onUpdateGuest,
+  onUpdateMemberAttendance,
+  onUpdatePrayer,
+  prayerDrafts,
+  step,
+}: {
+  attendanceRows: GroupAttendanceRow[];
+  attendanceSummary: ReturnType<typeof groupAttendanceSummary>;
+  followUpDrafts: Record<string, GroupFollowUpDraft>;
+  fruitDrafts: string[];
+  gathering: DosAppGroupGathering;
+  gatheringCompleted: boolean;
+  guestDrafts: GroupGuestDraft[];
+  group: DosAppGroup;
+  notes: string;
+  onAddGuest: () => void;
+  onAddPrayer: () => void;
+  onComplete: () => void;
+  onStepChange: (step: GroupGatheringWizardStep) => void;
+  onToggleFruit: (label: string) => void;
+  onUpdateFollowUp: (attendeeId: string, updates: Partial<GroupFollowUpDraft>) => void;
+  onUpdateGuest: (guestId: string, updates: Partial<GroupGuestDraft>) => void;
+  onUpdateMemberAttendance: (memberId: string, status: GroupAttendanceChoice) => void;
+  onUpdatePrayer: (prayerId: string, updates: Partial<GroupPrayerDraft>) => void;
+  prayerDrafts: GroupPrayerDraft[];
+  step: GroupGatheringWizardStep;
+}) {
+  const activeAttendees = attendanceRows.filter((row) => row.status !== "absent");
+  const stepLabel = ["Attendance", "Prayer Requests", "Fruit", "Follow Ups", "Complete"][step - 1];
+
+  return (
+    <section className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_16px_38px_rgba(37,99,235,0.055)]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>End Gathering Wizard</p>
+          <h2 className="mt-1 text-xl font-black text-[#0F172A]" style={{ fontFamily: font.oswald }}>{stepLabel}</h2>
+          <p className="mt-1 text-sm font-semibold text-[#64748B]">{gathering.title}</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {[1, 2, 3, 4, 5].map((item) => (
+            <button
+              className={`h-8 w-8 rounded-full text-xs font-black transition-colors ${step === item ? "bg-[#2563EB] text-white" : "border border-[#DCEBFF] bg-white text-[#64748B]"}`}
+              key={item}
+              onClick={() => onStepChange(item as GroupGatheringWizardStep)}
+              type="button"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        {gatheringCompleted ? (
+          <GroupGatheringCompleteScreen />
+        ) : step === 1 ? (
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <GroupWorkflowMetric label="Present" value={`${attendanceSummary.present}`} />
+              <GroupWorkflowMetric label="Absent" value={`${attendanceSummary.absent}`} />
+              <GroupWorkflowMetric label="Guests" value={`${attendanceSummary.guests}`} />
+            </div>
+            <GroupAttendanceChecklist
+              guestDrafts={guestDrafts}
+              onAddGuest={onAddGuest}
+              onUpdateGuest={onUpdateGuest}
+              onUpdateMemberAttendance={onUpdateMemberAttendance}
+              rows={attendanceRows}
+            />
+          </div>
+        ) : step === 2 ? (
+          <GroupPrayerWizardStep
+            group={group}
+            guestDrafts={guestDrafts}
+            onAddPrayer={onAddPrayer}
+            onUpdatePrayer={onUpdatePrayer}
+            prayerDrafts={prayerDrafts}
+          />
+        ) : step === 3 ? (
+          <GroupFruitWizardStep fruitDrafts={fruitDrafts} notes={notes} onToggleFruit={onToggleFruit} />
+        ) : step === 4 ? (
+          <GroupFollowUpWizardStep attendees={activeAttendees} followUpDrafts={followUpDrafts} onUpdateFollowUp={onUpdateFollowUp} />
+        ) : (
+          <div className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {["Save attendance", "Save prayer requests", "Save fruit", "Save follow-ups", "Create/update Table log", "Update person timelines", "Update group history"].map((item) => (
+                <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={item}>
+                  <p className="text-sm font-black text-[#0F172A]">{item}</p>
+                </div>
+              ))}
+            </div>
+            <button
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)] transition-colors hover:bg-[#1D4ED8]"
+              onClick={onComplete}
+              type="button"
+            >
+              Complete Gathering
+            </button>
+          </div>
+        )}
+      </div>
+
+      {!gatheringCompleted ? (
+        <div className="mt-5 flex flex-wrap justify-between gap-2 border-t border-[#EAF2FF] pt-4">
+          <button
+            className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-xs font-black text-[#64748B] transition-colors hover:border-[#BFDBFE] hover:text-[#0F172A]"
+            disabled={step === 1}
+            onClick={() => onStepChange(Math.max(1, step - 1) as GroupGatheringWizardStep)}
+            type="button"
+          >
+            Back
+          </button>
+          {step < 5 ? (
+            <button
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white transition-colors hover:bg-[#1D4ED8]"
+              onClick={() => onStepChange(Math.min(5, step + 1) as GroupGatheringWizardStep)}
+              type="button"
+            >
+              Continue
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function GroupAttendanceChecklist({
+  guestDrafts,
+  onAddGuest,
+  onUpdateGuest,
+  onUpdateMemberAttendance,
+  rows,
+}: {
+  guestDrafts: GroupGuestDraft[];
+  onAddGuest: () => void;
+  onUpdateGuest: (guestId: string, updates: Partial<GroupGuestDraft>) => void;
+  onUpdateMemberAttendance: (memberId: string, status: GroupAttendanceChoice) => void;
+  rows: GroupAttendanceRow[];
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-2">
+        {rows.map((row) => (
+          <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={row.id}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                {row.isGuest ? (
+                  <input
+                    className="min-h-9 w-full rounded-full border border-[#DCEBFF] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+                    onChange={(event) => onUpdateGuest(row.id, { name: event.target.value })}
+                    value={row.name}
+                  />
+                ) : (
+                  <>
+                    <p className="truncate text-sm font-black text-[#0F172A]">{row.name}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{row.role ?? "Member"}</p>
+                  </>
+                )}
+              </div>
+              {row.isGuest ? (
+                <GroupPill>Guest</GroupPill>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {groupAttendanceOptions.map((option) => (
+                    <button
+                      aria-pressed={row.status === option.value}
+                      className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-2.5 text-[11px] font-black transition-colors ${row.status === option.value ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#DCEBFF] bg-white text-[#64748B]"}`}
+                      key={option.value}
+                      onClick={() => onUpdateMemberAttendance(row.id, option.value)}
+                      type="button"
+                    >
+                      <span aria-hidden="true">○</span>
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {row.isGuest ? (
+              <label className="mt-3 flex items-center gap-2 text-xs font-bold text-[#475569]">
+                <input
+                  checked={guestDrafts.find((guest) => guest.id === row.id)?.createPerson ?? false}
+                  className="h-4 w-4 rounded border-[#BFDBFE] text-[#2563EB]"
+                  onChange={(event) => onUpdateGuest(row.id, { createPerson: event.target.checked })}
+                  type="checkbox"
+                />
+                Create Person after gathering
+              </label>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      <button
+        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+        onClick={onAddGuest}
+        type="button"
+      >
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+        Add Guest
+      </button>
+    </div>
+  );
+}
+
+function GroupPrayerWizardStep({
+  group,
+  guestDrafts,
+  onAddPrayer,
+  onUpdatePrayer,
+  prayerDrafts,
+}: {
+  group: DosAppGroup;
+  guestDrafts: GroupGuestDraft[];
+  onAddPrayer: () => void;
+  onUpdatePrayer: (prayerId: string, updates: Partial<GroupPrayerDraft>) => void;
+  prayerDrafts: GroupPrayerDraft[];
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-semibold leading-6 text-[#64748B]">Prayer requests can attach to a person, guest, or the entire group.</p>
+        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onAddPrayer} type="button">
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+          Add Prayer
+        </button>
+      </div>
+      {prayerDrafts.length ? (
+        <div className="grid gap-3">
+          {prayerDrafts.map((prayer) => (
+            <div className="grid gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={prayer.id}>
+              <input
+                className="min-h-10 rounded-full border border-[#DCEBFF] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+                onChange={(event) => onUpdatePrayer(prayer.id, { title: event.target.value })}
+                placeholder="Prayer title"
+                value={prayer.title}
+              />
+              <textarea
+                className="min-h-[88px] rounded-[18px] border border-[#DCEBFF] bg-white p-3 text-sm leading-6 text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+                onChange={(event) => onUpdatePrayer(prayer.id, { description: event.target.value })}
+                placeholder="Prayer request"
+                value={prayer.description}
+              />
+              <select
+                className="min-h-10 rounded-full border border-[#DCEBFF] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+                onChange={(event) => {
+                  const [targetType, targetId] = event.target.value.split(":");
+                  onUpdatePrayer(prayer.id, {
+                    targetId: targetId ?? "",
+                    targetType: targetType as GroupPrayerDraftTargetType,
+                  });
+                }}
+                value={`${prayer.targetType}:${prayer.targetId}`}
+              >
+                <option value="group:">Entire group</option>
+                {group.members.map((member) => (
+                  <option key={member.id} value={`person:${member.personId}`}>{member.personName}</option>
+                ))}
+                {guestDrafts.map((guest) => (
+                  <option key={guest.id} value={`guest:${guest.id}`}>{guest.name || "Guest"}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <SectionEmptyState action={<CompactButton icon="prayer" onClick={onAddPrayer}>Add Prayer</CompactButton>} text="Requests added here will appear in Prayer with this group and gathering." title="No prayer requests added." />
+      )}
+    </div>
+  );
+}
+
+function GroupFruitWizardStep({
+  fruitDrafts,
+  notes,
+  onToggleFruit,
+}: {
+  fruitDrafts: string[];
+  notes: string;
+  onToggleFruit: (label: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-base font-black text-[#0F172A]">What happened today?</h3>
+        {notes ? <p className="mt-1 text-sm leading-6 text-[#64748B]">{notes}</p> : null}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {groupFruitWorkflowOptions.map((label) => (
+          <label className={`flex min-h-12 items-center gap-2 rounded-[18px] border px-3 text-sm font-black transition-colors ${fruitDrafts.includes(label) ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#EAF2FF] bg-[#F8FBFF] text-[#475569]"}`} key={label}>
+            <input checked={fruitDrafts.includes(label)} className="h-4 w-4 rounded border-[#BFDBFE] text-[#2563EB]" onChange={() => onToggleFruit(label)} type="checkbox" />
+            {label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GroupFollowUpWizardStep({
+  attendees,
+  followUpDrafts,
+  onUpdateFollowUp,
+}: {
+  attendees: GroupAttendanceRow[];
+  followUpDrafts: Record<string, GroupFollowUpDraft>;
+  onUpdateFollowUp: (attendeeId: string, updates: Partial<GroupFollowUpDraft>) => void;
+}) {
+  return (
+    <div className="grid gap-3">
+      {attendees.length ? attendees.map((attendee) => {
+        const draft = followUpDrafts[attendee.id] ?? { dueDate: "", nextStep: "Invite Back" };
+
+        return (
+          <div className="grid gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 md:grid-cols-[minmax(0,1fr)_170px_160px_auto] md:items-center" key={attendee.id}>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-[#0F172A]">{attendee.name}</p>
+              <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{attendee.isGuest ? "Guest" : attendee.role ?? "Member"}</p>
+            </div>
+            <select
+              className="min-h-10 rounded-full border border-[#DCEBFF] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+              onChange={(event) => onUpdateFollowUp(attendee.id, { nextStep: event.target.value })}
+              value={draft.nextStep}
+            >
+              {groupFollowUpOptions.map((option) => <option key={option}>{option}</option>)}
+            </select>
+            <input
+              className="min-h-10 rounded-full border border-[#DCEBFF] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+              onChange={(event) => onUpdateFollowUp(attendee.id, { dueDate: event.target.value })}
+              type="date"
+              value={draft.dueDate}
+            />
+            <button
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+              onClick={() => onUpdateFollowUp(attendee.id, draft)}
+              type="button"
+            >
+              Create Follow-Up
+            </button>
+          </div>
+        );
+      }) : (
+        <SectionEmptyState text="Mark attendees before creating follow-ups." title="No attendees selected." />
+      )}
+    </div>
+  );
+}
+
+function GroupGatheringCompleteScreen() {
+  return (
+    <div className="rounded-[22px] border border-[#BBF7D0] bg-[#F0FDF4] p-5">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>Gathering Completed</p>
+      <h3 className="mt-2 text-2xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>Gathering Completed</h3>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {["Attendance Recorded", "Prayer Updated", "Fruit Recorded", "Table Logged", "Group History Updated"].map((item) => (
+          <div className="rounded-[16px] bg-white/82 p-3" key={item}>
+            <CheckCircle2 className="h-4 w-4 text-[#16A34A]" aria-hidden="true" strokeWidth={2} />
+            <p className="mt-2 text-sm font-black text-[#0F172A]">{item}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function groupAttendanceRows(group: DosAppGroup, attendanceDraft: Record<string, GroupAttendanceChoice>, guestDrafts: GroupGuestDraft[]): GroupAttendanceRow[] {
+  return [
+    ...group.members.map((member) => ({
+      id: member.id,
+      isGuest: false,
+      name: member.personName,
+      role: groupRoleLabel(member.role),
+      status: attendanceDraft[member.id] ?? "absent",
+    })),
+    ...guestDrafts.map((guest) => ({
+      createPerson: guest.createPerson,
+      id: guest.id,
+      isGuest: true,
+      name: guest.name,
+      status: "guest" as GroupAttendanceChoice,
+    })),
+  ];
+}
+
+function groupAttendanceSummary(group: DosAppGroup, attendanceDraft: Record<string, GroupAttendanceChoice>, guestDrafts: GroupGuestDraft[]) {
+  const memberStatuses = group.members.map((member) => attendanceDraft[member.id]).filter(Boolean) as GroupAttendanceChoice[];
+  const present = memberStatuses.filter((status) => status === "present").length;
+  const absent = memberStatuses.filter((status) => status === "absent").length;
+  const guestMembers = memberStatuses.filter((status) => status === "guest").length;
+  const guests = guestMembers + guestDrafts.length;
+  const marked = memberStatuses.length + guestDrafts.length;
+  const total = group.members.length + guestDrafts.length;
+
+  return {
+    absent,
+    guests,
+    marked,
+    present,
+    total,
+  };
+}
+
+function formatElapsedDuration(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${Math.max(1, minutes)}m`;
+}
+
+function defaultGroupActivityItems(group: DosAppGroup): GroupActivityItem[] {
+  const next = nextGroupGathering(group);
+  const prayer = group.prayerRequests.find((request) => request.status !== "answered" && request.status !== "archived");
+
+  return [
+    ...(prayer ? [{
+      body: prayer.title,
+      id: `activity-prayer-${prayer.id}`,
+      meta: "Recent",
+      title: "Prayer request added",
+    }] : []),
+    ...(next ? [{
+      body: `${next.title} · ${formatGroupGatheringTime(next)}`,
+      id: `activity-next-${next.id}`,
+      meta: "Upcoming",
+      title: "Gathering scheduled",
+    }] : []),
+    {
+      body: "Attendance, prayer, fruit, follow-ups, and Table logs will appear as gatherings are completed.",
+      id: `activity-history-${group.id}`,
+      meta: "Ready",
+      title: "Group history ready",
+    },
+  ];
+}
+
+function groupPrayerDraftTargetLabel(group: DosAppGroup, prayer: GroupPrayerDraft) {
+  if (prayer.targetType === "group") {
+    return "Entire group";
+  }
+
+  if (prayer.targetType === "person") {
+    return group.members.find((member) => member.personId === prayer.targetId)?.personName ?? "Person";
+  }
+
+  return "Guest";
 }
 
 function GroupQuickAction({
@@ -6195,42 +6988,148 @@ function GroupDetailTabBar({
 }
 
 function GroupOverviewTab({
+  activityItems,
+  attendanceSummary,
+  followUpDrafts,
+  fruitDrafts,
   group,
   nextGathering,
+  onStartGathering,
+  prayerDrafts,
 }: {
+  activityItems: GroupActivityItem[];
+  attendanceSummary: ReturnType<typeof groupAttendanceSummary>;
+  followUpDrafts: Record<string, GroupFollowUpDraft>;
+  fruitDrafts: string[];
   group: DosAppGroup;
   nextGathering: DosAppGroupGathering | null;
+  onStartGathering: () => void;
+  prayerDrafts: GroupPrayerDraft[];
 }) {
   const upcoming = groupUpcomingGatherings(group).slice(0, 3);
-  const rhythmCards = groupOverviewRhythms(group);
+  const recentPrayerTitles = [
+    ...prayerDrafts.map((request) => request.title || "New prayer request"),
+    ...group.prayerRequests.map((request) => request.title),
+  ].slice(0, 3);
+  const followUpItems = Object.entries(followUpDrafts).slice(0, 4);
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <DesktopPanel eyebrow="About" title={`About ${group.name}`}>
-        <p className="text-sm leading-6 text-[#475569]">{group.description ?? "No description yet."}</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {rhythmCards.map(({ body, title }) => (
-            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={title}>
-              <p className="text-sm font-black text-[#0F172A]">{title}</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">{body}</p>
-            </div>
-          ))}
-        </div>
-      </DesktopPanel>
-      <div className="grid content-start gap-3">
-        <DesktopPanel eyebrow="Next" title="Next Gathering">
+    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-3">
+        <DesktopPanel
+          action={nextGathering ? <button className="rounded-full bg-[#2563EB] px-3 py-2 text-xs font-black text-white" onClick={onStartGathering} type="button">Start Gathering</button> : null}
+          eyebrow="Next"
+          title="Next Gathering"
+        >
           {nextGathering ? <GroupGatheringRow gathering={nextGathering} /> : <p className="text-sm text-[#64748B]">No gathering scheduled.</p>}
         </DesktopPanel>
-        <DesktopPanel eyebrow="Upcoming" title="Gatherings">
-          {upcoming.length ? (
-            <div className="grid gap-2">
-              {upcoming.map((gathering) => <GroupGatheringRow gathering={gathering} key={gathering.id} compact />)}
+        <div className="grid gap-3 lg:grid-cols-2">
+          <DesktopPanel eyebrow="Attendance" title="Attendance Trend">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <GroupWorkflowMetric label="Present" value={`${attendanceSummary.present}`} />
+              <GroupWorkflowMetric label="Absent" value={`${attendanceSummary.absent}`} />
+              <GroupWorkflowMetric label="Guests" value={`${attendanceSummary.guests}`} />
             </div>
-          ) : (
-            <p className="text-sm text-[#64748B]">No upcoming gatherings.</p>
-          )}
+            <p className="mt-3 text-sm leading-6 text-[#64748B]">
+              {attendanceSummary.marked ? `${attendanceSummary.marked}/${attendanceSummary.total} people marked for this gathering.` : "Attendance will build a trend as gatherings are completed."}
+            </p>
+          </DesktopPanel>
+          <DesktopPanel eyebrow="Prayer" title="Recent Prayer Requests">
+            {recentPrayerTitles.length ? (
+              <div className="grid gap-2">
+                {recentPrayerTitles.map((title, index) => (
+                  <p className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm font-black text-[#0F172A]" key={`${title}-${index}`}>{title}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm leading-6 text-[#64748B]">Prayer requests added during gatherings will appear here.</p>
+            )}
+          </DesktopPanel>
+          <DesktopPanel eyebrow="Fruit" title="Recent Fruit">
+            {fruitDrafts.length ? (
+              <div className="flex flex-wrap gap-2">
+                {fruitDrafts.map((item) => <GroupPill key={item} tone="green">{item}</GroupPill>)}
+              </div>
+            ) : (
+              <p className="text-sm leading-6 text-[#64748B]">Fruit will appear after the gathering is completed.</p>
+            )}
+          </DesktopPanel>
+          <DesktopPanel eyebrow="Follow Ups" title="Upcoming Follow Ups">
+            {followUpItems.length ? (
+              <div className="grid gap-2">
+                {followUpItems.map(([attendeeId, followUp]) => (
+                  <div className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={attendeeId}>
+                    <p className="text-sm font-black text-[#0F172A]">{followUp.nextStep}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{followUp.dueDate || "No due date"}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm leading-6 text-[#64748B]">Follow-ups created at the end of a gathering will show here.</p>
+            )}
+          </DesktopPanel>
+        </div>
+      </div>
+      <div className="grid content-start gap-3">
+        <DesktopPanel eyebrow="Health" title="Group Health">
+          <GroupHealthSnapshot attendanceSummary={attendanceSummary} followUpCount={followUpItems.length} group={group} prayerCount={recentPrayerTitles.length} />
+        </DesktopPanel>
+        <DesktopPanel eyebrow="Activity" title="Recent Activity">
+          <GroupActivityTimeline items={activityItems} />
+        </DesktopPanel>
+        <DesktopPanel eyebrow="Upcoming" title="Discipleship Rhythms">
+          <div className="grid gap-2">
+            {upcoming.length ? upcoming.map((gathering) => <GroupGatheringRow gathering={gathering} key={gathering.id} compact />) : <p className="text-sm text-[#64748B]">No upcoming gatherings.</p>}
+          </div>
         </DesktopPanel>
       </div>
+    </div>
+  );
+}
+
+function GroupHealthSnapshot({
+  attendanceSummary,
+  followUpCount,
+  group,
+  prayerCount,
+}: {
+  attendanceSummary: ReturnType<typeof groupAttendanceSummary>;
+  followUpCount: number;
+  group: DosAppGroup;
+  prayerCount: number;
+}) {
+  const healthItems = [
+    { label: "Attendance", value: attendanceSummary.marked ? "Tracking" : "Ready" },
+    { label: "Prayer", value: prayerCount ? "Active" : "Quiet" },
+    { label: "Follow Ups", value: followUpCount ? "Queued" : "Clear" },
+    { label: "Momentum", value: groupUpcomingGatherings(group).length ? "Steady" : "Needs rhythm" },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {healthItems.map((item) => (
+        <span className="inline-flex min-h-8 items-center gap-2 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 text-xs font-black text-[#475569]" key={item.label}>
+          <span className="text-[#94A3B8]">{item.label}</span>
+          <span className="text-[#0F172A]">{item.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function GroupActivityTimeline({ items }: { items: GroupActivityItem[] }) {
+  return (
+    <div className="grid gap-3">
+      {items.map((item) => (
+        <div className="relative grid gap-1 border-l border-[#BFDBFE] pl-4" key={item.id}>
+          <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-[#2563EB]" aria-hidden="true" />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-black text-[#0F172A]">{item.title}</p>
+            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{item.meta}</span>
+          </div>
+          <p className="text-xs leading-5 text-[#64748B]">{item.body}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -6312,14 +7211,49 @@ function GroupGatheringsTab({ group }: { group: DosAppGroup }) {
   );
 }
 
-function GroupAttendanceTab({ group }: { group: DosAppGroup }) {
+function GroupAttendanceTab({
+  attendanceRows,
+  attendanceSummary,
+  guestDrafts,
+  group,
+  isGatheringActive,
+  onAddGuest,
+  onTakeAttendance,
+  onUpdateGuest,
+  onUpdateMemberAttendance,
+}: {
+  attendanceRows: GroupAttendanceRow[];
+  attendanceSummary: ReturnType<typeof groupAttendanceSummary>;
+  guestDrafts: GroupGuestDraft[];
+  group: DosAppGroup;
+  isGatheringActive: boolean;
+  onAddGuest: () => void;
+  onTakeAttendance: () => void;
+  onUpdateGuest: (guestId: string, updates: Partial<GroupGuestDraft>) => void;
+  onUpdateMemberAttendance: (memberId: string, status: GroupAttendanceChoice) => void;
+}) {
   const gathering = nextGroupGathering(group) ?? sortedGroupGatherings(group)[0] ?? null;
   const attendance = gathering?.attendance ?? [];
 
   return (
     <DesktopPanel eyebrow="Attendance" title={gathering ? gathering.title : "No gathering selected"}>
       {gathering ? <p className="mb-3 text-sm font-semibold text-[#64748B]">{formatGroupGatheringTime(gathering)}</p> : null}
-      {attendance.length ? (
+      {isGatheringActive ? (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <GroupWorkflowMetric label="Present" value={`${attendanceSummary.present}`} />
+            <GroupWorkflowMetric label="Absent" value={`${attendanceSummary.absent}`} />
+            <GroupWorkflowMetric label="Guests" value={`${attendanceSummary.guests}`} />
+          </div>
+          <GroupAttendanceChecklist
+            guestDrafts={guestDrafts}
+            onAddGuest={onAddGuest}
+            onUpdateGuest={onUpdateGuest}
+            onUpdateMemberAttendance={onUpdateMemberAttendance}
+            rows={attendanceRows}
+          />
+        </div>
+      ) : attendance.length ? (
         <div className="grid gap-2">
           {attendance.map((row) => (
             <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={row.id}>
@@ -6332,18 +7266,19 @@ function GroupAttendanceTab({ group }: { group: DosAppGroup }) {
           ))}
         </div>
       ) : (
-        <SectionEmptyState text={gathering ? "Record attendance after your next gathering." : "Schedule a gathering before attendance is tracked."} title={gathering ? "No attendance has been recorded yet." : "No gathering selected."} />
+        <SectionEmptyState action={gathering ? <CompactButton icon="meetings" onClick={onTakeAttendance}>Start Attendance</CompactButton> : undefined} text={gathering ? "Record attendance after your next gathering." : "Schedule a gathering before attendance is tracked."} title={gathering ? "No attendance has been recorded yet." : "No gathering selected."} />
       )}
     </DesktopPanel>
   );
 }
 
-function GroupPrayerTab({ group, onAddPrayer }: { group: DosAppGroup; onAddPrayer: () => void }) {
+function GroupPrayerTab({ group, onAddPrayer, prayerDrafts = [] }: { group: DosAppGroup; onAddPrayer: () => void; prayerDrafts?: GroupPrayerDraft[] }) {
   const [view, setView] = useState<PrayerRequestView>("praying");
   const memberNameByPersonId = new Map(group.members.map((member) => [member.personId, member.personName]));
   const visibleRequests = group.prayerRequests.filter((request) => (
     view === "answered" ? request.status === "answered" : request.status !== "answered" && request.status !== "archived"
   ));
+  const visibleDrafts = view === "answered" ? [] : prayerDrafts;
   const personNameForRequest = (request: DosAppPrayerRequest) => {
     const directName = request.fieldPersonId ? memberNameByPersonId.get(request.fieldPersonId) : null;
 
@@ -6363,8 +7298,20 @@ function GroupPrayerTab({ group, onAddPrayer }: { group: DosAppGroup; onAddPraye
       <div className="mb-3 max-w-[16rem]">
         <SegmentedTabs onChange={setView} options={prayerRequestViewTabs} value={view} />
       </div>
-      {visibleRequests.length ? (
+      {visibleRequests.length || visibleDrafts.length ? (
         <div className="grid gap-2">
+          {visibleDrafts.map((request) => (
+            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={request.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-[#0F172A]">{request.title || "New prayer request"}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupPrayerDraftTargetLabel(group, request)}</p>
+                </div>
+                <GroupPill tone="blue">Draft</GroupPill>
+              </div>
+              {request.description ? <p className="mt-2 text-sm leading-6 text-[#475569]">{request.description}</p> : null}
+            </div>
+          ))}
           {visibleRequests.map((request) => {
             const personName = personNameForRequest(request);
 
@@ -7957,6 +8904,33 @@ const groupDetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
   { label: "Resources", value: "resources" },
   { label: "Settings", value: "settings" },
 ];
+
+const groupAttendanceOptions: ReadonlyArray<{ label: string; value: GroupAttendanceChoice }> = [
+  { label: "Present", value: "present" },
+  { label: "Absent", value: "absent" },
+  { label: "Guest", value: "guest" },
+];
+
+const groupFruitWorkflowOptions = [
+  "Gospel conversation",
+  "Salvation",
+  "Baptism",
+  "Prayer answered",
+  "Reconciliation",
+  "Scripture memorized",
+  "Invited to church",
+  "Started discipleship",
+  "Other",
+] as const;
+
+const groupFollowUpOptions = [
+  "Coffee",
+  "Phone Call",
+  "Bible Study",
+  "Invite Back",
+  "Prayer Follow Up",
+  "Schedule Meeting",
+] as const;
 
 const meetingCalendarViewTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarViewMode>> = [
   { label: "Month", value: "month" },
