@@ -16717,6 +16717,22 @@ const myRecordRyanSeedAssessments = [
 
 type MyRecordSavePayload = Record<string, unknown>;
 
+function myRecordLogValue(value: unknown) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  if (value.length <= 160) {
+    return value;
+  }
+
+  return `${value.slice(0, 160)}... (${value.length} chars)`;
+}
+
+function myRecordLogPayload(payload: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, Array.isArray(value) ? value.map(myRecordLogValue) : myRecordLogValue(value)]));
+}
+
 function formatRecordDuration(minutes: number) {
   if (minutes <= 0) {
     return "0m";
@@ -17005,7 +17021,7 @@ type MyRecordSheetState =
   | { defaultTags?: string[]; entry?: DosAppUserJournalEntry | null; kind: "encounter"; mode: MyRecordSheetMode; prayerLog?: DosAppUserPrayerLog | null; title?: string }
   | { defaultTags?: string[]; entry?: DosAppUserJournalEntry | null; kind: "journal"; mode: MyRecordSheetMode; title?: string }
   | { kind: "prayer"; log?: DosAppUserPrayerLog | null; mode: MyRecordSheetMode }
-  | { kind: "mentor_meeting"; meeting?: DosAppUserMentorMeeting | null; mode: MyRecordSheetMode }
+  | { kind: "mentor_meeting"; meeting?: DosAppUserMentorMeeting | null; mentor?: DosAppUserMentorRelationship | null; mode: MyRecordSheetMode }
   | { kind: "mentor_relationship"; mentor?: DosAppUserMentorRelationship | null; mode: MyRecordSheetMode }
   | { kind: "prophetic_word"; mode: MyRecordSheetMode; word?: DosAppUserPropheticWord | null }
   | { assessmentResult?: DosAppUserExternalAssessmentResult | null; kind: "external_assessment"; mode: MyRecordSheetMode }
@@ -17642,6 +17658,7 @@ function MyRecordMentorMeetingForm({
   errorMessage,
   isSubmitting,
   meeting,
+  mentor,
   mentors,
   nextTab = "mentors",
   onCancel,
@@ -17651,6 +17668,7 @@ function MyRecordMentorMeetingForm({
   errorMessage: string;
   isSubmitting: boolean;
   meeting?: DosAppUserMentorMeeting | null;
+  mentor?: DosAppUserMentorRelationship | null;
   mentors: DosAppUserMentorRelationship[];
   nextTab?: MyRecordTab;
   onCancel?: () => void;
@@ -17660,6 +17678,11 @@ function MyRecordMentorMeetingForm({
   const isEditing = Boolean(meeting);
   const formRef = useRef<HTMLFormElement | null>(null);
   const activeMentors = mentors.filter((mentor) => mentor.status === "active");
+  const defaultMeetingMentor = meeting?.relationshipId
+    ? activeMentors.find((activeMentor) => activeMentor.id === meeting.relationshipId) ?? null
+    : mentor ?? (activeMentors.length === 1 ? activeMentors[0] : null);
+  const defaultRelationshipId = meeting?.relationshipId ?? defaultMeetingMentor?.id ?? "";
+  const defaultFieldPersonId = meeting?.fieldPersonId ?? defaultMeetingMentor?.fieldPersonId ?? "";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -17705,7 +17728,7 @@ function MyRecordMentorMeetingForm({
           <FormOptionSelect
             label="Saved Mentor"
             name="relationship_id"
-            defaultValue={meeting?.relationshipId ?? ""}
+            defaultValue={defaultRelationshipId}
             options={[
               { label: "Manual mentor", value: "" },
               ...activeMentors.map((mentor) => ({
@@ -17724,12 +17747,12 @@ function MyRecordMentorMeetingForm({
           </>
         )}
         <DosFormField helper={activeMentors.length ? "Use this only if you did not select a saved mentor." : "Enter the mentor name for this meeting."} label="Manual Mentor Name">
-          <input className={FieldInputClass()} defaultValue={meeting?.relationshipId ? "" : meeting?.mentorName ?? ""} name="mentor_name" placeholder="Mentor name" />
+          <input className={FieldInputClass()} defaultValue={defaultRelationshipId ? "" : meeting?.mentorName ?? ""} name="mentor_name" placeholder="Mentor name" />
         </DosFormField>
         <FormOptionSelect
           label="Field Contact"
           name="field_person_id"
-          defaultValue={meeting?.fieldPersonId ?? ""}
+          defaultValue={defaultFieldPersonId}
           options={[
             { label: "Not linked", value: "" },
             ...people.map((person) => ({
@@ -19964,7 +19987,7 @@ function MyRecordGrowthPanel({
                   meetings={meetings}
                   mentor={mentor}
                   onEdit={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "edit" })}
-                  onLogMeeting={() => onOpenSheet({ kind: "mentor_meeting", mode: "new" })}
+                  onLogMeeting={() => onOpenSheet({ kind: "mentor_meeting", mentor, mode: "new" })}
                   onView={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })}
                 />
               );
@@ -20483,7 +20506,7 @@ function MyRecordSheetContent({
     const meeting = sheet.meeting ?? null;
 
     if (sheet.mode !== "view") {
-      return <MyRecordMentorMeetingForm errorMessage={errorMessage} isSubmitting={isSubmitting} meeting={meeting} mentors={record.mentorRelationships} nextTab={activeTab} onCancel={onClose} onSave={onSave} people={people} />;
+      return <MyRecordMentorMeetingForm errorMessage={errorMessage} isSubmitting={isSubmitting} meeting={meeting} mentor={sheet.mentor ?? null} mentors={record.mentorRelationships} nextTab={activeTab} onCancel={onClose} onSave={onSave} people={people} />;
     }
 
     return meeting ? (
@@ -24515,20 +24538,45 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsSubmitting(true);
 
     try {
+      const requestPayload = {
+        ...payload,
+        workspaceId: data.workspace.id,
+      };
+
+      console.info("[My Record] Save request", myRecordLogPayload(requestPayload));
       const response = await fetch("/api/dos/app/my-record", {
-        body: JSON.stringify({
-          ...payload,
-          workspaceId: data.workspace.id,
-        }),
+        body: JSON.stringify(requestPayload),
         headers: {
           "Content-Type": "application/json",
         },
         method: "POST",
       });
-      const result = await response.json().catch(() => ({})) as { error?: string; id?: string };
+      const responseText = await response.text();
+      let result: { error?: string; id?: string } = {};
+
+      try {
+        result = responseText ? JSON.parse(responseText) as { error?: string; id?: string } : {};
+      } catch (parseError) {
+        console.error("[My Record] Save response was not JSON", {
+          body: responseText.slice(0, 1000),
+          parseError,
+          payload: myRecordLogPayload(requestPayload),
+          status: response.status,
+          statusText: response.statusText,
+        });
+      }
+
+      console.info("[My Record] Save response", {
+        body: responseText.slice(0, 1000),
+        ok: response.ok,
+        payload: myRecordLogPayload(requestPayload),
+        result,
+        status: response.status,
+        statusText: response.statusText,
+      });
 
       if (!response.ok || !result.id) {
-        throw new Error(result.error ?? "Unable to save My Record.");
+        throw new Error(result.error ?? (responseText.slice(0, 500) || `Unable to save My Record. HTTP ${response.status} ${response.statusText}`.trim()));
       }
 
       setMyRecordTab(normalizeMyRecordTab(nextTab, myRecordV2Enabled));
@@ -24536,6 +24584,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       return true;
     } catch (error) {
+      console.error("[My Record] Save failed", {
+        error,
+        payload: myRecordLogPayload(payload),
+      });
       setErrorMessage(error instanceof Error ? error.message : "Unable to save My Record.");
       return false;
     } finally {

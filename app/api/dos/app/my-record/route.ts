@@ -104,6 +104,41 @@ type MentorRelationshipRow = {
   mentor_name: string;
 };
 
+function myRecordApiLogValue(value: unknown) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  if (value.length <= 160) {
+    return value;
+  }
+
+  return `${value.slice(0, 160)}... (${value.length} chars)`;
+}
+
+function myRecordApiLogPayload(payload: MyRecordPayload | Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, Array.isArray(value) ? value.map(myRecordApiLogValue) : myRecordApiLogValue(value)]));
+}
+
+function myRecordApiErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function myRecordDatabaseErrorResponse(context: string, error: { code?: string; details?: string; hint?: string; message: string }, payload?: MyRecordPayload) {
+  console.error("[My Record API] Database error", {
+    context,
+    error,
+    payload: payload ? myRecordApiLogPayload(payload) : undefined,
+  });
+
+  return NextResponse.json({
+    code: error.code,
+    details: error.details,
+    error: `Database ${context} failed: ${error.message}`,
+    hint: error.hint,
+  }, { status: 500 });
+}
+
 function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -545,7 +580,7 @@ async function findOrCreateMentorRelationship({
   return { relationship: data as MentorRelationshipRow };
 }
 
-export async function POST(request: Request) {
+async function handleMyRecordPost(request: Request) {
   const authResult = await authorizeWrite();
 
   if ("response" in authResult) {
@@ -562,6 +597,8 @@ export async function POST(request: Request) {
 
   const workspace = await resolveDosAppWorkspace(asString(payload.workspaceId) || asString(payload.workspace_id));
   const kind = asString(payload.kind);
+
+  console.info("[My Record API] Request payload", myRecordApiLogPayload(payload));
 
   if (!workspace || !kind) {
     return NextResponse.json({ error: "Workspace and My Record action are required." }, { status: 400 });
@@ -809,11 +846,18 @@ export async function POST(request: Request) {
       return personValidation.response;
     }
 
+    const selectedRelationshipId = asString(payload.relationshipId);
+    const manualMentorName = asString(payload.mentorName);
+
+    if (!selectedRelationshipId && !manualMentorName && !personValidation.person?.name) {
+      return NextResponse.json({ error: "Mentor meeting requires a saved mentor or manual mentor name." }, { status: 400 });
+    }
+
     const relationshipResult = await findOrCreateMentorRelationship({
       fieldPerson: personValidation.person,
-      mentorName: asString(payload.mentorName),
+      mentorName: manualMentorName,
       recordId,
-      relationshipId: asString(payload.relationshipId),
+      relationshipId: selectedRelationshipId,
       relationshipLabel: asNullableText(payload.relationshipLabel, 160),
       supabase,
       userId: authResult.authorization.userId,
@@ -860,7 +904,7 @@ export async function POST(request: Request) {
     const { data, error } = result;
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return myRecordDatabaseErrorResponse(mentorMeetingId.id ? "mentor meeting update" : "mentor meeting insert", error, payload);
     }
 
     return NextResponse.json({ id: data.id });
@@ -1250,4 +1294,20 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ error: "Unsupported My Record action." }, { status: 400 });
+}
+
+export async function POST(request: Request) {
+  try {
+    return await handleMyRecordPost(request);
+  } catch (error) {
+    console.error("[My Record API] Unexpected server error", {
+      error,
+      message: myRecordApiErrorMessage(error),
+      url: request.url,
+    });
+
+    return NextResponse.json({
+      error: `Unexpected server error: ${myRecordApiErrorMessage(error)}`,
+    }, { status: 500 });
+  }
 }
