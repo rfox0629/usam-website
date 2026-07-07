@@ -459,6 +459,82 @@ function buildDosPreviewDemoData(): DosAppData {
       workspaceId: demoWorkspaceId,
     },
   ];
+  const groups: DosAppData["groups"] = [
+    {
+      active: true,
+      defaultLocation: "Lebanon Hills Trailhead, Eagan, MN",
+      description: "2three2 is a men's discipleship group where we run together, pair up two-by-two, pray for one another as we run, and pursue righteousness, faith, love, and peace with those who call on the Lord out of a pure heart.",
+      gatherings: [
+        {
+          attendance: [],
+          description: "Run together, pair up two-by-two, and pray along the trail.",
+          endsAt: "2026-07-11T08:15:00-05:00",
+          id: "demo-group-2three2-gathering-1",
+          linkedTableEventId: null,
+          location: "Lebanon Hills Trailhead, Eagan, MN",
+          startsAt: "2026-07-11T07:00:00-05:00",
+          status: "scheduled",
+          title: "Saturday Run & Prayer",
+        },
+        {
+          attendance: [],
+          description: "Run together, pair up two-by-two, and pray along the trail.",
+          endsAt: "2026-07-18T08:15:00-05:00",
+          id: "demo-group-2three2-gathering-2",
+          linkedTableEventId: null,
+          location: "Lebanon Hills Trailhead, Eagan, MN",
+          startsAt: "2026-07-18T07:00:00-05:00",
+          status: "scheduled",
+          title: "Saturday Run & Prayer",
+        },
+      ],
+      id: "demo-group-2three2",
+      imageUrl: null,
+      leaderName: "George Jenko",
+      leaderPersonId: "demo-person-george-jenko",
+      memberCount: 2,
+      members: [
+        {
+          id: "demo-group-member-george",
+          joinedAt: demoTimestamp,
+          notes: null,
+          personId: "demo-person-george-jenko",
+          personName: "George Jenko",
+          role: "leader",
+          status: "active",
+        },
+        {
+          id: "demo-group-member-tim",
+          joinedAt: demoTimestamp,
+          notes: null,
+          personId: "demo-person-tim-tran",
+          personName: "Tim Tran",
+          role: "member",
+          status: "active",
+        },
+      ],
+      name: "2three2",
+      prayerRequests: [],
+      resources: [
+        {
+          active: true,
+          description: "Verse anchor for the 2three2 rhythm.",
+          id: "demo-group-resource-2timothy",
+          resourceType: "scripture",
+          sortOrder: 10,
+          title: "2 Timothy 2:22",
+          url: null,
+        },
+      ],
+      rhythmLabel: "Saturdays at 7:00 AM",
+      scriptureReference: "2 Timothy 2:22",
+      scriptureText: "Flee also youthful lusts; but pursue righteousness, faith, love, peace with those who call on the Lord out of a pure heart.",
+      slug: "2three2",
+      tagline: "Run. Pray. Pursue.",
+      type: "running",
+      visibility: "private",
+    },
+  ];
   const reminders: DosAppRelationshipReminder[] = [
     {
       googleSyncEnabled: true,
@@ -516,6 +592,7 @@ function buildDosPreviewDemoData(): DosAppData {
     externalCalendarEvents: [],
     fruit,
     fruitEvents,
+    groups,
     householdMembers: [
       {
         displayName: "Ryan Fox",

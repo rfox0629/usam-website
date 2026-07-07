@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -58,7 +58,7 @@ const googleCalendarReconnectCopy = "Calendar permissions need to be updated.";
 const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choose calendars to import or refresh your connection.";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
-type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
+type MoreAppView = "apps" | "fruit" | "groups" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
 type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
 type LocalPrayerNeed = {
   createdAt: string;
@@ -218,6 +218,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
     items: [
       { icon: "people", label: "Field", type: "tab", value: "people" },
       { icon: "meetings", label: "Table", type: "tab", value: "meetings" },
+      { icon: "people", label: "Groups", type: "moreApp", value: "groups" },
       { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
     ],
   },
@@ -649,6 +650,8 @@ type MeetingCalendarViewMode = "month" | "week";
 type FruitView = "activity" | "forms" | "impact";
 type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
 type FruitFormStatus = "coming_soon" | "live";
+type GroupsListView = "all" | "mine";
+type GroupDetailTab = "attendance" | "gatherings" | "members" | "overview" | "prayer" | "resources" | "settings";
 type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "my_requests" | "partners" | "praying_for";
@@ -1194,6 +1197,59 @@ function isDateWithinRange(value: string | null | undefined, start: Date, end: D
 
 function dateSortValue(value: string | null | undefined) {
   return parseDisplayDate(value ?? null)?.getTime() ?? 0;
+}
+
+function sortedGroupGatherings(group: DosAppGroup) {
+  return [...group.gatherings].sort((first, second) => dateSortValue(first.startsAt) - dateSortValue(second.startsAt));
+}
+
+function groupUpcomingGatherings(group: DosAppGroup) {
+  const now = Date.now();
+
+  return sortedGroupGatherings(group).filter((gathering) => {
+    const startsAt = parseDisplayDate(gathering.startsAt);
+
+    return gathering.status === "scheduled" && Boolean(startsAt && startsAt.getTime() >= now);
+  });
+}
+
+function nextGroupGathering(group: DosAppGroup) {
+  return groupUpcomingGatherings(group)[0] ?? sortedGroupGatherings(group).filter((gathering) => gathering.status !== "canceled").at(-1) ?? null;
+}
+
+function formatGroupGatheringTime(gathering: DosAppGroupGathering | null) {
+  if (!gathering) {
+    return "Not scheduled";
+  }
+
+  const start = formatTime(gathering.startsAt);
+  const end = formatTime(gathering.endsAt);
+
+  return [formatDate(gathering.startsAt), start && end ? `${start} - ${end}` : start].filter(Boolean).join(" · ");
+}
+
+function groupMemberCountLabel(count: number) {
+  return `${count} ${count === 1 ? "member" : "members"}`;
+}
+
+function groupSearchText(group: DosAppGroup) {
+  return [
+    group.name,
+    group.tagline,
+    group.description,
+    group.rhythmLabel,
+    group.defaultLocation,
+    group.leaderName,
+    group.scriptureReference,
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function groupRoleLabel(role: DosAppGroup["members"][number]["role"]) {
+  if (role === "co_leader") {
+    return "Co-leader";
+  }
+
+  return role.replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
 function formatWeekRangeCompact(start: Date, end: Date) {
@@ -5291,6 +5347,576 @@ function AppsCatalogSection({ section }: { section: DosAppCatalogSection }) {
   );
 }
 
+function GroupLogoMark({
+  group,
+  large = false,
+}: {
+  group: DosAppGroup;
+  large?: boolean;
+}) {
+  const sizeClassName = large ? "h-28 w-full min-[560px]:h-36" : "h-20 w-24";
+
+  if (group.imageUrl) {
+    return (
+      <img
+        alt=""
+        className={`${sizeClassName} shrink-0 rounded-[18px] object-cover ring-1 ring-[#D6E4F7]`}
+        src={group.imageUrl}
+      />
+    );
+  }
+
+  return (
+    <div className={`${sizeClassName} relative isolate shrink-0 overflow-hidden rounded-[18px] bg-[#0B1120] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]`}>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(37,99,235,0.42),transparent_32%),linear-gradient(135deg,#0B1120_0%,#111827_58%,#1E293B_100%)]" />
+      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#F59E0B]/18 blur-2xl" />
+      <div className="relative flex h-full flex-col justify-end p-3">
+        <span className={`${large ? "text-[36px]" : "text-[24px]"} block font-black leading-none tracking-[-0.04em] text-[#F8C56A]`} style={{ fontFamily: font.oswald }}>
+          {group.name}
+        </span>
+        <span className="mt-1 text-[9px] font-black uppercase tracking-[0.17em] text-white/72" style={{ fontFamily: font.rajdhani }}>
+          {group.tagline ?? "Pursue together"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function GroupPill({ children, tone = "blue" }: { children: ReactNode; tone?: "blue" | "gray" | "green" }) {
+  const toneClassName = tone === "green"
+    ? "bg-[#ECFDF5] text-[#15803D] ring-[#BBF7D0]"
+    : tone === "gray"
+      ? "bg-[#F8FAFC] text-[#64748B] ring-[#E2E8F0]"
+      : "bg-[#EBF2FF] text-[#1D4ED8] ring-[#BFDBFE]";
+
+  return (
+    <span className={`inline-flex min-h-7 items-center rounded-full px-2.5 text-[10px] font-black uppercase tracking-[0.12em] ring-1 ${toneClassName}`} style={{ fontFamily: font.rajdhani }}>
+      {children}
+    </span>
+  );
+}
+
+function GroupsSearchInput({
+  onChange,
+  query,
+}: {
+  onChange: (value: string) => void;
+  query: string;
+}) {
+  return (
+    <label className="relative block">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+      <input
+        aria-label="Search groups"
+        className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-white py-2 pl-10 pr-4 text-sm font-semibold text-[#0F172A] shadow-[0_10px_26px_rgba(37,99,235,0.045)] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#BFDBFE] focus:ring-2 focus:ring-[#2563EB]/10"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Search groups..."
+        value={query}
+      />
+    </label>
+  );
+}
+
+function GroupIntroCard({ featuredGroup }: { featuredGroup: DosAppGroup | null }) {
+  return (
+    <section className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_16px_38px_rgba(37,99,235,0.055)]">
+      <div className="grid gap-0 md:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="p-5">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Featured rhythm</p>
+          <h2 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+            Run. Pray. Pursue.
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#475569]">
+            Groups are recurring discipleship rhythms for gathering, prayer, attendance, fruit, and Table logs.
+          </p>
+        </div>
+        <div className="hidden p-3 md:block">
+          {featuredGroup ? <GroupLogoMark group={featuredGroup} large /> : (
+            <div className="h-full min-h-32 rounded-[20px] bg-[#EBF2FF]" />
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GroupCard({
+  group,
+  onOpen,
+}: {
+  group: DosAppGroup;
+  onOpen: () => void;
+}) {
+  const nextGathering = nextGroupGathering(group);
+
+  return (
+    <button
+      className="grid min-w-0 gap-3 rounded-[22px] border border-[#DCEBFF] bg-white p-3 text-left shadow-[0_12px_30px_rgba(37,99,235,0.05)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF] min-[560px]:grid-cols-[auto_minmax(0,1fr)_auto] min-[560px]:items-center"
+      onClick={onOpen}
+      type="button"
+    >
+      <GroupLogoMark group={group} />
+      <span className="min-w-0">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-base font-black leading-tight text-[#0F172A]">{group.name}</span>
+          <GroupPill>{group.rhythmLabel?.split(" at ")[0] ?? "Group"}</GroupPill>
+        </span>
+        <span className="mt-1 line-clamp-2 block text-sm leading-5 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</span>
+        <span className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold text-[#64748B]">
+          <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.rhythmLabel ?? "No rhythm set"}</span>
+          <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatGroupGatheringTime(nextGathering)}</span>
+          <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupMemberCountLabel(group.memberCount)}</span>
+          <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.defaultLocation ?? "Location TBD"}</span>
+        </span>
+      </span>
+      <ChevronRight className="hidden h-5 w-5 text-[#94A3B8] min-[560px]:block" aria-hidden="true" strokeWidth={1.9} />
+    </button>
+  );
+}
+
+function GroupsWorkspace({
+  groups,
+  groupsNotice,
+  onCreateGroup,
+  onDetailTabChange,
+  onInvite,
+  onLogAsTable,
+  onOpenGroup,
+  onSchedule,
+  onSearchChange,
+  onSelectListView,
+  onTakeAttendance,
+  query,
+  selectedGroup,
+  selectedTab,
+  view,
+}: {
+  groups: DosAppGroup[];
+  groupsNotice: string;
+  onCreateGroup: () => void;
+  onDetailTabChange: (tab: GroupDetailTab) => void;
+  onInvite: () => void;
+  onLogAsTable: () => void;
+  onOpenGroup: (groupId: string) => void;
+  onSchedule: () => void;
+  onSearchChange: (value: string) => void;
+  onSelectListView: (view: GroupsListView) => void;
+  onTakeAttendance: () => void;
+  query: string;
+  selectedGroup: DosAppGroup | null;
+  selectedTab: GroupDetailTab;
+  view: GroupsListView;
+}) {
+  if (selectedGroup) {
+    return (
+      <GroupDetailWorkspace
+        group={selectedGroup}
+        notice={groupsNotice}
+        onBack={() => onOpenGroup("")}
+        onInvite={onInvite}
+        onLogAsTable={onLogAsTable}
+        onSchedule={onSchedule}
+        onTabChange={onDetailTabChange}
+        onTakeAttendance={onTakeAttendance}
+        tab={selectedTab}
+      />
+    );
+  }
+
+  const queryText = query.trim().toLowerCase();
+  const myGroups = groups.filter((group) => group.members.some((member) => member.status === "active"));
+  const scopedGroups = view === "mine" ? (myGroups.length ? myGroups : groups) : groups;
+  const visibleGroups = scopedGroups.filter((group) => !queryText || groupSearchText(group).includes(queryText));
+  const featuredGroup = groups.find((group) => group.slug === "2three2") ?? groups[0] ?? null;
+
+  return (
+    <div className="space-y-4">
+      <TabPageHeader
+        action={(
+          <button
+            className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full bg-[#2563EB] px-3.5 text-xs font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)] transition-colors hover:bg-[#1D4ED8]"
+            onClick={onCreateGroup}
+            type="button"
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+            New Group
+          </button>
+        )}
+        title="Groups"
+      />
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(260px,360px)] md:items-center">
+        <SegmentedTabs onChange={onSelectListView} options={groupsListTabs} value={view} />
+        <GroupsSearchInput onChange={onSearchChange} query={query} />
+      </div>
+      {groupsNotice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{groupsNotice}</p> : null}
+      <GroupIntroCard featuredGroup={featuredGroup} />
+      <section>
+        <SectionHeading title={view === "mine" ? "My Groups" : "All Groups"} />
+        {visibleGroups.length ? (
+          <div className="grid gap-3">
+            {visibleGroups.map((group) => (
+              <GroupCard group={group} key={group.id} onOpen={() => onOpenGroup(group.id)} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            text={queryText ? "Try a different search." : "Create a private discipleship group when you are ready."}
+            title={queryText ? "No matching groups." : "No groups yet."}
+          />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function GroupDetailWorkspace({
+  group,
+  notice,
+  onBack,
+  onInvite,
+  onLogAsTable,
+  onSchedule,
+  onTabChange,
+  onTakeAttendance,
+  tab,
+}: {
+  group: DosAppGroup;
+  notice: string;
+  onBack: () => void;
+  onInvite: () => void;
+  onLogAsTable: () => void;
+  onSchedule: () => void;
+  onTabChange: (tab: GroupDetailTab) => void;
+  onTakeAttendance: () => void;
+  tab: GroupDetailTab;
+}) {
+  const nextGathering = nextGroupGathering(group);
+
+  return (
+    <div className="space-y-4">
+      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <section className="overflow-hidden rounded-[26px] border border-[#DCEBFF] bg-white shadow-[0_18px_44px_rgba(37,99,235,0.06)]">
+        <GroupLogoMark group={group} large />
+        <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-[32px] font-black leading-none tracking-[-0.04em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+                {group.name}
+              </h1>
+              <GroupPill>{group.rhythmLabel ?? "Private"}</GroupPill>
+            </div>
+            <p className="mt-2 text-sm font-bold text-[#2563EB]">{group.tagline ?? "Recurring discipleship rhythm"}</p>
+            {group.scriptureReference || group.scriptureText ? (
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#475569]">
+                {group.scriptureText ? `"${group.scriptureText}"` : null}
+                {group.scriptureReference ? <span className="font-bold text-[#0F172A]"> {group.scriptureReference}</span> : null}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Invite" onClick={onInvite} />
+            <GroupQuickAction icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Schedule" onClick={onSchedule} />
+            <GroupQuickAction icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Log as Table" onClick={onLogAsTable} />
+            <GroupQuickAction icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Take Attendance" onClick={onTakeAttendance} />
+          </div>
+        </div>
+        <div className="grid border-t border-[#EAF2FF] md:grid-cols-4">
+          <GroupFact icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Rhythm" value={group.rhythmLabel ?? "No rhythm set"} />
+          <GroupFact icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Location" value={group.defaultLocation ?? "Location TBD"} />
+          <GroupFact icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Leader" value={group.leaderName ?? "Not assigned"} />
+          <GroupFact icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Members" value={groupMemberCountLabel(group.memberCount)} />
+        </div>
+      </section>
+      {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
+      <GroupDetailTabBar onChange={onTabChange} tab={tab} />
+      {tab === "overview" ? <GroupOverviewTab group={group} nextGathering={nextGathering} /> : null}
+      {tab === "members" ? <GroupMembersTab group={group} /> : null}
+      {tab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
+      {tab === "attendance" ? <GroupAttendanceTab group={group} /> : null}
+      {tab === "prayer" ? <GroupPrayerTab group={group} /> : null}
+      {tab === "resources" ? <GroupResourcesTab group={group} /> : null}
+      {tab === "settings" ? <GroupSettingsTab group={group} /> : null}
+    </div>
+  );
+}
+
+function GroupQuickAction({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE]"
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function GroupFact({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-w-0 gap-3 border-b border-[#EAF2FF] px-4 py-3 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0">
+      <span className="mt-0.5 text-[#2563EB]">{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+        <span className="mt-0.5 block truncate text-sm font-bold text-[#0F172A]">{value}</span>
+      </span>
+    </div>
+  );
+}
+
+function GroupDetailTabBar({
+  onChange,
+  tab,
+}: {
+  onChange: (tab: GroupDetailTab) => void;
+  tab: GroupDetailTab;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {groupDetailTabs.map((option) => {
+        const selected = tab === option.value;
+
+        return (
+          <button
+            aria-pressed={selected}
+            className={`min-h-9 rounded-full px-3 text-xs font-black transition-colors ${
+              selected ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]" : "border border-[#DCEBFF] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:text-[#0F172A]"
+            }`}
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function GroupOverviewTab({
+  group,
+  nextGathering,
+}: {
+  group: DosAppGroup;
+  nextGathering: DosAppGroupGathering | null;
+}) {
+  const upcoming = groupUpcomingGatherings(group).slice(0, 3);
+
+  return (
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <DesktopPanel eyebrow="About" title={`About ${group.name}`}>
+        <p className="text-sm leading-6 text-[#475569]">{group.description ?? "No description yet."}</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {[
+            ["Run Together", "Build endurance in body and spirit."],
+            ["Pray Together", "Lift one another up in every mile."],
+            ["Pursue Together", "Pursue righteousness, faith, love, and peace."],
+          ].map(([title, body]) => (
+            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={title}>
+              <p className="text-sm font-black text-[#0F172A]">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">{body}</p>
+            </div>
+          ))}
+        </div>
+      </DesktopPanel>
+      <div className="grid content-start gap-3">
+        <DesktopPanel eyebrow="Next" title="Next Gathering">
+          {nextGathering ? <GroupGatheringRow gathering={nextGathering} /> : <p className="text-sm text-[#64748B]">No gathering scheduled.</p>}
+        </DesktopPanel>
+        <DesktopPanel eyebrow="Upcoming" title="Gatherings">
+          {upcoming.length ? (
+            <div className="grid gap-2">
+              {upcoming.map((gathering) => <GroupGatheringRow gathering={gathering} key={gathering.id} compact />)}
+            </div>
+          ) : (
+            <p className="text-sm text-[#64748B]">No upcoming gatherings.</p>
+          )}
+        </DesktopPanel>
+      </div>
+    </div>
+  );
+}
+
+function GroupMembersTab({ group }: { group: DosAppGroup }) {
+  return (
+    <DesktopPanel eyebrow="Members" title={groupMemberCountLabel(group.memberCount)}>
+      {group.members.length ? (
+        <div className="grid gap-2">
+          {group.members.map((member) => (
+            <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
+              </div>
+              <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status}</GroupPill>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-[#64748B]">No members linked yet.</p>
+      )}
+    </DesktopPanel>
+  );
+}
+
+function GroupGatheringRow({
+  compact = false,
+  gathering,
+}: {
+  compact?: boolean;
+  gathering: DosAppGroupGathering;
+}) {
+  return (
+    <div className={`rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] ${compact ? "p-3" : "p-4"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-[#0F172A]">{gathering.title}</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{formatGroupGatheringTime(gathering)}</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{gathering.location ?? "Location TBD"}</p>
+        </div>
+        <GroupPill tone={gathering.status === "completed" ? "green" : gathering.status === "canceled" ? "gray" : "blue"}>{gathering.status}</GroupPill>
+      </div>
+      {gathering.description && !compact ? <p className="mt-3 text-sm leading-6 text-[#475569]">{gathering.description}</p> : null}
+      {gathering.linkedTableEventId ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Linked Table log</p> : null}
+    </div>
+  );
+}
+
+function GroupGatheringsTab({ group }: { group: DosAppGroup }) {
+  const gatherings = sortedGroupGatherings(group);
+
+  return (
+    <DesktopPanel eyebrow="Gatherings" title="Schedule">
+      {gatherings.length ? (
+        <div className="grid gap-2">
+          {gatherings.map((gathering) => <GroupGatheringRow gathering={gathering} key={gathering.id} />)}
+        </div>
+      ) : (
+        <p className="text-sm text-[#64748B]">No gatherings scheduled.</p>
+      )}
+    </DesktopPanel>
+  );
+}
+
+function GroupAttendanceTab({ group }: { group: DosAppGroup }) {
+  const gathering = nextGroupGathering(group) ?? sortedGroupGatherings(group)[0] ?? null;
+  const attendance = gathering?.attendance ?? [];
+
+  return (
+    <DesktopPanel eyebrow="Attendance" title={gathering ? gathering.title : "No gathering selected"}>
+      {gathering ? <p className="mb-3 text-sm font-semibold text-[#64748B]">{formatGroupGatheringTime(gathering)}</p> : null}
+      {attendance.length ? (
+        <div className="grid gap-2">
+          {attendance.map((row) => (
+            <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={row.id}>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-[#0F172A]">{row.personName}</p>
+                {row.notes ? <p className="mt-0.5 truncate text-xs text-[#64748B]">{row.notes}</p> : null}
+              </div>
+              <GroupPill tone={row.status === "present" ? "green" : row.status === "guest" ? "blue" : "gray"}>{row.status}</GroupPill>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-[#64748B]">Attendance has not been recorded yet.</p>
+      )}
+    </DesktopPanel>
+  );
+}
+
+function GroupPrayerTab({ group }: { group: DosAppGroup }) {
+  return (
+    <DesktopPanel eyebrow="Prayer" title="Requests">
+      {group.prayerRequests.length ? (
+        <div className="grid gap-2">
+          {group.prayerRequests.map((request) => (
+            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={request.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-[#0F172A]">{request.title}</p>
+                  {request.personName ? <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{request.personName}</p> : null}
+                </div>
+                <GroupPill tone={request.status === "answered" ? "green" : request.status === "archived" ? "gray" : "blue"}>{request.status}</GroupPill>
+              </div>
+              {request.description ? <p className="mt-2 text-sm leading-6 text-[#475569]">{request.description}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-[#64748B]">No group prayer requests yet.</p>
+      )}
+    </DesktopPanel>
+  );
+}
+
+function GroupResourcesTab({ group }: { group: DosAppGroup }) {
+  return (
+    <DesktopPanel eyebrow="Resources" title="Group Resources">
+      {group.resources.length ? (
+        <div className="grid gap-2">
+          {group.resources.map((resource) => (
+            <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={resource.id}>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-[#0F172A]">{resource.title}</p>
+                {resource.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{resource.description}</p> : null}
+              </div>
+              {resource.url ? (
+                <a className="shrink-0 rounded-full border border-[#BFDBFE] bg-white p-2 text-[#2563EB] transition-colors hover:bg-[#EBF2FF]" href={resource.url} rel="noreferrer" target="_blank">
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                </a>
+              ) : (
+                <GroupPill>{resource.resourceType}</GroupPill>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-[#64748B]">No resources attached yet.</p>
+      )}
+    </DesktopPanel>
+  );
+}
+
+function GroupSettingsTab({ group }: { group: DosAppGroup }) {
+  return (
+    <DesktopPanel eyebrow="Settings" title="Group State">
+      <div className="grid gap-2 md:grid-cols-2">
+        {[
+          ["Visibility", group.visibility === "private" ? "Private" : "Workspace"],
+          ["Status", group.active ? "Active" : "Inactive"],
+          ["Type", group.type],
+          ["Slug", group.slug],
+          ["Default location", group.defaultLocation ?? "Location TBD"],
+          ["Table link", "Gatherings can link to Table logs"],
+        ].map(([label, value]) => (
+          <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={label}>
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+            <p className="mt-1 text-sm font-bold text-[#0F172A]">{value}</p>
+          </div>
+        ))}
+      </div>
+    </DesktopPanel>
+  );
+}
+
 function DesktopRecentActivityPanel({
   latestFruitActivity,
   latestMeeting,
@@ -6707,6 +7333,21 @@ function SegmentedTabs<T extends string>({
 const meetingsViewTabs: ReadonlyArray<SegmentedTabOption<MeetingsView>> = [
   { label: "Calendar", value: "calendar" },
   { label: "Invite", value: "invite" },
+];
+
+const groupsListTabs: ReadonlyArray<SegmentedTabOption<GroupsListView>> = [
+  { label: "My Groups", value: "mine" },
+  { label: "All Groups", value: "all" },
+];
+
+const groupDetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
+  { label: "Overview", value: "overview" },
+  { label: "Members", value: "members" },
+  { label: "Gatherings", value: "gatherings" },
+  { label: "Attendance", value: "attendance" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Resources", value: "resources" },
+  { label: "Settings", value: "settings" },
 ];
 
 const meetingCalendarViewTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarViewMode>> = [
@@ -18866,6 +19507,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [calendarSourceMessage, setCalendarSourceMessage] = useState("");
   const [savingCalendarSourceId, setSavingCalendarSourceId] = useState<string | null>(null);
   const [fruitView, setFruitView] = useState<FruitView>("activity");
+  const [groupsView, setGroupsView] = useState<GroupsListView>("mine");
+  const [groupDetailTab, setGroupDetailTab] = useState<GroupDetailTab>("overview");
+  const [groupQuery, setGroupQuery] = useState("");
+  const [groupsNotice, setGroupsNotice] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("praying_for");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
@@ -18971,6 +19617,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }), [calendarConnectionOverride, data.calendarConnection]);
   const fallbackGoogleCalendarSources = useMemo(() => fallbackCalendarSourcePreferences(data.externalCalendarEvents), [data.externalCalendarEvents]);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
+  const selectedGroup = selectedGroupId ? data.groups.find((group) => group.id === selectedGroupId) ?? null : null;
   const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
   const requestedPersonId = searchParams.get("person");
@@ -19453,7 +20100,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   useEffect(() => {
     setIsDesktopActionMenuOpen(false);
     setIsMobileActionSheetOpen(false);
-  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
+  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedGroupId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
 
   function closeFirstLaunchWalkthrough() {
     window.localStorage.setItem(usamWalkthroughDismissedStorageKey, "true");
@@ -19563,6 +20210,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsUpcomingSheetOpen(false);
     setAppSearchQuery("");
     setPrayerQuery("");
+    setGroupQuery("");
+    setGroupsNotice("");
     scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
@@ -19576,6 +20225,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
     setLoggingScheduledMeetingId(null);
+    setSelectedGroupId(null);
+    setGroupDetailTab("overview");
     setSelectedReminderId(null);
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
@@ -19597,6 +20248,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsUpcomingSheetOpen(false);
     setAppSearchQuery("");
     setPrayerQuery("");
+    if (view !== "groups") {
+      setGroupQuery("");
+      setGroupsNotice("");
+      setSelectedGroupId(null);
+      setGroupDetailTab("overview");
+    }
     scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
@@ -19607,6 +20264,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
     setIsUsamApplicationOpen(false);
+  }
+
+  function openGroupDetail(groupId: string) {
+    setSelectedGroupId(groupId);
+    setGroupDetailTab("overview");
+    setGroupsNotice("");
+    scrollAppToTop();
+  }
+
+  function showGroupsPlaceholder(action: string) {
+    setGroupsNotice(`${action} will be wired after group management is ready.`);
   }
 
   function viewUsamApplicationStatus() {
@@ -22046,6 +22714,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           status: `${upcomingTableCount} upcoming`,
         },
         {
+          description: "Recurring discipleship rhythms, gatherings, attendance, and prayer.",
+          icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Groups",
+          onClick: () => openMoreApp("groups"),
+          section: "installed",
+          status: `${data.groups.length} groups`,
+        },
+        {
           description: `${prayerReminderCount} reminders and recent prayer activity.`,
           icon: <Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
           label: "Prayer",
@@ -22137,7 +22813,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     .filter((item) => !["Missionary Profile", "Prayer Team", "Support Team", "Table Flow"].includes(item.label));
   const desktopAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => ["Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
+    .filter((item) => ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 
@@ -22185,6 +22861,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }))
     : activeTab === "more"
       ? [
+          { icon: "people", label: "Groups", onClick: runMobileAction(() => openMoreApp("groups")) },
           { icon: "people", label: "USA Missionaries", onClick: runMobileAction(openUsamAppsLayer) },
           { icon: "people", label: "Missionary Profile", onClick: runMobileAction(() => openMoreApp("missionary_profile")) },
           { icon: "prayer", label: "Prayer Team", onClick: runMobileAction(() => openMoreApp("prayer_team")) },
@@ -22225,6 +22902,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedExternalCalendarEventId
     && !selectedFruitActivity
     && !selectedFruitFormPreviewKey
+    && !selectedGroupId
     && !selectedMeetingId
     && !selectedMobilePrayerDetail
     && !selectedMobilePrayerPartner
@@ -22248,6 +22926,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedExternalCalendarEventId
     && !selectedFruitActivity
     && !selectedFruitFormPreviewKey
+    && !selectedGroupId
     && !selectedMeetingId
     && !selectedPersonId
     && !selectedPrayerResourceSlug
@@ -22575,6 +23254,34 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     publicProfileHref={data.workspace.publicProfileHref}
                     stateName={data.workspace.stateName}
                     workspaceName={workspaceName}
+                  />
+                ) : null}
+
+                {moreAppView === "groups" ? (
+                  <GroupsWorkspace
+                    groups={data.groups}
+                    groupsNotice={groupsNotice}
+                    onCreateGroup={() => showGroupsPlaceholder("New Group")}
+                    onDetailTabChange={setGroupDetailTab}
+                    onInvite={() => showGroupsPlaceholder("Invite")}
+                    onLogAsTable={() => openForm("meeting")}
+                    onOpenGroup={(groupId) => {
+                      if (groupId) {
+                        openGroupDetail(groupId);
+                      } else {
+                        setSelectedGroupId(null);
+                        setGroupsNotice("");
+                        scrollAppToTop();
+                      }
+                    }}
+                    onSchedule={() => showGroupsPlaceholder("Schedule")}
+                    onSearchChange={setGroupQuery}
+                    onSelectListView={setGroupsView}
+                    onTakeAttendance={() => showGroupsPlaceholder("Take Attendance")}
+                    query={groupQuery}
+                    selectedGroup={selectedGroup}
+                    selectedTab={groupDetailTab}
+                    view={groupsView}
                   />
                 ) : null}
 

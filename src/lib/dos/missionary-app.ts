@@ -341,6 +341,82 @@ export type DosAppPrayerRequest = {
   workspaceId: string;
 };
 
+export type DosAppGroupMember = {
+  id: string;
+  joinedAt: string | null;
+  notes: string | null;
+  personId: string;
+  personName: string;
+  role: "leader" | "co_leader" | "member" | "guest";
+  status: "active" | "invited" | "removed";
+};
+
+export type DosAppGroupAttendance = {
+  firstTimeGuest: boolean;
+  gatheringId: string;
+  id: string;
+  notes: string | null;
+  personId: string;
+  personName: string;
+  status: "present" | "absent" | "guest";
+};
+
+export type DosAppGroupGathering = {
+  attendance: DosAppGroupAttendance[];
+  description: string | null;
+  endsAt: string | null;
+  id: string;
+  linkedTableEventId: string | null;
+  location: string | null;
+  startsAt: string;
+  status: "scheduled" | "completed" | "canceled";
+  title: string;
+};
+
+export type DosAppGroupPrayerRequest = {
+  answeredAt: string | null;
+  createdAt: string | null;
+  description: string | null;
+  id: string;
+  personId: string | null;
+  personName: string | null;
+  status: "active" | "answered" | "archived";
+  title: string;
+};
+
+export type DosAppGroupResource = {
+  active: boolean;
+  description: string | null;
+  id: string;
+  resourceType: "link" | "scripture" | "guide" | "note" | "video" | "other";
+  sortOrder: number;
+  title: string;
+  url: string | null;
+};
+
+export type DosAppGroup = {
+  active: boolean;
+  defaultLocation: string | null;
+  description: string | null;
+  gatherings: DosAppGroupGathering[];
+  id: string;
+  imageUrl: string | null;
+  leaderName: string | null;
+  leaderPersonId: string | null;
+  memberCount: number;
+  members: DosAppGroupMember[];
+  name: string;
+  prayerRequests: DosAppGroupPrayerRequest[];
+  resources: DosAppGroupResource[];
+  rhythmLabel: string | null;
+  scriptureReference: string | null;
+  scriptureText: string | null;
+  slug: string;
+  tagline: string | null;
+  type: "discipleship" | "prayer" | "running" | "study" | "table" | "other";
+  visibility: "private" | "workspace";
+};
+
 export type DosAppCalendarConnection = {
   calendarId: string | null;
   connected: boolean;
@@ -401,6 +477,7 @@ export type DosAppData = {
   externalCalendarEvents: DosAppExternalCalendarEvent[];
   fruit: DosAppFruit[];
   fruitEvents: DosAppFruitEvent[];
+  groups: DosAppGroup[];
   householdMembers: DosAppHouseholdMember[];
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
@@ -677,6 +754,85 @@ type PrayerRequestRow = {
   urgency?: string | null;
   visibility?: string | null;
   workspace_id?: string | null;
+};
+
+type GroupRow = {
+  active: boolean | null;
+  default_location: string | null;
+  description: string | null;
+  id: string;
+  image_url: string | null;
+  leader_person_id: string | null;
+  name: string;
+  rhythm_label: string | null;
+  scripture_reference: string | null;
+  scripture_text: string | null;
+  slug: string;
+  tagline: string | null;
+  type: string | null;
+  visibility: string | null;
+};
+
+type GroupMemberRow = {
+  group_id: string;
+  id: string;
+  joined_at: string | null;
+  notes: string | null;
+  person_id: string;
+  role: string | null;
+  status: string | null;
+};
+
+type GroupGatheringRow = {
+  description: string | null;
+  ends_at: string | null;
+  group_id: string;
+  id: string;
+  linked_table_event_id: string | null;
+  location: string | null;
+  starts_at: string;
+  status: string | null;
+  title: string;
+};
+
+type GroupAttendanceRow = {
+  first_time_guest: boolean | null;
+  gathering_id: string;
+  id: string;
+  notes: string | null;
+  person_id: string;
+  status: string | null;
+};
+
+type GroupPrayerRequestRow = {
+  answered_at: string | null;
+  created_at: string | null;
+  description: string | null;
+  group_id: string;
+  id: string;
+  person_id: string | null;
+  status: string | null;
+  title: string;
+};
+
+type GroupResourceRow = {
+  active: boolean | null;
+  description: string | null;
+  group_id: string;
+  id: string;
+  resource_type: string | null;
+  sort_order: number | null;
+  title: string;
+  url: string | null;
+};
+
+type GroupLoadRows = {
+  attendance: GroupAttendanceRow[];
+  gatherings: GroupGatheringRow[];
+  groups: GroupRow[];
+  members: GroupMemberRow[];
+  prayerRequests: GroupPrayerRequestRow[];
+  resources: GroupResourceRow[];
 };
 
 type CalendarConnectionRow = {
@@ -956,6 +1112,66 @@ function mapPrayerRequestVisibility(value: string | null | undefined): DosAppPra
   }
 
   return "private";
+}
+
+function mapGroupType(value: string | null | undefined): DosAppGroup["type"] {
+  if (value === "prayer" || value === "running" || value === "study" || value === "table" || value === "other") {
+    return value;
+  }
+
+  return "discipleship";
+}
+
+function mapGroupVisibility(value: string | null | undefined): DosAppGroup["visibility"] {
+  return value === "workspace" ? "workspace" : "private";
+}
+
+function mapGroupMemberRole(value: string | null | undefined): DosAppGroupMember["role"] {
+  if (value === "leader" || value === "co_leader" || value === "guest") {
+    return value;
+  }
+
+  return "member";
+}
+
+function mapGroupMemberStatus(value: string | null | undefined): DosAppGroupMember["status"] {
+  if (value === "invited" || value === "removed") {
+    return value;
+  }
+
+  return "active";
+}
+
+function mapGroupGatheringStatus(value: string | null | undefined): DosAppGroupGathering["status"] {
+  if (value === "completed" || value === "canceled") {
+    return value;
+  }
+
+  return "scheduled";
+}
+
+function mapGroupAttendanceStatus(value: string | null | undefined): DosAppGroupAttendance["status"] {
+  if (value === "absent" || value === "guest") {
+    return value;
+  }
+
+  return "present";
+}
+
+function mapGroupPrayerStatus(value: string | null | undefined): DosAppGroupPrayerRequest["status"] {
+  if (value === "answered" || value === "archived") {
+    return value;
+  }
+
+  return "active";
+}
+
+function mapGroupResourceType(value: string | null | undefined): DosAppGroupResource["resourceType"] {
+  if (value === "scripture" || value === "guide" || value === "note" || value === "video" || value === "other") {
+    return value;
+  }
+
+  return "link";
 }
 
 function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
@@ -1729,6 +1945,109 @@ async function loadPrayerRequestsForWorkspace(supabase: SupabaseAdminClient, wor
     : fallbackResult;
 }
 
+async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string): Promise<{ data: GroupLoadRows; error: SupabaseQueryError }> {
+  const emptyRows: GroupLoadRows = {
+    attendance: [],
+    gatherings: [],
+    groups: [],
+    members: [],
+    prayerRequests: [],
+    resources: [],
+  };
+  const groupsResult = await supabase
+    .from("dos_groups")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, image_url, active")
+    .eq("workspace_id", workspaceId)
+    .eq("active", true)
+    .order("name", { ascending: true });
+
+  if (groupsResult.error) {
+    return isMissingWorkflowTable(groupsResult.error, "dos_groups")
+      ? { data: emptyRows, error: null }
+      : { data: emptyRows, error: groupsResult.error };
+  }
+
+  const groupRows = (groupsResult.data ?? []) as GroupRow[];
+  const groupIds = groupRows.map((group) => group.id);
+
+  if (!groupIds.length) {
+    return { data: emptyRows, error: null };
+  }
+
+  const [membersResult, gatheringsResult, prayerRequestsResult, resourcesResult] = await Promise.all([
+    supabase
+      .from("dos_group_members")
+      .select("id, group_id, person_id, role, status, joined_at, notes")
+      .in("group_id", groupIds)
+      .order("joined_at", { ascending: true }),
+    supabase
+      .from("dos_group_gatherings")
+      .select("id, group_id, title, starts_at, ends_at, location, description, status, linked_table_event_id")
+      .in("group_id", groupIds)
+      .order("starts_at", { ascending: true }),
+    supabase
+      .from("dos_group_prayer_requests")
+      .select("id, group_id, person_id, title, description, status, answered_at, created_at")
+      .in("group_id", groupIds)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("dos_group_resources")
+      .select("id, group_id, title, description, url, resource_type, sort_order, active")
+      .in("group_id", groupIds)
+      .eq("active", true)
+      .order("sort_order", { ascending: true })
+      .order("title", { ascending: true }),
+  ]);
+
+  const relatedError = [
+    membersResult.error,
+    gatheringsResult.error,
+    prayerRequestsResult.error,
+    resourcesResult.error,
+  ].find(Boolean);
+
+  if (relatedError) {
+    const missingGroupsTable = [
+      "dos_group_members",
+      "dos_group_gatherings",
+      "dos_group_prayer_requests",
+      "dos_group_resources",
+    ].some((tableName) => isMissingWorkflowTable(relatedError, tableName));
+
+    return missingGroupsTable
+      ? { data: emptyRows, error: null }
+      : { data: emptyRows, error: relatedError };
+  }
+
+  const gatheringRows = (gatheringsResult.data ?? []) as GroupGatheringRow[];
+  const gatheringIds = gatheringRows.map((gathering) => gathering.id);
+  const attendanceResult = gatheringIds.length
+    ? await supabase
+      .from("dos_group_attendance")
+      .select("id, gathering_id, person_id, status, notes, first_time_guest")
+      .in("gathering_id", gatheringIds)
+      .order("created_at", { ascending: true })
+    : { data: [] as GroupAttendanceRow[], error: null };
+
+  if (attendanceResult.error) {
+    return isMissingWorkflowTable(attendanceResult.error, "dos_group_attendance")
+      ? { data: emptyRows, error: null }
+      : { data: emptyRows, error: attendanceResult.error };
+  }
+
+  return {
+    data: {
+      attendance: (attendanceResult.data ?? []) as GroupAttendanceRow[],
+      gatherings: gatheringRows,
+      groups: groupRows,
+      members: (membersResult.data ?? []) as GroupMemberRow[],
+      prayerRequests: (prayerRequestsResult.data ?? []) as GroupPrayerRequestRow[],
+      resources: (resourcesResult.data ?? []) as GroupResourceRow[],
+    },
+    error: null,
+  };
+}
+
 async function loadCalendarConnectionForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("connected_calendars")
@@ -2107,7 +2426,7 @@ export async function loadDosAppData(
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -2118,6 +2437,7 @@ export async function loadDosAppData(
     loadPrayerLogsForWorkspace(supabase, workspace.id),
     loadPrayerPartnersForWorkspace(supabase, workspace),
     loadPrayerRequestsForWorkspace(supabase, workspace.id),
+    loadGroupsForWorkspace(supabase, workspace.id),
     loadCalendarConnectionForWorkspace(supabase, workspace.id),
     loadCalendarEventLinksForWorkspace(supabase, workspace.id),
     loadCalendarWorkspaceSyncStateForWorkspace(supabase, workspace.id),
@@ -2129,7 +2449,7 @@ export async function loadDosAppData(
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || groupsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -2141,6 +2461,7 @@ export async function loadDosAppData(
         ?? prayerLogsResult.error?.message
         ?? prayerPartnersResult.error?.message
         ?? prayerRequestsResult.error?.message
+        ?? groupsResult.error?.message
         ?? calendarConnectionResult.error?.message
         ?? calendarEventLinksResult.error?.message
         ?? calendarWorkspaceSyncStateResult.error?.message
@@ -2170,6 +2491,12 @@ export async function loadDosAppData(
   const prayerLogRows = (prayerLogsResult.data ?? []) as PrayerLogRow[];
   const prayerPartnerRows = (prayerPartnersResult.data ?? []) as PrayerPartnerRow[];
   const prayerRequestRows = (prayerRequestsResult.data ?? []) as PrayerRequestRow[];
+  const groupRows = groupsResult.data.groups;
+  const groupMemberRows = groupsResult.data.members;
+  const groupGatheringRows = groupsResult.data.gatherings;
+  const groupAttendanceRows = groupsResult.data.attendance;
+  const groupPrayerRequestRows = groupsResult.data.prayerRequests;
+  const groupResourceRows = groupsResult.data.resources;
   const householdMemberRows = (householdMembersResult.data ?? []) as HouseholdMemberRow[];
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
@@ -2322,6 +2649,122 @@ export async function loadDosAppData(
   }).filter((person) => !["archived", "deleted"].includes((person.status ?? "").toLowerCase()))
     .sort((first, second) => activityDateValue(second.lastActivityAt ?? second.updatedAt) - activityDateValue(first.lastActivityAt ?? first.updatedAt));
   const peopleById = new Map(people.map((person) => [person.id, person.name]));
+  const groupMembersByGroupId = new Map<string, GroupMemberRow[]>();
+  const groupGatheringsByGroupId = new Map<string, GroupGatheringRow[]>();
+  const groupAttendanceByGatheringId = new Map<string, GroupAttendanceRow[]>();
+  const groupPrayerRequestsByGroupId = new Map<string, GroupPrayerRequestRow[]>();
+  const groupResourcesByGroupId = new Map<string, GroupResourceRow[]>();
+
+  groupMemberRows.forEach((member) => {
+    const rows = groupMembersByGroupId.get(member.group_id) ?? [];
+
+    rows.push(member);
+    groupMembersByGroupId.set(member.group_id, rows);
+  });
+
+  groupGatheringRows.forEach((gathering) => {
+    const rows = groupGatheringsByGroupId.get(gathering.group_id) ?? [];
+
+    rows.push(gathering);
+    groupGatheringsByGroupId.set(gathering.group_id, rows);
+  });
+
+  groupAttendanceRows.forEach((attendance) => {
+    const rows = groupAttendanceByGatheringId.get(attendance.gathering_id) ?? [];
+
+    rows.push(attendance);
+    groupAttendanceByGatheringId.set(attendance.gathering_id, rows);
+  });
+
+  groupPrayerRequestRows.forEach((request) => {
+    const rows = groupPrayerRequestsByGroupId.get(request.group_id) ?? [];
+
+    rows.push(request);
+    groupPrayerRequestsByGroupId.set(request.group_id, rows);
+  });
+
+  groupResourceRows.forEach((resource) => {
+    const rows = groupResourcesByGroupId.get(resource.group_id) ?? [];
+
+    rows.push(resource);
+    groupResourcesByGroupId.set(resource.group_id, rows);
+  });
+
+  const groups = groupRows.map((group) => {
+    const members = (groupMembersByGroupId.get(group.id) ?? []).map((member) => ({
+      id: member.id,
+      joinedAt: member.joined_at,
+      notes: member.notes,
+      personId: member.person_id,
+      personName: peopleById.get(member.person_id) ?? "Field person",
+      role: mapGroupMemberRole(member.role),
+      status: mapGroupMemberStatus(member.status),
+    }));
+    const gatherings = (groupGatheringsByGroupId.get(group.id) ?? []).map((gathering) => ({
+      attendance: (groupAttendanceByGatheringId.get(gathering.id) ?? []).map((attendance) => ({
+        firstTimeGuest: attendance.first_time_guest === true,
+        gatheringId: attendance.gathering_id,
+        id: attendance.id,
+        notes: attendance.notes,
+        personId: attendance.person_id,
+        personName: peopleById.get(attendance.person_id) ?? "Field person",
+        status: mapGroupAttendanceStatus(attendance.status),
+      })),
+      description: gathering.description,
+      endsAt: gathering.ends_at,
+      id: gathering.id,
+      linkedTableEventId: gathering.linked_table_event_id,
+      location: gathering.location,
+      startsAt: gathering.starts_at,
+      status: mapGroupGatheringStatus(gathering.status),
+      title: gathering.title,
+    }));
+    const prayerRequests = (groupPrayerRequestsByGroupId.get(group.id) ?? []).map((request) => ({
+      answeredAt: request.answered_at,
+      createdAt: request.created_at,
+      description: request.description,
+      id: request.id,
+      personId: request.person_id,
+      personName: request.person_id ? peopleById.get(request.person_id) ?? null : null,
+      status: mapGroupPrayerStatus(request.status),
+      title: request.title,
+    }));
+    const resources = (groupResourcesByGroupId.get(group.id) ?? []).map((resource) => ({
+      active: resource.active !== false,
+      description: resource.description,
+      id: resource.id,
+      resourceType: mapGroupResourceType(resource.resource_type),
+      sortOrder: resource.sort_order ?? 0,
+      title: resource.title,
+      url: resource.url,
+    }));
+    const leaderName = group.leader_person_id
+      ? peopleById.get(group.leader_person_id) ?? null
+      : members.find((member) => member.role === "leader")?.personName ?? null;
+
+    return {
+      active: group.active !== false,
+      defaultLocation: group.default_location,
+      description: group.description,
+      gatherings,
+      id: group.id,
+      imageUrl: group.image_url,
+      leaderName,
+      leaderPersonId: group.leader_person_id,
+      memberCount: members.filter((member) => member.status === "active").length,
+      members,
+      name: group.name,
+      prayerRequests,
+      resources,
+      rhythmLabel: group.rhythm_label,
+      scriptureReference: group.scripture_reference,
+      scriptureText: group.scripture_text,
+      slug: group.slug,
+      tagline: group.tagline,
+      type: mapGroupType(group.type),
+      visibility: mapGroupVisibility(group.visibility),
+    };
+  });
   const meetings = [
     ...meetingRows.map((meeting) => {
       const conversationFlowKey = normalizeConversationFlowKey(meeting.conversation_flow_key);
@@ -2637,6 +3080,7 @@ export async function loadDosAppData(
       externalCalendarEvents,
       fruit,
       fruitEvents,
+      groups,
       householdMembers,
       leaderReflections,
       meetings,
