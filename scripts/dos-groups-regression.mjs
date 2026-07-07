@@ -26,6 +26,7 @@ const migration = read("supabase/migrations/20260707034007_dos_private_groups.sq
 const realWorkspaceSeedMigration = read("supabase/migrations/20260707171021_seed_ryan_dos_groups.sql");
 const prayerMigration = read("supabase/migrations/20260707132434_dos_unified_prayer_context.sql");
 const prayerRoute = read("app/api/dos/app/prayer-requests/route.ts");
+const groupMembersRoute = read("app/api/dos/app/groups/members/route.ts");
 const publicGroupPage = read("app/groups/[slug]/page.tsx");
 
 for (const table of [
@@ -158,6 +159,17 @@ assertIncludes(appClient, "Build consistent rhythms of discipleship through week
 assertIncludes(appClient, "Featured Group", "Groups intro must label the featured group section.");
 assertIncludes(appClient, "Log as Table", "Group detail must expose Log as Table.");
 assertIncludes(appClient, "Start Gathering", "Group detail must expose Start Gathering.");
+assertIncludes(appClient, "GroupInviteSheet", "Group Invite must open a real add-member sheet.");
+assertIncludes(appClient, "Add to Group", "Group Invite must label the action as Add to Group.");
+assertIncludes(appClient, "Copy Link", "Group detail must expose a separate public link copy action.");
+assertIncludes(appClient, "copyPublicGroupLink", "Group detail must wire public group link copying.");
+assertIncludes(appClient, "/api/dos/app/groups/members", "Group Invite must call the member API route.");
+assertIncludes(appClient, "groupMemberAdditions", "Group Invite must update group members locally after adding.");
+assertIncludes(appClient, "setGroupDetailTab(\"members\")", "Group Invite success must switch to Members.");
+assert(
+  !appClient.includes("Invite will be wired after group management is ready."),
+  "Group Invite placeholder copy must be removed.",
+);
 assertIncludes(appClient, "● Gathering In Progress", "Active gathering state must be visible.");
 assertIncludes(appClient, "Attendance Progress", "Active gathering state must show attendance progress.");
 assertIncludes(appClient, "End Gathering Wizard", "Groups must include the end gathering wizard.");
@@ -239,6 +251,12 @@ assertIncludes(prayerRoute, "groupId", "DOS prayer API must accept group context
 assertIncludes(prayerRoute, "gatheringId", "DOS prayer API must accept gathering context.");
 assertIncludes(prayerRoute, "meetingId", "DOS prayer API must accept meeting context.");
 assertIncludes(prayerRoute, "priority", "DOS prayer API must accept priority.");
+assertIncludes(groupMembersRoute, "requireDosWorkspaceRouteAccess", "Group member API must be authenticated and workspace-scoped.");
+assertIncludes(groupMembersRoute, ".from(\"dos_group_members\")", "Group member API must write dos_group_members.");
+assertIncludes(groupMembersRoute, ".eq(\"group_id\", groupId)", "Group member API must check existing group membership.");
+assertIncludes(groupMembersRoute, ".eq(\"person_id\", person.id)", "Group member API must prevent duplicate memberships by person.");
+assertIncludes(groupMembersRoute, ".from(\"missionary_field_people\")", "Group member API must create or link DOS person records.");
+assertIncludes(groupMembersRoute, "alreadyMember", "Group member API must report duplicate-safe existing membership.");
 assertIncludes(publicGroupPage, "2three2", "Public group route must render 2three2.");
 assertIncludes(publicGroupPage, "What to Expect", "Public group route must include What to Expect.");
 assertIncludes(publicGroupPage, "Typical Schedule", "Public group route must include Typical Schedule.");
@@ -249,6 +267,7 @@ assertIncludes(publicGroupPage, "Join Group", "Public group route must include J
 assertIncludes(publicGroupPage, "Powered by", "Public group route must include the powered-by footer.");
 
 assert(exists("app/groups/[slug]/page.tsx"), "Groups must create the public share route.");
+assert(exists("app/api/dos/app/groups/members/route.ts"), "Groups must create the authenticated member add route.");
 assert(!exists("app/dos/groups/page.tsx"), "Groups should stay inside the authenticated DOS app surface.");
 
 console.log("DOS groups regression passed.");
