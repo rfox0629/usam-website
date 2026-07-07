@@ -29,6 +29,8 @@ const prayerRoute = read("app/api/dos/app/prayer-requests/route.ts");
 const groupMembersRoute = read("app/api/dos/app/groups/members/route.ts");
 const groupSettingsRoute = read("app/api/dos/app/groups/settings/route.ts");
 const publicGroupPage = read("app/groups/[slug]/page.tsx");
+const dosWorkspaceRoute = read("app/dos/[collectiveSlug]/page.tsx");
+const dosAppCompatibilityRoute = read("app/dos/app/page.tsx");
 
 for (const table of [
   "dos_groups",
@@ -97,6 +99,31 @@ assertIncludes(missionaryApp, "groups: DosAppGroup[]", "DOS app data must includ
 assertIncludes(missionaryApp, "ensureRyanDosWorkspaceGroups", "Real DOS workspace loader must run the Ryan groups seed path.");
 assertIncludes(
   missionaryApp,
+  "type DosAppWorkspaceRef",
+  "DOS app data loader must accept the resolved active workspace identity.",
+);
+assertIncludes(
+  missionaryApp,
+  'query.eq("id", workspaceId)',
+  "DOS app data loader must prefer the authorized workspace_id over slug fallback.",
+);
+assertIncludes(
+  missionaryApp,
+  "logEmptyGroupsLoad(workspace)",
+  "Groups loader must log the resolved workspace when no groups load.",
+);
+assertIncludes(
+  missionaryApp,
+  "workspaceId: workspace.id",
+  "Empty groups debug logging must include the resolved workspace_id.",
+);
+assertIncludes(
+  missionaryApp,
+  "workspaceSlug: workspace.slug",
+  "Empty groups debug logging must include the resolved workspace slug.",
+);
+assertIncludes(
+  missionaryApp,
   "async function loadGroupsForWorkspace",
   "DOS loader must load groups for the active workspace.",
 );
@@ -132,6 +159,41 @@ assertIncludes(groupSeeds, '"wednesday-mens-group"', "Ryan DOS group seed helper
 assertIncludes(groupSeeds, 'onConflict: "workspace_id,slug"', "Ryan DOS group seed helper must upsert by workspace and slug.");
 assertIncludes(groupSeeds, 'onConflict: "group_id,person_id"', "Ryan DOS group seed helper must upsert leader membership.");
 assertIncludes(groupSeeds, 'visibility: "private"', "Ryan DOS group seed helper must keep default visibility private.");
+assertIncludes(
+  dosWorkspaceRoute,
+  "id: workspaceAccess.workspace.id",
+  "/dos/[slug] must pass the resolved active workspace_id into DOS data loading.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "slug: workspaceAccess.workspace.slug",
+  "/dos/[slug] must also pass the canonical resolved workspace slug into DOS data loading.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "loadDosAppData({",
+  "/dos/ryan-fox must load DOS data from the resolved workspace object.",
+);
+assertIncludes(
+  dosAppCompatibilityRoute,
+  'const workspaceAccess = await getDosWorkspaceAccess(authorization, params.workspace)',
+  "/dos/app?workspace=ryan-fox must resolve workspace access before canonical route loading.",
+);
+assertIncludes(
+  dosAppCompatibilityRoute,
+  "redirect(cleanWorkspacePath(workspaceAccess.workspace.slug, params))",
+  "/dos/app?workspace=ryan-fox must normalize to the same canonical workspace route.",
+);
+assertIncludes(
+  dosAppCompatibilityRoute,
+  '"ryan-brooke-fox": "ryan-fox"',
+  "Legacy Ryan workspace aliases must normalize to /dos/ryan-fox.",
+);
+assertIncludes(
+  dosAppCompatibilityRoute,
+  '"fox-family": "ryan-fox"',
+  "Public Fox profile slug must normalize to /dos/ryan-fox.",
+);
 
 assertIncludes(appClient, '"groups"', "Groups must be available as a DOS app view.");
 assertIncludes(appClient, 'label: "My Record"', "My Record must remain a separate desktop navigation item.");

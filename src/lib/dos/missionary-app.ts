@@ -2230,7 +2230,12 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
   };
 }
 
-async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<HouseholdRow>> {
+type DosAppWorkspaceRef = {
+  id?: string | null;
+  slug?: string | null;
+};
+
+async function loadWorkspace(workspaceRef?: DosAppWorkspaceRef | string | null): Promise<LoadResult<HouseholdRow>> {
   if (!isSupabaseAdminConfigured()) {
     return {
       message: "Supabase admin environment variables are not configured.",
@@ -2241,8 +2246,14 @@ async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<
   const supabase = createSupabaseAdminClient();
   const baseSelect = "id, slug, display_name, short_mission, profile_image_url, location";
   const identitySelect = `${baseSelect}, public_slug, primary_state, public_visible, show_household, show_prayer_team_count, usam_application_id, usam_application_status, usam_profile_status, usam_application_submitted_at, usam_application_reviewed_at, usam_assigned_admin_email`;
+  const workspaceId = typeof workspaceRef === "object" ? workspaceRef?.id?.trim() : null;
+  const workspaceSlug = typeof workspaceRef === "string" ? workspaceRef : workspaceRef?.slug;
   const runQuery = async (selectColumns: string) => {
     const query = supabase.from("missionary_households").select(selectColumns);
+
+    if (workspaceId) {
+      return await query.eq("id", workspaceId).maybeSingle();
+    }
 
     return workspaceSlug
       ? await query.eq("slug", workspaceSlug).maybeSingle()
@@ -2268,6 +2279,14 @@ async function loadWorkspace(workspaceSlug?: string | null): Promise<LoadResult<
     data: data as unknown as HouseholdRow,
     status: "ready",
   };
+}
+
+function logEmptyGroupsLoad(workspace: Pick<HouseholdRow, "id" | "public_slug" | "slug">) {
+  console.warn("DOS groups load returned no active groups.", {
+    publicSlug: workspace.public_slug ?? null,
+    workspaceId: workspace.id,
+    workspaceSlug: workspace.slug,
+  });
 }
 
 async function loadOrganizationForWorkspace(supabase: SupabaseAdminClient, workspaceSlug: string) {
@@ -2416,10 +2435,10 @@ async function loadHouseholdMembersForWorkspace(supabase: SupabaseAdminClient, w
 }
 
 export async function loadDosAppData(
-  workspaceSlug?: string | null,
+  workspaceRef?: DosAppWorkspaceRef | string | null,
   viewer?: DosAuthorizedUser | null,
 ): Promise<LoadResult<DosAppData>> {
-  const workspaceResult = await loadWorkspace(workspaceSlug);
+  const workspaceResult = await loadWorkspace(workspaceRef);
 
   if (workspaceResult.status !== "ready") {
     return workspaceResult;
@@ -2503,6 +2522,10 @@ export async function loadDosAppData(
   const groupGatheringRows = groupsResult.data.gatherings;
   const groupAttendanceRows = groupsResult.data.attendance;
   const groupResourceRows = groupsResult.data.resources;
+
+  if (!groupRows.length) {
+    logEmptyGroupsLoad(workspace);
+  }
   const householdMemberRows = (householdMembersResult.data ?? []) as HouseholdMemberRow[];
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
