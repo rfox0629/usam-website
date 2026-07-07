@@ -25,6 +25,7 @@ import { dosQuickReviewFormDefinition, dosTestimonyReviewFormDefinition } from "
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { dosPrayerResourceAttribution, dosPrayerResourceCategories, dosPrayerResources, getDosPrayerResourceBySlug, type DosPrayerResource, type DosPrayerResourceCategory } from "@/src/lib/dos/prayer-resources";
+import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import {
   dosSendableResourceCategories,
   getDosResourcesByCategory,
@@ -21407,21 +21408,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function reviewUrlFromToken(token: string) {
-    return typeof window !== "undefined"
-      ? `${window.location.origin}/dos/review/${token}`
-      : `/dos/review/${token}`;
+    return new URL(`/dos/review/${token}`, getCanonicalSiteUrl()).toString();
   }
 
   function testimonyUrlFromToken(token: string) {
-    return typeof window !== "undefined"
-      ? `${window.location.origin}/dos/testimony/${token}`
-      : `/dos/testimony/${token}`;
+    return new URL(`/dos/testimony/${token}`, getCanonicalSiteUrl()).toString();
   }
 
   function reviewOptionsUrlFromToken(token: string) {
-    return typeof window !== "undefined"
-      ? `${window.location.origin}/dos/review-options/${token}`
-      : `/dos/review-options/${token}`;
+    return new URL(`/dos/review-options/${token}`, getCanonicalSiteUrl()).toString();
   }
 
   function reviewRequestKey(meeting: DosAppMeeting, recipientPersonId?: string | null) {
