@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserJournalEntry, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserJournalEntry, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -149,6 +149,25 @@ type DosPrayerRequestDraft = {
   request: string;
   title: string;
   visibility: DosAppPrayerRequest["visibility"];
+};
+type GroupMemberAddPayload = {
+  email?: string;
+  groupId: string;
+  name?: string;
+  personId?: string;
+  phone?: string;
+  status: DosAppGroupMember["status"];
+};
+type GroupMemberAddResult = {
+  alreadyMember?: boolean;
+  error?: string;
+  member?: DosAppGroupMember;
+  person?: {
+    email: string | null;
+    id: string;
+    name: string;
+    phone: string;
+  };
 };
 type DosPrayerRequestPatch = Partial<{
   answerTestimony: string | null;
@@ -3237,6 +3256,7 @@ function filteredPeople(people: DosAppPerson[], query: string) {
 
   return people.filter((person) => (
     person.name.toLowerCase().includes(search)
+    || normalizeText(person.email).toLowerCase().includes(search)
     || normalizeText(person.phone).toLowerCase().includes(search)
     || formatPhoneNumber(person.phone).toLowerCase().includes(search)
     || normalizeText(person.relationshipType).toLowerCase().includes(search)
@@ -5984,6 +6004,7 @@ function GroupsWorkspace({
   groups,
   groupsNotice,
   onAddPrayer,
+  onCopyPublicLink,
   onCreateGroup,
   onDetailTabChange,
   onInvite,
@@ -6001,6 +6022,7 @@ function GroupsWorkspace({
   groups: DosAppGroup[];
   groupsNotice: string;
   onAddPrayer: () => void;
+  onCopyPublicLink: (group: DosAppGroup) => void;
   onCreateGroup: () => void;
   onDetailTabChange: (tab: GroupDetailTab) => void;
   onInvite: () => void;
@@ -6022,6 +6044,7 @@ function GroupsWorkspace({
         notice={groupsNotice}
         onAddPrayer={onAddPrayer}
         onBack={() => onOpenGroup("")}
+        onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
         onInvite={onInvite}
         onLogAsTable={onLogAsTable}
         onSchedule={onSchedule}
@@ -6083,6 +6106,7 @@ function GroupDetailWorkspace({
   notice,
   onAddPrayer,
   onBack,
+  onCopyPublicLink,
   onInvite,
   onLogAsTable,
   onSchedule,
@@ -6094,6 +6118,7 @@ function GroupDetailWorkspace({
   notice: string;
   onAddPrayer: () => void;
   onBack: () => void;
+  onCopyPublicLink: () => void;
   onInvite: () => void;
   onLogAsTable: () => void;
   onSchedule: () => void;
@@ -6289,6 +6314,7 @@ function GroupDetailWorkspace({
           <div className="flex flex-wrap gap-2">
             {activeGathering ? null : <GroupQuickAction icon={<Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Start Gathering" onClick={startGathering} tone="primary" />}
             <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Invite" onClick={onInvite} />
+            <GroupQuickAction icon={<Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Copy Link" onClick={onCopyPublicLink} />
             <GroupQuickAction icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Schedule" onClick={onSchedule} />
             <GroupQuickAction icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Log as Table" onClick={onLogAsTable} />
           </div>
@@ -7169,6 +7195,167 @@ function GroupMembersTab({ group }: { group: DosAppGroup }) {
         <p className="text-sm text-[#64748B]">No members linked yet.</p>
       )}
     </DesktopPanel>
+  );
+}
+
+function GroupInviteSheet({
+  group,
+  isSubmitting,
+  message,
+  onAddMember,
+  onClose,
+  people,
+}: {
+  group: DosAppGroup;
+  isSubmitting: boolean;
+  message: { text: string; tone: "error" | "success" } | null;
+  onAddMember: (payload: GroupMemberAddPayload) => Promise<void>;
+  onClose: () => void;
+  people: DosAppPerson[];
+}) {
+  const [query, setQuery] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [status, setStatus] = useState<DosAppGroupMember["status"]>("active");
+  const existingMemberPersonIds = new Set(group.members.filter((member) => member.status !== "removed").map((member) => member.personId));
+  const personOptions = filteredPeople(people, query)
+    .filter((person) => person.status !== "archived")
+    .slice(0, 8);
+  const canAddGuest = guestName.trim().length > 0;
+
+  async function addExistingPerson(person: DosAppPerson) {
+    await onAddMember({
+      groupId: group.id,
+      personId: person.id,
+      status,
+    });
+  }
+
+  async function addGuest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!canAddGuest) {
+      return;
+    }
+
+    await onAddMember({
+      email: guestEmail,
+      groupId: group.id,
+      name: guestName,
+      phone: guestPhone,
+      status,
+    });
+    setGuestEmail("");
+    setGuestName("");
+    setGuestPhone("");
+  }
+
+  return (
+    <Sheet description="Add someone from Field or create a guest record. Messaging is not sent from this action." onClose={onClose} showEyebrow={false} title={`Add to ${group.name}`}>
+      <div className="space-y-4">
+        {message ? (
+          <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
+            message.tone === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+          >
+            {message.text}
+          </p>
+        ) : null}
+
+        <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-[#0F172A]">Member Status</p>
+              <p className="mt-0.5 text-xs font-semibold text-[#64748B]">No SMS or email is sent.</p>
+            </div>
+            <div className="flex rounded-full border border-[#DCEBFF] bg-white p-1">
+              {(["active", "invited"] as const).map((option) => (
+                <button
+                  className={`min-h-8 rounded-full px-3 text-xs font-black transition-colors ${status === option ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:text-[#0F172A]"}`}
+                  key={option}
+                  onClick={() => setStatus(option)}
+                  type="button"
+                >
+                  {option === "active" ? "Active" : "Invited"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <FieldLabel>Search Field</FieldLabel>
+          <div className="mt-2 flex min-h-12 items-center gap-2 rounded-[18px] border border-[#D6E4F7] bg-white px-3 focus-within:border-[#2563EB] focus-within:ring-4 focus-within:ring-[#2563EB]/10">
+            <Search className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={2} />
+            <input
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#0F172A] outline-none placeholder:text-[#94A3B8]"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by name, phone, or relationship"
+              value={query}
+            />
+          </div>
+          <div className="mt-3 grid gap-2">
+            {personOptions.length ? personOptions.map((person) => {
+              const alreadyMember = existingMemberPersonIds.has(person.id);
+
+              return (
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-3" key={person.id}>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-[#0F172A]">{person.name}</p>
+                    <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">{[formatPhoneNumber(person.phone), person.email].filter(Boolean).join(" · ") || relationshipLine(person)}</p>
+                  </div>
+                  <button
+                    className={`inline-flex min-h-9 shrink-0 items-center justify-center rounded-full px-3 text-xs font-black transition-colors ${
+                      alreadyMember
+                        ? "border border-[#DCEBFF] bg-[#F8FAFC] text-[#94A3B8]"
+                        : "border border-[#BFDBFE] bg-white text-[#1D4ED8] hover:bg-[#EBF2FF]"
+                    }`}
+                    disabled={alreadyMember || isSubmitting}
+                    onClick={() => addExistingPerson(person)}
+                    type="button"
+                  >
+                    {alreadyMember ? "In Group" : "Add to Group"}
+                  </button>
+                </div>
+              );
+            }) : (
+              <SectionEmptyState text="Search Field people or add a new guest below." title="No people found." />
+            )}
+          </div>
+        </section>
+
+        <form className="space-y-3 rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5" onSubmit={addGuest}>
+          <div>
+            <p className="text-sm font-black text-[#0F172A]">New Guest</p>
+            <p className="mt-0.5 text-xs font-semibold text-[#64748B]">Creates or links a DOS person record, then adds them to this private group.</p>
+          </div>
+          <label className="block">
+            <FieldLabel>Name</FieldLabel>
+            <input className={FieldInputClass()} onChange={(event) => setGuestName(event.target.value)} required value={guestName} />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <FieldLabel>Phone</FieldLabel>
+              <input className={FieldInputClass()} inputMode="tel" onChange={(event) => setGuestPhone(event.target.value)} type="tel" value={guestPhone} />
+            </label>
+            <label className="block">
+              <FieldLabel>Email</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => setGuestEmail(event.target.value)} type="email" value={guestEmail} />
+            </label>
+          </div>
+          <button
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!canAddGuest || isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? "Adding..." : "Add to Group"}
+          </button>
+        </form>
+      </div>
+    </Sheet>
   );
 }
 
@@ -23267,9 +23454,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ...calendarConnectionOverride,
   }), [calendarConnectionOverride, data.calendarConnection]);
   const fallbackGoogleCalendarSources = useMemo(() => fallbackCalendarSourcePreferences(data.externalCalendarEvents), [data.externalCalendarEvents]);
-  const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
-  const selectedGroup = selectedGroupId ? data.groups.find((group) => group.id === selectedGroupId) ?? null : null;
   const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
+  const [groupMemberAdditions, setGroupMemberAdditions] = useState<Record<string, DosAppGroupMember[]>>({});
+  const [isGroupInviteOpen, setIsGroupInviteOpen] = useState(false);
+  const [groupInviteMessage, setGroupInviteMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
   const ministryLoggedMeetings = useMemo(
     () => loggedMeetings.filter((meeting) => tableRoleIncludesMinistering(meeting.tableRole)),
@@ -23285,6 +23474,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ...quickAddedPeople.filter((person) => !loadedPersonIds.has(person.id)),
     ];
   }, [data.people, quickAddedPeople]);
+  const groups = useMemo(() => data.groups.map((group) => {
+    const loadedMemberIds = new Set(group.members.map((member) => member.id));
+    const loadedPersonIds = new Set(group.members.map((member) => member.personId));
+    const additions = (groupMemberAdditions[group.id] ?? [])
+      .filter((member) => !loadedMemberIds.has(member.id) && !loadedPersonIds.has(member.personId));
+    const members = [...group.members, ...additions];
+
+    return {
+      ...group,
+      memberCount: members.filter((member) => member.status === "active").length,
+      members,
+    };
+  }), [data.groups, groupMemberAdditions]);
+  const selectedGroup = selectedGroupId ? groups.find((group) => group.id === selectedGroupId) ?? null : null;
   const fruitStoryEntries = useMemo(() => fieldFruitStories({
     fruitEvents: data.fruitEvents,
     fruitItems: data.fruit,
@@ -23765,7 +23968,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   useEffect(() => {
     setIsDesktopActionMenuOpen(false);
     setIsMobileActionSheetOpen(false);
-  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedGroupId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
+  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isGroupInviteOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedGroupId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
 
   function closeFirstLaunchWalkthrough() {
     window.localStorage.setItem(usamWalkthroughDismissedStorageKey, "true");
@@ -23992,11 +24195,128 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedGroupId(groupId);
     setGroupDetailTab("overview");
     setGroupsNotice("");
+    setGroupInviteMessage(null);
     scrollAppToTop();
   }
 
   function showGroupsPlaceholder(action: string) {
     setGroupsNotice(`${action} will be wired after group management is ready.`);
+  }
+
+  function openGroupInviteSheet() {
+    if (!selectedGroup) {
+      return;
+    }
+
+    setGroupsNotice("");
+    setGroupInviteMessage(null);
+    setIsGroupInviteOpen(true);
+  }
+
+  function closeGroupInviteSheet() {
+    setIsGroupInviteOpen(false);
+    setGroupInviteMessage(null);
+  }
+
+  function publicGroupUrl(group: DosAppGroup) {
+    const href = `/groups/${group.slug}`;
+
+    return typeof window !== "undefined" ? new URL(href, window.location.origin).toString() : href;
+  }
+
+  async function copyPublicGroupLink(group: DosAppGroup) {
+    const url = publicGroupUrl(group);
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setGroupsNotice("Public group link copied.");
+    } catch {
+      setGroupsNotice(url);
+    }
+  }
+
+  function optimisticPersonFromGroupResult(person: NonNullable<GroupMemberAddResult["person"]>): DosAppPerson {
+    const createdAt = new Date().toISOString();
+
+    return {
+      church: null,
+      createdAt,
+      discipleshipStage: "not_started",
+      email: person.email,
+      engagementLevel: "0",
+      fieldVisibility: "primary",
+      id: person.id,
+      lastActivityAt: null,
+      name: person.name,
+      notes: null,
+      phone: person.phone,
+      relationshipContext: "other",
+      relationshipType: "new",
+      roleInMyLife: "not_active",
+      status: "new",
+      updatedAt: createdAt,
+    };
+  }
+
+  async function addGroupMember(payload: GroupMemberAddPayload) {
+    setGroupInviteMessage(null);
+    setErrorMessage("");
+
+    if (isPreview) {
+      setGroupInviteMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/members", {
+        body: JSON.stringify({
+          ...payload,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as GroupMemberAddResult;
+
+      if (!response.ok || !result.member) {
+        throw new Error(result.error ?? "Unable to add this person to the group.");
+      }
+
+      setGroupMemberAdditions((current) => {
+        const existing = current[payload.groupId] ?? [];
+        const withoutDuplicate = existing.filter((member) => member.personId !== result.member?.personId && member.id !== result.member?.id);
+
+        return {
+          ...current,
+          [payload.groupId]: [...withoutDuplicate, result.member as DosAppGroupMember],
+        };
+      });
+
+      const resultPerson = result.person;
+
+      if (resultPerson) {
+        setQuickAddedPeople((current) => current.some((person) => person.id === resultPerson.id)
+          ? current
+          : [...current, optimisticPersonFromGroupResult(resultPerson)]);
+      }
+
+      const message = result.alreadyMember
+        ? `${result.member.personName} is already in this group.`
+        : `${result.member.personName} added to ${selectedGroup?.name ?? "group"}.`;
+
+      setGroupsNotice(message);
+      setGroupInviteMessage({ text: message, tone: "success" });
+      setGroupDetailTab("members");
+      router.refresh();
+    } catch (error) {
+      setGroupInviteMessage({ text: error instanceof Error ? error.message : "Unable to add this person to the group.", tone: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function viewUsamApplicationStatus() {
@@ -27180,12 +27500,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {moreAppView === "groups" ? (
                   <GroupsWorkspace
-                    groups={data.groups}
+                    groups={groups}
                     groupsNotice={groupsNotice}
                     onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
+                    onCopyPublicLink={copyPublicGroupLink}
                     onCreateGroup={() => showGroupsPlaceholder("New Group")}
                     onDetailTabChange={setGroupDetailTab}
-                    onInvite={() => showGroupsPlaceholder("Invite")}
+                    onInvite={openGroupInviteSheet}
                     onLogAsTable={() => openForm("meeting")}
                     onOpenGroup={(groupId) => {
                       if (groupId) {
@@ -27193,6 +27514,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       } else {
                         setSelectedGroupId(null);
                         setGroupsNotice("");
+                        setGroupInviteMessage(null);
+                        setIsGroupInviteOpen(false);
                         scrollAppToTop();
                       }
                     }}
@@ -27871,6 +28194,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setResourcePickerMessage("");
             }}
             onSelectResource={prepareResourceToSend}
+          />
+        ) : null}
+
+        {isGroupInviteOpen && selectedGroup ? (
+          <GroupInviteSheet
+            group={selectedGroup}
+            isSubmitting={isSubmitting}
+            message={groupInviteMessage}
+            onAddMember={addGroupMember}
+            onClose={closeGroupInviteSheet}
+            people={people}
           />
         ) : null}
 
