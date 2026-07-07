@@ -1070,6 +1070,56 @@ function parseDisplayDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+const dosDisplayTimeZone = "America/Chicago";
+const dosDisplayDatePartsFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: dosDisplayTimeZone,
+  year: "numeric",
+});
+const dosDisplayTimePartsFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  hourCycle: "h23",
+  minute: "2-digit",
+  timeZone: dosDisplayTimeZone,
+});
+const shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function displayDateParts(date: Date) {
+  const parts = dosDisplayDatePartsFormatter.formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+
+  return Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+    ? { day, month, year }
+    : null;
+}
+
+function dateKeyFromParts(year: number, month: number, day: number) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function displayDateKey(date: Date) {
+  const parts = displayDateParts(date);
+
+  return parts ? dateKeyFromParts(parts.year, parts.month, parts.day) : "";
+}
+
+function displayDayStart(date: Date) {
+  const parts = displayDateParts(date);
+
+  return parts ? new Date(Date.UTC(parts.year, parts.month - 1, parts.day)) : null;
+}
+
+function displayTimeInputValue(date: Date) {
+  const parts = dosDisplayTimePartsFormatter.formatToParts(date);
+  const hour = parts.find((part) => part.type === "hour")?.value;
+  const minute = parts.find((part) => part.type === "minute")?.value;
+
+  return hour && minute ? `${hour}:${minute}` : "";
+}
+
 function formatDate(value: string | null) {
   const date = parseDisplayDate(value);
 
@@ -1080,6 +1130,7 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
+    timeZone: dosDisplayTimeZone,
     year: "numeric",
   }).format(date);
 }
@@ -1094,6 +1145,7 @@ function formatTime(value: string | null) {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: dosDisplayTimeZone,
   }).format(date);
 }
 
@@ -1129,7 +1181,7 @@ function startOfDisplayDay(value: string | null | undefined) {
     return null;
   }
 
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return displayDayStart(date);
 }
 
 function isUpcomingDate(value: string | null | undefined) {
@@ -1139,10 +1191,10 @@ function isUpcomingDate(value: string | null | undefined) {
     return false;
   }
 
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const today = displayDayStart(new Date());
+  const todayStart = today?.getTime();
 
-  return date.getTime() >= todayStart;
+  return typeof todayStart === "number" && date.getTime() >= todayStart;
 }
 
 function dayOffsetFromToday(value: string | null | undefined) {
@@ -1152,10 +1204,12 @@ function dayOffsetFromToday(value: string | null | undefined) {
     return null;
   }
 
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const today = displayDayStart(new Date());
+  const todayStart = today?.getTime();
 
-  return Math.round((date.getTime() - todayStart) / (24 * 60 * 60 * 1000));
+  return typeof todayStart === "number"
+    ? Math.round((date.getTime() - todayStart) / (24 * 60 * 60 * 1000))
+    : null;
 }
 
 function isTodayDate(value: string | null | undefined) {
@@ -1169,9 +1223,15 @@ function formatRelativeDate(value: string | null) {
     return "No contact yet";
   }
 
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const activityDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const todayDate = displayDayStart(new Date());
+  const activityDate = displayDayStart(date);
+
+  if (!todayDate || !activityDate) {
+    return "No contact yet";
+  }
+
+  const today = todayDate.getTime();
+  const activityDay = activityDate.getTime();
   const daysAgo = Math.round((today - activityDay) / (24 * 60 * 60 * 1000));
 
   if (daysAgo <= 0) {
@@ -1224,20 +1284,21 @@ function formatWeekRangeCompact(start: Date, end: Date) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
+    timeZone: dosDisplayTimeZone,
   });
 
   return `${formatter.format(start)} · ${formatter.format(end)}`;
 }
 
 function todayDateValue() {
-  return new Date().toISOString().slice(0, 10);
+  return displayDateKey(new Date());
 }
 
 function dateValueFromToday(offsetDays: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
+  const date = displayDayStart(new Date()) ?? new Date();
+  date.setUTCDate(date.getUTCDate() + offsetDays);
 
-  return calendarDateKey(date);
+  return dateKeyFromParts(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
 }
 
 function calendarDateKey(date: Date) {
@@ -1257,7 +1318,7 @@ function dateFromCalendarKey(value: string) {
 function calendarDateKeyFromValue(value: string | null | undefined) {
   const date = parseDisplayDate(value ?? null);
 
-  return date ? calendarDateKey(date) : "";
+  return date ? displayDateKey(date) : "";
 }
 
 function normalizeDateInputValue(value: string | null | undefined) {
@@ -1393,7 +1454,7 @@ function localDateTimeIso(dateValue: string, timeValue: string) {
 function dateInputValueFromDateTime(value: string | null | undefined, fallback = todayDateValue()) {
   const date = parseDisplayDate(value ?? null);
 
-  return date ? calendarDateKey(date) : fallback;
+  return date ? displayDateKey(date) : fallback;
 }
 
 function timeInputValueFromDateTime(value: string | null | undefined, fallback = "18:00") {
@@ -1407,7 +1468,7 @@ function timeInputValueFromDateTime(value: string | null | undefined, fallback =
     return fallback;
   }
 
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return displayTimeInputValue(date) || fallback;
 }
 
 function durationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined) {
@@ -2501,6 +2562,7 @@ function homeDateSubtitle(date = new Date()) {
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "long",
+    timeZone: dosDisplayTimeZone,
     weekday: "long",
   }).format(date);
 
@@ -2676,15 +2738,21 @@ function nextAnnualDate(value: string | null | undefined) {
     return null;
   }
 
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const nextDate = new Date(today.getFullYear(), date.getMonth(), date.getDate(), 12);
+  const sourceParts = displayDateParts(date);
+  const todayParts = displayDateParts(new Date());
+  const todayStart = displayDayStart(new Date())?.getTime();
 
-  if (nextDate.getTime() < todayStart) {
-    nextDate.setFullYear(today.getFullYear() + 1);
+  if (!sourceParts || !todayParts || typeof todayStart !== "number") {
+    return null;
   }
 
-  return nextDate.toISOString();
+  const nextDate = new Date(Date.UTC(todayParts.year, sourceParts.month - 1, sourceParts.day, 12));
+
+  if (nextDate.getTime() < todayStart) {
+    nextDate.setUTCFullYear(todayParts.year + 1);
+  }
+
+  return dateKeyFromParts(nextDate.getUTCFullYear(), nextDate.getUTCMonth() + 1, nextDate.getUTCDate());
 }
 
 function primaryMeetingPerson(meeting: DosAppMeeting, people: DosAppPerson[]) {
@@ -5412,8 +5480,9 @@ function currentMonthRange(referenceDate = new Date()) {
 
 function monthKey(value: string | null | undefined) {
   const date = value ? parseDisplayDate(value) : null;
+  const parts = date ? displayDateParts(date) : null;
 
-  return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : null;
+  return parts ? `${parts.year}-${String(parts.month).padStart(2, "0")}` : null;
 }
 
 function formatDashboardDuration(minutes: number) {
@@ -5425,15 +5494,18 @@ function formatDashboardDuration(minutes: number) {
 }
 
 function dashboardTrendMonths(count = 12) {
-  const now = new Date();
+  const nowParts = displayDateParts(new Date());
+  const nowMonthIndex = nowParts ? nowParts.month - 1 : new Date().getMonth();
+  const nowYear = nowParts ? nowParts.year : new Date().getFullYear();
 
   return Array.from({ length: count }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - (count - 1 - index), 1);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const date = new Date(Date.UTC(nowYear, nowMonthIndex - (count - 1 - index), 1));
+    const month = date.getUTCMonth() + 1;
+    const key = `${date.getUTCFullYear()}-${String(month).padStart(2, "0")}`;
 
     return {
       key,
-      label: new Intl.DateTimeFormat("en-US", { month: "short" }).format(date),
+      label: shortMonthNames[month - 1] ?? "",
     };
   });
 }
@@ -9637,10 +9709,11 @@ function calendarCompactDayLabel(value: string | null) {
     return "Soon";
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const eventDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const dayDiff = Math.round((eventDay.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  const today = displayDayStart(new Date());
+  const eventDay = displayDayStart(date);
+  const dayDiff = today && eventDay
+    ? Math.round((eventDay.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+    : null;
 
   if (dayDiff === 0) {
     return "Today";
@@ -9650,11 +9723,11 @@ function calendarCompactDayLabel(value: string | null) {
     return "Tomorrow";
   }
 
-  if (dayDiff > 1 && dayDiff < 7) {
-    return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date);
+  if (dayDiff !== null && dayDiff > 1 && dayDiff < 7) {
+    return new Intl.DateTimeFormat("en-US", { timeZone: dosDisplayTimeZone, weekday: "short" }).format(date);
   }
 
-  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short" }).format(date);
+  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: dosDisplayTimeZone }).format(date);
 }
 
 function calendarUpcomingCardTimeLabel(item: MeetingCalendarItem) {
