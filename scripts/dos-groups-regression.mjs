@@ -27,6 +27,7 @@ const realWorkspaceSeedMigration = read("supabase/migrations/20260707171021_seed
 const prayerMigration = read("supabase/migrations/20260707132434_dos_unified_prayer_context.sql");
 const prayerRoute = read("app/api/dos/app/prayer-requests/route.ts");
 const groupMembersRoute = read("app/api/dos/app/groups/members/route.ts");
+const groupSettingsRoute = read("app/api/dos/app/groups/settings/route.ts");
 const publicGroupPage = read("app/groups/[slug]/page.tsx");
 
 for (const table of [
@@ -161,11 +162,19 @@ assertIncludes(appClient, "Log as Table", "Group detail must expose Log as Table
 assertIncludes(appClient, "Start Gathering", "Group detail must expose Start Gathering.");
 assertIncludes(appClient, "GroupInviteSheet", "Group Invite must open a real add-member sheet.");
 assertIncludes(appClient, "Add to Group", "Group Invite must label the action as Add to Group.");
+assertIncludes(appClient, 'label="Add to Group"', "Group detail action must be renamed Add to Group.");
 assertIncludes(appClient, "Copy Link", "Group detail must expose a separate public link copy action.");
+assertIncludes(appClient, "View Public", "Group detail must expose View Public Page.");
 assertIncludes(appClient, "copyPublicGroupLink", "Group detail must wire public group link copying.");
 assertIncludes(appClient, "/api/dos/app/groups/members", "Group Invite must call the member API route.");
 assertIncludes(appClient, "groupMemberAdditions", "Group Invite must update group members locally after adding.");
 assertIncludes(appClient, "setGroupDetailTab(\"members\")", "Group Invite success must switch to Members.");
+assertIncludes(appClient, "GroupSettingsSheet", "Group Settings must open an edit sheet.");
+assertIncludes(appClient, "Edit Group", "Group Settings must expose Edit Group.");
+assertIncludes(appClient, "/api/dos/app/groups/settings", "Group Settings must call the settings API route.");
+assertIncludes(appClient, "Update future scheduled gatherings with this location?", "Group Settings must confirm future location updates.");
+assertIncludes(appClient, "Archive group", "Group Settings must archive instead of hard delete.");
+assertIncludes(appClient, "Public-shareable", "Group Settings must expose public-shareable visibility copy.");
 assert(
   !appClient.includes("Invite will be wired after group management is ready."),
   "Group Invite placeholder copy must be removed.",
@@ -257,7 +266,13 @@ assertIncludes(groupMembersRoute, ".eq(\"group_id\", groupId)", "Group member AP
 assertIncludes(groupMembersRoute, ".eq(\"person_id\", person.id)", "Group member API must prevent duplicate memberships by person.");
 assertIncludes(groupMembersRoute, ".from(\"missionary_field_people\")", "Group member API must create or link DOS person records.");
 assertIncludes(groupMembersRoute, "alreadyMember", "Group member API must report duplicate-safe existing membership.");
+assertIncludes(groupSettingsRoute, "requireDosWorkspaceRouteAccess", "Group settings API must be authenticated and workspace-scoped.");
+assertIncludes(groupSettingsRoute, ".from(\"dos_groups\")", "Group settings API must update dos_groups.");
+assertIncludes(groupSettingsRoute, ".neq(\"id\", groupId)", "Group settings API must validate slug uniqueness excluding the current group.");
+assertIncludes(groupSettingsRoute, ".from(\"dos_group_gatherings\")", "Group settings API must update future gathering locations when confirmed.");
+assertIncludes(groupSettingsRoute, ".from(\"dos_group_members\")", "Group settings API must update leader membership.");
 assertIncludes(publicGroupPage, "2three2", "Public group route must render 2three2.");
+assertIncludes(publicGroupPage, ".eq(\"visibility\", \"workspace\")", "Public group route must not expose private groups from DOS.");
 assertIncludes(publicGroupPage, "What to Expect", "Public group route must include What to Expect.");
 assertIncludes(publicGroupPage, "Typical Schedule", "Public group route must include Typical Schedule.");
 assertIncludes(publicGroupPage, "Who This Is For", "Public group route must include Who This Is For.");
@@ -268,6 +283,7 @@ assertIncludes(publicGroupPage, "Powered by", "Public group route must include t
 
 assert(exists("app/groups/[slug]/page.tsx"), "Groups must create the public share route.");
 assert(exists("app/api/dos/app/groups/members/route.ts"), "Groups must create the authenticated member add route.");
+assert(exists("app/api/dos/app/groups/settings/route.ts"), "Groups must create the authenticated settings route.");
 assert(!exists("app/dos/groups/page.tsx"), "Groups should stay inside the authenticated DOS app surface.");
 
 console.log("DOS groups regression passed.");

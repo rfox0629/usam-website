@@ -1,8 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
-const publicGroups = {
+type PublicGroup = {
+  description: string;
+  location: string;
+  name: string;
+  nextGathering: string;
+  rhythm: string;
+  scriptureReference: string;
+  scriptureText: string;
+  tagline: string;
+  typicalSchedule: string[];
+  whatToExpect: string[];
+  whoThisIsFor: string[];
+};
+
+const fallbackPublicGroups: Record<string, PublicGroup> = {
   "2three2": {
     description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     location: "Lebanon Hills Trailhead, Eagan, MN",
@@ -16,11 +31,80 @@ const publicGroups = {
     whatToExpect: ["A steady weekly rhythm", "Two-by-two prayer during the run", "Simple follow-up and encouragement"],
     whoThisIsFor: ["Men pursuing Christ", "Runners of any normal training pace", "Men who want accountability, prayer, and brotherhood"],
   },
-} as const;
+};
+
+function formatPublicGroupDate(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    weekday: "long",
+  }).format(date);
+}
+
+async function loadPublicGroup(slug: string): Promise<PublicGroup | null> {
+  if (!isSupabaseAdminConfigured()) {
+    return fallbackPublicGroups[slug] ?? null;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: group, error } = await supabase
+    .from("dos_groups")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, active")
+    .eq("slug", slug)
+    .eq("active", true)
+    .eq("visibility", "workspace")
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[Public Group] Unable to load group", error.message);
+    return null;
+  }
+
+  if (!group) {
+    return null;
+  }
+
+  const { data: gatherings } = await supabase
+    .from("dos_group_gatherings")
+    .select("title, starts_at, location")
+    .eq("group_id", group.id)
+    .eq("status", "scheduled")
+    .gte("starts_at", new Date().toISOString())
+    .order("starts_at", { ascending: true })
+    .limit(1);
+  const nextGathering = gatherings?.[0];
+  const groupType = group.type === "running" ? "running group" : "discipleship group";
+
+  return {
+    description: group.description ?? "A recurring discipleship rhythm.",
+    location: group.default_location ?? nextGathering?.location ?? "Location TBD",
+    name: group.name,
+    nextGathering: nextGathering ? `${nextGathering.title} · ${formatPublicGroupDate(nextGathering.starts_at)}` : "Upcoming gathering TBD",
+    rhythm: group.rhythm_label ?? "Recurring",
+    scriptureReference: group.scripture_reference ?? "",
+    scriptureText: group.scripture_text ?? "",
+    tagline: group.tagline ?? "Discipleship happens in rhythms.",
+    typicalSchedule: ["Gather", "Pray", "Open Scripture", "Share next steps"],
+    whatToExpect: ["A steady recurring rhythm", "Prayer and accountability", "Simple follow-up and encouragement"],
+    whoThisIsFor: [`People looking for a ${groupType}`, "Those pursuing Christ together", "Anyone wanting prayer, community, and discipleship"],
+  };
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const group = publicGroups[slug as keyof typeof publicGroups];
+  const group = await loadPublicGroup(slug);
 
   if (!group) {
     return {
@@ -36,7 +120,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function PublicGroupPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const group = publicGroups[slug as keyof typeof publicGroups];
+  const group = await loadPublicGroup(slug);
 
   if (!group) {
     notFound();

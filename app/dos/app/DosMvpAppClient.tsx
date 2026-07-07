@@ -152,6 +152,29 @@ type GroupMemberAddResult = {
     phone: string;
   };
 };
+type GroupSettingsSavePayload = {
+  active: boolean;
+  dayOfWeek: string;
+  defaultLocation: string;
+  description: string;
+  endTime: string;
+  groupId: string;
+  leaderPersonId: string;
+  name: string;
+  rhythmLabel: string;
+  scriptureReference: string;
+  scriptureText: string;
+  slug: string;
+  startTime: string;
+  tagline: string;
+  type: DosAppGroup["type"];
+  updateFutureGatheringLocations: boolean;
+  visibility: DosAppGroup["visibility"];
+};
+type GroupSettingsSaveResult = {
+  error?: string;
+  group?: Partial<DosAppGroup> & { id: string };
+};
 type DosPrayerRequestPatch = Partial<{
   answerTestimony: string | null;
   answeredAt: string | null;
@@ -1310,6 +1333,28 @@ function groupSearchText(group: DosAppGroup) {
     group.leaderName,
     group.scriptureReference,
   ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function slugFromText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function groupScheduleDefaults(group: DosAppGroup) {
+  const rhythm = group.rhythmLabel ?? "";
+  const dayMatch = rhythm.match(/\b(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)s?\b/i);
+  const timeMatches = rhythm.match(/\b\d{1,2}(?::\d{2})?\s*(?:AM|PM)\b/gi) ?? [];
+
+  return {
+    dayOfWeek: dayMatch?.[1] ?? "",
+    endTime: timeMatches[1] ?? "",
+    startTime: timeMatches[0] ?? "",
+  };
 }
 
 function groupRoleLabel(role: DosAppGroup["members"][number]["role"]) {
@@ -5625,6 +5670,7 @@ function GroupsWorkspace({
   onCopyPublicLink,
   onCreateGroup,
   onDetailTabChange,
+  onEditGroup,
   onInvite,
   onLogAsTable,
   onOpenGroup,
@@ -5632,6 +5678,7 @@ function GroupsWorkspace({
   onSearchChange,
   onSelectListView,
   onTakeAttendance,
+  onViewPublicGroup,
   query,
   selectedGroup,
   selectedTab,
@@ -5643,6 +5690,7 @@ function GroupsWorkspace({
   onCopyPublicLink: (group: DosAppGroup) => void;
   onCreateGroup: () => void;
   onDetailTabChange: (tab: GroupDetailTab) => void;
+  onEditGroup: () => void;
   onInvite: () => void;
   onLogAsTable: () => void;
   onOpenGroup: (groupId: string) => void;
@@ -5650,6 +5698,7 @@ function GroupsWorkspace({
   onSearchChange: (value: string) => void;
   onSelectListView: (view: GroupsListView) => void;
   onTakeAttendance: () => void;
+  onViewPublicGroup: (group: DosAppGroup) => void;
   query: string;
   selectedGroup: DosAppGroup | null;
   selectedTab: GroupDetailTab;
@@ -5663,11 +5712,13 @@ function GroupsWorkspace({
         onAddPrayer={onAddPrayer}
         onBack={() => onOpenGroup("")}
         onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
+        onEditGroup={onEditGroup}
         onInvite={onInvite}
         onLogAsTable={onLogAsTable}
         onSchedule={onSchedule}
         onTabChange={onDetailTabChange}
         onTakeAttendance={onTakeAttendance}
+        onViewPublicGroup={() => onViewPublicGroup(selectedGroup)}
         tab={selectedTab}
       />
     );
@@ -5725,7 +5776,9 @@ function GroupDetailWorkspace({
   onAddPrayer,
   onBack,
   onCopyPublicLink,
+  onEditGroup,
   onInvite,
+  onViewPublicGroup,
   onLogAsTable,
   onSchedule,
   onTabChange,
@@ -5737,7 +5790,9 @@ function GroupDetailWorkspace({
   onAddPrayer: () => void;
   onBack: () => void;
   onCopyPublicLink: () => void;
+  onEditGroup: () => void;
   onInvite: () => void;
+  onViewPublicGroup: () => void;
   onLogAsTable: () => void;
   onSchedule: () => void;
   onTabChange: (tab: GroupDetailTab) => void;
@@ -5931,8 +5986,9 @@ function GroupDetailWorkspace({
           </div>
           <div className="flex flex-wrap gap-2">
             {activeGathering ? null : <GroupQuickAction icon={<Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Start Gathering" onClick={startGathering} tone="primary" />}
-            <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Invite" onClick={onInvite} />
+            <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add to Group" onClick={onInvite} />
             <GroupQuickAction icon={<Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Copy Link" onClick={onCopyPublicLink} />
+            <GroupQuickAction icon={<ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="View Public" onClick={onViewPublicGroup} />
             <GroupQuickAction icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Schedule" onClick={onSchedule} />
             <GroupQuickAction icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Log as Table" onClick={onLogAsTable} />
           </div>
@@ -5996,7 +6052,7 @@ function GroupDetailWorkspace({
       {tab === "attendance" ? <GroupAttendanceTab attendanceRows={attendanceRows} attendanceSummary={attendanceSummary} guestDrafts={guestDrafts} group={group} isGatheringActive={Boolean(activeGathering)} onAddGuest={addGuestDraft} onTakeAttendance={onTakeAttendance} onUpdateGuest={updateGuestDraft} onUpdateMemberAttendance={updateMemberAttendance} /> : null}
       {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
       {tab === "resources" ? <GroupResourcesTab group={group} /> : null}
-      {tab === "settings" ? <GroupSettingsTab group={group} /> : null}
+      {tab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
     </div>
   );
 }
@@ -6977,6 +7033,226 @@ function GroupInviteSheet({
   );
 }
 
+function GroupSettingsSheet({
+  group,
+  isSubmitting,
+  message,
+  onClose,
+  onSave,
+  people,
+}: {
+  group: DosAppGroup;
+  isSubmitting: boolean;
+  message: { text: string; tone: "error" | "success" } | null;
+  onClose: () => void;
+  onSave: (payload: GroupSettingsSavePayload) => Promise<void>;
+  people: DosAppPerson[];
+}) {
+  const scheduleDefaults = groupScheduleDefaults(group);
+  const [draft, setDraft] = useState<GroupSettingsSavePayload>(() => ({
+    active: group.active,
+    dayOfWeek: scheduleDefaults.dayOfWeek,
+    defaultLocation: group.defaultLocation ?? "",
+    description: group.description ?? "",
+    endTime: scheduleDefaults.endTime,
+    groupId: group.id,
+    leaderPersonId: group.leaderPersonId ?? "",
+    name: group.name,
+    rhythmLabel: group.rhythmLabel ?? "",
+    scriptureReference: group.scriptureReference ?? "",
+    scriptureText: group.scriptureText ?? "",
+    slug: group.slug,
+    startTime: scheduleDefaults.startTime,
+    tagline: group.tagline ?? "",
+    type: group.type,
+    updateFutureGatheringLocations: false,
+    visibility: group.visibility,
+  }));
+  const leaderPeople = useMemo(() => {
+    const peopleById = new Map(people.map((person) => [person.id, person]));
+
+    group.members.forEach((member) => {
+      const existing = peopleById.get(member.personId);
+
+      if (!existing) {
+        peopleById.set(member.personId, {
+          church: null,
+          createdAt: null,
+          discipleshipStage: "not_started",
+          email: null,
+          engagementLevel: null,
+          fieldVisibility: "primary",
+          id: member.personId,
+          lastActivityAt: null,
+          name: member.personName,
+          notes: null,
+          phone: "",
+          relationshipContext: "other",
+          relationshipType: null,
+          roleInMyLife: "not_active",
+          status: "new",
+          updatedAt: null,
+        });
+      }
+    });
+
+    return Array.from(peopleById.values()).sort((first, second) => first.name.localeCompare(second.name));
+  }, [group.members, people]);
+  const publicSlug = slugFromText(draft.slug || draft.name);
+  const publicHref = `/groups/${publicSlug}`;
+  const locationChanged = draft.defaultLocation.trim() !== (group.defaultLocation ?? "");
+
+  function updateDraft<K extends keyof GroupSettingsSavePayload>(field: K, value: GroupSettingsSavePayload[K]) {
+    setDraft((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "name" && current.slug === group.slug ? { slug: slugFromText(String(value)) } : null),
+    }));
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (locationChanged && !draft.updateFutureGatheringLocations) {
+      const shouldUpdateFutureGatherings = window.confirm("Update future scheduled gatherings with this location?");
+
+      if (shouldUpdateFutureGatherings) {
+        await onSave({ ...draft, slug: publicSlug, updateFutureGatheringLocations: true });
+        return;
+      }
+    }
+
+    await onSave({ ...draft, slug: publicSlug });
+  }
+
+  return (
+    <Sheet description="Edit this private DOS group. Public-shareable only exposes the public landing page fields." onClose={onClose} showEyebrow={false} size="wide" title={`Edit ${group.name}`}>
+      <form className="grid gap-4 p-1 md:grid-cols-[minmax(0,1fr)_320px]" onSubmit={handleSubmit}>
+        <div className="space-y-4">
+          {message ? (
+            <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
+              message.tone === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+            >
+              {message.text}
+            </p>
+          ) : null}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <FieldLabel>Group name</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("name", event.target.value)} required value={draft.name} />
+            </label>
+            <label className="block">
+              <FieldLabel>Tagline</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("tagline", event.target.value)} value={draft.tagline} />
+            </label>
+          </div>
+          <label className="block">
+            <FieldLabel>Description</FieldLabel>
+            <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("description", event.target.value)} value={draft.description} />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <FieldLabel>Scripture reference</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("scriptureReference", event.target.value)} value={draft.scriptureReference} />
+            </label>
+            <label className="block">
+              <FieldLabel>Type</FieldLabel>
+              <select className={FieldInputClass()} onChange={(event) => updateDraft("type", event.target.value as DosAppGroup["type"])} value={draft.type}>
+                {(["discipleship", "running", "prayer", "study", "table", "other"] as const).map((type) => (
+                  <option key={type} value={type}>{type === "running" ? "Running Group" : type === "study" ? "Bible Study" : type.replace(/^\w/, (letter) => letter.toUpperCase())}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="block">
+            <FieldLabel>Scripture text</FieldLabel>
+            <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("scriptureText", event.target.value)} value={draft.scriptureText} />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <label className="block sm:col-span-2">
+              <FieldLabel>Rhythm label</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("rhythmLabel", event.target.value)} placeholder="Weekly · Saturday · 7:00 AM" value={draft.rhythmLabel} />
+            </label>
+            <label className="block">
+              <FieldLabel>Day</FieldLabel>
+              <select className={FieldInputClass()} onChange={(event) => updateDraft("dayOfWeek", event.target.value)} value={draft.dayOfWeek}>
+                <option value="">No day</option>
+                {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => <option key={day} value={day}>{day}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <FieldLabel>Start time</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("startTime", event.target.value)} placeholder="7:00 AM" value={draft.startTime} />
+            </label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <FieldLabel>End time</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("endTime", event.target.value)} placeholder="8:15 AM" value={draft.endTime} />
+            </label>
+            <label className="block">
+              <FieldLabel>Default location</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("defaultLocation", event.target.value)} value={draft.defaultLocation} />
+            </label>
+          </div>
+          {locationChanged ? (
+            <label className="flex items-start gap-3 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold text-[#475569]">
+              <input checked={draft.updateFutureGatheringLocations} className="mt-1" onChange={(event) => updateDraft("updateFutureGatheringLocations", event.target.checked)} type="checkbox" />
+              <span>Update future scheduled gatherings with this location?</span>
+            </label>
+          ) : null}
+        </div>
+        <aside className="space-y-4">
+          <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+            <p className="text-sm font-black text-[#0F172A]">Publishing</p>
+            <label className="mt-3 block">
+              <FieldLabel>Visibility</FieldLabel>
+              <select className={FieldInputClass()} onChange={(event) => updateDraft("visibility", event.target.value as DosAppGroup["visibility"])} value={draft.visibility}>
+                <option value="private">Private</option>
+                <option value="workspace">Public-shareable</option>
+              </select>
+            </label>
+            <label className="mt-3 block">
+              <FieldLabel>Public slug</FieldLabel>
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("slug", event.target.value)} required value={draft.slug} />
+            </label>
+            <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8]">{publicHref}</p>
+          </div>
+          <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+            <p className="text-sm font-black text-[#0F172A]">Leadership</p>
+            <label className="mt-3 block">
+              <FieldLabel>Leader</FieldLabel>
+              <select className={FieldInputClass()} onChange={(event) => updateDraft("leaderPersonId", event.target.value)} value={draft.leaderPersonId}>
+                <option value="">No leader</option>
+                {leaderPeople.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="rounded-[22px] border border-[#FECACA] bg-[#FEF2F2] p-4">
+            <p className="text-sm font-black text-[#991B1B]">Archive</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#B91C1C]">Inactive groups are hidden from the active Groups list. Existing history stays intact.</p>
+            <label className="mt-3 flex items-center gap-2 text-sm font-bold text-[#991B1B]">
+              <input checked={!draft.active} onChange={(event) => updateDraft("active", !event.target.checked)} type="checkbox" />
+              Archive group
+            </label>
+          </div>
+          <div className="flex flex-col gap-2">
+            <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Saving..." : "Save changes"}
+            </button>
+            <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-black text-[#475569]" onClick={onClose} type="button">
+              Cancel
+            </button>
+          </div>
+        </aside>
+      </form>
+    </Sheet>
+  );
+}
+
 function GroupGatheringRow({
   compact = false,
   gathering,
@@ -7173,15 +7449,25 @@ function GroupResourcesTab({ group }: { group: DosAppGroup }) {
   );
 }
 
-function GroupSettingsTab({ group }: { group: DosAppGroup }) {
+function GroupSettingsTab({ group, onEdit }: { group: DosAppGroup; onEdit: () => void }) {
   return (
-    <DesktopPanel eyebrow="Settings" title="Group State">
+    <DesktopPanel
+      action={(
+        <button className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.2)] transition-colors hover:bg-[#1D4ED8]" onClick={onEdit} type="button">
+          <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+          Edit Group
+        </button>
+      )}
+      eyebrow="Settings"
+      title="Group State"
+    >
       <div className="grid gap-2 md:grid-cols-2">
         {[
-          ["Visibility", group.visibility === "private" ? "Private" : "Workspace"],
+          ["Visibility", group.visibility === "private" ? "Private" : "Public-shareable"],
           ["Status", group.active ? "Active" : "Inactive"],
           ["Type", group.type],
-          ["Slug", group.slug],
+          ["Public URL", `/groups/${group.slug}`],
+          ["Scripture", group.scriptureReference ?? "Not set"],
           ["Default location", group.defaultLocation ?? "Location TBD"],
           ["Table link", "Gatherings can link to Table logs"],
         ].map(([label, value]) => (
@@ -20997,9 +21283,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }), [calendarConnectionOverride, data.calendarConnection]);
   const fallbackGoogleCalendarSources = useMemo(() => fallbackCalendarSourcePreferences(data.externalCalendarEvents), [data.externalCalendarEvents]);
   const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, Partial<DosAppGroup>>>({});
   const [groupMemberAdditions, setGroupMemberAdditions] = useState<Record<string, DosAppGroupMember[]>>({});
   const [isGroupInviteOpen, setIsGroupInviteOpen] = useState(false);
+  const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
   const [groupInviteMessage, setGroupInviteMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [groupSettingsMessage, setGroupSettingsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
   const requestedPersonId = searchParams.get("person");
@@ -21013,18 +21302,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ];
   }, [data.people, quickAddedPeople]);
   const groups = useMemo(() => data.groups.map((group) => {
-    const loadedMemberIds = new Set(group.members.map((member) => member.id));
-    const loadedPersonIds = new Set(group.members.map((member) => member.personId));
-    const additions = (groupMemberAdditions[group.id] ?? [])
+    const overriddenGroup = { ...group, ...(groupOverrides[group.id] ?? {}) };
+    const loadedMemberIds = new Set(overriddenGroup.members.map((member) => member.id));
+    const loadedPersonIds = new Set(overriddenGroup.members.map((member) => member.personId));
+    const additions = (groupMemberAdditions[overriddenGroup.id] ?? [])
       .filter((member) => !loadedMemberIds.has(member.id) && !loadedPersonIds.has(member.personId));
-    const members = [...group.members, ...additions];
+    const members = [...overriddenGroup.members, ...additions];
 
     return {
-      ...group,
+      ...overriddenGroup,
       memberCount: members.filter((member) => member.status === "active").length,
       members,
     };
-  }), [data.groups, groupMemberAdditions]);
+  }), [data.groups, groupMemberAdditions, groupOverrides]);
   const selectedGroup = selectedGroupId ? groups.find((group) => group.id === selectedGroupId) ?? null : null;
   const fruitStoryEntries = useMemo(() => fieldFruitStories({
     fruitEvents: data.fruitEvents,
@@ -21496,7 +21786,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   useEffect(() => {
     setIsDesktopActionMenuOpen(false);
     setIsMobileActionSheetOpen(false);
-  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isGroupInviteOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedGroupId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
+  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isGroupInviteOpen, isGroupSettingsOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedGroupId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
 
   function closeFirstLaunchWalkthrough() {
     window.localStorage.setItem(usamWalkthroughDismissedStorageKey, "true");
@@ -21667,6 +21957,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setGroupDetailTab("overview");
     setGroupsNotice("");
     setGroupInviteMessage(null);
+    setGroupSettingsMessage(null);
     scrollAppToTop();
   }
 
@@ -21689,6 +21980,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setGroupInviteMessage(null);
   }
 
+  function openGroupSettingsSheet() {
+    if (!selectedGroup) {
+      return;
+    }
+
+    setGroupsNotice("");
+    setGroupSettingsMessage(null);
+    setIsGroupSettingsOpen(true);
+  }
+
+  function closeGroupSettingsSheet() {
+    setIsGroupSettingsOpen(false);
+    setGroupSettingsMessage(null);
+  }
+
   function publicGroupUrl(group: DosAppGroup) {
     const href = `/groups/${group.slug}`;
 
@@ -21704,6 +22010,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     } catch {
       setGroupsNotice(url);
     }
+  }
+
+  function viewPublicGroup(group: DosAppGroup) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.open(publicGroupUrl(group), "_blank", "noopener,noreferrer");
   }
 
   function optimisticPersonFromGroupResult(person: NonNullable<GroupMemberAddResult["person"]>): DosAppPerson {
@@ -21785,6 +22099,60 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       router.refresh();
     } catch (error) {
       setGroupInviteMessage({ text: error instanceof Error ? error.message : "Unable to add this person to the group.", tone: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function saveGroupSettings(payload: GroupSettingsSavePayload) {
+    setGroupSettingsMessage(null);
+    setErrorMessage("");
+
+    if (isPreview) {
+      setGroupSettingsMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/settings", {
+        body: JSON.stringify({
+          ...payload,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as GroupSettingsSaveResult;
+
+      if (!response.ok || !result.group) {
+        throw new Error(result.error ?? "Unable to save group settings.");
+      }
+
+      setGroupOverrides((current) => ({
+        ...current,
+        [payload.groupId]: {
+          ...(current[payload.groupId] ?? {}),
+          ...result.group,
+          leaderName: result.group?.leaderPersonId
+            ? people.find((person) => person.id === result.group?.leaderPersonId)?.name ?? selectedGroup?.leaderName ?? null
+            : null,
+        },
+      }));
+      setGroupsNotice(`${result.group.name ?? selectedGroup?.name ?? "Group"} saved.`);
+      setGroupSettingsMessage({ text: "Group settings saved.", tone: "success" });
+
+      if (result.group.active === false) {
+        setIsGroupSettingsOpen(false);
+        setSelectedGroupId(null);
+      }
+
+      router.refresh();
+    } catch (error) {
+      setGroupSettingsMessage({ text: error instanceof Error ? error.message : "Unable to save group settings.", tone: "error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -24832,6 +25200,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onCopyPublicLink={copyPublicGroupLink}
                     onCreateGroup={() => showGroupsPlaceholder("New Group")}
                     onDetailTabChange={setGroupDetailTab}
+                    onEditGroup={openGroupSettingsSheet}
                     onInvite={openGroupInviteSheet}
                     onLogAsTable={() => openForm("meeting")}
                     onOpenGroup={(groupId) => {
@@ -24842,6 +25211,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         setGroupsNotice("");
                         setGroupInviteMessage(null);
                         setIsGroupInviteOpen(false);
+                        setGroupSettingsMessage(null);
+                        setIsGroupSettingsOpen(false);
                         scrollAppToTop();
                       }
                     }}
@@ -24849,6 +25220,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onSearchChange={setGroupQuery}
                     onSelectListView={setGroupsView}
                     onTakeAttendance={() => showGroupsPlaceholder("Take Attendance")}
+                    onViewPublicGroup={viewPublicGroup}
                     query={groupQuery}
                     selectedGroup={selectedGroup}
                     selectedTab={groupDetailTab}
@@ -25493,6 +25865,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             message={groupInviteMessage}
             onAddMember={addGroupMember}
             onClose={closeGroupInviteSheet}
+            people={people}
+          />
+        ) : null}
+
+        {isGroupSettingsOpen && selectedGroup ? (
+          <GroupSettingsSheet
+            group={selectedGroup}
+            isSubmitting={isSubmitting}
+            message={groupSettingsMessage}
+            onClose={closeGroupSettingsSheet}
+            onSave={saveGroupSettings}
             people={people}
           />
         ) : null}
