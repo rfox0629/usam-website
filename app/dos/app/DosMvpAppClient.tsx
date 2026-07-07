@@ -16897,12 +16897,12 @@ function MyRecordTabBar({
   value: MyRecordTab;
 }) {
   return (
-    <div className="-mx-1 overflow-x-auto pb-1">
-      <div className="flex min-w-max gap-1 rounded-full border border-[#E2E8F0] bg-[#F1F5F9] p-1 shadow-inner shadow-white/70">
+    <div className="-mx-1 overflow-x-auto pb-1 md:mx-0">
+      <div className="flex min-w-max gap-1 rounded-full border border-[#E2E8F0] bg-[#F1F5F9] p-1 shadow-inner shadow-white/70 md:w-full md:min-w-0 md:justify-center">
         {tabs.map((tab) => (
           <button
             aria-pressed={value === tab.value}
-            className={`min-h-8 shrink-0 rounded-full px-4 text-xs font-bold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 ${
+            className={`min-h-8 shrink-0 rounded-full px-3 text-xs font-bold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 md:flex-1 md:px-4 ${
               value === tab.value
                 ? "bg-white text-[#0F172A] shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-[#64748B] hover:text-[#0F172A]"
@@ -16944,11 +16944,13 @@ function MyRecordMetricCard({
 }
 
 function MyRecordActivityRow({
+  action,
   body,
   date,
   icon,
   title,
 }: {
+  action?: ReactNode;
   body?: string | null;
   date: string | null;
   icon: ReactNode;
@@ -16966,6 +16968,7 @@ function MyRecordActivityRow({
           {formatDate(date)}
         </span>
       </span>
+      {action ? <span className="shrink-0 self-center">{action}</span> : null}
     </article>
   );
 }
@@ -16979,6 +16982,7 @@ type MyRecordSheetState =
   | { kind: "prophetic_word"; mode: MyRecordSheetMode; word?: DosAppUserPropheticWord | null }
   | { assessmentResult?: DosAppUserExternalAssessmentResult | null; kind: "external_assessment"; mode: MyRecordSheetMode }
   | { item?: MyRecordAssessmentLibraryItem | null; kind: "assessment"; mode: MyRecordSheetMode }
+  | { item: MyRecordAssessmentLibraryItem; kind: "assessment_detail"; mode: "view" }
   | { book?: DosAppUserLearningBook | null; kind: "book"; mode: MyRecordSheetMode }
   | { book: DosAppUserLearningBook; kind: "chapter_note"; mode: MyRecordSheetMode; note?: DosAppUserLearningChapterNote | null }
   | { ebenezers: MyRecordEbenezer[]; kind: "faithfulness"; mode: "view" }
@@ -19279,14 +19283,14 @@ function MyRecordQuickActionCard({
 }) {
   return (
     <button
-      className="flex min-h-[78px] min-w-0 items-center gap-3 rounded-[20px] border border-[#EAF2FF] bg-white p-3 text-left shadow-[0_10px_26px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] active:scale-[0.99] sm:justify-center"
+      className="flex min-h-12 min-w-0 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-left shadow-[0_10px_24px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] active:scale-[0.99] sm:justify-center"
       onClick={onClick}
       type="button"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
         {icon}
       </span>
-      <span className="min-w-0 text-sm font-black leading-5 text-[#0F172A]">{label}</span>
+      <span className="min-w-0 text-xs font-black leading-4 text-[#0F172A]">{label}</span>
     </button>
   );
 }
@@ -19308,6 +19312,127 @@ function MyRecordSnapshotTile({
       <p className="mt-3 truncate text-base font-black text-[#0F172A]">{value}</p>
       <p className="mt-1 text-xs font-semibold leading-4 text-[#475569]">{label}</p>
     </div>
+  );
+}
+
+function MyRecordAtAGlanceCard({
+  detail,
+  icon,
+  label,
+  value,
+}: {
+  detail: string;
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <article className="min-w-0 rounded-[20px] border border-[#EAF2FF] bg-white p-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-black text-[#64748B]">{label}</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          {icon}
+        </span>
+      </div>
+      <p className="mt-3 text-2xl font-black leading-none text-[#0F172A]">{value}</p>
+      <p className="mt-2 truncate text-[11px] font-semibold text-[#64748B]">{detail}</p>
+    </article>
+  );
+}
+
+function MyRecordActionButton({
+  children,
+  onClick,
+  tone = "white",
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  tone?: "blue" | "white";
+}) {
+  return (
+    <button
+      className={`inline-flex min-h-8 shrink-0 items-center rounded-full px-3 text-xs font-bold transition-colors ${
+        tone === "blue"
+          ? "bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.18)]"
+          : "border border-[#DCEBFF] bg-white text-[#0F172A] hover:border-[#BFDBFE]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function MyRecordPreviewCard({
+  badge,
+  body,
+  children,
+  icon,
+  meta,
+  onEdit,
+  onNew,
+  onView,
+  title,
+}: {
+  badge?: string | null;
+  body?: string | null;
+  children?: ReactNode;
+  icon: ReactNode;
+  meta?: string | null;
+  onEdit?: () => void;
+  onNew?: () => void;
+  onView?: () => void;
+  title: string;
+}) {
+  return (
+    <article className="min-w-0 rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_28px_rgba(37,99,235,0.04)]">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black leading-5 text-[#0F172A]">{title}</p>
+              {meta ? <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{meta}</p> : null}
+            </div>
+            {badge ? (
+              <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                {badge}
+              </span>
+            ) : null}
+          </div>
+          {body ? <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#475569]">{body}</p> : null}
+          {children}
+        </div>
+      </div>
+      {(onView || onEdit || onNew) ? (
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          {onView ? <MyRecordActionButton onClick={onView}>View</MyRecordActionButton> : null}
+          {onEdit ? <MyRecordActionButton onClick={onEdit}>Edit</MyRecordActionButton> : null}
+          {onNew ? <MyRecordActionButton onClick={onNew} tone="blue">+ New</MyRecordActionButton> : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function MyRecordRecommendedNextStep({
+  action,
+  text,
+}: {
+  action?: ReactNode;
+  text: string;
+}) {
+  return (
+    <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4 shadow-[0_10px_24px_rgba(37,99,235,0.035)]">
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Recommended Next Step</p>
+      <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <p className="min-w-0 flex-1 text-sm font-semibold leading-6 text-[#0F172A]">{text}</p>
+        {action}
+      </div>
+    </section>
   );
 }
 
@@ -19390,16 +19515,13 @@ function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[])
 
 function MyRecordWalkWithGodPanel({
   onOpenSheet,
-  people,
   record,
   timeline,
 }: {
   onOpenSheet: (sheet: MyRecordSheetState) => void;
-  people: DosAppPerson[];
   record: DosAppUserRecord;
   timeline: MyRecordTimelineItem[];
 }) {
-  const namesById = useMemo(() => personNameById(people), [people]);
   const scriptureEntries = record.journalEntries.filter((entry) => Boolean(entry.biblePassage));
   const latestQuietTime = scriptureEntries[0] ?? record.journalEntries[0] ?? null;
   const latestJournal = record.journalEntries[0] ?? null;
@@ -19408,11 +19530,8 @@ function MyRecordWalkWithGodPanel({
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-        <SectionHeading title="Walk" />
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">How am I abiding?</p>
-      </section>
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <p className="text-sm font-semibold text-[#64748B]">How am I abiding?</p>
+      <section className="grid gap-3">
         <MyRecordSummaryCard
           date={latestQuietTime?.date}
           icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
@@ -19454,157 +19573,138 @@ function MyRecordWalkWithGodPanel({
           value={latestTimeline?.title}
         />
       </section>
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <div className="grid gap-4 self-start">
-          <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-            <SectionHeading title="Quiet Time" />
-            {scriptureEntries.length ? (
-              <div className="grid gap-2">
-                {scriptureEntries.slice(0, 6).map((entry) => (
-                  <div className="grid gap-2" key={`quiet-${entry.id}`}>
-                    <MyRecordActivityRow
-                      body={entry.lordHighlight ?? entry.notes ?? entry.prayerResponse}
-                      date={entry.date}
-                      icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                      title={`${entry.biblePassage} · ${formatRecordDuration(entry.minutesSpent)}`}
-                    />
-                    <div className="flex gap-2 px-1">
-                      <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ entry, kind: "journal", mode: "view", title: "Quiet Time" })} type="button">View</button>
-                      <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ entry, kind: "journal", mode: "edit", title: "Edit Quiet Time" })} type="button">Edit</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <SectionEmptyState
-                action={<CompactButton icon="log" onClick={() => onOpenSheet({ kind: "journal", mode: "new", title: "Start Quiet Time" })}>Add Entry</CompactButton>}
-                text="Bible reading and devotion notes will collect here."
-                title="No quiet time Scripture logged yet."
-              />
-            )}
-          </section>
-          <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-            <SectionHeading title="Prayer" />
-            {record.prayerLogs.length ? (
-              <div className="grid gap-2">
-                {record.prayerLogs.slice(0, 6).map((log) => {
-                  const personName = log.fieldPersonId ? namesById.get(log.fieldPersonId) : null;
-                  const title = log.prayerFocus || (personName ? `Prayed for ${personName}` : "Prayer Time");
-
-                  return (
-                    <div className="grid gap-2" key={log.id}>
-                      <MyRecordActivityRow
-                        body={log.notes}
-                        date={log.prayedAt}
-                        icon={log.answeredStatus === "answered" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                        title={`${title} · ${formatRecordDuration(log.minutesSpent)}`}
-                      />
-                      <div className="flex gap-2 px-1">
-                        <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "prayer", log, mode: "view" })} type="button">View</button>
-                        <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "prayer", log, mode: "edit" })} type="button">Edit</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <SectionEmptyState action={<CompactButton icon="prayer" onClick={() => onOpenSheet({ kind: "prayer", mode: "new" })}>Log Prayer</CompactButton>} text="Prayer time, requests, answered prayers, and notes stay private here." title="No prayer time logged yet." />
-            )}
-          </section>
-        </div>
-        <section className="grid gap-2 self-start rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-          <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View</button>} title="Timeline" />
-          {timeline.length ? (
-            <div className="grid gap-2">
-              {timeline.map((item) => (
-                <MyRecordActivityRow body={item.body} date={item.date} icon={item.icon} key={item.id} title={item.title} />
-              ))}
-            </div>
-          ) : (
-            <SectionEmptyState text="Journal entries, prayer, mentor meetings, assessments, learning, prophetic words, and faithfulness markers will collect here." title="No timeline activity yet." />
-          )}
-        </section>
-      </section>
     </div>
   );
 }
 
 function MyRecordGrowthPanel({
-  errorMessage,
-  isSubmitting,
   myRecordV2Enabled,
   onOpenSheet,
-  onSave,
   people,
   profileName,
   record,
 }: {
-  errorMessage: string;
-  isSubmitting: boolean;
   myRecordV2Enabled: boolean;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
-  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   people: DosAppPerson[];
   profileName: string;
   record: DosAppUserRecord;
 }) {
+  const includeRyanSeeds = myRecordV2Enabled && /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
+  const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ includeRyanSeeds, record }), [includeRyanSeeds, record]);
+  const priorityAssessmentItems = useMemo(() => {
+    const priorityNames = ["MCode", "Gregoric Mind Styles"];
+    const priority = libraryItems.filter((item) => priorityNames.some((name) => myRecordAssessmentMatchesName(item.name, name)));
+    const rest = libraryItems.filter((item) => !priority.some((priorityItem) => priorityItem.id === item.id));
+
+    return [...priority, ...rest].slice(0, 4);
+  }, [libraryItems]);
+  const visibleBooks = record.learningBooks.filter((book) => book.status !== "archived").slice(0, 4);
+  const recommendedStep = !priorityAssessmentItems.some((item) => myRecordAssessmentMatchesName(item.name, "MCode"))
+    ? "Add your MCode result so mentors can quickly understand your wiring."
+    : visibleBooks.length === 0
+      ? "Add the first book you are reading and capture one chapter note."
+      : record.mentorMeetings.length === 0
+        ? "Review your latest assessment or book insight with a mentor."
+        : "Choose one growth insight to turn into a concrete next step this week.";
+
   return (
     <div className="grid gap-4">
-      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-        <SectionHeading title="Growth" />
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">How is God shaping me?</p>
+      <p className="text-sm font-semibold text-[#64748B]">How is God shaping me?</p>
+      <MyRecordRecommendedNextStep
+        action={<MyRecordActionButton onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })}>Add Result</MyRecordActionButton>}
+        text={recommendedStep}
+      />
+      <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })} type="button">Add External Result</button>} title="Assessments" />
+        {priorityAssessmentItems.length ? (
+          <div className="grid gap-3">
+            {priorityAssessmentItems.map((item) => {
+              const externalResult = item.kind === "external" ? item.result as DosAppUserExternalAssessmentResult | undefined : undefined;
+              const resultSummary = item.keyResults.slice(0, 4).join(" · ");
+              const badge = item.kind === "dos" && item.result && "percentage" in item.result
+                ? `${Math.round(item.result.percentage)}%`
+                : myRecordAssessmentStatusLabel(item.status);
+
+              return (
+                <MyRecordPreviewCard
+                  badge={badge}
+                  body={item.shortSummary}
+                  icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  key={item.id}
+                  meta={item.completedDate ? formatDate(item.completedDate) : item.category}
+                  onEdit={externalResult ? () => onOpenSheet({ assessmentResult: externalResult, kind: "external_assessment", mode: "edit" }) : undefined}
+                  onNew={item.kind === "dos" ? () => onOpenSheet({ item, kind: "assessment", mode: "new" }) : item.kind === "future" ? () => onOpenSheet({ kind: "external_assessment", mode: "new" }) : undefined}
+                  onView={() => onOpenSheet({ item, kind: "assessment_detail", mode: "view" })}
+                  title={item.name}
+                >
+                  {resultSummary ? <p className="mt-2 truncate text-xs font-bold text-[#1D4ED8]">{resultSummary}</p> : null}
+                </MyRecordPreviewCard>
+              );
+            })}
+          </div>
+        ) : (
+          <SectionEmptyState action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })}>Add Result</CompactButton>} text="DOS and third-party results will appear here." title="No assessments yet." />
+        )}
       </section>
-      <MyRecordAssessmentsPanel errorMessage={errorMessage} isSubmitting={isSubmitting} myRecordV2Enabled={myRecordV2Enabled} nextTab="growth" onOpenSheet={onOpenSheet} onSave={onSave} profileName={profileName} record={record} />
-      <MyRecordLearningPanel errorMessage={errorMessage} isSubmitting={isSubmitting} nextTab="growth" onOpenSheet={onOpenSheet} onSave={onSave} record={record} />
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <section className="grid gap-4 self-start">
-          <div className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-            <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })} type="button">+ New</button>} title="Mentors" />
-            {record.mentorRelationships.length ? (
-              <div className="grid gap-2">
-                {record.mentorRelationships.map((mentor) => (
-                  <div className="grid gap-2" key={mentor.id}>
-                    <MyRecordActivityRow
-                      body={mentor.notes}
-                      date={latestMyRecordDate(mentor.updatedAt, mentor.createdAt)}
-                      icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                      title={mentor.relationshipLabel ? `${mentor.mentorName} · ${mentor.relationshipLabel}` : mentor.mentorName}
-                    />
-                    <div className="flex gap-2 px-1">
-                      <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })} type="button">View</button>
-                      <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "edit" })} type="button">Edit</button>
-                    </div>
+      <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "book", mode: "new" })} type="button">Add Book</button>} title="Learning" />
+        {visibleBooks.length ? (
+          <div className="grid gap-3">
+            {visibleBooks.map((book) => (
+              <MyRecordPreviewCard
+                badge={myRecordLearningBookStatusLabel(book.status)}
+                body={book.personalApplication ?? book.finalSummary ?? `${book.chapterNotes.length} chapter notes saved.`}
+                icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                key={book.id}
+                meta={book.author || "Book Notes"}
+                onEdit={() => onOpenSheet({ book, kind: "book", mode: "edit" })}
+                onNew={() => onOpenSheet({ book, kind: "chapter_note", mode: "new" })}
+                onView={() => onOpenSheet({ book, kind: "book", mode: "view" })}
+                title={book.title}
+              >
+                <div className="mt-3 flex min-w-0 items-center gap-3">
+                  <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#E2E8F0]">
+                    <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: book.status === "finished" ? "100%" : book.chapterNotes.length ? "60%" : "18%" }} />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <SectionEmptyState text="Track pastors, mentors, coaches, peers, or spiritual parents who are pouring into you." title="No mentors added yet." />
-            )}
+                  <span className="shrink-0 text-xs font-black text-[#0F172A]">{book.chapterNotes.length} notes</span>
+                </div>
+              </MyRecordPreviewCard>
+            ))}
           </div>
-          <div className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-            <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "mentor_meeting", mode: "new" })} type="button">+ New</button>} title="Mentor Meetings" />
-            {record.mentorMeetings.length ? (
-              <div className="grid gap-2">
-                {record.mentorMeetings.map((meeting) => (
-                  <div className="grid gap-2" key={meeting.id}>
-                    <MyRecordActivityRow
-                      body={meeting.counselReceived ?? meeting.discussed ?? meeting.actionSteps ?? meeting.notes}
-                      date={meeting.meetingDate}
-                      icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                      title={`${meeting.mentorName} · ${formatRecordDuration(meeting.durationMinutes)}`}
-                    />
-                    <div className="flex gap-2 px-1">
-                      <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "view" })} type="button">View</button>
-                      <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "edit" })} type="button">Edit</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <SectionEmptyState text="Log what was discussed, counsel received, action steps, and follow-up dates." title="No mentor meetings yet." />
-            )}
-          </div>
-        </section>
+        ) : (
+          <SectionEmptyState action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "book", mode: "new" })}>Add Book</CompactButton>} text="Capture books, chapter notes, highlights, and application." title="No book notes yet." />
+        )}
+      </section>
+      <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "mentor_meeting", mode: "new" })} type="button">+ New</button>} title="Mentors" />
+        <div className="grid gap-3 md:grid-cols-2">
+          {record.mentorRelationships.slice(0, 2).map((mentor) => (
+            <MyRecordPreviewCard
+              body={mentor.notes}
+              icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+              key={mentor.id}
+              meta={mentor.relationshipLabel || "Mentor"}
+              onEdit={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "edit" })}
+              onView={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })}
+              title={mentor.mentorName}
+            />
+          ))}
+          {record.mentorMeetings.slice(0, 2).map((meeting) => (
+            <MyRecordPreviewCard
+              body={meeting.counselReceived ?? meeting.discussed ?? meeting.actionSteps ?? meeting.notes}
+              icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+              key={meeting.id}
+              meta={`${formatDate(meeting.meetingDate)} · ${formatRecordDuration(meeting.durationMinutes)}`}
+              onEdit={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "edit" })}
+              onView={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "view" })}
+              title={meeting.mentorName}
+            />
+          ))}
+        </div>
+        {!record.mentorRelationships.length && !record.mentorMeetings.length ? (
+          <SectionEmptyState action={<CompactButton icon="people" onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })}>Add Mentor</CompactButton>} text="Track who is pouring into you." title="No mentors added yet." />
+        ) : null}
       </section>
     </div>
   );
@@ -19643,10 +19743,7 @@ function MyRecordCallingPanel({
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-        <SectionHeading title="Calling" />
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">What has God spoken?</p>
-      </section>
+      <p className="text-sm font-semibold text-[#64748B]">What has God spoken?</p>
       <MyRecordWordsOfYearCard
         isEditing={isWordsEditorOpen}
         isSubmitting={isSubmitting}
@@ -19654,50 +19751,29 @@ function MyRecordCallingPanel({
         onSubmit={handleRecordSubmit}
         record={record}
       />
-      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-        <SectionHeading title="Calling" />
-        <div className="mt-4 grid gap-3 min-[620px]:grid-cols-2">
-          {[
-            ["Current Focus", record.currentSeasonFocus || "Not set"],
-            ["Personal Mission", "Coming Soon"],
-            ["Life Verses", "Coming Soon"],
-            ["Core Values", "Coming Soon"],
-          ].map(([label, value]) => (
-            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={label}>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#0F172A]">{value}</p>
-            </div>
-          ))}
-        </div>
-      </section>
       <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
         <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "prophetic_word", mode: "new" })} type="button">+ New</button>} title="Prophetic Words" />
         {record.propheticWords.length ? (
-          <div className="grid gap-2">
+          <div className="grid gap-3">
             {record.propheticWords.map((word) => (
-              <article className="rounded-[20px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.035)]" key={word.id}>
-                <div className="flex min-w-0 items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-black leading-5 text-[#0F172A]">{word.givenBy ? `Given by ${word.givenBy}` : "Prophetic Word"}</p>
-                    <p className="mt-1 text-xs font-semibold text-[#64748B]">{formatDate(word.dateReceived)}{word.context ? ` · ${word.context}` : ""}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                    {myRecordPropheticWordStatusLabel(word.status)}
-                  </span>
-                </div>
-                <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#334155]">{word.wordText}</p>
+              <MyRecordPreviewCard
+                badge={myRecordPropheticWordStatusLabel(word.status)}
+                body={word.wordText}
+                icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                key={word.id}
+                meta={`${formatDate(word.dateReceived)}${word.context ? ` · ${word.context}` : ""}`}
+                onEdit={() => onOpenSheet({ kind: "prophetic_word", mode: "edit", word })}
+                onView={() => onOpenSheet({ kind: "prophetic_word", mode: "view", word })}
+                title={word.givenBy ? `Given by ${word.givenBy}` : "Prophetic Word"}
+              >
                 {word.scriptureReferences.length || word.tags.length ? (
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {[...word.scriptureReferences, ...word.tags].slice(0, 8).map((item) => (
+                    {[...word.scriptureReferences, ...word.tags].slice(0, 5).map((item) => (
                       <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold text-[#475569]" key={item}>{item}</span>
                     ))}
                   </div>
                 ) : null}
-                <div className="mt-3 flex gap-2">
-                  <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "prophetic_word", mode: "view", word })} type="button">View</button>
-                  <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "prophetic_word", mode: "edit", word })} type="button">Edit</button>
-                </div>
-              </article>
+              </MyRecordPreviewCard>
             ))}
           </div>
         ) : (
@@ -19708,10 +19784,14 @@ function MyRecordCallingPanel({
           />
         )}
       </section>
-      <section className="grid gap-3 min-[620px]:grid-cols-2">
-        <SectionEmptyState text="Simple journal for dreams and visions will live here." title="Dreams & Visions · Coming Soon" />
-        <SectionEmptyState text="Calling moments, major decisions, commissioning, ordination, and launches will live here." title="Milestones · Coming Soon" />
-      </section>
+      <MyRecordPreviewCard
+        badge="Coming Soon"
+        body="Vision moments, calling markers, confirmations, and milestones will live here without affecting Field metrics."
+        icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+        meta={record.currentSeasonFocus || "Prepared for a future My Record pass"}
+        onView={() => onOpenSheet({ description: "Future calling timeline for vision moments, milestones, and confirmations.", kind: "placeholder", title: "Vision Timeline" })}
+        title="Vision Timeline"
+      />
     </div>
   );
 }
@@ -19734,25 +19814,17 @@ function MyRecordLegacyPanel({
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-        <SectionHeading title="Legacy" />
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">What has God done?</p>
-      </section>
+      <p className="text-sm font-semibold text-[#64748B]">What has God done?</p>
       <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
         <SectionHeading
           action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ defaultTags: ["Thanksgiving"], kind: "journal", mode: "new", title: "God's Faithfulness" })} type="button">+ New</button>}
           title="God's Faithfulness"
         />
-        <p className="mt-1 text-sm leading-6 text-[#0F172A]">Cultivate an attitude of gratitude by remembering God's faithfulness.</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {["Provision", "Protection", "Healing", "Miracles", "Prayer Answered", "Family", "Ministry", "Other"].map((category) => (
-            <span className="rounded-full border border-[#EAF2FF] bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#64748B]" key={category}>{category}</span>
-          ))}
-        </div>
         {ebenezers.length ? (
-          <div className="mt-5 grid gap-2">
-            {ebenezers.slice(0, 8).map((item) => (
+          <div className="mt-4 grid gap-2">
+            {ebenezers.slice(0, 4).map((item) => (
               <MyRecordActivityRow
+                action={<MyRecordActionButton onClick={() => onOpenSheet({ ebenezers, kind: "faithfulness", mode: "view" })}>View</MyRecordActionButton>}
                 body={item.detail}
                 date={item.date}
                 icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
@@ -19768,13 +19840,12 @@ function MyRecordLegacyPanel({
           </div>
         )}
       </section>
-      <section className="grid gap-4 xl:grid-cols-2">
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
         <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-          <SectionHeading title="Family" />
-          <p className="mt-1 text-sm leading-6 text-[#64748B]">First ministry. Marriage, children, family discipleship, and future family timeline.</p>
+          <SectionHeading title="Family & Impact" />
           {familyPeople.length ? (
             <div className="mt-4 grid gap-2">
-              {familyPeople.slice(0, 5).map((person) => (
+              {familyPeople.slice(0, 3).map((person) => (
                 <MyRecordActivityRow
                   body={person.notes}
                   date={person.lastActivityAt}
@@ -19786,25 +19857,24 @@ function MyRecordLegacyPanel({
             </div>
           ) : (
             <div className="mt-4">
-              <SectionEmptyState text="Family discipleship and marriage milestones will collect here." title="No family records yet." />
+              <SectionEmptyState text="Family discipleship and milestones will preview here." title="No family records yet." />
             </div>
           )}
-        </div>
-        <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-          <SectionHeading title="Ministry Impact" />
-          <p className="mt-1 text-sm leading-6 text-[#64748B]">Private impact summary. Future sharing remains user-controlled.</p>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <MyRecordSnapshotTile icon={<Coffee className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Ministry Tables" value={`${ministryTables.length}`} />
             <MyRecordSnapshotTile icon={<Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Observed" value={`${fruit.length}`} />
             <MyRecordSnapshotTile icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="People Ministered" value={`${new Set(ministryTables.flatMap((meeting) => meeting.fieldPersonIds)).size}`} />
             <MyRecordSnapshotTile icon={<Shield className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Visibility" value="Private" />
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {["Baptisms", "Salvations", "Disciples made", "Churches served", "Mission trips", "Major testimonies", "Revival stories"].map((label) => (
-              <span className="rounded-full border border-[#EAF2FF] bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#64748B]" key={label}>{label} · Future</span>
-            ))}
-          </div>
         </div>
+        <MyRecordPreviewCard
+          badge="Coming Soon"
+          body="A private annual summary of faithfulness, answered prayers, family milestones, and ministry stories."
+          icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+          meta="Prepared for future reports"
+          onView={() => onOpenSheet({ description: "Future Year in Review report for My Record.", kind: "placeholder", title: "Year in Review" })}
+          title="Year in Review"
+        />
       </section>
     </div>
   );
@@ -19820,6 +19890,7 @@ function myRecordSheetTitle(sheet: MyRecordSheetState) {
   if (sheet.kind === "mentor_relationship") return sheet.mode === "new" ? "Add Mentor" : "Mentor";
   if (sheet.kind === "prophetic_word") return sheet.mode === "new" ? "Add Prophetic Word" : "Prophetic Word";
   if (sheet.kind === "external_assessment") return sheet.mode === "new" ? "Add Assessment Result" : "Assessment Result";
+  if (sheet.kind === "assessment_detail") return sheet.item.name;
   if (sheet.kind === "assessment") return sheet.item?.name ?? "Assessment";
   if (sheet.kind === "book") return sheet.mode === "new" ? "Add Book" : sheet.book?.title ?? "Book";
   if (sheet.kind === "chapter_note") return sheet.mode === "new" ? "Add Chapter Note" : sheet.note?.chapterLabel ?? "Chapter Note";
@@ -20081,6 +20152,19 @@ function MyRecordSheetContent({
     return <SectionEmptyState title="Choose an assessment from Growth." />;
   }
 
+  if (sheet.kind === "assessment_detail") {
+    return (
+      <MyRecordAssessmentDetailPanel
+        errorMessage={errorMessage}
+        isSubmitting={isSubmitting}
+        item={sheet.item}
+        nextTab={activeTab}
+        onOpenSheet={onOpenSheet}
+        onSave={onSave}
+      />
+    );
+  }
+
   if (sheet.kind === "book") {
     const book = sheet.book ?? null;
 
@@ -20098,6 +20182,30 @@ function MyRecordSheetContent({
         <MyRecordDetailBlock label="Personal Application" value={book.personalApplication} />
         <MyRecordDetailBlock label="Final Summary" value={book.finalSummary} />
         <MyRecordEntryActions canDelete onDelete={() => onDelete("learning_book", book.id)} onEdit={() => onOpenSheet({ book, kind: "book", mode: "edit" })} onNew={() => onOpenSheet({ book, kind: "chapter_note", mode: "new" })} />
+        <div className="grid gap-2">
+          <SectionHeading title="Chapter Notes" />
+          {book.chapterNotes.length ? (
+            <div className="grid gap-2">
+              {book.chapterNotes.map((note) => (
+                <MyRecordActivityRow
+                  action={(
+                    <div className="flex gap-2">
+                      <MyRecordActionButton onClick={() => onOpenSheet({ book, kind: "chapter_note", mode: "view", note })}>View</MyRecordActionButton>
+                      <MyRecordActionButton onClick={() => onOpenSheet({ book, kind: "chapter_note", mode: "edit", note })}>Edit</MyRecordActionButton>
+                    </div>
+                  )}
+                  body={note.personalApplication ?? note.highlights ?? note.notes}
+                  date={latestMyRecordDate(note.updatedAt, note.createdAt)}
+                  icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  key={note.id}
+                  title={note.chapterLabel}
+                />
+              ))}
+            </div>
+          ) : (
+            <SectionEmptyState text="Add chapter highlights, notes, application, and optional highlight photos/screenshots." title="No chapter notes yet." />
+          )}
+        </div>
       </div>
     ) : <SectionEmptyState title="Book not found." />;
   }
@@ -20170,26 +20278,25 @@ function MyRecordWorkspace({
   const latestJournal = record.journalEntries[0] ?? null;
   const latestPrayer = record.prayerLogs[0] ?? null;
   const latestMentorMeeting = record.mentorMeetings[0] ?? null;
-  const latestPropheticWord = record.propheticWords[0] ?? null;
   const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
   const latestExternalAssessment = useMemo(() => latestMyRecordExternalAssessmentResult(record.externalAssessmentResults), [record.externalAssessmentResults]);
   const latestAssessmentLabel = myRecordLatestAssessmentLabel(latestAssessment, myRecordV2Enabled ? latestExternalAssessment : null);
   const totalQuietMinutes = record.journalEntries.reduce((sum, entry) => sum + entry.minutesSpent, 0);
   const totalPrayerMinutes = record.prayerLogs.reduce((sum, log) => sum + log.minutesSpent, 0);
-  const { end: monthEnd, start: monthStart } = currentMonthRange();
-  const quietMinutesThisMonth = record.journalEntries
-    .filter((entry) => isDateWithinRange(entry.date, monthStart, monthEnd))
-    .reduce((sum, entry) => sum + entry.minutesSpent, 0);
-  const prayerMinutesThisMonth = record.prayerLogs
-    .filter((log) => isDateWithinRange(log.prayedAt, monthStart, monthEnd))
-    .reduce((sum, log) => sum + log.minutesSpent, 0);
-  const mentorMeetingsThisMonth = record.mentorMeetings.filter((meeting) => isDateWithinRange(meeting.meetingDate, monthStart, monthEnd)).length;
-  const assessmentsThisMonth = record.assessmentResults.filter((result) => isDateWithinRange(result.completedAt, monthStart, monthEnd)).length
-    + (myRecordV2Enabled ? record.externalAssessmentResults.filter((result) => isDateWithinRange(result.dateTaken, monthStart, monthEnd)).length : 0);
-  const ministryTablesThisMonth = meetings.filter((meeting) => meeting.source === "table" && isDateWithinRange(meeting.date, monthStart, monthEnd)).length;
-  const fruitObservedThisMonth = fruit.filter((item) => isDateWithinRange(item.testimonyDate ?? item.updatedAt, monthStart, monthEnd)).length;
   const ebenezers = useMemo(() => buildMyRecordEbenezers(record, fruit), [fruit, record]);
   const namesById = useMemo(() => personNameById(people), [people]);
+  const todayKey = todayDateValue();
+  const { end: weekEnd, start: weekStart } = currentWeekRange();
+  const quietEntriesToday = record.journalEntries.filter((entry) => Boolean(entry.biblePassage) && isTodayDate(entry.date)).length;
+  const journalEntriesToday = record.journalEntries.filter((entry) => isTodayDate(entry.date)).length;
+  const prayerLogsToday = record.prayerLogs.filter((log) => isTodayDate(log.prayedAt)).length;
+  const quietMinutesThisWeek = record.journalEntries
+    .filter((entry) => isDateWithinRange(entry.date, weekStart, weekEnd))
+    .reduce((sum, entry) => sum + entry.minutesSpent, 0);
+  const prayerMinutesThisWeek = record.prayerLogs
+    .filter((log) => isDateWithinRange(log.prayedAt, weekStart, weekEnd))
+    .reduce((sum, log) => sum + log.minutesSpent, 0);
+  const timeWithGodThisWeek = quietMinutesThisWeek + prayerMinutesThisWeek;
 
   useEffect(() => {
     setIsMyRecordFabOpen(false);
@@ -20201,6 +20308,74 @@ function MyRecordWorkspace({
 
   function openMyRecordPlaceholder(title: string, description?: string) {
     setMyRecordSheet({ description, kind: "placeholder", title });
+  }
+
+  function openMyRecordTimelineItem(item: MyRecordTimelineItem) {
+    if (item.id.startsWith("journal-")) {
+      const entry = record.journalEntries.find((journalEntry) => journalEntry.id === item.id.replace("journal-", ""));
+      if (entry) {
+        openMyRecordSheet({ entry, kind: "journal", mode: "view", title: entry.biblePassage ? "Quiet Time" : "Journal Entry" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("prayer-")) {
+      const log = record.prayerLogs.find((prayerLog) => prayerLog.id === item.id.replace("prayer-", ""));
+      if (log) {
+        openMyRecordSheet({ kind: "prayer", log, mode: "view" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("mentor-")) {
+      const meeting = record.mentorMeetings.find((mentorMeeting) => mentorMeeting.id === item.id.replace("mentor-", ""));
+      if (meeting) {
+        openMyRecordSheet({ kind: "mentor_meeting", meeting, mode: "view" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("external-assessment-")) {
+      const assessmentResult = record.externalAssessmentResults.find((result) => result.id === item.id.replace("external-assessment-", ""));
+      if (assessmentResult) {
+        openMyRecordSheet({ assessmentResult, kind: "external_assessment", mode: "view" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("assessment-")) {
+      const result = record.assessmentResults.find((assessmentResult) => assessmentResult.id === item.id.replace("assessment-", ""));
+      openMyRecordPlaceholder(result?.assessmentName ?? "Assessment Result", result ? `${result.overallScore}/${result.maxScore} · ${Math.round(result.percentage)}%` : "Assessment result details.");
+      return;
+    }
+
+    if (item.id.startsWith("prophetic-word-")) {
+      const word = record.propheticWords.find((propheticWord) => propheticWord.id === item.id.replace("prophetic-word-", ""));
+      if (word) {
+        openMyRecordSheet({ kind: "prophetic_word", mode: "view", word });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("learning-book-")) {
+      const book = record.learningBooks.find((learningBook) => learningBook.id === item.id.replace("learning-book-", ""));
+      if (book) {
+        openMyRecordSheet({ book, kind: "book", mode: "view" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("learning-chapter-")) {
+      const noteId = item.id.replace("learning-chapter-", "");
+      const book = record.learningBooks.find((learningBook) => learningBook.chapterNotes.some((note) => note.id === noteId));
+      const note = book?.chapterNotes.find((chapterNote) => chapterNote.id === noteId);
+      if (book && note) {
+        openMyRecordSheet({ book, kind: "chapter_note", mode: "view", note });
+        return;
+      }
+    }
+
+    openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" });
   }
 
   function handleMyRecordDelete(targetKind: string, targetId: string) {
@@ -20349,64 +20524,50 @@ function MyRecordWorkspace({
 
       {activeMyRecordTab === "overview" && myRecordV2Enabled ? (
         <div className="space-y-4">
-          <MyRecordWordsOfYearCard
-            isEditing={isWordsEditorOpen}
-            isSubmitting={isSubmitting}
-            onEdit={() => setIsWordsEditorOpen((current) => !current)}
-            onSubmit={handleRecordSubmit}
-            record={record}
-          />
-          <section className="grid gap-4 xl:grid-cols-2">
-            <MyRecordPropheticOverviewCard
-              latestWord={latestPropheticWord}
-              onAdd={() => openMyRecordSheet({ kind: "prophetic_word", mode: "new" })}
-              onViewAll={() => onQuickTab("calling")}
-              totalCount={record.propheticWords.length}
-            />
-            <MyRecordFaithfulnessCard
-              ebenezers={ebenezers}
-              onAdd={() => openMyRecordSheet({ defaultTags: ["Thanksgiving"], kind: "journal", mode: "new", title: "God's Faithfulness" })}
-              onViewAll={() => openMyRecordSheet({ ebenezers, kind: "faithfulness", mode: "view" })}
-            />
+          <section className="grid gap-3">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <SectionHeading title="Today at a Glance" />
+              <span className="shrink-0 text-xs font-bold text-[#64748B]">{formatDate(todayKey)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+              <MyRecordAtAGlanceCard detail="Entries today" icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Walk" value={`${quietEntriesToday}`} />
+              <MyRecordAtAGlanceCard detail="Today" icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" value={`${prayerLogsToday}`} />
+              <MyRecordAtAGlanceCard detail={latestJournal ? formatRelativeDate(latestJournal.date) : "No entry"} icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Journal" value={`${journalEntriesToday}`} />
+              <MyRecordAtAGlanceCard detail="This week" icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Time with God" value={formatRecordDuration(timeWithGodThisWeek)} />
+            </div>
+          </section>
+          <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+            <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>} title="Recent Activity" />
+            {timeline.length ? (
+              <div className="grid gap-2">
+                {timeline.slice(0, 4).map((item) => (
+                  <MyRecordActivityRow
+                    action={<MyRecordActionButton onClick={() => openMyRecordTimelineItem(item)}>View</MyRecordActionButton>}
+                    body={item.body}
+                    date={item.date}
+                    icon={item.icon}
+                    key={item.id}
+                    title={item.title}
+                  />
+                ))}
+              </div>
+            ) : (
+              <SectionEmptyState
+                action={<CompactButton icon="log" onClick={() => openMyRecordSheet({ kind: "journal", mode: "new", title: "Add Journal Entry" })}>Add Journal Entry</CompactButton>}
+                text="Quiet time, prayer, Scripture, mentor meetings, assessments, and prophetic words will collect here."
+                title="No personal activity yet."
+              />
+            )}
           </section>
           <section className="grid gap-2">
             <SectionHeading title="Quick Actions" />
             <div className="grid grid-cols-2 gap-2 min-[620px]:grid-cols-3 xl:grid-cols-5">
-              <MyRecordQuickActionCard icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Start Quiet Time" onClick={() => openMyRecordSheet({ kind: "journal", mode: "new", title: "Start Quiet Time" })} />
-              <MyRecordQuickActionCard icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Log Prayer Time" onClick={() => openMyRecordSheet({ kind: "prayer", mode: "new" })} />
-              <MyRecordQuickActionCard icon={<Pencil className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Add Journal Entry" onClick={() => openMyRecordSheet({ kind: "journal", mode: "new", title: "Add Journal Entry" })} />
-              <MyRecordQuickActionCard icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Log Mentor Meeting" onClick={() => openMyRecordSheet({ kind: "mentor_meeting", mode: "new" })} />
-              <MyRecordQuickActionCard icon={<Sparkles className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Take Assessment" onClick={() => openMyRecordSheet({ kind: "external_assessment", mode: "new" })} />
+              <MyRecordQuickActionCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time" onClick={() => openMyRecordSheet({ kind: "journal", mode: "new", title: "Start Quiet Time" })} />
+              <MyRecordQuickActionCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" onClick={() => openMyRecordSheet({ kind: "prayer", mode: "new" })} />
+              <MyRecordQuickActionCard icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Journal" onClick={() => openMyRecordSheet({ kind: "journal", mode: "new", title: "Add Journal Entry" })} />
+              <MyRecordQuickActionCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Mentor Meeting" onClick={() => openMyRecordSheet({ kind: "mentor_meeting", mode: "new" })} />
+              <MyRecordQuickActionCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Assessment" onClick={() => openMyRecordSheet({ kind: "external_assessment", mode: "new" })} />
             </div>
-          </section>
-          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-            <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-              <SectionHeading title="This Month Snapshot" />
-              <div className="grid grid-cols-2 gap-2 min-[620px]:grid-cols-3">
-                <MyRecordSnapshotTile icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time" value={formatRecordDuration(quietMinutesThisMonth)} />
-                <MyRecordSnapshotTile icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Time" value={formatRecordDuration(prayerMinutesThisMonth)} />
-                <MyRecordSnapshotTile icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Mentor Meetings" value={`${mentorMeetingsThisMonth}`} />
-                <MyRecordSnapshotTile icon={<Sparkles className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Assessments" value={`${assessmentsThisMonth}`} />
-                <MyRecordSnapshotTile icon={<Shield className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Ministry Tables" value={`${ministryTablesThisMonth}`} />
-                <MyRecordSnapshotTile icon={<Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Observed" value={`${fruitObservedThisMonth}`} />
-              </div>
-            </div>
-            <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-              <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>} title="Recent Activity" />
-              {timeline.length ? (
-                <div className="grid gap-2">
-                  {timeline.slice(0, 4).map((item) => (
-                    <MyRecordActivityRow body={item.body} date={item.date} icon={item.icon} key={item.id} title={item.title} />
-                  ))}
-                </div>
-              ) : (
-                <SectionEmptyState
-                  action={<CompactButton icon="log" onClick={() => openMyRecordSheet({ kind: "journal", mode: "new", title: "Add Journal Entry" })}>Add Journal Entry</CompactButton>}
-                  text="Quiet time, prayer, Scripture, mentor meetings, assessments, and prophetic words will collect here."
-                  title="No personal activity yet."
-                />
-              )}
-            </section>
           </section>
         </div>
       ) : null}
@@ -20414,7 +20575,6 @@ function MyRecordWorkspace({
       {activeMyRecordTab === "walk_with_god" && myRecordV2Enabled ? (
         <MyRecordWalkWithGodPanel
           onOpenSheet={openMyRecordSheet}
-          people={people}
           record={record}
           timeline={timeline}
         />
@@ -20422,11 +20582,8 @@ function MyRecordWorkspace({
 
       {activeMyRecordTab === "growth" && myRecordV2Enabled ? (
         <MyRecordGrowthPanel
-          errorMessage={errorMessage}
-          isSubmitting={isSubmitting}
           myRecordV2Enabled={myRecordV2Enabled}
           onOpenSheet={openMyRecordSheet}
-          onSave={onSave}
           people={people}
           profileName={profileName}
           record={record}
